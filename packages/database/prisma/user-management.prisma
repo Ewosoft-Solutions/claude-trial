@@ -1,0 +1,126 @@
+// ============================================
+// User Management Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Users:
+//    - Single user account can belong to multiple schools (many-to-many)
+//    - Each user has one email + password + MFA (account-level)
+//    - Password history tracked for reuse prevention
+//    - Login attempts tracked for rate limiting and lockout
+//
+// 2. Security:
+//    - Password history for reuse prevention
+//    - Login attempts for rate limiting
+//    - Session management with profile context
+//    - Audit fields (created_by, updated_by) for tracking
+//
+// See: _actions/multi-tenancy-security-strategy.md for complete security design
+// See: _requirements/access-control.md for role hierarchy and clearance levels
+// ============================================
+
+// Users - Core user account information
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  passwordHash  String?  @map("password_hash") // bcrypt hash, nullable for invitation-based accounts
+  firstName     String?  @map("first_name")
+  lastName      String?  @map("last_name")
+  phone         String?
+  
+  // Account Status
+  isActive      Boolean  @default(true) @map("is_active")
+  isVerified    Boolean  @default(false) @map("is_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+  
+  // Security Fields
+  loginAttempts Int      @default(0) @map("login_attempts")
+  lockedUntil   DateTime? @map("locked_until") // Account lockout timestamp
+  passwordChangedAt DateTime? @map("password_changed_at") // For password expiration check
+  lastLoginAt   DateTime? @map("last_login_at")
+  
+  // Password Reset
+  passwordResetToken String? @map("password_reset_token")
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
+  
+  // Audit Fields
+  createdBy     String?  @map("created_by")
+  updatedBy     String?  @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  createdByUser User? @relation("UserCreated", fields: [createdBy], references: [id])
+  updatedByUser User? @relation("UserUpdated", fields: [updatedBy], references: [id])
+  createdUsers User[] @relation("UserCreated")
+  updatedUsers User[] @relation("UserUpdated")
+  
+  passwordHistories PasswordHistory[]
+  loginAttemptsList LoginAttempt[]
+  userTenants UserTenant[]
+  sessions Session[]
+  
+  @@map("users")
+  @@index([email])
+  @@index([isActive])
+  @@index([isVerified])
+}
+
+// Password History - For password reuse prevention
+model PasswordHistory {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  passwordHash String  @map("password_hash") // Encrypted previous password
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("password_histories")
+  @@index([userId, createdAt])
+}
+
+// Login Attempts - For rate limiting and security monitoring
+model LoginAttempt {
+  id          String   @id @default(uuid())
+  userId      String?  @map("user_id") // Nullable for failed attempts with unknown user
+  email       String   // For tracking failed attempts
+  ipAddress   String   @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  success     Boolean  @default(false)
+  failureReason String? @map("failure_reason")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@map("login_attempts")
+  @@index([email, createdAt])
+  @@index([userId, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([success])
+}
+
+// Sessions - Active user sessions for session management
+model Session {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  userTenantId String @map("user_tenant_id") // Profile ID (current context)
+  token       String   @unique // JWT token or session token
+  ipAddress   String?  @map("ip_address")
+  userAgent   String?  @map("user_agent")
+  deviceFingerprint String? @map("device_fingerprint")
+  expiresAt   DateTime @map("expires_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+  
+  @@map("sessions")
+  @@index([userId])
+  @@index([userTenantId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+

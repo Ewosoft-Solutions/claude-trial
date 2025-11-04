@@ -1,0 +1,38 @@
+// ============================================
+// Tenant (School) Management Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Tenants (Schools):
+//    - Basic tenant structure for multi-tenant architecture
+//    - Each tenant represents a school
+//    - Optional email domain for validation
+//    - Status tracking (active, pending, suspended)
+//    - School-specific settings stored as JSONB
+//
+// See: _actions/multi-tenancy-security-strategy.md for complete tenant design
+// See: _requirements/multi-tenant-architecture.md for architecture details
+// ============================================
+
+// Tenants (Schools) - Basic structure for multi-tenant architecture
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String?  @unique
+  emailDomain String?  @map("email_domain") // Optional, for validation
+  status      String   @default("pending") // 'active' | 'pending' | 'suspended'
+  settings    Json?    // School-specific settings (JSONB)
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  roles Role[]
+  userTenants UserTenant[]
+  
+  @@map("tenants")
+  @@index([status])
+  @@index([emailDomain])
+}
+

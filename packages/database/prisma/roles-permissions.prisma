@@ -1,0 +1,102 @@
+// ============================================
+// Roles and Permissions Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Roles:
+//    - Platform roles (Architect, SuperAdmin) - tenantId = null
+//    - System roles (Owner, Management, Teacher, etc.) - tenantId = null (global)
+//    - Custom roles - tenantId = UUID (school-specific)
+//    - Each role has clearance level (0-10) and role type
+//
+// 2. Permissions:
+//    - 300+ granular permissions (resource.action format)
+//    - Context-aware permissions (e.g., 'students.edit.own_classes')
+//    - Permissions assigned to roles, can be overridden per profile
+//
+// See: _requirements/access-control.md for role hierarchy and clearance levels
+// See: _requirements/permissions.md for complete permission list
+// ============================================
+
+// Roles - System roles (platform) and custom roles (school-specific)
+// 
+// Role Types:
+// - 'platform': Platform-level roles (Architect, SuperAdmin) - tenantId = null, name globally unique
+// - 'system': System-level roles (Owner, Management, Teacher, etc.) - tenantId = null, name globally unique
+// - 'custom': School-specific custom roles - tenantId = UUID, name unique per tenant
+//
+// Note: For platform/system roles (tenantId = null), ensure name is globally unique at application level.
+// Prisma's @@unique([name, tenantId]) allows multiple NULL values, so application-level validation is needed.
+model Role {
+  id            String   @id @default(uuid())
+  name          String   // Globally unique for platform/system roles, tenant-specific for custom roles
+  description   String?
+  roleType      String   @map("role_type") // 'platform' | 'system' | 'custom'
+  clearanceLevel Int     @map("clearance_level") // 0-10 (Architect=10, SuperAdmin=9, Owner=8, etc.)
+  isSystemRole  Boolean  @default(false) @map("is_system_role") // True for predefined roles
+  tenantId      String?  @map("tenant_id") // Null for platform/system roles, required for custom roles
+  isActive      Boolean  @default(true) @map("is_active")
+  
+  // Audit Fields
+  createdBy     String?  @map("created_by")
+  updatedBy     String?  @map("updated_by")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  // Relations
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userTenantRoles UserTenantRole[]
+  
+  @@map("roles")
+  @@unique([name, tenantId]) // Name unique per tenant (for custom roles), application-level check needed for platform/system roles
+  @@index([roleType])
+  @@index([clearanceLevel])
+  @@index([tenantId])
+  @@index([isSystemRole])
+  @@index([roleType, name]) // For platform/system role name uniqueness checks
+}
+
+// Permissions - The 300+ granular permissions
+// Structured metadata for UI rendering: key (name), label (display), description (details)
+model Permission {
+  id          String   @id @default(uuid())
+  name        String   @unique // Key/identifier (e.g., 'students.view', 'grades.edit', 'platform.override')
+  label       String   // Human-readable display name (e.g., 'View Students', 'Edit Grades')
+  description String?  // Detailed description for UI rendering and tooltips
+  resource    String   // e.g., 'students', 'grades', 'platform'
+  action      String   // e.g., 'view', 'edit', 'create', 'delete'
+  context     String? // e.g., 'own_classes', 'children', 'department'
+  category    String   // e.g., 'academic', 'administrative', 'platform', 'financial'
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  
+  // Relations
+  rolePermissions RolePermission[]
+  userTenantPermissions UserTenantPermission[]
+  
+  @@map("permissions")
+  @@index([resource])
+  @@index([action])
+  @@index([category])
+  @@index([resource, action]) // For fast permission lookups
+}
+
+// Role Permissions - Many-to-many: Roles have permissions
+model RolePermission {
+  id          String   @id @default(uuid())
+  roleId      String   @map("role_id")
+  permissionId String @map("permission_id")
+  grantedAt   DateTime @default(now()) @map("granted_at")
+  grantedBy   String?  @map("granted_by")
+  
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  
+  @@map("role_permissions")
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
