@@ -1,0 +1,26 @@
+{
+  "extends": "@workspace/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    "next-env.d.ts",
+    "next.config.ts",
+    ".next/types/**/*.ts",
+    "../../packages/ui/src/custom/charts/chart-area-interactive.tsx",
+    "../../packages/ui/src/custom/tables/data-table.tsx",
+    "app/components/site-header.tsx",
+    "../../packages/ui/src/lib/generate-breadcrumbs.ts"
+  ],
+  "exclude": ["node_modules"]
+}

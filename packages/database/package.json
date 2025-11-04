@@ -1,0 +1,37 @@
+{
+  "name": "@workspace/database",
+  "version": "0.0.1",
+  "exports": {
+    ".": "./src/client.ts"
+  },
+  "scripts": {
+    "___schema_management": "Database Schema Management",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate:dev": "prisma migrate dev --skip-generate",
+    "db:migrate:deploy": "prisma migrate deploy",
+    "___data_management": " Database Data Management",
+    "db:seed": "tsx src/seed.ts",
+    "db:studio": "prisma studio",
+    "___development_and_build": "Development & Build",
+    "dev": "tsup src/* --watch",
+    "prebuild": "npm run db:generate",
+    "predev": "npm run db:generate",
+    "___code_quality": "Code Quality",
+    "format": "prisma format",
+    "lint": "eslint . --max-warnings 0"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.18.0"
+  },
+  "devDependencies": {
+    "@workspace/eslint-config": "workspace:*",
+    "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.31.0",
+    "prisma": "^6.18.0",
+    "rimraf": "^6.0.1",
+    "tsup": "^8.5.0",
+    "tsx": "4.19.1",
+    "typescript": "^5.9.3"
+  }
+}
