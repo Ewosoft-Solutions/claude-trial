@@ -26,10 +26,16 @@
 
 ### 4. Multi-Tenancy Strategy
 
-**Decision: To be finalized** (See `multi-tenancy-strategy.md` for detailed discussion)
+**Decision: Admin-Controlled Registration with Profile-Based Context** ✅
 
-- Concerns: Email domain limitations, multi-school users, role switching
-- Proposed: Hybrid approach (School Code + Optional Email Domain)
+- **School Registration**: Schools registered by platform admins or school owners
+- **User Addition**: Admin-controlled (IT Support, SuperAdmin, Management)
+- **No Self-Registration**: All accounts created by authorized personnel
+- **Multi-School Users**: Users can belong to multiple schools (many-to-many)
+- **Profile-Based Context**: Each school-role combination is a profile
+- **School-Specific JWT Secrets**: Auto-generated secrets per school (platform admin only)
+- **Optional Email Domain**: Can be used for validation, not for tenant identification
+- See `multi-tenancy-security-strategy.md` for complete details
 
 ### 5. Polymorphic Features
 
@@ -37,6 +43,48 @@
 
 - Build core features with standard structure
 - Add polymorphic adaptations as separate layer later
+
+### 6. Security Policy Framework
+
+**Decision: Mandatory Security Policies with Tiered Options**
+
+- **Mandatory**: All schools must have security policies configured
+- **Default Tier**: Basic (Tier 1) - mandatory for all schools
+- **Enhanced Tiers**: Schools can opt-in to Enhanced (Tier 2) or Maximum (Tier 3)
+- **Policy Management**: Both school admins and platform admins can manage
+- **Platform Override**: Platform admins can set emergency policies
+- See `multi-tenancy-security-strategy.md` Part 4 for details
+
+### 7. MFA Requirements
+
+**Decision: Mandatory MFA with Multiple Options**
+
+- **Mandatory**: MFA required for all users (cannot be disabled)
+- **Multiple Options**: SMS, Email, TOTP (Google Authenticator), Hardware Keys (WebAuthn)
+- **User Choice**: Users can select their preferred MFA method
+- **Backup Methods**: Users can set up multiple MFA methods
+- See `multi-tenancy-security-strategy.md` Part 4 for details
+
+### 8. Secret Management
+
+**Decision: Automated Secret Generation with Rotation**
+
+- **Auto-Generated**: Secrets automatically generated for dynamic school creation
+- **Platform Admin Only**: Only platform admins (Architect, SuperAdmin) can manage secrets
+- **Schools Cannot Access**: Schools have no visibility or access to JWT secrets
+- **Scheduled Rotation**: Every 90-180 days (graceful transition)
+- **Emergency Rotation**: Immediate rotation for breach response
+- See `multi-tenancy-security-strategy.md` Part 5 for details
+
+### 9. Breach Response Strategy
+
+**Decision: Graduated Response (MFA Re-auth Primary, Password Reset for Severe)**
+
+- **Primary Response**: Force MFA re-authentication (less disruptive, still secure)
+- **Escalation**: Password reset for severe breaches (when password compromise suspected)
+- **Industry Standard**: Aligns with GitHub, Microsoft, Google, AWS practices
+- **Breach Levels**: LOW (MFA re-auth), MEDIUM (+ monitoring), HIGH (+ password reset), CRITICAL (full response)
+- See `multi-tenancy-security-strategy.md` Part 5 for details
 
 ---
 
@@ -181,144 +229,62 @@ Please clarify what you consider the minimum viable product for the foundation l
 
 ---
 
-## Multi-Tenancy Strategy: Organizational Email vs Subdomain
+## Multi-Tenancy Strategy: Finalized Approach ✅
 
-### Current Plan: Organizational Email as Tenant Identifier
+### ✅ Final Decision: Admin-Controlled Registration with Profile-Based Context
 
-**How it would work:**
+**Approach:**
 
-- Users register with email: `john@schoolname.edu`
-- System extracts domain: `schoolname.edu`
-- Domain becomes tenant identifier
-- All queries filtered by email domain
+- **School Registration**: Schools registered by platform admins or school owners (not email domain based)
+- **User Addition**: Admin-controlled (IT Support, SuperAdmin, Management)
+- **No Self-Registration**: All user accounts created by authorized personnel
+- **Multi-School Users**: Users can belong to multiple schools (many-to-many relationship)
+- **Profile-Based Context**: Each school-role combination is a profile
+- **School-Specific JWT Secrets**: Auto-generated secrets per school (platform admin only access)
+- **Optional Email Domain**: Can be used for validation (DNS TXT record), not for tenant identification
 
-### Analysis
+**Key Features:**
 
-#### Pros of Email Domain Approach:
-
-- ✅ **Simpler setup**: No DNS/subdomain configuration needed
-- ✅ **Natural identifier**: Organizations already have email domains
-- ✅ **User-friendly**: Users already know their email
-- ✅ **Less infrastructure**: No need for wildcard SSL certificates
-- ✅ **Easier onboarding**: Schools don't need to configure subdomains
-
-#### Cons of Email Domain Approach:
-
-- ⚠️ **Email domain validation**: Need to verify domain ownership
-- ⚠️ **Security consideration**: Email domains can be spoofed
-- ⚠️ **Multi-domain support**: What if one school has multiple email domains?
-- ⚠️ **User email changes**: What happens if user changes email domain?
-- ⚠️ **Tenant identification**: Need to extract and validate domain on every request
-
-### Proposed Hybrid Approach
-
-**Option 1: Email Domain + Tenant ID (Recommended)**
-
-```
-User registration flow:
-1. User registers with email: john@schoolname.edu
-2. System extracts domain: schoolname.edu
-3. System looks up or creates tenant for that domain
-4. Tenant record has: id (UUID), domain (schoolname.edu), slug (schoolname)
-5. User record has: tenant_id (UUID), email (john@schoolname.edu)
-6. All queries use tenant_id for filtering
-```
-
-**Benefits:**
-
-- ✅ Email domain is used for discovery/validation
-- ✅ Tenant ID (UUID) is used for actual data isolation (faster, more secure)
-- ✅ Can support multiple domains per tenant
-- ✅ Can validate domain ownership
-- ✅ More secure than filtering by email domain directly
-
-**Option 2: Pure Email Domain**
-
-```
-User registration flow:
-1. User registers with email: john@schoolname.edu
-2. System extracts domain: schoolname.edu
-3. All queries filter by email domain directly
-4. No separate tenant table needed initially
-```
-
-**Benefits:**
-
-- ✅ Simplest approach
-- ✅ No tenant table needed
-- ✅ Direct email-to-tenant mapping
-
-**Drawbacks:**
-
-- ❌ Less flexible (hard to support multiple domains)
-- ❌ Performance: String matching on every query
-- ❌ Security: Domain validation harder
-
-### Detailed Questions for Email Domain Approach:
-
-1. **Domain Validation:**
-   - Should we verify email domain ownership (DNS TXT record, email verification)?
-   - How do we prevent someone registering with `gmail.com` and claiming all Gmail users?
-
-2. **Multi-Domain Support:**
-   - Can one school have multiple email domains? (e.g., `school.edu` and `school.org`)
-   - Should they be separate tenants or linked?
-
-3. **User Email Changes:**
-   - What if a user changes from `john@schoolA.edu` to `john@schoolB.edu`?
-   - Should they be moved to new tenant or lose access?
-
-4. **Tenant Discovery:**
-   - How do new users join existing tenants? (Invite system?)
-   - What if two schools have similar domains? (e.g., `school.edu` vs `school.com`)
-
-5. **Security:**
-   - Should we validate email domain ownership before allowing tenant creation?
-   - How do we prevent domain squatting?
-
-### Recommendation
-
-**⚠️ Decision Pending - See `multi-tenancy-strategy.md` for detailed discussion**
-
-**Proposed: Hybrid Approach (Option 1):**
-
-- Use email domain for **tenant discovery and validation**
-- Use tenant ID (UUID) for **actual data isolation**
-- Store tenant record with domain, slug, and other metadata
-- Validate domain ownership during tenant creation
-- Support multiple domains per tenant (for complex organizations)
+1. **Tenant Identification**: UUID-based (not email domain)
+2. **User Addition Methods**: Direct creation, invitation, bulk import
+3. **Profile Switching**: Users can switch between school contexts and roles
+4. **Security**: School-specific JWT secrets prevent cross-school token reuse
 
 **Implementation:**
 
 ```typescript
-// Tenant model
+// Tenant (School)
 {
   id: UUID (primary key)
-  domain: string (e.g., "schoolname.edu") - unique
-  slug: string (e.g., "schoolname") - for URLs
-  name: string (e.g., "School Name")
+  name: string
+  slug: string (optional, for URLs)
+  email_domain: string? (optional, for validation only)
   status: 'active' | 'pending' | 'suspended'
-  domain_verified: boolean
+  created_by: UUID
   created_at: timestamp
 }
 
-// User model
+// User-Tenant Relationship (Profile)
 {
   id: UUID
-  email: string (e.g., "john@schoolname.edu")
-  tenant_id: UUID (foreign key to tenants)
-  // ... other fields
+  user_id: UUID
+  tenant_id: UUID
+  role: string
+  status: 'active' | 'inactive' | 'pending' | 'suspended'
+  added_by: UUID (admin who added user)
+  added_at: timestamp
 }
-
-// Resolution flow
-1. User registers with email → extract domain
-2. Look up tenant by domain
-3. If not found, create tenant (with domain verification)
-4. Create user with tenant_id
-5. All queries filter by tenant_id (indexed, fast)
 ```
 
-**What do you think? Should we discuss this further before implementing?**
+**Why This Approach:**
+
+- ✅ Works for schools without email domains (parents, students)
+- ✅ Supports multi-school users (parents with children in multiple schools)
+- ✅ Supports role switching (teacher who is also parent)
+- ✅ More secure (admin-controlled, no public joining)
+- ✅ Better control (admins manage who has access)
+
+**See `multi-tenancy-security-strategy.md` for complete details and security analysis.**
 
 ---
 
@@ -349,10 +315,11 @@ This is a solid approach. We'll:
 
 ## Next Steps
 
-1. **Clarify MVP scope** - What's included in foundation MVP?
-2. **Finalize multi-tenancy approach** - Discuss email domain strategy in detail
-3. **Confirm development approach** - Layered for foundation, incremental for features?
-4. **Confirm Prisma approach** - Code-first with Prisma migrations?
-5. **Start implementation** - Begin with database schema design
+1. ✅ **Clarify MVP scope** - Extended MVP (complete foundation + one feature)
+2. ✅ **Finalize multi-tenancy approach** - Admin-controlled registration with profile-based context
+3. ✅ **Confirm development approach** - Layered first, then incremental
+4. ✅ **Confirm Prisma approach** - Code-first with Prisma migrations
+5. ✅ **Security strategy finalized** - Multi-layer security with school-specific secrets
+6. ⏳ **Start implementation** - Begin with database schema design
 
-**Please review and let me know your thoughts on each point!**
+**All major decisions have been made. Ready to proceed with implementation.**
