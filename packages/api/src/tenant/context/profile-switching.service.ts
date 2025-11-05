@@ -5,7 +5,10 @@
  * Handles role switching and permission updates.
  */
 
-import { TenantContext } from '../../types/tenant-context.types';
+import { PrismaClient } from '@workspace/database';
+import { TenantContext, Permission } from '../../types/tenant-context.types';
+import { TenantQueriesService } from '../queries';
+import { TenantValidationService } from '../validation';
 
 /**
  * Available Profile
@@ -41,30 +44,47 @@ export class ProfileSwitchingService {
    * Returns all profiles (roles) that a user has in a specific school.
    * A user can have multiple roles in the same school (e.g., Teacher + Parent).
    *
+   * @param prisma - Prisma client instance
    * @param userId - User ID
    * @param tenantId - Tenant ID (school)
    * @returns Array of available profiles
    */
   static async getAvailableProfiles(
+    prisma: PrismaClient,
     userId: string,
     tenantId: string,
-    // prisma: PrismaClient
   ): Promise<AvailableProfile[]> {
-    // TODO: Implement profile retrieval
-    // Query UserTenantRoles for the user's profile in this tenant
-    // Return all roles user has in this school
+    const userTenant = await prisma.userTenant.findUnique({
+      where: {
+        userId_tenantId: {
+          userId,
+          tenantId,
+        },
+      },
+      include: {
+        userTenantRoles: {
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
 
-    // Example query:
-    // const userTenant = await prisma.userTenant.findUnique({
-    //   where: { userId_tenantId: { userId, tenantId } },
-    //   include: {
-    //     userTenantRoles: {
-    //       include: { role: true }
-    //     }
-    //   }
-    // });
+    if (!userTenant) {
+      return [];
+    }
 
-    return [];
+    return userTenant.userTenantRoles.map((utr) => ({
+      profileId: userTenant.id,
+      roleName: utr.role.name,
+      roleDescription: utr.role.description || undefined,
+      isPrimary: utr.isPrimary,
+      status: userTenant.status as
+        | 'active'
+        | 'inactive'
+        | 'pending'
+        | 'suspended',
+    }));
   }
 
   /**
@@ -73,24 +93,90 @@ export class ProfileSwitchingService {
    * Switches the active profile/role within the same school context.
    * Updates permissions and role context.
    *
+   * @param prisma - Prisma client instance
    * @param context - Current tenant context
-   * @param targetRoleId - Target role ID to switch to
+   * @param targetRoleName - Target role name to switch to
    * @returns Updated tenant context with new role/permissions
    */
   static async switchProfile(
+    prisma: PrismaClient,
     context: TenantContext,
-    targetRoleId: string,
-    // permissionsService: PermissionsService
+    targetRoleName: string,
   ): Promise<TenantContext | null> {
-    // TODO: Implement profile switching
     // 1. Validate user has the target role in this school
-    // 2. Load permissions for the target role
-    // 3. Update context with new role and permissions
-    // 4. Return updated context
+    const roleValidation = await TenantValidationService.validateUserRole(
+      prisma,
+      context.userId,
+      context.tenantId,
+      targetRoleName,
+    );
 
-    // Note: ProfileId stays the same (UserTenant), only role/permissions change
+    if (!roleValidation.valid) {
+      return null;
+    }
 
-    return null;
+    // 2. Get user tenant profile with roles
+    const userTenant = await TenantQueriesService.getUserTenantProfile(
+      prisma,
+      context.userId,
+      context.tenantId,
+    );
+
+    if (!userTenant) {
+      return null;
+    }
+
+    // 3. Find the target role
+    const targetRole = userTenant.userTenantRoles.find(
+      (utr) => utr.role.name === targetRoleName && utr.role.isActive,
+    );
+
+    if (!targetRole) {
+      return null;
+    }
+
+    // 4. Get permissions for the target role
+    const permissions = await TenantQueriesService.getUserTenantPermissions(
+      prisma,
+      context.userId,
+      context.tenantId,
+    );
+
+    // Filter permissions to only granted ones
+    const grantedPermissions = permissions
+      .filter((p) => p.granted)
+      .map((p) => ({
+        name: p.name,
+        label: p.name, // Will be enriched by permission service
+        description: undefined,
+        resource: p.name.split('.')[0] || '',
+        action: p.name.split('.')[1] || '',
+        context: p.name.includes('.')
+          ? p.name.split('.').slice(2).join('.')
+          : undefined,
+        category: 'general', // Will be enriched by permission service
+      })) as Permission[];
+
+    // 5. Build updated context
+    const updatedContext: TenantContext = {
+      tenantId: context.tenantId,
+      tenantSlug: context.tenantSlug,
+      userId: context.userId,
+      profileId: context.profileId, // Profile ID stays the same
+      roles: [targetRoleName], // Single role for current context
+      permissions: grantedPermissions,
+      tenantStatus: userTenant.tenant.status as
+        | 'active'
+        | 'pending'
+        | 'suspended',
+      profileStatus: userTenant.status as
+        | 'active'
+        | 'inactive'
+        | 'pending'
+        | 'suspended',
+    };
+
+    return updatedContext;
   }
 
   /**
@@ -116,23 +202,29 @@ export class ProfileSwitchingService {
    * Check if user has multiple profiles in school
    *
    * Returns true if user has multiple roles in the same school.
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - User ID
+   * @param tenantId - Tenant ID
+   * @returns True if user has multiple roles
    */
   static async hasMultipleProfiles(
+    prisma: PrismaClient,
     userId: string,
     tenantId: string,
-    // prisma: PrismaClient
   ): Promise<boolean> {
-    // TODO: Check if user has multiple UserTenantRoles in this tenant
-    // const roleCount = await prisma.userTenantRole.count({
-    //   where: {
-    //     userTenant: {
-    //       userId,
-    //       tenantId
-    //     }
-    //   }
-    // });
-    // return roleCount > 1;
+    const roleCount = await prisma.userTenantRole.count({
+      where: {
+        userTenant: {
+          userId,
+          tenantId,
+        },
+        role: {
+          isActive: true,
+        },
+      },
+    });
 
-    return false;
+    return roleCount > 1;
   }
 }

@@ -120,6 +120,232 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
+exports.Prisma.AcademicYearScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  status: 'status',
+  isDefault: 'isDefault',
+  description: 'description',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.TermScalarFieldEnum = {
+  id: 'id',
+  academicYearId: 'academicYearId',
+  name: 'name',
+  type: 'type',
+  startDate: 'startDate',
+  endDate: 'endDate',
+  order: 'order',
+  status: 'status',
+  description: 'description',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.CourseScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  code: 'code',
+  name: 'name',
+  description: 'description',
+  category: 'category',
+  subject: 'subject',
+  gradeLevels: 'gradeLevels',
+  credits: 'credits',
+  hours: 'hours',
+  status: 'status',
+  prerequisites: 'prerequisites',
+  objectives: 'objectives',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ClassScalarFieldEnum = {
+  id: 'id',
+  courseId: 'courseId',
+  termId: 'termId',
+  academicYearId: 'academicYearId',
+  section: 'section',
+  name: 'name',
+  capacity: 'capacity',
+  currentEnrollment: 'currentEnrollment',
+  schedule: 'schedule',
+  room: 'room',
+  status: 'status',
+  description: 'description',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.ClassTeacherScalarFieldEnum = {
+  id: 'id',
+  classId: 'classId',
+  userTenantId: 'userTenantId',
+  role: 'role',
+  assignedAt: 'assignedAt',
+  assignedBy: 'assignedBy',
+  unassignedAt: 'unassignedAt',
+  unassignedBy: 'unassignedBy',
+  isActive: 'isActive'
+};
+
+exports.Prisma.GradingSystemScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  name: 'name',
+  systemType: 'systemType',
+  gradeScale: 'gradeScale',
+  isDefault: 'isDefault',
+  isActive: 'isActive',
+  description: 'description',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AssessmentScalarFieldEnum = {
+  id: 'id',
+  classId: 'classId',
+  academicYearId: 'academicYearId',
+  termId: 'termId',
+  name: 'name',
+  description: 'description',
+  type: 'type',
+  maxPoints: 'maxPoints',
+  weight: 'weight',
+  gradingSystemId: 'gradingSystemId',
+  assignedDate: 'assignedDate',
+  dueDate: 'dueDate',
+  gradedDate: 'gradedDate',
+  status: 'status',
+  instructions: 'instructions',
+  rubric: 'rubric',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.GradeScalarFieldEnum = {
+  id: 'id',
+  enrollmentId: 'enrollmentId',
+  assessmentId: 'assessmentId',
+  pointsEarned: 'pointsEarned',
+  percentage: 'percentage',
+  letterGrade: 'letterGrade',
+  gpaPoints: 'gpaPoints',
+  status: 'status',
+  submittedAt: 'submittedAt',
+  gradedAt: 'gradedAt',
+  gradedBy: 'gradedBy',
+  feedback: 'feedback',
+  rubricScore: 'rubricScore',
+  notes: 'notes',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.AuditLogScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  eventType: 'eventType',
+  action: 'action',
+  resource: 'resource',
+  resourceId: 'resourceId',
+  actorId: 'actorId',
+  actorProfileId: 'actorProfileId',
+  actorRole: 'actorRole',
+  actorEmail: 'actorEmail',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  requestId: 'requestId',
+  sessionId: 'sessionId',
+  description: 'description',
+  metadata: 'metadata',
+  changes: 'changes',
+  status: 'status',
+  errorCode: 'errorCode',
+  errorMessage: 'errorMessage',
+  timestamp: 'timestamp'
+};
+
+exports.Prisma.AnnouncementScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  targetType: 'targetType',
+  targetIds: 'targetIds',
+  title: 'title',
+  content: 'content',
+  summary: 'summary',
+  priority: 'priority',
+  status: 'status',
+  publishAt: 'publishAt',
+  expiresAt: 'expiresAt',
+  attachments: 'attachments',
+  metadata: 'metadata',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  publishedAt: 'publishedAt'
+};
+
+exports.Prisma.MessageScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  threadId: 'threadId',
+  senderId: 'senderId',
+  recipientIds: 'recipientIds',
+  subject: 'subject',
+  content: 'content',
+  contentType: 'contentType',
+  status: 'status',
+  attachments: 'attachments',
+  metadata: 'metadata',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt',
+  sentAt: 'sentAt',
+  readAt: 'readAt'
+};
+
+exports.Prisma.MessageReadReceiptScalarFieldEnum = {
+  id: 'id',
+  messageId: 'messageId',
+  readerId: 'readerId',
+  readAt: 'readAt'
+};
+
+exports.Prisma.TenantJWTConfigScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  jwtSecret: 'jwtSecret',
+  secretSource: 'secretSource',
+  secretRotationDate: 'secretRotationDate',
+  previousSecrets: 'previousSecrets',
+  rotationReason: 'rotationReason',
+  emergencyRotation: 'emergencyRotation',
+  managedBy: 'managedBy',
+  accessibleBySchools: 'accessibleBySchools',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.UserTenantScalarFieldEnum = {
   id: 'id',
   userId: 'userId',
@@ -216,6 +442,51 @@ exports.Prisma.RolePermissionPoolScalarFieldEnum = {
   assignedBy: 'assignedBy'
 };
 
+exports.Prisma.StudentScalarFieldEnum = {
+  id: 'id',
+  tenantId: 'tenantId',
+  userTenantId: 'userTenantId',
+  studentNumber: 'studentNumber',
+  admissionNumber: 'admissionNumber',
+  admissionDate: 'admissionDate',
+  gradeLevel: 'gradeLevel',
+  enrollmentStatus: 'enrollmentStatus',
+  personalInfo: 'personalInfo',
+  academicInfo: 'academicInfo',
+  healthInfo: 'healthInfo',
+  emergencyContacts: 'emergencyContacts',
+  guardianInfo: 'guardianInfo',
+  specialNeeds: 'specialNeeds',
+  enrollmentDate: 'enrollmentDate',
+  graduationDate: 'graduationDate',
+  withdrawalDate: 'withdrawalDate',
+  transferDate: 'transferDate',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.EnrollmentScalarFieldEnum = {
+  id: 'id',
+  studentId: 'studentId',
+  classId: 'classId',
+  academicYearId: 'academicYearId',
+  termId: 'termId',
+  enrollmentDate: 'enrollmentDate',
+  status: 'status',
+  finalGrade: 'finalGrade',
+  creditsEarned: 'creditsEarned',
+  gpaPoints: 'gpaPoints',
+  notes: 'notes',
+  droppedDate: 'droppedDate',
+  completedDate: 'completedDate',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
 exports.Prisma.TenantScalarFieldEnum = {
   id: 'id',
   name: 'name',
@@ -291,6 +562,10 @@ exports.Prisma.NullableJsonNullValueInput = {
   JsonNull: Prisma.JsonNull
 };
 
+exports.Prisma.JsonNullValueInput = {
+  JsonNull: Prisma.JsonNull
+};
+
 exports.Prisma.QueryMode = {
   default: 'default',
   insensitive: 'insensitive'
@@ -309,6 +584,19 @@ exports.Prisma.JsonNullValueFilter = {
 
 
 exports.Prisma.ModelName = {
+  AcademicYear: 'AcademicYear',
+  Term: 'Term',
+  Course: 'Course',
+  Class: 'Class',
+  ClassTeacher: 'ClassTeacher',
+  GradingSystem: 'GradingSystem',
+  Assessment: 'Assessment',
+  Grade: 'Grade',
+  AuditLog: 'AuditLog',
+  Announcement: 'Announcement',
+  Message: 'Message',
+  MessageReadReceipt: 'MessageReadReceipt',
+  TenantJWTConfig: 'TenantJWTConfig',
   UserTenant: 'UserTenant',
   UserTenantRole: 'UserTenantRole',
   UserTenantPermission: 'UserTenantPermission',
@@ -318,6 +606,8 @@ exports.Prisma.ModelName = {
   PermissionPool: 'PermissionPool',
   PermissionPoolPermission: 'PermissionPoolPermission',
   RolePermissionPool: 'RolePermissionPool',
+  Student: 'Student',
+  Enrollment: 'Enrollment',
   Tenant: 'Tenant',
   User: 'User',
   PasswordHistory: 'PasswordHistory',

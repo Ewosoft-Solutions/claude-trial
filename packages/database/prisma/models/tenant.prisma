@@ -38,6 +38,7 @@ model Tenant {
   announcements   Announcement[]
   messages        Message[]
   auditLogs       AuditLog[]
+  jwtConfig       TenantJWTConfig?
 
   @@index([status])
   @@index([emailDomain])

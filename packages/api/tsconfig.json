@@ -2,7 +2,11 @@
   "extends": "@workspace/typescript-config/nestjs.json",
   "compilerOptions": {
     "allowJs": true,
-    "baseUrl": "src",
+    "baseUrl": ".",
+    "paths": {
+      "@workspace/database": ["../database/src/client.ts"],
+      "@workspace/database/*": ["../database/src/*"]
+    },
     "esModuleInterop": true,
     "incremental": false,
     "outDir": "dist",

@@ -5,7 +5,10 @@
  * Handles user's available schools and profile switching between schools.
  */
 
-import { TenantContext } from '../../types/tenant-context.types';
+import { PrismaClient } from '@workspace/database';
+import { TenantContext, Permission } from '../../types/tenant-context.types';
+import { TenantQueriesService } from '../queries';
+import { TenantValidationService } from '../validation';
 
 /**
  * User School Profile
@@ -50,33 +53,53 @@ export class SchoolSelectionService {
    * Returns all schools (profiles) that a user has access to.
    * This would typically query the database for UserTenant relationships.
    *
+   * @param prisma - Prisma client instance
    * @param userId - User ID to get schools for
    * @returns Array of school profiles user can access
    */
   static async getAvailableSchools(
+    prisma: PrismaClient,
     userId: string,
-    // prisma: PrismaClient - would be injected in real implementation
   ): Promise<UserSchoolProfile[]> {
-    // TODO: Implement database query
-    // This would query:
-    // - UserTenant where userId = userId
-    // - Join with Tenant to get tenant details
-    // - Join with UserTenantRole to get roles
-    // - Filter by active status
+    const userTenants = await prisma.userTenant.findMany({
+      where: {
+        userId,
+        status: 'active',
+        suspended: false,
+      },
+      include: {
+        tenant: true,
+        userTenantRoles: {
+          where: {
+            role: {
+              isActive: true,
+            },
+          },
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
 
-    // Example query structure:
-    // const userTenants = await prisma.userTenant.findMany({
-    //   where: { userId },
-    //   include: {
-    //     tenant: true,
-    //     userTenantRoles: {
-    //       include: { role: true }
-    //     }
-    //   }
-    // });
+    return userTenants
+      .filter((ut) => ut.tenant.status === 'active')
+      .map((ut) => {
+        const roles = ut.userTenantRoles.map((utr) => utr.role.name);
+        const primaryRole = ut.userTenantRoles.find((utr) => utr.isPrimary)
+          ?.role.name;
 
-    // Transform to UserSchoolProfile format
-    return [];
+        return {
+          tenantId: ut.tenantId,
+          tenantName: ut.tenant.name,
+          tenantSlug: ut.tenant.slug || undefined,
+          profileId: ut.id,
+          roles,
+          primaryRole,
+          status: ut.status as 'active' | 'inactive' | 'pending' | 'suspended',
+          tenantStatus: ut.tenant.status as 'active' | 'pending' | 'suspended',
+        };
+      });
   }
 
   /**
@@ -85,22 +108,88 @@ export class SchoolSelectionService {
    * Validates that user has access to the requested school and returns
    * the new tenant context.
    *
+   * @param prisma - Prisma client instance
    * @param userId - User ID
    * @param tenantId - Target tenant ID to switch to
    * @returns New tenant context if switch is successful
    */
   static async switchSchool(
+    prisma: PrismaClient,
     userId: string,
     tenantId: string,
-    // prisma: PrismaClient, permissionsService: PermissionsService
   ): Promise<TenantContext | null> {
-    // TODO: Implement school switching
     // 1. Validate user has access to tenant
-    // 2. Load UserTenant profile
-    // 3. Load roles and permissions
-    // 4. Build and return new TenantContext
+    const accessValidation = await TenantValidationService.validateUserAccess(
+      prisma,
+      userId,
+      tenantId,
+    );
 
-    return null;
+    if (!accessValidation.valid) {
+      return null;
+    }
+
+    // 2. Load UserTenant profile
+    const userTenant = await TenantQueriesService.getUserTenantProfile(
+      prisma,
+      userId,
+      tenantId,
+    );
+
+    if (!userTenant) {
+      return null;
+    }
+
+    // 3. Load roles and permissions
+    const roles = userTenant.userTenantRoles
+      .filter((utr) => utr.role.isActive)
+      .map((utr) => utr.role.name);
+
+    if (roles.length === 0) {
+      return null;
+    }
+
+    const permissions = await TenantQueriesService.getUserTenantPermissions(
+      prisma,
+      userId,
+      tenantId,
+    );
+
+    // Filter permissions to only granted ones and map to Permission format
+    const grantedPermissions = permissions
+      .filter((p) => p.granted)
+      .map((p) => ({
+        name: p.name,
+        label: p.name, // Will be enriched by permission service
+        description: undefined,
+        resource: p.name.split('.')[0] || '',
+        action: p.name.split('.')[1] || '',
+        context: p.name.includes('.')
+          ? p.name.split('.').slice(2).join('.')
+          : undefined,
+        category: 'general', // Will be enriched by permission service
+      })) as Permission[];
+
+    // 4. Build and return new TenantContext
+    const context: TenantContext = {
+      tenantId: userTenant.tenantId,
+      tenantSlug: userTenant.tenant.slug || undefined,
+      userId,
+      profileId: userTenant.id,
+      roles,
+      permissions: grantedPermissions,
+      tenantStatus: userTenant.tenant.status as
+        | 'active'
+        | 'pending'
+        | 'suspended',
+      profileStatus: userTenant.status as
+        | 'active'
+        | 'inactive'
+        | 'pending'
+        | 'suspended',
+    };
+
+    return context;
   }
 
   /**
@@ -117,15 +206,23 @@ export class SchoolSelectionService {
    * Validate school access
    *
    * Checks if user has access to a specific school.
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - User ID
+   * @param tenantId - Tenant ID
+   * @returns True if user has access
    */
   static async validateSchoolAccess(
+    prisma: PrismaClient,
     userId: string,
     tenantId: string,
-    // prisma: PrismaClient
   ): Promise<boolean> {
-    // TODO: Implement access validation
-    // Check if UserTenant exists and is active
+    const validation = await TenantValidationService.validateUserAccess(
+      prisma,
+      userId,
+      tenantId,
+    );
 
-    return false;
+    return validation.valid;
   }
 }

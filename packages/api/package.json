@@ -27,7 +27,8 @@
     }
   },
   "dependencies": {
-    "@nestjs/mapped-types": "*"
+    "@nestjs/mapped-types": "*",
+    "@workspace/database": "workspace:*"
   },
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",

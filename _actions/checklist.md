@@ -21,12 +21,12 @@
 - [x] 2.3 Implement tenant resolution middleware ✅ (Types created, middleware implementation pending)
 - [x] 2.4 Set up tenant context management (school selection, profile switching) ✅
 - [x] 2.5 Implement tenant data isolation (row-level security) ✅
-- [ ] 2.6 Create tenant validation utilities
-- [ ] 2.7 Set up tenant-specific database queries
-- [ ] 2.8 Implement role switching within school context
-- [ ] 2.9 Implement school-specific JWT secrets (auto-generated, platform admin only)
-- [ ] 2.10 Implement secret rotation system (scheduled + emergency)
-- [ ] 2.11 Implement profile-level suspension capability
+- [x] 2.6 Create tenant validation utilities ✅
+- [x] 2.7 Set up tenant-specific database queries ✅
+- [x] 2.8 Implement role switching within school context ✅
+- [x] 2.9 Implement school-specific JWT secrets (auto-generated, platform admin only) ✅
+- [x] 2.10 Implement secret rotation system (scheduled + emergency) ✅
+- [x] 2.11 Implement profile-level suspension capability ✅
 
 ### 3. Authentication System
 
