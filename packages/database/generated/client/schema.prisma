@@ -1,6 +1,6 @@
 // Main Prisma Schema File
 // This file is the entry point and contains the datasource and generator configuration
-// All models are organized in separate files by context within the schema/ directory
+// All models are organized in separate files by context in the same directory
 
 generator client {
   provider = "prisma-client-js"

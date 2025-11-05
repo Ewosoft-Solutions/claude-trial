@@ -30,6 +30,7 @@ model Tenant {
   // Relations
   roles Role[]
   userTenants UserTenant[]
+  permissionPools PermissionPool[]
   
   @@map("tenants")
   @@index([status])

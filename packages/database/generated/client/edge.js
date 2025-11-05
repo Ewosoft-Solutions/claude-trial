@@ -125,7 +125,7 @@ const config = {
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": null,
+    "rootEnvPath": "../../.env",
     "schemaEnvPath": "../../.env"
   },
   "relativePath": "../../prisma",
@@ -144,8 +144,8 @@ const config = {
       }
     }
   },
-  "inlineSchema": "// Main Prisma Schema File\n// This file is the entry point and contains the datasource and generator configuration\n// All models are organized in separate files by context within the schema/ directory\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/client\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n",
-  "inlineSchemaHash": "d66b246f8762c7e288c7fe025e19e2a6afa842a04e91ec1b39a65352dadc51a1",
+  "inlineSchema": "// Main Prisma Schema File\n// This file is the entry point and contains the datasource and generator configuration\n// All models are organized in separate files by context in the same directory\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/client\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n",
+  "inlineSchemaHash": "3971440ce9748c1ec2b9641060da280ac8d380bca2353958bae0921998542a8c",
   "copyEngine": true
 }
 config.dirname = '/'
