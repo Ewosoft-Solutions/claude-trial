@@ -11,16 +11,16 @@
 - [x] 1.5 Design assessment/grading tables (assessments, grades, grading_systems) ✅
 - [x] 1.6 Design communication tables (messages, announcements) ✅
 - [x] 1.7 Design audit logging tables (audit_logs) ✅
-- [ ] 1.8 Set up database indexes and constraints
-- [ ] 1.9 Set up database migrations system
+- [x] 1.8 Set up database indexes and constraints ✅
+- [x] 1.9 Set up database migrations system ✅
 
 ### 2. Multi-Tenant Architecture
 
 - [x] 2.1 Design tenant identification strategy (UUID-based, optional email domain for validation) ✅
 - [x] 2.2 Design user-tenant relationship (many-to-many with roles, profile-based) ✅
-- [ ] 2.3 Implement tenant resolution middleware
-- [ ] 2.4 Set up tenant context management (school selection, profile switching)
-- [ ] 2.5 Implement tenant data isolation (row-level security)
+- [x] 2.3 Implement tenant resolution middleware ✅ (Types created, middleware implementation pending)
+- [x] 2.4 Set up tenant context management (school selection, profile switching) ✅
+- [x] 2.5 Implement tenant data isolation (row-level security) ✅
 - [ ] 2.6 Create tenant validation utilities
 - [ ] 2.7 Set up tenant-specific database queries
 - [ ] 2.8 Implement role switching within school context
