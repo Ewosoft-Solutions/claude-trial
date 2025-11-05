@@ -17,6 +17,7 @@
 //
 // See: _requirements/access-control.md for role hierarchy and clearance levels
 // See: _requirements/permissions.md for complete permission list
+// See: _actions/role-permissions-management.md for permission pool inheritance and custom role constraints
 // ============================================
 
 // Roles - System roles (platform) and custom roles (school-specific)

@@ -102,6 +102,7 @@ All commands will automatically discover all `.prisma` files in the `prisma/` di
 ## 🔗 Model Relationships
 
 ### User Management Flow
+
 ```
 User → UserTenant (Profile) → UserTenantRole → Role
 User → PasswordHistory
@@ -110,6 +111,7 @@ User → Session → UserTenant (Profile)
 ```
 
 ### Access Control Flow
+
 ```
 Role → RolePermission → Permission
 UserTenant → UserTenantRole → Role
@@ -119,6 +121,7 @@ Tenant → UserTenant
 ```
 
 ### Audit Trail
+
 ```
 User → createdBy (User)
 User → updatedBy (User)
@@ -130,22 +133,26 @@ UserTenant → addedBy (User)
 ## ✅ Schema Validation Checklist
 
 ### Field Mappings
+
 - ✅ All database columns use snake_case via `@map()`
 - ✅ All Prisma fields use camelCase
 - ✅ Consistent naming conventions across all models
 
 ### Indexes
+
 - ✅ All foreign keys indexed
 - ✅ All unique constraints indexed
 - ✅ Query optimization indexes in place (email, status, clearance level, etc.)
 
 ### Relationships
+
 - ✅ All foreign key relationships properly defined
 - ✅ Cascade deletes configured where appropriate
 - ✅ Self-referential relationships properly configured
 - ✅ Many-to-many relationships properly implemented
 
 ### Constraints
+
 - ✅ Unique constraints on appropriate fields
 - ✅ Composite unique constraints (name + tenantId for roles)
 - ✅ Default values set appropriately
@@ -154,12 +161,14 @@ UserTenant → addedBy (User)
 ## 🎯 Key Features Implemented
 
 ### Multi-Tenant Architecture
+
 - ✅ Tenant isolation via `tenantId`
 - ✅ Profile-based context switching
 - ✅ School-specific custom roles
 - ✅ Platform/system roles (global)
 
 ### Security Features
+
 - ✅ Password history tracking
 - ✅ Login attempt monitoring
 - ✅ Account lockout mechanism
@@ -168,6 +177,7 @@ UserTenant → addedBy (User)
 - ✅ Invitation-based user addition
 
 ### Access Control
+
 - ✅ Clearance level hierarchy (0-10)
 - ✅ Role-based access control (RBAC)
 - ✅ Permission-based access control (PBAC)
@@ -175,6 +185,7 @@ UserTenant → addedBy (User)
 - ✅ Platform/system/custom role separation
 
 ### UI-Ready Metadata
+
 - ✅ Permission labels for display
 - ✅ Permission descriptions for tooltips
 - ✅ Structured permission metadata (key, label, description)
@@ -182,12 +193,14 @@ UserTenant → addedBy (User)
 ## 📋 Schema Statistics
 
 **Total Models:** 10
+
 - User Management: 4 models
 - Roles & Permissions: 3 models
 - Profiles: 3 models
 - Tenants: 1 model (basic structure)
 
 **Total Relationships:** 15+
+
 - User → UserTenant (many-to-many)
 - UserTenant → Role (many-to-many via UserTenantRole)
 - Role → Permission (many-to-many via RolePermission)
@@ -196,6 +209,7 @@ UserTenant → addedBy (User)
 - Tenant → UserTenant (one-to-many)
 
 **Total Indexes:** 30+
+
 - Foreign key indexes
 - Unique constraint indexes
 - Query optimization indexes
@@ -203,17 +217,23 @@ UserTenant → addedBy (User)
 ## 🔄 Next Steps
 
 ### Schema Migration
+
 When ready to apply these schemas:
+
 1. Run `prisma migrate dev` to create migration
 2. Review generated migration SQL
 3. Test migration on development database
 4. Apply to production database
 
 ### Seed Data
+
 Consider creating seed data for:
+
 - System roles (Architect, SuperAdmin, Owner, Management, etc.)
 - Permission definitions (300+ permissions with labels and descriptions)
 - Permission pools per clearance level (for custom role validation)
+  - See `_actions/role-permissions-management.md` for permission pool inheritance approach
+- Permission pool assignments (assign permissions to pools by clearance level)
 
 ### Future Context-Based Files
 

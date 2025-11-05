@@ -70,6 +70,11 @@
 - [ ] 4.9 Implement platform oversight capabilities
 - [ ] 4.10 Implement strict context validation (user belongs to school, profile active)
 - [ ] 4.11 Implement multi-layer security validation middleware
+- [ ] 4.12 Implement permission pool inheritance system (per clearance level)
+- [ ] 4.13 Implement custom role creation constraints (clearance level 0-7 only, permission pool validation)
+- [ ] 4.14 Implement permission pool models and seed data
+- [ ] 4.15 Implement application-level role name uniqueness validation (platform/system roles)
+- [ ] 4.16 Integrate clearance level context with AI mediator
 
 ### 4a. Security Policy Framework
 

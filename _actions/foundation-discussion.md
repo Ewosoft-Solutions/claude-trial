@@ -113,6 +113,18 @@ Please clarify what you consider the minimum viable product for the foundation l
 
 **✅ Decision: Extended MVP** - Complete foundation + one working feature
 
+### 10. Role & Permissions Management
+
+**Decision: Permission Pool Inheritance by Clearance Level**
+
+- **Clearance Level Hierarchy**: 0-10 hierarchy with defined access boundaries
+- **Permission Pool Inheritance**: Custom roles inherit from permission pools matching their clearance level
+- **Custom Role Constraints**: Custom roles limited to clearance levels 0-7 (school-level only)
+- **Role Type Separation**: Platform (9-10), System (0-8), Custom (0-7) roles with distinct constraints
+- **Application-Level Validation**: Required for role name uniqueness and clearance level rules
+- **AI Mediator Integration**: Consistent clearance level context for AI queries
+- See `role-permissions-management.md` for complete details
+
 ---
 
 ## Development Approach Implications
