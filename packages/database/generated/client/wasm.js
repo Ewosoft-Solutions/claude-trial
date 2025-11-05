@@ -92,9 +92,209 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
+exports.Prisma.UserTenantScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  tenantId: 'tenantId',
+  status: 'status',
+  suspended: 'suspended',
+  suspendedAt: 'suspendedAt',
+  suspendedBy: 'suspendedBy',
+  suspensionReason: 'suspensionReason',
+  invitationToken: 'invitationToken',
+  invitationExpiresAt: 'invitationExpiresAt',
+  invitationAcceptedAt: 'invitationAcceptedAt',
+  addedBy: 'addedBy',
+  addedAt: 'addedAt'
+};
+
+exports.Prisma.UserTenantRoleScalarFieldEnum = {
+  id: 'id',
+  userTenantId: 'userTenantId',
+  roleId: 'roleId',
+  isPrimary: 'isPrimary',
+  assignedAt: 'assignedAt',
+  assignedBy: 'assignedBy'
+};
+
+exports.Prisma.UserTenantPermissionScalarFieldEnum = {
+  id: 'id',
+  userTenantId: 'userTenantId',
+  permissionId: 'permissionId',
+  granted: 'granted',
+  grantedAt: 'grantedAt',
+  grantedBy: 'grantedBy'
+};
+
+exports.Prisma.RoleScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  roleType: 'roleType',
+  clearanceLevel: 'clearanceLevel',
+  isSystemRole: 'isSystemRole',
+  tenantId: 'tenantId',
+  isActive: 'isActive',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PermissionScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  label: 'label',
+  description: 'description',
+  resource: 'resource',
+  action: 'action',
+  context: 'context',
+  category: 'category',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.RolePermissionScalarFieldEnum = {
+  id: 'id',
+  roleId: 'roleId',
+  permissionId: 'permissionId',
+  grantedAt: 'grantedAt',
+  grantedBy: 'grantedBy'
+};
+
+exports.Prisma.PermissionPoolScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  clearanceLevel: 'clearanceLevel',
+  description: 'description',
+  isSystemPool: 'isSystemPool',
+  tenantId: 'tenantId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PermissionPoolPermissionScalarFieldEnum = {
+  id: 'id',
+  poolId: 'poolId',
+  permissionId: 'permissionId',
+  addedAt: 'addedAt',
+  addedBy: 'addedBy'
+};
+
+exports.Prisma.RolePermissionPoolScalarFieldEnum = {
+  id: 'id',
+  roleId: 'roleId',
+  poolId: 'poolId',
+  assignedAt: 'assignedAt',
+  assignedBy: 'assignedBy'
+};
+
+exports.Prisma.TenantScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  emailDomain: 'emailDomain',
+  status: 'status',
+  settings: 'settings',
+  createdBy: 'createdBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.UserScalarFieldEnum = {
+  id: 'id',
+  email: 'email',
+  passwordHash: 'passwordHash',
+  firstName: 'firstName',
+  lastName: 'lastName',
+  phone: 'phone',
+  isActive: 'isActive',
+  isVerified: 'isVerified',
+  emailVerifiedAt: 'emailVerifiedAt',
+  loginAttempts: 'loginAttempts',
+  lockedUntil: 'lockedUntil',
+  passwordChangedAt: 'passwordChangedAt',
+  lastLoginAt: 'lastLoginAt',
+  passwordResetToken: 'passwordResetToken',
+  passwordResetExpiresAt: 'passwordResetExpiresAt',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PasswordHistoryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  passwordHash: 'passwordHash',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.LoginAttemptScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  email: 'email',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  success: 'success',
+  failureReason: 'failureReason',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.SessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  userTenantId: 'userTenantId',
+  token: 'token',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  deviceFingerprint: 'deviceFingerprint',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.SortOrder = {
+  asc: 'asc',
+  desc: 'desc'
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
+};
+
+exports.Prisma.QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+};
+
+exports.Prisma.NullsOrder = {
+  first: 'first',
+  last: 'last'
+};
+
+exports.Prisma.JsonNullValueFilter = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull,
+  AnyNull: Prisma.AnyNull
+};
+
 
 exports.Prisma.ModelName = {
-
+  UserTenant: 'UserTenant',
+  UserTenantRole: 'UserTenantRole',
+  UserTenantPermission: 'UserTenantPermission',
+  Role: 'Role',
+  Permission: 'Permission',
+  RolePermission: 'RolePermission',
+  PermissionPool: 'PermissionPool',
+  PermissionPoolPermission: 'PermissionPoolPermission',
+  RolePermissionPool: 'RolePermissionPool',
+  Tenant: 'Tenant',
+  User: 'User',
+  PasswordHistory: 'PasswordHistory',
+  LoginAttempt: 'LoginAttempt',
+  Session: 'Session'
 };
 /**
  * Create the Client
@@ -125,7 +325,7 @@ const config = {
     "isCustomOutput": true
   },
   "relativeEnvPaths": {
-    "rootEnvPath": "../../.env",
+    "rootEnvPath": null,
     "schemaEnvPath": "../../.env"
   },
   "relativePath": "../../prisma",
@@ -135,7 +335,6 @@ const config = {
     "db"
   ],
   "activeProvider": "postgresql",
-  "postinstall": false,
   "inlineDatasources": {
     "db": {
       "url": {
@@ -144,13 +343,13 @@ const config = {
       }
     }
   },
-  "inlineSchema": "// Main Prisma Schema File\n// This file is the entry point and contains the datasource and generator configuration\n// All models are organized in separate files by context in the same directory\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/client\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n",
-  "inlineSchemaHash": "3971440ce9748c1ec2b9641060da280ac8d380bca2353958bae0921998542a8c",
+  "inlineSchema": "// ============================================\n// User-Tenant Profile Models\n// ============================================\n//\n// Schema Design Notes:\n//\n// 1. User-Tenant Relationship (Profile):\n//    - Each school-role combination is a \"profile\"\n//    - User can have multiple profiles (one per school, potentially multiple roles per school)\n//    - Profile-specific permissions can override role permissions\n//    - Profile-level suspension capability\n//    - Invitation-based addition support\n//\n// 2. Profile Permissions:\n//    - Profile-specific permissions can override role permissions\n//    - Grant or deny permissions explicitly per profile\n//\n// See: _actions/multi-tenancy-security-strategy.md for complete security design\n// ============================================\n\n// User-Tenant Relationship - Profile (many-to-many: user can belong to multiple schools)\nmodel UserTenant {\n  id       String @id @default(uuid())\n  userId   String @map(\"user_id\")\n  tenantId String @map(\"tenant_id\")\n\n  // Profile Status\n  status           String    @default(\"pending\") // 'active' | 'inactive' | 'pending' | 'suspended'\n  suspended        Boolean   @default(false)\n  suspendedAt      DateTime? @map(\"suspended_at\")\n  suspendedBy      String?   @map(\"suspended_by\")\n  suspensionReason String?   @map(\"suspension_reason\")\n\n  // Invitation Fields (for invitation-based addition)\n  invitationToken      String?   @map(\"invitation_token\")\n  invitationExpiresAt  DateTime? @map(\"invitation_expires_at\")\n  invitationAcceptedAt DateTime? @map(\"invitation_accepted_at\")\n\n  // Audit Fields\n  addedBy String?  @map(\"added_by\") // Admin who added user to school\n  addedAt DateTime @default(now()) @map(\"added_at\")\n\n  // Relations\n  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)\n  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)\n  userTenantRoles       UserTenantRole[] // User can have multiple roles per school\n  userTenantPermissions UserTenantPermission[] // Profile-specific permissions (override role permissions)\n  sessions              Session[]\n\n  @@unique([userId, tenantId]) // One relationship per user-tenant pair\n  @@index([userId])\n  @@index([tenantId])\n  @@index([status])\n  @@index([suspended])\n  @@index([invitationToken])\n  @@map(\"user_tenants\")\n}\n\n// User Tenant Role - Profile can have multiple roles per school\nmodel UserTenantRole {\n  id           String   @id @default(uuid())\n  userTenantId String   @map(\"user_tenant_id\")\n  roleId       String   @map(\"role_id\")\n  isPrimary    Boolean  @default(false) @map(\"is_primary\") // Primary role for the profile\n  assignedAt   DateTime @default(now()) @map(\"assigned_at\")\n  assignedBy   String?  @map(\"assigned_by\")\n\n  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)\n  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)\n\n  @@unique([userTenantId, roleId])\n  @@index([userTenantId])\n  @@index([roleId])\n  @@index([isPrimary])\n  @@map(\"user_tenant_roles\")\n}\n\n// User Tenant Permissions - Profile-specific permissions (override role permissions)\nmodel UserTenantPermission {\n  id           String   @id @default(uuid())\n  userTenantId String   @map(\"user_tenant_id\")\n  permissionId String   @map(\"permission_id\")\n  granted      Boolean  @default(true) // true = granted, false = denied (override)\n  grantedAt    DateTime @default(now()) @map(\"granted_at\")\n  grantedBy    String?  @map(\"granted_by\")\n\n  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)\n  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)\n\n  @@unique([userTenantId, permissionId])\n  @@index([userTenantId])\n  @@index([permissionId])\n  @@map(\"user_tenant_permissions\")\n}\n\n// ============================================\n// Roles and Permissions Models\n// ============================================\n//\n// Schema Design Notes:\n//\n// 1. Roles:\n//    - Platform roles (Architect, SuperAdmin) - tenantId = null\n//    - System roles (Owner, Management, Teacher, etc.) - tenantId = null (global)\n//    - Custom roles - tenantId = UUID (school-specific)\n//    - Each role has clearance level (0-10) and role type\n//\n// 2. Permissions:\n//    - 300+ granular permissions (resource.action format)\n//    - Context-aware permissions (e.g., 'students.edit.own_classes')\n//    - Permissions assigned to roles, can be overridden per profile\n//\n// See: _requirements/access-control.md for role hierarchy and clearance levels\n// See: _requirements/permissions.md for complete permission list\n// See: _actions/role-permissions-management.md for permission pool inheritance and custom role constraints\n// ============================================\n\n// Roles - System roles (platform) and custom roles (school-specific)\n// \n// Role Types:\n// - 'platform': Platform-level roles (Architect, SuperAdmin) - tenantId = null, name globally unique\n// - 'system': System-level roles (Owner, Management, Teacher, etc.) - tenantId = null, name globally unique\n// - 'custom': School-specific custom roles - tenantId = UUID, name unique per tenant\n//\n// Note: For platform/system roles (tenantId = null), ensure name is globally unique at application level.\n// Prisma's @@unique([name, tenantId]) allows multiple NULL values, so application-level validation is needed.\nmodel Role {\n  id             String  @id @default(uuid())\n  name           String // Globally unique for platform/system roles, tenant-specific for custom roles\n  description    String?\n  roleType       String  @map(\"role_type\") // 'platform' | 'system' | 'custom'\n  clearanceLevel Int     @map(\"clearance_level\") // 0-10 (Architect=10, SuperAdmin=9, Owner=8, etc.)\n  isSystemRole   Boolean @default(false) @map(\"is_system_role\") // True for predefined roles\n  tenantId       String? @map(\"tenant_id\") // Null for platform/system roles, required for custom roles\n  isActive       Boolean @default(true) @map(\"is_active\")\n\n  // Audit Fields\n  createdBy String?  @map(\"created_by\")\n  updatedBy String?  @map(\"updated_by\")\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  // Relations\n  tenant          Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Cascade)\n  rolePermissions RolePermission[]\n  userTenantRoles UserTenantRole[]\n  rolePools       RolePermissionPool[]\n\n  @@unique([name, tenantId]) // Name unique per tenant (for custom roles), application-level check needed for platform/system roles\n  @@index([roleType])\n  @@index([clearanceLevel])\n  @@index([tenantId])\n  @@index([isSystemRole])\n  @@index([roleType, name]) // For platform/system role name uniqueness checks\n  @@map(\"roles\")\n}\n\n// Permissions - The 300+ granular permissions\n// Structured metadata for UI rendering: key (name), label (display), description (details)\nmodel Permission {\n  id          String  @id @default(uuid())\n  name        String  @unique // Key/identifier (e.g., 'students.view', 'grades.edit', 'platform.override')\n  label       String // Human-readable display name (e.g., 'View Students', 'Edit Grades')\n  description String? // Detailed description for UI rendering and tooltips\n  resource    String // e.g., 'students', 'grades', 'platform'\n  action      String // e.g., 'view', 'edit', 'create', 'delete'\n  context     String? // e.g., 'own_classes', 'children', 'department'\n  category    String // e.g., 'academic', 'administrative', 'platform', 'financial'\n\n  createdAt DateTime @default(now()) @map(\"created_at\")\n\n  // Relations\n  rolePermissions       RolePermission[]\n  userTenantPermissions UserTenantPermission[]\n  poolPermissions       PermissionPoolPermission[]\n\n  @@index([resource])\n  @@index([action])\n  @@index([category])\n  @@index([resource, action]) // For fast permission lookups\n  @@map(\"permissions\")\n}\n\n// Role Permissions - Many-to-many: Roles have permissions\nmodel RolePermission {\n  id           String   @id @default(uuid())\n  roleId       String   @map(\"role_id\")\n  permissionId String   @map(\"permission_id\")\n  grantedAt    DateTime @default(now()) @map(\"granted_at\")\n  grantedBy    String?  @map(\"granted_by\")\n\n  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)\n  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)\n\n  @@unique([roleId, permissionId])\n  @@index([roleId])\n  @@index([permissionId])\n  @@map(\"role_permissions\")\n}\n\n// Permission Pools - Predefined sets of permissions grouped by clearance level\n// Custom roles can only inherit permissions from pools matching their clearance level or below\nmodel PermissionPool {\n  id             String  @id @default(uuid())\n  name           String // e.g., \"Level10_PlatformArchitect\", \"Level7_SchoolManagement\"\n  clearanceLevel Int     @map(\"clearance_level\") // 0-10\n  description    String?\n  isSystemPool   Boolean @default(true) @map(\"is_system_pool\") // True for predefined pools\n  tenantId       String? @map(\"tenant_id\") // Null for system pools, can be set for tenant-specific pools\n\n  // Audit Fields\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  // Relations\n  tenant          Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)\n  poolPermissions PermissionPoolPermission[]\n  rolePools       RolePermissionPool[]\n\n  @@unique([name, tenantId]) // Name unique per tenant (for custom pools)\n  @@index([clearanceLevel])\n  @@index([isSystemPool])\n  @@index([tenantId])\n  @@map(\"permission_pools\")\n}\n\n// Permission Pool Permissions - Many-to-many: Permission pools contain permissions\nmodel PermissionPoolPermission {\n  id           String   @id @default(uuid())\n  poolId       String   @map(\"pool_id\")\n  permissionId String   @map(\"permission_id\")\n  addedAt      DateTime @default(now()) @map(\"added_at\")\n  addedBy      String?  @map(\"added_by\")\n\n  pool       PermissionPool @relation(fields: [poolId], references: [id], onDelete: Cascade)\n  permission Permission     @relation(fields: [permissionId], references: [id], onDelete: Cascade)\n\n  @@unique([poolId, permissionId])\n  @@index([poolId])\n  @@index([permissionId])\n  @@map(\"permission_pool_permissions\")\n}\n\n// Role Permission Pools - Many-to-many: Roles inherit from permission pools\nmodel RolePermissionPool {\n  id         String   @id @default(uuid())\n  roleId     String   @map(\"role_id\")\n  poolId     String   @map(\"pool_id\")\n  assignedAt DateTime @default(now()) @map(\"assigned_at\")\n  assignedBy String?  @map(\"assigned_by\")\n\n  role Role           @relation(fields: [roleId], references: [id], onDelete: Cascade)\n  pool PermissionPool @relation(fields: [poolId], references: [id], onDelete: Cascade)\n\n  @@unique([roleId, poolId])\n  @@index([roleId])\n  @@index([poolId])\n  @@map(\"role_permission_pools\")\n}\n\n// ============================================\n// Tenant (School) Management Models\n// ============================================\n//\n// Schema Design Notes:\n//\n// 1. Tenants (Schools):\n//    - Basic tenant structure for multi-tenant architecture\n//    - Each tenant represents a school\n//    - Optional email domain for validation\n//    - Status tracking (active, pending, suspended)\n//    - School-specific settings stored as JSONB\n//\n// See: _actions/multi-tenancy-security-strategy.md for complete tenant design\n// See: _requirements/multi-tenant-architecture.md for architecture details\n// ============================================\n\n// Tenants (Schools) - Basic structure for multi-tenant architecture\nmodel Tenant {\n  id          String   @id @default(uuid())\n  name        String\n  slug        String?  @unique\n  emailDomain String?  @map(\"email_domain\") // Optional, for validation\n  status      String   @default(\"pending\") // 'active' | 'pending' | 'suspended'\n  settings    Json? // School-specific settings (JSONB)\n  createdBy   String?  @map(\"created_by\")\n  createdAt   DateTime @default(now()) @map(\"created_at\")\n  updatedAt   DateTime @updatedAt @map(\"updated_at\")\n\n  // Relations\n  roles           Role[]\n  userTenants     UserTenant[]\n  permissionPools PermissionPool[]\n\n  @@index([status])\n  @@index([emailDomain])\n  @@map(\"tenants\")\n}\n\n// ============================================\n// User Management Models\n// ============================================\n//\n// Schema Design Notes:\n//\n// 1. Users:\n//    - Single user account can belong to multiple schools (many-to-many)\n//    - Each user has one email + password + MFA (account-level)\n//    - Password history tracked for reuse prevention\n//    - Login attempts tracked for rate limiting and lockout\n//\n// 2. Security:\n//    - Password history for reuse prevention\n//    - Login attempts for rate limiting\n//    - Session management with profile context\n//    - Audit fields (created_by, updated_by) for tracking\n//\n// See: _actions/multi-tenancy-security-strategy.md for complete security design\n// See: _requirements/access-control.md for role hierarchy and clearance levels\n// ============================================\n\n// Users - Core user account information\nmodel User {\n  id           String  @id @default(uuid())\n  email        String  @unique\n  passwordHash String? @map(\"password_hash\") // bcrypt hash, nullable for invitation-based accounts\n  firstName    String? @map(\"first_name\")\n  lastName     String? @map(\"last_name\")\n  phone        String?\n\n  // Account Status\n  isActive        Boolean   @default(true) @map(\"is_active\")\n  isVerified      Boolean   @default(false) @map(\"is_verified\")\n  emailVerifiedAt DateTime? @map(\"email_verified_at\")\n\n  // Security Fields\n  loginAttempts     Int       @default(0) @map(\"login_attempts\")\n  lockedUntil       DateTime? @map(\"locked_until\") // Account lockout timestamp\n  passwordChangedAt DateTime? @map(\"password_changed_at\") // For password expiration check\n  lastLoginAt       DateTime? @map(\"last_login_at\")\n\n  // Password Reset\n  passwordResetToken     String?   @map(\"password_reset_token\")\n  passwordResetExpiresAt DateTime? @map(\"password_reset_expires_at\")\n\n  // Audit Fields\n  createdBy String?  @map(\"created_by\")\n  updatedBy String?  @map(\"updated_by\")\n  createdAt DateTime @default(now()) @map(\"created_at\")\n  updatedAt DateTime @updatedAt @map(\"updated_at\")\n\n  // Relations\n  createdByUser User?  @relation(\"UserCreated\", fields: [createdBy], references: [id])\n  updatedByUser User?  @relation(\"UserUpdated\", fields: [updatedBy], references: [id])\n  createdUsers  User[] @relation(\"UserCreated\")\n  updatedUsers  User[] @relation(\"UserUpdated\")\n\n  passwordHistories PasswordHistory[]\n  loginAttemptsList LoginAttempt[]\n  userTenants       UserTenant[]\n  sessions          Session[]\n\n  @@index([email])\n  @@index([isActive])\n  @@index([isVerified])\n  @@map(\"users\")\n}\n\n// Password History - For password reuse prevention\nmodel PasswordHistory {\n  id           String   @id @default(uuid())\n  userId       String   @map(\"user_id\")\n  passwordHash String   @map(\"password_hash\") // Encrypted previous password\n  createdAt    DateTime @default(now()) @map(\"created_at\")\n\n  user User @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  @@index([userId, createdAt])\n  @@map(\"password_histories\")\n}\n\n// Login Attempts - For rate limiting and security monitoring\nmodel LoginAttempt {\n  id            String   @id @default(uuid())\n  userId        String?  @map(\"user_id\") // Nullable for failed attempts with unknown user\n  email         String // For tracking failed attempts\n  ipAddress     String   @map(\"ip_address\")\n  userAgent     String?  @map(\"user_agent\")\n  success       Boolean  @default(false)\n  failureReason String?  @map(\"failure_reason\")\n  createdAt     DateTime @default(now()) @map(\"created_at\")\n\n  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)\n\n  @@index([email, createdAt])\n  @@index([userId, createdAt])\n  @@index([ipAddress, createdAt])\n  @@index([success])\n  @@map(\"login_attempts\")\n}\n\n// Sessions - Active user sessions for session management\nmodel Session {\n  id                String    @id @default(uuid())\n  userId            String    @map(\"user_id\")\n  userTenantId      String    @map(\"user_tenant_id\") // Profile ID (current context)\n  token             String    @unique // JWT token or session token\n  ipAddress         String?   @map(\"ip_address\")\n  userAgent         String?   @map(\"user_agent\")\n  deviceFingerprint String?   @map(\"device_fingerprint\")\n  expiresAt         DateTime  @map(\"expires_at\")\n  revokedAt         DateTime? @map(\"revoked_at\")\n  createdAt         DateTime  @default(now()) @map(\"created_at\")\n\n  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)\n  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)\n\n  @@index([userId])\n  @@index([userTenantId])\n  @@index([token])\n  @@index([expiresAt])\n  @@index([revokedAt])\n  @@map(\"sessions\")\n}\n\n// Main Prisma Schema File\n// This file is the entry point and contains the datasource and generator configuration\n// All models are organized in separate files by context in the same directory\n\ngenerator client {\n  provider = \"prisma-client-js\"\n  output   = \"../generated/client\"\n}\n\ndatasource db {\n  provider = \"postgresql\"\n  url      = env(\"DATABASE_URL\")\n}\n",
+  "inlineSchemaHash": "7bc28054bf75c71cefe8f42e15cec18a1d27ddd7a04f7562f75da034ec8c97d7",
   "copyEngine": true
 }
 config.dirname = '/'
 
-config.runtimeDataModel = JSON.parse("{\"models\":{},\"enums\":{},\"types\":{}}")
+config.runtimeDataModel = JSON.parse("{\"models\":{\"UserTenant\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_id\"},{\"name\":\"tenantId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"tenant_id\"},{\"name\":\"status\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"suspended\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"suspendedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"suspended_at\"},{\"name\":\"suspendedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"suspended_by\"},{\"name\":\"suspensionReason\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"suspension_reason\"},{\"name\":\"invitationToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"invitation_token\"},{\"name\":\"invitationExpiresAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"invitation_expires_at\"},{\"name\":\"invitationAcceptedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"invitation_accepted_at\"},{\"name\":\"addedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"added_by\"},{\"name\":\"addedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"added_at\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserToUserTenant\"},{\"name\":\"tenant\",\"kind\":\"object\",\"type\":\"Tenant\",\"relationName\":\"TenantToUserTenant\"},{\"name\":\"userTenantRoles\",\"kind\":\"object\",\"type\":\"UserTenantRole\",\"relationName\":\"UserTenantToUserTenantRole\"},{\"name\":\"userTenantPermissions\",\"kind\":\"object\",\"type\":\"UserTenantPermission\",\"relationName\":\"UserTenantToUserTenantPermission\"},{\"name\":\"sessions\",\"kind\":\"object\",\"type\":\"Session\",\"relationName\":\"SessionToUserTenant\"}],\"dbName\":\"user_tenants\"},\"UserTenantRole\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userTenantId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_tenant_id\"},{\"name\":\"roleId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"role_id\"},{\"name\":\"isPrimary\",\"kind\":\"scalar\",\"type\":\"Boolean\",\"dbName\":\"is_primary\"},{\"name\":\"assignedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"assigned_at\"},{\"name\":\"assignedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"assigned_by\"},{\"name\":\"userTenant\",\"kind\":\"object\",\"type\":\"UserTenant\",\"relationName\":\"UserTenantToUserTenantRole\"},{\"name\":\"role\",\"kind\":\"object\",\"type\":\"Role\",\"relationName\":\"RoleToUserTenantRole\"}],\"dbName\":\"user_tenant_roles\"},\"UserTenantPermission\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userTenantId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_tenant_id\"},{\"name\":\"permissionId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"permission_id\"},{\"name\":\"granted\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"grantedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"granted_at\"},{\"name\":\"grantedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"granted_by\"},{\"name\":\"userTenant\",\"kind\":\"object\",\"type\":\"UserTenant\",\"relationName\":\"UserTenantToUserTenantPermission\"},{\"name\":\"permission\",\"kind\":\"object\",\"type\":\"Permission\",\"relationName\":\"PermissionToUserTenantPermission\"}],\"dbName\":\"user_tenant_permissions\"},\"Role\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roleType\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"role_type\"},{\"name\":\"clearanceLevel\",\"kind\":\"scalar\",\"type\":\"Int\",\"dbName\":\"clearance_level\"},{\"name\":\"isSystemRole\",\"kind\":\"scalar\",\"type\":\"Boolean\",\"dbName\":\"is_system_role\"},{\"name\":\"tenantId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"tenant_id\"},{\"name\":\"isActive\",\"kind\":\"scalar\",\"type\":\"Boolean\",\"dbName\":\"is_active\"},{\"name\":\"createdBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"created_by\"},{\"name\":\"updatedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"updated_by\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"tenant\",\"kind\":\"object\",\"type\":\"Tenant\",\"relationName\":\"RoleToTenant\"},{\"name\":\"rolePermissions\",\"kind\":\"object\",\"type\":\"RolePermission\",\"relationName\":\"RoleToRolePermission\"},{\"name\":\"userTenantRoles\",\"kind\":\"object\",\"type\":\"UserTenantRole\",\"relationName\":\"RoleToUserTenantRole\"},{\"name\":\"rolePools\",\"kind\":\"object\",\"type\":\"RolePermissionPool\",\"relationName\":\"RoleToRolePermissionPool\"}],\"dbName\":\"roles\"},\"Permission\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"label\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"resource\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"action\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"context\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"category\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"rolePermissions\",\"kind\":\"object\",\"type\":\"RolePermission\",\"relationName\":\"PermissionToRolePermission\"},{\"name\":\"userTenantPermissions\",\"kind\":\"object\",\"type\":\"UserTenantPermission\",\"relationName\":\"PermissionToUserTenantPermission\"},{\"name\":\"poolPermissions\",\"kind\":\"object\",\"type\":\"PermissionPoolPermission\",\"relationName\":\"PermissionToPermissionPoolPermission\"}],\"dbName\":\"permissions\"},\"RolePermission\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roleId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"role_id\"},{\"name\":\"permissionId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"permission_id\"},{\"name\":\"grantedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"granted_at\"},{\"name\":\"grantedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"granted_by\"},{\"name\":\"role\",\"kind\":\"object\",\"type\":\"Role\",\"relationName\":\"RoleToRolePermission\"},{\"name\":\"permission\",\"kind\":\"object\",\"type\":\"Permission\",\"relationName\":\"PermissionToRolePermission\"}],\"dbName\":\"role_permissions\"},\"PermissionPool\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"clearanceLevel\",\"kind\":\"scalar\",\"type\":\"Int\",\"dbName\":\"clearance_level\"},{\"name\":\"description\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isSystemPool\",\"kind\":\"scalar\",\"type\":\"Boolean\",\"dbName\":\"is_system_pool\"},{\"name\":\"tenantId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"tenant_id\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"tenant\",\"kind\":\"object\",\"type\":\"Tenant\",\"relationName\":\"PermissionPoolToTenant\"},{\"name\":\"poolPermissions\",\"kind\":\"object\",\"type\":\"PermissionPoolPermission\",\"relationName\":\"PermissionPoolToPermissionPoolPermission\"},{\"name\":\"rolePools\",\"kind\":\"object\",\"type\":\"RolePermissionPool\",\"relationName\":\"PermissionPoolToRolePermissionPool\"}],\"dbName\":\"permission_pools\"},\"PermissionPoolPermission\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"poolId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"pool_id\"},{\"name\":\"permissionId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"permission_id\"},{\"name\":\"addedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"added_at\"},{\"name\":\"addedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"added_by\"},{\"name\":\"pool\",\"kind\":\"object\",\"type\":\"PermissionPool\",\"relationName\":\"PermissionPoolToPermissionPoolPermission\"},{\"name\":\"permission\",\"kind\":\"object\",\"type\":\"Permission\",\"relationName\":\"PermissionToPermissionPoolPermission\"}],\"dbName\":\"permission_pool_permissions\"},\"RolePermissionPool\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"roleId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"role_id\"},{\"name\":\"poolId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"pool_id\"},{\"name\":\"assignedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"assigned_at\"},{\"name\":\"assignedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"assigned_by\"},{\"name\":\"role\",\"kind\":\"object\",\"type\":\"Role\",\"relationName\":\"RoleToRolePermissionPool\"},{\"name\":\"pool\",\"kind\":\"object\",\"type\":\"PermissionPool\",\"relationName\":\"PermissionPoolToRolePermissionPool\"}],\"dbName\":\"role_permission_pools\"},\"Tenant\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"name\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"slug\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"emailDomain\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"email_domain\"},{\"name\":\"status\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"settings\",\"kind\":\"scalar\",\"type\":\"Json\"},{\"name\":\"createdBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"created_by\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"roles\",\"kind\":\"object\",\"type\":\"Role\",\"relationName\":\"RoleToTenant\"},{\"name\":\"userTenants\",\"kind\":\"object\",\"type\":\"UserTenant\",\"relationName\":\"TenantToUserTenant\"},{\"name\":\"permissionPools\",\"kind\":\"object\",\"type\":\"PermissionPool\",\"relationName\":\"PermissionPoolToTenant\"}],\"dbName\":\"tenants\"},\"User\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"passwordHash\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"password_hash\"},{\"name\":\"firstName\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"first_name\"},{\"name\":\"lastName\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"last_name\"},{\"name\":\"phone\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"isActive\",\"kind\":\"scalar\",\"type\":\"Boolean\",\"dbName\":\"is_active\"},{\"name\":\"isVerified\",\"kind\":\"scalar\",\"type\":\"Boolean\",\"dbName\":\"is_verified\"},{\"name\":\"emailVerifiedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"email_verified_at\"},{\"name\":\"loginAttempts\",\"kind\":\"scalar\",\"type\":\"Int\",\"dbName\":\"login_attempts\"},{\"name\":\"lockedUntil\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"locked_until\"},{\"name\":\"passwordChangedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"password_changed_at\"},{\"name\":\"lastLoginAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"last_login_at\"},{\"name\":\"passwordResetToken\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"password_reset_token\"},{\"name\":\"passwordResetExpiresAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"password_reset_expires_at\"},{\"name\":\"createdBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"created_by\"},{\"name\":\"updatedBy\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"updated_by\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"updatedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"updated_at\"},{\"name\":\"createdByUser\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserCreated\"},{\"name\":\"updatedByUser\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserUpdated\"},{\"name\":\"createdUsers\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserCreated\"},{\"name\":\"updatedUsers\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"UserUpdated\"},{\"name\":\"passwordHistories\",\"kind\":\"object\",\"type\":\"PasswordHistory\",\"relationName\":\"PasswordHistoryToUser\"},{\"name\":\"loginAttemptsList\",\"kind\":\"object\",\"type\":\"LoginAttempt\",\"relationName\":\"LoginAttemptToUser\"},{\"name\":\"userTenants\",\"kind\":\"object\",\"type\":\"UserTenant\",\"relationName\":\"UserToUserTenant\"},{\"name\":\"sessions\",\"kind\":\"object\",\"type\":\"Session\",\"relationName\":\"SessionToUser\"}],\"dbName\":\"users\"},\"PasswordHistory\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_id\"},{\"name\":\"passwordHash\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"password_hash\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"PasswordHistoryToUser\"}],\"dbName\":\"password_histories\"},\"LoginAttempt\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_id\"},{\"name\":\"email\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"ipAddress\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"ip_address\"},{\"name\":\"userAgent\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_agent\"},{\"name\":\"success\",\"kind\":\"scalar\",\"type\":\"Boolean\"},{\"name\":\"failureReason\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"failure_reason\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"LoginAttemptToUser\"}],\"dbName\":\"login_attempts\"},\"Session\":{\"fields\":[{\"name\":\"id\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"userId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_id\"},{\"name\":\"userTenantId\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_tenant_id\"},{\"name\":\"token\",\"kind\":\"scalar\",\"type\":\"String\"},{\"name\":\"ipAddress\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"ip_address\"},{\"name\":\"userAgent\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"user_agent\"},{\"name\":\"deviceFingerprint\",\"kind\":\"scalar\",\"type\":\"String\",\"dbName\":\"device_fingerprint\"},{\"name\":\"expiresAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"expires_at\"},{\"name\":\"revokedAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"revoked_at\"},{\"name\":\"createdAt\",\"kind\":\"scalar\",\"type\":\"DateTime\",\"dbName\":\"created_at\"},{\"name\":\"user\",\"kind\":\"object\",\"type\":\"User\",\"relationName\":\"SessionToUser\"},{\"name\":\"userTenant\",\"kind\":\"object\",\"type\":\"UserTenant\",\"relationName\":\"SessionToUserTenant\"}],\"dbName\":\"sessions\"}},\"enums\":{},\"types\":{}}")
 defineDmmfProperty(exports.Prisma, config.runtimeDataModel)
 config.engineWasm = {
   getRuntime: async () => require('./query_engine_bg.js'),

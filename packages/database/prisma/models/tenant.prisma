@@ -22,18 +22,19 @@ model Tenant {
   slug        String?  @unique
   emailDomain String?  @map("email_domain") // Optional, for validation
   status      String   @default("pending") // 'active' | 'pending' | 'suspended'
-  settings    Json?    // School-specific settings (JSONB)
+  settings    Json? // School-specific settings (JSONB)
   createdBy   String?  @map("created_by")
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
-  
+
   // Relations
-  roles Role[]
-  userTenants UserTenant[]
+  roles           Role[]
+  userTenants     UserTenant[]
   permissionPools PermissionPool[]
-  
-  @@map("tenants")
+  academicYears   AcademicYear[]
+  courses         Course[]
+
   @@index([status])
   @@index([emailDomain])
+  @@map("tenants")
 }
-

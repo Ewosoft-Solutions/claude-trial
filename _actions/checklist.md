@@ -6,7 +6,7 @@
 
 - [x] 1.1 Design core user management tables (users, roles, permissions) ✅
 - [x] 1.2 Design tenant/school tables (tenants, schools) ✅
-- [ ] 1.3 Design academic structure tables (academic_years, terms, courses, classes)
+- [x] 1.3 Design academic structure tables (academic_years, terms, courses, classes) ✅
 - [ ] 1.4 Design student management tables (students, enrollments)
 - [ ] 1.5 Design assessment/grading tables (assessments, grades, grading_systems)
 - [ ] 1.6 Design communication tables (messages, announcements)

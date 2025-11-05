@@ -120,9 +120,209 @@ exports.Prisma.TransactionIsolationLevel = makeStrictEnum({
   Serializable: 'Serializable'
 });
 
+exports.Prisma.UserTenantScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  tenantId: 'tenantId',
+  status: 'status',
+  suspended: 'suspended',
+  suspendedAt: 'suspendedAt',
+  suspendedBy: 'suspendedBy',
+  suspensionReason: 'suspensionReason',
+  invitationToken: 'invitationToken',
+  invitationExpiresAt: 'invitationExpiresAt',
+  invitationAcceptedAt: 'invitationAcceptedAt',
+  addedBy: 'addedBy',
+  addedAt: 'addedAt'
+};
+
+exports.Prisma.UserTenantRoleScalarFieldEnum = {
+  id: 'id',
+  userTenantId: 'userTenantId',
+  roleId: 'roleId',
+  isPrimary: 'isPrimary',
+  assignedAt: 'assignedAt',
+  assignedBy: 'assignedBy'
+};
+
+exports.Prisma.UserTenantPermissionScalarFieldEnum = {
+  id: 'id',
+  userTenantId: 'userTenantId',
+  permissionId: 'permissionId',
+  granted: 'granted',
+  grantedAt: 'grantedAt',
+  grantedBy: 'grantedBy'
+};
+
+exports.Prisma.RoleScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  description: 'description',
+  roleType: 'roleType',
+  clearanceLevel: 'clearanceLevel',
+  isSystemRole: 'isSystemRole',
+  tenantId: 'tenantId',
+  isActive: 'isActive',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PermissionScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  label: 'label',
+  description: 'description',
+  resource: 'resource',
+  action: 'action',
+  context: 'context',
+  category: 'category',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.RolePermissionScalarFieldEnum = {
+  id: 'id',
+  roleId: 'roleId',
+  permissionId: 'permissionId',
+  grantedAt: 'grantedAt',
+  grantedBy: 'grantedBy'
+};
+
+exports.Prisma.PermissionPoolScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  clearanceLevel: 'clearanceLevel',
+  description: 'description',
+  isSystemPool: 'isSystemPool',
+  tenantId: 'tenantId',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PermissionPoolPermissionScalarFieldEnum = {
+  id: 'id',
+  poolId: 'poolId',
+  permissionId: 'permissionId',
+  addedAt: 'addedAt',
+  addedBy: 'addedBy'
+};
+
+exports.Prisma.RolePermissionPoolScalarFieldEnum = {
+  id: 'id',
+  roleId: 'roleId',
+  poolId: 'poolId',
+  assignedAt: 'assignedAt',
+  assignedBy: 'assignedBy'
+};
+
+exports.Prisma.TenantScalarFieldEnum = {
+  id: 'id',
+  name: 'name',
+  slug: 'slug',
+  emailDomain: 'emailDomain',
+  status: 'status',
+  settings: 'settings',
+  createdBy: 'createdBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.UserScalarFieldEnum = {
+  id: 'id',
+  email: 'email',
+  passwordHash: 'passwordHash',
+  firstName: 'firstName',
+  lastName: 'lastName',
+  phone: 'phone',
+  isActive: 'isActive',
+  isVerified: 'isVerified',
+  emailVerifiedAt: 'emailVerifiedAt',
+  loginAttempts: 'loginAttempts',
+  lockedUntil: 'lockedUntil',
+  passwordChangedAt: 'passwordChangedAt',
+  lastLoginAt: 'lastLoginAt',
+  passwordResetToken: 'passwordResetToken',
+  passwordResetExpiresAt: 'passwordResetExpiresAt',
+  createdBy: 'createdBy',
+  updatedBy: 'updatedBy',
+  createdAt: 'createdAt',
+  updatedAt: 'updatedAt'
+};
+
+exports.Prisma.PasswordHistoryScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  passwordHash: 'passwordHash',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.LoginAttemptScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  email: 'email',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  success: 'success',
+  failureReason: 'failureReason',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.SessionScalarFieldEnum = {
+  id: 'id',
+  userId: 'userId',
+  userTenantId: 'userTenantId',
+  token: 'token',
+  ipAddress: 'ipAddress',
+  userAgent: 'userAgent',
+  deviceFingerprint: 'deviceFingerprint',
+  expiresAt: 'expiresAt',
+  revokedAt: 'revokedAt',
+  createdAt: 'createdAt'
+};
+
+exports.Prisma.SortOrder = {
+  asc: 'asc',
+  desc: 'desc'
+};
+
+exports.Prisma.NullableJsonNullValueInput = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull
+};
+
+exports.Prisma.QueryMode = {
+  default: 'default',
+  insensitive: 'insensitive'
+};
+
+exports.Prisma.NullsOrder = {
+  first: 'first',
+  last: 'last'
+};
+
+exports.Prisma.JsonNullValueFilter = {
+  DbNull: Prisma.DbNull,
+  JsonNull: Prisma.JsonNull,
+  AnyNull: Prisma.AnyNull
+};
+
 
 exports.Prisma.ModelName = {
-
+  UserTenant: 'UserTenant',
+  UserTenantRole: 'UserTenantRole',
+  UserTenantPermission: 'UserTenantPermission',
+  Role: 'Role',
+  Permission: 'Permission',
+  RolePermission: 'RolePermission',
+  PermissionPool: 'PermissionPool',
+  PermissionPoolPermission: 'PermissionPoolPermission',
+  RolePermissionPool: 'RolePermissionPool',
+  Tenant: 'Tenant',
+  User: 'User',
+  PasswordHistory: 'PasswordHistory',
+  LoginAttempt: 'LoginAttempt',
+  Session: 'Session'
 };
 
 /**

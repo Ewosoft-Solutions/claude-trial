@@ -1,3 +1,428 @@
+// ============================================
+// User-Tenant Profile Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. User-Tenant Relationship (Profile):
+//    - Each school-role combination is a "profile"
+//    - User can have multiple profiles (one per school, potentially multiple roles per school)
+//    - Profile-specific permissions can override role permissions
+//    - Profile-level suspension capability
+//    - Invitation-based addition support
+//
+// 2. Profile Permissions:
+//    - Profile-specific permissions can override role permissions
+//    - Grant or deny permissions explicitly per profile
+//
+// See: _actions/multi-tenancy-security-strategy.md for complete security design
+// ============================================
+
+// User-Tenant Relationship - Profile (many-to-many: user can belong to multiple schools)
+model UserTenant {
+  id       String @id @default(uuid())
+  userId   String @map("user_id")
+  tenantId String @map("tenant_id")
+
+  // Profile Status
+  status           String    @default("pending") // 'active' | 'inactive' | 'pending' | 'suspended'
+  suspended        Boolean   @default(false)
+  suspendedAt      DateTime? @map("suspended_at")
+  suspendedBy      String?   @map("suspended_by")
+  suspensionReason String?   @map("suspension_reason")
+
+  // Invitation Fields (for invitation-based addition)
+  invitationToken      String?   @map("invitation_token")
+  invitationExpiresAt  DateTime? @map("invitation_expires_at")
+  invitationAcceptedAt DateTime? @map("invitation_accepted_at")
+
+  // Audit Fields
+  addedBy String?  @map("added_by") // Admin who added user to school
+  addedAt DateTime @default(now()) @map("added_at")
+
+  // Relations
+  user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userTenantRoles       UserTenantRole[] // User can have multiple roles per school
+  userTenantPermissions UserTenantPermission[] // Profile-specific permissions (override role permissions)
+  sessions              Session[]
+
+  @@unique([userId, tenantId]) // One relationship per user-tenant pair
+  @@index([userId])
+  @@index([tenantId])
+  @@index([status])
+  @@index([suspended])
+  @@index([invitationToken])
+  @@map("user_tenants")
+}
+
+// User Tenant Role - Profile can have multiple roles per school
+model UserTenantRole {
+  id           String   @id @default(uuid())
+  userTenantId String   @map("user_tenant_id")
+  roleId       String   @map("role_id")
+  isPrimary    Boolean  @default(false) @map("is_primary") // Primary role for the profile
+  assignedAt   DateTime @default(now()) @map("assigned_at")
+  assignedBy   String?  @map("assigned_by")
+
+  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userTenantId, roleId])
+  @@index([userTenantId])
+  @@index([roleId])
+  @@index([isPrimary])
+  @@map("user_tenant_roles")
+}
+
+// User Tenant Permissions - Profile-specific permissions (override role permissions)
+model UserTenantPermission {
+  id           String   @id @default(uuid())
+  userTenantId String   @map("user_tenant_id")
+  permissionId String   @map("permission_id")
+  granted      Boolean  @default(true) // true = granted, false = denied (override)
+  grantedAt    DateTime @default(now()) @map("granted_at")
+  grantedBy    String?  @map("granted_by")
+
+  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([userTenantId, permissionId])
+  @@index([userTenantId])
+  @@index([permissionId])
+  @@map("user_tenant_permissions")
+}
+
+// ============================================
+// Roles and Permissions Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Roles:
+//    - Platform roles (Architect, SuperAdmin) - tenantId = null
+//    - System roles (Owner, Management, Teacher, etc.) - tenantId = null (global)
+//    - Custom roles - tenantId = UUID (school-specific)
+//    - Each role has clearance level (0-10) and role type
+//
+// 2. Permissions:
+//    - 300+ granular permissions (resource.action format)
+//    - Context-aware permissions (e.g., 'students.edit.own_classes')
+//    - Permissions assigned to roles, can be overridden per profile
+//
+// See: _requirements/access-control.md for role hierarchy and clearance levels
+// See: _requirements/permissions.md for complete permission list
+// See: _actions/role-permissions-management.md for permission pool inheritance and custom role constraints
+// ============================================
+
+// Roles - System roles (platform) and custom roles (school-specific)
+// 
+// Role Types:
+// - 'platform': Platform-level roles (Architect, SuperAdmin) - tenantId = null, name globally unique
+// - 'system': System-level roles (Owner, Management, Teacher, etc.) - tenantId = null, name globally unique
+// - 'custom': School-specific custom roles - tenantId = UUID, name unique per tenant
+//
+// Note: For platform/system roles (tenantId = null), ensure name is globally unique at application level.
+// Prisma's @@unique([name, tenantId]) allows multiple NULL values, so application-level validation is needed.
+model Role {
+  id             String  @id @default(uuid())
+  name           String // Globally unique for platform/system roles, tenant-specific for custom roles
+  description    String?
+  roleType       String  @map("role_type") // 'platform' | 'system' | 'custom'
+  clearanceLevel Int     @map("clearance_level") // 0-10 (Architect=10, SuperAdmin=9, Owner=8, etc.)
+  isSystemRole   Boolean @default(false) @map("is_system_role") // True for predefined roles
+  tenantId       String? @map("tenant_id") // Null for platform/system roles, required for custom roles
+  isActive       Boolean @default(true) @map("is_active")
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant          Tenant?              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  rolePermissions RolePermission[]
+  userTenantRoles UserTenantRole[]
+  rolePools       RolePermissionPool[]
+
+  @@unique([name, tenantId]) // Name unique per tenant (for custom roles), application-level check needed for platform/system roles
+  @@index([roleType])
+  @@index([clearanceLevel])
+  @@index([tenantId])
+  @@index([isSystemRole])
+  @@index([roleType, name]) // For platform/system role name uniqueness checks
+  @@map("roles")
+}
+
+// Permissions - The 300+ granular permissions
+// Structured metadata for UI rendering: key (name), label (display), description (details)
+model Permission {
+  id          String  @id @default(uuid())
+  name        String  @unique // Key/identifier (e.g., 'students.view', 'grades.edit', 'platform.override')
+  label       String // Human-readable display name (e.g., 'View Students', 'Edit Grades')
+  description String? // Detailed description for UI rendering and tooltips
+  resource    String // e.g., 'students', 'grades', 'platform'
+  action      String // e.g., 'view', 'edit', 'create', 'delete'
+  context     String? // e.g., 'own_classes', 'children', 'department'
+  category    String // e.g., 'academic', 'administrative', 'platform', 'financial'
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  rolePermissions       RolePermission[]
+  userTenantPermissions UserTenantPermission[]
+  poolPermissions       PermissionPoolPermission[]
+
+  @@index([resource])
+  @@index([action])
+  @@index([category])
+  @@index([resource, action]) // For fast permission lookups
+  @@map("permissions")
+}
+
+// Role Permissions - Many-to-many: Roles have permissions
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String   @map("role_id")
+  permissionId String   @map("permission_id")
+  grantedAt    DateTime @default(now()) @map("granted_at")
+  grantedBy    String?  @map("granted_by")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
+// Permission Pools - Predefined sets of permissions grouped by clearance level
+// Custom roles can only inherit permissions from pools matching their clearance level or below
+model PermissionPool {
+  id             String  @id @default(uuid())
+  name           String // e.g., "Level10_PlatformArchitect", "Level7_SchoolManagement"
+  clearanceLevel Int     @map("clearance_level") // 0-10
+  description    String?
+  isSystemPool   Boolean @default(true) @map("is_system_pool") // True for predefined pools
+  tenantId       String? @map("tenant_id") // Null for system pools, can be set for tenant-specific pools
+
+  // Audit Fields
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant          Tenant?                    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  poolPermissions PermissionPoolPermission[]
+  rolePools       RolePermissionPool[]
+
+  @@unique([name, tenantId]) // Name unique per tenant (for custom pools)
+  @@index([clearanceLevel])
+  @@index([isSystemPool])
+  @@index([tenantId])
+  @@map("permission_pools")
+}
+
+// Permission Pool Permissions - Many-to-many: Permission pools contain permissions
+model PermissionPoolPermission {
+  id           String   @id @default(uuid())
+  poolId       String   @map("pool_id")
+  permissionId String   @map("permission_id")
+  addedAt      DateTime @default(now()) @map("added_at")
+  addedBy      String?  @map("added_by")
+
+  pool       PermissionPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  permission Permission     @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([poolId, permissionId])
+  @@index([poolId])
+  @@index([permissionId])
+  @@map("permission_pool_permissions")
+}
+
+// Role Permission Pools - Many-to-many: Roles inherit from permission pools
+model RolePermissionPool {
+  id         String   @id @default(uuid())
+  roleId     String   @map("role_id")
+  poolId     String   @map("pool_id")
+  assignedAt DateTime @default(now()) @map("assigned_at")
+  assignedBy String?  @map("assigned_by")
+
+  role Role           @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  pool PermissionPool @relation(fields: [poolId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, poolId])
+  @@index([roleId])
+  @@index([poolId])
+  @@map("role_permission_pools")
+}
+
+// ============================================
+// Tenant (School) Management Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Tenants (Schools):
+//    - Basic tenant structure for multi-tenant architecture
+//    - Each tenant represents a school
+//    - Optional email domain for validation
+//    - Status tracking (active, pending, suspended)
+//    - School-specific settings stored as JSONB
+//
+// See: _actions/multi-tenancy-security-strategy.md for complete tenant design
+// See: _requirements/multi-tenant-architecture.md for architecture details
+// ============================================
+
+// Tenants (Schools) - Basic structure for multi-tenant architecture
+model Tenant {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String?  @unique
+  emailDomain String?  @map("email_domain") // Optional, for validation
+  status      String   @default("pending") // 'active' | 'pending' | 'suspended'
+  settings    Json? // School-specific settings (JSONB)
+  createdBy   String?  @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  roles           Role[]
+  userTenants     UserTenant[]
+  permissionPools PermissionPool[]
+
+  @@index([status])
+  @@index([emailDomain])
+  @@map("tenants")
+}
+
+// ============================================
+// User Management Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Users:
+//    - Single user account can belong to multiple schools (many-to-many)
+//    - Each user has one email + password + MFA (account-level)
+//    - Password history tracked for reuse prevention
+//    - Login attempts tracked for rate limiting and lockout
+//
+// 2. Security:
+//    - Password history for reuse prevention
+//    - Login attempts for rate limiting
+//    - Session management with profile context
+//    - Audit fields (created_by, updated_by) for tracking
+//
+// See: _actions/multi-tenancy-security-strategy.md for complete security design
+// See: _requirements/access-control.md for role hierarchy and clearance levels
+// ============================================
+
+// Users - Core user account information
+model User {
+  id           String  @id @default(uuid())
+  email        String  @unique
+  passwordHash String? @map("password_hash") // bcrypt hash, nullable for invitation-based accounts
+  firstName    String? @map("first_name")
+  lastName     String? @map("last_name")
+  phone        String?
+
+  // Account Status
+  isActive        Boolean   @default(true) @map("is_active")
+  isVerified      Boolean   @default(false) @map("is_verified")
+  emailVerifiedAt DateTime? @map("email_verified_at")
+
+  // Security Fields
+  loginAttempts     Int       @default(0) @map("login_attempts")
+  lockedUntil       DateTime? @map("locked_until") // Account lockout timestamp
+  passwordChangedAt DateTime? @map("password_changed_at") // For password expiration check
+  lastLoginAt       DateTime? @map("last_login_at")
+
+  // Password Reset
+  passwordResetToken     String?   @map("password_reset_token")
+  passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  createdByUser User?  @relation("UserCreated", fields: [createdBy], references: [id])
+  updatedByUser User?  @relation("UserUpdated", fields: [updatedBy], references: [id])
+  createdUsers  User[] @relation("UserCreated")
+  updatedUsers  User[] @relation("UserUpdated")
+
+  passwordHistories PasswordHistory[]
+  loginAttemptsList LoginAttempt[]
+  userTenants       UserTenant[]
+  sessions          Session[]
+
+  @@index([email])
+  @@index([isActive])
+  @@index([isVerified])
+  @@map("users")
+}
+
+// Password History - For password reuse prevention
+model PasswordHistory {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  passwordHash String   @map("password_hash") // Encrypted previous password
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@map("password_histories")
+}
+
+// Login Attempts - For rate limiting and security monitoring
+model LoginAttempt {
+  id            String   @id @default(uuid())
+  userId        String?  @map("user_id") // Nullable for failed attempts with unknown user
+  email         String // For tracking failed attempts
+  ipAddress     String   @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  success       Boolean  @default(false)
+  failureReason String?  @map("failure_reason")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  user User? @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([email, createdAt])
+  @@index([userId, createdAt])
+  @@index([ipAddress, createdAt])
+  @@index([success])
+  @@map("login_attempts")
+}
+
+// Sessions - Active user sessions for session management
+model Session {
+  id                String    @id @default(uuid())
+  userId            String    @map("user_id")
+  userTenantId      String    @map("user_tenant_id") // Profile ID (current context)
+  token             String    @unique // JWT token or session token
+  ipAddress         String?   @map("ip_address")
+  userAgent         String?   @map("user_agent")
+  deviceFingerprint String?   @map("device_fingerprint")
+  expiresAt         DateTime  @map("expires_at")
+  revokedAt         DateTime? @map("revoked_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userTenantId])
+  @@index([token])
+  @@index([expiresAt])
+  @@index([revokedAt])
+  @@map("sessions")
+}
+
 // Main Prisma Schema File
 // This file is the entry point and contains the datasource and generator configuration
 // All models are organized in separate files by context in the same directory

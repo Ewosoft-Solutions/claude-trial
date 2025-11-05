@@ -453,31 +453,38 @@ async function main() {
     const createdRoles: Record<string, string> = {};
 
     for (const roleData of SYSTEM_ROLES) {
-      const role = await prisma.role.upsert({
+      // Find existing role by name and roleType (for platform/system roles, tenantId is null)
+      const existing = await prisma.role.findFirst({
         where: {
-          name_tenantId: {
-            name: roleData.name,
-            tenantId: null,
-          },
-        },
-        update: {
-          description: roleData.description,
-          roleType: roleData.roleType,
-          clearanceLevel: roleData.clearanceLevel,
-          isSystemRole: roleData.isSystemRole,
-        },
-        create: {
           name: roleData.name,
-          description: roleData.description,
           roleType: roleData.roleType,
-          clearanceLevel: roleData.clearanceLevel,
-          isSystemRole: roleData.isSystemRole,
           tenantId: null,
         },
       });
+
+      const role = existing
+        ? await prisma.role.update({
+            where: { id: existing.id },
+            data: {
+              description: roleData.description,
+              clearanceLevel: roleData.clearanceLevel,
+              isSystemRole: roleData.isSystemRole,
+            },
+          })
+        : await prisma.role.create({
+            data: {
+              name: roleData.name,
+              description: roleData.description,
+              roleType: roleData.roleType,
+              clearanceLevel: roleData.clearanceLevel,
+              isSystemRole: roleData.isSystemRole,
+              tenantId: null,
+            },
+          });
+
       createdRoles[roleData.name] = role.id;
       console.log(
-        `  ✅ Created role: ${roleData.name} (Level ${roleData.clearanceLevel})`,
+        `  ✅ ${existing ? 'Updated' : 'Created'} role: ${roleData.name} (Level ${roleData.clearanceLevel})`,
       );
     }
 
@@ -486,28 +493,35 @@ async function main() {
     const createdPools: Record<string, string> = {};
 
     for (const poolData of PERMISSION_POOLS) {
-      const pool = await prisma.permissionPool.upsert({
+      // Find existing pool by name (for system pools, tenantId is null)
+      const existing = await prisma.permissionPool.findFirst({
         where: {
-          name_tenantId: {
-            name: poolData.name,
-            tenantId: null,
-          },
-        },
-        update: {
-          description: poolData.description,
-          clearanceLevel: poolData.clearanceLevel,
-        },
-        create: {
           name: poolData.name,
-          description: poolData.description,
-          clearanceLevel: poolData.clearanceLevel,
-          isSystemPool: true,
           tenantId: null,
         },
       });
+
+      const pool = existing
+        ? await prisma.permissionPool.update({
+            where: { id: existing.id },
+            data: {
+              description: poolData.description,
+              clearanceLevel: poolData.clearanceLevel,
+            },
+          })
+        : await prisma.permissionPool.create({
+            data: {
+              name: poolData.name,
+              description: poolData.description,
+              clearanceLevel: poolData.clearanceLevel,
+              isSystemPool: true,
+              tenantId: null,
+            },
+          });
+
       createdPools[poolData.name] = pool.id;
       console.log(
-        `  ✅ Created pool: ${poolData.name} (Level ${poolData.clearanceLevel})`,
+        `  ✅ ${existing ? 'Updated' : 'Created'} pool: ${poolData.name} (Level ${poolData.clearanceLevel})`,
       );
     }
 
@@ -557,8 +571,18 @@ async function main() {
       );
       const permissionId = createdPermissions[permData.name];
 
+      if (!permissionId) {
+        console.warn(`  ⚠️  Permission not found: ${permData.name}`);
+        continue;
+      }
+
       for (const poolName of poolNames) {
         const poolId = createdPools[poolName];
+
+        if (!poolId) {
+          console.warn(`  ⚠️  Pool not found: ${poolName}`);
+          continue;
+        }
 
         await prisma.permissionPoolPermission.upsert({
           where: {

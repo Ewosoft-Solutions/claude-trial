@@ -1,0 +1,221 @@
+// ============================================
+// Academic Structure Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. AcademicYear:
+//    - Tenant-scoped academic years (e.g., "2024-2025")
+//    - Start and end dates
+//    - Status tracking (active, planned, completed)
+//    - Default/current year flag
+//
+// 2. Term:
+//    - Belongs to an AcademicYear
+//    - Types: semester, trimester, quarter, etc.
+//    - Start and end dates
+//    - Order/sequence for display
+//    - Status tracking (active, planned, completed)
+//
+// 3. Course:
+//    - Tenant-scoped course catalog
+//    - Course code (e.g., "MATH101")
+//    - Name, description, category
+//    - Grade levels (which grades can take this course)
+//    - Credits/hours
+//    - Status (active, archived)
+//
+// 4. Class:
+//    - Course offering in a specific term
+//    - Section identifier (e.g., "A", "B", "Section 1")
+//    - Capacity (max students)
+//    - Schedule information (JSONB for flexibility)
+//    - Status (active, full, cancelled)
+//    - Teacher assignments (many-to-many via ClassTeacher)
+//
+// See: _requirements/academic-structure.md for complete academic structure design
+// ============================================
+
+// AcademicYear - School academic years (e.g., "2024-2025")
+model AcademicYear {
+  id          String   @id @default(uuid())
+  tenantId    String   @map("tenant_id")
+  name        String // e.g., "2024-2025", "Academic Year 2024"
+  startDate   DateTime @map("start_date")
+  endDate     DateTime @map("end_date")
+  status      String   @default("planned") // 'active' | 'planned' | 'completed' | 'archived'
+  isDefault   Boolean  @default(false) @map("is_default") // Current/default year for the school
+  description String?
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  terms   Term[]
+  classes Class[]
+
+  @@unique([tenantId, name]) // Unique name per tenant
+  @@index([tenantId])
+  @@index([status])
+  @@index([isDefault])
+  @@index([startDate, endDate])
+  @@map("academic_years")
+}
+
+// Term - Academic terms within an academic year (semester, trimester, quarter, etc.)
+model Term {
+  id             String   @id @default(uuid())
+  academicYearId String   @map("academic_year_id")
+  name           String // e.g., "Fall Term", "Semester 1", "Trimester 1"
+  type           String // 'semester' | 'trimester' | 'quarter' | 'term' | 'custom'
+  startDate      DateTime @map("start_date")
+  endDate        DateTime @map("end_date")
+  order          Int // Sequence/order for display (1, 2, 3, etc.)
+  status         String   @default("planned") // 'active' | 'planned' | 'completed' | 'archived'
+  description    String?
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  classes      Class[]
+
+  @@unique([academicYearId, name]) // Unique name per academic year
+  @@index([academicYearId])
+  @@index([status])
+  @@index([order])
+  @@index([startDate, endDate])
+  @@map("terms")
+}
+
+// Course - Course catalog (tenant-scoped)
+model Course {
+  id          String  @id @default(uuid())
+  tenantId    String  @map("tenant_id")
+  code        String // e.g., "MATH101", "ENG-201"
+  name        String // e.g., "Introduction to Algebra"
+  description String?
+  category    String? // e.g., "Mathematics", "English", "Science"
+  subject     String? // Subject area (can be same as category or more specific)
+
+  // Grade Levels - Array of grade levels that can take this course
+  // e.g., ["9", "10", "11", "12"] or ["K", "1", "2"] for elementary
+  gradeLevels String[] @default([]) @map("grade_levels")
+
+  // Credits/Hours
+  credits Decimal? // e.g., 3.0, 4.5
+  hours   Decimal? // Contact hours
+
+  // Status
+  status String @default("active") // 'active' | 'archived' | 'draft'
+
+  // Metadata
+  prerequisites String? // Description or course codes
+  objectives    String? // Learning objectives
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  classes Class[]
+
+  @@unique([tenantId, code]) // Unique course code per tenant
+  @@index([tenantId])
+  @@index([status])
+  @@index([category])
+  @@index([code])
+  @@map("courses")
+}
+
+// Class - Course offering in a specific term (section/classroom)
+model Class {
+  id             String @id @default(uuid())
+  courseId       String @map("course_id")
+  termId         String @map("term_id")
+  academicYearId String @map("academic_year_id") // Denormalized for easier queries
+
+  // Section Information
+  section String // e.g., "A", "B", "Section 1", "Morning"
+  name    String? // Optional custom name (e.g., "Algebra I - Advanced Section")
+
+  // Capacity and Enrollment
+  capacity          Int @default(30) // Maximum number of students
+  currentEnrollment Int @default(0) @map("current_enrollment") // Current number enrolled
+
+  // Schedule - JSONB for flexibility (can store complex schedules)
+  // Example: { "days": ["Monday", "Wednesday", "Friday"], "time": "09:00-10:30", "room": "Room 101" }
+  // Or: [{ "day": "Monday", "startTime": "09:00", "endTime": "10:30", "room": "Room 101" }, ...]
+  schedule Json?
+
+  // Location
+  room String? // Room/location identifier
+
+  // Status
+  status String @default("active") // 'active' | 'full' | 'cancelled' | 'archived'
+
+  // Additional Information
+  description String?
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  term          Term           @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear  AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  classTeachers ClassTeacher[] // Teacher assignments
+
+  @@unique([courseId, termId, section]) // Unique section per course-term combination
+  @@index([courseId])
+  @@index([termId])
+  @@index([academicYearId])
+  @@index([status])
+  @@index([room])
+  @@map("classes")
+}
+
+// ClassTeacher - Many-to-many: Teachers assigned to classes
+// Note: This assumes UserTenant (profile) represents teachers
+// For now, we'll use userTenantId to reference the teacher's profile
+model ClassTeacher {
+  id           String @id @default(uuid())
+  classId      String @map("class_id")
+  userTenantId String @map("user_tenant_id") // Teacher's profile (UserTenant)
+
+  // Role/Assignment Type
+  role String @default("teacher") // 'teacher' | 'assistant' | 'co-teacher' | 'substitute'
+
+  // Assignment Dates
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  assignedBy   String?   @map("assigned_by") // Admin who assigned
+  unassignedAt DateTime? @map("unassigned_at")
+  unassignedBy String?   @map("unassigned_by")
+
+  // Status
+  isActive Boolean @default(true) @map("is_active")
+
+  // Relations
+  class      Class      @relation(fields: [classId], references: [id], onDelete: Cascade)
+  userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+
+  @@unique([classId, userTenantId]) // One assignment per teacher per class
+  @@index([classId])
+  @@index([userTenantId])
+  @@index([isActive])
+  @@map("class_teachers")
+}
