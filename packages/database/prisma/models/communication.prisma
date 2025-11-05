@@ -1,0 +1,135 @@
+// ============================================
+// Communication Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Announcement:
+//    - School-wide or class-specific announcements
+//    - Tenant-scoped
+//    - Can target specific audiences (all, students, parents, teachers, etc.)
+//    - Status (draft, published, archived)
+//    - Priority levels (normal, important, urgent)
+//
+// 2. Message:
+//    - Direct messages between users (profiles)
+//    - Tenant-scoped conversations
+//    - Thread-based messaging
+//    - Read/unread status
+//    - Can be sent to individuals or groups
+//
+// See: _requirements/features-functionality.md for communication requirements
+// ============================================
+
+// Announcement - School-wide or class-specific announcements
+model Announcement {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  // Target Audience
+  targetType String   @map("target_type") // 'all' | 'students' | 'parents' | 'teachers' | 'staff' | 'class' | 'grade_level' | 'custom'
+  targetIds  String[] @default([]) @map("target_ids") // Class IDs, grade levels, or user IDs for custom targets
+
+  // Announcement Content
+  title   String
+  content String // Main announcement content
+  summary String? // Brief summary/preview
+
+  // Priority and Status
+  priority String @default("normal") // 'normal' | 'important' | 'urgent'
+  status   String @default("draft") // 'draft' | 'published' | 'archived'
+
+  // Scheduling
+  publishAt DateTime? @map("publish_at") // Scheduled publish time
+  expiresAt DateTime? @map("expires_at") // Expiration date
+
+  // Additional Information
+  attachments Json? @default("[]") // File attachments (JSONB array)
+  metadata    Json? // Additional metadata (JSONB)
+
+  // Audit Fields
+  createdBy   String?   @map("created_by") // UserTenant ID of creator
+  updatedBy   String?   @map("updated_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  publishedAt DateTime? @map("published_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([targetType])
+  @@index([status])
+  @@index([priority])
+  @@index([publishAt])
+  @@index([createdAt])
+  @@map("announcements")
+}
+
+// Message - Direct messages between users (profiles)
+model Message {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  // Thread Information
+  threadId String? @map("thread_id") // Parent message ID for replies (null for top-level)
+
+  // Sender and Recipients
+  senderId     String   @map("sender_id") // UserTenant ID of sender
+  recipientIds String[] @default([]) @map("recipient_ids") // UserTenant IDs of recipients
+
+  // Message Content
+  subject     String? // Optional subject line
+  content     String // Message content
+  contentType String  @default("text") @map("content_type") // 'text' | 'html' | 'markdown'
+
+  // Status
+  status String @default("sent") // 'draft' | 'sent' | 'delivered' | 'read' | 'archived'
+
+  // Additional Information
+  attachments Json? @default("[]") // File attachments (JSONB array)
+  metadata    Json? // Additional metadata (JSONB)
+
+  // Audit Fields
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  sentAt    DateTime? @map("sent_at")
+  readAt    DateTime? @map("read_at")
+
+  // Relations
+  tenant       Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  sender       UserTenant           @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  thread       Message?             @relation("MessageThread", fields: [threadId], references: [id], onDelete: Cascade)
+  replies      Message[]            @relation("MessageThread")
+  readReceipts MessageReadReceipt[]
+
+  // Note: recipientIds is an array of UserTenant IDs - handled at application level
+  // For many-to-many, use MessageRecipient junction table if needed
+
+  @@index([tenantId])
+  @@index([senderId])
+  @@index([threadId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([sentAt])
+  @@map("messages")
+}
+
+// MessageReadReceipt - Track read status for messages
+model MessageReadReceipt {
+  id        String @id @default(uuid())
+  messageId String @map("message_id")
+  readerId  String @map("reader_id") // UserTenant ID of reader
+
+  readAt DateTime @default(now()) @map("read_at")
+
+  // Relations
+  message Message    @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  reader  UserTenant @relation(fields: [readerId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, readerId]) // One read receipt per message per reader
+  @@index([messageId])
+  @@index([readerId])
+  @@index([readAt])
+  @@map("message_read_receipts")
+}

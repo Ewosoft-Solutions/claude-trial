@@ -1,0 +1,167 @@
+// ============================================
+// Assessment and Grading Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. GradingSystem:
+//    - Tenant-scoped grading systems (percentage, letter grade, GPA, pass/fail, custom)
+//    - Flexible grade scale stored as JSONB
+//    - Default grading system per tenant
+//
+// 2. Assessment:
+//    - Assessment/assignment definition (quiz, test, project, homework, etc.)
+//    - Belongs to a class
+//    - Can be linked to a grading system
+//    - Assessment type, weight, due date, max points
+//
+// 3. Grade:
+//    - Individual student grade for an assessment
+//    - Links Enrollment (student in class) to Assessment
+//    - Points earned, percentage, letter grade
+//    - Status (draft, submitted, graded, late)
+//
+// See: _requirements/features-functionality.md for grade and assessment requirements
+// ============================================
+
+// GradingSystem - Grading systems (percentage, letter grade, GPA, pass/fail, custom)
+model GradingSystem {
+  id         String @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  name       String // e.g., "Standard Letter Grades", "Percentage-Based", "4.0 GPA Scale"
+  systemType String @map("system_type") // 'percentage' | 'letter_grade' | 'gpa' | 'pass_fail' | 'custom'
+
+  // Grade Scale - JSONB for flexible grade definitions
+  // Example for letter grades:
+  // {
+  //   "A+": {"min": 97, "max": 100, "points": 4.0},
+  //   "A": {"min": 93, "max": 96, "points": 4.0},
+  //   "A-": {"min": 90, "max": 92, "points": 3.7},
+  //   ...
+  // }
+  // Example for percentage:
+  // {
+  //   "pass": {"min": 60, "max": 100},
+  //   "fail": {"min": 0, "max": 59}
+  // }
+  gradeScale Json // Flexible grade scale definitions
+
+  isDefault Boolean @default(false) @map("is_default") // Default grading system for tenant
+  isActive  Boolean @default(true) @map("is_active")
+
+  description String?
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assessments Assessment[]
+
+  @@unique([tenantId, name]) // Unique name per tenant
+  @@index([tenantId])
+  @@index([systemType])
+  @@index([isDefault])
+  @@index([isActive])
+  @@map("grading_systems")
+}
+
+// Assessment - Assessment/assignment definition (quiz, test, project, homework, etc.)
+model Assessment {
+  id             String @id @default(uuid())
+  classId        String @map("class_id")
+  academicYearId String @map("academic_year_id") // Denormalized for easier queries
+  termId         String @map("term_id") // Denormalized for easier queries
+
+  // Assessment Information
+  name        String // e.g., "Midterm Exam", "Final Project", "Chapter 5 Quiz"
+  description String?
+  type        String // 'quiz' | 'test' | 'exam' | 'project' | 'homework' | 'assignment' | 'lab' | 'presentation' | 'participation' | 'custom'
+
+  // Grading Details
+  maxPoints       Decimal  @map("max_points") // Maximum points possible (e.g., 100.0)
+  weight          Decimal? // Weight percentage for final grade (e.g., 25.0 for 25%)
+  gradingSystemId String?  @map("grading_system_id") // Optional link to grading system
+
+  // Dates
+  assignedDate DateTime? @map("assigned_date")
+  dueDate      DateTime? @map("due_date")
+  gradedDate   DateTime? @map("graded_date")
+
+  // Status
+  status String @default("draft") // 'draft' | 'published' | 'in_progress' | 'graded' | 'archived'
+
+  // Additional Information
+  instructions String? // Instructions for students
+  rubric       Json? // Grading rubric (JSONB)
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  class         Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYear  AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  term          Term           @relation(fields: [termId], references: [id], onDelete: Cascade)
+  gradingSystem GradingSystem? @relation(fields: [gradingSystemId], references: [id], onDelete: SetNull)
+  grades        Grade[]
+
+  @@index([classId])
+  @@index([academicYearId])
+  @@index([termId])
+  @@index([status])
+  @@index([dueDate])
+  @@index([type])
+  @@map("assessments")
+}
+
+// Grade - Individual student grade for an assessment
+model Grade {
+  id           String @id @default(uuid())
+  enrollmentId String @map("enrollment_id")
+  assessmentId String @map("assessment_id")
+
+  // Grade Values
+  pointsEarned Decimal? @map("points_earned") // Points earned (e.g., 85.5)
+  percentage   Decimal? // Percentage (e.g., 85.5)
+  letterGrade  String?  @map("letter_grade") // Letter grade (e.g., "A", "B+", "P")
+  gpaPoints    Decimal? @map("gpa_points") // GPA points (e.g., 3.7)
+
+  // Status
+  status String @default("draft") // 'draft' | 'submitted' | 'graded' | 'late' | 'excused' | 'missing'
+
+  // Submission Information
+  submittedAt DateTime? @map("submitted_at")
+  gradedAt    DateTime? @map("graded_at")
+  gradedBy    String?   @map("graded_by") // UserTenant ID of grader
+
+  // Feedback
+  feedback    String? // Teacher feedback/comments
+  rubricScore Json?   @map("rubric_score") // Rubric scores (JSONB)
+
+  // Additional Information
+  notes String?
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, assessmentId]) // One grade per student per assessment
+  @@index([enrollmentId])
+  @@index([assessmentId])
+  @@index([status])
+  @@index([submittedAt])
+  @@index([gradedAt])
+  @@map("grades")
+}

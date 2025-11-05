@@ -33,6 +33,11 @@ model Tenant {
   permissionPools PermissionPool[]
   academicYears   AcademicYear[]
   courses         Course[]
+  students        Student[]
+  gradingSystems  GradingSystem[]
+  announcements   Announcement[]
+  messages        Message[]
+  auditLogs       AuditLog[]
 
   @@index([status])
   @@index([emailDomain])

@@ -7,10 +7,10 @@
 - [x] 1.1 Design core user management tables (users, roles, permissions) ✅
 - [x] 1.2 Design tenant/school tables (tenants, schools) ✅
 - [x] 1.3 Design academic structure tables (academic_years, terms, courses, classes) ✅
-- [ ] 1.4 Design student management tables (students, enrollments)
-- [ ] 1.5 Design assessment/grading tables (assessments, grades, grading_systems)
-- [ ] 1.6 Design communication tables (messages, announcements)
-- [ ] 1.7 Design audit logging tables (audit_logs)
+- [x] 1.4 Design student management tables (students, enrollments) ✅
+- [x] 1.5 Design assessment/grading tables (assessments, grades, grading_systems) ✅
+- [x] 1.6 Design communication tables (messages, announcements) ✅
+- [x] 1.7 Design audit logging tables (audit_logs) ✅
 - [ ] 1.8 Set up database indexes and constraints
 - [ ] 1.9 Set up database migrations system
 

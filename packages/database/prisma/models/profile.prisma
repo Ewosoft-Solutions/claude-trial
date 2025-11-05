@@ -47,6 +47,9 @@ model UserTenant {
   userTenantPermissions UserTenantPermission[] // Profile-specific permissions (override role permissions)
   sessions              Session[]
   classTeachers         ClassTeacher[] // Teacher assignments to classes
+  students              Student[] // Student profiles (for students)
+  sentMessages          Message[]              @relation("MessageSender") // Messages sent by this profile
+  messageReadReceipts   MessageReadReceipt[] // Read receipts for messages
 
   @@unique([userId, tenantId]) // One relationship per user-tenant pair
   @@index([userId])

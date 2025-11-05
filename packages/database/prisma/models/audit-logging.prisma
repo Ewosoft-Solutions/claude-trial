@@ -1,0 +1,77 @@
+// ============================================
+// Audit Logging Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. AuditLog:
+//    - Comprehensive audit trail for all system actions
+//    - Tenant-scoped with platform-level logs
+//    - Tracks user actions, data changes, security events
+//    - Structured metadata for different event types
+//    - Indexed for efficient querying and reporting
+//
+// 2. Event Types:
+//    - User actions (login, logout, profile changes)
+//    - Data modifications (create, update, delete)
+//    - Security events (permission changes, role assignments, breaches)
+//    - System events (migrations, configuration changes)
+//
+// See: _actions/multi-tenancy-security-strategy.md for audit requirements
+// See: _requirements/security-compliance.md for compliance requirements
+// ============================================
+
+// AuditLog - Comprehensive audit trail for all system actions
+model AuditLog {
+  id       String  @id @default(uuid())
+  tenantId String? @map("tenant_id") // Null for platform-level events
+
+  // Event Information
+  eventType  String  @map("event_type") // 'user_action' | 'data_change' | 'security_event' | 'system_event' | 'authentication' | 'authorization' | 'custom'
+  action     String // e.g., 'login', 'create', 'update', 'delete', 'assign_role', 'grant_permission'
+  resource   String? // Resource type (e.g., 'user', 'student', 'grade', 'role')
+  resourceId String? @map("resource_id") // Resource ID (if applicable)
+
+  // Actor Information
+  actorId        String? @map("actor_id") // User ID (global user, not profile)
+  actorProfileId String? @map("actor_profile_id") // UserTenant ID (profile context)
+  actorRole      String? @map("actor_role") // Role name at time of action
+  actorEmail     String? @map("actor_email") // Email for audit trail (even if user deleted)
+
+  // Request Information
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+  requestId String? @map("request_id") // Request trace ID
+  sessionId String? @map("session_id") // Session ID
+
+  // Event Details
+  description String // Human-readable description
+  metadata    Json? // Additional event-specific data (JSONB)
+  changes     Json? // Before/after changes for data modifications (JSONB)
+
+  // Result Information
+  status       String  @default("success") // 'success' | 'failure' | 'error' | 'warning'
+  errorCode    String? @map("error_code")
+  errorMessage String? @map("error_message")
+
+  // Timestamp
+  timestamp DateTime @default(now())
+
+  // Relations
+  tenant Tenant? @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([eventType])
+  @@index([action])
+  @@index([resource])
+  @@index([resourceId])
+  @@index([actorId])
+  @@index([actorProfileId])
+  @@index([timestamp])
+  @@index([status])
+  @@index([ipAddress])
+  @@index([tenantId, timestamp]) // Composite for tenant-specific queries
+  @@index([eventType, timestamp]) // Composite for event type queries
+  @@index([actorId, timestamp]) // Composite for user activity queries
+  @@map("audit_logs")
+}

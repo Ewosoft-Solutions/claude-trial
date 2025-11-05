@@ -1,0 +1,118 @@
+// ============================================
+// Student Management Models
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Student:
+//    - Links to UserTenant (profile) - represents a student's profile at a school
+//    - Tenant-scoped student records
+//    - Student number (unique per tenant)
+//    - Enrollment status tracking
+//    - Flexible JSONB fields for personal, academic, health, emergency contacts
+//
+// 2. Enrollment:
+//    - Links Student to Class (course offering in a term)
+//    - Academic year context
+//    - Enrollment status (active, dropped, completed, failed)
+//    - Final grade and credits earned
+//    - Unique per student-class-academic year
+//
+// See: _requirements/features-functionality.md for student management requirements
+// ============================================
+
+// Student - Student profile at a school (linked to UserTenant)
+model Student {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  userTenantId String @map("user_tenant_id") // Student's profile (UserTenant)
+
+  // Student Identification
+  studentNumber   String // e.g., "STU-2024-001", unique per tenant
+  admissionNumber String?   @map("admission_number")
+  admissionDate   DateTime? @map("admission_date")
+
+  // Current Status
+  gradeLevel       String? @map("grade_level") // Current grade level (e.g., "9", "10", "K", "1")
+  enrollmentStatus String  @default("active") @map("enrollment_status") // 'active' | 'inactive' | 'suspended' | 'graduated' | 'transferred' | 'withdrawn'
+
+  // Flexible Data Fields (JSONB)
+  personalInfo      Json? @default("{}") @map("personal_info") // Personal details
+  academicInfo      Json? @default("{}") @map("academic_info") // Academic history
+  healthInfo        Json? @default("{}") @map("health_info") // Health records, allergies, medications
+  emergencyContacts Json? @default("[]") @map("emergency_contacts") // Emergency contact information
+  guardianInfo      Json? @default("[]") @map("guardian_info") // Parent/guardian information
+  specialNeeds      Json? @default("[]") @map("special_needs") // Special needs, accommodations
+
+  // Status Dates
+  enrollmentDate DateTime? @map("enrollment_date")
+  graduationDate DateTime? @map("graduation_date")
+  withdrawalDate DateTime? @map("withdrawal_date")
+  transferDate   DateTime? @map("transfer_date")
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userTenant  UserTenant   @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+  enrollments Enrollment[]
+
+  @@unique([tenantId, studentNumber]) // Unique student number per tenant
+  @@index([tenantId])
+  @@index([userTenantId])
+  @@index([enrollmentStatus])
+  @@index([gradeLevel])
+  @@index([studentNumber])
+  @@map("students")
+}
+
+// Enrollment - Student enrollment in a class (course offering)
+model Enrollment {
+  id             String @id @default(uuid())
+  studentId      String @map("student_id")
+  classId        String @map("class_id")
+  academicYearId String @map("academic_year_id")
+  termId         String @map("term_id") // Denormalized for easier queries
+
+  // Enrollment Details
+  enrollmentDate DateTime @default(now()) @map("enrollment_date")
+  status         String   @default("active") // 'active' | 'dropped' | 'completed' | 'failed'
+
+  // Academic Results
+  finalGrade    String?  @map("final_grade") // Final letter grade or percentage
+  creditsEarned Decimal? @map("credits_earned") // Credits earned (e.g., 3.0, 4.5)
+  gpaPoints     Decimal? @map("gpa_points") // GPA points for this course
+
+  // Additional Information
+  notes String?
+
+  // Status Dates
+  droppedDate   DateTime? @map("dropped_date")
+  completedDate DateTime? @map("completed_date")
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class        Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
+  grades       Grade[] // Grades/assessments for this enrollment
+
+  @@unique([studentId, classId, academicYearId]) // Unique enrollment per student-class-year
+  @@index([studentId])
+  @@index([classId])
+  @@index([academicYearId])
+  @@index([termId])
+  @@index([status])
+  @@index([enrollmentDate])
+  @@map("enrollments")
+}
