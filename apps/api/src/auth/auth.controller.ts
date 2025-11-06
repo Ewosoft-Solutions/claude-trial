@@ -13,10 +13,11 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { Request } from 'express';
+import { type Request } from 'express';
 import { PrismaClient } from '@workspace/database';
 import {
   LoginDto,
+  VerifyMfaForLoginDto,
   SelectSchoolDto,
   RefreshTokenDto,
   RequestPasswordResetDto,
@@ -39,7 +40,7 @@ export class AuthController {
   ) {}
 
   /**
-   * Login (3.2)
+   * Login (3.2, 3a.9)
    *
    * POST /auth/login
    */
@@ -56,6 +57,40 @@ export class AuthController {
       loginDto.password,
       ipAddress,
       userAgent,
+    );
+  }
+
+  /**
+   * Verify MFA and complete login (3a.9)
+   *
+   * POST /auth/verify-mfa-login
+   */
+  @Post('verify-mfa-login')
+  @HttpCode(HttpStatus.OK)
+  async verifyMfaLogin(
+    @Body() verifyMfaForLoginDto: VerifyMfaForLoginDto,
+    @Req() req: Request,
+  ) {
+    const prisma = this.getPrisma(req);
+
+    // Get user ID from challenge
+    const challenge = await prisma.mfaChallenge.findUnique({
+      where: { id: verifyMfaForLoginDto.challengeId },
+      select: { userId: true },
+    });
+
+    if (!challenge) {
+      throw new Error('Invalid challenge');
+    }
+
+    return this.authenticationService.verifyMfaAndCompleteLogin(
+      prisma,
+      challenge.userId,
+      verifyMfaForLoginDto.challengeId,
+      verifyMfaForLoginDto.code,
+      verifyMfaForLoginDto.token,
+      verifyMfaForLoginDto.webauthnResponse,
+      verifyMfaForLoginDto.recoveryCode,
     );
   }
 

@@ -4,3 +4,6 @@ export * from './refresh-token.dto';
 export * from './request-password-reset.dto';
 export * from './reset-password.dto';
 export * from './change-password.dto';
+export * from './setup-mfa.dto';
+export * from './verify-mfa.dto';
+export * from './recovery-mfa.dto';

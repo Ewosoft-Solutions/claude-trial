@@ -15,6 +15,8 @@ import { PasswordService } from './password.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { AuthJWTService } from './jwt.service';
 import { SessionService } from './session.service';
+import { MfaService } from './mfa.service';
+import { MfaBaseService } from './mfa-base.service';
 
 /**
  * Login Response
@@ -28,6 +30,11 @@ export interface LoginResponse {
     lastName: string | null;
   };
   schools: UserSchoolProfile[];
+  requiresMfa?: boolean;
+  mfaChallengeId?: string;
+  mfaMethodType?: 'sms' | 'email' | 'totp' | 'webauthn';
+  mfaExpiresAt?: Date;
+  webauthnOptions?: any; // For WebAuthn
 }
 
 /**
@@ -56,7 +63,10 @@ export interface SchoolSelectionResponse {
  */
 @Injectable()
 export class AuthenticationService {
-  constructor(private readonly jwtService: AuthJWTService) {}
+  constructor(
+    private readonly jwtService: AuthJWTService,
+    private readonly mfaService: MfaService,
+  ) {}
 
   /**
    * Login user (3.2)
@@ -198,12 +208,57 @@ export class AuthenticationService {
       success: true,
     });
 
+    // Check if user has active MFA methods (3a.9)
+    const hasMfa = await MfaBaseService.hasActiveMfaMethods(
+      prisma,
+      user.id as string,
+    );
+
     // Get available schools for user
     // Note: Type definitions missing prisma parameter, but implementation requires it
     const schools = await (SchoolSelectionService.getAvailableSchools as any)(
       prisma,
       user.id as string,
     );
+
+    // If MFA is required, initiate verification
+    if (hasMfa) {
+      const primaryMethod = await MfaBaseService.getPrimaryMfaMethod(
+        prisma,
+        user.id as string,
+      );
+
+      if (primaryMethod) {
+        const mfaChallenge = await this.mfaService.initiateVerification(
+          prisma,
+          user.id as string,
+          primaryMethod.id,
+          'login',
+          ipAddress,
+          userAgent,
+        );
+
+        return {
+          success: true,
+          user: {
+            id: user.id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+          },
+          schools: [], // Don't return schools until MFA is verified
+          requiresMfa: true,
+          mfaChallengeId: mfaChallenge.challengeId,
+          mfaMethodType: primaryMethod.type as
+            | 'sms'
+            | 'email'
+            | 'totp'
+            | 'webauthn',
+          mfaExpiresAt: mfaChallenge.expiresAt,
+          webauthnOptions: mfaChallenge.webauthnOptions,
+        };
+      }
+    }
 
     return {
       success: true,
@@ -214,6 +269,88 @@ export class AuthenticationService {
         lastName: user.lastName,
       },
       schools,
+      requiresMfa: false,
+    };
+  }
+
+  /**
+   * Verify MFA and complete login (3a.9)
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - User ID
+   * @param challengeId - MFA challenge ID
+   * @param code - Verification code (for SMS/Email)
+   * @param token - TOTP token (for TOTP)
+   * @param webauthnResponse - WebAuthn response (for WebAuthn)
+   * @param recoveryCode - Recovery code (for recovery)
+   * @returns Login response with schools
+   */
+  async verifyMfaAndCompleteLogin(
+    prisma: PrismaClient,
+    userId: string,
+    challengeId: string,
+    code?: string,
+    token?: string,
+    webauthnResponse?: any,
+    recoveryCode?: string,
+  ): Promise<LoginResponse> {
+    // Verify recovery code if provided
+    if (recoveryCode) {
+      const recoveryValid = await this.mfaService.verifyRecoveryCode(
+        prisma,
+        userId,
+        recoveryCode,
+      );
+
+      if (!recoveryValid) {
+        throw new UnauthorizedException('Invalid recovery code');
+      }
+    } else {
+      // Verify MFA challenge
+      const verified = await this.mfaService.verifyChallenge(
+        prisma,
+        challengeId,
+        code,
+        token,
+        webauthnResponse,
+      );
+
+      if (!verified) {
+        throw new UnauthorizedException('MFA verification failed');
+      }
+    }
+
+    // Get available schools for user
+    const schools = await (SchoolSelectionService.getAvailableSchools as any)(
+      prisma,
+      userId,
+    );
+
+    // Get user
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      schools,
+      requiresMfa: false,
     };
   }
 

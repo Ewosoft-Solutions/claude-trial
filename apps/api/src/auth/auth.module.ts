@@ -8,10 +8,17 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
+import { MfaController } from './mfa.controller';
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { AuthJWTService } from './services/jwt.service';
-import { JwtAuthGuard, TenantContextGuard } from './guards';
+import { MfaService } from './services/mfa.service';
+import { MfaSmsService } from './services/mfa-sms.service';
+import { MfaEmailService } from './services/mfa-email.service';
+import { MfaTotpService } from './services/mfa-totp.service';
+import { MfaWebAuthnService } from './services/mfa-webauthn.service';
+import { MfaAuditService } from './services/mfa-audit.service';
+import { JwtAuthGuard, TenantContextGuard, MfaRequiredGuard } from './guards';
 
 /**
  * Authentication Module
@@ -30,20 +37,30 @@ import { JwtAuthGuard, TenantContextGuard } from './guards';
       },
     }),
   ],
-  controllers: [AuthController],
+  controllers: [AuthController, MfaController],
   providers: [
     AuthenticationService,
     PasswordResetService,
     AuthJWTService,
+    MfaService,
+    MfaSmsService,
+    MfaEmailService,
+    MfaTotpService,
+    MfaWebAuthnService,
+    MfaAuditService,
     JwtAuthGuard,
     TenantContextGuard,
+    MfaRequiredGuard,
   ],
   exports: [
     AuthenticationService,
     PasswordResetService,
     AuthJWTService,
+    MfaService,
+    MfaAuditService,
     JwtAuthGuard,
     TenantContextGuard,
+    MfaRequiredGuard,
   ],
 })
 export class AuthModule {}
