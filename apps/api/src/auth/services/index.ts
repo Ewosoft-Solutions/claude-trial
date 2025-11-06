@@ -10,3 +10,8 @@ export * from './mfa-email.service';
 export * from './mfa-totp.service';
 export * from './mfa-webauthn.service';
 export * from './mfa.service';
+export * from './permission.service';
+export * from './role.service';
+export * from './permission-pool.service';
+export * from './maker-checker.service';
+export * from './platform-oversight.service';

@@ -19,11 +19,24 @@ import { MfaTotpService } from './services/mfa-totp.service';
 import { MfaWebAuthnService } from './services/mfa-webauthn.service';
 import { MfaAuditService } from './services/mfa-audit.service';
 import { JwtAuthGuard, TenantContextGuard, MfaRequiredGuard } from './guards';
+import {
+  ClearanceLevelGuard,
+  PermissionGuard,
+  ContextValidationGuard,
+} from './guards';
+import {
+  PermissionService,
+  RoleService,
+  PermissionPoolService,
+  MakerCheckerService,
+  PlatformOversightService,
+} from './services';
 
 /**
  * Authentication Module
  *
  * Provides authentication services, controllers, and guards.
+ * Also includes authorization services and guards.
  */
 @Module({
   imports: [
@@ -39,6 +52,7 @@ import { JwtAuthGuard, TenantContextGuard, MfaRequiredGuard } from './guards';
   ],
   controllers: [AuthController, MfaController],
   providers: [
+    // Authentication services
     AuthenticationService,
     PasswordResetService,
     AuthJWTService,
@@ -48,19 +62,40 @@ import { JwtAuthGuard, TenantContextGuard, MfaRequiredGuard } from './guards';
     MfaTotpService,
     MfaWebAuthnService,
     MfaAuditService,
+    // Authorization services
+    PermissionService,
+    RoleService,
+    PermissionPoolService,
+    MakerCheckerService,
+    PlatformOversightService,
+    // Guards
     JwtAuthGuard,
     TenantContextGuard,
     MfaRequiredGuard,
+    ClearanceLevelGuard,
+    PermissionGuard,
+    ContextValidationGuard,
   ],
   exports: [
+    // Authentication services
     AuthenticationService,
     PasswordResetService,
     AuthJWTService,
     MfaService,
     MfaAuditService,
+    // Authorization services
+    PermissionService,
+    RoleService,
+    PermissionPoolService,
+    MakerCheckerService,
+    PlatformOversightService,
+    // Guards
     JwtAuthGuard,
     TenantContextGuard,
     MfaRequiredGuard,
+    ClearanceLevelGuard,
+    PermissionGuard,
+    ContextValidationGuard,
   ],
 })
 export class AuthModule {}
