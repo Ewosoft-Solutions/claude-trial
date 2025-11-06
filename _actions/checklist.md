@@ -30,18 +30,18 @@
 
 ### 3. Authentication System
 
-- [ ] 3.1 Design authentication flow (JWT-based, multi-school support, profile-based)
-- [ ] 3.2 Implement user login (returns list of schools/profiles user belongs to)
-- [ ] 3.3 Implement school selection/context switching (profile switching)
-- [ ] 3.4 Implement password hashing (bcrypt)
-- [ ] 3.5 Implement password policy enforcement (mandatory, school-specific)
-- [ ] 3.6 Implement JWT token generation with school-specific secrets (platform admin only)
-- [ ] 3.7 Implement JWT token validation with school-specific secrets
-- [ ] 3.8 Implement refresh token mechanism
-- [ ] 3.9 Set up authentication guards/middleware (multi-layer validation)
-- [ ] 3.10 Implement enhanced password reset flow (MFA required, rate limiting, audit logging)
-- [ ] 3.11 Implement login attempt limiting and account lockout (school-specific)
-- [ ] 3.12 Implement session invalidation on password reset
+- [x] 3.1 Design authentication flow (JWT-based, multi-school support, profile-based) ✅
+- [x] 3.2 Implement user login (returns list of schools/profiles user belongs to) ✅
+- [x] 3.3 Implement school selection/context switching (profile switching) ✅
+- [x] 3.4 Implement password hashing (bcrypt) ✅
+- [x] 3.5 Implement password policy enforcement (mandatory, school-specific) ✅
+- [x] 3.6 Implement JWT token generation with school-specific secrets (platform admin only) ✅
+- [x] 3.7 Implement JWT token validation with school-specific secrets ✅
+- [x] 3.8 Implement refresh token mechanism ✅
+- [x] 3.9 Set up authentication guards/middleware (multi-layer validation) ✅
+- [x] 3.10 Implement enhanced password reset flow (MFA required, rate limiting, audit logging) ✅
+- [x] 3.11 Implement login attempt limiting and account lockout (school-specific) ✅
+- [x] 3.12 Implement session invalidation on password reset ✅
 
 ### 3a. MFA System (Mandatory)
 

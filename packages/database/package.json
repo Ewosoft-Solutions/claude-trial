@@ -2,7 +2,8 @@
   "name": "@workspace/database",
   "version": "0.0.1",
   "exports": {
-    ".": "./src/client.ts"
+    ".": "./src/client.ts",
+    "./rls": "./src/rls/index.ts"
   },
   "scripts": {
     "___schema_management": "Database Schema Management",

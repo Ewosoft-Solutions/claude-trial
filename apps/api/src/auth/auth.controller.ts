@@ -1,0 +1,169 @@
+/**
+ * Authentication Controller
+ *
+ * Handles authentication endpoints.
+ */
+
+import {
+  Controller,
+  Post,
+  Body,
+  HttpCode,
+  HttpStatus,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { Request } from 'express';
+import { PrismaClient } from '@workspace/database';
+import {
+  LoginDto,
+  SelectSchoolDto,
+  RefreshTokenDto,
+  RequestPasswordResetDto,
+  ResetPasswordDto,
+} from './dto';
+import { AuthenticationService } from './services/authentication.service';
+import { PasswordResetService } from './services/password-reset.service';
+import { JwtAuthGuard } from './guards';
+
+/**
+ * Authentication Controller
+ *
+ * Provides authentication endpoints.
+ */
+@Controller('auth')
+export class AuthController {
+  constructor(
+    private readonly authenticationService: AuthenticationService,
+    private readonly passwordResetService: PasswordResetService,
+  ) {}
+
+  /**
+   * Login (3.2)
+   *
+   * POST /auth/login
+   */
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  async login(@Body() loginDto: LoginDto, @Req() req: Request) {
+    const prisma = this.getPrisma(req);
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'];
+
+    return this.authenticationService.login(
+      prisma,
+      loginDto.email,
+      loginDto.password,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  /**
+   * Select school / Switch context (3.3)
+   *
+   * POST /auth/select-school
+   */
+  @Post('select-school')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard) // Simplified - in production, use proper auth
+  async selectSchool(
+    @Body() selectSchoolDto: SelectSchoolDto,
+    @Req() req: Request,
+  ) {
+    const prisma = this.getPrisma(req);
+    const user = (req as any).user;
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'];
+
+    if (!user || !user.userId) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.authenticationService.selectSchool(
+      prisma,
+      user.userId,
+      selectSchoolDto.tenantId,
+      selectSchoolDto.profileId,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  /**
+   * Refresh token (3.8)
+   *
+   * POST /auth/refresh
+   */
+  @Post('refresh')
+  @HttpCode(HttpStatus.OK)
+  async refreshToken(
+    @Body() refreshTokenDto: RefreshTokenDto,
+    @Req() req: Request,
+  ) {
+    const prisma = this.getPrisma(req);
+
+    return this.authenticationService.refreshToken(
+      prisma,
+      refreshTokenDto.refreshToken,
+    );
+  }
+
+  /**
+   * Request password reset (3.10)
+   *
+   * POST /auth/request-password-reset
+   */
+  @Post('request-password-reset')
+  @HttpCode(HttpStatus.OK)
+  async requestPasswordReset(
+    @Body() requestPasswordResetDto: RequestPasswordResetDto,
+    @Req() req: Request,
+  ) {
+    const prisma = this.getPrisma(req);
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+
+    return this.passwordResetService.requestPasswordReset(
+      prisma,
+      requestPasswordResetDto.email,
+      ipAddress,
+    );
+  }
+
+  /**
+   * Reset password (3.10, 3.12)
+   *
+   * POST /auth/reset-password
+   */
+  @Post('reset-password')
+  @HttpCode(HttpStatus.OK)
+  async resetPassword(
+    @Body() resetPasswordDto: ResetPasswordDto,
+    @Req() req: Request,
+  ) {
+    const prisma = this.getPrisma(req);
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+
+    await this.passwordResetService.resetPassword(
+      prisma,
+      resetPasswordDto.token,
+      resetPasswordDto.newPassword,
+      resetPasswordDto.mfaCode,
+      ipAddress,
+    );
+
+    return { success: true, message: 'Password reset successfully' };
+  }
+
+  /**
+   * Get Prisma client from request
+   *
+   * @param req - Request object
+   * @returns Prisma client
+   */
+  private getPrisma(req: Request): PrismaClient {
+    // This is a simplified version
+    // In production, inject PrismaService via NestJS dependency injection
+    return (req as any).prisma || (global as any).prisma;
+  }
+}
