@@ -4,12 +4,19 @@
  * DTOs for security policy management operations
  */
 
-import { IsEnum, IsOptional, IsString, IsArray, IsBoolean, IsInt, Min, Max, ValidateNested } from 'class-validator';
+import {
+  IsEnum,
+  IsOptional,
+  IsString,
+  IsArray,
+  IsBoolean,
+  IsInt,
+  Min,
+  Max,
+  ValidateNested,
+} from 'class-validator';
 import { Type } from 'class-transformer';
-
-export type PolicyTier = 'basic' | 'enhanced' | 'maximum';
-export type DeviceManagement = 'none' | 'basic' | 'strict';
-export type AuditLevel = 'basic' | 'standard' | 'comprehensive';
+import type { PolicyTier, DeviceManagement, AuditLevel } from '@workspace/api';
 
 export class TimeRestrictionDto {
   @IsArray()
@@ -148,5 +155,3 @@ export class UpdatePolicyDto {
   @Min(30)
   auditRetention?: number;
 }
-
-

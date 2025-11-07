@@ -11,11 +11,8 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-import {
-  MfaBaseService,
-  MfaMethodType,
-  MfaOperationType,
-} from './mfa-base.service';
+import { MfaMethodType, MfaOperationType } from '@workspace/api';
+import { MfaBaseService } from './mfa-base.service';
 import { MfaSmsService } from './mfa-sms.service';
 import { MfaEmailService } from './mfa-email.service';
 import { MfaTotpService } from './mfa-totp.service';
@@ -163,7 +160,15 @@ export class MfaService {
     userId: string,
     userName: string,
     userDisplayName: string,
-  ) {
+  ): Promise<{
+    challengeId: string;
+    challenge: string;
+    timeout?: number;
+    rpId?: string;
+    allowCredentials?: PublicKeyCredentialDescriptorJSON[];
+    userVerification?: UserVerificationRequirement;
+    extensions?: AuthenticationExtensionsClientInputs;
+  }> {
     return this.webauthnService.generateRegistrationOptions(
       prisma,
       userId,
@@ -386,7 +391,7 @@ export class MfaService {
         return {
           challengeId: options.challengeId,
           methodType: 'webauthn',
-          expiresAt: options.expiresAt || new Date(Date.now() + 60000),
+          expiresAt: new Date(Date.now() + (options.timeout as number)),
           webauthnOptions: options,
         };
       }

@@ -11,11 +11,12 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-import { EnforcedBy } from '@workspace/api';
-
-export type PolicyTier = 'basic' | 'enhanced' | 'maximum';
-export type DeviceManagement = 'none' | 'basic' | 'strict';
-export type AuditLevel = 'basic' | 'standard' | 'comprehensive';
+import {
+  EnforcedBy,
+  PolicyTier,
+  DeviceManagement,
+  AuditLevel,
+} from '@workspace/api';
 
 export interface TimeRestrictions {
   allowedHours: Array<{ start: number; end: number }>;
@@ -221,7 +222,7 @@ export class SecurityPolicyService {
    *
    * @param prisma - Prisma client instance
    * @param schoolId - School ID
-   * @param tier - Policy tier ('basic' | 'enhanced' | 'maximum')
+   * @param tier - Policy tier
    * @param enforcedBy - Who is enforcing this policy
    * @param enforcedByUserId - User ID of the enforcer
    * @param reason - Reason for policy assignment/change

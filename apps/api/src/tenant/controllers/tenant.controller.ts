@@ -19,6 +19,7 @@ import {
   ApiResponse,
 } from '@nestjs/swagger';
 import { PrismaClient } from '@workspace/database';
+import { JWTSecretRotationReason } from '@workspace/api';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import {
   ClearanceLevelGuard,
@@ -384,7 +385,7 @@ export class TenantController {
     @Param('id') tenantId: string,
     @Body()
     data: {
-      reason: 'scheduled' | 'emergency' | 'breach_response' | 'manual';
+      reason: JWTSecretRotationReason;
       emergency?: boolean;
     },
     @Request() req: any,

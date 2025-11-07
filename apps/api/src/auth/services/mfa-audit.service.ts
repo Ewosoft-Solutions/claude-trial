@@ -6,21 +6,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-
-/**
- * MFA Audit Event Types
- */
-export type MfaAuditEventType =
-  | 'mfa_method_setup'
-  | 'mfa_method_activated'
-  | 'mfa_method_disabled'
-  | 'mfa_method_deleted'
-  | 'mfa_verification_initiated'
-  | 'mfa_verification_success'
-  | 'mfa_verification_failed'
-  | 'mfa_recovery_code_generated'
-  | 'mfa_recovery_code_used'
-  | 'mfa_primary_method_changed';
+import { MfaAuditEventType } from '@workspace/api';
 
 /**
  * MFA Audit Service

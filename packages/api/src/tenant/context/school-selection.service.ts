@@ -40,10 +40,10 @@ export interface UserSchoolProfile {
   primaryRole?: string;
 
   /** Profile status */
-  status: 'active' | 'inactive' | 'pending' | 'suspended';
+  status: ProfileStatus;
 
   /** Tenant status */
-  tenantStatus: 'active' | 'pending' | 'suspended';
+  tenantStatus: TenantStatus;
 }
 
 /**
@@ -88,7 +88,7 @@ export class SchoolSelectionService {
     });
 
     return userTenants
-      .filter((ut) => ut.tenant.status === 'active')
+      .filter((ut) => ut.tenant.status === TenantStatus.ACTIVE)
       .map((ut) => {
         const roles = ut.userTenantRoles.map((utr) => utr.role.name);
         const primaryRole = ut.userTenantRoles.find((utr) => utr.isPrimary)
@@ -101,8 +101,8 @@ export class SchoolSelectionService {
           profileId: ut.id,
           roles,
           primaryRole,
-          status: ut.status as 'active' | 'inactive' | 'pending' | 'suspended',
-          tenantStatus: ut.tenant.status as 'active' | 'pending' | 'suspended',
+          status: ut.status as ProfileStatus,
+          tenantStatus: ut.tenant.status as TenantStatus,
         };
       });
   }

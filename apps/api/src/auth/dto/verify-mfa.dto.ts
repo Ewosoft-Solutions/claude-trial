@@ -5,6 +5,7 @@
  */
 
 import { IsString, IsOptional } from 'class-validator';
+import { MfaMethodType } from '@workspace/api';
 
 /**
  * Initiate MFA Verification Request
@@ -20,7 +21,7 @@ export class InitiateMfaVerificationDto {
  */
 export class InitiateMfaVerificationResponseDto {
   challengeId: string;
-  methodType: 'sms' | 'email' | 'totp' | 'webauthn';
+  methodType: MfaMethodType;
   expiresAt: Date;
   qrCodeUrl?: string; // For TOTP
   webauthnOptions?: any; // For WebAuthn

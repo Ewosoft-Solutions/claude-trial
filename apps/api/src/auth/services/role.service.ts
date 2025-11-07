@@ -57,7 +57,7 @@ export class RoleService {
    *
    * @param prisma - Prisma client instance
    * @param name - Role name
-   * @param roleType - Role type ('platform' | 'system' | 'custom')
+   * @param roleType - Role type
    * @param tenantId - Tenant ID (required for custom roles)
    * @param excludeRoleId - Role ID to exclude from check (for updates)
    * @returns Validation result

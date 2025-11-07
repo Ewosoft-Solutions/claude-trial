@@ -6,21 +6,27 @@
 
 import { Injectable } from '@nestjs/common';
 import {
-  generateRegistrationOptions,
+  generateRegistrationOptions as generateRegOptions,
   verifyRegistrationResponse,
-  generateAuthenticationOptions,
+  generateAuthenticationOptions as generateAuthOptions,
   verifyAuthenticationResponse,
   type GenerateRegistrationOptionsOpts,
   type VerifyRegistrationResponseOpts,
   type GenerateAuthenticationOptionsOpts,
   type VerifyAuthenticationResponseOpts,
 } from '@simplewebauthn/server';
-import type {
-  AuthenticatorTransportFuture,
-  PublicKeyCredentialDescriptorFuture,
-} from '@simplewebauthn/server';
 import { PrismaClient } from '@workspace/database';
 import { MfaBaseService } from './mfa-base.service';
+
+// Define transport types locally since they're not directly exported
+type AuthenticatorTransportFuture =
+  | 'ble'
+  | 'cable'
+  | 'hybrid'
+  | 'internal'
+  | 'nfc'
+  | 'smart-card'
+  | 'usb';
 
 /**
  * WebAuthn Configuration
@@ -63,7 +69,9 @@ export class MfaWebAuthnService {
     userId: string,
     userName: string,
     userDisplayName: string,
-  ) {
+  ): Promise<
+    Awaited<ReturnType<typeof generateRegOptions>> & { challengeId: string }
+  > {
     // Get user's existing WebAuthn credentials
     const existingCredentials = await prisma.mfaMethod.findMany({
       where: {
@@ -79,19 +87,17 @@ export class MfaWebAuthnService {
     });
 
     // Convert to PublicKeyCredentialDescriptor format
-    const excludeCredentials: PublicKeyCredentialDescriptorFuture[] =
-      existingCredentials
-        .filter((c) => c.webauthnId)
-        .map((cred) => ({
-          id: cred.webauthnId!,
-          type: 'public-key',
-          transports: [
-            'usb',
-            'nfc',
-            'ble',
-            'internal',
-          ] as AuthenticatorTransportFuture[],
-        }));
+    const excludeCredentials = existingCredentials
+      .filter((c) => c.webauthnId)
+      .map((cred) => ({
+        id: cred.webauthnId!,
+        transports: [
+          'usb',
+          'nfc',
+          'ble',
+          'internal',
+        ] as AuthenticatorTransportFuture[],
+      }));
 
     // Generate registration options
     const opts: GenerateRegistrationOptionsOpts = {
@@ -111,7 +117,7 @@ export class MfaWebAuthnService {
       supportedAlgorithmIDs: [-7, -257], // ES256, RS256
     };
 
-    const options = await generateRegistrationOptions(opts);
+    const options = await generateRegOptions(opts);
 
     // Store challenge in database
     const challenge = await prisma.mfaChallenge.create({
@@ -182,8 +188,11 @@ export class MfaWebAuthnService {
       throw new Error('Registration verification failed');
     }
 
-    const { credentialID, credentialPublicKey, counter } =
-      verification.registrationInfo;
+    const {
+      id: credentialID,
+      publicKey: credentialPublicKey,
+      counter,
+    } = verification.registrationInfo.credential;
 
     // TODO: Encrypt credentialPublicKey before storing
     // For now, storing as base64 (NOT RECOMMENDED FOR PRODUCTION)
@@ -229,7 +238,9 @@ export class MfaWebAuthnService {
     prisma: PrismaClient,
     userId: string,
     operation: string,
-  ) {
+  ): Promise<
+    Awaited<ReturnType<typeof generateAuthOptions>> & { challengeId: string }
+  > {
     // Get user's WebAuthn credentials
     const credentials = await prisma.mfaMethod.findMany({
       where: {
@@ -249,11 +260,10 @@ export class MfaWebAuthnService {
     }
 
     // Convert to PublicKeyCredentialDescriptor format
-    const allowCredentials: PublicKeyCredentialDescriptorFuture[] = credentials
+    const allowCredentials = credentials
       .filter((c) => c.webauthnId)
       .map((cred) => ({
         id: cred.webauthnId!,
-        type: 'public-key',
         transports: [
           'usb',
           'nfc',
@@ -270,7 +280,7 @@ export class MfaWebAuthnService {
       timeout: 60000,
     };
 
-    const options = await generateAuthenticationOptions(opts);
+    const options = await generateAuthOptions(opts);
 
     // Store challenge in database
     const challenge = await prisma.mfaChallenge.create({

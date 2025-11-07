@@ -7,7 +7,7 @@
 
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@workspace/database';
-import { JWTSecretService } from '@workspace/api';
+import { JWTSecretService, JWTTokenType } from '@workspace/api';
 
 /**
  * JWT Payload
@@ -19,7 +19,7 @@ export interface JWTPayload {
   roles: string[];
   iat?: number;
   exp?: number;
-  type: 'access' | 'refresh';
+  type: JWTTokenType;
 }
 
 /**
@@ -32,10 +32,18 @@ export interface JWTTokenResponse {
 }
 
 /**
+ * IatExpType
+ *
+ * Type for Iat and Exp fields in JWT payload.
+ */
+export type IatExpType = 'iat' | 'exp' | 'type';
+
+/**
  * JWT Service
  *
  * Provides JWT token generation and validation with school-specific secrets.
  */
+
 export class AuthJWTService {
   constructor(private readonly jwtService: JwtService) {}
 
@@ -50,7 +58,7 @@ export class AuthJWTService {
    */
   async generateAccessToken(
     prisma: PrismaClient,
-    payload: Omit<JWTPayload, 'iat' | 'exp' | 'type'>,
+    payload: Omit<JWTPayload, IatExpType>,
     tenantId: string,
     expiresIn: number = 3600, // 1 hour
   ): Promise<string> {
@@ -63,6 +71,10 @@ export class AuthJWTService {
     const tokenPayload: JWTPayload = {
       ...payload,
       type: 'access',
+      sub: '',
+      tenantId: '',
+      profileId: '',
+      roles: [],
     };
 
     return this.jwtService.signAsync(tokenPayload, {
@@ -82,7 +94,7 @@ export class AuthJWTService {
    */
   async generateRefreshToken(
     prisma: PrismaClient,
-    payload: Omit<JWTPayload, 'iat' | 'exp' | 'type'>,
+    payload: Omit<JWTPayload, IatExpType>,
     tenantId: string,
     expiresIn: number = 604800, // 7 days
   ): Promise<string> {
@@ -95,6 +107,10 @@ export class AuthJWTService {
     const tokenPayload: JWTPayload = {
       ...payload,
       type: 'refresh',
+      sub: '',
+      tenantId: '',
+      profileId: '',
+      roles: [],
     };
 
     return this.jwtService.signAsync(tokenPayload, {
@@ -211,7 +227,7 @@ export class AuthJWTService {
    */
   async generateTokens(
     prisma: PrismaClient,
-    payload: Omit<JWTPayload, 'iat' | 'exp' | 'type'>,
+    payload: Omit<JWTPayload, IatExpType>,
     tenantId: string,
     accessExpiresIn: number = 3600,
     refreshExpiresIn: number = 604800,

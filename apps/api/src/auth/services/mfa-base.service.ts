@@ -7,31 +7,14 @@
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { PrismaClient } from '@workspace/database';
+import {
+  MfaMethodType,
+  MfaChallengeType,
+  MfaOperationType,
+} from '@workspace/api';
 
-/**
- * MFA Method Types
- */
-export type MfaMethodType = 'sms' | 'email' | 'totp' | 'webauthn';
-
-/**
- * MFA Challenge Types
- */
-export type MfaChallengeType =
-  | 'sms'
-  | 'email'
-  | 'totp'
-  | 'webauthn'
-  | 'recovery';
-
-/**
- * MFA Operation Types
- */
-export type MfaOperationType =
-  | 'login'
-  | 'sensitive_operation'
-  | 'password_reset'
-  | 'account_recovery'
-  | 'settings_change';
+// Re-export for backward compatibility
+export type { MfaMethodType, MfaChallengeType, MfaOperationType };
 
 /**
  * MFA Base Service

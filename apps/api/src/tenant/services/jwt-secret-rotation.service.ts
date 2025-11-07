@@ -4,7 +4,11 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-import { JWTSecretService, isPlatformAdminRole } from '@workspace/api';
+import {
+  JWTSecretService,
+  isPlatformAdminRole,
+  JWTSecretRotationReason,
+} from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
 
 /**
@@ -35,7 +39,7 @@ export class JWTSecretRotationService {
     tenantId: string,
     requesterRole: string,
     options: {
-      reason: 'scheduled' | 'emergency' | 'breach_response' | 'manual';
+      reason: JWTSecretRotationReason;
       emergency?: boolean;
     },
   ) {

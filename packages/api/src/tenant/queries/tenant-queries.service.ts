@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from '@workspace/database';
+import { ProfileStatus, RoleType } from '@workspace/api';
 
 /**
  * Tenant Queries Service
@@ -211,7 +212,7 @@ export class TenantQueriesService {
     prisma: PrismaClient,
     tenantId: string,
     options?: {
-      status?: 'active' | 'inactive' | 'pending' | 'suspended';
+      status?: ProfileStatus;
       includeSuspended?: boolean;
     },
   ) {
@@ -261,8 +262,8 @@ export class TenantQueriesService {
     return prisma.role.findMany({
       where: {
         OR: [
-          { tenantId: null, roleType: { in: ['platform', 'system'] } }, // System roles
-          { tenantId, roleType: 'custom' }, // Custom roles for this tenant
+          { tenantId: null, roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] } }, // System roles
+          { tenantId, roleType: RoleType.CUSTOM }, // Custom roles for this tenant
         ],
         isActive: true,
       },

@@ -1,4 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import type { PaginationSortOrder } from '@workspace/api';
 
 /**
  * Base DTO
@@ -45,7 +46,7 @@ export class PaginationDto {
     enum: ['asc', 'desc'],
     default: 'asc',
   })
-  sortOrder?: 'asc' | 'desc' = 'asc';
+  sortOrder?: PaginationSortOrder = 'asc';
 }
 
 /**

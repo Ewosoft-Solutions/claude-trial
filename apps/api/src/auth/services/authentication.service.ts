@@ -13,6 +13,7 @@ import {
   UserSchoolProfile,
   TenantStatus,
   ProfileStatus,
+  MfaMethodType,
 } from '@workspace/api';
 import { PrismaClient } from '@workspace/database';
 // Local imports
@@ -37,7 +38,7 @@ export interface LoginResponse {
   schools: UserSchoolProfile[];
   requiresMfa?: boolean;
   mfaChallengeId?: string;
-  mfaMethodType?: 'sms' | 'email' | 'totp' | 'webauthn';
+  mfaMethodType?: MfaMethodType;
   mfaExpiresAt?: Date;
   webauthnOptions?: any; // For WebAuthn
 }
@@ -254,11 +255,7 @@ export class AuthenticationService {
           schools: [], // Don't return schools until MFA is verified
           requiresMfa: true,
           mfaChallengeId: mfaChallenge.challengeId,
-          mfaMethodType: primaryMethod.type as
-            | 'sms'
-            | 'email'
-            | 'totp'
-            | 'webauthn',
+          mfaMethodType: primaryMethod.type as MfaMethodType,
           mfaExpiresAt: mfaChallenge.expiresAt,
           webauthnOptions: mfaChallenge.webauthnOptions,
         };

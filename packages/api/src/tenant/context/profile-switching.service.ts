@@ -34,7 +34,7 @@ export interface AvailableProfile {
   isPrimary: boolean;
 
   /** Profile status */
-  status: 'active' | 'inactive' | 'pending' | 'suspended';
+  status: ProfileStatus;
 }
 
 /**
@@ -84,11 +84,7 @@ export class ProfileSwitchingService {
       roleName: utr.role.name,
       roleDescription: utr.role.description || undefined,
       isPrimary: utr.isPrimary,
-      status: userTenant.status as
-        | 'active'
-        | 'inactive'
-        | 'pending'
-        | 'suspended',
+      status: userTenant.status as ProfileStatus,
     }));
   }
 
