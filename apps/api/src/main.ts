@@ -45,6 +45,7 @@ async function bootstrap() {
     .addTag('auth', 'Authentication endpoints')
     .addTag('mfa', 'Multi-factor authentication endpoints')
     .addTag('security-policy', 'Security policy management endpoints')
+    .addTag('tenant', 'Tenant (school) management endpoints')
     .addTag('links', 'Links management endpoints')
     .build();
 

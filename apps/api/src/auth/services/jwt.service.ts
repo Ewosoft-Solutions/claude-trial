@@ -6,7 +6,7 @@
  */
 
 import { JwtService } from '@nestjs/jwt';
-import {  } from '@workspace/database';
+import { PrismaClient } from '@workspace/database';
 import { JWTSecretService } from '@workspace/api';
 
 /**

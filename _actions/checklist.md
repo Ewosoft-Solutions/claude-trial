@@ -110,19 +110,19 @@
 
 ### 6. Tenant Management
 
-- [ ] 6.1 Implement school registration (platform admin or school owner)
-- [ ] 6.2 Implement school-specific JWT secret auto-generation (platform admin only)
-- [ ] 6.3 Implement optional email domain validation (DNS TXT record)
-- [ ] 6.4 Implement admin-controlled user addition (direct creation, invitation, bulk import)
-- [ ] 6.5 Implement user invitation system (token-based, email links, expiration)
-- [ ] 6.6 Implement tenant configuration system
-- [ ] 6.7 Set up tenant onboarding flow
-- [ ] 6.8 Implement tenant status management
-- [ ] 6.9 Create tenant settings/configuration API
-- [ ] 6.10 Implement multi-school user management (profile-based)
-- [ ] 6.11 Implement audit logging for user additions
-- [ ] 6.12 Implement secret rotation (scheduled 90-180 days + emergency)
-- [ ] 6.13 Implement secret access controls (platform admin only, schools cannot access)
+- [x] 6.1 Implement school registration (platform admin or school owner) ✅
+- [x] 6.2 Implement school-specific JWT secret auto-generation (platform admin only) ✅
+- [x] 6.3 Implement optional email domain validation (DNS TXT record) ✅
+- [x] 6.4 Implement admin-controlled user addition (direct creation, invitation, bulk import) ✅
+- [x] 6.5 Implement user invitation system (token-based, email links, expiration) ✅
+- [x] 6.6 Implement tenant configuration system ✅
+- [x] 6.7 Set up tenant onboarding flow ✅ (Covered by registration + status management: tenants start as "pending" and are activated via status management)
+- [x] 6.8 Implement tenant status management ✅
+- [x] 6.9 Create tenant settings/configuration API ✅
+- [x] 6.10 Implement multi-school user management (profile-based) ✅
+- [x] 6.11 Implement audit logging for user additions ✅
+- [x] 6.12 Implement secret rotation (scheduled 90-180 days + emergency) ✅
+- [x] 6.13 Implement secret access controls (platform admin only, schools cannot access) ✅
 
 ### 7. Database Setup & Configuration
 
