@@ -5,7 +5,7 @@
  * These types are used throughout the backend to identify and validate tenant context.
  */
 
-import { TenantStatus, ProfileStatus } from './enums';
+import { TenantStatus, ProfileStatus } from './enums/index';
 
 /**
  * Tenant Context - Complete tenant and user context for a request

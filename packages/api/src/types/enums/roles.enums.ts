@@ -1,8 +1,7 @@
 /**
- * Shared Enums and Constants
+ * Role and Permission Enums
  *
- * Centralized enums and constants used across the application.
- * This provides type safety, consistency, and a single source of truth.
+ * Enums related to roles, permissions, and access control.
  */
 
 /**
@@ -44,29 +43,6 @@ export enum RoleType {
   PLATFORM = 'platform',
   SYSTEM = 'system',
   CUSTOM = 'custom',
-}
-
-/**
- * Tenant Status
- *
- * Status of a tenant (school) in the system.
- */
-export enum TenantStatus {
-  ACTIVE = 'active',
-  PENDING = 'pending',
-  SUSPENDED = 'suspended',
-}
-
-/**
- * Profile Status
- *
- * Status of a user's profile within a tenant.
- */
-export enum ProfileStatus {
-  ACTIVE = 'active',
-  INACTIVE = 'inactive',
-  PENDING = 'pending',
-  SUSPENDED = 'suspended',
 }
 
 /**
@@ -170,45 +146,13 @@ export enum AccessScope {
 }
 
 /**
- * Enforced By
- *
- * Indicates who enforced a security policy or rule.
- */
-export enum EnforcedBy {
-  SCHOOL_ADMIN = 'school_admin',
-  PLATFORM_ADMIN = 'platform_admin',
-}
-
-/**
- * Approval Level
- */
-export enum ApprovalLevel {
-  SCHOOL = 'school', // School-level approval
-  PLATFORM = 'platform', // Platform-level approval
-  EMERGENCY = 'emergency', // Emergency override (no approval needed)
-}
-
-/**
- * Maker-Checker Status
- *
- * Status of maker-checker approval requests.
- */
-export enum ApprovalStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  EXPIRED = 'expired',
-}
-
-/**
  * Helper: Check if a role name is a platform admin role
  */
 export function isPlatformAdminRole(roleName: string): boolean {
   return (
     roleName === PlatformRole.ARCHITECT ||
     roleName === PlatformRole.SUPER_ADMIN ||
-    roleName === PlatformRole.PLATFORM_ADMIN ||
-    roleName === 'platform_admin' // Legacy support
+    roleName === PlatformRole.PLATFORM_ADMIN
   );
 }
 

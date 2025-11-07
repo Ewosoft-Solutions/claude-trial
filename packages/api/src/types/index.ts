@@ -5,4 +5,4 @@
  */
 
 export * from './tenant-context.types';
-export * from './enums';
+export * from './enums/index';
