@@ -8,6 +8,7 @@
 
 import { PrismaClient } from '@workspace/database';
 import * as crypto from 'crypto';
+import { JWTSecretRotationReason } from '@workspace/api';
 
 /**
  * JWT Secret Service
@@ -189,7 +190,7 @@ export class JWTSecretService {
     tenantId: string,
     requesterRole: string,
     options: {
-      reason: 'scheduled' | 'emergency' | 'breach_response' | 'manual';
+      reason: JWTSecretRotationReason;
       emergency?: boolean;
     },
   ): Promise<boolean> {

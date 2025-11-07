@@ -35,3 +35,47 @@ export enum BreachSeverity {
   HIGH = 'high', // Likely compromise - MFA re-auth + password reset
   CRITICAL = 'critical', // Confirmed breach - Password reset + MFA + account review
 }
+
+/**
+ * Policy Tier
+ *
+ * Security policy tier levels for schools.
+ * Defines the security level applied to a school.
+ */
+export type PolicyTier = 'basic' | 'enhanced' | 'maximum';
+
+/**
+ * Device Management
+ *
+ * Device management enforcement levels.
+ * Controls how strictly device access is managed.
+ */
+export type DeviceManagement = 'none' | 'basic' | 'strict';
+
+/**
+ * Audit Level
+ *
+ * Audit logging levels for security policies.
+ * Determines the depth of audit logging.
+ */
+export type AuditLevel = 'basic' | 'standard' | 'comprehensive';
+
+/**
+ * JWT Secret Rotation Reason
+ *
+ * Reasons for rotating JWT secrets.
+ * Used for audit logging and rotation tracking.
+ */
+export type JWTSecretRotationReason =
+  | 'scheduled'
+  | 'emergency'
+  | 'breach_response'
+  | 'manual';
+
+/**
+ * JWT Token Type
+ *
+ * Types of JWT tokens in the system.
+ * Used to distinguish between access and refresh tokens.
+ */
+export type JWTTokenType = 'access' | 'refresh';

@@ -38,3 +38,11 @@ export enum ApprovalStatus {
   REJECTED = 'rejected',
   EXPIRED = 'expired',
 }
+
+/**
+ * Pagination Sort Order
+ *
+ * Sort order for pagination results.
+ * Used in pagination and sorting operations.
+ */
+export type PaginationSortOrder = 'asc' | 'desc';
