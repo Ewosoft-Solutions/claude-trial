@@ -9,6 +9,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { AuthController } from './auth.controller';
 import { MfaController } from './mfa.controller';
+import {
+  SecurityPolicyController,
+  PlatformSecurityPolicyController,
+} from './controllers/security-policy.controller';
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { AuthJWTService } from './services/jwt.service';
@@ -23,6 +27,7 @@ import {
   ClearanceLevelGuard,
   PermissionGuard,
   ContextValidationGuard,
+  SecurityPolicyGuard,
 } from './guards';
 import {
   PermissionService,
@@ -30,6 +35,7 @@ import {
   PermissionPoolService,
   MakerCheckerService,
   PlatformOversightService,
+  SecurityPolicyService,
 } from './services';
 
 /**
@@ -50,7 +56,12 @@ import {
       },
     }),
   ],
-  controllers: [AuthController, MfaController],
+  controllers: [
+    AuthController,
+    MfaController,
+    SecurityPolicyController,
+    PlatformSecurityPolicyController,
+  ],
   providers: [
     // Authentication services
     AuthenticationService,
@@ -68,6 +79,7 @@ import {
     PermissionPoolService,
     MakerCheckerService,
     PlatformOversightService,
+    SecurityPolicyService,
     // Guards
     JwtAuthGuard,
     TenantContextGuard,
@@ -75,6 +87,7 @@ import {
     ClearanceLevelGuard,
     PermissionGuard,
     ContextValidationGuard,
+    SecurityPolicyGuard,
   ],
   exports: [
     // Authentication services
@@ -89,6 +102,7 @@ import {
     PermissionPoolService,
     MakerCheckerService,
     PlatformOversightService,
+    SecurityPolicyService,
     // Guards
     JwtAuthGuard,
     TenantContextGuard,
@@ -96,6 +110,7 @@ import {
     ClearanceLevelGuard,
     PermissionGuard,
     ContextValidationGuard,
+    SecurityPolicyGuard,
   ],
 })
 export class AuthModule {}

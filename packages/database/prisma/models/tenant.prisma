@@ -39,6 +39,7 @@ model Tenant {
   messages        Message[]
   auditLogs       AuditLog[]
   jwtConfig       TenantJWTConfig?
+  securityPolicy  SchoolSecurityPolicy?
 
   @@index([status])
   @@index([emailDomain])

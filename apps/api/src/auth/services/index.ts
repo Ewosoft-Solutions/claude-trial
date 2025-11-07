@@ -15,3 +15,4 @@ export * from './role.service';
 export * from './permission-pool.service';
 export * from './maker-checker.service';
 export * from './platform-oversight.service';
+export * from './security-policy.service';

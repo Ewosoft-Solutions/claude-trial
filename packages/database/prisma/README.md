@@ -34,9 +34,10 @@ The schema is split into context-based files in the `prisma/` directory:
   - **Clearance Levels:** 0-10 hierarchy (Architect=10, Guest=0)
   - **Custom Roles:** Limited to school-level clearance (0-7)
   - **Platform/System Roles:** Globally unique names
-- `Permission` - Granular permissions (300+) with UI metadata
+- `Permission` - Granular permissions (274 permissions) with UI metadata
   - **Structured Metadata:** key (name), label (display), description (details)
   - **Fields:** name, label, description, resource, action, context, category
+  - **Permission Summary:** 274 permissions across 26 categories (see `packages/database/src/seed.ts` for full list)
 - `RolePermission` - Many-to-many: Roles have permissions
 
 ### Profile (`profile.prisma`)

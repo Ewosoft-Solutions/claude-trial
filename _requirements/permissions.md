@@ -200,6 +200,36 @@ interface CustomRoleCreation {
 
 ## Comprehensive Permissions Framework
 
+### Permission Summary
+
+The system includes **274 permissions** organized across **26 categories**:
+
+- **Student Management** (14 permissions)
+- **Academic Management** (11 permissions)
+- **Grade & Assessment** (15 permissions)
+- **Attendance** (7 permissions)
+- **Financial** (12 permissions)
+- **Communication** (12 permissions)
+- **Staff Management** (10 permissions)
+- **Reports & Analytics** (9 permissions)
+- **System Administration** (18 permissions)
+- **Platform** (13 permissions)
+- **Library** (7 permissions)
+- **Transportation** (8 permissions)
+- **Cafeteria** (8 permissions)
+- **Health** (8 permissions)
+- **Facilities** (8 permissions)
+- **Events** (7 permissions)
+- **Sports** (8 permissions)
+- **Clubs** (7 permissions)
+- **Parent Portal** (7 permissions)
+- **Inventory** (7 permissions)
+- **Safety** (7 permissions)
+- **Compliance** (6 permissions)
+- **Timetable** (12 permissions)
+- **Exams** (12 permissions)
+- **Admissions** (15 permissions)
+
 ### Student Management Permissions
 
 - `students.view` - View student list and basic info

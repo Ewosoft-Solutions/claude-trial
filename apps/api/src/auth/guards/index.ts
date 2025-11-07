@@ -4,3 +4,4 @@ export * from './mfa-required.guard';
 export * from './clearance-level.guard';
 export * from './permission.guard';
 export * from './context-validation.guard';
+export * from './security-policy.guard';
