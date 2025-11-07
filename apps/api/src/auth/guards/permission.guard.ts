@@ -15,21 +15,13 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PrismaClient } from '@workspace/database';
 import { PermissionService } from '../services/permission.service';
-
+import { PermissionMode } from '@workspace/api';
 /**
  * Metadata key for permission requirement
  */
 export const PERMISSIONS_KEY = 'permissions';
 export const PERMISSION_MODE_KEY = 'permission_mode';
 export const REQUIRED_CLEARANCE_KEY = 'required_clearance';
-
-/**
- * Permission check mode
- */
-export enum PermissionMode {
-  ALL = 'all', // All permissions required (AND)
-  ANY = 'any', // Any permission required (OR)
-}
 
 /**
  * Decorator to require specific permissions

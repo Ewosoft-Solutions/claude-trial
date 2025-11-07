@@ -12,6 +12,7 @@ import {
 } from '../dto';
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
+import { ProfileStatus } from '@workspace/api';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
 
@@ -105,7 +106,7 @@ export class UserInvitationService {
       data: {
         userId: user.id,
         tenantId,
-        status: 'pending', // Pending until invitation is accepted
+        status: ProfileStatus.PENDING, // Pending until invitation is accepted
         invitationToken,
         invitationExpiresAt,
         addedBy: createdBy,
@@ -238,7 +239,7 @@ export class UserInvitationService {
     await prisma.userTenant.update({
       where: { id: userTenant.id },
       data: {
-        status: 'active',
+        status: ProfileStatus.ACTIVE,
         invitationAcceptedAt: new Date(),
         invitationToken: null, // Clear token
       },

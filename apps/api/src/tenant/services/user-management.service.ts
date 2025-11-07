@@ -8,6 +8,7 @@ import { PrismaClient } from '@workspace/database';
 import { CreateUserDto, BulkCreateUsersDto, AddUserToTenantDto } from '../dto';
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
+import { ProfileStatus } from '@workspace/api';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -109,7 +110,7 @@ export class UserManagementService {
       data: {
         userId: user.id,
         tenantId,
-        status: 'active',
+        status: ProfileStatus.ACTIVE,
         addedBy: createdBy,
       },
     });
@@ -249,7 +250,7 @@ export class UserManagementService {
       data: {
         userId: data.userId,
         tenantId,
-        status: 'active',
+        status: ProfileStatus.ACTIVE,
         addedBy: createdBy,
       },
     });

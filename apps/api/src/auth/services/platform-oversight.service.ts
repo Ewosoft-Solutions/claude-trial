@@ -7,6 +7,7 @@
 
 import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { ClearanceLevel, ClearanceLevelHelpers } from '@workspace/api';
 import { PermissionService, UserPermissionContext } from './permission.service';
 
 /**
@@ -40,7 +41,9 @@ export class PlatformOversightService {
    */
   hasPlatformOverrideAccess(userContext: UserPermissionContext): boolean {
     // Only Architect (10) and SuperAdmin (9) have platform override access
-    return userContext.clearanceLevel >= 9;
+    return ClearanceLevelHelpers.isSuperAdminOrHigher(
+      userContext.clearanceLevel,
+    );
   }
 
   /**
@@ -53,7 +56,7 @@ export class PlatformOversightService {
    */
   hasEmergencyAccess(userContext: UserPermissionContext): boolean {
     // Only Architect (10) has emergency access without approval
-    return userContext.clearanceLevel === 10;
+    return ClearanceLevelHelpers.isArchitect(userContext.clearanceLevel);
   }
 
   /**
@@ -126,7 +129,9 @@ export class PlatformOversightService {
   hasPlatformAuditAccess(userContext: UserPermissionContext): boolean {
     // Architect (10) has full audit access
     // SuperAdmin (9) has limited audit access
-    return userContext.clearanceLevel >= 9;
+    return ClearanceLevelHelpers.isSuperAdminOrHigher(
+      userContext.clearanceLevel,
+    );
   }
 
   /**
@@ -139,7 +144,9 @@ export class PlatformOversightService {
    */
   hasPlatformMaintenanceAccess(userContext: UserPermissionContext): boolean {
     // Only Architect (10) and SuperAdmin (9) have maintenance access
-    return userContext.clearanceLevel >= 9;
+    return ClearanceLevelHelpers.isSuperAdminOrHigher(
+      userContext.clearanceLevel,
+    );
   }
 
   /**
@@ -152,7 +159,9 @@ export class PlatformOversightService {
    */
   hasTenantManagementAccess(userContext: UserPermissionContext): boolean {
     // Only Architect (10) and SuperAdmin (9) have tenant management access
-    return userContext.clearanceLevel >= 9;
+    return ClearanceLevelHelpers.isSuperAdminOrHigher(
+      userContext.clearanceLevel,
+    );
   }
 
   /**

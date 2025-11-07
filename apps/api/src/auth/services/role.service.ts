@@ -11,6 +11,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { RoleType, ClearanceLevel } from '@workspace/api';
 
 /**
  * Custom Role Creation Input
@@ -64,16 +65,16 @@ export class RoleService {
   async validateRoleNameUniqueness(
     prisma: PrismaClient,
     name: string,
-    roleType: 'platform' | 'system' | 'custom',
+    roleType: RoleType,
     tenantId?: string,
     excludeRoleId?: string,
   ): Promise<RoleNameUniquenessResult> {
-    if (roleType === 'platform' || roleType === 'system') {
+    if (roleType === RoleType.PLATFORM || roleType === RoleType.SYSTEM) {
       // Platform/system roles must be globally unique
       const existing = await prisma.role.findFirst({
         where: {
           name,
-          roleType: { in: ['platform', 'system'] },
+          roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
           tenantId: null,
           ...(excludeRoleId ? { id: { not: excludeRoleId } } : {}),
         },
@@ -85,7 +86,7 @@ export class RoleService {
           error: `Role name '${name}' already exists for platform/system roles`,
         };
       }
-    } else if (roleType === 'custom') {
+    } else if (roleType === RoleType.CUSTOM) {
       // Custom roles must be unique per tenant
       if (!tenantId) {
         return {
@@ -97,7 +98,7 @@ export class RoleService {
       const existing = await prisma.role.findFirst({
         where: {
           name,
-          roleType: 'custom',
+          roleType: RoleType.CUSTOM,
           tenantId,
           ...(excludeRoleId ? { id: { not: excludeRoleId } } : {}),
         },
@@ -131,7 +132,10 @@ export class RoleService {
     input: CreateCustomRoleInput,
   ): Promise<CustomRoleValidationResult> {
     // 1. Check clearance level constraint (0-7 only)
-    if (input.clearanceLevel < 0 || input.clearanceLevel > 7) {
+    if (
+      input.clearanceLevel < ClearanceLevel.GUEST ||
+      input.clearanceLevel > ClearanceLevel.MANAGEMENT
+    ) {
       return {
         valid: false,
         error: 'Custom roles cannot exceed clearance level 7',
@@ -216,7 +220,7 @@ export class RoleService {
     const nameCheck = await this.validateRoleNameUniqueness(
       prisma,
       input.name,
-      'custom',
+      RoleType.CUSTOM,
       input.tenantId,
     );
 
@@ -236,7 +240,7 @@ export class RoleService {
       data: {
         name: input.name,
         description: input.description,
-        roleType: 'custom',
+        roleType: RoleType.CUSTOM,
         clearanceLevel: input.clearanceLevel,
         tenantId: input.tenantId,
         isSystemRole: false,

@@ -8,7 +8,12 @@
 // External imports
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 // Workspace imports
-import { SchoolSelectionService, UserSchoolProfile } from '@workspace/api';
+import {
+  SchoolSelectionService,
+  UserSchoolProfile,
+  TenantStatus,
+  ProfileStatus,
+} from '@workspace/api';
 import { PrismaClient } from '@workspace/database';
 // Local imports
 import { PasswordService } from './password.service';
@@ -51,8 +56,8 @@ export interface SchoolSelectionResponse {
     userId: string;
     profileId: string;
     roles: string[];
-    tenantStatus: 'active' | 'pending' | 'suspended';
-    profileStatus: 'active' | 'inactive' | 'pending' | 'suspended';
+    tenantStatus: TenantStatus;
+    profileStatus: ProfileStatus;
   };
 }
 
@@ -421,9 +426,9 @@ export class AuthenticationService {
 
     // Check profile status
     if (
-      userTenant.status !== 'active' ||
+      userTenant.status !== ProfileStatus.ACTIVE ||
       userTenant.suspended ||
-      userTenant.tenant.status !== 'active'
+      userTenant.tenant.status !== TenantStatus.ACTIVE
     ) {
       throw new UnauthorizedException('Profile is not active');
     }
@@ -473,15 +478,8 @@ export class AuthenticationService {
         userId,
         profileId,
         roles,
-        tenantStatus: userTenant.tenant.status as
-          | 'active'
-          | 'pending'
-          | 'suspended',
-        profileStatus: userTenant.status as
-          | 'active'
-          | 'inactive'
-          | 'pending'
-          | 'suspended',
+        tenantStatus: userTenant.tenant.status as TenantStatus,
+        profileStatus: userTenant.status as ProfileStatus,
       },
     };
   }

@@ -5,6 +5,7 @@
  * Implements items 3.8 and 3.12.
  */
 
+import { ProfileStatus } from '@workspace/api';
 import { PrismaClient } from '@workspace/database';
 
 /**
@@ -108,7 +109,7 @@ export class SessionService {
     // Check if profile is active
     if (
       !session.userTenant ||
-      session.userTenant.status !== 'active' ||
+      session.userTenant.status !== ProfileStatus.ACTIVE ||
       session.userTenant.suspended
     ) {
       return false;

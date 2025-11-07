@@ -6,7 +6,12 @@
  */
 
 import { PrismaClient } from '@workspace/database';
-import { TenantContext, Permission } from '../../types/tenant-context.types';
+import {
+  TenantContext,
+  Permission,
+  TenantStatus,
+  ProfileStatus,
+} from '../../types';
 import { TenantQueriesService } from '../queries';
 import { TenantValidationService } from '../validation';
 
@@ -165,15 +170,8 @@ export class ProfileSwitchingService {
       profileId: context.profileId, // Profile ID stays the same
       roles: [targetRoleName], // Single role for current context
       permissions: grantedPermissions,
-      tenantStatus: userTenant.tenant.status as
-        | 'active'
-        | 'pending'
-        | 'suspended',
-      profileStatus: userTenant.status as
-        | 'active'
-        | 'inactive'
-        | 'pending'
-        | 'suspended',
+      tenantStatus: userTenant.tenant.status as TenantStatus,
+      profileStatus: userTenant.status as ProfileStatus,
     };
 
     return updatedContext;

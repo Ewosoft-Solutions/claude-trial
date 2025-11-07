@@ -5,6 +5,8 @@
  * These types are used throughout the backend to identify and validate tenant context.
  */
 
+import { TenantStatus, ProfileStatus } from './enums';
+
 /**
  * Tenant Context - Complete tenant and user context for a request
  *
@@ -31,10 +33,10 @@ export interface TenantContext {
   permissions: Permission[];
 
   /** Tenant status */
-  tenantStatus: 'active' | 'pending' | 'suspended';
+  tenantStatus: TenantStatus;
 
   /** Profile status */
-  profileStatus: 'active' | 'inactive' | 'pending' | 'suspended';
+  profileStatus: ProfileStatus;
 }
 
 /**
@@ -78,7 +80,7 @@ export interface PublicTenantContext {
   tenantSlug?: string;
 
   /** Tenant status */
-  tenantStatus: 'active' | 'pending' | 'suspended';
+  tenantStatus: TenantStatus;
 }
 
 /**

@@ -13,7 +13,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@workspace/database';
-import { JWTSecretService } from '@workspace/api/tenant/jwt';
+import { JWTSecretService } from '@workspace/api';
 import { AuthJWTService, JWTPayload } from '../services/jwt.service';
 
 /**

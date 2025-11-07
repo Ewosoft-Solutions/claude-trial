@@ -7,25 +7,7 @@
 
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-
-/**
- * Approval Level
- */
-export enum ApprovalLevel {
-  SCHOOL = 'school', // School-level approval
-  PLATFORM = 'platform', // Platform-level approval
-  EMERGENCY = 'emergency', // Emergency override (no approval needed)
-}
-
-/**
- * Approval Status
- */
-export enum ApprovalStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected',
-  EXPIRED = 'expired',
-}
+import { ApprovalLevel, ApprovalStatus } from '@workspace/api';
 
 /**
  * Sensitive Operation

@@ -13,7 +13,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-import { TenantValidationService } from '@workspace/api/tenant/validation';
+import { TenantValidationService } from '@workspace/api';
 
 /**
  * Tenant Context Guard

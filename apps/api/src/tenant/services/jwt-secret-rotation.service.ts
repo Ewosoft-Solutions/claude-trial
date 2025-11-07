@@ -4,7 +4,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-import { JWTSecretService } from '@workspace/api';
+import { JWTSecretService, isPlatformAdminRole } from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
 
 /**
@@ -40,11 +40,7 @@ export class JWTSecretRotationService {
     },
   ) {
     // 6.13: Only platform admins can rotate secrets
-    if (
-      requesterRole !== 'Architect' &&
-      requesterRole !== 'SuperAdmin' &&
-      requesterRole !== 'platform_admin'
-    ) {
+    if (!isPlatformAdminRole(requesterRole)) {
       throw new ForbiddenException(
         'Only platform admins can rotate JWT secrets',
       );
@@ -146,11 +142,7 @@ export class JWTSecretRotationService {
     requesterRole: string,
   ) {
     // 6.13: Only platform admins can access secret information
-    if (
-      requesterRole !== 'Architect' &&
-      requesterRole !== 'SuperAdmin' &&
-      requesterRole !== 'platform_admin'
-    ) {
+    if (!isPlatformAdminRole(requesterRole)) {
       throw new ForbiddenException(
         'Only platform admins can access JWT secret information',
       );

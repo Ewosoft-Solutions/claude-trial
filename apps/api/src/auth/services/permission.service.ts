@@ -7,7 +7,13 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-import { TenantQueriesService } from '@workspace/api/tenant/queries';
+import {
+  TenantQueriesService,
+  ProfileStatus,
+  ClearanceLevel,
+  ClearanceLevelHelpers,
+  AccessScope,
+} from '@workspace/api';
 
 /**
  * Permission Check Result
@@ -68,7 +74,7 @@ export class PermissionService {
     }
 
     // Verify profile is active and not suspended
-    if (userTenant.status !== 'active' || userTenant.suspended) {
+    if (userTenant.status !== ProfileStatus.ACTIVE || userTenant.suspended) {
       return null;
     }
 
@@ -458,7 +464,7 @@ export class PermissionService {
       };
     }
 
-    if (userTenant.status !== 'active') {
+    if (userTenant.status !== ProfileStatus.ACTIVE) {
       return {
         valid: false,
         error: 'Profile is not active',
@@ -493,15 +499,21 @@ export class PermissionService {
    */
   getAIMediatorContext(userContext: UserPermissionContext): AIMediatorContext {
     // Determine access scope from clearance level
-    let accessScope: 'platform' | 'school' | 'department' | 'own';
-    if (userContext.clearanceLevel >= 9) {
-      accessScope = 'platform';
-    } else if (userContext.clearanceLevel >= 7) {
-      accessScope = 'school';
-    } else if (userContext.clearanceLevel >= 3) {
-      accessScope = 'department';
+    let accessScope: AccessScope;
+    if (
+      ClearanceLevelHelpers.isSuperAdminOrHigher(userContext.clearanceLevel)
+    ) {
+      accessScope = AccessScope.PLATFORM;
+    } else if (
+      ClearanceLevelHelpers.isManagementOrHigher(userContext.clearanceLevel)
+    ) {
+      accessScope = AccessScope.SCHOOL;
+    } else if (
+      ClearanceLevelHelpers.isTeacherOrHigher(userContext.clearanceLevel)
+    ) {
+      accessScope = AccessScope.DEPARTMENT;
     } else {
-      accessScope = 'own';
+      accessScope = AccessScope.OWN;
     }
 
     // Get granted permissions only
@@ -542,5 +554,5 @@ export interface AIMediatorContext {
   roles: string[]; // Role names
   permissions: string[]; // Effective permissions (granted only)
   permissionPools: string[]; // Permission pools this user has access to
-  accessScope: 'platform' | 'school' | 'department' | 'own'; // Derived from clearance level
+  accessScope: AccessScope; // Derived from clearance level
 }

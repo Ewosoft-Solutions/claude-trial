@@ -5,7 +5,14 @@ import {
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
 import { RegisterTenantDto, UpdateTenantDto } from '../dto';
-import { JWTSecretService } from '@workspace/api';
+import {
+  JWTSecretService,
+  SystemRole,
+  PlatformRole,
+  TenantStatus,
+  canRegisterTenant,
+  isPlatformAdminRole,
+} from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
 import * as bcrypt from 'bcrypt';
 
@@ -38,11 +45,7 @@ export class TenantRegistrationService {
     requesterRole: string,
   ) {
     // Validate requester has permission (platform admin or school owner)
-    if (
-      requesterRole !== 'Architect' &&
-      requesterRole !== 'SuperAdmin' &&
-      requesterRole !== 'Owner'
-    ) {
+    if (!canRegisterTenant(requesterRole)) {
       throw new BadRequestException(
         'Only platform admins or school owners can register schools',
       );
@@ -81,7 +84,7 @@ export class TenantRegistrationService {
         name: data.name,
         slug,
         emailDomain: data.emailDomain?.toLowerCase(),
-        status: 'pending', // Start as pending, activate after onboarding
+        status: TenantStatus.PENDING, // Start as pending, activate after onboarding
         settings: data.settings || {},
         createdBy,
       },
@@ -89,11 +92,7 @@ export class TenantRegistrationService {
 
     // 6.2: Auto-generate JWT secret (platform admin only)
     // Only platform admins can trigger secret generation
-    if (
-      requesterRole === 'Architect' ||
-      requesterRole === 'SuperAdmin' ||
-      requesterRole === 'platform_admin'
-    ) {
+    if (isPlatformAdminRole(requesterRole)) {
       await JWTSecretService.initializeTenantJWTSecret(prisma, tenant.id);
     }
 

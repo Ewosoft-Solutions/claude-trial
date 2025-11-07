@@ -11,11 +11,11 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { EnforcedBy } from '@workspace/api';
 
 export type PolicyTier = 'basic' | 'enhanced' | 'maximum';
 export type DeviceManagement = 'none' | 'basic' | 'strict';
 export type AuditLevel = 'basic' | 'standard' | 'comprehensive';
-export type EnforcedBy = 'school_admin' | 'platform_admin';
 
 export interface TimeRestrictions {
   allowedHours: Array<{ start: number; end: number }>;
@@ -207,7 +207,7 @@ export class SecurityPolicyService {
         prisma,
         schoolId,
         'basic',
-        'school_admin',
+        EnforcedBy.SCHOOL_ADMIN,
         null,
         'Default policy assigned on school creation',
       );
@@ -370,7 +370,7 @@ export class SecurityPolicyService {
           policyTier: tier,
           ...tierConfig,
           isEmergency: true,
-          enforcedBy: 'platform_admin',
+          enforcedBy: EnforcedBy.PLATFORM_ADMIN,
           enforcedByUserId,
           enforcedAt: new Date(),
           reason,
@@ -386,7 +386,7 @@ export class SecurityPolicyService {
           schoolId,
           ...tierConfig,
           isEmergency: true,
-          enforcedBy: 'platform_admin',
+          enforcedBy: EnforcedBy.PLATFORM_ADMIN,
           enforcedByUserId,
           enforcedAt: new Date(),
           reason,
@@ -429,7 +429,7 @@ export class SecurityPolicyService {
       prisma,
       schoolId,
       'basic',
-      'platform_admin',
+      EnforcedBy.PLATFORM_ADMIN,
       enforcedByUserId,
       'Emergency policy removed, reverted to Basic tier',
     );

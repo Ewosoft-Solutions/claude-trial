@@ -4,4 +4,4 @@ export { UpdateLinkDto } from './links/dto/update-link.dto';
 
 // Tenant Context Types and Services
 export * from './types';
-export * from './tenant/context';
+export * from './tenant';

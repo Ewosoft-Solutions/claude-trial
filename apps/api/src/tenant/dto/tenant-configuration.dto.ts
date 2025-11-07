@@ -1,14 +1,6 @@
 import { IsString, IsOptional, IsObject, IsEnum } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-
-/**
- * Tenant Status
- */
-export enum TenantStatus {
-  ACTIVE = 'active',
-  PENDING = 'pending',
-  SUSPENDED = 'suspended',
-}
+import { TenantStatus } from '@workspace/api';
 
 /**
  * Update Tenant Status DTO
