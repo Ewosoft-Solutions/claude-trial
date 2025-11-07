@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { DatabaseModule } from './database/database.module';
 import { LoggerModule } from './logger/logger.module';
+import { EncryptionModule } from './encryption/encryption.module';
 
 /**
  * Common Module
@@ -11,7 +12,7 @@ import { LoggerModule } from './logger/logger.module';
  */
 @Global()
 @Module({
-  imports: [DatabaseModule, LoggerModule],
-  exports: [DatabaseModule, LoggerModule],
+  imports: [DatabaseModule, LoggerModule, EncryptionModule],
+  exports: [DatabaseModule, LoggerModule, EncryptionModule],
 })
 export class CommonModule {}
