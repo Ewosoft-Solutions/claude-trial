@@ -262,7 +262,10 @@ export class TenantQueriesService {
     return prisma.role.findMany({
       where: {
         OR: [
-          { tenantId: null, roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] } }, // System roles
+          {
+            tenantId: null,
+            roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+          }, // System roles
           { tenantId, roleType: RoleType.CUSTOM }, // Custom roles for this tenant
         ],
         isActive: true,
