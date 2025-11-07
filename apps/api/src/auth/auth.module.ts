@@ -13,6 +13,7 @@ import {
   SecurityPolicyController,
   PlatformSecurityPolicyController,
 } from './controllers/security-policy.controller';
+import { BreachResponseController } from './controllers/breach-response.controller';
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { AuthJWTService } from './services/jwt.service';
@@ -36,6 +37,7 @@ import {
   MakerCheckerService,
   PlatformOversightService,
   SecurityPolicyService,
+  BreachResponseService,
 } from './services';
 
 /**
@@ -61,6 +63,7 @@ import {
     MfaController,
     SecurityPolicyController,
     PlatformSecurityPolicyController,
+    BreachResponseController,
   ],
   providers: [
     // Authentication services
@@ -80,6 +83,7 @@ import {
     MakerCheckerService,
     PlatformOversightService,
     SecurityPolicyService,
+    BreachResponseService,
     // Guards
     JwtAuthGuard,
     TenantContextGuard,
@@ -103,6 +107,7 @@ import {
     MakerCheckerService,
     PlatformOversightService,
     SecurityPolicyService,
+    BreachResponseService,
     // Guards
     JwtAuthGuard,
     TenantContextGuard,
