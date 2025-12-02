@@ -57,6 +57,7 @@ model UserTenant {
   @@index([status])
   @@index([suspended])
   @@index([invitationToken])
+  @@schema("profile")
   @@map("user_tenants")
 }
 
@@ -76,6 +77,7 @@ model UserTenantRole {
   @@index([userTenantId])
   @@index([roleId])
   @@index([isPrimary])
+  @@schema("profile")
   @@map("user_tenant_roles")
 }
 
@@ -94,5 +96,6 @@ model UserTenantPermission {
   @@unique([userTenantId, permissionId])
   @@index([userTenantId])
   @@index([permissionId])
+  @@schema("profile")
   @@map("user_tenant_permissions")
 }

@@ -84,7 +84,7 @@ pnpm db:generate
 pnpm db:push
 
 # Run migrations
-pnpm db:migrate:dev
+pnpm db:migrate
 
 # Open Prisma Studio
 pnpm db:studio

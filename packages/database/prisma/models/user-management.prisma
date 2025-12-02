@@ -67,6 +67,7 @@ model User {
   @@index([email])
   @@index([isActive])
   @@index([isVerified])
+  @@schema("user-management")
   @@map("users")
 }
 
@@ -80,6 +81,7 @@ model PasswordHistory {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
+  @@schema("user-management")
   @@map("password_histories")
 }
 
@@ -100,6 +102,7 @@ model LoginAttempt {
   @@index([userId, createdAt])
   @@index([ipAddress, createdAt])
   @@index([success])
+  @@schema("user-management")
   @@map("login_attempts")
 }
 
@@ -124,6 +127,7 @@ model Session {
   @@index([token])
   @@index([expiresAt])
   @@index([revokedAt])
+  @@schema("user-management")
   @@map("sessions")
 }
 
@@ -159,6 +163,7 @@ model MfaMethod {
   @@index([userId, type])
   @@index([userId, isActive])
   @@index([userId, isPrimary])
+  @@schema("user-management")
   @@map("mfa_methods")
 }
 
@@ -192,6 +197,7 @@ model MfaChallenge {
   @@index([userId, verified])
   @@index([userId, expiresAt])
   @@index([code])
+  @@schema("user-management")
   @@map("mfa_challenges")
 }
 
@@ -208,5 +214,6 @@ model MfaRecoveryCode {
 
   @@index([userId])
   @@index([userId, used])
+  @@schema("user-management")
   @@map("mfa_recovery_codes")
 }

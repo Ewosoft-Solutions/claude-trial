@@ -1,5 +1,7 @@
 import { Global, Module } from '@nestjs/common';
-import { PrismaClient, Prisma } from '@workspace/database';
+import { PrismaClient, type Prisma } from '@workspace/database';
+import { PrismaPg } from '@prisma/adapter-pg';
+import pg from 'pg';
 import { DatabaseService } from './database.service';
 import { getEnvConfig } from '../config/env.config';
 
@@ -22,12 +24,10 @@ import { getEnvConfig } from '../config/env.config';
       useFactory: () => {
         const envConfig = getEnvConfig();
 
-        // Prisma handles connection pooling automatically via the connection string
-        // Connection pooling can be configured via DATABASE_URL parameters:
-        // - Use a connection pooler (PgBouncer) in the connection string
-        // - Or configure PostgreSQL connection limits in the database
-        // The DB_POOL_MIN, DB_POOL_MAX, and DB_CONNECTION_TIMEOUT env vars
-        // are available for documentation and future use with custom poolers
+        // Create PostgreSQL adapter for Prisma v7
+        const { Pool } = pg;
+        const pool = new Pool({ connectionString: envConfig.DATABASE_URL });
+        const adapter = new PrismaPg(pool);
 
         // Configure logging based on environment
         const logLevels: Prisma.LogLevel[] = [];
@@ -45,11 +45,7 @@ import { getEnvConfig } from '../config/env.config';
         }
 
         return new PrismaClient({
-          datasources: {
-            db: {
-              url: envConfig.DATABASE_URL,
-            },
-          },
+          adapter,
           log: logLevels.length > 0 ? logLevels : undefined,
           errorFormat:
             envConfig.NODE_ENV === 'development' ? 'pretty' : 'minimal',

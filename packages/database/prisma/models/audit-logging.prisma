@@ -73,5 +73,6 @@ model AuditLog {
   @@index([tenantId, timestamp]) // Composite for tenant-specific queries
   @@index([eventType, timestamp]) // Composite for event type queries
   @@index([actorId, timestamp]) // Composite for user activity queries
+  @@schema("audit-logging")
   @@map("audit_logs")
 }

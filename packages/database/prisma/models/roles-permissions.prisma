@@ -57,6 +57,7 @@ model Role {
   @@index([tenantId])
   @@index([isSystemRole])
   @@index([roleType, name]) // For platform/system role name uniqueness checks
+  @@schema("roles-permissions")
   @@map("roles")
 }
 
@@ -83,6 +84,7 @@ model Permission {
   @@index([action])
   @@index([category])
   @@index([resource, action]) // For fast permission lookups
+  @@schema("roles-permissions")
   @@map("permissions")
 }
 
@@ -100,6 +102,7 @@ model RolePermission {
   @@unique([roleId, permissionId])
   @@index([roleId])
   @@index([permissionId])
+  @@schema("roles-permissions")
   @@map("role_permissions")
 }
 
@@ -126,6 +129,7 @@ model PermissionPool {
   @@index([clearanceLevel])
   @@index([isSystemPool])
   @@index([tenantId])
+  @@schema("roles-permissions")
   @@map("permission_pools")
 }
 
@@ -143,6 +147,7 @@ model PermissionPoolPermission {
   @@unique([poolId, permissionId])
   @@index([poolId])
   @@index([permissionId])
+  @@schema("roles-permissions")
   @@map("permission_pool_permissions")
 }
 
@@ -160,5 +165,6 @@ model RolePermissionPool {
   @@unique([roleId, poolId])
   @@index([roleId])
   @@index([poolId])
+  @@schema("roles-permissions")
   @@map("role_permission_pools")
 }

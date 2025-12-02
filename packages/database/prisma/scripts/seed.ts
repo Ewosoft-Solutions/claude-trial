@@ -1,4 +1,4 @@
-import { prisma } from './client';
+import { prisma } from '../../src/client';
 
 /**
  * Seed script for database initialization

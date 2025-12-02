@@ -66,6 +66,7 @@ model GradingSystem {
   @@index([systemType])
   @@index([isDefault])
   @@index([isActive])
+  @@schema("academic-structure")
   @@map("grading_systems")
 }
 
@@ -117,6 +118,7 @@ model Assessment {
   @@index([status])
   @@index([dueDate])
   @@index([type])
+  @@schema("academic-structure")
   @@map("assessments")
 }
 
@@ -163,5 +165,6 @@ model Grade {
   @@index([status])
   @@index([submittedAt])
   @@index([gradedAt])
+  @@schema("academic-structure")
   @@map("grades")
 }

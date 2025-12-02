@@ -83,6 +83,7 @@ model SchoolSecurityPolicy {
   @@unique([schoolId])
   @@index([policyTier])
   @@index([isEmergency])
+  @@schema("security-policy")
   @@map("school_security_policies")
 }
 

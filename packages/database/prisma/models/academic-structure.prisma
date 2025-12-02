@@ -65,6 +65,7 @@ model AcademicYear {
   @@index([status])
   @@index([isDefault])
   @@index([startDate, endDate])
+  @@schema("academic-structure")
   @@map("academic_years")
 }
 
@@ -97,6 +98,7 @@ model Term {
   @@index([status])
   @@index([order])
   @@index([startDate, endDate])
+  @@schema("academic-structure")
   @@map("terms")
 }
 
@@ -140,6 +142,7 @@ model Course {
   @@index([status])
   @@index([category])
   @@index([code])
+  @@schema("academic-structure")
   @@map("courses")
 }
 
@@ -192,6 +195,7 @@ model Class {
   @@index([academicYearId])
   @@index([status])
   @@index([room])
+  @@schema("academic-structure")
   @@map("classes")
 }
 
@@ -223,5 +227,6 @@ model ClassTeacher {
   @@index([classId])
   @@index([userTenantId])
   @@index([isActive])
+  @@schema("academic-structure")
   @@map("class_teachers")
 }

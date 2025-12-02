@@ -18,8 +18,8 @@ Available scripts in `package.json`:
 
 ```json
 {
-  "db:migrate:dev": "prisma migrate dev --skip-generate",
-  "db:migrate:deploy": "prisma migrate deploy",
+  "db:migrate": "prisma migrate dev --skip-generate",
+  "db:deploy": "prisma migrate deploy",
   "db:generate": "prisma generate",
   "db:push": "prisma db push"
 }
@@ -38,10 +38,10 @@ When you modify the schema (add/remove models, fields, indexes, etc.):
 cd packages/database
 
 # Create a new migration
-npm run db:migrate:dev -- --name your_migration_name
+npm run db:migrate -- --name your_migration_name
 
 # Or with pnpm (if using pnpm workspace)
-pnpm --filter @workspace/database db:migrate:dev --name your_migration_name
+pnpm --filter @workspace/database db:migrate --name your_migration_name
 ```
 
 **What happens:**
@@ -89,7 +89,7 @@ For production deployments:
 
 ```bash
 # Deploy migrations (does not regenerate client)
-npm run db:migrate:deploy
+npm run db:deploy
 ```
 
 **What happens:**
@@ -130,7 +130,7 @@ npm run db:push
 - Use only in development
 - Does not create migration files
 - Cannot be used in production
-- Use `db:migrate:dev` for tracked migrations
+- Use `db:migrate` for tracked migrations
 
 ## Migration Best Practices
 
@@ -140,14 +140,14 @@ Use descriptive migration names:
 
 ```bash
 # Good examples
-db:migrate:dev --name add_student_management
-db:migrate:dev --name add_audit_logging
-db:migrate:dev --name update_indexes_constraints
+db:migrate --name add_student_management
+db:migrate --name add_audit_logging
+db:migrate --name update_indexes_constraints
 
 # Bad examples
-db:migrate:dev --name migration1
-db:migrate:dev --name update
-db:migrate:dev --name fix
+db:migrate --name migration1
+db:migrate --name update
+db:migrate --name fix
 ```
 
 ### 2. Schema Changes
@@ -162,7 +162,7 @@ model NewModel {
 }
 ```
 
-Run: `npm run db:migrate:dev -- --name add_new_model`
+Run: `npm run db:migrate -- --name add_new_model`
 
 #### Adding Fields
 
@@ -174,7 +174,7 @@ model ExistingModel {
 }
 ```
 
-Run: `npm run db:migrate:dev -- --name add_new_field_to_existing_model`
+Run: `npm run db:migrate -- --name add_new_field_to_existing_model`
 
 #### Modifying Fields
 
@@ -242,7 +242,7 @@ Prisma Migrate does not support automatic rollbacks. To rollback:
 2. **Production**:
    - Create a new migration with reverse changes
    - Test thoroughly
-   - Deploy with `db:migrate:deploy`
+   - Deploy with `db:deploy`
 
 **Best Practice**: Always test migrations in development/staging before production.
 
@@ -275,7 +275,7 @@ prisma/
 
 ```bash
 # 1. Create initial migration
-npm run db:migrate:dev -- --name init_complete_schema
+npm run db:migrate -- --name init_complete_schema
 
 # 2. Generate Prisma client
 npm run db:generate
@@ -289,7 +289,7 @@ npm run db:seed
 ```bash
 # 1. Modify schema files in prisma/models/
 # 2. Create migration
-npm run db:migrate:dev -- --name add_feature_name
+npm run db:migrate -- --name add_feature_name
 
 # 3. Review migration SQL
 cat prisma/migrations/[latest]/migration.sql
@@ -306,7 +306,7 @@ npm run dev
 ```bash
 # 1. Build and deploy code
 # 2. Run migrations (before starting app)
-npm run db:migrate:deploy
+npm run db:deploy
 
 # 3. Generate Prisma client (if needed)
 npm run db:generate
@@ -357,20 +357,20 @@ If migration fails:
 
 ### Development
 
-- Use `db:migrate:dev` for tracked migrations
+- Use `db:migrate` for tracked migrations
 - Use `db:push` for rapid prototyping
 - Can reset database with `npx prisma migrate reset`
 
 ### Staging
 
-- Use `db:migrate:deploy` for safe migrations
+- Use `db:deploy` for safe migrations
 - Test migrations before production
 - Monitor migration execution
 
 ### Production
 
-- **Always** use `db:migrate:deploy`
-- **Never** use `db:push` or `db:migrate:dev`
+- **Always** use `db:deploy`
+- **Never** use `db:push` or `db:migrate`
 - Test migrations in staging first
 - Backup database before migrations
 - Run migrations during maintenance window for large changes

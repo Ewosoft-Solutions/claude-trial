@@ -3,11 +3,13 @@
 // All models are organized in separate files by context in the same directory
 
 generator client {
-  provider = "prisma-client-js"
-  output   = "../generated/client"
+  provider = "prisma-client"
+  output   = "../../generated/prisma" 
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  schemas = ["academic-structure", "audit-logging", "communication", "jwt-secrets", "profile", "roles-permissions", "security-policy", "student-management", "tenant", "user-management"]
 }
+
+

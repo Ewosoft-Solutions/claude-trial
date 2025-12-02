@@ -67,6 +67,7 @@ model Student {
   @@index([enrollmentStatus])
   @@index([gradeLevel])
   @@index([studentNumber])
+  @@schema("student-management")
   @@map("students")
 }
 
@@ -114,5 +115,6 @@ model Enrollment {
   @@index([termId])
   @@index([status])
   @@index([enrollmentDate])
+  @@schema("student-management")
   @@map("enrollments")
 }

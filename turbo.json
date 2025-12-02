@@ -1,6 +1,5 @@
 {
   "$schema": "https://turborepo.com/schema.json",
-  "globalDependencies": ["**/.env.*local"],
   "tasks": {
     "dev": {
       "cache": false,
@@ -11,11 +10,11 @@
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
-    "db:migrate:dev": {
+    "db:migrate": {
       "cache": false,
       "persistent": true
     },
-    "db:migrate:deploy": {
+    "db:deploy": {
       "cache": false
     },
     "db:push": {

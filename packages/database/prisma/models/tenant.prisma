@@ -43,5 +43,6 @@ model Tenant {
 
   @@index([status])
   @@index([emailDomain])
+  @@schema("tenant")
   @@map("tenants")
 }
