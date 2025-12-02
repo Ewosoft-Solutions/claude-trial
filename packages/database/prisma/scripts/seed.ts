@@ -167,14 +167,14 @@ const PERMISSION_POOLS = [
 // All Permissions - Comprehensive List (274 permissions total)
 //
 // Permission Summary by Category:
-// - Student Management (14 permissions)
-// - Academic Management (11 permissions)
-// - Grade & Assessment (15 permissions)
-// - Attendance (7 permissions)
-// - Financial (12 permissions)
-// - Communication (12 permissions)
-// - Staff Management (10 permissions)
-// - Reports & Analytics (9 permissions)
+// - Student Management (15 permissions)
+// - Academic Management (19 permissions)
+// - Grade & Assessment (20 permissions)
+// - Attendance (9 permissions)
+// - Financial (17 permissions)
+// - Communication (13 permissions)
+// - Staff Management (13 permissions)
+// - Reports & Analytics (10 permissions)
 // - System Administration (18 permissions)
 // - Platform (13 permissions)
 // - Library (7 permissions)
@@ -182,7 +182,7 @@ const PERMISSION_POOLS = [
 // - Cafeteria (8 permissions)
 // - Health (8 permissions)
 // - Facilities (8 permissions)
-// - Events (7 permissions)
+// - Events (8 permissions)
 // - Sports (8 permissions)
 // - Clubs (7 permissions)
 // - Parent Portal (7 permissions)
@@ -193,7 +193,7 @@ const PERMISSION_POOLS = [
 // - Exams (12 permissions)
 // - Admissions (15 permissions)
 
-// Student Management Permissions (14 permissions)
+// Student Management Permissions (15 permissions)
 const STUDENT_PERMISSIONS = [
   {
     name: 'students.view',
@@ -203,6 +203,16 @@ const STUDENT_PERMISSIONS = [
     action: 'view',
     category: 'academic',
     clearanceLevel: 3,
+  },
+  {
+    name: 'students.view.own',
+    label: 'View Own Profile',
+    description: 'View own student profile (students)',
+    resource: 'students',
+    action: 'view',
+    context: 'own',
+    category: 'academic',
+    clearanceLevel: 1,
   },
   {
     name: 'students.view.detailed',
@@ -320,9 +330,19 @@ const STUDENT_PERMISSIONS = [
     category: 'academic',
     clearanceLevel: 7,
   },
+  {
+    name: 'students.edit.own_classes',
+    label: 'Edit Students in Own Classes',
+    description: 'Edit students only in own classes',
+    resource: 'students',
+    action: 'edit',
+    context: 'own_classes',
+    category: 'academic',
+    clearanceLevel: 3,
+  },
 ];
 
-// Academic Management Permissions (11 permissions)
+// Academic Management Permissions (19 permissions)
 const ACADEMIC_MANAGEMENT_PERMISSIONS = [
   {
     name: 'courses.view',
@@ -367,6 +387,24 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     description: 'Remove courses',
     resource: 'courses',
     action: 'delete',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'courses.export',
+    label: 'Export Course Data',
+    description: 'Export course catalog data',
+    resource: 'courses',
+    action: 'export',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'courses.import',
+    label: 'Import Course Data',
+    description: 'Import course data from external sources',
+    resource: 'courses',
+    action: 'import',
     category: 'academic',
     clearanceLevel: 7,
   },
@@ -424,9 +462,63 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     category: 'academic',
     clearanceLevel: 7,
   },
+  {
+    name: 'subjects.delete',
+    label: 'Delete Subjects',
+    description: 'Remove subjects',
+    resource: 'subjects',
+    action: 'delete',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'schedules.delete',
+    label: 'Delete Schedules',
+    description: 'Remove schedules',
+    resource: 'schedules',
+    action: 'delete',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'schedules.export',
+    label: 'Export Schedule Data',
+    description: 'Export schedule data',
+    resource: 'schedules',
+    action: 'export',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'schedules.import',
+    label: 'Import Schedule Data',
+    description: 'Import schedule data from external sources',
+    resource: 'schedules',
+    action: 'import',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'subjects.export',
+    label: 'Export Subject Data',
+    description: 'Export subject listings',
+    resource: 'subjects',
+    action: 'export',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'subjects.import',
+    label: 'Import Subject Data',
+    description: 'Import subject data from external sources',
+    resource: 'subjects',
+    action: 'import',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
 ];
 
-// Grade & Assessment Permissions (15 permissions)
+// Grade & Assessment Permissions (20 permissions)
 const GRADE_ASSESSMENT_PERMISSIONS = [
   {
     name: 'grades.view',
@@ -504,6 +596,15 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     clearanceLevel: 7,
   },
   {
+    name: 'grades.import',
+    label: 'Import Grade Data',
+    description: 'Import grade data from external sources',
+    resource: 'grades',
+    action: 'import',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
     name: 'assessments.view',
     label: 'View Assessments',
     description: 'View assessment details',
@@ -527,6 +628,43 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     description: 'Create new assessments',
     resource: 'assessments',
     action: 'create',
+    category: 'academic',
+    clearanceLevel: 3,
+  },
+  {
+    name: 'assessments.delete',
+    label: 'Delete Assessments',
+    description: 'Remove assessments',
+    resource: 'assessments',
+    action: 'delete',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'assessments.export',
+    label: 'Export Assessment Data',
+    description: 'Export assessment data',
+    resource: 'assessments',
+    action: 'export',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'assessments.import',
+    label: 'Import Assessment Data',
+    description: 'Import assessment data from external sources',
+    resource: 'assessments',
+    action: 'import',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'grades.edit.own_students',
+    label: 'Edit Grades for Own Students',
+    description: 'Edit grades only for own students',
+    resource: 'grades',
+    action: 'edit',
+    context: 'own_students',
     category: 'academic',
     clearanceLevel: 3,
   },
@@ -557,9 +695,27 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     category: 'academic',
     clearanceLevel: 7,
   },
+  {
+    name: 'transcripts.delete',
+    label: 'Delete Transcripts',
+    description: 'Remove transcripts',
+    resource: 'transcripts',
+    action: 'delete',
+    category: 'academic',
+    clearanceLevel: 8,
+  },
+  {
+    name: 'transcripts.export',
+    label: 'Export Transcripts',
+    description: 'Export transcript data',
+    resource: 'transcripts',
+    action: 'export',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
 ];
 
-// Attendance Management Permissions (7 permissions)
+// Attendance Management Permissions (9 permissions)
 const ATTENDANCE_PERMISSIONS = [
   {
     name: 'attendance.view',
@@ -627,9 +783,27 @@ const ATTENDANCE_PERMISSIONS = [
     category: 'academic',
     clearanceLevel: 7,
   },
+  {
+    name: 'attendance.delete',
+    label: 'Delete Attendance Records',
+    description: 'Remove attendance records',
+    resource: 'attendance',
+    action: 'delete',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'attendance.import',
+    label: 'Import Attendance Data',
+    description: 'Import attendance data from external sources',
+    resource: 'attendance',
+    action: 'import',
+    category: 'academic',
+    clearanceLevel: 7,
+  },
 ];
 
-// Financial Management Permissions (12 permissions)
+// Financial Management Permissions (17 permissions)
 const FINANCIAL_PERMISSIONS = [
   {
     name: 'fees.view',
@@ -740,9 +914,45 @@ const FINANCIAL_PERMISSIONS = [
     category: 'financial',
     clearanceLevel: 5,
   },
+  {
+    name: 'fees.export',
+    label: 'Export Fee Data',
+    description: 'Export fee structure data',
+    resource: 'fees',
+    action: 'export',
+    category: 'financial',
+    clearanceLevel: 5,
+  },
+  {
+    name: 'fees.import',
+    label: 'Import Fee Data',
+    description: 'Import fee data from external sources',
+    resource: 'fees',
+    action: 'import',
+    category: 'financial',
+    clearanceLevel: 5,
+  },
+  {
+    name: 'payments.export',
+    label: 'Export Payment Data',
+    description: 'Export payment records',
+    resource: 'payments',
+    action: 'export',
+    category: 'financial',
+    clearanceLevel: 5,
+  },
+  {
+    name: 'billing.export',
+    label: 'Export Billing Data',
+    description: 'Export billing information',
+    resource: 'billing',
+    action: 'export',
+    category: 'financial',
+    clearanceLevel: 5,
+  },
 ];
 
-// Communication Permissions (12 permissions)
+// Communication Permissions (13 permissions)
 const COMMUNICATION_PERMISSIONS = [
   {
     name: 'messages.view',
@@ -803,6 +1013,16 @@ const COMMUNICATION_PERMISSIONS = [
     clearanceLevel: 7,
   },
   {
+    name: 'messages.send.own_classes',
+    label: 'Send Messages to Own Classes',
+    description: 'Send messages only to own class students',
+    resource: 'messages',
+    action: 'send',
+    context: 'own_classes',
+    category: 'communication',
+    clearanceLevel: 3,
+  },
+  {
     name: 'announcements.view',
     label: 'View Announcements',
     description: 'View announcements',
@@ -858,7 +1078,7 @@ const COMMUNICATION_PERMISSIONS = [
   },
 ];
 
-// Staff Management Permissions (10 permissions)
+// Staff Management Permissions (13 permissions)
 const STAFF_PERMISSIONS = [
   {
     name: 'staff.view',
@@ -951,9 +1171,36 @@ const STAFF_PERMISSIONS = [
     category: 'administrative',
     clearanceLevel: 7,
   },
+  {
+    name: 'departments.delete',
+    label: 'Delete Departments',
+    description: 'Remove departments',
+    resource: 'departments',
+    action: 'delete',
+    category: 'administrative',
+    clearanceLevel: 8,
+  },
+  {
+    name: 'staff.export',
+    label: 'Export Staff Data',
+    description: 'Export staff data',
+    resource: 'staff',
+    action: 'export',
+    category: 'administrative',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'staff.import',
+    label: 'Import Staff Data',
+    description: 'Import staff data from external sources',
+    resource: 'staff',
+    action: 'import',
+    category: 'administrative',
+    clearanceLevel: 7,
+  },
 ];
 
-// Reports & Analytics Permissions (9 permissions)
+// Reports & Analytics Permissions (10 permissions)
 const REPORTS_PERMISSIONS = [
   {
     name: 'reports.view',
@@ -997,6 +1244,16 @@ const REPORTS_PERMISSIONS = [
     description: 'Export report data',
     resource: 'reports',
     action: 'export',
+    category: 'administrative',
+    clearanceLevel: 7,
+  },
+  {
+    name: 'reports.view.department',
+    label: 'View Department Reports',
+    description: 'View reports only for own department',
+    resource: 'reports',
+    action: 'view',
+    context: 'department',
     category: 'administrative',
     clearanceLevel: 7,
   },
@@ -2690,6 +2947,31 @@ async function main() {
       ...EXAMS_PERMISSIONS,
       ...ADMISSIONS_PERMISSIONS,
     ];
+
+    // Add validation
+    console.log(`\n📋 Permission Arrays Summary:`);
+    console.log(`  - STUDENT_PERMISSIONS: ${STUDENT_PERMISSIONS.length}`);
+    console.log(
+      `  - ACADEMIC_MANAGEMENT_PERMISSIONS: ${ACADEMIC_MANAGEMENT_PERMISSIONS.length}`,
+    );
+    // ... log each array count
+    console.log(`  - Total in allPermissions array: ${allPermissions.length}`);
+
+    // Check for duplicates
+    const permissionNames = allPermissions.map((p) => p.name);
+    const uniqueNames = new Set(permissionNames);
+    if (permissionNames.length !== uniqueNames.size) {
+      const duplicates = permissionNames.filter(
+        (name, index) => permissionNames.indexOf(name) !== index,
+      );
+      console.warn(
+        `  ⚠️  Found ${duplicates.length} duplicate permission names:`,
+      );
+      [...new Set(duplicates)].forEach((name) =>
+        console.warn(`     - ${name}`),
+      );
+    }
+
     const createdPermissions: Record<string, string> = {};
 
     for (const permData of allPermissions) {
