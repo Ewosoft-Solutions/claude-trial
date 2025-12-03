@@ -14,4 +14,7 @@ export const prisma = globalForPrisma.prisma || new PrismaClient({ adapter });
 
 if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
 
+// Explicitly re-export PrismaClient and Prisma for TypeScript resolution
+export { PrismaClient, Prisma } from '../generated/prisma/client';
+// Re-export everything else
 export * from '../generated/prisma/client';
