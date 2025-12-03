@@ -4,9 +4,18 @@ import {
   OnModuleDestroy,
   Logger,
   OnApplicationShutdown,
+  Inject,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
+// @ts-ignore - PrismaClient is exported from @workspace/database via re-export
+import type { PrismaClient } from '@workspace/database';
 import { getEnvConfig } from '../config/env.config';
+
+/**
+ * Injection token for PrismaClient
+ * Using a string token to avoid TypeScript export resolution issues
+ */
+export const PRISMA_CLIENT_TOKEN = 'PrismaClient';
 
 /**
  * Database Service
@@ -18,10 +27,18 @@ import { getEnvConfig } from '../config/env.config';
  * - Health check functionality
  * - Graceful shutdown handling
  * - Connection pooling management
+ *
+ * Note: This service uses composition instead of inheritance to ensure
+ * only one PrismaClient instance exists (the one created by the factory).
+ * This prevents multiple database connection pools and resource leaks.
+ *
+ * Previously, DatabaseService extended PrismaClient, which caused NestJS
+ * to create a second PrismaClient instance when instantiating the service.
+ * This resulted in two separate connection pools and potential resource leaks.
+ * By injecting the factory-created PrismaClient, we ensure a single instance.
  */
 @Injectable()
 export class DatabaseService
-  extends PrismaClient
   implements OnModuleInit, OnModuleDestroy, OnApplicationShutdown
 {
   private readonly logger = new Logger(DatabaseService.name);
@@ -30,17 +47,22 @@ export class DatabaseService
   private readonly maxRetries = 5;
   private readonly retryDelay = 2000; // 2 seconds
 
+  constructor(
+    @Inject(PRISMA_CLIENT_TOKEN)
+    public readonly client: PrismaClient,
+  ) {}
+
   async onModuleInit() {
     await this.connectWithRetry();
   }
 
   async onModuleDestroy() {
-    await this.$disconnect();
+    await this.client.$disconnect();
   }
 
   async onApplicationShutdown(signal?: string) {
     this.logger.log(`Application shutdown signal: ${signal}`);
-    await this.$disconnect();
+    await this.client.$disconnect();
     this.logger.log('Database connection closed gracefully');
   }
 
@@ -52,7 +74,7 @@ export class DatabaseService
    */
   private async connectWithRetry(): Promise<void> {
     try {
-      await this.$connect();
+      await this.client.$connect();
       this.logger.log('Database connection established successfully');
       this.connectionRetries = 0;
     } catch (error) {
@@ -81,7 +103,7 @@ export class DatabaseService
    */
   async healthCheck(): Promise<boolean> {
     try {
-      await this.$queryRaw`SELECT 1`;
+      await this.client.$queryRaw`SELECT 1`;
       return true;
     } catch (error) {
       this.logger.error('Database health check failed', error);

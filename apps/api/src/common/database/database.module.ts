@@ -1,8 +1,8 @@
 import { Global, Module } from '@nestjs/common';
-import { PrismaClient, type Prisma } from '@workspace/database';
+import { PrismaClient, Prisma } from '@workspace/database';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
-import { DatabaseService } from './database.service';
+import { DatabaseService, PRISMA_CLIENT_TOKEN } from './database.service';
 import { getEnvConfig } from '../config/env.config';
 
 /**
@@ -21,6 +21,39 @@ import { getEnvConfig } from '../config/env.config';
   providers: [
     {
       provide: PrismaClient,
+      useFactory: () => {
+        const envConfig = getEnvConfig();
+
+        // Create PostgreSQL adapter for Prisma v7
+        const { Pool } = pg;
+        const pool = new Pool({ connectionString: envConfig.DATABASE_URL });
+        const adapter = new PrismaPg(pool);
+
+        // Configure logging based on environment
+        const logLevels: Prisma.LogLevel[] = [];
+        if (envConfig.DB_LOG_QUERIES && envConfig.NODE_ENV === 'development') {
+          logLevels.push('query');
+        }
+        if (envConfig.DB_LOG_ERRORS) {
+          logLevels.push('error');
+        }
+        if (envConfig.DB_LOG_WARNINGS) {
+          logLevels.push('warn');
+        }
+        if (envConfig.NODE_ENV === 'development') {
+          logLevels.push('info');
+        }
+
+        return new PrismaClient({
+          adapter,
+          log: logLevels.length > 0 ? logLevels : undefined,
+          errorFormat:
+            envConfig.NODE_ENV === 'development' ? 'pretty' : 'minimal',
+        });
+      },
+    },
+    {
+      provide: PRISMA_CLIENT_TOKEN,
       useFactory: () => {
         const envConfig = getEnvConfig();
 
