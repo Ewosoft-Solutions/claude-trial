@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { UpdateTenantConfigurationDto } from '../dto';
 import { TenantAuditService } from './tenant-audit.service';
+import { DatabaseService } from '../../common/database/database.service';
 
 /**
  * Tenant Configuration Service
@@ -12,17 +12,19 @@ import { TenantAuditService } from './tenant-audit.service';
  */
 @Injectable()
 export class TenantConfigurationService {
-  constructor(private readonly auditService: TenantAuditService) {}
+  constructor(
+    private readonly dbService: DatabaseService,
+    private readonly auditService: TenantAuditService,
+  ) {}
 
   /**
    * Get tenant configuration
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @returns Tenant configuration
    */
-  async getTenantConfiguration(prisma: PrismaClient, tenantId: string) {
-    const tenant = await prisma.tenant.findUnique({
+  async getTenantConfiguration(tenantId: string) {
+    const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       select: {
         id: true,
@@ -46,20 +48,18 @@ export class TenantConfigurationService {
   /**
    * Update tenant configuration
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - Configuration update data
    * @param updatedBy - User ID of the updater
    * @returns Updated tenant
    */
   async updateTenantConfiguration(
-    prisma: PrismaClient,
     tenantId: string,
     data: UpdateTenantConfigurationDto,
     updatedBy: string,
   ) {
     // Check if tenant exists
-    const tenant = await prisma.tenant.findUnique({
+    const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, settings: true },
     });
@@ -76,7 +76,7 @@ export class TenantConfigurationService {
     };
 
     // Update tenant
-    const updated = await prisma.tenant.update({
+    const updated = await this.dbService.client.tenant.update({
       where: { id: tenantId },
       data: {
         settings: newSettings,
@@ -84,7 +84,7 @@ export class TenantConfigurationService {
     });
 
     // Audit log
-    await this.auditService.logTenantAction(prisma, {
+    await this.auditService.logTenantAction({
       action: 'tenant_configuration_updated',
       tenantId: tenant.id,
       userId: updatedBy,
@@ -100,12 +100,11 @@ export class TenantConfigurationService {
   /**
    * Get tenant settings
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @returns Tenant settings
    */
-  async getTenantSettings(prisma: PrismaClient, tenantId: string) {
-    const tenant = await prisma.tenant.findUnique({
+  async getTenantSettings(tenantId: string) {
+    const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       select: { settings: true },
     });

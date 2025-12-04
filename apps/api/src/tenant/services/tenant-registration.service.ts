@@ -3,7 +3,6 @@ import {
   ConflictException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { RegisterTenantDto, UpdateTenantDto } from '../dto';
 import {
   JWTSecretService,
@@ -14,6 +13,7 @@ import {
   isPlatformAdminRole,
 } from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
+import { DatabaseService } from '../../common/database/database.service';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -24,7 +24,10 @@ import * as bcrypt from 'bcrypt';
  */
 @Injectable()
 export class TenantRegistrationService {
-  constructor(private readonly auditService: TenantAuditService) {}
+  constructor(
+    private readonly dbService: DatabaseService,
+    private readonly auditService: TenantAuditService,
+  ) {}
 
   /**
    * Register a new school (tenant)
@@ -32,14 +35,12 @@ export class TenantRegistrationService {
    * 6.1: Implement school registration (platform admin or school owner)
    * 6.2: Implement school-specific JWT secret auto-generation (platform admin only)
    *
-   * @param prisma - Prisma client instance
    * @param data - Registration data
    * @param createdBy - User ID of the creator (must be platform admin or school owner)
    * @param requesterRole - Role of the requester
    * @returns Created tenant
    */
   async registerTenant(
-    prisma: PrismaClient,
     data: RegisterTenantDto,
     createdBy: string,
     requesterRole: string,
@@ -53,7 +54,7 @@ export class TenantRegistrationService {
 
     // Check if slug is already taken
     if (data.slug) {
-      const existingSlug = await prisma.tenant.findUnique({
+      const existingSlug = await this.dbService.client.tenant.findUnique({
         where: { slug: data.slug },
         select: { id: true },
       });
@@ -67,10 +68,12 @@ export class TenantRegistrationService {
     const slug = data.slug || this.generateSlug(data.name);
 
     // Check if generated slug is available
-    const existingGeneratedSlug = await prisma.tenant.findUnique({
-      where: { slug },
-      select: { id: true },
-    });
+    const existingGeneratedSlug = await this.dbService.client.tenant.findUnique(
+      {
+        where: { slug },
+        select: { id: true },
+      },
+    );
 
     if (existingGeneratedSlug) {
       throw new ConflictException(
@@ -79,7 +82,7 @@ export class TenantRegistrationService {
     }
 
     // Create tenant
-    const tenant = await prisma.tenant.create({
+    const tenant = await this.dbService.client.tenant.create({
       data: {
         name: data.name,
         slug,
@@ -93,11 +96,14 @@ export class TenantRegistrationService {
     // 6.2: Auto-generate JWT secret (platform admin only)
     // Only platform admins can trigger secret generation
     if (isPlatformAdminRole(requesterRole)) {
-      await JWTSecretService.initializeTenantJWTSecret(prisma, tenant.id);
+      await JWTSecretService.initializeTenantJWTSecret(
+        this.dbService.client,
+        tenant.id,
+      );
     }
 
     // Audit log
-    await this.auditService.logTenantAction(prisma, {
+    await this.auditService.logTenantAction({
       action: 'tenant_registered',
       tenantId: tenant.id,
       userId: createdBy,
@@ -114,20 +120,18 @@ export class TenantRegistrationService {
   /**
    * Update tenant information
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - Update data
    * @param updatedBy - User ID of the updater
    * @returns Updated tenant
    */
   async updateTenant(
-    prisma: PrismaClient,
     tenantId: string,
     data: UpdateTenantDto,
     updatedBy: string,
   ) {
     // Check if tenant exists
-    const existing = await prisma.tenant.findUnique({
+    const existing = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, slug: true },
     });
@@ -138,7 +142,7 @@ export class TenantRegistrationService {
 
     // Check if slug is being changed and is available
     if (data.slug && data.slug !== existing.slug) {
-      const slugTaken = await prisma.tenant.findUnique({
+      const slugTaken = await this.dbService.client.tenant.findUnique({
         where: { slug: data.slug },
         select: { id: true },
       });
@@ -149,7 +153,7 @@ export class TenantRegistrationService {
     }
 
     // Update tenant
-    const tenant = await prisma.tenant.update({
+    const tenant = await this.dbService.client.tenant.update({
       where: { id: tenantId },
       data: {
         name: data.name,
@@ -160,7 +164,7 @@ export class TenantRegistrationService {
     });
 
     // Audit log
-    await this.auditService.logTenantAction(prisma, {
+    await this.auditService.logTenantAction({
       action: 'tenant_updated',
       tenantId: tenant.id,
       userId: updatedBy,

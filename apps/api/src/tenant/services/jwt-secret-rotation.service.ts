@@ -3,13 +3,13 @@ import {
   BadRequestException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import {
   JWTSecretService,
   isPlatformAdminRole,
   JWTSecretRotationReason,
 } from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
+import { DatabaseService } from '../../common/database/database.service';
 
 /**
  * JWT Secret Rotation Service
@@ -20,7 +20,10 @@ import { TenantAuditService } from './tenant-audit.service';
  */
 @Injectable()
 export class JWTSecretRotationService {
-  constructor(private readonly auditService: TenantAuditService) {}
+  constructor(
+    private readonly dbService: DatabaseService,
+    private readonly auditService: TenantAuditService,
+  ) {}
 
   /**
    * Rotate JWT secret (manual or emergency)
@@ -28,14 +31,12 @@ export class JWTSecretRotationService {
    * 6.12: Implement secret rotation (scheduled 90-180 days + emergency)
    * 6.13: Implement secret access controls (platform admin only, schools cannot access)
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param requesterRole - Role of the requester (must be platform admin)
    * @param options - Rotation options
    * @returns Rotation result
    */
   async rotateSecret(
-    prisma: PrismaClient,
     tenantId: string,
     requesterRole: string,
     options: {
@@ -52,7 +53,7 @@ export class JWTSecretRotationService {
 
     // Rotate secret
     const success = await JWTSecretService.rotateTenantJWTSecret(
-      prisma,
+      this.dbService.client,
       tenantId,
       requesterRole,
       options,
@@ -63,7 +64,7 @@ export class JWTSecretRotationService {
     }
 
     // Audit log
-    await this.auditService.logTenantAction(prisma, {
+    await this.auditService.logTenantAction({
       action: 'jwt_secret_rotated',
       tenantId,
       userId: 'system', // Can be updated to actual user ID from context
@@ -82,17 +83,12 @@ export class JWTSecretRotationService {
   /**
    * Emergency secret rotation
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param requesterRole - Role of the requester (must be platform admin)
    * @returns Rotation result
    */
-  async emergencyRotateSecret(
-    prisma: PrismaClient,
-    tenantId: string,
-    requesterRole: string,
-  ) {
-    return this.rotateSecret(prisma, tenantId, requesterRole, {
+  async emergencyRotateSecret(tenantId: string, requesterRole: string) {
+    return this.rotateSecret(tenantId, requesterRole, {
       reason: 'emergency',
       emergency: true,
     });
@@ -103,18 +99,17 @@ export class JWTSecretRotationService {
    *
    * Rotates secrets that are due for rotation (90-180 days old).
    *
-   * @param prisma - Prisma client instance
    * @param maxAgeDays - Maximum age in days before rotation (default: 180)
    * @returns Number of secrets rotated
    */
-  async scheduleSecretRotation(prisma: PrismaClient, maxAgeDays: number = 180) {
+  async scheduleSecretRotation(maxAgeDays: number = 180) {
     const rotatedCount = await JWTSecretService.scheduleSecretRotation(
-      prisma,
+      this.dbService.client,
       maxAgeDays,
     );
 
     // Audit log
-    await this.auditService.logTenantAction(prisma, {
+    await this.auditService.logTenantAction({
       action: 'jwt_secret_scheduled_rotation',
       tenantId: 'system', // System-wide operation
       userId: 'system',
@@ -135,16 +130,11 @@ export class JWTSecretRotationService {
    *
    * 6.13: Only platform admins can access secret information
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param requesterRole - Role of the requester (must be platform admin)
    * @returns Secret rotation status
    */
-  async getSecretRotationStatus(
-    prisma: PrismaClient,
-    tenantId: string,
-    requesterRole: string,
-  ) {
+  async getSecretRotationStatus(tenantId: string, requesterRole: string) {
     // 6.13: Only platform admins can access secret information
     if (!isPlatformAdminRole(requesterRole)) {
       throw new ForbiddenException(
@@ -153,7 +143,7 @@ export class JWTSecretRotationService {
     }
 
     const rotationDate = await JWTSecretService.getSecretRotationDate(
-      prisma,
+      this.dbService.client,
       tenantId,
     );
 

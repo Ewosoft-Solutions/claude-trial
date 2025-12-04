@@ -1,5 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { DatabaseService } from '../../common/database/database.service';
 import * as dns from 'dns';
 import { promisify } from 'util';
 
@@ -13,6 +13,7 @@ const resolveTxt = promisify(dns.resolveTxt);
  */
 @Injectable()
 export class EmailDomainValidationService {
+  constructor(private readonly dbService: DatabaseService) {}
   /**
    * Validate email domain using DNS TXT record
    *
@@ -86,17 +87,15 @@ export class EmailDomainValidationService {
   /**
    * Validate email matches tenant domain (if configured)
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param email - Email address to validate
    * @returns Validation result
    */
   async validateEmailForTenant(
-    prisma: PrismaClient,
     tenantId: string,
     email: string,
   ): Promise<{ valid: boolean; error?: string }> {
-    const tenant = await prisma.tenant.findUnique({
+    const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       select: { emailDomain: true },
     });

@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { DatabaseService } from '../../common/database/database.service';
 
 /**
  * Tenant Service
@@ -8,15 +8,16 @@ import { PrismaClient } from '@workspace/database';
  */
 @Injectable()
 export class TenantService {
+  constructor(private readonly dbService: DatabaseService) {}
+
   /**
    * Get tenant by ID
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @returns Tenant
    */
-  async getTenant(prisma: PrismaClient, tenantId: string) {
-    const tenant = await prisma.tenant.findUnique({
+  async getTenant(tenantId: string) {
+    const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       include: {
         jwtConfig: {
@@ -48,19 +49,15 @@ export class TenantService {
   /**
    * List tenants
    *
-   * @param prisma - Prisma client instance
    * @param filters - Optional filters
    * @returns List of tenants
    */
-  async listTenants(
-    prisma: PrismaClient,
-    filters?: {
-      status?: string;
-      search?: string;
-      page?: number;
-      limit?: number;
-    },
-  ) {
+  async listTenants(filters?: {
+    status?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
     const page = filters?.page || 1;
     const limit = filters?.limit || 10;
     const skip = (page - 1) * limit;
@@ -80,7 +77,7 @@ export class TenantService {
     }
 
     const [tenants, total] = await Promise.all([
-      prisma.tenant.findMany({
+      this.dbService.client.tenant.findMany({
         where,
         skip,
         take: limit,
@@ -88,7 +85,7 @@ export class TenantService {
           createdAt: 'desc',
         },
       }),
-      prisma.tenant.count({ where }),
+      this.dbService.client.tenant.count({ where }),
     ]);
 
     return {

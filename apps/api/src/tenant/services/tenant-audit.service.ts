@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { DatabaseService } from '../../common/database/database.service';
 
 /**
  * Tenant Audit Service
@@ -9,23 +9,21 @@ import { PrismaClient } from '@workspace/database';
  */
 @Injectable()
 export class TenantAuditService {
+  constructor(private readonly dbService: DatabaseService) {}
+
   /**
    * Log tenant action
    *
-   * @param prisma - Prisma client instance
    * @param data - Audit log data
    */
-  async logTenantAction(
-    prisma: PrismaClient,
-    data: {
-      action: string;
-      tenantId: string;
-      userId: string;
-      metadata?: Record<string, any>;
-    },
-  ) {
+  async logTenantAction(data: {
+    action: string;
+    tenantId: string;
+    userId: string;
+    metadata?: Record<string, any>;
+  }) {
     try {
-      await prisma.auditLog.create({
+      await this.dbService.client.auditLog.create({
         data: {
           action: data.action,
           entityType: 'tenant',
@@ -45,21 +43,17 @@ export class TenantAuditService {
   /**
    * Log user action
    *
-   * @param prisma - Prisma client instance
    * @param data - Audit log data
    */
-  async logUserAction(
-    prisma: PrismaClient,
-    data: {
-      action: string;
-      tenantId: string;
-      userId: string;
-      performedBy: string;
-      metadata?: Record<string, any>;
-    },
-  ) {
+  async logUserAction(data: {
+    action: string;
+    tenantId: string;
+    userId: string;
+    performedBy: string;
+    metadata?: Record<string, any>;
+  }) {
     try {
-      await prisma.auditLog.create({
+      await this.dbService.client.auditLog.create({
         data: {
           action: data.action,
           entityType: 'user',

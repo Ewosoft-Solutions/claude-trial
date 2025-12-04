@@ -4,10 +4,10 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { CreateUserDto, BulkCreateUsersDto, AddUserToTenantDto } from '../dto';
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
+import { DatabaseService } from '../../common/database/database.service';
 import { ProfileStatus } from '@workspace/api';
 import * as bcrypt from 'bcrypt';
 
@@ -22,6 +22,7 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UserManagementService {
   constructor(
+    private readonly dbService: DatabaseService,
     private readonly emailValidationService: EmailDomainValidationService,
     private readonly auditService: TenantAuditService,
   ) {}
@@ -29,22 +30,15 @@ export class UserManagementService {
   /**
    * Create user directly (without invitation)
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - User creation data
    * @param createdBy - User ID of the creator
    * @returns Created user
    */
-  async createUser(
-    prisma: PrismaClient,
-    tenantId: string,
-    data: CreateUserDto,
-    createdBy: string,
-  ) {
+  async createUser(tenantId: string, data: CreateUserDto, createdBy: string) {
     // Validate email domain if tenant has email domain configured
     const emailValidation =
       await this.emailValidationService.validateEmailForTenant(
-        prisma,
         tenantId,
         data.email,
       );
@@ -54,14 +48,14 @@ export class UserManagementService {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await this.dbService.client.user.findUnique({
       where: { email: data.email.toLowerCase() },
       select: { id: true },
     });
 
     if (existingUser) {
       // Check if user already has access to this tenant
-      const existingAccess = await prisma.userTenant.findUnique({
+      const existingAccess = await this.dbService.client.userTenant.findUnique({
         where: {
           userId_tenantId: {
             userId: existingUser.id,
@@ -77,7 +71,6 @@ export class UserManagementService {
 
       // Add existing user to tenant
       return this.addUserToTenant(
-        prisma,
         tenantId,
         {
           userId: existingUser.id,
@@ -91,7 +84,7 @@ export class UserManagementService {
     const passwordHash = await bcrypt.hash(data.password, 10);
 
     // Create user
-    const user = await prisma.user.create({
+    const user = await this.dbService.client.user.create({
       data: {
         email: data.email.toLowerCase(),
         passwordHash,
@@ -106,7 +99,7 @@ export class UserManagementService {
     });
 
     // Create user-tenant relationship (profile)
-    const userTenant = await prisma.userTenant.create({
+    const userTenant = await this.dbService.client.userTenant.create({
       data: {
         userId: user.id,
         tenantId,
@@ -119,7 +112,7 @@ export class UserManagementService {
     if (data.roleIds.length > 0) {
       await Promise.all(
         data.roleIds.map((roleId, index) =>
-          prisma.userTenantRole.create({
+          this.dbService.client.userTenantRole.create({
             data: {
               userTenantId: userTenant.id,
               roleId,
@@ -132,7 +125,7 @@ export class UserManagementService {
     }
 
     // 6.11: Audit log
-    await this.auditService.logUserAction(prisma, {
+    await this.auditService.logUserAction({
       action: 'user_created',
       tenantId,
       userId: user.id,
@@ -153,14 +146,12 @@ export class UserManagementService {
   /**
    * Bulk create users
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - Bulk user creation data
    * @param createdBy - User ID of the creator
    * @returns Bulk creation results
    */
   async bulkCreateUsers(
-    prisma: PrismaClient,
     tenantId: string,
     data: BulkCreateUsersDto,
     createdBy: string,
@@ -169,12 +160,7 @@ export class UserManagementService {
 
     for (const userData of data.users) {
       try {
-        const result = await this.createUser(
-          prisma,
-          tenantId,
-          userData,
-          createdBy,
-        );
+        const result = await this.createUser(tenantId, userData, createdBy);
         results.push({ success: true, data: result });
       } catch (error: any) {
         results.push({
@@ -196,20 +182,18 @@ export class UserManagementService {
   /**
    * Add existing user to tenant
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - Add user data
    * @param createdBy - User ID of the creator
    * @returns Created profile
    */
   async addUserToTenant(
-    prisma: PrismaClient,
     tenantId: string,
     data: AddUserToTenantDto,
     createdBy: string,
   ) {
     // Check if user exists
-    const user = await prisma.user.findUnique({
+    const user = await this.dbService.client.user.findUnique({
       where: { id: data.userId },
       select: { id: true, email: true },
     });
@@ -219,7 +203,7 @@ export class UserManagementService {
     }
 
     // Check if user already has access to this tenant
-    const existingAccess = await prisma.userTenant.findUnique({
+    const existingAccess = await this.dbService.client.userTenant.findUnique({
       where: {
         userId_tenantId: {
           userId: data.userId,
@@ -236,7 +220,6 @@ export class UserManagementService {
     // Validate email domain if tenant has email domain configured
     const emailValidation =
       await this.emailValidationService.validateEmailForTenant(
-        prisma,
         tenantId,
         user.email,
       );
@@ -246,7 +229,7 @@ export class UserManagementService {
     }
 
     // Create user-tenant relationship (profile)
-    const userTenant = await prisma.userTenant.create({
+    const userTenant = await this.dbService.client.userTenant.create({
       data: {
         userId: data.userId,
         tenantId,
@@ -259,7 +242,7 @@ export class UserManagementService {
     if (data.roleIds.length > 0) {
       await Promise.all(
         data.roleIds.map((roleId, index) =>
-          prisma.userTenantRole.create({
+          this.dbService.client.userTenantRole.create({
             data: {
               userTenantId: userTenant.id,
               roleId,
@@ -272,7 +255,7 @@ export class UserManagementService {
     }
 
     // 6.11: Audit log
-    await this.auditService.logUserAction(prisma, {
+    await this.auditService.logUserAction({
       action: 'user_added_to_tenant',
       tenantId,
       userId: data.userId,
@@ -291,13 +274,11 @@ export class UserManagementService {
    *
    * 6.10: Multi-school user management (profile-based)
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param filters - Optional filters
    * @returns User profiles
    */
   async getUserProfiles(
-    prisma: PrismaClient,
     tenantId: string,
     filters?: {
       status?: string;
@@ -329,7 +310,7 @@ export class UserManagementService {
     }
 
     const [profiles, total] = await Promise.all([
-      prisma.userTenant.findMany({
+      this.dbService.client.userTenant.findMany({
         where,
         skip,
         take: limit,
@@ -361,7 +342,7 @@ export class UserManagementService {
           addedAt: 'desc',
         },
       }),
-      prisma.userTenant.count({ where }),
+      this.dbService.client.userTenant.count({ where }),
     ]);
 
     return {

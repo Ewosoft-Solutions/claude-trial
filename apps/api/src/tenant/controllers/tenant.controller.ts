@@ -18,7 +18,6 @@ import {
   ApiBearerAuth,
   ApiResponse,
 } from '@nestjs/swagger';
-import { PrismaClient } from '@workspace/database';
 import { JWTSecretRotationReason } from '@workspace/api';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import {
@@ -81,7 +80,6 @@ export class TenantController {
   @ApiOperation({ summary: 'Register a new school (tenant)' })
   @ApiResponse({ status: 201, description: 'School registered successfully' })
   async registerTenant(@Body() data: RegisterTenantDto, @Request() req: any) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
     const userContext = req.userContext;
 
@@ -89,7 +87,6 @@ export class TenantController {
     const requesterRole = userContext?.roles?.[0]?.name || 'User';
 
     return this.registrationService.registerTenant(
-      prisma,
       data,
       user.userId,
       requesterRole,
@@ -101,9 +98,8 @@ export class TenantController {
    */
   @Get(':id')
   @ApiOperation({ summary: 'Get tenant by ID' })
-  async getTenant(@Param('id') id: string, @Request() req: any) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
-    return this.tenantService.getTenant(prisma, id);
+  async getTenant(@Param('id') id: string) {
+    return this.tenantService.getTenant(id);
   }
 
   /**
@@ -117,10 +113,8 @@ export class TenantController {
     @Query('search') search?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Request() req?: any,
   ) {
-    const prisma: PrismaClient = req?.prisma || (global as any).prisma;
-    return this.tenantService.listTenants(prisma, {
+    return this.tenantService.listTenants({
       status,
       search,
       page: page ? Number(page) : undefined,
@@ -139,9 +133,8 @@ export class TenantController {
     @Body() data: UpdateTenantDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
-    return this.registrationService.updateTenant(prisma, id, data, user.userId);
+    return this.registrationService.updateTenant(id, data, user.userId);
   }
 
   /**
@@ -156,9 +149,8 @@ export class TenantController {
     @Body() data: UpdateTenantStatusDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
-    return this.statusService.updateTenantStatus(prisma, id, data, user.userId);
+    return this.statusService.updateTenantStatus(id, data, user.userId);
   }
 
   /**
@@ -167,9 +159,8 @@ export class TenantController {
    */
   @Get(':id/configuration')
   @ApiOperation({ summary: 'Get tenant configuration' })
-  async getTenantConfiguration(@Param('id') id: string, @Request() req: any) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
-    return this.configurationService.getTenantConfiguration(prisma, id);
+  async getTenantConfiguration(@Param('id') id: string) {
+    return this.configurationService.getTenantConfiguration(id);
   }
 
   /**
@@ -184,10 +175,8 @@ export class TenantController {
     @Body() data: UpdateTenantConfigurationDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
     return this.configurationService.updateTenantConfiguration(
-      prisma,
       id,
       data,
       user.userId,
@@ -236,14 +225,8 @@ export class TenantController {
     @Body() data: CreateInvitationDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
-    return this.invitationService.createInvitation(
-      prisma,
-      tenantId,
-      data,
-      user.userId,
-    );
+    return this.invitationService.createInvitation(tenantId, data, user.userId);
   }
 
   /**
@@ -258,10 +241,8 @@ export class TenantController {
     @Body() data: BulkCreateInvitationsDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
     return this.invitationService.bulkCreateInvitations(
-      prisma,
       tenantId,
       data,
       user.userId,
@@ -275,12 +256,8 @@ export class TenantController {
   @Post('invitations/accept')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Accept user invitation' })
-  async acceptInvitation(
-    @Body() data: AcceptInvitationDto,
-    @Request() req: any,
-  ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
-    return this.invitationService.acceptInvitation(prisma, data);
+  async acceptInvitation(@Body() data: AcceptInvitationDto) {
+    return this.invitationService.acceptInvitation(data);
   }
 
   /**
@@ -295,14 +272,8 @@ export class TenantController {
     @Body() data: CreateUserDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
-    return this.userManagementService.createUser(
-      prisma,
-      tenantId,
-      data,
-      user.userId,
-    );
+    return this.userManagementService.createUser(tenantId, data, user.userId);
   }
 
   /**
@@ -317,10 +288,8 @@ export class TenantController {
     @Body() data: BulkCreateUsersDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
     return this.userManagementService.bulkCreateUsers(
-      prisma,
       tenantId,
       data,
       user.userId,
@@ -339,10 +308,8 @@ export class TenantController {
     @Body() data: AddUserToTenantDto,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const user = req.user;
     return this.userManagementService.addUserToTenant(
-      prisma,
       tenantId,
       data,
       user.userId,
@@ -362,10 +329,8 @@ export class TenantController {
     @Query('search') search?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Request() req?: any,
   ) {
-    const prisma: PrismaClient = req?.prisma || (global as any).prisma;
-    return this.userManagementService.getUserProfiles(prisma, tenantId, {
+    return this.userManagementService.getUserProfiles(tenantId, {
       status,
       search,
       page: page ? Number(page) : undefined,
@@ -390,15 +355,9 @@ export class TenantController {
     },
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const userContext = req.userContext;
     const requesterRole = userContext?.roles?.[0]?.name || 'User';
-    return this.jwtRotationService.rotateSecret(
-      prisma,
-      tenantId,
-      requesterRole,
-      data,
-    );
+    return this.jwtRotationService.rotateSecret(tenantId, requesterRole, data);
   }
 
   /**
@@ -415,11 +374,9 @@ export class TenantController {
     @Param('id') tenantId: string,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const userContext = req.userContext;
     const requesterRole = userContext?.roles?.[0]?.name || 'User';
     return this.jwtRotationService.emergencyRotateSecret(
-      prisma,
       tenantId,
       requesterRole,
     );
@@ -438,11 +395,9 @@ export class TenantController {
     @Param('id') tenantId: string,
     @Request() req: any,
   ) {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
     const userContext = req.userContext;
     const requesterRole = userContext?.roles?.[0]?.name || 'User';
     return this.jwtRotationService.getSecretRotationStatus(
-      prisma,
       tenantId,
       requesterRole,
     );

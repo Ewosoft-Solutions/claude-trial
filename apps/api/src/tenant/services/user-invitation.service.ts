@@ -4,7 +4,6 @@ import {
   NotFoundException,
   ConflictException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import {
   CreateInvitationDto,
   BulkCreateInvitationsDto,
@@ -12,6 +11,7 @@ import {
 } from '../dto';
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
+import { DatabaseService } from '../../common/database/database.service';
 import { ProfileStatus } from '@workspace/api';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
@@ -25,6 +25,7 @@ import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UserInvitationService {
   constructor(
+    private readonly dbService: DatabaseService,
     private readonly emailValidationService: EmailDomainValidationService,
     private readonly auditService: TenantAuditService,
   ) {}
@@ -32,14 +33,12 @@ export class UserInvitationService {
   /**
    * Create user invitation
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - Invitation data
    * @param createdBy - User ID of the creator
    * @returns Created invitation
    */
   async createInvitation(
-    prisma: PrismaClient,
     tenantId: string,
     data: CreateInvitationDto,
     createdBy: string,
@@ -47,7 +46,6 @@ export class UserInvitationService {
     // Validate email domain if tenant has email domain configured
     const emailValidation =
       await this.emailValidationService.validateEmailForTenant(
-        prisma,
         tenantId,
         data.email,
       );
@@ -57,14 +55,14 @@ export class UserInvitationService {
     }
 
     // Check if user already exists
-    let user = await prisma.user.findUnique({
+    let user = await this.dbService.client.user.findUnique({
       where: { email: data.email.toLowerCase() },
       select: { id: true },
     });
 
     // Check if user already has access to this tenant
     if (user) {
-      const existingAccess = await prisma.userTenant.findUnique({
+      const existingAccess = await this.dbService.client.userTenant.findUnique({
         where: {
           userId_tenantId: {
             userId: user.id,
@@ -90,7 +88,7 @@ export class UserInvitationService {
     // Create or get user
     if (!user) {
       // Create user without password (will be set when invitation is accepted)
-      user = await prisma.user.create({
+      user = await this.dbService.client.user.create({
         data: {
           email: data.email.toLowerCase(),
           firstName: data.firstName,
@@ -102,7 +100,7 @@ export class UserInvitationService {
     }
 
     // Create user-tenant relationship with invitation
-    const userTenant = await prisma.userTenant.create({
+    const userTenant = await this.dbService.client.userTenant.create({
       data: {
         userId: user.id,
         tenantId,
@@ -117,7 +115,7 @@ export class UserInvitationService {
     if (data.roleIds.length > 0) {
       await Promise.all(
         data.roleIds.map((roleId, index) =>
-          prisma.userTenantRole.create({
+          this.dbService.client.userTenantRole.create({
             data: {
               userTenantId: userTenant.id,
               roleId,
@@ -130,7 +128,7 @@ export class UserInvitationService {
     }
 
     // Audit log
-    await this.auditService.logUserAction(prisma, {
+    await this.auditService.logUserAction({
       action: 'user_invitation_created',
       tenantId,
       userId: user.id,
@@ -153,14 +151,12 @@ export class UserInvitationService {
   /**
    * Bulk create invitations
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - Bulk invitation data
    * @param createdBy - User ID of the creator
    * @returns Created invitations
    */
   async bulkCreateInvitations(
-    prisma: PrismaClient,
     tenantId: string,
     data: BulkCreateInvitationsDto,
     createdBy: string,
@@ -170,7 +166,6 @@ export class UserInvitationService {
     for (const invitation of data.invitations) {
       try {
         const result = await this.createInvitation(
-          prisma,
           tenantId,
           invitation,
           createdBy,
@@ -196,13 +191,12 @@ export class UserInvitationService {
   /**
    * Accept invitation
    *
-   * @param prisma - Prisma client instance
    * @param data - Acceptance data
    * @returns Accepted invitation
    */
-  async acceptInvitation(prisma: PrismaClient, data: AcceptInvitationDto) {
+  async acceptInvitation(data: AcceptInvitationDto) {
     // Find invitation by token
-    const userTenant = await prisma.userTenant.findFirst({
+    const userTenant = await this.dbService.client.userTenant.findFirst({
       where: {
         invitationToken: data.token,
         invitationExpiresAt: {
@@ -224,7 +218,7 @@ export class UserInvitationService {
     const passwordHash = await bcrypt.hash(data.password, 10);
 
     // Update user
-    await prisma.user.update({
+    await this.dbService.client.user.update({
       where: { id: userTenant.userId },
       data: {
         passwordHash,
@@ -236,7 +230,7 @@ export class UserInvitationService {
     });
 
     // Update user-tenant relationship
-    await prisma.userTenant.update({
+    await this.dbService.client.userTenant.update({
       where: { id: userTenant.id },
       data: {
         status: ProfileStatus.ACTIVE,
@@ -246,7 +240,7 @@ export class UserInvitationService {
     });
 
     // Audit log
-    await this.auditService.logUserAction(prisma, {
+    await this.auditService.logUserAction({
       action: 'user_invitation_accepted',
       tenantId: userTenant.tenantId,
       userId: userTenant.userId,

@@ -3,9 +3,9 @@ import {
   BadRequestException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { UpdateTenantStatusDto } from '../dto';
 import { TenantAuditService } from './tenant-audit.service';
+import { DatabaseService } from '../../common/database/database.service';
 
 /**
  * Tenant Status Service
@@ -15,25 +15,26 @@ import { TenantAuditService } from './tenant-audit.service';
  */
 @Injectable()
 export class TenantStatusService {
-  constructor(private readonly auditService: TenantAuditService) {}
+  constructor(
+    private readonly dbService: DatabaseService,
+    private readonly auditService: TenantAuditService,
+  ) {}
 
   /**
    * Update tenant status
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @param data - Status update data
    * @param updatedBy - User ID of the updater
    * @returns Updated tenant
    */
   async updateTenantStatus(
-    prisma: PrismaClient,
     tenantId: string,
     data: UpdateTenantStatusDto,
     updatedBy: string,
   ) {
     // Check if tenant exists
-    const tenant = await prisma.tenant.findUnique({
+    const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, status: true, name: true },
     });
@@ -46,7 +47,7 @@ export class TenantStatusService {
     this.validateStatusTransition(tenant.status, data.status);
 
     // Update status
-    const updated = await prisma.tenant.update({
+    const updated = await this.dbService.client.tenant.update({
       where: { id: tenantId },
       data: {
         status: data.status,
@@ -54,7 +55,7 @@ export class TenantStatusService {
     });
 
     // Audit log
-    await this.auditService.logTenantAction(prisma, {
+    await this.auditService.logTenantAction({
       action: 'tenant_status_updated',
       tenantId: tenant.id,
       userId: updatedBy,
@@ -71,12 +72,11 @@ export class TenantStatusService {
   /**
    * Get tenant status
    *
-   * @param prisma - Prisma client instance
    * @param tenantId - Tenant ID
    * @returns Tenant status
    */
-  async getTenantStatus(prisma: PrismaClient, tenantId: string) {
-    const tenant = await prisma.tenant.findUnique({
+  async getTenantStatus(tenantId: string) {
+    const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
       select: { id: true, status: true, name: true },
     });
