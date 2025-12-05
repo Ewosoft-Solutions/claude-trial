@@ -231,7 +231,7 @@ export class PasswordService {
   static async checkPasswordReuse(
     prisma: PrismaClient,
     userId: string,
-    newPasswordHash: string,
+    newPassword: string,
     preventReuse: number = 5,
   ): Promise<boolean> {
     // Get recent password history
@@ -244,7 +244,7 @@ export class PasswordService {
     // Check if new password matches any previous password
     for (const history of passwordHistory) {
       const matches = await this.comparePassword(
-        newPasswordHash,
+        newPassword,
         history.passwordHash,
       );
       if (matches) {

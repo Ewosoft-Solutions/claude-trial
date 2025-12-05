@@ -175,15 +175,12 @@ export class PasswordResetService {
       );
     }
 
-    // Hash new password
-    const newPasswordHash = await PasswordService.hashPassword(newPassword);
-
     // Check password reuse (3.5)
     const preventReuse = 5; // Default, should get from policy
     const isReused = await PasswordService.checkPasswordReuse(
       prisma,
       user.id,
-      newPasswordHash,
+      newPassword,
       preventReuse,
     );
 
@@ -192,6 +189,9 @@ export class PasswordResetService {
         `Password cannot be reused. Please choose a different password.`,
       );
     }
+
+    // Hash new password
+    const newPasswordHash = await PasswordService.hashPassword(newPassword);
 
     // Save password to history
     await PasswordService.savePasswordHistory(prisma, user.id, newPasswordHash);

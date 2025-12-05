@@ -22,7 +22,7 @@ import {
  *
  * Defines all environment variables with validation rules.
  */
-class EnvironmentConfig {
+export class EnvironmentConfig {
   // Database Configuration
   @IsString()
   @IsUrl({ require_tld: false })

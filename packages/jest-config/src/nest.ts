@@ -8,6 +8,9 @@ export const nestConfig = {
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },
+  moduleNameMapper: {
+    '^@workspace/database$': '<rootDir>/../test/mocks/workspace-database.ts',
+  },
   collectCoverageFrom: ['**/*.(t|j)s'],
   coverageDirectory: '../coverage',
   testEnvironment: 'node',

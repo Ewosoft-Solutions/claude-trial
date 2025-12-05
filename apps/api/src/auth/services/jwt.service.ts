@@ -5,6 +5,7 @@
  * Implements items 3.6 and 3.7.
  */
 
+import { Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@workspace/database';
 import { JWTSecretService, JWTTokenType } from '@workspace/api';
@@ -44,6 +45,7 @@ export type IatExpType = 'iat' | 'exp' | 'type';
  * Provides JWT token generation and validation with school-specific secrets.
  */
 
+@Injectable()
 export class AuthJWTService {
   constructor(private readonly jwtService: JwtService) {}
 
@@ -68,14 +70,7 @@ export class AuthJWTService {
       tenantId,
     );
 
-    const tokenPayload: JWTPayload = {
-      ...payload,
-      type: 'access',
-      sub: '',
-      tenantId: '',
-      profileId: '',
-      roles: [],
-    };
+    const tokenPayload: JWTPayload = { ...payload, type: 'access' };
 
     return this.jwtService.signAsync(tokenPayload, {
       secret,
@@ -104,14 +99,7 @@ export class AuthJWTService {
       tenantId,
     );
 
-    const tokenPayload: JWTPayload = {
-      ...payload,
-      type: 'refresh',
-      sub: '',
-      tenantId: '',
-      profileId: '',
-      roles: [],
-    };
+    const tokenPayload: JWTPayload = { ...payload, type: 'refresh' };
 
     return this.jwtService.signAsync(tokenPayload, {
       secret,

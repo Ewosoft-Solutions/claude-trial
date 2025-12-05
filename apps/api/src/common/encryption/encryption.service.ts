@@ -45,18 +45,12 @@ export class EncryptionService {
         .update(defaultKey)
         .digest();
     } else {
-      // For production, use the provided key directly (should be 32 bytes/256 bits)
-      // If it's a string, hash it to get 32 bytes
-      if (key.length === 32 && Buffer.isBuffer(Buffer.from(key, 'base64'))) {
-        // If it's already a base64-encoded 32-byte key, decode it
-        try {
-          this.encryptionKey = Buffer.from(key, 'base64');
-        } catch {
-          // If decoding fails, hash the string
-          this.encryptionKey = crypto.createHash('sha256').update(key).digest();
-        }
+      // For production, prefer base64-encoded 32-byte keys; otherwise hash to 32 bytes
+      const decodedKey = Buffer.from(key, 'base64');
+      if (decodedKey.length === this.keyLength) {
+        this.encryptionKey = decodedKey;
       } else {
-        // Hash the key string to get 32 bytes
+        // Fallback: hash any other key input to derive a 32-byte key
         this.encryptionKey = crypto.createHash('sha256').update(key).digest();
       }
     }

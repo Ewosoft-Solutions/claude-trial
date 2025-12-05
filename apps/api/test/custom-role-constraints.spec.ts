@@ -1,0 +1,241 @@
+/**
+ * Custom Role Creation Constraints Validation Tests
+ *
+ * Validates that custom role creation constraints are enforced correctly.
+ */
+
+import { Test, TestingModule } from '@nestjs/testing';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { RoleService } from '../src/auth/services/role.service';
+import { PermissionPoolService } from '../src/auth/services/permission-pool.service';
+import { createMockPrismaClient } from '../src/common/__tests__/test-utils';
+import { PrismaClient } from '@workspace/database';
+import { ClearanceLevel, RoleType } from '@workspace/api';
+
+describe('Custom Role Creation Constraints Validation', () => {
+  let roleService: RoleService;
+  let permissionPoolService: PermissionPoolService;
+  let mockPrisma: Partial<PrismaClient>;
+
+  beforeEach(async () => {
+    mockPrisma = createMockPrismaClient();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        RoleService,
+        PermissionPoolService,
+        {
+          provide: PrismaClient,
+          useValue: mockPrisma,
+        },
+      ],
+    }).compile();
+
+    roleService = module.get<RoleService>(RoleService);
+    permissionPoolService = module.get<PermissionPoolService>(
+      PermissionPoolService,
+    );
+  });
+
+  describe('Clearance Level Constraints (0-7 only)', () => {
+    it('should allow custom role creation at clearance level 0', async () => {
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'Custom Student Role',
+          clearanceLevel: 0,
+          tenantId: 'tenant-id',
+          createdBy: 'user-id',
+        },
+      );
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('should allow custom role creation at clearance level 7', async () => {
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'Custom Admin Role',
+          clearanceLevel: 7,
+          tenantId: 'tenant-id',
+          createdBy: 'user-id',
+        },
+      );
+
+      expect(result.valid).toBe(true);
+    });
+
+    it('should reject custom role creation at clearance level 8', async () => {
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'Custom Super Admin Role',
+          clearanceLevel: 8,
+          tenantId: 'tenant-id',
+          createdBy: 'user-id',
+        },
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('clearance level');
+    });
+
+    it('should reject custom role creation at clearance level 9', async () => {
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'Custom Super Admin Role',
+          clearanceLevel: 9,
+          tenantId: 'tenant-id',
+          createdBy: 'user-id',
+        },
+      );
+
+      expect(result.valid).toBe(false);
+    });
+
+    it('should reject custom role creation at clearance level 10', async () => {
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'Custom Architect Role',
+          clearanceLevel: 10,
+          tenantId: 'tenant-id',
+          createdBy: 'user-id',
+        },
+      );
+
+      expect(result.valid).toBe(false);
+    });
+  });
+
+  describe('Permission Pool Validation', () => {
+    it('should validate permissions are within permission pool', async () => {
+      // Mock permission pools for clearance level 2
+      (mockPrisma.permissionPool?.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'pool-1',
+          name: 'Teacher Pool',
+          clearanceLevel: 2,
+          poolPermissions: [
+            {
+              permission: {
+                id: 'perm-1',
+                name: 'students.view.all',
+              },
+            },
+            {
+              permission: {
+                id: 'perm-2',
+                name: 'classes.manage',
+              },
+            },
+          ],
+        },
+      ]);
+
+      const pools = await permissionPoolService.getPermissionPoolsByClearanceLevel(
+        mockPrisma as PrismaClient,
+        2,
+      );
+
+      const poolIds = pools.map((p) => p.id);
+      const permissions = await permissionPoolService.getPermissionsFromPools(
+        mockPrisma as PrismaClient,
+        poolIds,
+      );
+
+      const permissionNames = permissions.map((p) => p.name);
+      expect(permissionNames).toContain('students.view.all');
+      expect(permissionNames).toContain('classes.manage');
+    });
+
+    it('should reject permissions outside permission pool', async () => {
+      (mockPrisma.permissionPool?.findMany as jest.Mock).mockResolvedValue([
+        {
+          id: 'pool-1',
+          name: 'Teacher Pool',
+          clearanceLevel: 2,
+          poolPermissions: [
+            {
+              permission: {
+                id: 'perm-1',
+                name: 'students.view.all',
+              },
+            },
+          ],
+        },
+      ]);
+
+      const pools = await permissionPoolService.getPermissionPoolsByClearanceLevel(
+        mockPrisma as PrismaClient,
+        2,
+      );
+
+      const poolIds = pools.map((p) => p.id);
+      const permissions = await permissionPoolService.getPermissionsFromPools(
+        mockPrisma as PrismaClient,
+        poolIds,
+      );
+
+      const permissionNames = permissions.map((p) => p.name);
+      // 'users.manage' is not in the pool
+      expect(permissionNames).not.toContain('users.manage');
+    });
+  });
+
+  describe('Role Name Uniqueness', () => {
+    it('should validate role name uniqueness for platform/system roles', async () => {
+      // Mock existing platform role
+      (mockPrisma.role?.findFirst as jest.Mock).mockResolvedValue({
+        id: 'existing-role',
+        name: 'Existing Role',
+        roleType: 'PLATFORM',
+      });
+
+      const result = await roleService.validateRoleNameUniqueness(
+        mockPrisma as PrismaClient,
+        'Existing Role',
+        RoleType.PLATFORM,
+      );
+
+      expect(result.unique).toBe(false);
+      expect(result.error).toContain('already exists');
+    });
+
+    it('should validate role name uniqueness for custom roles per tenant', async () => {
+      // Mock existing custom role for tenant
+      (mockPrisma.role?.findFirst as jest.Mock).mockResolvedValue({
+        id: 'existing-role',
+        name: 'Existing Role',
+        roleType: 'CUSTOM',
+        tenantId: 'tenant-id',
+      });
+
+      const result = await roleService.validateRoleNameUniqueness(
+        mockPrisma as PrismaClient,
+        'Existing Role',
+        RoleType.CUSTOM,
+        'tenant-id',
+      );
+
+      expect(result.unique).toBe(false);
+      expect(result.error).toContain('already exists');
+    });
+
+    it('should allow role name if it does not exist', async () => {
+      (mockPrisma.role?.findFirst as jest.Mock).mockResolvedValue(null);
+
+      const result = await roleService.validateRoleNameUniqueness(
+        mockPrisma as PrismaClient,
+        'New Role',
+        RoleType.CUSTOM,
+        'tenant-id',
+      );
+
+      expect(result.unique).toBe(true);
+    });
+  });
+});
+
