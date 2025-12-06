@@ -71,3 +71,43 @@ export class AddUserToTenantDto {
   @IsUUID('4', { each: true })
   roleIds: string[];
 }
+
+/**
+ * Update User DTO
+ */
+export class UpdateUserDto {
+  @ApiPropertyOptional({ description: 'First name' })
+  @IsOptional()
+  @IsString()
+  firstName?: string;
+
+  @ApiPropertyOptional({ description: 'Last name' })
+  @IsOptional()
+  @IsString()
+  lastName?: string;
+
+  @ApiPropertyOptional({ description: 'Phone number' })
+  @IsOptional()
+  @IsString()
+  phone?: string;
+
+  @ApiPropertyOptional({ description: 'Is active' })
+  @IsOptional()
+  isActive?: boolean;
+}
+
+/**
+ * Update User Profile DTO (for tenant-specific profile)
+ */
+export class UpdateUserProfileDto {
+  @ApiPropertyOptional({ description: 'Profile status' })
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @ApiPropertyOptional({ description: 'Role IDs to assign', type: [String] })
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  roleIds?: string[];
+}

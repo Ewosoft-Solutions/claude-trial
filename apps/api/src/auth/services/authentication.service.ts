@@ -539,4 +539,48 @@ export class AuthenticationService {
       expiresIn: 3600,
     };
   }
+
+  /**
+   * Logout user (12.1)
+   *
+   * Revokes the current session token.
+   *
+   * @param prisma - Prisma client instance
+   * @param token - Access token or refresh token to revoke
+   * @returns Success response
+   */
+  async logout(
+    prisma: PrismaClient,
+    token: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Revoke session by token
+    await SessionService.revokeSession(prisma, token);
+
+    return {
+      success: true,
+      message: 'Logged out successfully',
+    };
+  }
+
+  /**
+   * Logout all sessions for user (12.1)
+   *
+   * Revokes all active sessions for a user.
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - User ID
+   * @returns Success response
+   */
+  async logoutAll(
+    prisma: PrismaClient,
+    userId: string,
+  ): Promise<{ success: boolean; message: string }> {
+    // Revoke all user sessions
+    await SessionService.revokeAllUserSessions(prisma, userId);
+
+    return {
+      success: true,
+      message: 'All sessions logged out successfully',
+    };
+  }
 }

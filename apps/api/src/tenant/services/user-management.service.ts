@@ -4,7 +4,13 @@ import {
   ConflictException,
   NotFoundException,
 } from '@nestjs/common';
-import { CreateUserDto, BulkCreateUsersDto, AddUserToTenantDto } from '../dto';
+import {
+  CreateUserDto,
+  BulkCreateUsersDto,
+  AddUserToTenantDto,
+  UpdateUserDto,
+  UpdateUserProfileDto,
+} from '../dto';
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
@@ -355,6 +361,264 @@ export class UserManagementService {
         hasNext: page * limit < total,
         hasPrev: page > 1,
       },
+    };
+  }
+
+  /**
+   * Get user profile by ID (12.3)
+   *
+   * @param tenantId - Tenant ID
+   * @param profileId - Profile ID (UserTenant ID)
+   * @returns User profile
+   */
+  async getUserProfile(tenantId: string, profileId: string) {
+    const profile = await this.dbService.client.userTenant.findFirst({
+      where: {
+        id: profileId,
+        tenantId,
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            isActive: true,
+            isVerified: true,
+            lastLoginAt: true,
+          },
+        },
+        userTenantRoles: {
+          include: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                description: true,
+                clearanceLevel: true,
+                roleType: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('User profile not found');
+    }
+
+    return profile;
+  }
+
+  /**
+   * Update user (12.3)
+   *
+   * @param userId - User ID
+   * @param data - Update data
+   * @param updatedBy - User ID of the updater
+   * @returns Updated user
+   */
+  async updateUser(userId: string, data: UpdateUserDto, updatedBy: string) {
+    const user = await this.dbService.client.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const updateData: any = {
+      updatedBy,
+    };
+
+    if (data.firstName !== undefined) {
+      updateData.firstName = data.firstName;
+    }
+    if (data.lastName !== undefined) {
+      updateData.lastName = data.lastName;
+    }
+    if (data.phone !== undefined) {
+      updateData.phone = data.phone;
+    }
+    if (data.isActive !== undefined) {
+      updateData.isActive = data.isActive;
+    }
+
+    const updatedUser = await this.dbService.client.user.update({
+      where: { id: userId },
+      data: updateData,
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        isActive: true,
+        isVerified: true,
+        updatedAt: true,
+      },
+    });
+
+    // Audit log
+    await this.auditService.logUserAction({
+      action: 'user_updated',
+      tenantId: '', // Will be set by caller if needed
+      userId,
+      performedBy: updatedBy,
+      metadata: {
+        changes: data,
+      },
+    });
+
+    return updatedUser;
+  }
+
+  /**
+   * Update user profile (12.3)
+   *
+   * @param tenantId - Tenant ID
+   * @param profileId - Profile ID (UserTenant ID)
+   * @param data - Update data
+   * @param updatedBy - User ID of the updater
+   * @returns Updated profile
+   */
+  async updateUserProfile(
+    tenantId: string,
+    profileId: string,
+    data: UpdateUserProfileDto,
+    updatedBy: string,
+  ) {
+    const profile = await this.dbService.client.userTenant.findFirst({
+      where: {
+        id: profileId,
+        tenantId,
+      },
+      select: { id: true, userId: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('User profile not found');
+    }
+
+    const updateData: any = {};
+
+    if (data.status !== undefined) {
+      updateData.status = data.status;
+    }
+
+    const updatedProfile = await this.dbService.client.userTenant.update({
+      where: { id: profileId },
+      data: updateData,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phone: true,
+            isActive: true,
+          },
+        },
+        userTenantRoles: {
+          include: {
+            role: {
+              select: {
+                id: true,
+                name: true,
+                clearanceLevel: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Update roles if provided
+    if (data.roleIds && data.roleIds.length > 0) {
+      // Remove existing roles
+      await this.dbService.client.userTenantRole.deleteMany({
+        where: { userTenantId: profileId },
+      });
+
+      // Add new roles
+      await Promise.all(
+        data.roleIds.map((roleId, index) =>
+          this.dbService.client.userTenantRole.create({
+            data: {
+              userTenantId: profileId,
+              roleId,
+              isPrimary: index === 0,
+              assignedBy: updatedBy,
+            },
+          }),
+        ),
+      );
+    }
+
+    // Audit log
+    await this.auditService.logUserAction({
+      action: 'user_profile_updated',
+      tenantId,
+      userId: profile.userId,
+      performedBy: updatedBy,
+      metadata: {
+        profileId,
+        changes: data,
+      },
+    });
+
+    return this.getUserProfile(tenantId, profileId);
+  }
+
+  /**
+   * Delete user profile (remove from tenant) (12.3)
+   *
+   * @param tenantId - Tenant ID
+   * @param profileId - Profile ID (UserTenant ID)
+   * @param deletedBy - User ID of the deleter
+   * @returns Success response
+   */
+  async deleteUserProfile(
+    tenantId: string,
+    profileId: string,
+    deletedBy: string,
+  ) {
+    const profile = await this.dbService.client.userTenant.findFirst({
+      where: {
+        id: profileId,
+        tenantId,
+      },
+      select: { id: true, userId: true },
+    });
+
+    if (!profile) {
+      throw new NotFoundException('User profile not found');
+    }
+
+    // Delete profile (cascade will handle roles)
+    await this.dbService.client.userTenant.delete({
+      where: { id: profileId },
+    });
+
+    // Audit log
+    await this.auditService.logUserAction({
+      action: 'user_profile_deleted',
+      tenantId,
+      userId: profile.userId,
+      performedBy: deletedBy,
+      metadata: {
+        profileId,
+      },
+    });
+
+    return {
+      success: true,
+      message: 'User profile deleted successfully',
     };
   }
 }

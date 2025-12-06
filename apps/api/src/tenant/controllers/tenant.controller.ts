@@ -48,6 +48,8 @@ import {
   CreateUserDto,
   BulkCreateUsersDto,
   AddUserToTenantDto,
+  UpdateUserDto,
+  UpdateUserProfileDto,
 } from '../dto';
 
 /**
@@ -336,6 +338,74 @@ export class TenantController {
       page: page ? Number(page) : undefined,
       limit: limit ? Number(limit) : undefined,
     });
+  }
+
+  /**
+   * Get user profile by ID (12.3)
+   */
+  @Get(':id/users/:profileId')
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: 'Get user profile by ID' })
+  async getUserProfile(
+    @Param('id') tenantId: string,
+    @Param('profileId') profileId: string,
+  ) {
+    return this.userManagementService.getUserProfile(tenantId, profileId);
+  }
+
+  /**
+   * Update user (12.3)
+   */
+  @Put('users/:userId')
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: 'Update user' })
+  async updateUser(
+    @Param('userId') userId: string,
+    @Body() data: UpdateUserDto,
+    @Request() req: any,
+  ) {
+    const user = req.user;
+    return this.userManagementService.updateUser(userId, data, user.userId);
+  }
+
+  /**
+   * Update user profile (12.3)
+   */
+  @Put(':id/users/:profileId')
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: 'Update user profile' })
+  async updateUserProfile(
+    @Param('id') tenantId: string,
+    @Param('profileId') profileId: string,
+    @Body() data: UpdateUserProfileDto,
+    @Request() req: any,
+  ) {
+    const user = req.user;
+    return this.userManagementService.updateUserProfile(
+      tenantId,
+      profileId,
+      data,
+      user.userId,
+    );
+  }
+
+  /**
+   * Delete user profile (remove from tenant) (12.3)
+   */
+  @Delete(':id/users/:profileId')
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: 'Delete user profile (remove from tenant)' })
+  async deleteUserProfile(
+    @Param('id') tenantId: string,
+    @Param('profileId') profileId: string,
+    @Request() req: any,
+  ) {
+    const user = req.user;
+    return this.userManagementService.deleteUserProfile(
+      tenantId,
+      profileId,
+      user.userId,
+    );
   }
 
   /**

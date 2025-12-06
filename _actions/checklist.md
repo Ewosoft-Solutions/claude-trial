@@ -264,16 +264,16 @@ All foundation layer implementation tasks (Sections 1-8) have been completed:
 
 ### 12. Core API Endpoints
 
-- [ ] 12.1 Implement authentication endpoints (login, logout, refresh token)
-- [ ] 12.2 Implement school selection/profile switching endpoint
-- [ ] 12.3 Implement user management endpoints (CRUD operations)
-- [ ] 12.4 Implement role management endpoints (view, create custom roles)
-- [ ] 12.5 Implement permission management endpoints (view permissions, assign to roles)
-- [ ] 12.6 Implement tenant/school management endpoints
-- [ ] 12.7 Implement MFA setup and verification endpoints
-- [ ] 12.8 Implement password reset endpoints
-- [ ] 12.9 Implement user invitation endpoints
-- [ ] 12.10 Implement audit log query endpoints
+- [x] 12.1 Implement authentication endpoints (login, logout, refresh token) ✅
+- [x] 12.2 Implement school selection/profile switching endpoint ✅
+- [x] 12.3 Implement user management endpoints (CRUD operations) ✅
+- [x] 12.4 Implement role management endpoints (view, create custom roles) ✅
+- [x] 12.5 Implement permission management endpoints (view permissions, assign to roles) ✅
+- [x] 12.6 Implement tenant/school management endpoints ✅
+- [x] 12.7 Implement MFA setup and verification endpoints ✅
+- [x] 12.8 Implement password reset endpoints ✅
+- [x] 12.9 Implement user invitation endpoints ✅
+- [x] 12.10 Implement audit log query endpoints ✅
 
 ### 13. Student Management Module
 

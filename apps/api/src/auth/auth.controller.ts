@@ -191,6 +191,45 @@ export class AuthController {
   }
 
   /**
+   * Logout (12.1)
+   *
+   * POST /auth/logout
+   */
+  @Post('logout')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async logout(@Req() req: Request) {
+    const prisma = this.getPrisma(req);
+    const user = (req as any).user;
+    const token = req.headers.authorization?.replace('Bearer ', '');
+
+    if (!token) {
+      throw new Error('Token not found');
+    }
+
+    return this.authenticationService.logout(prisma, token);
+  }
+
+  /**
+   * Logout all sessions (12.1)
+   *
+   * POST /auth/logout-all
+   */
+  @Post('logout-all')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async logoutAll(@Req() req: Request) {
+    const prisma = this.getPrisma(req);
+    const user = (req as any).user;
+
+    if (!user || !user.userId) {
+      throw new Error('User not authenticated');
+    }
+
+    return this.authenticationService.logoutAll(prisma, user.userId);
+  }
+
+  /**
    * Get Prisma client from request
    *
    * @param req - Request object

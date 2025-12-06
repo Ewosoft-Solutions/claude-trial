@@ -7,6 +7,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
+import { CommonModule } from '../common';
 import { AuthController } from './auth.controller';
 import { MfaController } from './mfa.controller';
 import {
@@ -14,6 +15,9 @@ import {
   PlatformSecurityPolicyController,
 } from './controllers/security-policy.controller';
 import { BreachResponseController } from './controllers/breach-response.controller';
+import { RoleManagementController } from './controllers/role-management.controller';
+import { PermissionManagementController } from './controllers/permission-management.controller';
+import { AuditLogController } from './controllers/audit-log.controller';
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { AuthJWTService } from './services/jwt.service';
@@ -49,6 +53,7 @@ import {
  */
 @Module({
   imports: [
+    CommonModule,
     PassportModule,
     JwtModule.register({
       // Global JWT configuration
@@ -65,6 +70,9 @@ import {
     SecurityPolicyController,
     PlatformSecurityPolicyController,
     BreachResponseController,
+    RoleManagementController,
+    PermissionManagementController,
+    AuditLogController,
   ],
   providers: [
     // Authentication services
