@@ -75,6 +75,9 @@ export class EncryptionService {
         this.algorithm,
         this.encryptionKey,
         iv,
+        {
+          authTagLength: this.tagLength,
+        },
       );
 
       // Encrypt data
@@ -125,6 +128,9 @@ export class EncryptionService {
         this.algorithm,
         this.encryptionKey,
         iv,
+        {
+          authTagLength: this.tagLength,
+        },
       );
 
       // Set authentication tag
