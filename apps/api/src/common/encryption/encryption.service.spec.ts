@@ -3,7 +3,15 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  beforeEach,
+  afterEach,
+  jest,
+} from '@jest/globals';
+import { Logger } from '@nestjs/common';
 import { EncryptionService } from './encryption.service';
 import { EnvironmentConfig, getEnvConfig } from '../config/env.config';
 
@@ -22,6 +30,10 @@ describe('EncryptionService', () => {
     // Reset mocks
     jest.clearAllMocks();
 
+    // Silence logger noise for negative-path tests in this suite
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => {});
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
+
     // Default mock config
     mockGetEnvConfig.mockReturnValue({
       ENCRYPTION_KEY: 'test-encryption-key-32-bytes-long!!',
@@ -32,6 +44,10 @@ describe('EncryptionService', () => {
     }).compile();
 
     service = module.get<EncryptionService>(EncryptionService);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
   });
 
   describe('encrypt and decrypt', () => {
