@@ -1,5 +1,3 @@
-import 'dotenv/config';
-
 /**
  * Seed Data Verification Script
  *
