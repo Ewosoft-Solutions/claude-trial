@@ -24,7 +24,8 @@
     "prebuild": "npm run db:generate",
     "predev": "npm run db:generate",
     "format": "prisma format",
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "build": "tsup src"
   },
   "dependencies": {
     "@prisma/adapter-pg": "^7.1.0",
