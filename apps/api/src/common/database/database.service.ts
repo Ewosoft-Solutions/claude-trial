@@ -6,9 +6,7 @@ import {
   OnApplicationShutdown,
   Inject,
 } from '@nestjs/common';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - PrismaClient is exported from @workspace/database via re-export
-import type { PrismaClient } from '@workspace/database';
+import { PrismaClient } from '@workspace/database';
 import { getEnvConfig } from '../config/env.config';
 
 /**
@@ -56,13 +54,21 @@ export class DatabaseService
     await this.connectWithRetry();
   }
 
-  async onModuleDestroy() {
+  private disconnected = false;
+
+  private async safeDisconnect() {
+    if (this.disconnected) return;
+    this.disconnected = true;
     await this.client.$disconnect();
+  }
+
+  async onModuleDestroy() {
+    await this.safeDisconnect();
   }
 
   async onApplicationShutdown(signal?: string) {
     this.logger.log(`Application shutdown signal: ${signal}`);
-    await this.client.$disconnect();
+    await this.safeDisconnect();
     this.logger.log('Database connection closed gracefully');
   }
 
