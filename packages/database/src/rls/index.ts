@@ -4,4 +4,4 @@
  * Exports for RLS tenant context management.
  */
 
-export * from './tenant-context';
+export * from './tenant-context.js';

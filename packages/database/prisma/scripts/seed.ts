@@ -1,4 +1,5 @@
-import { prisma } from '../../src/client';
+import 'dotenv/config';
+import { prisma } from '../../src/client.js';
 
 /**
  * Seed script for database initialization

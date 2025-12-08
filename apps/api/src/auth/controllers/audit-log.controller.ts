@@ -20,7 +20,7 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
-  ClearanceLevelGuard,
+  // ClearanceLevelGuard,
   RequireClearanceLevel,
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
@@ -48,6 +48,7 @@ export class AuditLogController {
   @ApiOperation({ summary: 'Query audit logs' })
   @ApiResponse({ status: 200, description: 'List of audit logs' })
   async queryAuditLogs(
+    @Request() req: any,
     @Query('eventType') eventType?: string,
     @Query('action') action?: string,
     @Query('resource') resource?: string,
@@ -58,7 +59,6 @@ export class AuditLogController {
     @Query('endDate') endDate?: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Request() req: any,
   ) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
@@ -198,11 +198,11 @@ export class AuditLogController {
   @ApiOperation({ summary: 'Get audit logs for a specific resource' })
   @ApiResponse({ status: 200, description: 'List of audit logs for resource' })
   async getAuditLogsForResource(
+    @Request() req: any,
     @Param('resource') resource: string,
     @Param('resourceId') resourceId: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Request() req: any,
   ) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
@@ -268,10 +268,10 @@ export class AuditLogController {
   @ApiOperation({ summary: 'Get audit logs for a specific actor (user)' })
   @ApiResponse({ status: 200, description: 'List of audit logs for actor' })
   async getAuditLogsForActor(
+    @Request() req: any,
     @Param('actorId') actorId: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,
-    @Request() req: any,
   ) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;

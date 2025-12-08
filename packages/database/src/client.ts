@@ -1,20 +1,22 @@
-import 'dotenv/config';
-import { PrismaClient } from '../generated/prisma/client';
+import { PrismaClient } from '@prisma/client';
 import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { Pool } from 'pg';
 
-const { Pool } = pg;
-const connectionString = process.env.DATABASE_URL!;
-const pool = new Pool({ connectionString });
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
 const adapter = new PrismaPg(pool);
 
-const globalForPrisma = global as unknown as { prisma: PrismaClient };
+declare global {
+  // eslint-disable-next-line no-var
+  var __prisma: PrismaClient | undefined;
+}
 
-export const prisma = globalForPrisma.prisma || new PrismaClient({ adapter });
+export const prisma = globalThis.__prisma ?? new PrismaClient({ adapter });
 
-if (process.env.NODE_ENV !== 'production') globalForPrisma.prisma = prisma;
+if (process.env.NODE_ENV !== 'production') {
+  globalThis.__prisma = prisma;
+}
 
-// Explicitly re-export PrismaClient and Prisma for TypeScript resolution
-export { PrismaClient, Prisma } from '../generated/prisma/client';
-// Re-export everything else
-export * from '../generated/prisma/client';
+export type PrismaClientType = typeof prisma;
+
+export * from '@prisma/client';

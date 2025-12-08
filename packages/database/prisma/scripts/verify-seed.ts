@@ -1,10 +1,12 @@
+import 'dotenv/config';
+
 /**
  * Seed Data Verification Script
  *
  * Verifies that seed data was created correctly after running the seed script.
  * Run this after: npm run db:seed
  */
-import { prisma } from '../../src/client';
+import { prisma } from '../../src/client.js';
 
 interface VerificationResult {
   name: string;

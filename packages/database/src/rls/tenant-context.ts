@@ -5,7 +5,7 @@
  * This ensures that RLS policies can correctly filter data by tenant.
  */
 
-import { PrismaClient } from '../client.js';
+import { PrismaClient } from '@prisma/client';
 
 /**
  * Set tenant context for RLS

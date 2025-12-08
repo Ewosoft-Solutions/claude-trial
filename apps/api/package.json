@@ -22,7 +22,7 @@
     "@nestjs/platform-express": "^11.0.0",
     "@nestjs/swagger": "^11.2.1",
     "@prisma/adapter-pg": "^7.0.0",
-    "@simplewebauthn/server": "^11.0.0",
+    "@simplewebauthn/server": "^13.0.0",
     "bcrypt": "^6.0.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",
@@ -32,7 +32,8 @@
     "qrcode": "^1.5.3",
     "reflect-metadata": "^0.2.0",
     "rxjs": "^7.8.1",
-    "speakeasy": "^2.0.0"
+    "speakeasy": "^2.0.0",
+    "vitest": "^4.0.14"
   },
   "devDependencies": {
     "@jest/globals": "^29.7.0",
@@ -52,8 +53,10 @@
     "@workspace/eslint-config": "workspace:*",
     "@workspace/jest-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "@vitest/coverage-istanbul": "4.0.14",
+    "@vitest/ui": "4.0.14",
     "jest": "^29.7.0",
-    "jest-mock-extended": "^2.0.4",
+    "jest-mock-extended": "^4.0.0",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
     "ts-jest": "^29.2.5",

@@ -23,7 +23,7 @@ import {
   AssignPolicyDto,
   ChangePolicyTierDto,
   SetEmergencyPolicyDto,
-  UpdatePolicyDto,
+  // UpdatePolicyDto,
 } from '../dto/security-policy.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
@@ -32,6 +32,7 @@ import { RequireClearanceLevel } from '../guards/clearance-level.guard';
 import { PermissionGuard } from '../guards/permission.guard';
 import { RequirePermissions } from '../guards/permission.guard';
 import { type AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
+import { EnforcedBy } from '@workspace/api';
 
 @Controller('security-policies')
 @UseGuards(JwtAuthGuard, TenantContextGuard)
@@ -95,7 +96,7 @@ export class SecurityPolicyController {
       prisma,
       tenantId,
       dto.tier,
-      'school_admin',
+      EnforcedBy.SCHOOL_ADMIN,
       userId,
       dto.reason,
     );
