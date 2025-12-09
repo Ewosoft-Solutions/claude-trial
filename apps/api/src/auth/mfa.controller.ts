@@ -19,6 +19,8 @@ import {
 } from '@nestjs/common';
 import { type Request } from 'express';
 import { DatabaseService } from '../common';
+import { AuthUser } from './decorators';
+import type { RequestUser } from './types/request-user';
 import {
   SetupSmsMfaDto,
   SetupEmailMfaDto,
@@ -57,9 +59,8 @@ export class MfaController {
    * GET /auth/mfa/methods
    */
   @Get('methods')
-  async getActiveMethods(@Req() req: Request) {
+  async getActiveMethods(@AuthUser() user: RequestUser) {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -75,9 +76,12 @@ export class MfaController {
    */
   @Post('setup/sms')
   @HttpCode(HttpStatus.CREATED)
-  async setupSms(@Body() setupSmsMfaDto: SetupSmsMfaDto, @Req() req: Request) {
+  async setupSms(
+    @Body() setupSmsMfaDto: SetupSmsMfaDto,
+    @AuthUser() user: RequestUser,
+    @Req() req: Request,
+  ) {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -116,10 +120,10 @@ export class MfaController {
   @HttpCode(HttpStatus.CREATED)
   async setupEmail(
     @Body() setupEmailMfaDto: SetupEmailMfaDto,
+    @AuthUser() user: RequestUser,
     @Req() req: Request,
   ) {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -158,19 +162,20 @@ export class MfaController {
   @HttpCode(HttpStatus.CREATED)
   async setupTotp(
     @Body() setupTotpMfaDto: SetupTotpMfaDto,
-    @Req() req: Request,
+    @AuthUser() user: RequestUser,
   ): Promise<SetupTotpMfaResponseDto> {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId || !user.email) {
       throw new Error('User not authenticated');
     }
 
+    const email = user.email as string;
+
     return this.mfaService.setupTotpMethod(
       prisma,
       user.userId,
-      user.email,
+      email,
       setupTotpMfaDto.name,
     );
   }
@@ -183,22 +188,25 @@ export class MfaController {
   @Post('setup/webauthn')
   @HttpCode(HttpStatus.CREATED)
   async setupWebAuthn(
-    @Req() req: Request,
+    @AuthUser() user: RequestUser,
   ): Promise<SetupWebAuthnMfaResponseDto> {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId || !user.email) {
       throw new Error('User not authenticated');
     }
 
+    const email = user.email as string;
+    const displayName =
+      user.firstName && user.lastName
+        ? `${user.firstName} ${user.lastName}`
+        : email;
+
     const options = await this.mfaService.setupWebAuthnMethod(
       prisma,
       user.userId,
-      user.email,
-      user.firstName && user.lastName
-        ? `${user.firstName} ${user.lastName}`
-        : user.email,
+      email,
+      displayName,
     );
 
     return {
@@ -216,10 +224,9 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async verifyAndActivate(
     @Body() verifyAndActivateMfaDto: VerifyAndActivateMfaDto,
-    @Req() req: Request,
+    @AuthUser() user: RequestUser,
   ) {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -270,7 +277,7 @@ export class MfaController {
         );
         break;
 
-      case 'webauthn':
+      case 'webauthn': {
         if (!verifyAndActivateMfaDto.registrationResponse) {
           throw new Error('WebAuthn registration response required');
         }
@@ -299,6 +306,7 @@ export class MfaController {
         );
         verified = true;
         break;
+      }
 
       default:
         throw new Error('Unsupported MFA method type');
@@ -320,10 +328,10 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async initiateVerification(
     @Body() initiateMfaVerificationDto: InitiateMfaVerificationDto,
+    @AuthUser() user: RequestUser,
     @Req() req: Request,
   ): Promise<InitiateMfaVerificationResponseDto> {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -348,7 +356,6 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async verifyChallenge(
     @Body() verifyMfaChallengeDto: VerifyMfaChallengeDto,
-    @Req() req: Request,
   ): Promise<VerifyMfaChallengeResponseDto> {
     const prisma = this.dbService.client;
 
@@ -375,10 +382,9 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async generateRecoveryCodes(
     @Body() generateRecoveryCodesDto: GenerateRecoveryCodesDto,
-    @Req() req: Request,
+    @AuthUser() user: RequestUser,
   ): Promise<GenerateRecoveryCodesResponseDto> {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -406,10 +412,9 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async verifyRecoveryCode(
     @Body() verifyRecoveryCodeDto: VerifyRecoveryCodeDto,
-    @Req() req: Request,
+    @AuthUser() user: RequestUser,
   ): Promise<VerifyRecoveryCodeResponseDto> {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -433,10 +438,9 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async setPrimaryMethod(
     @Param('methodId') methodId: string,
-    @Req() req: Request,
+    @AuthUser() user: RequestUser,
   ) {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -456,10 +460,9 @@ export class MfaController {
   @HttpCode(HttpStatus.OK)
   async disableMethod(
     @Param('methodId') methodId: string,
-    @Req() req: Request,
+    @AuthUser() user: RequestUser,
   ) {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');
@@ -477,9 +480,11 @@ export class MfaController {
    */
   @Delete('methods/:methodId')
   @HttpCode(HttpStatus.OK)
-  async deleteMethod(@Param('methodId') methodId: string, @Req() req: Request) {
+  async deleteMethod(
+    @Param('methodId') methodId: string,
+    @AuthUser() user: RequestUser,
+  ) {
     const prisma = this.dbService.client;
-    const user = (req as any).user;
 
     if (!user || !user.userId) {
       throw new Error('User not authenticated');

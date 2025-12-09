@@ -14,7 +14,6 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { type Request } from 'express';
-import { PrismaClient } from '@workspace/database';
 import {
   LoginDto,
   VerifyMfaForLoginDto,
@@ -26,6 +25,9 @@ import {
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { JwtAuthGuard } from './guards';
+import { DatabaseService } from '../common';
+import { AuthUser } from './decorators';
+import type { RequestUser } from './types/request-user';
 
 /**
  * Authentication Controller
@@ -37,6 +39,7 @@ export class AuthController {
   constructor(
     private readonly authenticationService: AuthenticationService,
     private readonly passwordResetService: PasswordResetService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   /**
@@ -47,7 +50,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto, @Req() req: Request) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.dbService.client;
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'];
 
@@ -67,11 +70,8 @@ export class AuthController {
    */
   @Post('verify-mfa-login')
   @HttpCode(HttpStatus.OK)
-  async verifyMfaLogin(
-    @Body() verifyMfaForLoginDto: VerifyMfaForLoginDto,
-    @Req() req: Request,
-  ) {
-    const prisma = this.getPrisma(req);
+  async verifyMfaLogin(@Body() verifyMfaForLoginDto: VerifyMfaForLoginDto) {
+    const prisma = this.dbService.client;
 
     // Get user ID from challenge
     const challenge = await prisma.mfaChallenge.findUnique({
@@ -104,16 +104,12 @@ export class AuthController {
   @UseGuards(JwtAuthGuard) // Simplified - in production, use proper auth
   async selectSchool(
     @Body() selectSchoolDto: SelectSchoolDto,
+    @AuthUser() user: RequestUser,
     @Req() req: Request,
   ) {
-    const prisma = this.getPrisma(req);
-    const user = (req as any).user;
+    const prisma = this.dbService.client;
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'];
-
-    if (!user || !user.userId) {
-      throw new Error('User not authenticated');
-    }
 
     return this.authenticationService.selectSchool(
       prisma,
@@ -132,11 +128,8 @@ export class AuthController {
    */
   @Post('refresh')
   @HttpCode(HttpStatus.OK)
-  async refreshToken(
-    @Body() refreshTokenDto: RefreshTokenDto,
-    @Req() req: Request,
-  ) {
-    const prisma = this.getPrisma(req);
+  async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
+    const prisma = this.dbService.client;
 
     return this.authenticationService.refreshToken(
       prisma,
@@ -155,7 +148,7 @@ export class AuthController {
     @Body() requestPasswordResetDto: RequestPasswordResetDto,
     @Req() req: Request,
   ) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.dbService.client;
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
     return this.passwordResetService.requestPasswordReset(
@@ -176,7 +169,7 @@ export class AuthController {
     @Body() resetPasswordDto: ResetPasswordDto,
     @Req() req: Request,
   ) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.dbService.client;
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
     await this.passwordResetService.resetPassword(
@@ -198,9 +191,8 @@ export class AuthController {
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async logout(@Req() req: Request) {
-    const prisma = this.getPrisma(req);
-    const user = (req as any).user;
+  async logout(@AuthUser() user: RequestUser, @Req() req: Request) {
+    const prisma = this.dbService.client;
     const token = req.headers.authorization?.replace('Bearer ', '');
 
     if (!token) {
@@ -218,26 +210,9 @@ export class AuthController {
   @Post('logout-all')
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
-  async logoutAll(@Req() req: Request) {
-    const prisma = this.getPrisma(req);
-    const user = (req as any).user;
-
-    if (!user || !user.userId) {
-      throw new Error('User not authenticated');
-    }
+  async logoutAll(@AuthUser() user: RequestUser) {
+    const prisma = this.dbService.client;
 
     return this.authenticationService.logoutAll(prisma, user.userId);
-  }
-
-  /**
-   * Get Prisma client from request
-   *
-   * @param req - Request object
-   * @returns Prisma client
-   */
-  private getPrisma(req: Request): PrismaClient {
-    // This is a simplified version
-    // In production, inject PrismaService via NestJS dependency injection
-    return (req as any).prisma || (global as any).prisma;
   }
 }

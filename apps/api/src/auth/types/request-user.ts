@@ -7,4 +7,7 @@ export interface RequestUser {
   tenantId: string;
   profileId: string;
   roles: string[];
+  email?: string;
+  firstName?: string;
+  lastName?: string;
 }

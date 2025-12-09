@@ -203,7 +203,10 @@ export class SecurityPolicyController {
 @Controller('platform/security-policies')
 @UseGuards(JwtAuthGuard)
 export class PlatformSecurityPolicyController {
-  constructor(private readonly securityPolicyService: SecurityPolicyService) {}
+  constructor(
+    private readonly securityPolicyService: SecurityPolicyService,
+    private readonly dbService: DatabaseService,
+  ) {}
 
   /**
    * Set emergency policy (4a.7)
