@@ -14,11 +14,11 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { BreachSeverity } from '@workspace/api';
+import { DatabaseService } from '../../common';
 import { BreachResponseService } from '../services/breach-response.service';
 import {
-  RespondToBreachDto,
+  // RespondToBreachDto,
   RespondToSchoolBreachDto,
   RespondToProfileBreachDto,
   RespondToPlatformBreachDto,
@@ -39,7 +39,10 @@ import { type AuthenticatedRequest } from '../middleware/multi-layer-security.mi
 @Controller('breach-response')
 @UseGuards(JwtAuthGuard, ClearanceLevelGuard)
 export class BreachResponseController {
-  constructor(private readonly breachResponseService: BreachResponseService) {}
+  constructor(
+    private readonly breachResponseService: BreachResponseService,
+    private readonly db: DatabaseService,
+  ) {}
 
   /**
    * Respond to school breach (8.5)
@@ -54,7 +57,7 @@ export class BreachResponseController {
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToSchoolBreachDto,
   ) {
-    const prisma: PrismaClient = request.prisma;
+    const prisma = this.db.client;
 
     // Get user info for audit logging
     const user = await prisma.user.findUnique({
@@ -100,7 +103,7 @@ export class BreachResponseController {
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToProfileBreachDto,
   ) {
-    const prisma: PrismaClient = request.prisma;
+    const prisma = this.db.client;
 
     // Get user info for audit logging
     const user = await prisma.user.findUnique({
@@ -146,7 +149,7 @@ export class BreachResponseController {
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToPlatformBreachDto,
   ) {
-    const prisma: PrismaClient = request.prisma;
+    const prisma = this.db.client;
 
     // Get user info for audit logging
     const user = await prisma.user.findUnique({

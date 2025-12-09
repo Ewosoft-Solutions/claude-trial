@@ -8,6 +8,7 @@
     "build": {
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "env": ["IS_SERVERLESS"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "db:migrate": {
@@ -33,7 +34,8 @@
     "test": {
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/vitest.config.ts"],
       "dependsOn": ["transit", "@workspace/vitest-config#build"],
-      "outputs": ["coverage.json"]
+      "outputs": ["coverage.json"],
+      "env": ["IS_SERVERLESS"]
     },
     "lint": {
       "dependsOn": ["^lint"]

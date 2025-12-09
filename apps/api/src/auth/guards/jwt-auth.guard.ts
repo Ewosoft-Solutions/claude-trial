@@ -11,10 +11,12 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { JwtService } from '@nestjs/jwt';
-import { PrismaClient } from '@workspace/database';
-import { JWTSecretService } from '@workspace/api';
-import { AuthJWTService, JWTPayload } from '../services/jwt.service';
+// import { JWTSecretService } from '@workspace/api';
+import { AuthJWTService } from '../services/jwt.service';
+import { RequestUser } from '../types/request-user';
+import { DatabaseService } from '../../common';
 
 /**
  * JWT Auth Guard
@@ -26,10 +28,13 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly authJWTService: AuthJWTService,
+    private readonly db: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
-    const request = context.switchToHttp().getRequest();
+    const request = context
+      .switchToHttp()
+      .getRequest<Request & { user?: RequestUser }>();
     const token = this.extractTokenFromHeader(request);
 
     if (!token) {
@@ -42,10 +47,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token format');
     }
 
-    // Get Prisma client (should be injected via module)
-    // For now, we'll need to get it from the request or context
-    // This is a simplified version - in production, inject PrismaService
-    const prisma = this.getPrismaFromContext(context);
+    const prisma = this.db.client;
 
     // Validate token with school-specific secret (3.7)
     const payload = await this.authJWTService.validateAccessToken(
@@ -72,13 +74,5 @@ export class JwtAuthGuard implements CanActivate {
   private extractTokenFromHeader(request: any): string | undefined {
     const [type, token] = request.headers.authorization?.split(' ') ?? [];
     return type === 'Bearer' ? token : undefined;
-  }
-
-  private getPrismaFromContext(context: ExecutionContext): PrismaClient {
-    // This is a simplified version
-    // In production, inject PrismaService via NestJS dependency injection
-    // For now, we'll need to get it from the request or module
-    const request = context.switchToHttp().getRequest();
-    return request.prisma || (global as any).prisma;
   }
 }

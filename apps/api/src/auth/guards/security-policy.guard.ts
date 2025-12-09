@@ -16,14 +16,15 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { SecurityPolicyService } from '../services/security-policy.service';
 import { AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
+import { DatabaseService } from '../../common';
 
 @Injectable()
 export class SecurityPolicyGuard implements CanActivate {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
+    private readonly db: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -40,12 +41,7 @@ export class SecurityPolicyGuard implements CanActivate {
       throw new ForbiddenException('Tenant context required');
     }
 
-    // Get Prisma client from request
-    const prisma: PrismaClient = request.prisma || (global as any).prisma;
-
-    if (!prisma) {
-      throw new ForbiddenException('Database connection not available');
-    }
+    const prisma = this.db.client;
 
     // Get school security policy
     const policy = await this.securityPolicyService.getOrCreateDefaultPolicy(
@@ -104,5 +100,3 @@ export class SecurityPolicyGuard implements CanActivate {
     return `${method}:${path}`.replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
   }
 }
-
-

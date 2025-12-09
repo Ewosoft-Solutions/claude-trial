@@ -4,3 +4,5 @@ export * from './dto';
 export * from './services';
 export * from './guards';
 export * from './middleware';
+export * from './decorators';
+export * from './types/request-user';

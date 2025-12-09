@@ -7,10 +7,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
+import { PRISMA_CLIENT_TOKEN } from '../src/common';
 
 describe('Multi-Tenant Isolation (e2e)', () => {
   let app: INestApplication;
@@ -32,7 +40,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    prisma = app.get(PrismaClient);
+    prisma = app.get(PRISMA_CLIENT_TOKEN);
   });
 
   afterAll(async () => {
@@ -90,7 +98,8 @@ describe('Multi-Tenant Isolation (e2e)', () => {
     });
 
     // Create two users
-    const hashedPassword = await PasswordService.hashPassword('TestPassword123');
+    const hashedPassword =
+      await PasswordService.hashPassword('TestPassword123');
     user1 = await prisma.user.create({
       data: {
         email: 'user1@example.com',
@@ -146,7 +155,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
   });
 
   describe('Data Isolation', () => {
-    it('should only return resources from user\'s tenant', async () => {
+    it("should only return resources from user's tenant", async () => {
       // User1 should only see tenant1 resources
       const response = await request(app.getHttpServer())
         .get('/api/resources')
@@ -162,7 +171,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
       });
     });
 
-    it('should prevent user from accessing other tenant\'s resources', async () => {
+    it("should prevent user from accessing other tenant's resources", async () => {
       // User1 trying to access tenant2's resource
       const response = await request(app.getHttpServer())
         .get(`/api/resources/${resource2?.id}`)
@@ -187,7 +196,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
       expect(response.body.message).toContain('tenant');
     });
 
-    it('should prevent user from updating other tenant\'s resources', async () => {
+    it("should prevent user from updating other tenant's resources", async () => {
       // User1 trying to update tenant2's resource
       const response = await request(app.getHttpServer())
         .put(`/api/resources/${resource2?.id}`)
@@ -201,7 +210,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
       expect(response.body.message).not.toContain(tenant2.id);
     });
 
-    it('should prevent user from deleting other tenant\'s resources', async () => {
+    it("should prevent user from deleting other tenant's resources", async () => {
       // User1 trying to delete tenant2's resource
       const response = await request(app.getHttpServer())
         .delete(`/api/resources/${resource2?.id}`)
@@ -249,5 +258,3 @@ describe('Multi-Tenant Isolation (e2e)', () => {
     });
   });
 });
-
-

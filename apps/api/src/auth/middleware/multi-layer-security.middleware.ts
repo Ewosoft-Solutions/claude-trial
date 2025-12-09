@@ -18,21 +18,17 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { PrismaClient } from '@workspace/database';
 import { PermissionService } from '../services/permission.service';
+import { RequestUser } from '../types/request-user';
+import { UserPermissionContext } from '../services/permission.service';
+import { DatabaseService } from '../../common';
 
 /**
  * Extended Request with user context
  */
 export interface AuthenticatedRequest extends Request {
-  user?: {
-    userId: string;
-    tenantId: string;
-    profileId: string;
-    roles: string[];
-  };
-  userContext?: any;
-  prisma?: PrismaClient;
+  user?: RequestUser;
+  userContext?: UserPermissionContext;
 }
 
 /**
@@ -42,7 +38,10 @@ export interface AuthenticatedRequest extends Request {
  */
 @Injectable()
 export class MultiLayerSecurityMiddleware implements NestMiddleware {
-  constructor(private readonly permissionService: PermissionService) {}
+  constructor(
+    private readonly permissionService: PermissionService,
+    private readonly db: DatabaseService,
+  ) {}
 
   async use(
     req: AuthenticatedRequest,
@@ -60,12 +59,7 @@ export class MultiLayerSecurityMiddleware implements NestMiddleware {
       throw new UnauthorizedException('User context incomplete');
     }
 
-    // Get Prisma client from request
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
-
-    if (!prisma) {
-      throw new ForbiddenException('Database connection not available');
-    }
+    const prisma = this.db.client;
 
     // Layer 1: Validate strict context (user belongs to school, profile active)
     const contextValidation =

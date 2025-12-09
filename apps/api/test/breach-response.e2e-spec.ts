@@ -7,10 +7,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
+import { PRISMA_CLIENT_TOKEN } from '../src/common';
 
 describe('Breach Response System (e2e)', () => {
   let app: INestApplication;
@@ -28,7 +36,7 @@ describe('Breach Response System (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    prisma = app.get(PrismaClient);
+    prisma = app.get(PRISMA_CLIENT_TOKEN);
   });
 
   afterAll(async () => {
@@ -63,7 +71,8 @@ describe('Breach Response System (e2e)', () => {
     });
 
     // Create test user
-    const hashedPassword = await PasswordService.hashPassword('TestPassword123');
+    const hashedPassword =
+      await PasswordService.hashPassword('TestPassword123');
     testUser = await prisma.user.create({
       data: {
         email: 'test@example.com',
@@ -90,12 +99,10 @@ describe('Breach Response System (e2e)', () => {
     it('should detect suspicious login patterns', async () => {
       // Simulate multiple failed login attempts
       for (let i = 0; i < 5; i++) {
-        await request(app.getHttpServer())
-          .post('/auth/login')
-          .send({
-            email: 'test@example.com',
-            password: 'WrongPassword',
-          });
+        await request(app.getHttpServer()).post('/auth/login').send({
+          email: 'test@example.com',
+          password: 'WrongPassword',
+        });
       }
 
       // Check if breach is detected
@@ -275,5 +282,3 @@ describe('Breach Response System (e2e)', () => {
     });
   });
 });
-
-

@@ -12,8 +12,8 @@ import {
   UnauthorizedException,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { TenantValidationService } from '@workspace/api';
+import { DatabaseService } from '../../common';
 
 /**
  * Tenant Context Guard
@@ -22,6 +22,8 @@ import { TenantValidationService } from '@workspace/api';
  */
 @Injectable()
 export class TenantContextGuard implements CanActivate {
+  constructor(private readonly db: DatabaseService) {}
+
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
     const user = request.user;
@@ -30,8 +32,7 @@ export class TenantContextGuard implements CanActivate {
       throw new UnauthorizedException('User context not found');
     }
 
-    // Get Prisma client (should be injected via module)
-    const prisma = this.getPrismaFromContext(context);
+    const prisma = this.db.client;
 
     // Validate user has access to tenant
     const validation = await TenantValidationService.validateUserAccess(
@@ -56,10 +57,5 @@ export class TenantContextGuard implements CanActivate {
     };
 
     return true;
-  }
-
-  private getPrismaFromContext(context: ExecutionContext): PrismaClient {
-    const request = context.switchToHttp().getRequest();
-    return request.prisma || (global as any).prisma;
   }
 }

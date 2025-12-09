@@ -11,6 +11,7 @@ import { PermissionPoolService } from '../src/auth/services/permission-pool.serv
 import { createMockPrismaClient } from '../src/common/__tests__/test-utils';
 import { PrismaClient } from '@workspace/database';
 import { ClearanceLevel, RoleType } from '@workspace/api';
+import { PRISMA_CLIENT_TOKEN } from '../src/common';
 
 describe('Custom Role Creation Constraints Validation', () => {
   let roleService: RoleService;
@@ -25,7 +26,7 @@ describe('Custom Role Creation Constraints Validation', () => {
         RoleService,
         PermissionPoolService,
         {
-          provide: PrismaClient,
+          provide: PRISMA_CLIENT_TOKEN,
           useValue: mockPrisma,
         },
       ],
@@ -135,10 +136,11 @@ describe('Custom Role Creation Constraints Validation', () => {
         },
       ]);
 
-      const pools = await permissionPoolService.getPermissionPoolsByClearanceLevel(
-        mockPrisma as PrismaClient,
-        2,
-      );
+      const pools =
+        await permissionPoolService.getPermissionPoolsByClearanceLevel(
+          mockPrisma as PrismaClient,
+          2,
+        );
 
       const poolIds = pools.map((p) => p.id);
       const permissions = await permissionPoolService.getPermissionsFromPools(
@@ -168,10 +170,11 @@ describe('Custom Role Creation Constraints Validation', () => {
         },
       ]);
 
-      const pools = await permissionPoolService.getPermissionPoolsByClearanceLevel(
-        mockPrisma as PrismaClient,
-        2,
-      );
+      const pools =
+        await permissionPoolService.getPermissionPoolsByClearanceLevel(
+          mockPrisma as PrismaClient,
+          2,
+        );
 
       const poolIds = pools.map((p) => p.id);
       const permissions = await permissionPoolService.getPermissionsFromPools(
@@ -238,4 +241,3 @@ describe('Custom Role Creation Constraints Validation', () => {
     });
   });
 });
-

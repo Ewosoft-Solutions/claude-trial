@@ -10,6 +10,7 @@ import { PermissionPoolService } from '../src/auth/services/permission-pool.serv
 import { createMockPrismaClient } from '../src/common/__tests__/test-utils';
 import { PrismaClient } from '@workspace/database';
 import { ClearanceLevel } from '@workspace/api';
+import { PRISMA_CLIENT_TOKEN } from '../src/common';
 
 // Mock Prisma
 jest.mock('@workspace/database');
@@ -25,7 +26,7 @@ describe('Permission Pool Inheritance Validation', () => {
       providers: [
         PermissionPoolService,
         {
-          provide: PrismaClient,
+          provide: PRISMA_CLIENT_TOKEN,
           useValue: mockPrisma,
         },
       ],
@@ -37,26 +38,28 @@ describe('Permission Pool Inheritance Validation', () => {
   describe('Permission Pool Inheritance by Clearance Level', () => {
     it('should inherit permissions from lower clearance levels', async () => {
       // Mock permission pools
-      (mockPrisma.permissionPool?.findMany as jest.Mock<any>).mockResolvedValue([
-        {
-          id: 'pool-1',
-          name: 'Student Pool',
-          clearanceLevel: ClearanceLevel.STUDENT,
-          permissions: [
-            { permission: { name: 'students.view.own' } },
-            { permission: { name: 'classes.view.own' } },
-          ],
-        },
-        {
-          id: 'pool-2',
-          name: 'Teacher Pool',
-          clearanceLevel: ClearanceLevel.TEACHER,
-          permissions: [
-            { permission: { name: 'students.view.all' } },
-            { permission: { name: 'classes.manage' } },
-          ],
-        },
-      ]);
+      (mockPrisma.permissionPool?.findMany as jest.Mock<any>).mockResolvedValue(
+        [
+          {
+            id: 'pool-1',
+            name: 'Student Pool',
+            clearanceLevel: ClearanceLevel.STUDENT,
+            permissions: [
+              { permission: { name: 'students.view.own' } },
+              { permission: { name: 'classes.view.own' } },
+            ],
+          },
+          {
+            id: 'pool-2',
+            name: 'Teacher Pool',
+            clearanceLevel: ClearanceLevel.TEACHER,
+            permissions: [
+              { permission: { name: 'students.view.all' } },
+              { permission: { name: 'classes.manage' } },
+            ],
+          },
+        ],
+      );
 
       // Get permission pools for Teacher level (should include Student pool)
       const pools = await service.getPermissionPoolsByClearanceLevel(

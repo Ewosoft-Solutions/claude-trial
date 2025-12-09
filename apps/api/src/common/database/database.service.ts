@@ -85,12 +85,25 @@ export class DatabaseService
       this.connectionRetries = 0;
     } catch (error) {
       this.connectionRetries++;
+      const errorDetails =
+        error instanceof Error
+          ? `${error.message}\n${error.stack}`
+          : String(error);
+      this.logger.error(
+        `Database connection attempt ${this.connectionRetries} failed`,
+        errorDetails,
+      );
 
       if (this.connectionRetries >= this.maxRetries) {
         this.logger.error(
           `Failed to connect to database after ${this.maxRetries} attempts`,
         );
-        throw error;
+        // CRITICAL: Crash the app if DB can't connect
+        // Let orchestrator (K8s, PM2, etc.) restart it
+        this.logger.error(
+          'Application will exit due to database connection failure',
+        );
+        process.exit(1);
       }
 
       this.logger.warn(

@@ -11,8 +11,8 @@ import {
   ExecutionContext,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { PermissionService } from '../services/permission.service';
+import { DatabaseService } from '../../common';
 
 /**
  * Context Validation Guard
@@ -21,7 +21,10 @@ import { PermissionService } from '../services/permission.service';
  */
 @Injectable()
 export class ContextValidationGuard implements CanActivate {
-  constructor(private readonly permissionService: PermissionService) {}
+  constructor(
+    private readonly permissionService: PermissionService,
+    private readonly db: DatabaseService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -31,12 +34,7 @@ export class ContextValidationGuard implements CanActivate {
       throw new ForbiddenException('User context not found');
     }
 
-    // Get Prisma client from request
-    const prisma: PrismaClient = request.prisma || (global as any).prisma;
-
-    if (!prisma) {
-      throw new ForbiddenException('Database connection not available');
-    }
+    const prisma = this.db.client;
 
     // Validate strict context
     const validation = await this.permissionService.validateStrictContext(

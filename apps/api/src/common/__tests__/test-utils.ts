@@ -11,6 +11,7 @@
 import { PrismaClient } from '@workspace/database';
 import { mockDeep, DeepMockProxy } from 'jest-mock-extended';
 import { Provider } from '@nestjs/common';
+import { PRISMA_CLIENT_TOKEN } from '../database/database.service';
 
 /**
  * Context type for dependency injection pattern
@@ -84,7 +85,7 @@ export function createPrismaClientProvider(
 ): Provider {
   const prisma = mockPrisma || mockDeep<PrismaClient>();
   return {
-    provide: PrismaClient,
+    provide: PRISMA_CLIENT_TOKEN,
     useValue: prisma,
   };
 }

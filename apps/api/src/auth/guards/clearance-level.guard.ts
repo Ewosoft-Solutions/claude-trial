@@ -13,8 +13,8 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PrismaClient } from '@workspace/database';
 import { PermissionService } from '../services/permission.service';
+import { DatabaseService } from '../../common';
 
 /**
  * Metadata key for clearance level requirement
@@ -40,6 +40,7 @@ export class ClearanceLevelGuard implements CanActivate {
   constructor(
     private readonly permissionService: PermissionService,
     private readonly reflector: Reflector,
+    private readonly db: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -60,12 +61,7 @@ export class ClearanceLevelGuard implements CanActivate {
       throw new ForbiddenException('User context not found');
     }
 
-    // Get Prisma client from request
-    const prisma: PrismaClient = request.prisma || (global as any).prisma;
-
-    if (!prisma) {
-      throw new ForbiddenException('Database connection not available');
-    }
+    const prisma = this.db.client;
 
     // Get user permission context
     const userContext = await this.permissionService.getUserPermissionContext(

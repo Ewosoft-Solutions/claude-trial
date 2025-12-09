@@ -13,9 +13,9 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PrismaClient } from '@workspace/database';
 import { PermissionService } from '../services/permission.service';
 import { PermissionMode } from '@workspace/api';
+import { DatabaseService } from '../../common';
 /**
  * Metadata key for permission requirement
  */
@@ -59,6 +59,7 @@ export class PermissionGuard implements CanActivate {
   constructor(
     private readonly permissionService: PermissionService,
     private readonly reflector: Reflector,
+    private readonly db: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -90,12 +91,7 @@ export class PermissionGuard implements CanActivate {
       throw new ForbiddenException('User context not found');
     }
 
-    // Get Prisma client from request
-    const prisma: PrismaClient = request.prisma || (global as any).prisma;
-
-    if (!prisma) {
-      throw new ForbiddenException('Database connection not available');
-    }
+    const prisma = this.db.client;
 
     // Get user permission context (use cached if available)
     let userContext = request.userContext;

@@ -1,5 +1,6 @@
-import { PrismaClient } from '@workspace/database';
 import { Injectable } from '@nestjs/common';
+import { DatabaseService } from '../database/database.service';
+import { PrismaClient } from '@workspace/database';
 
 /**
  * Base Repository
@@ -9,7 +10,14 @@ import { Injectable } from '@nestjs/common';
  */
 @Injectable()
 export abstract class BaseRepository<T> {
-  constructor(protected readonly prisma: PrismaClient) {}
+  constructor(protected readonly db: DatabaseService) {}
+
+  /**
+   * Shared Prisma client getter to preserve existing subclasses
+   */
+  protected get prisma(): PrismaClient {
+    return this.db.client;
+  }
 
   /**
    * Find a single record by ID

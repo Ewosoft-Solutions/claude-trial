@@ -17,7 +17,6 @@ import {
   Request,
   ForbiddenException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
 import { SecurityPolicyService } from '../services/security-policy.service';
 import {
   AssignPolicyDto,
@@ -33,12 +32,14 @@ import { PermissionGuard } from '../guards/permission.guard';
 import { RequirePermissions } from '../guards/permission.guard';
 import { type AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
 import { EnforcedBy } from '@workspace/api';
+import { DatabaseService } from '../../common';
 
 @Controller('security-policies')
 @UseGuards(JwtAuthGuard, TenantContextGuard)
 export class SecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
+    private readonly db: DatabaseService,
   ) {}
 
   /**
@@ -50,11 +51,9 @@ export class SecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(1) // School admin or higher
   @RequirePermissions(['security_policy:view'])
-  async getSchoolPolicy(
-    @Request() req: AuthenticatedRequest,
-  ): Promise<any> {
+  async getSchoolPolicy(@Request() req: AuthenticatedRequest): Promise<any> {
     const { tenantId } = req.user!;
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
+    const prisma = this.db.client;
 
     const policy = await this.securityPolicyService.getOrCreateDefaultPolicy(
       prisma,
@@ -78,7 +77,7 @@ export class SecurityPolicyController {
     @Body() dto: AssignPolicyDto,
   ): Promise<any> {
     const { tenantId, userId, profileId } = req.user!;
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
+    const prisma = this.db.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -142,7 +141,7 @@ export class SecurityPolicyController {
     @Body() dto: ChangePolicyTierDto,
   ): Promise<any> {
     const { tenantId, userId, profileId } = req.user!;
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
+    const prisma = this.db.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -204,9 +203,7 @@ export class SecurityPolicyController {
 @Controller('platform/security-policies')
 @UseGuards(JwtAuthGuard)
 export class PlatformSecurityPolicyController {
-  constructor(
-    private readonly securityPolicyService: SecurityPolicyService,
-  ) {}
+  constructor(private readonly securityPolicyService: SecurityPolicyService) {}
 
   /**
    * Set emergency policy (4a.7)
@@ -223,7 +220,7 @@ export class PlatformSecurityPolicyController {
     @Body() dto: SetEmergencyPolicyDto,
   ): Promise<any> {
     const { userId, profileId } = req.user!;
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
+    const prisma = this.db.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -288,7 +285,7 @@ export class PlatformSecurityPolicyController {
     @Param('schoolId') schoolId: string,
   ): Promise<any> {
     const { userId, profileId } = req.user!;
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
+    const prisma = this.db.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -303,9 +300,7 @@ export class PlatformSecurityPolicyController {
     );
 
     if (!oldPolicy || !oldPolicy.isEmergency) {
-      throw new ForbiddenException(
-        'No emergency policy found for this school',
-      );
+      throw new ForbiddenException('No emergency policy found for this school');
     }
 
     const policy = await this.securityPolicyService.removeEmergencyPolicy(
@@ -354,7 +349,7 @@ export class PlatformSecurityPolicyController {
     @Request() req: AuthenticatedRequest,
     @Param('schoolId') schoolId: string,
   ): Promise<any> {
-    const prisma: PrismaClient = req.prisma || (global as any).prisma;
+    const prisma = this.db.client;
 
     const policy = await this.securityPolicyService.getOrCreateDefaultPolicy(
       prisma,
@@ -364,5 +359,3 @@ export class PlatformSecurityPolicyController {
     return policy;
   }
 }
-
-

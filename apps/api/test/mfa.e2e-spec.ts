@@ -7,10 +7,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import * as request from 'supertest';
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from '@jest/globals';
+import {
+  describe,
+  it,
+  expect,
+  beforeAll,
+  afterAll,
+  beforeEach,
+} from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
+import { PRISMA_CLIENT_TOKEN } from '../src/common';
 
 describe('MFA Flows (e2e)', () => {
   let app: INestApplication;
@@ -28,7 +36,7 @@ describe('MFA Flows (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    prisma = app.get(PrismaClient);
+    prisma = app.get(PRISMA_CLIENT_TOKEN);
   });
 
   afterAll(async () => {
@@ -63,7 +71,8 @@ describe('MFA Flows (e2e)', () => {
     });
 
     // Create test user
-    const hashedPassword = await PasswordService.hashPassword('TestPassword123');
+    const hashedPassword =
+      await PasswordService.hashPassword('TestPassword123');
     testUser = await prisma.user.create({
       data: {
         email: 'test@example.com',
@@ -334,5 +343,3 @@ describe('MFA Flows (e2e)', () => {
     });
   });
 });
-
-

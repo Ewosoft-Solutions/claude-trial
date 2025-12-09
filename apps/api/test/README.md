@@ -7,11 +7,13 @@ This directory contains integration and end-to-end tests for the API application
 ## Test Structure
 
 ### Unit Tests
+
 - Located in `src/**/*.spec.ts`
 - Test individual services, controllers, and utilities in isolation
 - Use mocks for dependencies
 
 ### Integration Tests
+
 - Located in `test/**/*.e2e-spec.ts`
 - Test complete flows and interactions between components
 - May use test database or mocks
@@ -19,26 +21,31 @@ This directory contains integration and end-to-end tests for the API application
 ## Running Tests
 
 ### Run all tests
+
 ```bash
 npm test
 ```
 
 ### Run unit tests only
+
 ```bash
 npm test -- --testPathPattern=spec.ts
 ```
 
 ### Run integration tests only
+
 ```bash
 npm test:e2e
 ```
 
 ### Run tests in watch mode
+
 ```bash
 npm run test:watch
 ```
 
 ### Run tests with coverage
+
 ```bash
 npm test -- --coverage
 ```
@@ -53,6 +60,7 @@ For integration tests that require a database:
 4. Clean up test data after each test
 
 Example test database setup:
+
 ```typescript
 beforeAll(async () => {
   // Run migrations
@@ -74,6 +82,7 @@ afterAll(async () => {
 ## Writing Tests
 
 ### Unit Test Example
+
 ```typescript
 describe('ServiceName', () => {
   let service: ServiceName;
@@ -100,7 +109,10 @@ describe('ServiceName', () => {
 ```
 
 ### Integration Test Example
+
 ```typescript
+import { PRISMA_CLIENT_TOKEN } from '../src/common';
+
 describe('Feature (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
@@ -112,7 +124,7 @@ describe('Feature (e2e)', () => {
 
     app = module.createNestApplication();
     await app.init();
-    prisma = app.get(PrismaClient);
+    prisma = app.get(PRISMA_CLIENT_TOKEN);
   });
 
   afterAll(async () => {
@@ -129,6 +141,7 @@ describe('Feature (e2e)', () => {
 ## Test Utilities
 
 Test utilities are available in `src/common/__tests__/test-utils.ts`:
+
 - `createMockPrismaClient()` - Create mocked Prisma client
 - `resetMockPrismaClient()` - Reset all mocks
 
@@ -144,6 +157,7 @@ Test utilities are available in `src/common/__tests__/test-utils.ts`:
 ## Continuous Integration
 
 Tests run automatically on:
+
 - Pull requests
 - Commits to main branch
 - Scheduled nightly runs
@@ -151,11 +165,13 @@ Tests run automatically on:
 ## Debugging Tests
 
 ### Debug in VS Code
+
 1. Set breakpoints in test files
 2. Run "Debug Jest Tests" configuration
 3. Step through code
 
 ### Debug with Node
+
 ```bash
 npm run test:debug
 ```
@@ -163,12 +179,14 @@ npm run test:debug
 ## Performance Testing
 
 For load testing, see:
+
 - `test/load/` - Load test scripts
 - Use tools like k6, Artillery, or Apache Bench
 
 ## Security Testing
 
 Security tests include:
+
 - Authentication bypass attempts
 - Authorization boundary testing
 - Input validation testing
@@ -176,5 +194,3 @@ Security tests include:
 - XSS attempts
 
 See `test/security/` for security test suites.
-
-

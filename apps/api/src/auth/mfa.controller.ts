@@ -18,7 +18,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { type Request } from 'express';
-import { PrismaClient } from '@workspace/database';
+import { DatabaseService } from '../common';
 import {
   SetupSmsMfaDto,
   SetupEmailMfaDto,
@@ -46,7 +46,10 @@ import { JwtAuthGuard } from './guards';
 @Controller('auth/mfa')
 @UseGuards(JwtAuthGuard)
 export class MfaController {
-  constructor(private readonly mfaService: MfaService) {}
+  constructor(
+    private readonly mfaService: MfaService,
+    private readonly db: DatabaseService,
+  ) {}
 
   /**
    * Get active MFA methods (3a.5)
@@ -55,7 +58,7 @@ export class MfaController {
    */
   @Get('methods')
   async getActiveMethods(@Req() req: Request) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -73,7 +76,7 @@ export class MfaController {
   @Post('setup/sms')
   @HttpCode(HttpStatus.CREATED)
   async setupSms(@Body() setupSmsMfaDto: SetupSmsMfaDto, @Req() req: Request) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -115,7 +118,7 @@ export class MfaController {
     @Body() setupEmailMfaDto: SetupEmailMfaDto,
     @Req() req: Request,
   ) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -157,7 +160,7 @@ export class MfaController {
     @Body() setupTotpMfaDto: SetupTotpMfaDto,
     @Req() req: Request,
   ): Promise<SetupTotpMfaResponseDto> {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId || !user.email) {
@@ -182,7 +185,7 @@ export class MfaController {
   async setupWebAuthn(
     @Req() req: Request,
   ): Promise<SetupWebAuthnMfaResponseDto> {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId || !user.email) {
@@ -215,7 +218,7 @@ export class MfaController {
     @Body() verifyAndActivateMfaDto: VerifyAndActivateMfaDto,
     @Req() req: Request,
   ) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -319,7 +322,7 @@ export class MfaController {
     @Body() initiateMfaVerificationDto: InitiateMfaVerificationDto,
     @Req() req: Request,
   ): Promise<InitiateMfaVerificationResponseDto> {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -347,7 +350,7 @@ export class MfaController {
     @Body() verifyMfaChallengeDto: VerifyMfaChallengeDto,
     @Req() req: Request,
   ): Promise<VerifyMfaChallengeResponseDto> {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
 
     const verified = await this.mfaService.verifyChallenge(
       prisma,
@@ -374,7 +377,7 @@ export class MfaController {
     @Body() generateRecoveryCodesDto: GenerateRecoveryCodesDto,
     @Req() req: Request,
   ): Promise<GenerateRecoveryCodesResponseDto> {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -405,7 +408,7 @@ export class MfaController {
     @Body() verifyRecoveryCodeDto: VerifyRecoveryCodeDto,
     @Req() req: Request,
   ): Promise<VerifyRecoveryCodeResponseDto> {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -432,7 +435,7 @@ export class MfaController {
     @Param('methodId') methodId: string,
     @Req() req: Request,
   ) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -455,7 +458,7 @@ export class MfaController {
     @Param('methodId') methodId: string,
     @Req() req: Request,
   ) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -475,7 +478,7 @@ export class MfaController {
   @Delete('methods/:methodId')
   @HttpCode(HttpStatus.OK)
   async deleteMethod(@Param('methodId') methodId: string, @Req() req: Request) {
-    const prisma = this.getPrisma(req);
+    const prisma = this.db.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -485,17 +488,5 @@ export class MfaController {
     await this.mfaService.deleteMethod(prisma, user.userId, methodId);
 
     return { success: true, message: 'MFA method deleted' };
-  }
-
-  /**
-   * Get Prisma client from request
-   *
-   * @param req - Request object
-   * @returns Prisma client
-   */
-  private getPrisma(req: Request): PrismaClient {
-    // This is a simplified version
-    // In production, inject PrismaService via NestJS dependency injection
-    return (req as any).prisma || (global as any).prisma;
   }
 }

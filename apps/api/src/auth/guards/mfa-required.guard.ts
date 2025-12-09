@@ -11,8 +11,8 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PrismaClient } from '@workspace/database';
 import { MfaBaseService } from '../services/mfa-base.service';
+import { DatabaseService } from '../../common';
 
 /**
  * MFA Required Decorator Metadata Key
@@ -37,7 +37,10 @@ export const MfaRequired = () => {
  */
 @Injectable()
 export class MfaRequiredGuard implements CanActivate {
-  constructor(private reflector: Reflector) {}
+  constructor(
+    private reflector: Reflector,
+    private readonly db: DatabaseService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     // Check if MFA is required for this endpoint
@@ -58,12 +61,7 @@ export class MfaRequiredGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // Get Prisma client from request
-    const prisma: PrismaClient = request.prisma || (global as any).prisma;
-
-    if (!prisma) {
-      throw new ForbiddenException('Database connection not available');
-    }
+    const prisma = this.db.client;
 
     // Check if user has active MFA methods
     const hasMfa = await MfaBaseService.hasActiveMfaMethods(

@@ -1,9 +1,25 @@
-import { Global, Module } from '@nestjs/common';
+import { Global, Module, DynamicModule, FactoryProvider } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@workspace/database';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
 import { DatabaseService, PRISMA_CLIENT_TOKEN } from './database.service';
-import { getEnvConfig } from '../config/env.config';
+import { PrismaTransactionService } from './prisma-transaction.service';
+
+/**
+ * Database Module Options
+ *
+ * Configuration for database module initialization.
+ */
+export interface DatabaseModuleOptions {
+  databaseUrl: string;
+  poolMin?: number;
+  poolMax?: number;
+  connectionTimeout?: number;
+  queryTimeout?: number;
+  logLevels?: Prisma.LogLevel[];
+  errorFormat?: 'pretty' | 'minimal' | 'colorless';
+  isServerless?: boolean;
+}
 
 /**
  * Database Module
@@ -12,24 +28,82 @@ import { getEnvConfig } from '../config/env.config';
  * This module is global to make database services available throughout the app.
  *
  * Features:
- * - Connection pooling configuration
+ * - Connection pooling configuration (Kubernetes/serverless aware)
  * - Environment-based logging
  * - Error handling and retry logic
+ * - Dynamic configuration via forRootAsync()
+ * - Request-scoped transaction service
  */
 @Global()
-@Module({
-  providers: [
-    {
+@Module({})
+export class DatabaseModule {
+  /**
+   * Configure database module asynchronously
+   *
+   * This pattern allows:
+   * - Dependency injection of config
+   * - Test-friendly mock configurations
+   * - Environment-specific settings
+   * - Better separation of concerns
+   */
+  static forRootAsync(options: {
+    useFactory: (
+      ...args: Parameters<FactoryProvider['useFactory']>
+    ) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
+    inject?: FactoryProvider['inject'];
+  }): DynamicModule {
+    const prismaProvider = {
       provide: PRISMA_CLIENT_TOKEN,
-      useFactory: () => {
-        const envConfig = getEnvConfig();
+      useFactory: async (...args: unknown[]): Promise<PrismaClient> => {
+        const config = await options.useFactory(...args);
 
         const { Pool } = pg;
-        const pool = new Pool({
-          connectionString: envConfig.DATABASE_URL,
-        });
+
+        // Serverless-aware pool configuration
+        // For serverless: max=1-3, for Kubernetes: max=10-20
+        const poolConfig: pg.PoolConfig = {
+          connectionString: config.databaseUrl,
+          min: config.poolMin ?? (config.isServerless ? 0 : 2),
+          max: config.poolMax ?? (config.isServerless ? 1 : 10),
+          idleTimeoutMillis: config.isServerless ? 10_000 : 30_000,
+          connectionTimeoutMillis: config.connectionTimeout ?? 5_000,
+          // Query timeout via statement_timeout
+          statement_timeout: config.queryTimeout ?? 30_000,
+        };
+
+        const pool = new Pool(poolConfig);
 
         const adapter = new PrismaPg(pool);
+
+        return new PrismaClient({
+          adapter,
+          log: config.logLevels?.length ? config.logLevels : undefined,
+          errorFormat: config.errorFormat ?? 'minimal',
+        });
+      },
+      inject: options.inject ?? [],
+    };
+
+    return {
+      module: DatabaseModule,
+      providers: [prismaProvider, DatabaseService, PrismaTransactionService],
+      exports: [PRISMA_CLIENT_TOKEN, DatabaseService, PrismaTransactionService],
+    };
+  }
+
+  /**
+   * Legacy static configuration (for backward compatibility)
+   * Prefer forRootAsync() for new code
+   */
+  static forRoot(): DynamicModule {
+    // This will be used if you want to keep the old pattern temporarily
+    // But you should migrate to forRootAsync()
+    return DatabaseModule.forRootAsync({
+      useFactory: () => {
+        // Import here to avoid circular dependencies
+        // eslint-disable-next-line @typescript-eslint/no-require-imports
+        const { getEnvConfig } = require('../config/env.config');
+        const envConfig = getEnvConfig();
 
         const logLevels: Prisma.LogLevel[] = [];
         if (envConfig.DB_LOG_QUERIES && envConfig.NODE_ENV === 'development') {
@@ -45,17 +119,18 @@ import { getEnvConfig } from '../config/env.config';
           logLevels.push('info');
         }
 
-        return new PrismaClient({
-          adapter,
-          log: logLevels.length ? logLevels : undefined,
+        return {
+          databaseUrl: envConfig.DATABASE_URL,
+          poolMin: envConfig.DB_POOL_MIN,
+          poolMax: envConfig.DB_POOL_MAX,
+          connectionTimeout: envConfig.DB_CONNECTION_TIMEOUT,
+          queryTimeout: envConfig.DB_QUERY_TIMEOUT,
+          logLevels,
           errorFormat:
             envConfig.NODE_ENV === 'development' ? 'pretty' : 'minimal',
-        });
+          isServerless: process.env.IS_SERVERLESS === 'true',
+        };
       },
-    },
-    DatabaseService,
-  ],
-  exports: [PRISMA_CLIENT_TOKEN, DatabaseService],
-})
-export class DatabaseModule {}
-
+    });
+  }
+}
