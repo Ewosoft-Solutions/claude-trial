@@ -6,4 +6,10 @@ export default [
   {
     ignores: ['.prettierrc.mjs', 'eslint.config.mjs'],
   },
+  {
+    files: ['src/common/config/env.config.ts'],
+    rules: {
+      'turbo/no-undeclared-env-vars': 'off',
+    },
+  },
 ];

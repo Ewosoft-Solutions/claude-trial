@@ -1,5 +1,11 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalEnv": [
+    "PORT",
+    "WEBAUTHN_RP_NAME",
+    "WEBAUTHN_RP_ID",
+    "WEBAUTHN_ORIGIN"
+  ],
   "tasks": {
     "dev": {
       "cache": false,
