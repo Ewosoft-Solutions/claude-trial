@@ -16,14 +16,14 @@ import {
   beforeEach,
 } from '@jest/globals';
 import { AppModule } from '../src/app.module';
-import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
-import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { DatabaseService } from '../src/common';
 import { Server } from 'http';
 
 describe('Breach Response System (e2e)', () => {
   let app: INestApplication;
-  let prisma: PrismaClient;
+  let database: DatabaseService;
+  let prisma: DatabaseService['client'];
   let testUser: any;
   let testTenant: any;
   let testProfile: any;
@@ -37,7 +37,8 @@ describe('Breach Response System (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    prisma = app.get(PRISMA_CLIENT_TOKEN);
+    database = app.get(DatabaseService);
+    prisma = database.client;
   });
 
   afterAll(async () => {
@@ -100,10 +101,12 @@ describe('Breach Response System (e2e)', () => {
     it('should detect suspicious login patterns', async () => {
       // Simulate multiple failed login attempts
       for (let i = 0; i < 5; i++) {
-        await request(app.getHttpServer() as Server).post('/auth/login').send({
-          email: 'test@example.com',
-          password: 'WrongPassword',
-        });
+        await request(app.getHttpServer() as Server)
+          .post('/auth/login')
+          .send({
+            email: 'test@example.com',
+            password: 'WrongPassword',
+          });
       }
 
       // Check if breach is detected

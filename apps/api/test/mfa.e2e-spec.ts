@@ -16,14 +16,14 @@ import {
   beforeEach,
 } from '@jest/globals';
 import { AppModule } from '../src/app.module';
-import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
-import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { DatabaseService } from '../src/common';
 import { Server } from 'http';
 
 describe('MFA Flows (e2e)', () => {
   let app: INestApplication;
-  let prisma: PrismaClient;
+  let database: DatabaseService;
+  let prisma: DatabaseService['client'];
   let testUser: any;
   let testTenant: any;
   let testProfile: any;
@@ -37,7 +37,8 @@ describe('MFA Flows (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    prisma = app.get(PRISMA_CLIENT_TOKEN);
+    database = app.get(DatabaseService);
+    prisma = database.client;
   });
 
   afterAll(async () => {

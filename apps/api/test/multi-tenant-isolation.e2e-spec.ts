@@ -16,14 +16,15 @@ import {
   beforeEach,
 } from '@jest/globals';
 import { AppModule } from '../src/app.module';
-import { PrismaClient, Tenant, User, UserTenant } from '@workspace/database';
+import type { Tenant, User, UserTenant } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
-import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { DatabaseService } from '../src/common';
 import { Server } from 'http';
 
 describe('Multi-Tenant Isolation (e2e)', () => {
   let app: INestApplication;
-  let prisma: PrismaClient;
+  let database: DatabaseService;
+  let prisma: DatabaseService['client'];
   let tenant1: Tenant;
   let tenant2: Tenant;
   let user1: User;
@@ -41,7 +42,8 @@ describe('Multi-Tenant Isolation (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    prisma = app.get(PRISMA_CLIENT_TOKEN);
+    database = app.get(DatabaseService);
+    prisma = database.client;
   });
 
   afterAll(async () => {
@@ -161,7 +163,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
       const response = await request(app.getHttpServer() as Server)
         .get('/api/resources')
         .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant1.id )
+        .set('X-Tenant-Id', tenant1.id)
         .expect(200);
 
       const resources = response.body.data || response.body;

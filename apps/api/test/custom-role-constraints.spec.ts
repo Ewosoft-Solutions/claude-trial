@@ -5,18 +5,21 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { describe, it, expect, beforeEach, jest } from '@jest/globals';
+import { describe, it, expect, beforeEach } from '@jest/globals';
 import { RoleService } from '../src/auth/services/role.service';
 import { PermissionPoolService } from '../src/auth/services/permission-pool.service';
-import { createMockContext } from '../src/common/__tests__/test-utils';
+import {
+  createMockContext,
+  MockContext,
+} from '../src/common/__tests__/test-utils';
 import { PrismaClient } from '@workspace/database';
-import { ClearanceLevel, RoleType } from '@workspace/api';
+import { RoleType } from '@workspace/api';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
 
 describe('Custom Role Creation Constraints Validation', () => {
   let roleService: RoleService;
   let permissionPoolService: PermissionPoolService;
-  let mockPrisma: Partial<PrismaClient>;
+  let mockPrisma: MockContext['prisma'];
 
   beforeEach(async () => {
     const mockCtx = createMockContext();
@@ -115,25 +118,16 @@ describe('Custom Role Creation Constraints Validation', () => {
   describe('Permission Pool Validation', () => {
     it('should validate permissions are within permission pool', async () => {
       // Mock permission pools for clearance level 2
-      (mockPrisma.permissionPool?.findMany as jest.Mock).mockResolvedValue([
+      mockPrisma.permissionPool?.findMany?.mockResolvedValue([
         {
           id: 'pool-1',
           name: 'Teacher Pool',
           clearanceLevel: 2,
-          poolPermissions: [
-            {
-              permission: {
-                id: 'perm-1',
-                name: 'students.view.all',
-              },
-            },
-            {
-              permission: {
-                id: 'perm-2',
-                name: 'classes.manage',
-              },
-            },
-          ],
+          description: 'pool-1',
+          isSystemPool: false,
+          tenantId: 'tenant-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ]);
 
@@ -155,19 +149,16 @@ describe('Custom Role Creation Constraints Validation', () => {
     });
 
     it('should reject permissions outside permission pool', async () => {
-      (mockPrisma.permissionPool?.findMany as jest.Mock).mockResolvedValue([
+      mockPrisma.permissionPool?.findMany?.mockResolvedValue([
         {
           id: 'pool-1',
           name: 'Teacher Pool',
           clearanceLevel: 2,
-          poolPermissions: [
-            {
-              permission: {
-                id: 'perm-1',
-                name: 'students.view.all',
-              },
-            },
-          ],
+          description: 'pool-1',
+          isSystemPool: false,
+          tenantId: 'tenant-1',
+          createdAt: new Date(),
+          updatedAt: new Date(),
         },
       ]);
 
@@ -192,10 +183,19 @@ describe('Custom Role Creation Constraints Validation', () => {
   describe('Role Name Uniqueness', () => {
     it('should validate role name uniqueness for platform/system roles', async () => {
       // Mock existing platform role
-      (mockPrisma.role?.findFirst as jest.Mock).mockResolvedValue({
+      mockPrisma.role?.findFirst?.mockResolvedValue({
         id: 'existing-role',
         name: 'Existing Role',
-        roleType: 'PLATFORM',
+        roleType: RoleType.PLATFORM,
+        clearanceLevel: 0,
+        description: 'Existing Role',
+        tenantId: 'tenant-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'user-id',
+        updatedBy: 'user-id',
+        isActive: true,
+        isSystemRole: true,
       });
 
       const result = await roleService.validateRoleNameUniqueness(
@@ -210,11 +210,19 @@ describe('Custom Role Creation Constraints Validation', () => {
 
     it('should validate role name uniqueness for custom roles per tenant', async () => {
       // Mock existing custom role for tenant
-      (mockPrisma.role?.findFirst as jest.Mock).mockResolvedValue({
+      mockPrisma.role?.findFirst?.mockResolvedValue({
         id: 'existing-role',
         name: 'Existing Role',
-        roleType: 'CUSTOM',
+        roleType: RoleType.CUSTOM,
         tenantId: 'tenant-id',
+        clearanceLevel: 0,
+        description: 'Existing Role',
+        isSystemRole: false,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'user-id',
+        updatedBy: 'user-id',
+        isActive: true,
       });
 
       const result = await roleService.validateRoleNameUniqueness(
@@ -229,7 +237,7 @@ describe('Custom Role Creation Constraints Validation', () => {
     });
 
     it('should allow role name if it does not exist', async () => {
-      (mockPrisma.role?.findFirst as jest.Mock).mockResolvedValue(null);
+      mockPrisma.role?.findFirst?.mockResolvedValue(null);
 
       const result = await roleService.validateRoleNameUniqueness(
         mockPrisma as PrismaClient,

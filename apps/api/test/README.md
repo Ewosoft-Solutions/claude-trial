@@ -111,11 +111,12 @@ describe('ServiceName', () => {
 ### Integration Test Example
 
 ```typescript
-import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { DatabaseService } from '../src/common';
 
 describe('Feature (e2e)', () => {
   let app: INestApplication;
-  let prisma: PrismaClient;
+  let database: DatabaseService;
+  let prisma: DatabaseService['client'];
 
   beforeAll(async () => {
     const module = await Test.createTestingModule({
@@ -124,7 +125,8 @@ describe('Feature (e2e)', () => {
 
     app = module.createNestApplication();
     await app.init();
-    prisma = app.get(PRISMA_CLIENT_TOKEN);
+    database = app.get(DatabaseService);
+    prisma = database.client;
   });
 
   afterAll(async () => {
