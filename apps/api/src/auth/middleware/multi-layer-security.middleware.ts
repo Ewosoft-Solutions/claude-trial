@@ -40,7 +40,7 @@ export interface AuthenticatedRequest extends Request {
 export class MultiLayerSecurityMiddleware implements NestMiddleware {
   constructor(
     private readonly permissionService: PermissionService,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   async use(
@@ -59,7 +59,7 @@ export class MultiLayerSecurityMiddleware implements NestMiddleware {
       throw new UnauthorizedException('User context incomplete');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Layer 1: Validate strict context (user belongs to school, profile active)
     const contextValidation =

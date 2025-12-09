@@ -95,7 +95,7 @@ interface ChatMessage {
 class LessonKnowledgeProcessor {
   async processLessonMaterials(
     lessonId: string,
-    materials: Material[]
+    materials: Material[],
   ): Promise<void> {
     // 1. Extract text from documents
     const extractedText = await this.extractTextFromMaterials(materials);
@@ -126,7 +126,7 @@ class LessonKnowledgeProcessor {
       materials.map(async (material) => {
         const processor = processors[material.type];
         return await processor.extract(material);
-      })
+      }),
     );
 
     return extractedTexts.join('\n\n');
@@ -140,16 +140,16 @@ class LessonKnowledgeProcessor {
 interface VectorStore {
   storeEmbeddings(
     lessonId: string,
-    embeddings: VectorEmbedding[]
+    embeddings: VectorEmbedding[],
   ): Promise<void>;
   searchSimilar(
     lessonId: string,
     query: string,
-    limit: number
+    limit: number,
   ): Promise<SearchResult[]>;
   updateEmbeddings(
     lessonId: string,
-    embeddings: VectorEmbedding[]
+    embeddings: VectorEmbedding[],
   ): Promise<void>;
   deleteLesson(lessonId: string): Promise<void>;
 }
@@ -175,7 +175,7 @@ class ChromaVectorStore implements VectorStore {
   async searchSimilar(
     lessonId: string,
     query: string,
-    limit: number
+    limit: number,
   ): Promise<SearchResult[]> {
     const queryEmbedding = await this.generateQueryEmbedding(query);
 
@@ -207,7 +207,7 @@ class WeaviateVectorStore implements VectorStore {
   async searchSimilar(
     lessonId: string,
     query: string,
-    limit: number
+    limit: number,
   ): Promise<SearchResult[]> {
     const queryEmbedding = await this.generateQueryEmbedding(query);
 
@@ -248,7 +248,7 @@ class QdrantVectorStore implements VectorStore {
   async searchSimilar(
     lessonId: string,
     query: string,
-    limit: number
+    limit: number,
   ): Promise<SearchResult[]> {
     const queryEmbedding = await this.generateQueryEmbedding(query);
 
@@ -389,7 +389,7 @@ class AITutorService {
   async generateResponse(
     studentId: string,
     question: string,
-    lessonId?: string
+    lessonId?: string,
   ): Promise<AIResponse> {
     // 1. Get student context
     const studentContext = await this.getStudentContext(studentId);
@@ -418,7 +418,7 @@ class AITutorService {
   }
 
   private async generateContextualResponse(
-    context: ResponseContext
+    context: ResponseContext,
   ): Promise<AIResponse> {
     const prompt = this.buildPrompt(context);
 
@@ -470,7 +470,7 @@ class AIPrivacyManager {
   async auditAIUsage(
     tenantId: string,
     studentId: string,
-    action: string
+    action: string,
   ): Promise<void> {
     await this.auditLog.create({
       tenantId,
@@ -502,7 +502,7 @@ interface LearningProfile {
 class PersonalizedAI {
   async adaptResponse(
     response: string,
-    learningProfile: LearningProfile
+    learningProfile: LearningProfile,
   ): Promise<string> {
     let adaptedResponse = response;
 
@@ -514,13 +514,13 @@ class PersonalizedAI {
     // Adapt difficulty level
     adaptedResponse = await this.adjustDifficulty(
       adaptedResponse,
-      learningProfile.difficultyPreference
+      learningProfile.difficultyPreference,
     );
 
     // Adapt response length
     adaptedResponse = await this.adjustLength(
       adaptedResponse,
-      learningProfile.responseLength
+      learningProfile.responseLength,
     );
 
     return adaptedResponse;
@@ -537,7 +537,7 @@ class QuestionGenerator {
   async generateQuestions(
     lessonId: string,
     studentLevel: string,
-    topic: string
+    topic: string,
   ): Promise<Question[]> {
     const lessonContent = await this.getLessonContent(lessonId);
 
@@ -680,7 +680,7 @@ app.post('/api/ai/chat', authenticate, async (req, res) => {
   const response = await aiTutorService.generateResponse(
     studentId,
     question,
-    lessonId
+    lessonId,
   );
   res.json(response);
 });
@@ -713,7 +713,7 @@ class AIChatSocket {
           const response = await aiTutorService.generateResponse(
             studentId,
             question,
-            lessonId
+            lessonId,
           );
 
           socket.emit('ai_response', response);
@@ -775,7 +775,7 @@ interface AssessmentMode {
 class AssessmentSecurityManager {
   async enableAssessmentMode(
     studentId: string,
-    assessmentId: string
+    assessmentId: string,
   ): Promise<void> {
     // Disable AI access during assessments
     await this.disableAIAccess(studentId);
@@ -798,7 +798,7 @@ class AssessmentSecurityManager {
     await this.redis.setex(
       `ai_blocked:${studentId}`,
       3600, // 1 hour default
-      'true'
+      'true',
     );
   }
 }
@@ -810,7 +810,7 @@ class AssessmentSecurityManager {
 class AIResponseFilter {
   async filterAssessmentResponses(
     question: string,
-    context: AssessmentContext
+    context: AssessmentContext,
   ): Promise<FilteredResponse> {
     // Detect if question is from an assessment
     if (context.isAssessment) {
@@ -918,7 +918,7 @@ class AssessmentQuestionProtection {
     const similarity = await this.vectorStore.findSimilar(
       question,
       'assessment_questions',
-      0.8 // High similarity threshold
+      0.8, // High similarity threshold
     );
 
     return similarity.length > 0;
@@ -933,7 +933,7 @@ class ResponseValidator {
   async validateStudentResponse(
     studentId: string,
     question: string,
-    response: string
+    response: string,
   ): Promise<ValidationResult> {
     // Check for AI-generated content patterns
     const aiPatterns = await this.detectAIPatterns(response);
@@ -975,7 +975,7 @@ class AssessmentWindowManager {
     assessmentId: string,
     startTime: Date,
     endTime: Date,
-    studentIds: string[]
+    studentIds: string[],
   ): Promise<void> {
     // Create time-based AI restrictions
     await this.scheduleAIBlock(studentIds, startTime, endTime);
@@ -987,13 +987,13 @@ class AssessmentWindowManager {
   async scheduleAIBlock(
     studentIds: string[],
     startTime: Date,
-    endTime: Date
+    endTime: Date,
   ): Promise<void> {
     for (const studentId of studentIds) {
       await this.redis.setex(
         `ai_blocked:${studentId}`,
         Math.floor((endTime.getTime() - startTime.getTime()) / 1000),
-        'assessment_mode'
+        'assessment_mode',
       );
     }
   }
@@ -1016,13 +1016,13 @@ class LearningPatternAnalyzer {
     // Detect inconsistencies
     const inconsistencies = this.detectInconsistencies(
       chatHistory,
-      assessmentResults
+      assessmentResults,
     );
 
     // Flag potential AI misuse
     const misuseFlags = this.flagPotentialMisuse(
       chatHistory,
-      assessmentResults
+      assessmentResults,
     );
 
     return {
@@ -1036,7 +1036,7 @@ class LearningPatternAnalyzer {
 
   private detectInconsistencies(
     chatHistory: ChatMessage[],
-    assessmentResults: AssessmentResult[]
+    assessmentResults: AssessmentResult[],
   ): Inconsistency[] {
     const inconsistencies: Inconsistency[] = [];
 
@@ -1098,7 +1098,7 @@ class TeacherIntegrityService {
 
     // Notify teacher
     await this.notificationService.sendToTeacher(
-      `Student ${studentId} flagged for academic integrity review: ${reason}`
+      `Student ${studentId} flagged for academic integrity review: ${reason}`,
     );
   }
 }
@@ -1159,9 +1159,8 @@ app.post(
     const studentId = req.user.id;
 
     // Check if student is in assessment mode
-    const isAssessmentMode = await assessmentSecurityManager.isInAssessmentMode(
-      studentId
-    );
+    const isAssessmentMode =
+      await assessmentSecurityManager.isInAssessmentMode(studentId);
 
     if (isAssessmentMode) {
       return res.status(403).json({
@@ -1183,10 +1182,10 @@ app.post(
     const response = await aiTutorService.generateResponse(
       studentId,
       question,
-      lessonId
+      lessonId,
     );
     res.json(response);
-  }
+  },
 );
 ```
 
@@ -1235,7 +1234,7 @@ interface ManagementAnalytics {
     'academic_performance',
     'financial_reports',
     'staff_performance',
-    'operational_metrics'
+    'operational_metrics',
   ];
 }
 
@@ -1243,7 +1242,7 @@ class ManagementAIService {
   async processManagementQuery(
     query: string,
     user: ManagementUser,
-    schoolId: string
+    schoolId: string,
   ): Promise<AnalyticsResponse> {
     // Parse query intent
     const intent = await this.parseQueryIntent(query);
@@ -1268,7 +1267,7 @@ class ManagementAIService {
 
   async getEnrollmentStats(
     query: string,
-    schoolId: string
+    schoolId: string,
   ): Promise<AnalyticsResponse> {
     // Extract parameters from query
     const params = this.extractEnrollmentParams(query);
@@ -1292,7 +1291,7 @@ class ManagementAIService {
         params.grade,
         params.date,
         params.date,
-      ]
+      ],
     );
 
     return {
@@ -1305,7 +1304,7 @@ class ManagementAIService {
 
   async getAttendanceAnalysis(
     query: string,
-    schoolId: string
+    schoolId: string,
   ): Promise<AnalyticsResponse> {
     const params = this.extractAttendanceParams(query);
 
@@ -1326,7 +1325,7 @@ class ManagementAIService {
       GROUP BY DATE(attendance_date)
       ORDER BY date DESC
     `,
-      [schoolId, params.date, params.date, params.grade, params.grade]
+      [schoolId, params.date, params.date, params.grade, params.grade],
     );
 
     return {
@@ -1339,7 +1338,7 @@ class ManagementAIService {
 
   async getAcademicPerformance(
     query: string,
-    schoolId: string
+    schoolId: string,
   ): Promise<AnalyticsResponse> {
     const params = this.extractAcademicParams(query);
 
@@ -1372,7 +1371,7 @@ class ManagementAIService {
         params.term,
         params.year,
         params.year,
-      ]
+      ],
     );
 
     return {
@@ -1385,7 +1384,7 @@ class ManagementAIService {
 
   async getFinancialReports(
     query: string,
-    schoolId: string
+    schoolId: string,
   ): Promise<AnalyticsResponse> {
     const params = this.extractFinancialParams(query);
 
@@ -1408,7 +1407,7 @@ class ManagementAIService {
         params.startDate,
         params.endDate,
         params.endDate,
-      ]
+      ],
     );
 
     return {
@@ -1438,7 +1437,7 @@ interface ParentAnalytics {
     'child_behavior',
     'class_overview',
     'school_events',
-    'fee_status'
+    'fee_status',
   ];
 }
 
@@ -1446,7 +1445,7 @@ class ParentAIService {
   async processParentQuery(
     query: string,
     user: ParentUser,
-    childId: string
+    childId: string,
   ): Promise<AnalyticsResponse> {
     // Validate parent has access to this child
     await this.validateParentAccess(user, childId);
@@ -1469,7 +1468,7 @@ class ParentAIService {
 
   async getChildPerformance(
     childId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const performance = await this.database.query(
       `
@@ -1489,7 +1488,7 @@ class ParentAIService {
       WHERE s.id = ?
       GROUP BY s.id, s.first_name, s.last_name, s.grade, s.class_name
     `,
-      [childId]
+      [childId],
     );
 
     return {
@@ -1502,14 +1501,14 @@ class ParentAIService {
 
   async getClassOverview(
     childId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     // Get child's class info first
     const child = await this.database.query(
       `
       SELECT grade, class_name FROM students WHERE id = ?
     `,
-      [childId]
+      [childId],
     );
 
     const classOverview = await this.database.query(
@@ -1524,7 +1523,7 @@ class ParentAIService {
       WHERE s.grade = ? AND s.class_name = ?
       GROUP BY s.grade, s.class_name
     `,
-      [child[0].grade, child[0].class_name]
+      [child[0].grade, child[0].class_name],
     );
 
     return {
@@ -1559,7 +1558,7 @@ interface StudentAnalytics {
     'school_events',
     'fee_status',
     'academic_progress',
-    'study_materials'
+    'study_materials',
   ];
 }
 
@@ -1567,7 +1566,7 @@ class StudentAIService {
   async processStudentQuery(
     query: string,
     user: StudentUser,
-    studentId: string
+    studentId: string,
   ): Promise<AnalyticsResponse> {
     // Validate student has access to their own data
     await this.validateStudentAccess(user, studentId);
@@ -1596,7 +1595,7 @@ class StudentAIService {
 
   async getPersonalSchedule(
     studentId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const schedule = await this.database.query(
       `
@@ -1618,7 +1617,7 @@ class StudentAIService {
       WHERE s.id = ?
       ORDER BY sch.day_of_week, sch.start_time
     `,
-      [studentId]
+      [studentId],
     );
 
     return {
@@ -1631,7 +1630,7 @@ class StudentAIService {
 
   async getExamTimetable(
     studentId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const params = this.extractExamParams(query);
 
@@ -1665,7 +1664,7 @@ class StudentAIService {
         params.endDate,
         params.subject,
         params.subject,
-      ]
+      ],
     );
 
     return {
@@ -1678,7 +1677,7 @@ class StudentAIService {
 
   async getAssignmentDeadlines(
     studentId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const params = this.extractAssignmentParams(query);
 
@@ -1712,7 +1711,7 @@ class StudentAIService {
         params.endDate,
         params.subject,
         params.subject,
-      ]
+      ],
     );
 
     return {
@@ -1725,7 +1724,7 @@ class StudentAIService {
 
   async getGradeInquiry(
     studentId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const params = this.extractGradeParams(query);
 
@@ -1760,7 +1759,7 @@ class StudentAIService {
         params.term,
         params.year,
         params.year,
-      ]
+      ],
     );
 
     return {
@@ -1773,7 +1772,7 @@ class StudentAIService {
 
   async getAttendanceStatus(
     studentId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const params = this.extractAttendanceParams(query);
 
@@ -1800,7 +1799,7 @@ class StudentAIService {
         params.startDate,
         params.endDate,
         params.endDate,
-      ]
+      ],
     );
 
     // Calculate attendance summary
@@ -1816,7 +1815,7 @@ class StudentAIService {
 
   async getClassSchedule(
     studentId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const schedule = await this.database.query(
       `
@@ -1835,7 +1834,7 @@ class StudentAIService {
       WHERE s.id = ?
       ORDER BY sch.day_of_week, sch.start_time
     `,
-      [studentId]
+      [studentId],
     );
 
     return {
@@ -1848,7 +1847,7 @@ class StudentAIService {
 
   async getAcademicProgress(
     studentId: string,
-    query: string
+    query: string,
   ): Promise<AnalyticsResponse> {
     const progress = await this.database.query(
       `
@@ -1866,7 +1865,7 @@ class StudentAIService {
       GROUP BY g.subject
       ORDER BY average_percentage DESC
     `,
-      [studentId]
+      [studentId],
     );
 
     return {
@@ -1912,14 +1911,14 @@ interface GuestAnalytics {
     'fee_structure',
     'academic_programs',
     'facilities',
-    'contact_info'
+    'contact_info',
   ];
 }
 
 class GuestAIService {
   async processGuestQuery(
     query: string,
-    schoolId: string
+    schoolId: string,
   ): Promise<AnalyticsResponse> {
     const intent = await this.parseQueryIntent(query);
 
@@ -1955,7 +1954,7 @@ class GuestAIService {
       FROM schools 
       WHERE id = ?
     `,
-      [schoolId]
+      [schoolId],
     );
 
     return {
@@ -1980,7 +1979,7 @@ class GuestAIService {
       FROM school_admission_info 
       WHERE school_id = ?
     `,
-      [schoolId]
+      [schoolId],
     );
 
     return {
@@ -2045,13 +2044,13 @@ class QueryIntentRecognizer {
 
   async extractParameters(
     query: string,
-    intent: string
+    intent: string,
   ): Promise<QueryParameters> {
     const params: QueryParameters = {};
 
     // Extract date patterns
     const dateMatch = query.match(
-      /(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/
+      /(\d{1,2}\/\d{1,2}\/\d{4}|\d{4}-\d{2}-\d{2})/,
     );
     if (dateMatch) params.date = new Date(dateMatch[1]);
 
@@ -2450,7 +2449,7 @@ interface AcademicAIChatbot {
     'problem_solving_help',
     'study_guidance',
     'homework_assistance',
-    'subject_tutoring'
+    'subject_tutoring',
   ];
 }
 
@@ -2458,7 +2457,7 @@ class AcademicAIService {
   async processAcademicQuery(
     query: string,
     studentId: string,
-    lessonId: string
+    lessonId: string,
   ): Promise<AcademicResponse> {
     // No school data access - pure academic focus
     const context = await this.getLessonContext(lessonId);
@@ -2492,7 +2491,7 @@ class AcademicAIService {
 
   async generateAcademicResponse(
     query: string,
-    context: LessonContext
+    context: LessonContext,
   ): Promise<string> {
     // Use only lesson materials - no external knowledge
     const relevantContent = await this.findRelevantContent(query, context);
@@ -2519,7 +2518,7 @@ class AcademicAIFeatures {
   // Concept Explanation
   async explainConcept(
     concept: string,
-    lessonId: string
+    lessonId: string,
   ): Promise<Explanation> {
     const lessonContext = await this.getLessonContext(lessonId);
     const explanation = await this.generateExplanation(concept, lessonContext);
@@ -2550,7 +2549,7 @@ class AcademicAIFeatures {
   // Study Guidance
   async provideStudyGuidance(
     subject: string,
-    lessonId: string
+    lessonId: string,
   ): Promise<Guidance> {
     const lessonContext = await this.getLessonContext(lessonId);
 
@@ -2582,7 +2581,7 @@ interface AnalyticsAISystem {
     'attendance_reports',
     'performance_analysis',
     'financial_reports',
-    'operational_metrics'
+    'operational_metrics',
   ];
 }
 
@@ -2590,7 +2589,7 @@ class AnalyticsAIService {
   async processAnalyticsQuery(
     query: string,
     user: User,
-    schoolId: string
+    schoolId: string,
   ): Promise<AnalyticsResponse> {
     // Validate clearance level
     await this.validateClearanceLevel(user, query);
@@ -2641,7 +2640,7 @@ app.post('/api/ai/academic/chat', async (req, res) => {
   const response = await academicAIService.processAcademicQuery(
     query,
     studentId,
-    lessonId
+    lessonId,
   );
 
   res.json(response);
@@ -2656,7 +2655,7 @@ app.post('/api/ai/analytics/query', authenticate, async (req, res) => {
   const response = await analyticsAIService.processAnalyticsQuery(
     query,
     user,
-    schoolId
+    schoolId,
   );
 
   res.json(response);
@@ -2669,13 +2668,13 @@ app.post('/api/ai/analytics/query', authenticate, async (req, res) => {
 class AcademicAIDatabase {
   // Only access lesson materials
   async getLessonMaterials(lessonId: string): Promise<LessonMaterials> {
-    return await this.db.query(
+    return await this.dbService.query(
       `
       SELECT content, examples, exercises, resources
       FROM lesson_materials 
       WHERE lesson_id = ?
     `,
-      [lessonId]
+      [lessonId],
     );
   }
 }
@@ -2683,13 +2682,13 @@ class AcademicAIDatabase {
 class AnalyticsAIDatabase {
   // Access school data with proper permissions
   async getSchoolData(query: string, schoolId: string): Promise<SchoolData> {
-    return await this.db.query(
+    return await this.dbService.query(
       `
       SELECT * FROM school_data 
       WHERE school_id = ? 
       AND ${this.buildQueryConditions(query)}
     `,
-      [schoolId]
+      [schoolId],
     );
   }
 }
@@ -2706,12 +2705,12 @@ interface AcademicAIChat {
     'subject_specific_chat',
     'homework_help_mode',
     'study_guidance_mode',
-    'concept_explanation_mode'
+    'concept_explanation_mode',
   ];
   restrictions: [
     'no_school_data_access',
     'no_personal_info_access',
-    'lesson_materials_only'
+    'lesson_materials_only',
   ];
 }
 ```
@@ -2725,12 +2724,12 @@ interface AnalyticsAIDashboard {
     'report_generation',
     'visualization_tools',
     'role_based_access',
-    'audit_logging'
+    'audit_logging',
   ];
   restrictions: [
     'clearance_level_validation',
     'data_privacy_protection',
-    'audit_trail_required'
+    'audit_trail_required',
   ];
 }
 ```

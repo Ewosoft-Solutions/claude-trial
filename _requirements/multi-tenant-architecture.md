@@ -175,7 +175,7 @@ CREATE TABLE tenant_12345.students (
 ```typescript
 // Every API endpoint validates tenant context
 app.get('/api/students', authenticate, validateTenant, (req, res) => {
-  const students = await db.students.findMany({
+  const students = await dbService.students.findMany({
     where: { tenantId: req.user.tenantId },
   });
   res.json(students);

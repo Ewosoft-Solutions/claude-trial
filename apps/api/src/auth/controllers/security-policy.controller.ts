@@ -39,7 +39,7 @@ import { DatabaseService } from '../../common';
 export class SecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   /**
@@ -53,7 +53,7 @@ export class SecurityPolicyController {
   @RequirePermissions(['security_policy:view'])
   async getSchoolPolicy(@Request() req: AuthenticatedRequest): Promise<any> {
     const { tenantId } = req.user!;
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     const policy = await this.securityPolicyService.getOrCreateDefaultPolicy(
       prisma,
@@ -77,7 +77,7 @@ export class SecurityPolicyController {
     @Body() dto: AssignPolicyDto,
   ): Promise<any> {
     const { tenantId, userId, profileId } = req.user!;
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -141,7 +141,7 @@ export class SecurityPolicyController {
     @Body() dto: ChangePolicyTierDto,
   ): Promise<any> {
     const { tenantId, userId, profileId } = req.user!;
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -163,7 +163,7 @@ export class SecurityPolicyController {
       prisma,
       tenantId,
       dto.newTier,
-      'school_admin',
+      EnforcedBy.SCHOOL_ADMIN,
       userId,
       dto.reason,
     );
@@ -220,7 +220,7 @@ export class PlatformSecurityPolicyController {
     @Body() dto: SetEmergencyPolicyDto,
   ): Promise<any> {
     const { userId, profileId } = req.user!;
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -285,7 +285,7 @@ export class PlatformSecurityPolicyController {
     @Param('schoolId') schoolId: string,
   ): Promise<any> {
     const { userId, profileId } = req.user!;
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const userContext = req.userContext;
 
     // Get user info for audit logging
@@ -349,7 +349,7 @@ export class PlatformSecurityPolicyController {
     @Request() req: AuthenticatedRequest,
     @Param('schoolId') schoolId: string,
   ): Promise<any> {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     const policy = await this.securityPolicyService.getOrCreateDefaultPolicy(
       prisma,

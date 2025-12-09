@@ -48,7 +48,7 @@ import { JwtAuthGuard } from './guards';
 export class MfaController {
   constructor(
     private readonly mfaService: MfaService,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   /**
@@ -58,7 +58,7 @@ export class MfaController {
    */
   @Get('methods')
   async getActiveMethods(@Req() req: Request) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -76,7 +76,7 @@ export class MfaController {
   @Post('setup/sms')
   @HttpCode(HttpStatus.CREATED)
   async setupSms(@Body() setupSmsMfaDto: SetupSmsMfaDto, @Req() req: Request) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -118,7 +118,7 @@ export class MfaController {
     @Body() setupEmailMfaDto: SetupEmailMfaDto,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -160,7 +160,7 @@ export class MfaController {
     @Body() setupTotpMfaDto: SetupTotpMfaDto,
     @Req() req: Request,
   ): Promise<SetupTotpMfaResponseDto> {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId || !user.email) {
@@ -185,7 +185,7 @@ export class MfaController {
   async setupWebAuthn(
     @Req() req: Request,
   ): Promise<SetupWebAuthnMfaResponseDto> {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId || !user.email) {
@@ -218,7 +218,7 @@ export class MfaController {
     @Body() verifyAndActivateMfaDto: VerifyAndActivateMfaDto,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -322,7 +322,7 @@ export class MfaController {
     @Body() initiateMfaVerificationDto: InitiateMfaVerificationDto,
     @Req() req: Request,
   ): Promise<InitiateMfaVerificationResponseDto> {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -350,7 +350,7 @@ export class MfaController {
     @Body() verifyMfaChallengeDto: VerifyMfaChallengeDto,
     @Req() req: Request,
   ): Promise<VerifyMfaChallengeResponseDto> {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     const verified = await this.mfaService.verifyChallenge(
       prisma,
@@ -377,7 +377,7 @@ export class MfaController {
     @Body() generateRecoveryCodesDto: GenerateRecoveryCodesDto,
     @Req() req: Request,
   ): Promise<GenerateRecoveryCodesResponseDto> {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -408,7 +408,7 @@ export class MfaController {
     @Body() verifyRecoveryCodeDto: VerifyRecoveryCodeDto,
     @Req() req: Request,
   ): Promise<VerifyRecoveryCodeResponseDto> {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -435,7 +435,7 @@ export class MfaController {
     @Param('methodId') methodId: string,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -458,7 +458,7 @@ export class MfaController {
     @Param('methodId') methodId: string,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -478,7 +478,7 @@ export class MfaController {
   @Delete('methods/:methodId')
   @HttpCode(HttpStatus.OK)
   async deleteMethod(@Param('methodId') methodId: string, @Req() req: Request) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
     const user = (req as any).user;
 
     if (!user || !user.userId) {

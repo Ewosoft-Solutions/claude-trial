@@ -10,13 +10,13 @@ import { PrismaClient } from '@workspace/database';
  */
 @Injectable()
 export abstract class BaseRepository<T> {
-  constructor(protected readonly db: DatabaseService) {}
+  constructor(protected readonly dbService: DatabaseService) {}
 
   /**
    * Shared Prisma client getter to preserve existing subclasses
    */
   protected get prisma(): PrismaClient {
-    return this.db.client;
+    return this.dbService.client;
   }
 
   /**

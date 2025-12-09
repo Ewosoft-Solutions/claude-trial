@@ -13,9 +13,10 @@ import {
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { PermissionService } from '../services/permission.service';
+import { PermissionCheckResult, PermissionService, UserPermissionContext } from '../services/permission.service';
 import { PermissionMode } from '@workspace/api';
 import { DatabaseService } from '../../common';
+import { RequestUser } from '../types/request-user';
 /**
  * Metadata key for permission requirement
  */
@@ -36,7 +37,7 @@ export const RequirePermissions = (
   mode: PermissionMode = PermissionMode.ALL,
   requiredClearanceLevel?: number,
 ) => {
-  return (target: any, key?: string, descriptor?: PropertyDescriptor) => {
+  return (target: unknown, key?: string, descriptor?: PropertyDescriptor) => {
     SetMetadata(PERMISSIONS_KEY, permissions)(target, key, descriptor);
     SetMetadata(PERMISSION_MODE_KEY, mode)(target, key, descriptor);
     if (requiredClearanceLevel !== undefined) {
@@ -59,7 +60,7 @@ export class PermissionGuard implements CanActivate {
   constructor(
     private readonly permissionService: PermissionService,
     private readonly reflector: Reflector,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -85,16 +86,16 @@ export class PermissionGuard implements CanActivate {
     );
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user = request.user as RequestUser | undefined;
 
     if (!user || !user.userId || !user.tenantId || !user.profileId) {
       throw new ForbiddenException('User context not found');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Get user permission context (use cached if available)
-    let userContext = request.userContext;
+    let userContext: UserPermissionContext | undefined = request.userContext as UserPermissionContext | undefined;
     if (!userContext) {
       userContext = await this.permissionService.getUserPermissionContext(
         prisma,
@@ -112,7 +113,7 @@ export class PermissionGuard implements CanActivate {
     }
 
     // Check permissions based on mode
-    let check;
+    let check: PermissionCheckResult | undefined;
     if (mode === PermissionMode.ANY) {
       check = this.permissionService.checkAnyPermission(
         userContext,

@@ -74,7 +74,7 @@ postgresql://[username]:[password]@[host]:[port]/[database]?[parameters]
 **Example for production:**
 
 ```
-DATABASE_URL=postgresql://user:pass@db.example.com:5432/school_db?sslmode=require&connection_limit=20
+DATABASE_URL=postgresql://user:pass@dbService.example.com:5432/school_db?sslmode=require&connection_limit=20
 ```
 
 ## Step 2: Verify Database Connection

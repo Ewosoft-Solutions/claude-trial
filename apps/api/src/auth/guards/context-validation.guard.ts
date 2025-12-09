@@ -23,7 +23,7 @@ import { DatabaseService } from '../../common';
 export class ContextValidationGuard implements CanActivate {
   constructor(
     private readonly permissionService: PermissionService,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -34,7 +34,7 @@ export class ContextValidationGuard implements CanActivate {
       throw new ForbiddenException('User context not found');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Validate strict context
     const validation = await this.permissionService.validateStrictContext(

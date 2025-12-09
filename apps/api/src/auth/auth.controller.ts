@@ -14,6 +14,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { type Request } from 'express';
+import { PrismaClient } from '@workspace/database';
 import {
   LoginDto,
   VerifyMfaForLoginDto,
@@ -25,7 +26,6 @@ import {
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { JwtAuthGuard } from './guards';
-import { DatabaseService } from '../common';
 
 /**
  * Authentication Controller
@@ -37,7 +37,6 @@ export class AuthController {
   constructor(
     private readonly authenticationService: AuthenticationService,
     private readonly passwordResetService: PasswordResetService,
-    private readonly db: DatabaseService,
   ) {}
 
   /**
@@ -48,7 +47,7 @@ export class AuthController {
   @Post('login')
   @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto, @Req() req: Request) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'];
 
@@ -72,7 +71,7 @@ export class AuthController {
     @Body() verifyMfaForLoginDto: VerifyMfaForLoginDto,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
 
     // Get user ID from challenge
     const challenge = await prisma.mfaChallenge.findUnique({
@@ -107,7 +106,7 @@ export class AuthController {
     @Body() selectSchoolDto: SelectSchoolDto,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
     const user = (req as any).user;
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'];
@@ -137,7 +136,7 @@ export class AuthController {
     @Body() refreshTokenDto: RefreshTokenDto,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
 
     return this.authenticationService.refreshToken(
       prisma,
@@ -156,7 +155,7 @@ export class AuthController {
     @Body() requestPasswordResetDto: RequestPasswordResetDto,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
     return this.passwordResetService.requestPasswordReset(
@@ -177,7 +176,7 @@ export class AuthController {
     @Body() resetPasswordDto: ResetPasswordDto,
     @Req() req: Request,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
     await this.passwordResetService.resetPassword(
@@ -200,7 +199,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async logout(@Req() req: Request) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
     const user = (req as any).user;
     const token = req.headers.authorization?.replace('Bearer ', '');
 
@@ -220,7 +219,7 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   async logoutAll(@Req() req: Request) {
-    const prisma = this.db.client;
+    const prisma = this.getPrisma(req);
     const user = (req as any).user;
 
     if (!user || !user.userId) {
@@ -228,5 +227,17 @@ export class AuthController {
     }
 
     return this.authenticationService.logoutAll(prisma, user.userId);
+  }
+
+  /**
+   * Get Prisma client from request
+   *
+   * @param req - Request object
+   * @returns Prisma client
+   */
+  private getPrisma(req: Request): PrismaClient {
+    // This is a simplified version
+    // In production, inject PrismaService via NestJS dependency injection
+    return (req as any).prisma || (global as any).prisma;
   }
 }

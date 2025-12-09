@@ -40,7 +40,7 @@ export class ClearanceLevelGuard implements CanActivate {
   constructor(
     private readonly permissionService: PermissionService,
     private readonly reflector: Reflector,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -61,7 +61,7 @@ export class ClearanceLevelGuard implements CanActivate {
       throw new ForbiddenException('User context not found');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Get user permission context
     const userContext = await this.permissionService.getUserPermissionContext(

@@ -41,7 +41,7 @@ import { type AuthenticatedRequest } from '../middleware/multi-layer-security.mi
 export class BreachResponseController {
   constructor(
     private readonly breachResponseService: BreachResponseService,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   /**
@@ -57,7 +57,7 @@ export class BreachResponseController {
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToSchoolBreachDto,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Get user info for audit logging
     const user = await prisma.user.findUnique({
@@ -103,7 +103,7 @@ export class BreachResponseController {
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToProfileBreachDto,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Get user info for audit logging
     const user = await prisma.user.findUnique({
@@ -149,7 +149,7 @@ export class BreachResponseController {
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToPlatformBreachDto,
   ) {
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Get user info for audit logging
     const user = await prisma.user.findUnique({

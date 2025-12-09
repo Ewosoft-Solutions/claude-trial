@@ -28,7 +28,7 @@ export class JwtAuthGuard implements CanActivate {
   constructor(
     private readonly jwtService: JwtService,
     private readonly authJWTService: AuthJWTService,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -47,7 +47,7 @@ export class JwtAuthGuard implements CanActivate {
       throw new UnauthorizedException('Invalid token format');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Validate token with school-specific secret (3.7)
     const payload = await this.authJWTService.validateAccessToken(

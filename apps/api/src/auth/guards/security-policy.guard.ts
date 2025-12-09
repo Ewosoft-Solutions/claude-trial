@@ -24,7 +24,7 @@ import { DatabaseService } from '../../common';
 export class SecurityPolicyGuard implements CanActivate {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -41,7 +41,7 @@ export class SecurityPolicyGuard implements CanActivate {
       throw new ForbiddenException('Tenant context required');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Get school security policy
     const policy = await this.securityPolicyService.getOrCreateDefaultPolicy(

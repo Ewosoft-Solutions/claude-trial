@@ -22,7 +22,7 @@ import { DatabaseService } from '../../common';
  */
 @Injectable()
 export class TenantContextGuard implements CanActivate {
-  constructor(private readonly db: DatabaseService) {}
+  constructor(private readonly dbService: DatabaseService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
@@ -32,7 +32,7 @@ export class TenantContextGuard implements CanActivate {
       throw new UnauthorizedException('User context not found');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Validate user has access to tenant
     const validation = await TenantValidationService.validateUserAccess(

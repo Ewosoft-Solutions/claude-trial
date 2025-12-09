@@ -39,7 +39,7 @@ export const MfaRequired = () => {
 export class MfaRequiredGuard implements CanActivate {
   constructor(
     private reflector: Reflector,
-    private readonly db: DatabaseService,
+    private readonly dbService: DatabaseService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -61,7 +61,7 @@ export class MfaRequiredGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    const prisma = this.db.client;
+    const prisma = this.dbService.client;
 
     // Check if user has active MFA methods
     const hasMfa = await MfaBaseService.hasActiveMfaMethods(
