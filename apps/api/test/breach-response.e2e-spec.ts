@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import {
   describe,
   it,
@@ -19,6 +19,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { Server } from 'http';
 
 describe('Breach Response System (e2e)', () => {
   let app: INestApplication;
@@ -99,14 +100,14 @@ describe('Breach Response System (e2e)', () => {
     it('should detect suspicious login patterns', async () => {
       // Simulate multiple failed login attempts
       for (let i = 0; i < 5; i++) {
-        await request(app.getHttpServer()).post('/auth/login').send({
+        await request(app.getHttpServer() as Server).post('/auth/login').send({
           email: 'test@example.com',
           password: 'WrongPassword',
         });
       }
 
       // Check if breach is detected
-      const breachResponse = await request(app.getHttpServer())
+      const breachResponse = await request(app.getHttpServer() as Server)
         .get('/auth/breach-status')
         .set('Authorization', `Bearer ${adminToken}`)
         .expect(200);
@@ -117,7 +118,7 @@ describe('Breach Response System (e2e)', () => {
     it('should detect unusual access patterns', async () => {
       // Simulate access from multiple IPs in short time
       // This would be detected by monitoring system
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/breach/detect')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -134,7 +135,7 @@ describe('Breach Response System (e2e)', () => {
   describe('Breach Response - MFA Re-authentication', () => {
     it('should force MFA re-authentication for medium severity breach', async () => {
       // Trigger breach response
-      const breachResponse = await request(app.getHttpServer())
+      const breachResponse = await request(app.getHttpServer() as Server)
         .post('/auth/breach/respond')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -148,7 +149,7 @@ describe('Breach Response System (e2e)', () => {
       expect(breachResponse.body.action).toBe('force_mfa_reauth');
 
       // User should be required to re-authenticate with MFA
-      const loginResponse = await request(app.getHttpServer())
+      const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'test@example.com',
@@ -164,7 +165,7 @@ describe('Breach Response System (e2e)', () => {
   describe('Breach Response - Password Reset', () => {
     it('should force password reset for high severity breach', async () => {
       // Trigger breach response
-      const breachResponse = await request(app.getHttpServer())
+      const breachResponse = await request(app.getHttpServer() as Server)
         .post('/auth/breach/respond')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -178,7 +179,7 @@ describe('Breach Response System (e2e)', () => {
       expect(breachResponse.body.action).toBe('force_password_reset');
 
       // User should be required to reset password
-      const loginResponse = await request(app.getHttpServer())
+      const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'test@example.com',
@@ -192,7 +193,7 @@ describe('Breach Response System (e2e)', () => {
 
   describe('Platform-Wide Breach Response', () => {
     it('should trigger platform-wide breach response', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/breach/platform-wide')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -208,7 +209,7 @@ describe('Breach Response System (e2e)', () => {
 
   describe('School-Specific Breach Response', () => {
     it('should trigger school-specific breach response', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/breach/school')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -225,7 +226,7 @@ describe('Breach Response System (e2e)', () => {
 
   describe('Profile-Level Breach Response', () => {
     it('should trigger profile-level breach response', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/breach/profile')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -241,7 +242,7 @@ describe('Breach Response System (e2e)', () => {
 
   describe('Security Investigation Mode', () => {
     it('should enable security investigation mode', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/breach/investigation-mode')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -256,7 +257,7 @@ describe('Breach Response System (e2e)', () => {
 
     it('should log all activities during investigation mode', async () => {
       // Enable investigation mode
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as Server)
         .post('/auth/breach/investigation-mode')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
@@ -265,12 +266,12 @@ describe('Breach Response System (e2e)', () => {
         });
 
       // Perform some actions
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as Server)
         .get('/api/user/profile')
-        .set('Authorization', `Bearer ${accessToken}`);
+        .set('Authorization', `Bearer ${adminToken}`);
 
       // Check audit logs
-      const logsResponse = await request(app.getHttpServer())
+      const logsResponse = await request(app.getHttpServer() as Server)
         .get('/auth/audit-logs')
         .set('Authorization', `Bearer ${adminToken}`)
         .query({

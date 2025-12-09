@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import {
   describe,
   it,
@@ -19,6 +19,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { Server } from 'http';
 
 describe('Authorization System (e2e)', () => {
   let app: INestApplication;
@@ -101,6 +102,8 @@ describe('Authorization System (e2e)', () => {
         label: 'View Students',
         description: 'View student information',
         category: 'students',
+        resource: 'students',
+        action: 'view',
       },
     });
 
@@ -111,6 +114,7 @@ describe('Authorization System (e2e)', () => {
         description: 'Test teacher role',
         clearanceLevel: 2, // Teacher level
         isSystemRole: false,
+        roleType: 'teacher',
       },
     });
 
@@ -149,7 +153,7 @@ describe('Authorization System (e2e)', () => {
     it('should allow access when user has required permission', async () => {
       // This test requires proper JWT setup and permission guard
       // For now, we'll test the structure
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/protected-endpoint')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
@@ -159,7 +163,7 @@ describe('Authorization System (e2e)', () => {
     });
 
     it('should deny access when user lacks required permission', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/protected-endpoint')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(403);
@@ -171,7 +175,7 @@ describe('Authorization System (e2e)', () => {
   describe('Clearance Level Checking', () => {
     it('should allow access when clearance level is sufficient', async () => {
       // Test with clearance level 2 (Teacher) accessing level 1 endpoint
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/admin-endpoint')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(200);
@@ -181,7 +185,7 @@ describe('Authorization System (e2e)', () => {
 
     it('should deny access when clearance level is insufficient', async () => {
       // Test with clearance level 2 (Teacher) accessing level 5 (Admin) endpoint
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/admin-endpoint')
         .set('Authorization', `Bearer ${accessToken}`)
         .expect(403);
@@ -192,17 +196,17 @@ describe('Authorization System (e2e)', () => {
 
   describe('Context Validation', () => {
     it('should validate tenant context', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/tenant-specific-endpoint')
         .set('Authorization', `Bearer ${accessToken}`)
-        .set('X-Tenant-Id', testTenant.id)
+        .set('X-Tenant-Id', testTenant.id as string)
         .expect(200);
 
       expect(response.status).toBe(200);
     });
 
     it('should reject requests with invalid tenant context', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/tenant-specific-endpoint')
         .set('Authorization', `Bearer ${accessToken}`)
         .set('X-Tenant-Id', 'invalid-tenant-id')

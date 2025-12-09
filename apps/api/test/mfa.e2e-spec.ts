@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import {
   describe,
   it,
@@ -19,6 +19,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { Server } from 'http';
 
 describe('MFA Flows (e2e)', () => {
   let app: INestApplication;
@@ -97,7 +98,7 @@ describe('MFA Flows (e2e)', () => {
 
   describe('MFA Setup', () => {
     it('should setup SMS MFA method', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -111,7 +112,7 @@ describe('MFA Flows (e2e)', () => {
     });
 
     it('should setup Email MFA method', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -125,7 +126,7 @@ describe('MFA Flows (e2e)', () => {
     });
 
     it('should setup TOTP MFA method', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -139,7 +140,7 @@ describe('MFA Flows (e2e)', () => {
     });
 
     it('should setup WebAuthn MFA method', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -157,7 +158,7 @@ describe('MFA Flows (e2e)', () => {
 
     beforeEach(async () => {
       // Setup MFA method for testing
-      const setupResponse = await request(app.getHttpServer())
+      const setupResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -170,7 +171,7 @@ describe('MFA Flows (e2e)', () => {
 
     it('should verify SMS MFA code', async () => {
       // First, initiate challenge
-      const challengeResponse = await request(app.getHttpServer())
+      const challengeResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/challenge')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -182,7 +183,7 @@ describe('MFA Flows (e2e)', () => {
       const challengeId = challengeResponse.body.challengeId;
 
       // Then verify code (mock code for testing)
-      const verifyResponse = await request(app.getHttpServer())
+      const verifyResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/verify')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -196,7 +197,7 @@ describe('MFA Flows (e2e)', () => {
     });
 
     it('should reject invalid MFA code', async () => {
-      const challengeResponse = await request(app.getHttpServer())
+      const challengeResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/challenge')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -206,7 +207,7 @@ describe('MFA Flows (e2e)', () => {
 
       const challengeId = challengeResponse.body.challengeId;
 
-      const verifyResponse = await request(app.getHttpServer())
+      const verifyResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/verify')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -220,7 +221,7 @@ describe('MFA Flows (e2e)', () => {
 
     it('should verify TOTP code', async () => {
       // Setup TOTP
-      const totpSetup = await request(app.getHttpServer())
+      const totpSetup = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -228,13 +229,13 @@ describe('MFA Flows (e2e)', () => {
         });
 
       const totpMethodId = totpSetup.body.methodId;
-      const secret = totpSetup.body.secret;
+      // const secret = totpSetup.body.secret;
 
       // Generate TOTP code (in real scenario, use speakeasy library)
       // For testing, we'll use a mock
       const totpCode = '123456';
 
-      const verifyResponse = await request(app.getHttpServer())
+      const verifyResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/verify-totp')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -250,7 +251,7 @@ describe('MFA Flows (e2e)', () => {
   describe('MFA Login Flow', () => {
     it('should require MFA after initial login', async () => {
       // Login
-      const loginResponse = await request(app.getHttpServer())
+      const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'test@example.com',
@@ -264,7 +265,7 @@ describe('MFA Flows (e2e)', () => {
 
     it('should complete login after MFA verification', async () => {
       // Login
-      const loginResponse = await request(app.getHttpServer())
+      const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'test@example.com',
@@ -274,7 +275,7 @@ describe('MFA Flows (e2e)', () => {
       const challengeId = loginResponse.body.mfaChallengeId;
 
       // Verify MFA
-      const verifyResponse = await request(app.getHttpServer())
+      const verifyResponse = await request(app.getHttpServer() as Server)
         .post('/auth/verify-mfa-login')
         .send({
           challengeId,
@@ -290,7 +291,7 @@ describe('MFA Flows (e2e)', () => {
   describe('MFA Recovery', () => {
     it('should allow recovery code usage', async () => {
       // Setup MFA with recovery codes
-      const setupResponse = await request(app.getHttpServer())
+      const setupResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -300,7 +301,7 @@ describe('MFA Flows (e2e)', () => {
       const recoveryCodes = setupResponse.body.recoveryCodes;
 
       // Use recovery code
-      const recoveryResponse = await request(app.getHttpServer())
+      const recoveryResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/recover')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -312,7 +313,7 @@ describe('MFA Flows (e2e)', () => {
     });
 
     it('should invalidate used recovery code', async () => {
-      const setupResponse = await request(app.getHttpServer())
+      const setupResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/setup')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -322,7 +323,7 @@ describe('MFA Flows (e2e)', () => {
       const recoveryCodes = setupResponse.body.recoveryCodes;
 
       // Use recovery code first time
-      await request(app.getHttpServer())
+      await request(app.getHttpServer() as Server)
         .post('/auth/mfa/recover')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
@@ -331,7 +332,7 @@ describe('MFA Flows (e2e)', () => {
         .expect(200);
 
       // Try to use same code again
-      const secondResponse = await request(app.getHttpServer())
+      const secondResponse = await request(app.getHttpServer() as Server)
         .post('/auth/mfa/recover')
         .set('Authorization', `Bearer ${accessToken}`)
         .send({

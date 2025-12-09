@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import {
   describe,
   it,
@@ -16,21 +16,22 @@ import {
   beforeEach,
 } from '@jest/globals';
 import { AppModule } from '../src/app.module';
-import { PrismaClient } from '@workspace/database';
+import { PrismaClient, Tenant, User, UserTenant } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { Server } from 'http';
 
 describe('Multi-Tenant Isolation (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaClient;
-  let tenant1: any;
-  let tenant2: any;
-  let user1: any;
-  let user2: any;
-  let profile1: any;
-  let profile2: any;
-  let resource1: any; // Resource in tenant1
-  let resource2: any; // Resource in tenant2
+  let tenant1: Tenant;
+  let tenant2: Tenant;
+  let user1: User;
+  let user2: User;
+  let profile1: UserTenant;
+  let profile2: UserTenant;
+  // let resource1: Record<string, unknown>; // Resource in tenant1
+  let resource2: Record<string, unknown>; // Resource in tenant2
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -157,23 +158,23 @@ describe('Multi-Tenant Isolation (e2e)', () => {
   describe('Data Isolation', () => {
     it("should only return resources from user's tenant", async () => {
       // User1 should only see tenant1 resources
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/resources')
         .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant1.id)
+        .set('X-Tenant-Id', tenant1.id )
         .expect(200);
 
       const resources = response.body.data || response.body;
       expect(Array.isArray(resources)).toBe(true);
       // All resources should belong to tenant1
-      resources.forEach((resource: any) => {
+      resources.forEach((resource: Record<string, unknown>) => {
         expect(resource.tenantId).toBe(tenant1.id);
       });
     });
 
     it("should prevent user from accessing other tenant's resources", async () => {
       // User1 trying to access tenant2's resource
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get(`/api/resources/${resource2?.id}`)
         .set('Authorization', 'Bearer user1-token')
         .set('X-Tenant-Id', tenant1.id)
@@ -184,7 +185,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
 
     it('should prevent user from creating resources in other tenant', async () => {
       // User1 trying to create resource in tenant2
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/api/resources')
         .set('Authorization', 'Bearer user1-token')
         .set('X-Tenant-Id', tenant2.id) // Wrong tenant
@@ -198,7 +199,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
 
     it("should prevent user from updating other tenant's resources", async () => {
       // User1 trying to update tenant2's resource
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .put(`/api/resources/${resource2?.id}`)
         .set('Authorization', 'Bearer user1-token')
         .set('X-Tenant-Id', tenant1.id)
@@ -212,7 +213,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
 
     it("should prevent user from deleting other tenant's resources", async () => {
       // User1 trying to delete tenant2's resource
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .delete(`/api/resources/${resource2?.id}`)
         .set('Authorization', 'Bearer user1-token')
         .set('X-Tenant-Id', tenant1.id)
@@ -224,7 +225,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
 
   describe('Tenant Context Validation', () => {
     it('should require tenant context header', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/resources')
         .set('Authorization', 'Bearer valid-token')
         .expect(400);
@@ -234,7 +235,7 @@ describe('Multi-Tenant Isolation (e2e)', () => {
 
     it('should validate user belongs to tenant', async () => {
       // User1 trying to use tenant2 context
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .get('/api/resources')
         .set('Authorization', 'Bearer user1-token')
         .set('X-Tenant-Id', tenant2.id)

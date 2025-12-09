@@ -6,7 +6,7 @@
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import * as request from 'supertest';
+import request from 'supertest';
 import {
   describe,
   it,
@@ -19,6 +19,7 @@ import { AppModule } from '../src/app.module';
 import { PrismaClient } from '@workspace/database';
 import { PasswordService } from '../src/auth/services/password.service';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { Server } from 'http';
 
 describe('Authentication Flow (e2e)', () => {
   let app: INestApplication;
@@ -94,7 +95,7 @@ describe('Authentication Flow (e2e)', () => {
 
   describe('POST /auth/login', () => {
     it('should login successfully and return schools list', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'test@example.com',
@@ -110,7 +111,7 @@ describe('Authentication Flow (e2e)', () => {
     });
 
     it('should reject invalid credentials', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'test@example.com',
@@ -122,7 +123,7 @@ describe('Authentication Flow (e2e)', () => {
     });
 
     it('should reject non-existent user', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'nonexistent@example.com',
@@ -139,7 +140,7 @@ describe('Authentication Flow (e2e)', () => {
 
     beforeEach(async () => {
       // First login to get user context
-      const loginResponse = await request(app.getHttpServer())
+      const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
           email: 'test@example.com',
@@ -154,7 +155,7 @@ describe('Authentication Flow (e2e)', () => {
     it('should select school and return JWT tokens', async () => {
       // This test requires proper JWT setup and mocking
       // For now, we'll test the structure
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/select-school')
         .set('Authorization', `Bearer ${loginToken}`)
         .send({
@@ -178,7 +179,7 @@ describe('Authentication Flow (e2e)', () => {
     it('should refresh access token with valid refresh token', async () => {
       // This test requires a valid refresh token
       // In a real scenario, you'd get this from select-school endpoint
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/refresh')
         .send({
           refreshToken: 'valid-refresh-token',
@@ -194,7 +195,7 @@ describe('Authentication Flow (e2e)', () => {
     });
 
     it('should reject invalid refresh token', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(app.getHttpServer() as Server)
         .post('/auth/refresh')
         .send({
           refreshToken: 'invalid-refresh-token',

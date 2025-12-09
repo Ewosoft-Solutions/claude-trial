@@ -8,7 +8,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { RoleService } from '../src/auth/services/role.service';
 import { PermissionPoolService } from '../src/auth/services/permission-pool.service';
-import { createMockPrismaClient } from '../src/common/__tests__/test-utils';
+import { createMockContext } from '../src/common/__tests__/test-utils';
 import { PrismaClient } from '@workspace/database';
 import { ClearanceLevel, RoleType } from '@workspace/api';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
@@ -19,7 +19,8 @@ describe('Custom Role Creation Constraints Validation', () => {
   let mockPrisma: Partial<PrismaClient>;
 
   beforeEach(async () => {
-    mockPrisma = createMockPrismaClient();
+    const mockCtx = createMockContext();
+    mockPrisma = mockCtx.prisma;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
