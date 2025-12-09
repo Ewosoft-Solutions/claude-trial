@@ -15,6 +15,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { PermissionService } from '../services/permission.service';
 import { DatabaseService } from '../../common';
+import { RequestUser } from '../types/request-user';
 
 /**
  * Metadata key for clearance level requirement
@@ -55,7 +56,7 @@ export class ClearanceLevelGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user = (request as Request & { user?: RequestUser }).user;
 
     if (!user || !user.userId || !user.tenantId || !user.profileId) {
       throw new ForbiddenException('User context not found');

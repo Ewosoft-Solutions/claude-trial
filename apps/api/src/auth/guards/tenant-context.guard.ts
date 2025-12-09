@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { TenantValidationService } from '@workspace/api';
 import { DatabaseService } from '../../common';
+import { RequestUser } from '../types/request-user';
 
 /**
  * Tenant Context Guard
@@ -26,7 +27,7 @@ export class TenantContextGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user = (request as unknown as { user?: RequestUser }).user;
 
     if (!user || !user.userId || !user.tenantId) {
       throw new UnauthorizedException('User context not found');

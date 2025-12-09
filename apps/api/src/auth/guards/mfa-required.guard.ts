@@ -13,6 +13,7 @@ import {
 import { Reflector } from '@nestjs/core';
 import { MfaBaseService } from '../services/mfa-base.service';
 import { DatabaseService } from '../../common';
+import { RequestUser } from '../types/request-user';
 
 /**
  * MFA Required Decorator Metadata Key
@@ -25,9 +26,9 @@ export const MFA_REQUIRED_KEY = 'mfaRequired';
  * Marks an endpoint as requiring MFA verification.
  */
 export const MfaRequired = () => {
-  return (target: any, propertyKey: string, descriptor: PropertyDescriptor) => {
-    // This will be handled by the guard using Reflector
-  };
+  // return (target: unknown, propertyKey: string, descriptor: PropertyDescriptor) => {
+  //   // This will be handled by the guard using Reflector
+  // };
 };
 
 /**
@@ -55,7 +56,7 @@ export class MfaRequiredGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user = (request as unknown as { user?: RequestUser }).user;
 
     if (!user || !user.userId) {
       throw new ForbiddenException('User not authenticated');

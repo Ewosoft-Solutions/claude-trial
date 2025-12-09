@@ -16,7 +16,7 @@ import {
 import { PermissionPoolService } from './permission-pool.service';
 import {
   AccessScope,
-  ClearanceLevelHelpers,
+  // ClearanceLevelHelpers,
   AIQueryType,
 } from '@workspace/api';
 
@@ -262,7 +262,7 @@ export class AIMediatorService {
 
     // Apply resource-based filtering if configured
     if (filterConfig.allowedResources.length > 0) {
-      filteredData = filteredData.filter((item) => {
+      filteredData = filteredData.filter((item: Record<string, string | undefined>) => {
         const resourceType = item.resource || item.resourceType;
         return filterConfig.allowedResources.includes(resourceType);
       });
@@ -270,7 +270,7 @@ export class AIMediatorService {
 
     // Apply action-based filtering if configured
     if (filterConfig.allowedActions.length > 0) {
-      filteredData = filteredData.filter((item) => {
+      filteredData = filteredData.filter((item: Record<string, string | undefined>) => {
         const action = item.action || item.actionType;
         return filterConfig.allowedActions.includes(action);
       });

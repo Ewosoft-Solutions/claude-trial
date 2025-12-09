@@ -10,7 +10,7 @@ import {
   Post,
   Body,
   Param,
-  Query,
+  // Query,
   UseGuards,
   Request,
   HttpCode,
@@ -24,12 +24,12 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
-  ClearanceLevelGuard,
+  // ClearanceLevelGuard,
   RequireClearanceLevel,
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { RoleService, CreateCustomRoleInput } from '../services/role.service';
-import { PermissionService } from '../services/permission.service';
+import { PermissionService, UserPermissionContext } from '../services/permission.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantQueriesService } from '@workspace/api';
 import { RoleType } from '@workspace/api';
@@ -70,7 +70,7 @@ export class RoleManagementController {
   @ApiOperation({ summary: 'Get all roles for tenant' })
   @ApiResponse({ status: 200, description: 'List of roles' })
   async getRoles(@Request() req: any) {
-    const userContext = req.userContext;
+    const userContext = req.userContext as UserPermissionContext | undefined;
     const tenantId = userContext?.tenantId;
 
     if (!tenantId) {
@@ -151,7 +151,7 @@ export class RoleManagementController {
     @Request() req: any,
   ) {
     const user = req.user;
-    const userContext = req.userContext;
+    const userContext = req.userContext as UserPermissionContext | undefined;
     const tenantId = userContext?.tenantId;
 
     if (!tenantId) {

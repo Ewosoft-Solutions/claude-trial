@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { PermissionService } from '../services/permission.service';
 import { DatabaseService } from '../../common';
+import { RequestUser } from '../types/request-user';
 
 /**
  * Context Validation Guard
@@ -28,7 +29,7 @@ export class ContextValidationGuard implements CanActivate {
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest();
-    const user = request.user;
+    const user = (request as unknown as { user?: RequestUser }).user;
 
     if (!user || !user.userId || !user.tenantId || !user.profileId) {
       throw new ForbiddenException('User context not found');
