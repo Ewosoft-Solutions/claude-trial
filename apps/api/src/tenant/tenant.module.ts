@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { JwtModule } from '@nestjs/jwt';
 import { TenantController } from './controllers/tenant.controller';
 import { TenantService } from './services/tenant.service';
 import { TenantRegistrationService } from './services/tenant-registration.service';
@@ -25,7 +26,14 @@ import { AuthModule } from '../auth/auth.module';
  * - Audit logging
  */
 @Module({
-  imports: [CommonModule, AuthModule],
+  imports: [
+    CommonModule,
+    AuthModule,
+    JwtModule.register({
+      secret: 'placeholder',
+      signOptions: { expiresIn: '1h' },
+    }),
+  ],
   controllers: [TenantController],
   providers: [
     TenantService,

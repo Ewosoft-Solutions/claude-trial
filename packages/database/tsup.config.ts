@@ -6,7 +6,7 @@ export default defineConfig({
     client: 'src/client.ts',
     rls: 'src/rls/index.ts',
   },
-  format: ['esm'],
+  format: ['esm', 'cjs'],
   dts: true,
   outDir: 'dist',
   clean: true,

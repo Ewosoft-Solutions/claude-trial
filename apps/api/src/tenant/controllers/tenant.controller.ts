@@ -4,6 +4,7 @@ import {
   Post,
   Put,
   Patch,
+  Delete,
   Body,
   Param,
   Query,
@@ -51,6 +52,7 @@ import {
   UpdateUserDto,
   UpdateUserProfileDto,
 } from '../dto';
+import { type AuthenticatedRequest } from '../../auth/middleware/multi-layer-security.middleware';
 
 /**
  * Tenant Management Controller
@@ -81,7 +83,10 @@ export class TenantController {
   @RequireClearanceLevel(8) // Owner or higher
   @ApiOperation({ summary: 'Register a new school (tenant)' })
   @ApiResponse({ status: 201, description: 'School registered successfully' })
-  async registerTenant(@Body() data: RegisterTenantDto, @Request() req: any) {
+  async registerTenant(
+    @Body() data: RegisterTenantDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const user = req.user;
     const userContext = req.userContext;
 

@@ -5,10 +5,14 @@
   "exports": {
     ".": {
       "types": "./dist/client.d.ts",
+      "import": "./dist/client.js",
+      "require": "./dist/client.cjs",
       "default": "./dist/client.js"
     },
     "./rls": {
       "types": "./dist/rls/index.d.ts",
+      "import": "./dist/rls/index.js",
+      "require": "./dist/rls/index.cjs",
       "default": "./dist/rls/index.js"
     }
   },

@@ -1,9 +1,20 @@
 {
   "moduleFileExtensions": ["js", "json", "ts"],
-  "rootDir": ".",
+  "rootDir": "..",
   "testEnvironment": "node",
   "testRegex": ".e2e-spec.ts$",
+  "setupFiles": ["<rootDir>/test/setup-env.ts"],
   "transform": {
-    "^.+\\.(t|j)s$": "ts-jest"
+    "^.+\\.(t|j)s$": [
+      "ts-jest",
+      {
+        "tsconfig": "<rootDir>/tsconfig.jest.json"
+      }
+    ]
+  },
+  "moduleNameMapper": {
+    "^@workspace/database$": "<rootDir>/../../packages/database/src/client.ts",
+    "^@workspace/database/(.*)$": "<rootDir>/../../packages/database/src/$1",
+    "^\\.\\/tenant-context\\.js$": "<rootDir>/../../packages/database/src/rls/tenant-context.ts"
   }
 }
