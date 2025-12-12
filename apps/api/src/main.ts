@@ -54,6 +54,8 @@ async function bootstrap() {
     .addTag('grading-systems', 'Grading system endpoints')
     .addTag('assessments', 'Assessment endpoints')
     .addTag('grades', 'Grades endpoints')
+    .addTag('announcements', 'Announcements endpoints')
+    .addTag('messages', 'Messaging endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
