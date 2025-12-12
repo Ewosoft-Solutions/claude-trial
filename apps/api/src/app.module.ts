@@ -8,6 +8,7 @@ import { StudentModule } from './student/student.module';
 import { AcademicStructureModule } from './academic-structure/academic-structure.module';
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
+import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { getEnvConfig } from './common/config/env.config';
@@ -58,6 +59,7 @@ import { AppController } from './app.controller';
     AcademicStructureModule,
     AssessmentGradingModule,
     CommunicationModule,
+    ReportingAnalyticsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
