@@ -5,6 +5,8 @@ import { LinksModule } from './links/links.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantModule } from './tenant/tenant.module';
 import { StudentModule } from './student/student.module';
+import { AcademicStructureModule } from './academic-structure/academic-structure.module';
+import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { getEnvConfig } from './common/config/env.config';
@@ -52,6 +54,8 @@ import { AppController } from './app.controller';
     AuthModule,
     TenantModule,
     StudentModule,
+    AcademicStructureModule,
+    AssessmentGradingModule,
   ],
   controllers: [AppController],
   providers: [AppService],

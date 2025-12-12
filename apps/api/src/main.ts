@@ -48,6 +48,12 @@ async function bootstrap() {
     .addTag('tenant', 'Tenant (school) management endpoints')
     .addTag('links', 'Links management endpoints')
     .addTag('students', 'Student management endpoints')
+    .addTag('academic-structure', 'Academic structure endpoints')
+    .addTag('courses', 'Course catalog endpoints')
+    .addTag('classes', 'Class/section endpoints')
+    .addTag('grading-systems', 'Grading system endpoints')
+    .addTag('assessments', 'Assessment endpoints')
+    .addTag('grades', 'Grades endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

@@ -287,23 +287,23 @@ All foundation layer implementation tasks (Sections 1-8) have been completed:
 
 ### 14. Academic Structure Module
 
-- [ ] 14.1 Implement academic year management endpoints
-- [ ] 14.2 Implement term/semester management endpoints
-- [ ] 14.3 Implement course/subject management endpoints
-- [ ] 14.4 Implement class/section management endpoints
-- [ ] 14.5 Implement class-student assignment endpoints
-- [ ] 14.6 Implement timetable management endpoints
-- [ ] 14.7 Implement class schedule management
+- [x] 14.1 Implement academic year management endpoints
+- [x] 14.2 Implement term/semester management endpoints
+- [x] 14.3 Implement course/subject management endpoints
+- [x] 14.4 Implement class/section management endpoints
+- [x] 14.5 Implement class-student assignment endpoints
+- [x] 14.6 Implement timetable management endpoints
+- [x] 14.7 Implement class schedule management
 
 ### 15. Assessment & Grading Module
 
-- [ ] 15.1 Implement assessment creation and management endpoints
-- [ ] 15.2 Implement grade entry endpoints
-- [ ] 15.3 Implement grading system configuration endpoints
-- [ ] 15.4 Implement grade calculation logic
-- [ ] 15.5 Implement report card generation
-- [ ] 15.6 Implement transcript management
-- [ ] 15.7 Implement grade analytics and reporting
+- [x] 15.1 Implement assessment creation and management endpoints
+- [x] 15.2 Implement grade entry endpoints
+- [x] 15.3 Implement grading system configuration endpoints
+- [x] 15.4 Implement grade calculation logic
+- [x] 15.5 Implement report card generation
+- [x] 15.6 Implement transcript management
+- [x] 15.7 Implement grade analytics and reporting
 
 ### 16. Communication Module
 
