@@ -47,6 +47,7 @@ async function bootstrap() {
     .addTag('security-policy', 'Security policy management endpoints')
     .addTag('tenant', 'Tenant (school) management endpoints')
     .addTag('links', 'Links management endpoints')
+    .addTag('students', 'Student management endpoints')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

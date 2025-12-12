@@ -4,6 +4,7 @@ import { CommonModule } from './common';
 import { LinksModule } from './links/links.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantModule } from './tenant/tenant.module';
+import { StudentModule } from './student/student.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { getEnvConfig } from './common/config/env.config';
@@ -50,6 +51,7 @@ import { AppController } from './app.controller';
     LinksModule,
     AuthModule,
     TenantModule,
+    StudentModule,
   ],
   controllers: [AppController],
   providers: [AppService],
