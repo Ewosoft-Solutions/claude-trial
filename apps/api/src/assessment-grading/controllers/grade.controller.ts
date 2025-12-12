@@ -7,6 +7,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -64,13 +65,19 @@ export class GradeController {
 
   @Get('assessment/:assessmentId/stats')
   @RequirePermissions(['grades.view'])
-  @ApiOperation({ summary: 'Get assessment grade statistics' })
+  @ApiOperation({ summary: 'Get assessment grade analytics (stats + histogram + top/bottom)' })
   async stats(
     @Param('assessmentId') assessmentId: string,
+    @Query('bucketSize') bucketSize: string | undefined,
     @Request() req: { user?: RequestUser },
   ) {
     const user = req.user!;
-    return this.gradingService.getAssessmentStats(user.tenantId, assessmentId);
+    const bucket = bucketSize ? Number(bucketSize) : undefined;
+    return this.gradingService.getAssessmentAnalytics(
+      user.tenantId,
+      assessmentId,
+      bucket ?? 10,
+    );
   }
 
   @Get('student/:studentId')

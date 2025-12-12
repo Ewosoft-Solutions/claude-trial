@@ -346,13 +346,14 @@ export class AssessmentGradingService {
     // gradeScale expected shape: { "A": { min: 90, max: 100, points: 4.0 }, ... }
     let letterGrade: string | undefined;
     let gpaPoints: number | undefined;
-    for (const [letter, range] of Object.entries<any>(gradeScale)) {
+    const entries = Object.entries(gradeScale as Record<string, any>);
+    for (const [letter, range] of entries) {
       if (
         typeof range === 'object' &&
         range.min !== undefined &&
         range.max !== undefined &&
-        percentage >= range.min &&
-        percentage <= range.max
+        percentage >= Number(range.min) &&
+        percentage <= Number(range.max)
       ) {
         letterGrade = letter;
         if (range.points !== undefined) {
@@ -442,8 +443,15 @@ export class AssessmentGradingService {
     });
     if (!grade) throw new NotFoundException('Grade not found');
 
+    const currentPoints =
+      dto.pointsEarned !== undefined && dto.pointsEarned !== null
+        ? dto.pointsEarned
+        : grade.pointsEarned !== null && grade.pointsEarned !== undefined
+          ? Number(grade.pointsEarned)
+          : undefined;
+
     const computed = this.computeGrade(
-      dto.pointsEarned ?? (grade.pointsEarned as any),
+      currentPoints,
       Number(grade.assessment.maxPoints),
       grade.assessment.gradingSystem?.gradeScale,
     );
@@ -451,7 +459,10 @@ export class AssessmentGradingService {
     return this.db.client.grade.update({
       where: { id },
       data: {
-        pointsEarned: dto.pointsEarned as any,
+        pointsEarned:
+          dto.pointsEarned !== undefined && dto.pointsEarned !== null
+            ? dto.pointsEarned
+            : undefined,
         percentage: dto.percentage ?? computed.percentage,
         letterGrade: dto.letterGrade ?? computed.letterGrade,
         gpaPoints: dto.gpaPoints ?? computed.gpaPoints,
@@ -521,12 +532,21 @@ export class AssessmentGradingService {
     });
   }
 
-  async getAssessmentStats(tenantId: string, assessmentId: string) {
+  async getAssessmentAnalytics(
+    tenantId: string,
+    assessmentId: string,
+    bucketSize = 10,
+  ) {
     const assessment = await this.db.client.assessment.findFirst({
       where: { id: assessmentId, academicYear: { tenantId } },
       select: { id: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
+
+    const grades = await this.db.client.grade.findMany({
+      where: { assessmentId },
+      select: { percentage: true, pointsEarned: true },
+    });
 
     const agg = await this.db.client.grade.aggregate({
       where: { assessmentId },
@@ -536,6 +556,23 @@ export class AssessmentGradingService {
       _count: { _all: true },
     });
 
+    const percentages = grades
+      .map((g) => (g.percentage === null ? undefined : Number(g.percentage)))
+      .filter((v): v is number => v !== undefined && !Number.isNaN(v));
+
+    const histogram: Record<string, number> = {};
+    if (bucketSize <= 0) bucketSize = 10;
+    for (const p of percentages) {
+      const bucketStart = Math.floor(p / bucketSize) * bucketSize;
+      const bucketEnd = bucketStart + bucketSize - 0.0001; // inclusive upper bound
+      const label = `${bucketStart}-${bucketEnd.toFixed(0)}`;
+      histogram[label] = (histogram[label] ?? 0) + 1;
+    }
+
+    const sorted = [...percentages].sort((a, b) => b - a);
+    const top5 = sorted.slice(0, 5);
+    const bottom5 = sorted.slice(-5).reverse();
+
     return {
       count: agg._count._all,
       avgPercentage: agg._avg.percentage,
@@ -544,6 +581,9 @@ export class AssessmentGradingService {
       maxPercentage: agg._max.percentage,
       minPoints: agg._min.pointsEarned,
       maxPoints: agg._max.pointsEarned,
+      histogram,
+      top5,
+      bottom5,
     };
   }
 
@@ -576,10 +616,135 @@ export class AssessmentGradingService {
       },
     });
 
+    const enrollmentsWithStats = enrollments.map((enrollment) => {
+      const assessments = enrollment.grades.map((g) => ({
+        assessmentId: g.assessmentId,
+        name: g.assessment.name,
+        type: g.assessment.type,
+        weight: g.assessment.weight ? Number(g.assessment.weight) : undefined,
+        maxPoints: Number(g.assessment.maxPoints),
+        pointsEarned:
+          g.pointsEarned !== null && g.pointsEarned !== undefined
+            ? Number(g.pointsEarned)
+            : undefined,
+        percentage:
+          g.percentage !== null && g.percentage !== undefined
+            ? Number(g.percentage)
+            : undefined,
+        letterGrade: g.letterGrade ?? undefined,
+        gpaPoints:
+          g.gpaPoints !== null && g.gpaPoints !== undefined
+            ? Number(g.gpaPoints)
+            : undefined,
+      }));
+
+      // Weighted percentage: if any weight present, use weights; else average available percentages.
+      const hasWeights = assessments.some((a) => a.weight !== undefined);
+      let coursePercentage: number | undefined;
+      if (hasWeights) {
+        let totalWeight = 0;
+        let weighted = 0;
+        for (const a of assessments) {
+          if (a.percentage !== undefined && a.weight !== undefined) {
+            weighted += a.percentage * a.weight;
+            totalWeight += a.weight;
+          }
+        }
+        if (totalWeight > 0) {
+          coursePercentage = weighted / totalWeight;
+        }
+      } else {
+        const ps = assessments
+          .map((a) => a.percentage)
+          .filter((v): v is number => v !== undefined);
+        if (ps.length > 0) {
+          coursePercentage = ps.reduce((a, b) => a + b, 0) / ps.length;
+        }
+      }
+
+      const gpas = assessments
+        .map((a) => a.gpaPoints)
+        .filter((v): v is number => v !== undefined);
+      const courseGpa =
+        gpas.length > 0
+          ? gpas.reduce((a, b) => a + b, 0) / gpas.length
+          : undefined;
+
+      return {
+        ...enrollment,
+        summary: {
+          coursePercentage,
+          courseGpa,
+        },
+        assessments,
+      };
+    });
+
+    // Term-level aggregation
+    const termBuckets: Record<
+      string,
+      {
+        percentages: number[];
+        gpas: number[];
+        termName?: string;
+        termId?: string;
+      }
+    > = {};
+    for (const e of enrollmentsWithStats) {
+      const termId = e.class.termId;
+      termBuckets[termId] = termBuckets[termId] ?? {
+        percentages: [],
+        gpas: [],
+        termName: e.class.term?.name,
+        termId,
+      };
+      if (e.summary.coursePercentage !== undefined) {
+        termBuckets[termId].percentages.push(e.summary.coursePercentage);
+      }
+      if (e.summary.courseGpa !== undefined) {
+        termBuckets[termId].gpas.push(e.summary.courseGpa);
+      }
+    }
+
+    const termSummaries = Object.values(termBuckets).map((t) => ({
+      termId: t.termId,
+      termName: t.termName,
+      avgPercentage:
+        t.percentages.length > 0
+          ? t.percentages.reduce((a, b) => a + b, 0) / t.percentages.length
+          : undefined,
+      avgGpa:
+        t.gpas.length > 0
+          ? t.gpas.reduce((a, b) => a + b, 0) / t.gpas.length
+          : undefined,
+    }));
+
+    // Overall aggregates
+    const overallPercentages = termSummaries
+      .map((t) => t.avgPercentage)
+      .filter((v): v is number => v !== undefined);
+    const overallGpas = termSummaries
+      .map((t) => t.avgGpa)
+      .filter((v): v is number => v !== undefined);
+
+    const overall = {
+      avgPercentage:
+        overallPercentages.length > 0
+          ? overallPercentages.reduce((a, b) => a + b, 0) /
+            overallPercentages.length
+          : undefined,
+      avgGpa:
+        overallGpas.length > 0
+          ? overallGpas.reduce((a, b) => a + b, 0) / overallGpas.length
+          : undefined,
+    };
+
     return {
       studentId,
       academicYearId,
-      enrollments,
+      enrollments: enrollmentsWithStats,
+      termSummaries,
+      overall,
     };
   }
 }
