@@ -19,6 +19,7 @@ import {
   ENROLLMENT_STATUSES,
   STUDENT_ENROLLMENT_STATUSES,
 } from '../dto/student.dto';
+import { Prisma, Student } from '@workspace/database';
 
 @Injectable()
 export class StudentService {
@@ -54,13 +55,21 @@ export class StudentService {
   };
 
   private ensureValidStudentStatus(status: string) {
-    if (!STUDENT_ENROLLMENT_STATUSES.includes(status as any)) {
+    if (
+      !STUDENT_ENROLLMENT_STATUSES.includes(
+        status as (typeof STUDENT_ENROLLMENT_STATUSES)[number],
+      )
+    ) {
       throw new BadRequestException('Invalid student enrollment status');
     }
   }
 
   private ensureValidEnrollmentStatus(status: string) {
-    if (!ENROLLMENT_STATUSES.includes(status as any)) {
+    if (
+      !ENROLLMENT_STATUSES.includes(
+        status as (typeof ENROLLMENT_STATUSES)[number],
+      )
+    ) {
       throw new BadRequestException('Invalid enrollment status');
     }
   }
@@ -93,6 +102,7 @@ export class StudentService {
 
     return tenantClient.student.create({
       data: {
+        tenantId,
         userTenantId: dto.userTenantId,
         studentNumber: dto.studentNumber,
         admissionNumber: dto.admissionNumber,
@@ -118,7 +128,7 @@ export class StudentService {
           : undefined,
         transferDate: dto.transferDate ? new Date(dto.transferDate) : undefined,
         createdBy,
-      },
+      } satisfies Prisma.StudentUncheckedCreateInput,
       include: this.studentInclude,
     });
   }
