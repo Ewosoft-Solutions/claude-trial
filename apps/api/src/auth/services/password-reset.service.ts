@@ -125,7 +125,7 @@ export class PasswordResetService {
     ipAddress?: string,
   ): Promise<void> {
     // Find user by reset token
-    const user = await prisma.user.findUnique({
+    const user = await prisma.user.findFirst({
       where: { passwordResetToken: token },
       select: {
         id: true,

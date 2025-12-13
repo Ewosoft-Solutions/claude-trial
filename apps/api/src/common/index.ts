@@ -11,3 +11,4 @@ export * from './repositories/repositories.module';
 export * from './middleware';
 export * from './filters';
 export * from './dto';
+export * from './audit/audit.constants';

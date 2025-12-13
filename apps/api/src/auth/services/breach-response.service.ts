@@ -10,6 +10,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { JWTSecretService, BreachSeverity } from '@workspace/api';
 import { SessionService } from './session.service';
 import { PasswordResetService } from './password-reset.service';
@@ -888,7 +889,7 @@ export class BreachResponseService {
       await prisma.auditLog.create({
         data: {
           tenantId: schoolId,
-          eventType: 'security_event',
+          eventType: AUDIT_EVENT.SECURITY_EVENT,
           action: data.action,
           resource: data.resource || 'breach_response',
           resourceId: data.resourceId || null,

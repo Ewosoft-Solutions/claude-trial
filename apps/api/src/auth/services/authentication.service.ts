@@ -16,6 +16,7 @@ import {
   MfaMethodType,
 } from '@workspace/api';
 import { PrismaClient } from '@workspace/database';
+import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 // Local imports
 import { PasswordService } from './password.service';
 import { LoginAttemptService } from './login-attempt.service';
@@ -220,6 +221,31 @@ export class AuthenticationService {
       user.id as string,
     );
 
+    // Audit: successful primary authentication
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: null,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: 'login',
+          resource: 'auth_login',
+          resourceId: user.id,
+          actorId: user.id,
+          actorEmail: user.email,
+          ipAddress,
+          userAgent: userAgent || null,
+          description: 'User login successful (pre-MFA)',
+          metadata: {
+            requiresMfa: hasMfa,
+          },
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      // Audit failures should not block authentication flow
+      console.error('Failed to log authentication event', auditError);
+    }
+
     // Get available schools for user
     // Note: Type definitions missing prisma parameter, but implementation requires it
     const schools = await (SchoolSelectionService.getAvailableSchools as any)(
@@ -343,6 +369,31 @@ export class AuthenticationService {
       throw new UnauthorizedException('User not found');
     }
 
+    // Audit: MFA verified / login completed
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: null,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: 'mfa_verified',
+          resource: 'auth_login',
+          resourceId: user.id,
+          actorId: user.id,
+          actorEmail: user.email,
+          ipAddress: undefined,
+          userAgent: undefined,
+          description: 'MFA challenge verified',
+          metadata: {
+            challengeId,
+            method: token ? 'totp_or_code' : 'webauthn_or_recovery',
+          },
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to log MFA verification', auditError);
+    }
+
     return {
       success: true,
       user: {
@@ -396,6 +447,11 @@ export class AuthenticationService {
         },
       },
       include: {
+        user: {
+          select: {
+            email: true,
+          },
+        },
         tenant: {
           select: {
             id: true,
@@ -463,6 +519,32 @@ export class AuthenticationService {
       userAgent,
       expiresAt,
     });
+
+    // Audit: authorization context selection
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId,
+          eventType: AUDIT_EVENT.AUTHORIZATION,
+          action: 'select_school',
+          resource: 'auth_context',
+          resourceId: tenantId,
+          actorId: userId,
+          actorProfileId: profileId,
+          actorRole: roles[0] || null,
+          actorEmail: userTenant.user?.email || null,
+          ipAddress: ipAddress || null,
+          userAgent: userAgent || null,
+          description: `User selected school ${userTenant.tenant.name}`,
+          metadata: {
+            roles,
+          },
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to log authorization event', auditError);
+    }
 
     return {
       success: true,

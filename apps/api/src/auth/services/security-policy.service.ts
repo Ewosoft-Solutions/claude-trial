@@ -544,10 +544,11 @@ export class SecurityPolicyService {
     // For now, this is a placeholder similar to MfaAuditService
     // When audit logging is implemented, uncomment and use:
     //
+    // // When enabling audit logging, import AUDIT_EVENT from audit.constants.
     // await prisma.auditLog.create({
     //   data: {
     //     tenantId: schoolId,
-    //     eventType: 'security_event',
+    //     eventType: AUDIT_EVENT.SECURITY_EVENT,
     //     action,
     //     resource: 'security_policy',
     //     resourceId: schoolId,

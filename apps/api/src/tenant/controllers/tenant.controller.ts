@@ -91,7 +91,7 @@ export class TenantController {
     const userContext = req.userContext;
 
     // Get requester role (highest clearance level role)
-    const requesterRole = userContext?.roles?.[0]?.name || 'User';
+    const requesterRole = userContext?.roles?.[0] || 'User';
 
     return this.registrationService.registerTenant(
       data,

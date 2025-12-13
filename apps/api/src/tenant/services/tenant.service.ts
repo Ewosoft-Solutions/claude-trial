@@ -32,8 +32,9 @@ export class TenantService {
         securityPolicy: {
           select: {
             id: true,
-            tier: true,
-            isActive: true,
+            policyTier: true,
+            requireMFA: true,
+            auditLevel: true,
           },
         },
       },

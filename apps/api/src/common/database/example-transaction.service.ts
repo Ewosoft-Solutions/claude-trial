@@ -28,8 +28,8 @@ export class ExampleTransactionService {
   async createUserWithProfile(
     tenantId: string,
     userId: string,
-    userData: { email: string; name: string },
-    profileData: { bio?: string },
+    userData: { email: string; firstName?: string; lastName?: string },
+    profileData?: { status?: string },
   ) {
     return this.prismaTx.runInTransaction(
       async (tx) => {
@@ -41,17 +41,17 @@ export class ExampleTransactionService {
           data: {
             id: userId,
             email: userData.email,
-            name: userData.name,
-            tenantId, // Explicitly set, but RLS will also enforce it
+            ...(userData.firstName ? { firstName: userData.firstName } : {}),
+            ...(userData.lastName ? { lastName: userData.lastName } : {}),
           },
         });
 
-        // Create profile in same transaction
-        const profile = await tx.profile.create({
+        // Create user-tenant profile in same transaction
+        const profile = await tx.userTenant.create({
           data: {
             userId: user.id,
-            bio: profileData.bio,
-            tenantId, // Explicitly set
+            tenantId,
+            status: profileData?.status ?? 'active',
           },
         });
 
@@ -74,7 +74,7 @@ export class ExampleTransactionService {
   async transferDataBetweenTenants(
     sourceTenantId: string,
     targetTenantId: string,
-    dataId: string,
+    userTenantId: string,
     userId: string,
   ) {
     try {
@@ -82,21 +82,31 @@ export class ExampleTransactionService {
         async (tx) => {
           // Read from source tenant
           // Note: RLS context is set to sourceTenantId
-          const sourceData = await tx.data.findUnique({
-            where: { id: dataId },
+          const sourceProfile = await tx.userTenant.findUnique({
+            where: { id: userTenantId },
           });
 
-          if (!sourceData) {
-            throw new Error(`Data ${dataId} not found`);
+          if (!sourceProfile) {
+            throw new Error(`UserTenant ${userTenantId} not found`);
           }
 
-          // Create in target tenant
-          // Note: We need to manually handle tenant switching here
-          // This is a limitation - you can't change tenant mid-transaction
-          // For this use case, you'd need platform admin privileges
-          // or a separate transaction
+          // Create profile in target tenant if it doesn't exist
+          const targetProfile = await tx.userTenant.upsert({
+            where: {
+              userId_tenantId: {
+                userId: sourceProfile.userId,
+                tenantId: targetTenantId,
+              },
+            },
+            update: {},
+            create: {
+              userId: sourceProfile.userId,
+              tenantId: targetTenantId,
+              status: 'active',
+            },
+          });
 
-          return sourceData;
+          return targetProfile;
         },
         sourceTenantId,
         userId,
@@ -115,7 +125,7 @@ export class ExampleTransactionService {
   async createUserWithNestedOperations(
     tenantId: string,
     userId: string,
-    userData: { email: string; name: string },
+    userData: { email: string; firstName?: string; lastName?: string },
   ) {
     return this.prismaTx.runInTransaction(
       async (tx) => {
@@ -124,8 +134,8 @@ export class ExampleTransactionService {
           data: {
             id: userId,
             email: userData.email,
-            name: userData.name,
-            tenantId,
+            ...(userData.firstName ? { firstName: userData.firstName } : {}),
+            ...(userData.lastName ? { lastName: userData.lastName } : {}),
           },
         });
 
@@ -144,7 +154,7 @@ export class ExampleTransactionService {
    * Helper method that can work with existing transaction
    */
   private async createUserSettings(
-    tx: any,
+    tx: PrismaTransactionService['client'] | any,
     userId: string,
     tenantId: string,
     contextUserId: string,
@@ -152,24 +162,40 @@ export class ExampleTransactionService {
     // If tx is provided, use it directly
     // Otherwise, start a new transaction
     if (tx) {
-      return tx.userSettings.create({
-        data: {
+      return tx.userTenant.upsert({
+        where: {
+          userId_tenantId: {
+            userId,
+            tenantId,
+          },
+        },
+        create: {
           userId,
           tenantId,
-          theme: 'light',
+          status: 'active',
+          addedBy: contextUserId,
         },
+        update: {},
       });
     }
 
     // Otherwise, use runInTransaction
     return this.prismaTx.runInTransaction(
       async (transactionTx) => {
-        return transactionTx.userSettings.create({
-          data: {
+        return transactionTx.userTenant.upsert({
+          where: {
+            userId_tenantId: {
+              userId,
+              tenantId,
+            },
+          },
+          create: {
             userId,
             tenantId,
-            theme: 'light',
+            status: 'active',
+            addedBy: contextUserId,
           },
+          update: {},
         });
       },
       tenantId,
@@ -191,7 +217,7 @@ export class ExampleTransactionService {
     // Use the client directly (not in transaction)
     const user = await this.prismaTx.client.user.findUnique({
       where: { id: userId },
-      include: { profile: true },
+      include: { userTenants: true },
     });
 
     return user;

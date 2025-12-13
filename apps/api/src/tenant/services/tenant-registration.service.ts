@@ -14,6 +14,7 @@ import {
 } from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -107,6 +108,7 @@ export class TenantRegistrationService {
       action: 'tenant_registered',
       tenantId: tenant.id,
       userId: createdBy,
+      eventType: AUDIT_EVENT.AUTHORIZATION,
       metadata: {
         name: tenant.name,
         slug: tenant.slug,
@@ -168,6 +170,7 @@ export class TenantRegistrationService {
       action: 'tenant_updated',
       tenantId: tenant.id,
       userId: updatedBy,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
       metadata: {
         changes: data,
       },

@@ -14,6 +14,7 @@ import {
   UserPermissionContext,
 } from './permission.service';
 import { PermissionPoolService } from './permission-pool.service';
+import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import {
   AccessScope,
   // ClearanceLevelHelpers,
@@ -262,18 +263,22 @@ export class AIMediatorService {
 
     // Apply resource-based filtering if configured
     if (filterConfig.allowedResources.length > 0) {
-      filteredData = filteredData.filter((item: Record<string, string | undefined>) => {
-        const resourceType = item.resource || item.resourceType;
-        return filterConfig.allowedResources.includes(resourceType);
-      });
+      filteredData = filteredData.filter(
+        (item: Record<string, string | undefined>) => {
+          const resourceType = item.resource || item.resourceType;
+          return filterConfig.allowedResources.includes(resourceType);
+        },
+      );
     }
 
     // Apply action-based filtering if configured
     if (filterConfig.allowedActions.length > 0) {
-      filteredData = filteredData.filter((item: Record<string, string | undefined>) => {
-        const action = item.action || item.actionType;
-        return filterConfig.allowedActions.includes(action);
-      });
+      filteredData = filteredData.filter(
+        (item: Record<string, string | undefined>) => {
+          const action = item.action || item.actionType;
+          return filterConfig.allowedActions.includes(action);
+        },
+      );
     }
 
     // Apply explicit permission check if required
@@ -350,7 +355,7 @@ export class AIMediatorService {
       await prisma.auditLog.create({
         data: {
           tenantId: request.tenantId,
-          eventType: 'custom', // Using custom for AI-specific events
+          eventType: AUDIT_EVENT.AI_EVENT, // Dedicated type for AI-specific events
           action: eventType,
           resource: 'ai_mediator',
           resourceId: null,

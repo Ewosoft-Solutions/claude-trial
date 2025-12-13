@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
+import {
+  AuditEventType,
+  AUDIT_EVENT,
+  DEFAULT_AUDIT_EVENT_TYPE,
+} from '../../common/audit/audit.constants';
 
 /**
  * Tenant Audit Service
@@ -20,15 +25,22 @@ export class TenantAuditService {
     action: string;
     tenantId: string;
     userId: string;
+    eventType?: AuditEventType;
     metadata?: Record<string, any>;
   }) {
     try {
+      const eventType =
+        data.eventType ?? AUDIT_EVENT.USER_ACTION ?? DEFAULT_AUDIT_EVENT_TYPE;
+
       await this.dbService.client.auditLog.create({
         data: {
+          tenantId: data.tenantId,
+          eventType,
           action: data.action,
-          entityType: 'tenant',
-          entityId: data.tenantId,
-          userId: data.userId,
+          resource: 'tenant',
+          resourceId: data.tenantId,
+          actorId: data.userId,
+          description: `Tenant action: ${data.action}`,
           metadata: data.metadata || {},
           ipAddress: null, // Can be added from request context
           userAgent: null, // Can be added from request context
@@ -50,16 +62,22 @@ export class TenantAuditService {
     tenantId: string;
     userId: string;
     performedBy: string;
+    eventType?: AuditEventType;
     metadata?: Record<string, any>;
   }) {
     try {
+      const eventType =
+        data.eventType ?? AUDIT_EVENT.USER_ACTION ?? DEFAULT_AUDIT_EVENT_TYPE;
+
       await this.dbService.client.auditLog.create({
         data: {
-          action: data.action,
-          entityType: 'user',
-          entityId: data.userId,
-          userId: data.performedBy,
           tenantId: data.tenantId,
+          eventType,
+          action: data.action,
+          resource: 'user',
+          resourceId: data.userId,
+          actorId: data.performedBy,
+          description: `User action: ${data.action}`,
           metadata: data.metadata || {},
           ipAddress: null, // Can be added from request context
           userAgent: null, // Can be added from request context

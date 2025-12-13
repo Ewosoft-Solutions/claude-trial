@@ -4,7 +4,7 @@
  * Centralized environment variable configuration with validation.
  * Ensures all required environment variables are present and valid.
  */
-
+import 'dotenv/config';
 import { plainToInstance } from 'class-transformer';
 import {
   IsString,
@@ -248,7 +248,8 @@ export function getEnvConfig(): EnvironmentConfig {
 
   // Create instance from environment variables
   const config = plainToInstance(EnvironmentConfig, {
-    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_URL: 'postgresql://befenudu:Qwer@.1234@localhost:5432/schoolsys',
+    // DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV || 'development',
     PORT: process.env.PORT ? parseInt(process.env.PORT, 10) : 3000,
     JWT_SECRET: process.env.JWT_SECRET,
@@ -256,7 +257,8 @@ export function getEnvConfig(): EnvironmentConfig {
     WEBAUTHN_RP_NAME:
       process.env.WEBAUTHN_RP_NAME || 'School Management System',
     WEBAUTHN_RP_ID: process.env.WEBAUTHN_RP_ID || 'localhost',
-    WEBAUTHN_ORIGIN: process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000',
+    WEBAUTHN_ORIGIN: 'http://localhost:3001',
+    // WEBAUTHN_ORIGIN: process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000',
     DB_POOL_MIN: process.env.DB_POOL_MIN
       ? parseInt(process.env.DB_POOL_MIN, 10)
       : 2,
