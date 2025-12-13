@@ -70,8 +70,13 @@ export class AuthController {
    */
   @Post('verify-mfa-login')
   @HttpCode(HttpStatus.OK)
-  async verifyMfaLogin(@Body() verifyMfaForLoginDto: VerifyMfaForLoginDto) {
+  async verifyMfaLogin(
+    @Body() verifyMfaForLoginDto: VerifyMfaForLoginDto,
+    @Req() req: Request,
+  ) {
     const prisma = this.dbService.client;
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'];
 
     // Get user ID from challenge
     const challenge = await prisma.mfaChallenge.findUnique({
@@ -91,6 +96,8 @@ export class AuthController {
       verifyMfaForLoginDto.token,
       verifyMfaForLoginDto.webauthnResponse,
       verifyMfaForLoginDto.recoveryCode,
+      ipAddress,
+      userAgent,
     );
   }
 

@@ -15,6 +15,7 @@ import { DatabaseService } from '../../common/database/database.service';
 import { ProfileStatus } from '@workspace/api';
 import * as crypto from 'crypto';
 import * as bcrypt from 'bcrypt';
+import { AUDIT_ACTION } from '../../common/audit/audit.constants';
 
 /**
  * User Invitation Service
@@ -129,7 +130,7 @@ export class UserInvitationService {
 
     // Audit log
     await this.auditService.logUserAction({
-      action: 'user_invitation_created',
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_CREATED,
       tenantId,
       userId: user.id,
       performedBy: createdBy,
@@ -241,7 +242,7 @@ export class UserInvitationService {
 
     // Audit log
     await this.auditService.logUserAction({
-      action: 'user_invitation_accepted',
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_ACCEPTED,
       tenantId: userTenant.tenantId,
       userId: userTenant.userId,
       performedBy: userTenant.userId,

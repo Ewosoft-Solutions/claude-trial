@@ -14,7 +14,7 @@ import {
   UserPermissionContext,
 } from './permission.service';
 import { PermissionPoolService } from './permission-pool.service';
-import { AUDIT_EVENT } from '../../common/audit/audit.constants';
+import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
 import {
   AccessScope,
   // ClearanceLevelHelpers,
@@ -339,10 +339,10 @@ export class AIMediatorService {
       // Determine event type based on query type
       const eventType =
         request.queryType === 'analytics'
-          ? 'ai_analytics_query'
+          ? AUDIT_ACTION.AI_EVENT.ANALYTICS
           : request.queryType === 'academic'
-            ? 'ai_academic_query'
-            : 'ai_general_query';
+            ? AUDIT_ACTION.AI_EVENT.ACADEMIC
+            : AUDIT_ACTION.AI_EVENT.GENERAL;
 
       // Determine status
       const status = validationResult.allowed
@@ -356,7 +356,7 @@ export class AIMediatorService {
         data: {
           tenantId: request.tenantId,
           eventType: AUDIT_EVENT.AI_EVENT, // Dedicated type for AI-specific events
-          action: eventType,
+          action: AUDIT_ACTION.AI_EVENT[eventType],
           resource: 'ai_mediator',
           resourceId: null,
           actorId: request.userId,

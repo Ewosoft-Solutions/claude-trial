@@ -17,6 +17,7 @@ import {
   DeviceManagement,
   AuditLevel,
 } from '@workspace/api';
+import { AuditAction } from 'src/common';
 
 export interface TimeRestrictions {
   allowedHours: Array<{ start: number; end: number }>;
@@ -530,7 +531,7 @@ export class SecurityPolicyService {
   async logPolicyChange(
     prisma: PrismaClient,
     schoolId: string,
-    action: string,
+    action: AuditAction,
     actorId: string | null,
     actorProfileId: string | null,
     actorRole: string | null,

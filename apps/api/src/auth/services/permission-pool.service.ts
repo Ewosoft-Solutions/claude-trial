@@ -7,6 +7,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { AuditAction } from 'src/common';
 
 /**
  * Permission Pool with Permissions
@@ -23,7 +24,7 @@ export interface PermissionPoolWithPermissions {
     name: string;
     label: string;
     resource: string;
-    action: string;
+    action: AuditAction;
   }>;
 }
 
@@ -81,7 +82,7 @@ export class PermissionPoolService {
         name: pp.permission.name,
         label: pp.permission.label,
         resource: pp.permission.resource,
-        action: pp.permission.action,
+        action: pp.permission.action as AuditAction,
       })),
     }));
   }
@@ -213,7 +214,7 @@ export class PermissionPoolService {
         name: pp.permission.name,
         label: pp.permission.label,
         resource: pp.permission.resource,
-        action: pp.permission.action,
+        action: pp.permission.action as AuditAction,
       })),
     }));
   }

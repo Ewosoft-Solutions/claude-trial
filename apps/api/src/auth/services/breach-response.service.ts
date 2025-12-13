@@ -10,7 +10,11 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
-import { AUDIT_EVENT } from '../../common/audit/audit.constants';
+import {
+  AUDIT_ACTION,
+  AUDIT_EVENT,
+  AuditAction,
+} from '../../common/audit/audit.constants';
 import { JWTSecretService, BreachSeverity } from '@workspace/api';
 import { SessionService } from './session.service';
 import { PasswordResetService } from './password-reset.service';
@@ -136,7 +140,7 @@ export class BreachResponseService {
     // 6. Log breach response
     await this.logBreachResponse(prisma, schoolId, {
       ...options,
-      action: 'breach_response_force_reauth',
+      action: AUDIT_ACTION.SECURITY.BREACH.FORCE_REAUTH,
       escalatedToPasswordReset: escalateToPasswordReset,
       severity: escalateToPasswordReset ? 'critical' : 'high',
     });
@@ -205,7 +209,7 @@ export class BreachResponseService {
     // Log action
     await this.logBreachResponse(prisma, schoolId, {
       ...options,
-      action: 'breach_response_force_password_reset',
+      action: AUDIT_ACTION.SECURITY.BREACH.FORCE_PASSWORD_RESET,
       severity: 'high',
     });
   }
@@ -248,7 +252,7 @@ export class BreachResponseService {
     // 7. Log platform-wide action
     await this.logBreachResponse(prisma, null, {
       ...options,
-      action: 'platform_wide_breach_response',
+      action: AUDIT_ACTION.SECURITY.BREACH.PLATFORM_WIDE_RESPONSE,
       severity: 'critical',
     });
   }
@@ -350,7 +354,7 @@ export class BreachResponseService {
     // 6. Log breach response
     await this.logBreachResponse(prisma, profile.tenant.id, {
       ...options,
-      action: 'breach_response_profile',
+      action: AUDIT_ACTION.SECURITY.BREACH.PROFILE_REVIEW,
       resource: 'user_tenant',
       resourceId: profileId,
       severity: 'high',
@@ -871,7 +875,7 @@ export class BreachResponseService {
     prisma: PrismaClient,
     schoolId: string | null,
     data: {
-      action: string;
+      action: AuditAction;
       reason: string;
       severity?: string;
       escalatedToPasswordReset?: boolean;

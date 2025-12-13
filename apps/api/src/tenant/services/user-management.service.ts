@@ -16,6 +16,7 @@ import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { ProfileStatus } from '@workspace/api';
 import * as bcrypt from 'bcrypt';
+import { AUDIT_ACTION } from '../../common/audit/audit.constants';
 
 /**
  * User Management Service
@@ -132,7 +133,7 @@ export class UserManagementService {
 
     // 6.11: Audit log
     await this.auditService.logUserAction({
-      action: 'user_created',
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_CREATED,
       tenantId,
       userId: user.id,
       performedBy: createdBy,
@@ -262,7 +263,7 @@ export class UserManagementService {
 
     // 6.11: Audit log
     await this.auditService.logUserAction({
-      action: 'user_added_to_tenant',
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_ADDED_TO_TENANT,
       tenantId,
       userId: data.userId,
       performedBy: createdBy,
@@ -465,7 +466,7 @@ export class UserManagementService {
 
     // Audit log
     await this.auditService.logUserAction({
-      action: 'user_updated',
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_UPDATED,
       tenantId: '', // Will be set by caller if needed
       userId,
       performedBy: updatedBy,
@@ -562,7 +563,7 @@ export class UserManagementService {
 
     // Audit log
     await this.auditService.logUserAction({
-      action: 'user_profile_updated',
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_PROFILE_UPDATED,
       tenantId,
       userId: profile.userId,
       performedBy: updatedBy,
@@ -607,7 +608,7 @@ export class UserManagementService {
 
     // Audit log
     await this.auditService.logUserAction({
-      action: 'user_profile_deleted',
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_PROFILE_DELETED,
       tenantId,
       userId: profile.userId,
       performedBy: deletedBy,

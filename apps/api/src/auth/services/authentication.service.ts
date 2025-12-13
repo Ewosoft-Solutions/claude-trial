@@ -16,7 +16,7 @@ import {
   MfaMethodType,
 } from '@workspace/api';
 import { PrismaClient } from '@workspace/database';
-import { AUDIT_EVENT } from '../../common/audit/audit.constants';
+import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
 // Local imports
 import { PasswordService } from './password.service';
 import { LoginAttemptService } from './login-attempt.service';
@@ -227,7 +227,7 @@ export class AuthenticationService {
         data: {
           tenantId: null,
           eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: 'login',
+          action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
           resource: 'auth_login',
           resourceId: user.id,
           actorId: user.id,
@@ -321,6 +321,8 @@ export class AuthenticationService {
     token?: string,
     webauthnResponse?: any,
     recoveryCode?: string,
+    ipAddress?: string,
+    userAgent?: string,
   ): Promise<LoginResponse> {
     // Verify recovery code if provided
     if (recoveryCode) {
@@ -375,13 +377,13 @@ export class AuthenticationService {
         data: {
           tenantId: null,
           eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: 'mfa_verified',
+          action: AUDIT_ACTION.AUTHENTICATION.MFA_VERIFIED,
           resource: 'auth_login',
           resourceId: user.id,
           actorId: user.id,
           actorEmail: user.email,
-          ipAddress: undefined,
-          userAgent: undefined,
+          ipAddress: ipAddress || null,
+          userAgent: userAgent || null,
           description: 'MFA challenge verified',
           metadata: {
             challengeId,
@@ -526,7 +528,7 @@ export class AuthenticationService {
         data: {
           tenantId,
           eventType: AUDIT_EVENT.AUTHORIZATION,
-          action: 'select_school',
+          action: AUDIT_ACTION.AUTHORIZATION.SELECT_SCHOOL,
           resource: 'auth_context',
           resourceId: tenantId,
           actorId: userId,

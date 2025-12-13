@@ -4,6 +4,7 @@ import {
   AuditEventType,
   AUDIT_EVENT,
   DEFAULT_AUDIT_EVENT_TYPE,
+  AuditAction,
 } from '../../common/audit/audit.constants';
 
 /**
@@ -22,7 +23,7 @@ export class TenantAuditService {
    * @param data - Audit log data
    */
   async logTenantAction(data: {
-    action: string;
+    action: AuditAction;
     tenantId: string;
     userId: string;
     eventType?: AuditEventType;
@@ -58,7 +59,7 @@ export class TenantAuditService {
    * @param data - Audit log data
    */
   async logUserAction(data: {
-    action: string;
+    action: AuditAction;
     tenantId: string;
     userId: string;
     performedBy: string;

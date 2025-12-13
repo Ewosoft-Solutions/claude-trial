@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { UpdateTenantConfigurationDto } from '../dto';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import { AUDIT_ACTION } from '../../common/audit/audit.constants';
 
 /**
  * Tenant Configuration Service
@@ -85,7 +86,7 @@ export class TenantConfigurationService {
 
     // Audit log
     await this.auditService.logTenantAction({
-      action: 'tenant_configuration_updated',
+      action: AUDIT_ACTION.TENANT_LIFECYCLE.TENANT_CONFIGURATION_UPDATED,
       tenantId: tenant.id,
       userId: updatedBy,
       metadata: {

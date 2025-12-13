@@ -14,7 +14,7 @@ import {
 } from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
-import { AUDIT_EVENT } from '../../common/audit/audit.constants';
+import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
 import * as bcrypt from 'bcrypt';
 
 /**
@@ -105,7 +105,7 @@ export class TenantRegistrationService {
 
     // Audit log
     await this.auditService.logTenantAction({
-      action: 'tenant_registered',
+      action: AUDIT_ACTION.TENANT_LIFECYCLE.TENANT_REGISTERED,
       tenantId: tenant.id,
       userId: createdBy,
       eventType: AUDIT_EVENT.AUTHORIZATION,
@@ -167,7 +167,7 @@ export class TenantRegistrationService {
 
     // Audit log
     await this.auditService.logTenantAction({
-      action: 'tenant_updated',
+      action: AUDIT_ACTION.TENANT_LIFECYCLE.TENANT_UPDATED,
       tenantId: tenant.id,
       userId: updatedBy,
       eventType: AUDIT_EVENT.DATA_CHANGE,

@@ -32,7 +32,7 @@ import { PermissionGuard } from '../guards/permission.guard';
 import { RequirePermissions } from '../guards/permission.guard';
 import { type AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
 import { EnforcedBy } from '@workspace/api';
-import { DatabaseService } from '../../common';
+import { AUDIT_ACTION, DatabaseService } from '../../common';
 
 @Controller('security-policies')
 @UseGuards(JwtAuthGuard, TenantContextGuard)
@@ -104,7 +104,7 @@ export class SecurityPolicyController {
     await this.securityPolicyService.logPolicyChange(
       prisma,
       tenantId,
-      'assign_policy',
+      AUDIT_ACTION.SECURITY.POLICY.ASSIGN_POLICY,
       userId,
       profileId,
       userContext?.roles?.[0] || null,
@@ -172,7 +172,7 @@ export class SecurityPolicyController {
     await this.securityPolicyService.logPolicyChange(
       prisma,
       tenantId,
-      'change_tier',
+      AUDIT_ACTION.SECURITY.POLICY.CHANGE_POLICY_TIER,
       userId,
       profileId,
       userContext?.roles?.[0] || null,
@@ -249,7 +249,7 @@ export class PlatformSecurityPolicyController {
     await this.securityPolicyService.logPolicyChange(
       prisma,
       schoolId,
-      'set_emergency_policy',
+      AUDIT_ACTION.SECURITY.POLICY.SET_EMERGENCY_POLICY,
       userId,
       profileId,
       userContext?.roles?.[0] || null,
@@ -316,7 +316,7 @@ export class PlatformSecurityPolicyController {
     await this.securityPolicyService.logPolicyChange(
       prisma,
       schoolId,
-      'remove_emergency_policy',
+      AUDIT_ACTION.SECURITY.POLICY.REMOVE_EMERGENCY_POLICY,
       userId,
       profileId,
       userContext?.roles?.[0] || null,

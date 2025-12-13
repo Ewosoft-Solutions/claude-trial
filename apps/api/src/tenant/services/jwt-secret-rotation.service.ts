@@ -10,6 +10,7 @@ import {
 } from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import { AUDIT_ACTION } from '../../common/audit/audit.constants';
 
 /**
  * JWT Secret Rotation Service
@@ -65,7 +66,7 @@ export class JWTSecretRotationService {
 
     // Audit log
     await this.auditService.logTenantAction({
-      action: 'jwt_secret_rotated',
+      action: AUDIT_ACTION.SECURITY.JWT_SECRET.ROTATED,
       tenantId,
       userId: 'system', // Can be updated to actual user ID from context
       metadata: {
@@ -110,7 +111,7 @@ export class JWTSecretRotationService {
 
     // Audit log
     await this.auditService.logTenantAction({
-      action: 'jwt_secret_scheduled_rotation',
+      action: AUDIT_ACTION.SECURITY.JWT_SECRET.SCHEDULED_ROTATION,
       tenantId: 'system', // System-wide operation
       userId: 'system',
       metadata: {
