@@ -11,8 +11,9 @@
  */
 
 import { Injectable, Logger } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
-import { getEnvConfig } from '../config/env.config';
+import { EnvConfig } from '../config/env.config';
 
 /**
  * Encryption Service
@@ -28,10 +29,14 @@ export class EncryptionService {
   private readonly ivLength = 16; // 128 bits
   private readonly tagLength = 16; // 128 bits
   private readonly encryptionKey: Buffer;
+  private readonly envConfig?: EnvConfig;
 
-  constructor() {
-    const envConfig = getEnvConfig();
-    const key = envConfig.ENCRYPTION_KEY;
+  constructor(private readonly configService: ConfigService) {
+    const envConfig: EnvConfig = this.configService.getOrThrow<EnvConfig>('env', {
+      infer: true,
+    });
+    this.envConfig = envConfig;
+    const key = envConfig?.ENCRYPTION_KEY;
 
     if (!key) {
       this.logger.warn(
@@ -177,7 +182,6 @@ export class EncryptionService {
    * @returns True if encryption key is set (not using default)
    */
   isProperlyConfigured(): boolean {
-    const envConfig = getEnvConfig();
-    return !!envConfig.ENCRYPTION_KEY;
+    return !!this.envConfig?.ENCRYPTION_KEY;
   }
 }

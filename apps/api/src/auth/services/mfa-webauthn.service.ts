@@ -49,7 +49,7 @@ export class MfaWebAuthnService {
   constructor() {
     // TODO: Load from environment variables
     this.config = {
-      rpName: process.env.WEBAUTHN_RP_NAME || 'School Management System',
+      rpName: process.env.WEBAUTHN_RP_NAME || 'School With Ease',
       rpID: process.env.WEBAUTHN_RP_ID || 'localhost',
       origin: process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000',
     };

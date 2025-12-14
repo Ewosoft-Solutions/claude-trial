@@ -29,7 +29,7 @@ async function bootstrap() {
   // Swagger/OpenAPI documentation
   const config = new DocumentBuilder()
     .setTitle('School Management API')
-    .setDescription('API documentation for the School Management System')
+    .setDescription('API documentation for the School With Ease')
     .setVersion('1.0')
     .addBearerAuth(
       {

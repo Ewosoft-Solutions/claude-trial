@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines load testing procedures, performance benchmarks, and optimization strategies for the school management system.
+This document outlines load testing procedures, performance benchmarks, and optimization strategies for the School With Ease.
 
 ## Load Testing Objectives
 
@@ -57,17 +57,21 @@ export const options = {
   stages: [
     { duration: '1m', target: 100 }, // Ramp up to 100 users
     { duration: '3m', target: 100 }, // Stay at 100 users
-    { duration: '1m', target: 0 },   // Ramp down
+    { duration: '1m', target: 0 }, // Ramp down
   ],
 };
 
 export default function () {
-  const response = http.post('http://localhost:3000/auth/login', JSON.stringify({
-    email: `user${__VU}@example.com`,
-    password: 'TestPassword123',
-  }), {
-    headers: { 'Content-Type': 'application/json' },
-  });
+  const response = http.post(
+    'http://localhost:3000/auth/login',
+    JSON.stringify({
+      email: `user${__VU}@example.com`,
+      password: 'TestPassword123',
+    }),
+    {
+      headers: { 'Content-Type': 'application/json' },
+    },
+  );
 
   check(response, {
     'status is 200': (r) => r.status === 200,
@@ -88,7 +92,7 @@ WHERE tenant_id = 'tenant-id'
 AND status = 'active';
 
 -- Test with indexes
-CREATE INDEX IF NOT EXISTS idx_users_tenant_status 
+CREATE INDEX IF NOT EXISTS idx_users_tenant_status
 ON users(tenant_id, status);
 
 -- Run pgbench for load testing
@@ -118,7 +122,7 @@ export default function () {
 
   const response = http.get(`http://localhost:3000/api/resources`, {
     headers: {
-      'Authorization': `Bearer ${token}`,
+      Authorization: `Bearer ${token}`,
       'X-Tenant-Id': tenantId,
     },
   });
@@ -146,7 +150,7 @@ export const options = {
   ],
   thresholds: {
     http_req_duration: ['p(95)<500'], // 95% of requests < 500ms
-    http_req_failed: ['rate<0.01'],   // Error rate < 1%
+    http_req_failed: ['rate<0.01'], // Error rate < 1%
   },
 };
 ```
@@ -185,9 +189,11 @@ const pool = new Pool({
 });
 
 // Test concurrent queries
-const queries = Array(100).fill(null).map(() =>
-  pool.query('SELECT * FROM users WHERE tenant_id = $1', ['tenant-id'])
-);
+const queries = Array(100)
+  .fill(null)
+  .map(() =>
+    pool.query('SELECT * FROM users WHERE tenant_id = $1', ['tenant-id']),
+  );
 
 await Promise.all(queries);
 ```
@@ -222,7 +228,7 @@ const redis = new Redis();
 async function getCachedUser(userId: string) {
   const cached = await redis.get(`user:${userId}`);
   if (cached) return JSON.parse(cached);
-  
+
   const user = await prisma.user.findUnique({ where: { id: userId } });
   await redis.setex(`user:${userId}`, 3600, JSON.stringify(user));
   return user;
@@ -303,5 +309,3 @@ async function getCachedUser(userId: string) {
 - [Artillery Documentation](https://www.artillery.io/docs)
 - [PostgreSQL Performance Tuning](https://www.postgresql.org/docs/current/performance-tips.html)
 - [Web Performance Best Practices](https://web.dev/performance/)
-
-

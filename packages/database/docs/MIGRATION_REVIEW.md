@@ -8,7 +8,7 @@
 
 ## Overview
 
-This migration creates the complete foundation schema for the School Management System, including:
+This migration creates the complete foundation schema for the School With Ease, including:
 
 - User management tables
 - Multi-tenant architecture tables

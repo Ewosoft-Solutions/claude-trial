@@ -13,14 +13,14 @@ import {
 } from '@jest/globals';
 import { Logger } from '@nestjs/common';
 import { EncryptionService } from './encryption.service';
-import { EnvConfigService } from '../config/env.config';
+import { ConfigService } from '@nestjs/config';
+import { EnvironmentConfig } from '../config/env.config';
 
 describe('EncryptionService', () => {
   let service: EncryptionService;
-  const mockEnvConfigService = {
+  const mockConfigService = {
     get: jest.fn(),
-    getOrThrow: jest.fn(),
-  } as unknown as EnvConfigService;
+  } as unknown as ConfigService;
 
   beforeEach(async () => {
     // Reset mocks
@@ -31,17 +31,14 @@ describe('EncryptionService', () => {
     jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => {});
 
     // Default mock config
-    mockEnvConfigService.get = jest
-      .fn()
-      .mockReturnValue('test-encryption-key-32-bytes-long!!');
-    mockEnvConfigService.getOrThrow = jest
-      .fn()
-      .mockReturnValue('test-encryption-key-32-bytes-long!!');
+    mockConfigService.get = jest.fn().mockReturnValue({
+      ENCRYPTION_KEY: 'test-encryption-key-32-bytes-long!!',
+    } as Partial<EnvironmentConfig>);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         EncryptionService,
-        { provide: EnvConfigService, useValue: mockEnvConfigService },
+        { provide: ConfigService, useValue: mockConfigService },
       ],
     }).compile();
 
@@ -126,13 +123,14 @@ describe('EncryptionService', () => {
 
   describe('isProperlyConfigured', () => {
     it('should return true when encryption key is set', async () => {
-      mockEnvConfigService.get = jest.fn().mockReturnValue('valid-key');
-      mockEnvConfigService.getOrThrow = jest.fn().mockReturnValue('valid-key');
+      mockConfigService.get = jest.fn().mockReturnValue({
+        ENCRYPTION_KEY: 'valid-key',
+      } as Partial<EnvironmentConfig>);
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           EncryptionService,
-          { provide: EnvConfigService, useValue: mockEnvConfigService },
+          { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
 
@@ -141,13 +139,12 @@ describe('EncryptionService', () => {
     });
 
     it('should return false when encryption key is not set', async () => {
-      mockEnvConfigService.get = jest.fn().mockReturnValue(undefined);
-      mockEnvConfigService.getOrThrow = jest.fn().mockReturnValue(undefined);
+      mockConfigService.get = jest.fn().mockReturnValue(undefined);
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           EncryptionService,
-          { provide: EnvConfigService, useValue: mockEnvConfigService },
+          { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
 
@@ -158,13 +155,12 @@ describe('EncryptionService', () => {
 
   describe('encryption key handling', () => {
     it('should use default key when ENCRYPTION_KEY is not set', async () => {
-      mockEnvConfigService.get = jest.fn().mockReturnValue(undefined);
-      mockEnvConfigService.getOrThrow = jest.fn().mockReturnValue(undefined);
+      mockConfigService.get = jest.fn().mockReturnValue(undefined);
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           EncryptionService,
-          { provide: EnvConfigService, useValue: mockEnvConfigService },
+          { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
 
@@ -180,13 +176,14 @@ describe('EncryptionService', () => {
       const base64Key = Buffer.from('test-key-32-bytes-long!!').toString(
         'base64',
       );
-      mockEnvConfigService.get = jest.fn().mockReturnValue(base64Key);
-      mockEnvConfigService.getOrThrow = jest.fn().mockReturnValue(base64Key);
+      mockConfigService.get = jest.fn().mockReturnValue({
+        ENCRYPTION_KEY: base64Key,
+      } as Partial<EnvironmentConfig>);
 
       const module: TestingModule = await Test.createTestingModule({
         providers: [
           EncryptionService,
-          { provide: EnvConfigService, useValue: mockEnvConfigService },
+          { provide: ConfigService, useValue: mockConfigService },
         ],
       }).compile();
 

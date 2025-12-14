@@ -1,4 +1,10 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import {
+  envConfig,
+  envValidationSchema,
+  EnvConfig,
+} from './common/config/env.config';
 
 import { CommonModule } from './common';
 import { LinksModule } from './links/links.module';
@@ -11,7 +17,6 @@ import { CommunicationModule } from './communication/communication.module';
 import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
-import { getEnvConfig } from './common/config/env.config';
 import { Prisma } from '@workspace/database';
 
 import { AppService } from './app.service';
@@ -19,10 +24,22 @@ import { AppController } from './app.controller';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true,
+      load: [envConfig],
+      validationSchema: envValidationSchema,
+      validationOptions: {
+        abortEarly: false,
+        allowUnknown: true,
+        stripUnknown: true,
+      },
+    }),
     // Database module with async configuration
     DatabaseModule.forRootAsync({
-      useFactory: () => {
-        const envConfig = getEnvConfig();
+      useFactory: (configService: ConfigService) => {
+        const envConfig = configService.getOrThrow<EnvConfig>('env', {
+          infer: true,
+        });
 
         const logLevels: Prisma.LogLevel[] = [];
         if (envConfig.DB_LOG_QUERIES && envConfig.NODE_ENV === 'development') {
@@ -50,6 +67,7 @@ import { AppController } from './app.controller';
           isServerless: process.env.IS_SERVERLESS === 'true',
         };
       },
+      inject: [ConfigService],
     }),
     CommonModule,
     LinksModule,

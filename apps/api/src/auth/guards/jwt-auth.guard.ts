@@ -12,7 +12,7 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request } from 'express';
-import { JwtService } from '@nestjs/jwt';
+// import { JwtService } from '@nestjs/jwt';
 // import { JWTSecretService } from '@workspace/api';
 import { AuthJWTService } from '../services/jwt.service';
 import { RequestUser } from '../types/request-user';
@@ -26,7 +26,7 @@ import { DatabaseService } from '../../common';
 @Injectable()
 export class JwtAuthGuard implements CanActivate {
   constructor(
-    private readonly jwtService: JwtService,
+    // private readonly jwtService: JwtService,
     private readonly authJWTService: AuthJWTService,
     private readonly dbService: DatabaseService,
   ) {}

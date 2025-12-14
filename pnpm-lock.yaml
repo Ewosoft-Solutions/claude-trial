@@ -67,6 +67,7 @@ importers:
       dotenv: ^17.2.3
       jest: ^29.7.0
       jest-mock-extended: ^4.0.0
+      joi: ^18.0.2
       passport: ^0.7.0
       passport-jwt: ^4.0.1
       pg: ^8.13.1
@@ -96,6 +97,7 @@ importers:
       class-transformer: 0.5.1
       class-validator: 0.14.3
       dotenv: 17.2.3
+      joi: 18.0.2
       passport: 0.7.0
       passport-jwt: 4.0.1
       pg: 8.16.3
@@ -1789,6 +1791,36 @@ packages:
 
   /@floating-ui/utils/0.2.10:
     resolution: {integrity: sha512-aGTxbpbg8/b5JfU1HXSrbH3wXZuLPJcNEcZQFMxLs3oSzgtVu6nFPkbbGGUvBcUjKV2YyB9Wxxabo+HEH9tcRQ==}
+    dev: false
+
+  /@hapi/address/5.1.1:
+    resolution: {integrity: sha512-A+po2d/dVoY7cYajycYI43ZbYMXukuopIsqCjh5QzsBCipDtdofHntljDlpccMjIfTy6UOkg+5KPriwYch2bXA==}
+    engines: {node: '>=14.0.0'}
+    dependencies:
+      '@hapi/hoek': 11.0.7
+    dev: false
+
+  /@hapi/formula/3.0.2:
+    resolution: {integrity: sha512-hY5YPNXzw1He7s0iqkRQi+uMGh383CGdyyIGYtB+W5N3KHPXoqychklvHhKCC9M3Xtv0OCs/IHw+r4dcHtBYWw==}
+    dev: false
+
+  /@hapi/hoek/11.0.7:
+    resolution: {integrity: sha512-HV5undWkKzcB4RZUusqOpcgxOaq6VOAH7zhhIr2g3G8NF/MlFO75SjOr2NfuSx0Mh40+1FqCkagKLJRykUWoFQ==}
+    dev: false
+
+  /@hapi/pinpoint/2.0.1:
+    resolution: {integrity: sha512-EKQmr16tM8s16vTT3cA5L0kZZcTMU5DUOZTuvpnY738m+jyP3JIUj+Mm1xc1rsLkGBQ/gVnfKYPwOmPg1tUR4Q==}
+    dev: false
+
+  /@hapi/tlds/1.1.4:
+    resolution: {integrity: sha512-Fq+20dxsxLaUn5jSSWrdtSRcIUba2JquuorF9UW1wIJS5cSUwxIsO2GIhaWynPRflvxSzFN+gxKte2HEW1OuoA==}
+    engines: {node: '>=14.0.0'}
+    dev: false
+
+  /@hapi/topo/6.0.2:
+    resolution: {integrity: sha512-KR3rD5inZbGMrHmgPxsJ9dbi6zEK+C3ZwUwTa+eMwWLz7oijWUTWD2pMSNNYJAU6Qq+65NkxXjqHr/7LM2Xkqg==}
+    dependencies:
+      '@hapi/hoek': 11.0.7
     dev: false
 
   /@hexagon/base64/1.1.28:
@@ -9138,6 +9170,19 @@ packages:
   /jiti/2.6.1:
     resolution: {integrity: sha512-ekilCSN1jwRvIbgeg/57YFh8qQDNbwDb9xT/qu2DAHbFFZUicIl4ygVaAvzveMhMVr3LnpSKTNnwt8PoOfmKhQ==}
     hasBin: true
+
+  /joi/18.0.2:
+    resolution: {integrity: sha512-RuCOQMIt78LWnktPoeBL0GErkNaJPTBGcYuyaBvUOQSpcpcLfWrHPPihYdOGbV5pam9VTWbeoF7TsGiHugcjGA==}
+    engines: {node: '>= 20'}
+    dependencies:
+      '@hapi/address': 5.1.1
+      '@hapi/formula': 3.0.2
+      '@hapi/hoek': 11.0.7
+      '@hapi/pinpoint': 2.0.1
+      '@hapi/tlds': 1.1.4
+      '@hapi/topo': 6.0.2
+      '@standard-schema/spec': 1.0.0
+    dev: false
 
   /joycon/3.1.1:
     resolution: {integrity: sha512-34wB/Y7MW7bzjKRjUKTa46I2Z7eV62Rkhva+KkopW7Qvv/OSWBqvkSY7vusOPrNuZcUG3tApvdVgNB8POj3SPw==}

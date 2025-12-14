@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines security testing procedures, penetration testing guidelines, and vulnerability scanning practices for the school management system.
+This document outlines security testing procedures, penetration testing guidelines, and vulnerability scanning practices for the School With Ease.
 
 ## Security Testing Objectives
 
@@ -141,16 +141,19 @@ npm audit fix
 ### 1. Authentication Security
 
 **Test**: Brute Force Protection
+
 - Attempt multiple failed logins
 - Verify account lockout after threshold
 - Verify rate limiting
 
 **Test**: Password Policy Enforcement
+
 - Try weak passwords
 - Verify password requirements
 - Test password history prevention
 
 **Test**: Session Security
+
 - Test session expiration
 - Test concurrent session limits
 - Test session invalidation on password change
@@ -158,11 +161,13 @@ npm audit fix
 ### 2. Authorization Security
 
 **Test**: Permission Bypass
+
 - Try to access resources without permission
 - Try to modify permissions in requests
 - Test clearance level enforcement
 
 **Test**: Role Escalation
+
 - Try to assign higher roles
 - Try to access admin functions
 - Test custom role creation constraints
@@ -170,11 +175,13 @@ npm audit fix
 ### 3. Multi-Tenant Security
 
 **Test**: Data Isolation
+
 - Try to access other tenants' data
 - Try to modify tenant ID
 - Test RLS policies
 
 **Test**: Cross-Tenant Access
+
 - Try to access tenant2 resources with tenant1 token
 - Test tenant context validation
 - Verify tenant switching restrictions
@@ -182,11 +189,13 @@ npm audit fix
 ### 4. MFA Security
 
 **Test**: MFA Bypass
+
 - Try to skip MFA verification
 - Test MFA code brute force
 - Test recovery code reuse
 
 **Test**: MFA Implementation
+
 - Verify all MFA methods work correctly
 - Test MFA enforcement on sensitive operations
 - Test MFA recovery process
@@ -194,11 +203,13 @@ npm audit fix
 ### 5. API Security
 
 **Test**: API Authentication
+
 - Test endpoints without authentication
 - Test endpoints with invalid tokens
 - Test token expiration
 
 **Test**: API Rate Limiting
+
 - Test rate limit enforcement
 - Test rate limit bypass attempts
 - Verify rate limit headers
@@ -269,5 +280,3 @@ npm audit fix
 - [OWASP Testing Guide](https://owasp.org/www-project-web-security-testing-guide/)
 - [CWE Top 25](https://cwe.mitre.org/top25/)
 - [NIST Cybersecurity Framework](https://www.nist.gov/cyberframework)
-
-

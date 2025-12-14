@@ -1,6 +1,6 @@
 # Environment Configuration Guide
 
-This document describes all environment variables required for the School Management System API.
+This document describes all environment variables required for the School With Ease API.
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ This document describes all environment variables required for the School Manage
 
 ### WebAuthn Configuration
 
-- `WEBAUTHN_RP_NAME`: Relying Party name (default: `School Management System`)
+- `WEBAUTHN_RP_NAME`: Relying Party name (default: `School With Ease`)
 - `WEBAUTHN_RP_ID`: Relying Party ID (default: `localhost`)
 - `WEBAUTHN_ORIGIN`: Origin URL (default: `http://localhost:3000`)
 

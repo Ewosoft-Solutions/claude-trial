@@ -22,13 +22,13 @@ export class MfaTotpService {
    *
    * @param userId - User ID
    * @param userEmail - User email
-   * @param issuer - Issuer name (e.g., "School Management System")
+   * @param issuer - Issuer name (e.g., "School With Ease")
    * @returns Secret, QR code URL, and manual entry key
    */
   async generateSecret(
     userId: string,
     userEmail: string,
-    issuer: string = 'School Management System',
+    issuer: string = 'School With Ease',
   ): Promise<{
     secret: string;
     qrCodeUrl: string;
@@ -85,7 +85,7 @@ export class MfaTotpService {
     userEmail: string,
     secret: string,
     name?: string,
-    issuer: string = 'School Management System',
+    issuer: string = 'School With Ease',
   ): Promise<{ methodId: string; qrCodeUrl: string; manualEntryKey: string }> {
     // Generate QR code URL for display
     const otpauthUrl = speakeasy.otpauthURL({

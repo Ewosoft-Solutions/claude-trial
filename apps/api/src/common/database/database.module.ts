@@ -102,8 +102,8 @@ export class DatabaseModule {
       useFactory: () => {
         // Import here to avoid circular dependencies
         // eslint-disable-next-line @typescript-eslint/no-require-imports
-        const { getEnvConfig } = require('../config/env.config');
-        const envConfig = getEnvConfig();
+        const { loadEnvConfig } = require('../config/env.config');
+        const envConfig = loadEnvConfig();
 
         const logLevels: Prisma.LogLevel[] = [];
         if (envConfig.DB_LOG_QUERIES && envConfig.NODE_ENV === 'development') {

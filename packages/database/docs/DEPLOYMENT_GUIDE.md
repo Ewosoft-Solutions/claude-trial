@@ -1,6 +1,6 @@
 # Database Deployment Guide
 
-This guide covers the complete process of deploying and seeding the database for the School Management System.
+This guide covers the complete process of deploying and seeding the database for the School With Ease.
 
 ## Prerequisites
 
@@ -34,7 +34,7 @@ JWT_SECRET=your-fallback-jwt-secret-change-in-production
 ENCRYPTION_KEY=your-encryption-key-change-in-production
 
 # WebAuthn Configuration
-WEBAUTHN_RP_NAME=School Management System
+WEBAUTHN_RP_NAME=School With Ease
 WEBAUTHN_RP_ID=localhost
 WEBAUTHN_ORIGIN=http://localhost:3000
 

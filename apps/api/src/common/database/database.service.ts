@@ -6,8 +6,9 @@ import {
   OnApplicationShutdown,
   Inject,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { PrismaClient } from '@workspace/database';
-import { getEnvConfig } from '../config/env.config';
+import { EnvConfig } from '../config/env.config';
 
 /**
  * Injection token for PrismaClient
@@ -40,7 +41,7 @@ export class DatabaseService
   implements OnModuleInit, OnModuleDestroy, OnApplicationShutdown
 {
   private readonly logger = new Logger(DatabaseService.name);
-  private readonly envConfig = getEnvConfig();
+  private readonly envConfig: EnvConfig;
   private connectionRetries = 0;
   private readonly maxRetries = 5;
   private readonly retryDelay = 2000; // 2 seconds
@@ -48,7 +49,14 @@ export class DatabaseService
   constructor(
     @Inject(PRISMA_CLIENT_TOKEN)
     public readonly client: PrismaClient,
-  ) {}
+    private readonly configService: ConfigService,
+  ) {
+    const config: EnvConfig = this.configService.getOrThrow<EnvConfig>('env', {
+      infer: true,
+    });
+
+    this.envConfig = config;
+  }
 
   async onModuleInit() {
     await this.connectWithRetry();
