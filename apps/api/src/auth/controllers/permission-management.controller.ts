@@ -22,6 +22,7 @@ import {
   ApiBearerAuth,
   ApiResponse,
 } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
   // ClearanceLevelGuard,
@@ -44,7 +45,7 @@ export class AssignPermissionsToRoleDto {
  *
  * Provides endpoints for viewing permissions and assigning them to roles.
  */
-@ApiTags('permissions')
+@ApiTags(SwaggerTags.permissions.name)
 @Controller('permissions')
 @UseGuards(JwtAuthGuard, TenantContextGuard)
 @ApiBearerAuth('JWT-auth')

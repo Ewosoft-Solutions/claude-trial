@@ -13,12 +13,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiResponse,
-  ApiTags,
-} from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -37,7 +33,7 @@ import {
 } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('students')
+@ApiTags(SwaggerTags.students.name)
 @Controller('students')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')

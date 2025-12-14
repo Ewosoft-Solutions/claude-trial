@@ -18,6 +18,8 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { type Request } from 'express';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../common/swagger-tags';
 import { DatabaseService } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
@@ -45,8 +47,10 @@ import { JwtAuthGuard } from './guards';
  *
  * Provides MFA endpoints for setup, verification, and recovery.
  */
+@ApiTags(SwaggerTags.mfa.name)
 @Controller('auth/mfa')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
 export class MfaController {
   constructor(
     private readonly mfaService: MfaService,
@@ -59,6 +63,7 @@ export class MfaController {
    * GET /auth/mfa/methods
    */
   @Get('methods')
+  @ApiOperation({ summary: 'List active MFA methods for the user' })
   async getActiveMethods(@AuthUser() user: RequestUser) {
     const prisma = this.dbService.client;
 
@@ -76,6 +81,7 @@ export class MfaController {
    */
   @Post('setup/sms')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Setup SMS-based MFA method' })
   async setupSms(
     @Body() setupSmsMfaDto: SetupSmsMfaDto,
     @AuthUser() user: RequestUser,
@@ -118,6 +124,7 @@ export class MfaController {
    */
   @Post('setup/email')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Setup Email-based MFA method' })
   async setupEmail(
     @Body() setupEmailMfaDto: SetupEmailMfaDto,
     @AuthUser() user: RequestUser,
@@ -160,6 +167,7 @@ export class MfaController {
    */
   @Post('setup/totp')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Setup TOTP MFA method' })
   async setupTotp(
     @Body() setupTotpMfaDto: SetupTotpMfaDto,
     @AuthUser() user: RequestUser,
@@ -187,6 +195,7 @@ export class MfaController {
    */
   @Post('setup/webauthn')
   @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Setup WebAuthn (security key) MFA method' })
   async setupWebAuthn(
     @AuthUser() user: RequestUser,
   ): Promise<SetupWebAuthnMfaResponseDto> {
@@ -222,6 +231,7 @@ export class MfaController {
    */
   @Post('verify-activate')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify and activate a pending MFA method' })
   async verifyAndActivate(
     @Body() verifyAndActivateMfaDto: VerifyAndActivateMfaDto,
     @AuthUser() user: RequestUser,
@@ -326,6 +336,7 @@ export class MfaController {
    */
   @Post('verify/initiate')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Initiate MFA verification challenge' })
   async initiateVerification(
     @Body() initiateMfaVerificationDto: InitiateMfaVerificationDto,
     @AuthUser() user: RequestUser,
@@ -354,6 +365,7 @@ export class MfaController {
    */
   @Post('verify')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify MFA challenge using provided factors' })
   async verifyChallenge(
     @Body() verifyMfaChallengeDto: VerifyMfaChallengeDto,
   ): Promise<VerifyMfaChallengeResponseDto> {
@@ -380,6 +392,7 @@ export class MfaController {
    */
   @Post('recovery/generate')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Generate MFA recovery codes' })
   async generateRecoveryCodes(
     @Body() generateRecoveryCodesDto: GenerateRecoveryCodesDto,
     @AuthUser() user: RequestUser,
@@ -410,6 +423,7 @@ export class MfaController {
    */
   @Post('recovery/verify')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify a recovery code' })
   async verifyRecoveryCode(
     @Body() verifyRecoveryCodeDto: VerifyRecoveryCodeDto,
     @AuthUser() user: RequestUser,
@@ -436,6 +450,7 @@ export class MfaController {
    */
   @Put('methods/:methodId/primary')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Set the primary MFA method' })
   async setPrimaryMethod(
     @Param('methodId') methodId: string,
     @AuthUser() user: RequestUser,
@@ -458,6 +473,7 @@ export class MfaController {
    */
   @Put('methods/:methodId/disable')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Disable an MFA method' })
   async disableMethod(
     @Param('methodId') methodId: string,
     @AuthUser() user: RequestUser,
@@ -480,6 +496,7 @@ export class MfaController {
    */
   @Delete('methods/:methodId')
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Delete an MFA method' })
   async deleteMethod(
     @Param('methodId') methodId: string,
     @AuthUser() user: RequestUser,

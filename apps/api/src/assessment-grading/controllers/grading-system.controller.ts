@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -21,7 +22,7 @@ import { AssessmentGradingService } from '../services/assessment-grading.service
 import { CreateGradingSystemDto, UpdateGradingSystemDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('grading-systems')
+@ApiTags(SwaggerTags.gradingSystems.name)
 @Controller('grading-systems')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')
@@ -36,7 +37,11 @@ export class GradingSystemController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.gradingService.createGradingSystem(user.tenantId, user.userId, dto);
+    return this.gradingService.createGradingSystem(
+      user.tenantId,
+      user.userId,
+      dto,
+    );
   }
 
   @Get()
@@ -48,7 +53,13 @@ export class GradingSystemController {
   ) {
     const user = req.user;
     const activeBool =
-      active === undefined ? undefined : active === 'true' ? true : active === 'false' ? false : undefined;
+      active === undefined
+        ? undefined
+        : active === 'true'
+          ? true
+          : active === 'false'
+            ? false
+            : undefined;
     return this.gradingService.listGradingSystems(user.tenantId, activeBool);
   }
 
@@ -61,7 +72,12 @@ export class GradingSystemController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.gradingService.updateGradingSystem(user.tenantId, user.userId, id, dto);
+    return this.gradingService.updateGradingSystem(
+      user.tenantId,
+      user.userId,
+      id,
+      dto,
+    );
   }
 
   @Delete(':id')
@@ -72,4 +88,3 @@ export class GradingSystemController {
     return this.gradingService.deleteGradingSystem(user.tenantId, id);
   }
 }
-

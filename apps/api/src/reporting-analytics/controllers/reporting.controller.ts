@@ -8,6 +8,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -24,7 +25,7 @@ import {
 } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('reports')
+@ApiTags(SwaggerTags.reports.name)
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')
@@ -72,7 +73,11 @@ export class ReportingController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.reportingService.scheduleReport(user.tenantId, user.userId, dto);
+    return this.reportingService.scheduleReport(
+      user.tenantId,
+      user.userId,
+      dto,
+    );
   }
 
   @Post('custom')
@@ -86,4 +91,3 @@ export class ReportingController {
     return this.reportingService.customReport(user.tenantId, user.userId, dto);
   }
 }
-

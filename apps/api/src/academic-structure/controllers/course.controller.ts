@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -21,7 +22,7 @@ import { AcademicStructureService } from '../services/academic-structure.service
 import { CreateCourseDto, UpdateCourseDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('courses')
+@ApiTags(SwaggerTags.courses.name)
 @Controller('courses')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')
@@ -54,7 +55,10 @@ export class CourseController {
   @Get(':id')
   @RequirePermissions(['courses.view'])
   @ApiOperation({ summary: 'Get course by ID' })
-  async getCourse(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async getCourse(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const user = req.user;
     return this.academicService.getCourse(user.tenantId, id);
   }
@@ -68,7 +72,12 @@ export class CourseController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.academicService.updateCourse(user.tenantId, user.userId, id, dto);
+    return this.academicService.updateCourse(
+      user.tenantId,
+      user.userId,
+      id,
+      dto,
+    );
   }
 
   @Delete(':id')
@@ -82,4 +91,3 @@ export class CourseController {
     return this.academicService.deleteCourse(user.tenantId, id);
   }
 }
-

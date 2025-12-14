@@ -19,16 +19,10 @@ import {
   ApiBearerAuth,
   ApiResponse,
 } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JWTSecretRotationReason } from '@workspace/api';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import {
-  ClearanceLevelGuard,
-  RequireClearanceLevel,
-} from '../../auth/guards/clearance-level.guard';
-import {
-  PermissionGuard,
-  RequirePermissions,
-} from '../../auth/guards/permission.guard';
+import { RequireClearanceLevel } from '../../auth/guards/clearance-level.guard';
 import { TenantService } from '../services/tenant.service';
 import { TenantRegistrationService } from '../services/tenant-registration.service';
 import { TenantStatusService } from '../services/tenant-status.service';
@@ -59,7 +53,7 @@ import { type AuthenticatedRequest } from '../../auth/middleware/multi-layer-sec
  *
  * Handles all tenant (school) management operations.
  */
-@ApiTags('tenant')
+@ApiTags(SwaggerTags.tenant.name)
 @Controller('tenant')
 @UseGuards(JwtAuthGuard)
 @ApiBearerAuth('JWT-auth')

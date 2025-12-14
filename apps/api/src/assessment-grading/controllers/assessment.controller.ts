@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -18,10 +19,14 @@ import {
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
 import { AssessmentGradingService } from '../services/assessment-grading.service';
-import { CreateAssessmentDto, UpdateAssessmentDto, ListAssessmentsDto } from '../dto';
+import {
+  CreateAssessmentDto,
+  UpdateAssessmentDto,
+  ListAssessmentsDto,
+} from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('assessments')
+@ApiTags(SwaggerTags.assessments.name)
 @Controller('assessments')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')
@@ -36,7 +41,11 @@ export class AssessmentController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.gradingService.createAssessment(user.tenantId, user.userId, dto);
+    return this.gradingService.createAssessment(
+      user.tenantId,
+      user.userId,
+      dto,
+    );
   }
 
   @Get()
@@ -67,7 +76,12 @@ export class AssessmentController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.gradingService.updateAssessment(user.tenantId, user.userId, id, dto);
+    return this.gradingService.updateAssessment(
+      user.tenantId,
+      user.userId,
+      id,
+      dto,
+    );
   }
 
   @Delete(':id')
@@ -78,4 +92,3 @@ export class AssessmentController {
     return this.gradingService.deleteAssessment(user.tenantId, id);
   }
 }
-

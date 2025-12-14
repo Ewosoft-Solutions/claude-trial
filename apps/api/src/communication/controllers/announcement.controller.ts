@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -26,7 +27,7 @@ import {
 } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('announcements')
+@ApiTags(SwaggerTags.announcements.name)
 @Controller('announcements')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')
@@ -41,7 +42,11 @@ export class AnnouncementController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.commService.createAnnouncement(user.tenantId, user.profileId!, dto);
+    return this.commService.createAnnouncement(
+      user.tenantId,
+      user.profileId!,
+      dto,
+    );
   }
 
   @Get()
@@ -72,7 +77,12 @@ export class AnnouncementController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.commService.updateAnnouncement(user.tenantId, user.profileId!, id, dto);
+    return this.commService.updateAnnouncement(
+      user.tenantId,
+      user.profileId!,
+      id,
+      dto,
+    );
   }
 
   @Patch(':id/publish')
@@ -80,7 +90,11 @@ export class AnnouncementController {
   @ApiOperation({ summary: 'Publish announcement' })
   async publish(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const user = req.user;
-    return this.commService.publishAnnouncement(user.tenantId, user.profileId!, id);
+    return this.commService.publishAnnouncement(
+      user.tenantId,
+      user.profileId!,
+      id,
+    );
   }
 
   @Patch(':id/archive')
@@ -88,7 +102,11 @@ export class AnnouncementController {
   @ApiOperation({ summary: 'Archive announcement' })
   async archive(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const user = req.user;
-    return this.commService.archiveAnnouncement(user.tenantId, user.profileId!, id);
+    return this.commService.archiveAnnouncement(
+      user.tenantId,
+      user.profileId!,
+      id,
+    );
   }
 
   @Delete(':id')
@@ -99,4 +117,3 @@ export class AnnouncementController {
     return this.commService.deleteAnnouncement(user.tenantId, id);
   }
 }
-

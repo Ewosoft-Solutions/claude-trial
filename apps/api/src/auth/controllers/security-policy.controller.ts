@@ -17,7 +17,12 @@ import {
   Request,
   ForbiddenException,
 } from '@nestjs/common';
-import { SecurityPolicy, SecurityPolicyService } from '../services/security-policy.service';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
+import {
+  SecurityPolicy,
+  SecurityPolicyService,
+} from '../services/security-policy.service';
 import {
   AssignPolicyDto,
   ChangePolicyTierDto,
@@ -34,8 +39,10 @@ import { type AuthenticatedRequest } from '../middleware/multi-layer-security.mi
 import { EnforcedBy } from '@workspace/api';
 import { AUDIT_ACTION, DatabaseService } from '../../common';
 
+@ApiTags(SwaggerTags.securityPolicies.name)
 @Controller('security-policies')
 @UseGuards(JwtAuthGuard, TenantContextGuard)
+@ApiBearerAuth('JWT-auth')
 export class SecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
@@ -51,7 +58,10 @@ export class SecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(1) // School admin or higher
   @RequirePermissions(['security_policy:view'])
-  async getSchoolPolicy(@Request() req: AuthenticatedRequest): Promise<SecurityPolicy> {
+  @ApiOperation({ summary: 'Get current security policy for the tenant' })
+  async getSchoolPolicy(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<SecurityPolicy> {
     const { tenantId } = req.user;
     const prisma = this.dbService.client;
 
@@ -72,6 +82,7 @@ export class SecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(2) // SuperAdmin or higher
   @RequirePermissions(['security_policy:manage'])
+  @ApiOperation({ summary: 'Assign or update security policy tier' })
   async assignPolicy(
     @Request() req: AuthenticatedRequest,
     @Body() dto: AssignPolicyDto,
@@ -136,6 +147,7 @@ export class SecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(2) // SuperAdmin or higher
   @RequirePermissions(['security_policy:manage'])
+  @ApiOperation({ summary: 'Change security policy tier' })
   async changePolicyTier(
     @Request() req: AuthenticatedRequest,
     @Body() dto: ChangePolicyTierDto,
@@ -200,8 +212,10 @@ export class SecurityPolicyController {
  * Handles emergency policy management for platform admins
  * Implements item 4a.7
  */
+@ApiTags(SwaggerTags.platformSecurityPolicies.name)
 @Controller('platform/security-policies')
 @UseGuards(JwtAuthGuard)
+@ApiBearerAuth('JWT-auth')
 export class PlatformSecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
@@ -217,6 +231,7 @@ export class PlatformSecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(9) // SuperAdmin or Architect only
   @RequirePermissions(['security_policy:emergency_override'])
+  @ApiOperation({ summary: 'Set emergency policy for a school' })
   async setEmergencyPolicy(
     @Request() req: AuthenticatedRequest,
     @Param('schoolId') schoolId: string,
@@ -283,6 +298,7 @@ export class PlatformSecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(9) // SuperAdmin or Architect only
   @RequirePermissions(['security_policy:emergency_override'])
+  @ApiOperation({ summary: 'Remove emergency policy for a school' })
   async removeEmergencyPolicy(
     @Request() req: AuthenticatedRequest,
     @Param('schoolId') schoolId: string,
@@ -348,6 +364,7 @@ export class PlatformSecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(9) // SuperAdmin or Architect only
   @RequirePermissions(['security_policy:view_all'])
+  @ApiOperation({ summary: 'Get security policy for any school' })
   async getSchoolPolicy(
     @Request() req: AuthenticatedRequest,
     @Param('schoolId') schoolId: string,

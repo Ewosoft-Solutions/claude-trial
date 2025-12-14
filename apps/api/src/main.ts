@@ -4,6 +4,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters';
+import { swaggerTagList } from './common/swagger-tags';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -27,7 +28,7 @@ async function bootstrap() {
   app.useGlobalFilters(new HttpExceptionFilter());
 
   // Swagger/OpenAPI documentation
-  const config = new DocumentBuilder()
+  const builder = new DocumentBuilder()
     .setTitle('School Management API')
     .setDescription('API documentation for the School With Ease')
     .setVersion('1.0')
@@ -41,23 +42,11 @@ async function bootstrap() {
         in: 'header',
       },
       'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in your controller!
-    )
-    .addTag('auth', 'Authentication endpoints')
-    .addTag('mfa', 'Multi-factor authentication endpoints')
-    .addTag('security-policy', 'Security policy management endpoints')
-    .addTag('tenant', 'Tenant (school) management endpoints')
-    .addTag('links', 'Links management endpoints')
-    .addTag('students', 'Student management endpoints')
-    .addTag('academic-structure', 'Academic structure endpoints')
-    .addTag('courses', 'Course catalog endpoints')
-    .addTag('classes', 'Class/section endpoints')
-    .addTag('grading-systems', 'Grading system endpoints')
-    .addTag('assessments', 'Assessment endpoints')
-    .addTag('grades', 'Grades endpoints')
-    .addTag('announcements', 'Announcements endpoints')
-    .addTag('messages', 'Messaging endpoints')
-    .addTag('reports', 'Reporting & analytics endpoints')
-    .build();
+    );
+
+  swaggerTagList.forEach((tag) => builder.addTag(tag.name, tag.description));
+
+  const config = builder.build();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api/docs', app, document, {

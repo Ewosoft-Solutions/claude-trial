@@ -22,6 +22,7 @@ import {
   ApiBearerAuth,
   ApiResponse,
 } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
   // ClearanceLevelGuard,
@@ -29,7 +30,10 @@ import {
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { RoleService, CreateCustomRoleInput } from '../services/role.service';
-import { PermissionService, UserPermissionContext } from '../services/permission.service';
+import {
+  PermissionService,
+  UserPermissionContext,
+} from '../services/permission.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantQueriesService } from '@workspace/api';
 import { RoleType } from '@workspace/api';
@@ -51,7 +55,7 @@ export class CreateCustomRoleDto {
  *
  * Provides endpoints for viewing and creating custom roles.
  */
-@ApiTags('roles')
+@ApiTags(SwaggerTags.roles.name)
 @Controller('roles')
 @UseGuards(JwtAuthGuard, TenantContextGuard)
 @ApiBearerAuth('JWT-auth')

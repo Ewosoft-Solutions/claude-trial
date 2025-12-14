@@ -18,6 +18,7 @@ import {
   ApiBearerAuth,
   ApiResponse,
 } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
   // ClearanceLevelGuard,
@@ -32,7 +33,7 @@ import type { AuthenticatedRequest } from '../middleware';
  *
  * Provides endpoints for querying audit logs.
  */
-@ApiTags('audit-logs')
+@ApiTags(SwaggerTags.auditLogs.name)
 @Controller('audit-logs')
 @UseGuards(JwtAuthGuard, TenantContextGuard)
 @ApiBearerAuth('JWT-auth')
@@ -157,7 +158,10 @@ export class AuditLogController {
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Get audit log by ID' })
   @ApiResponse({ status: 200, description: 'Audit log details' })
-  async getAuditLog(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async getAuditLog(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
     const userClearanceLevel = userContext?.clearanceLevel || 0;

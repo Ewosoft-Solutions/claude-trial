@@ -11,6 +11,7 @@ import {
   Request,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -26,7 +27,7 @@ import {
 } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('academic-structure')
+@ApiTags(SwaggerTags.academicStructure.name)
 @Controller('academic-years')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')

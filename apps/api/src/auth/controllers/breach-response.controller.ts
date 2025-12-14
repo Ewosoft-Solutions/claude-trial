@@ -14,6 +14,8 @@ import {
   HttpCode,
   HttpStatus,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { BreachSeverity } from '@workspace/api';
 import { DatabaseService } from '../../common';
 import { BreachResponseService } from '../services/breach-response.service';
@@ -36,8 +38,10 @@ import { type AuthenticatedRequest } from '../middleware/multi-layer-security.mi
  * Provides endpoints for breach response operations.
  * Only platform admins (clearance level 9+) can trigger breach responses.
  */
+@ApiTags(SwaggerTags.breachResponse.name)
 @Controller('breach-response')
 @UseGuards(JwtAuthGuard, ClearanceLevelGuard)
+@ApiBearerAuth('JWT-auth')
 export class BreachResponseController {
   constructor(
     private readonly breachResponseService: BreachResponseService,
@@ -53,6 +57,7 @@ export class BreachResponseController {
   @Post('school')
   @RequireClearanceLevel(9) // Platform admin only
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Initiate breach response for a school' })
   async respondToSchoolBreach(
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToSchoolBreachDto,
@@ -99,6 +104,7 @@ export class BreachResponseController {
   @Post('profile')
   @RequireClearanceLevel(9) // Platform admin only
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Initiate breach response for a user profile' })
   async respondToProfileBreach(
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToProfileBreachDto,
@@ -145,6 +151,7 @@ export class BreachResponseController {
   @Post('platform')
   @RequireClearanceLevel(10) // Architect only (highest level)
   @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Initiate platform-wide breach response' })
   async respondToPlatformBreach(
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToPlatformBreachDto,

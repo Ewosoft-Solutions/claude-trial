@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -18,14 +19,10 @@ import {
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
 import { CommunicationService } from '../services/communication.service';
-import {
-  CreateMessageDto,
-  MarkMessageReadDto,
-  ListMessagesDto,
-} from '../dto';
+import { CreateMessageDto, MarkMessageReadDto, ListMessagesDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('messages')
+@ApiTags(SwaggerTags.messages.name)
 @Controller('messages')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')
@@ -85,4 +82,3 @@ export class MessageController {
     return this.commService.markRead(user.tenantId, user.profileId!, dto);
   }
 }
-

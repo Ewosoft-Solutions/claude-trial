@@ -12,6 +12,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -22,7 +23,7 @@ import { AssessmentGradingService } from '../services/assessment-grading.service
 import { CreateGradeDto, UpdateGradeDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
-@ApiTags('grades')
+@ApiTags(SwaggerTags.grades.name)
 @Controller('grades')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
 @ApiBearerAuth('JWT-auth')
@@ -60,12 +61,17 @@ export class GradeController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.gradingService.listGradesForAssessment(user.tenantId, assessmentId);
+    return this.gradingService.listGradesForAssessment(
+      user.tenantId,
+      assessmentId,
+    );
   }
 
   @Get('assessment/:assessmentId/stats')
   @RequirePermissions(['grades.view'])
-  @ApiOperation({ summary: 'Get assessment grade analytics (stats + histogram + top/bottom)' })
+  @ApiOperation({
+    summary: 'Get assessment grade analytics (stats + histogram + top/bottom)',
+  })
   async stats(
     @Param('assessmentId') assessmentId: string,
     @Query('bucketSize') bucketSize: string | undefined,
@@ -108,4 +114,3 @@ export class GradeController {
     );
   }
 }
-
