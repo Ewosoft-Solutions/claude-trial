@@ -24,7 +24,7 @@ import {
   UpdateAnnouncementDto,
   ListAnnouncementsDto,
 } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('announcements')
 @Controller('announcements')
@@ -38,9 +38,9 @@ export class AnnouncementController {
   @ApiOperation({ summary: 'Create announcement' })
   async create(
     @Body() dto: CreateAnnouncementDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.commService.createAnnouncement(user.tenantId, user.profileId!, dto);
   }
 
@@ -49,17 +49,17 @@ export class AnnouncementController {
   @ApiOperation({ summary: 'List announcements' })
   async list(
     @Query() query: ListAnnouncementsDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.commService.listAnnouncements(user.tenantId, query);
   }
 
   @Get(':id')
   @RequirePermissions(['announcements.view'])
   @ApiOperation({ summary: 'Get announcement by ID' })
-  async get(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async get(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.commService.getAnnouncement(user.tenantId, id);
   }
 
@@ -69,33 +69,33 @@ export class AnnouncementController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateAnnouncementDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.commService.updateAnnouncement(user.tenantId, user.profileId!, id, dto);
   }
 
   @Patch(':id/publish')
   @RequirePermissions(['announcements.edit'])
   @ApiOperation({ summary: 'Publish announcement' })
-  async publish(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async publish(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.commService.publishAnnouncement(user.tenantId, user.profileId!, id);
   }
 
   @Patch(':id/archive')
   @RequirePermissions(['announcements.edit'])
   @ApiOperation({ summary: 'Archive announcement' })
-  async archive(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async archive(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.commService.archiveAnnouncement(user.tenantId, user.profileId!, id);
   }
 
   @Delete(':id')
   @RequirePermissions(['announcements.delete'])
   @ApiOperation({ summary: 'Delete announcement' })
-  async delete(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async delete(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.commService.deleteAnnouncement(user.tenantId, id);
   }
 }

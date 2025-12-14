@@ -30,6 +30,7 @@ import {
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { DatabaseService } from '../../common/database/database.service';
 import { RoleType } from '@workspace/api';
+import type { AuthenticatedRequest } from '../middleware';
 
 /**
  * Assign Permissions to Role DTO
@@ -193,7 +194,7 @@ export class PermissionManagementController {
   async assignPermissionsToRole(
     @Param('roleId') roleId: string,
     @Body() data: AssignPermissionsToRoleDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     const userContext = req.userContext;

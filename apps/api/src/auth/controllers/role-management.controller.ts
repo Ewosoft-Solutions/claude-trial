@@ -33,6 +33,7 @@ import { PermissionService, UserPermissionContext } from '../services/permission
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantQueriesService } from '@workspace/api';
 import { RoleType } from '@workspace/api';
+import type { AuthenticatedRequest } from '../middleware';
 
 /**
  * Create Custom Role DTO
@@ -69,7 +70,7 @@ export class RoleManagementController {
   @Get()
   @ApiOperation({ summary: 'Get all roles for tenant' })
   @ApiResponse({ status: 200, description: 'List of roles' })
-  async getRoles(@Request() req: any) {
+  async getRoles(@Request() req: AuthenticatedRequest) {
     const userContext = req.userContext as UserPermissionContext | undefined;
     const tenantId = userContext?.tenantId;
 
@@ -88,7 +89,7 @@ export class RoleManagementController {
   @Get(':id')
   @ApiOperation({ summary: 'Get role by ID' })
   @ApiResponse({ status: 200, description: 'Role details' })
-  async getRole(@Param('id') id: string, @Request() req: any) {
+  async getRole(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
 
@@ -148,7 +149,7 @@ export class RoleManagementController {
   @ApiResponse({ status: 201, description: 'Role created successfully' })
   async createCustomRole(
     @Body() data: CreateCustomRoleDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     const userContext = req.userContext as UserPermissionContext | undefined;

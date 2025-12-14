@@ -17,7 +17,7 @@ import {
   Request,
   ForbiddenException,
 } from '@nestjs/common';
-import { SecurityPolicyService } from '../services/security-policy.service';
+import { SecurityPolicy, SecurityPolicyService } from '../services/security-policy.service';
 import {
   AssignPolicyDto,
   ChangePolicyTierDto,
@@ -51,8 +51,8 @@ export class SecurityPolicyController {
   @UseGuards(ClearanceLevelGuard, PermissionGuard)
   @RequireClearanceLevel(1) // School admin or higher
   @RequirePermissions(['security_policy:view'])
-  async getSchoolPolicy(@Request() req: AuthenticatedRequest): Promise<any> {
-    const { tenantId } = req.user!;
+  async getSchoolPolicy(@Request() req: AuthenticatedRequest): Promise<SecurityPolicy> {
+    const { tenantId } = req.user;
     const prisma = this.dbService.client;
 
     const policy = await this.securityPolicyService.getOrCreateDefaultPolicy(
@@ -76,7 +76,7 @@ export class SecurityPolicyController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: AssignPolicyDto,
   ): Promise<any> {
-    const { tenantId, userId, profileId } = req.user!;
+    const { tenantId, userId, profileId } = req.user;
     const prisma = this.dbService.client;
     const userContext = req.userContext;
 
@@ -107,7 +107,7 @@ export class SecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.ASSIGN_POLICY,
       userId,
       profileId,
-      userContext?.roles?.[0] || null,
+      userContext?.roles?.[0]?.name || null,
       user?.email || null,
       {
         before: oldPolicy
@@ -140,7 +140,7 @@ export class SecurityPolicyController {
     @Request() req: AuthenticatedRequest,
     @Body() dto: ChangePolicyTierDto,
   ): Promise<any> {
-    const { tenantId, userId, profileId } = req.user!;
+    const { tenantId, userId, profileId } = req.user;
     const prisma = this.dbService.client;
     const userContext = req.userContext;
 
@@ -175,7 +175,7 @@ export class SecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.CHANGE_POLICY_TIER,
       userId,
       profileId,
-      userContext?.roles?.[0] || null,
+      userContext?.roles?.[0]?.name || null,
       user?.email || null,
       {
         before: {
@@ -222,7 +222,7 @@ export class PlatformSecurityPolicyController {
     @Param('schoolId') schoolId: string,
     @Body() dto: SetEmergencyPolicyDto,
   ): Promise<any> {
-    const { userId, profileId } = req.user!;
+    const { userId, profileId } = req.user;
     const prisma = this.dbService.client;
     const userContext = req.userContext;
 
@@ -252,7 +252,7 @@ export class PlatformSecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.SET_EMERGENCY_POLICY,
       userId,
       profileId,
-      userContext?.roles?.[0] || null,
+      userContext?.roles?.[0]?.name || null,
       user?.email || null,
       {
         before: oldPolicy
@@ -287,7 +287,7 @@ export class PlatformSecurityPolicyController {
     @Request() req: AuthenticatedRequest,
     @Param('schoolId') schoolId: string,
   ): Promise<any> {
-    const { userId, profileId } = req.user!;
+    const { userId, profileId } = req.user;
     const prisma = this.dbService.client;
     const userContext = req.userContext;
 
@@ -319,7 +319,7 @@ export class PlatformSecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.REMOVE_EMERGENCY_POLICY,
       userId,
       profileId,
-      userContext?.roles?.[0] || null,
+      userContext?.roles?.[0]?.name || null,
       user?.email || null,
       {
         before: {

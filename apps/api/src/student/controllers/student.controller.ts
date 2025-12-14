@@ -35,7 +35,7 @@ import {
   EnrollStudentDto,
   UpdateEnrollmentStatusDto,
 } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('students')
 @Controller('students')
@@ -52,7 +52,7 @@ export class StudentController {
   @ApiOperation({ summary: 'Create a student' })
   async createStudent(
     @Body() dto: CreateStudentDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.create(user!.tenantId, user!.userId, dto);
@@ -66,7 +66,7 @@ export class StudentController {
   @ApiOperation({ summary: 'List students with search and filtering' })
   async listStudents(
     @Query() query: SearchStudentsDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.list(user!.tenantId, query);
@@ -80,7 +80,7 @@ export class StudentController {
   @ApiOperation({ summary: 'Get detailed student profile' })
   async getStudent(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.getById(user!.tenantId, id);
@@ -95,7 +95,7 @@ export class StudentController {
   async updateStudent(
     @Param('id') id: string,
     @Body() dto: UpdateStudentDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.update(user!.tenantId, user!.userId, id, dto);
@@ -110,7 +110,7 @@ export class StudentController {
   async updateStudentStatus(
     @Param('id') id: string,
     @Body() dto: UpdateStudentStatusDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.updateStatus(
@@ -137,7 +137,7 @@ export class StudentController {
   async updateStudentProfile(
     @Param('id') id: string,
     @Body() dto: UpdateStudentProfileDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.updateProfile(
@@ -156,7 +156,7 @@ export class StudentController {
   @ApiOperation({ summary: 'Delete student' })
   async deleteStudent(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.delete(user!.tenantId, id);
@@ -171,7 +171,7 @@ export class StudentController {
   async enrollStudent(
     @Param('id') id: string,
     @Body() dto: EnrollStudentDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.enrollStudent(
@@ -190,7 +190,7 @@ export class StudentController {
   @ApiOperation({ summary: 'List student enrollments' })
   async listEnrollments(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.listEnrollments(user!.tenantId, id);
@@ -207,7 +207,7 @@ export class StudentController {
     @Param('id') id: string,
     @Param('enrollmentId') enrollmentId: string,
     @Body() dto: UpdateEnrollmentStatusDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.studentService.updateEnrollmentStatus(

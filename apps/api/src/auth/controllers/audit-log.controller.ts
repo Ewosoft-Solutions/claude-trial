@@ -25,6 +25,7 @@ import {
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { DatabaseService } from '../../common/database/database.service';
+import type { AuthenticatedRequest } from '../middleware';
 
 /**
  * Audit Log Controller
@@ -48,7 +49,7 @@ export class AuditLogController {
   @ApiOperation({ summary: 'Query audit logs' })
   @ApiResponse({ status: 200, description: 'List of audit logs' })
   async queryAuditLogs(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Query('eventType') eventType?: string,
     @Query('action') action?: string,
     @Query('resource') resource?: string,
@@ -156,7 +157,7 @@ export class AuditLogController {
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Get audit log by ID' })
   @ApiResponse({ status: 200, description: 'Audit log details' })
-  async getAuditLog(@Param('id') id: string, @Request() req: any) {
+  async getAuditLog(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
     const userClearanceLevel = userContext?.clearanceLevel || 0;
@@ -198,7 +199,7 @@ export class AuditLogController {
   @ApiOperation({ summary: 'Get audit logs for a specific resource' })
   @ApiResponse({ status: 200, description: 'List of audit logs for resource' })
   async getAuditLogsForResource(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('resource') resource: string,
     @Param('resourceId') resourceId: string,
     @Query('page') page?: number,
@@ -268,7 +269,7 @@ export class AuditLogController {
   @ApiOperation({ summary: 'Get audit logs for a specific actor (user)' })
   @ApiResponse({ status: 200, description: 'List of audit logs for actor' })
   async getAuditLogsForActor(
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
     @Param('actorId') actorId: string,
     @Query('page') page?: number,
     @Query('limit') limit?: number,

@@ -23,7 +23,7 @@ import {
   MarkMessageReadDto,
   ListMessagesDto,
 } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('messages')
 @Controller('messages')
@@ -37,9 +37,9 @@ export class MessageController {
   @ApiOperation({ summary: 'Send message' })
   async send(
     @Body() dto: CreateMessageDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.commService.sendMessage(user.tenantId, user.profileId!, dto);
   }
 
@@ -48,9 +48,9 @@ export class MessageController {
   @ApiOperation({ summary: 'List inbox messages' })
   async inbox(
     @Query() query: ListMessagesDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.commService.listInbox(user.tenantId, user.profileId!, query);
   }
 
@@ -59,17 +59,17 @@ export class MessageController {
   @ApiOperation({ summary: 'List sent messages' })
   async sent(
     @Query() query: ListMessagesDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.commService.listSent(user.tenantId, user.profileId!, query);
   }
 
   @Get('thread/:id')
   @RequirePermissions(['messages.view'])
   @ApiOperation({ summary: 'Get message thread' })
-  async thread(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async thread(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.commService.getThread(user.tenantId, user.profileId!, id);
   }
 
@@ -79,9 +79,9 @@ export class MessageController {
   @ApiOperation({ summary: 'Mark message as read' })
   async markRead(
     @Body() dto: MarkMessageReadDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.commService.markRead(user.tenantId, user.profileId!, dto);
   }
 }

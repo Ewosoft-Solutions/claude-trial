@@ -20,7 +20,7 @@ import {
 } from '../../auth/guards/permission.guard';
 import { AssessmentGradingService } from '../services/assessment-grading.service';
 import { CreateGradeDto, UpdateGradeDto } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('grades')
 @Controller('grades')
@@ -34,9 +34,9 @@ export class GradeController {
   @ApiOperation({ summary: 'Create grade for a student assessment' })
   async create(
     @Body() dto: CreateGradeDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.createGrade(user.tenantId, user.userId, dto);
   }
 
@@ -46,9 +46,9 @@ export class GradeController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateGradeDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.updateGrade(user.tenantId, user.userId, id, dto);
   }
 
@@ -57,9 +57,9 @@ export class GradeController {
   @ApiOperation({ summary: 'List grades for an assessment' })
   async listByAssessment(
     @Param('assessmentId') assessmentId: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.listGradesForAssessment(user.tenantId, assessmentId);
   }
 
@@ -69,9 +69,9 @@ export class GradeController {
   async stats(
     @Param('assessmentId') assessmentId: string,
     @Query('bucketSize') bucketSize: string | undefined,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     const bucket = bucketSize ? Number(bucketSize) : undefined;
     return this.gradingService.getAssessmentAnalytics(
       user.tenantId,
@@ -85,9 +85,9 @@ export class GradeController {
   @ApiOperation({ summary: 'List grades for a student (report card)' })
   async listByStudent(
     @Param('studentId') studentId: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.listGradesForStudent(user.tenantId, studentId);
   }
 
@@ -98,9 +98,9 @@ export class GradeController {
   async reportCard(
     @Param('studentId') studentId: string,
     @Body() body: { academicYearId?: string },
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.getStudentReportCard(
       user.tenantId,
       studentId,

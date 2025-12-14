@@ -22,7 +22,7 @@ import {
   ScheduleReportDto,
   CustomReportDto,
 } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('reports')
 @Controller('reports')
@@ -36,9 +36,9 @@ export class ReportingController {
   @ApiOperation({ summary: 'Academic performance report (grades aggregate)' })
   async academicPerformance(
     @Query() query: AcademicPerformanceReportDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.reportingService.academicPerformance(user.tenantId, query);
   }
 
@@ -47,9 +47,9 @@ export class ReportingController {
   @ApiOperation({ summary: 'Dashboard metrics snapshot' })
   async dashboard(
     @Query() query: DashboardQueryDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.reportingService.dashboard(user.tenantId, query);
   }
 
@@ -58,9 +58,9 @@ export class ReportingController {
   @ApiOperation({ summary: 'Export report (queued/stub)' })
   async export(
     @Body() dto: ExportReportDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.reportingService.exportReport(user.tenantId, user.userId, dto);
   }
 
@@ -69,9 +69,9 @@ export class ReportingController {
   @ApiOperation({ summary: 'Schedule report (stub)' })
   async schedule(
     @Body() dto: ScheduleReportDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.reportingService.scheduleReport(user.tenantId, user.userId, dto);
   }
 
@@ -80,9 +80,9 @@ export class ReportingController {
   @ApiOperation({ summary: 'Custom report builder (placeholder)' })
   async custom(
     @Body() dto: CustomReportDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.reportingService.customReport(user.tenantId, user.userId, dto);
   }
 }

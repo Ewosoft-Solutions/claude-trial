@@ -91,7 +91,7 @@ export class TenantController {
     const userContext = req.userContext;
 
     // Get requester role (highest clearance level role)
-    const requesterRole = userContext?.roles?.[0] || 'User';
+    const requesterRole = userContext?.roles?.[0].name || 'User';
 
     return this.registrationService.registerTenant(
       data,
@@ -138,7 +138,7 @@ export class TenantController {
   async updateTenant(
     @Param('id') id: string,
     @Body() data: UpdateTenantDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.registrationService.updateTenant(id, data, user.userId);
@@ -154,7 +154,7 @@ export class TenantController {
   async updateTenantStatus(
     @Param('id') id: string,
     @Body() data: UpdateTenantStatusDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.statusService.updateTenantStatus(id, data, user.userId);
@@ -180,7 +180,7 @@ export class TenantController {
   async updateTenantConfiguration(
     @Param('id') id: string,
     @Body() data: UpdateTenantConfigurationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.configurationService.updateTenantConfiguration(
@@ -230,7 +230,7 @@ export class TenantController {
   async createInvitation(
     @Param('id') tenantId: string,
     @Body() data: CreateInvitationDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.invitationService.createInvitation(tenantId, data, user.userId);
@@ -246,7 +246,7 @@ export class TenantController {
   async bulkCreateInvitations(
     @Param('id') tenantId: string,
     @Body() data: BulkCreateInvitationsDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.invitationService.bulkCreateInvitations(
@@ -277,7 +277,7 @@ export class TenantController {
   async createUser(
     @Param('id') tenantId: string,
     @Body() data: CreateUserDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.userManagementService.createUser(tenantId, data, user.userId);
@@ -293,7 +293,7 @@ export class TenantController {
   async bulkCreateUsers(
     @Param('id') tenantId: string,
     @Body() data: BulkCreateUsersDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.userManagementService.bulkCreateUsers(
@@ -313,7 +313,7 @@ export class TenantController {
   async addUserToTenant(
     @Param('id') tenantId: string,
     @Body() data: AddUserToTenantDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.userManagementService.addUserToTenant(
@@ -367,7 +367,7 @@ export class TenantController {
   async updateUser(
     @Param('userId') userId: string,
     @Body() data: UpdateUserDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.userManagementService.updateUser(userId, data, user.userId);
@@ -383,7 +383,7 @@ export class TenantController {
     @Param('id') tenantId: string,
     @Param('profileId') profileId: string,
     @Body() data: UpdateUserProfileDto,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.userManagementService.updateUserProfile(
@@ -403,7 +403,7 @@ export class TenantController {
   async deleteUserProfile(
     @Param('id') tenantId: string,
     @Param('profileId') profileId: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
     return this.userManagementService.deleteUserProfile(
@@ -428,7 +428,7 @@ export class TenantController {
       reason: JWTSecretRotationReason;
       emergency?: boolean;
     },
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const userContext = req.userContext;
     const requesterRole = userContext?.roles?.[0]?.name || 'User';
@@ -447,7 +447,7 @@ export class TenantController {
   })
   async emergencyRotateJWTSecret(
     @Param('id') tenantId: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const userContext = req.userContext;
     const requesterRole = userContext?.roles?.[0]?.name || 'User';
@@ -468,7 +468,7 @@ export class TenantController {
   })
   async getJWTSecretRotationStatus(
     @Param('id') tenantId: string,
-    @Request() req: any,
+    @Request() req: AuthenticatedRequest,
   ) {
     const userContext = req.userContext;
     const requesterRole = userContext?.roles?.[0]?.name || 'User';

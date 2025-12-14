@@ -361,7 +361,7 @@ export class AIMediatorService {
           resourceId: null,
           actorId: request.userId,
           actorProfileId: request.profileId,
-          actorRole: userContext.roles[0] || null,
+          actorRole: userContext.roles[0]?.name || null,
           actorEmail: user?.email || null,
           ipAddress: ipAddress || null,
           userAgent: userAgent || null,

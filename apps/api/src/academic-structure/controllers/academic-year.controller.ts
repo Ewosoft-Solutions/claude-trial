@@ -24,7 +24,7 @@ import {
   CreateTermDto,
   UpdateTermDto,
 } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('academic-structure')
 @Controller('academic-years')
@@ -38,10 +38,14 @@ export class AcademicYearController {
   @ApiOperation({ summary: 'Create academic year' })
   async createYear(
     @Body() dto: CreateAcademicYearDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
-    return this.academicService.createAcademicYear(user.tenantId, user.userId, dto);
+    const user = req.user;
+    return this.academicService.createAcademicYear(
+      user.tenantId,
+      user.userId,
+      dto,
+    );
   }
 
   @Get()
@@ -49,17 +53,17 @@ export class AcademicYearController {
   @ApiOperation({ summary: 'List academic years' })
   async listYears(
     @Query('status') status: string | undefined,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.listAcademicYears(user.tenantId, status);
   }
 
   @Get(':id')
   @RequirePermissions(['schedules.view'])
   @ApiOperation({ summary: 'Get academic year by ID' })
-  async getYear(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async getYear(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.academicService.getAcademicYear(user.tenantId, id);
   }
 
@@ -69,9 +73,9 @@ export class AcademicYearController {
   async updateYear(
     @Param('id') id: string,
     @Body() dto: UpdateAcademicYearDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.updateAcademicYear(
       user.tenantId,
       user.userId,
@@ -85,9 +89,9 @@ export class AcademicYearController {
   @ApiOperation({ summary: 'Delete academic year' })
   async deleteYear(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.deleteAcademicYear(user.tenantId, id);
   }
 
@@ -98,9 +102,9 @@ export class AcademicYearController {
   async createTerm(
     @Param('id') academicYearId: string,
     @Body() dto: CreateTermDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.createTerm(
       user.tenantId,
       user.userId,
@@ -114,9 +118,9 @@ export class AcademicYearController {
   @ApiOperation({ summary: 'List terms for academic year' })
   async listTerms(
     @Param('id') academicYearId: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.listTerms(user.tenantId, academicYearId);
   }
 
@@ -125,9 +129,9 @@ export class AcademicYearController {
   @ApiOperation({ summary: 'Get term by ID' })
   async getTerm(
     @Param('termId') termId: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.getTerm(user.tenantId, termId);
   }
 
@@ -137,10 +141,15 @@ export class AcademicYearController {
   async updateTerm(
     @Param('termId') termId: string,
     @Body() dto: UpdateTermDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
-    return this.academicService.updateTerm(user.tenantId, user.userId, termId, dto);
+    const user = req.user;
+    return this.academicService.updateTerm(
+      user.tenantId,
+      user.userId,
+      termId,
+      dto,
+    );
   }
 
   @Delete('/terms/:termId')
@@ -148,10 +157,9 @@ export class AcademicYearController {
   @ApiOperation({ summary: 'Delete term' })
   async deleteTerm(
     @Param('termId') termId: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.deleteTerm(user.tenantId, termId);
   }
 }
-

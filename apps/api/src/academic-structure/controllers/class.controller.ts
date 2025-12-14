@@ -28,7 +28,7 @@ import {
   AssignStudentToClassDto,
   ListClassesDto,
 } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('classes')
 @Controller('classes')
@@ -42,9 +42,9 @@ export class ClassController {
   @ApiOperation({ summary: 'Create class/section' })
   async createClass(
     @Body() dto: CreateClassDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.createClass(user.tenantId, user.userId, dto);
   }
 
@@ -53,9 +53,9 @@ export class ClassController {
   @ApiOperation({ summary: 'List classes with filters' })
   async listClasses(
     @Query() query: ListClassesDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.listClasses(user.tenantId, query);
   }
 
@@ -64,9 +64,9 @@ export class ClassController {
   @ApiOperation({ summary: 'Get class by ID' })
   async getClass(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.getClass(user.tenantId, id);
   }
 
@@ -76,9 +76,9 @@ export class ClassController {
   async updateClass(
     @Param('id') id: string,
     @Body() dto: UpdateClassDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.updateClass(
       user.tenantId,
       user.userId,
@@ -92,9 +92,9 @@ export class ClassController {
   @ApiOperation({ summary: 'Delete class' })
   async deleteClass(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.deleteClass(user.tenantId, id);
   }
 
@@ -105,9 +105,9 @@ export class ClassController {
   async updateSchedule(
     @Param('id') id: string,
     @Body() dto: UpdateScheduleDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.updateSchedule(
       user.tenantId,
       user.userId,
@@ -123,9 +123,9 @@ export class ClassController {
   async assignStudent(
     @Param('id') id: string,
     @Body() dto: AssignStudentToClassDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.assignStudentToClass(
       user.tenantId,
       user.userId,
@@ -139,9 +139,9 @@ export class ClassController {
   @ApiOperation({ summary: 'List students assigned to class' })
   async listStudents(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.listClassStudents(user.tenantId, id);
   }
 
@@ -152,9 +152,9 @@ export class ClassController {
   async removeStudent(
     @Param('id') id: string,
     @Param('studentId') studentId: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.removeStudentFromClass(
       user.tenantId,
       user.userId,

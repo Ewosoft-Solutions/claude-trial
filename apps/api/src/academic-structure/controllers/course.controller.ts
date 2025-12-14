@@ -19,7 +19,7 @@ import {
 } from '../../auth/guards/permission.guard';
 import { AcademicStructureService } from '../services/academic-structure.service';
 import { CreateCourseDto, UpdateCourseDto } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('courses')
 @Controller('courses')
@@ -33,9 +33,9 @@ export class CourseController {
   @ApiOperation({ summary: 'Create course' })
   async createCourse(
     @Body() dto: CreateCourseDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.createCourse(user.tenantId, user.userId, dto);
   }
 
@@ -45,7 +45,7 @@ export class CourseController {
   async listCourses(
     @Query('search') search: string | undefined,
     @Query('status') status: string | undefined,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user!;
     return this.academicService.listCourses(user.tenantId, search, status);
@@ -54,8 +54,8 @@ export class CourseController {
   @Get(':id')
   @RequirePermissions(['courses.view'])
   @ApiOperation({ summary: 'Get course by ID' })
-  async getCourse(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async getCourse(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.academicService.getCourse(user.tenantId, id);
   }
 
@@ -65,9 +65,9 @@ export class CourseController {
   async updateCourse(
     @Param('id') id: string,
     @Body() dto: UpdateCourseDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.updateCourse(user.tenantId, user.userId, id, dto);
   }
 
@@ -76,9 +76,9 @@ export class CourseController {
   @ApiOperation({ summary: 'Delete course' })
   async deleteCourse(
     @Param('id') id: string,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.academicService.deleteCourse(user.tenantId, id);
   }
 }

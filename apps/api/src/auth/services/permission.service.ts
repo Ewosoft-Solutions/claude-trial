@@ -6,7 +6,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { PrismaClient, Role } from '@workspace/database';
 import {
   TenantQueriesService,
   ProfileStatus,
@@ -33,7 +33,7 @@ export interface UserPermissionContext {
   tenantId: string;
   profileId: string;
   clearanceLevel: number;
-  roles: string[];
+  roles: Role[];
   permissions: Map<string, boolean>; // permission name -> granted/denied
   roleIds: string[];
 }
@@ -107,7 +107,7 @@ export class PermissionService {
       tenantId,
       profileId,
       clearanceLevel,
-      roles: roleNames,
+      roles,
       permissions,
       roleIds,
     };
@@ -551,7 +551,8 @@ export interface AIMediatorContext {
   profileId: string;
   clearanceLevel: number; // 0-10
   roleIds: string[]; // All roles for this profile
-  roles: string[]; // Role names
+  // TODO: Role or Role Names, which is better?
+  roles: Role[]; // Role names
   permissions: string[]; // Effective permissions (granted only)
   permissionPools: string[]; // Permission pools this user has access to
   accessScope: AccessScope; // Derived from clearance level

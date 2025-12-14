@@ -19,7 +19,7 @@ import {
 } from '../../auth/guards/permission.guard';
 import { AssessmentGradingService } from '../services/assessment-grading.service';
 import { CreateGradingSystemDto, UpdateGradingSystemDto } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('grading-systems')
 @Controller('grading-systems')
@@ -33,9 +33,9 @@ export class GradingSystemController {
   @ApiOperation({ summary: 'Create grading system' })
   async create(
     @Body() dto: CreateGradingSystemDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.createGradingSystem(user.tenantId, user.userId, dto);
   }
 
@@ -44,9 +44,9 @@ export class GradingSystemController {
   @ApiOperation({ summary: 'List grading systems' })
   async list(
     @Query('active') active: string | undefined,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     const activeBool =
       active === undefined ? undefined : active === 'true' ? true : active === 'false' ? false : undefined;
     return this.gradingService.listGradingSystems(user.tenantId, activeBool);
@@ -58,17 +58,17 @@ export class GradingSystemController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateGradingSystemDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.updateGradingSystem(user.tenantId, user.userId, id, dto);
   }
 
   @Delete(':id')
   @RequirePermissions(['grades.delete'])
   @ApiOperation({ summary: 'Delete grading system' })
-  async delete(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async delete(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.gradingService.deleteGradingSystem(user.tenantId, id);
   }
 }

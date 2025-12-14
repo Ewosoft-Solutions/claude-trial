@@ -19,7 +19,7 @@ import {
 } from '../../auth/guards/permission.guard';
 import { AssessmentGradingService } from '../services/assessment-grading.service';
 import { CreateAssessmentDto, UpdateAssessmentDto, ListAssessmentsDto } from '../dto';
-import { RequestUser } from '../../auth/types/request-user';
+import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags('assessments')
 @Controller('assessments')
@@ -33,9 +33,9 @@ export class AssessmentController {
   @ApiOperation({ summary: 'Create assessment' })
   async create(
     @Body() dto: CreateAssessmentDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.createAssessment(user.tenantId, user.userId, dto);
   }
 
@@ -44,17 +44,17 @@ export class AssessmentController {
   @ApiOperation({ summary: 'List assessments' })
   async list(
     @Query() query: ListAssessmentsDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.listAssessments(user.tenantId, query);
   }
 
   @Get(':id')
   @RequirePermissions(['assessments.view'])
   @ApiOperation({ summary: 'Get assessment by ID' })
-  async get(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async get(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.gradingService.getAssessment(user.tenantId, id);
   }
 
@@ -64,17 +64,17 @@ export class AssessmentController {
   async update(
     @Param('id') id: string,
     @Body() dto: UpdateAssessmentDto,
-    @Request() req: { user?: RequestUser },
+    @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user!;
+    const user = req.user;
     return this.gradingService.updateAssessment(user.tenantId, user.userId, id, dto);
   }
 
   @Delete(':id')
   @RequirePermissions(['assessments.edit'])
   @ApiOperation({ summary: 'Delete assessment' })
-  async delete(@Param('id') id: string, @Request() req: { user?: RequestUser }) {
-    const user = req.user!;
+  async delete(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    const user = req.user;
     return this.gradingService.deleteAssessment(user.tenantId, id);
   }
 }

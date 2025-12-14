@@ -37,7 +37,7 @@ import { AppController } from './app.controller';
     // Database module with async configuration
     DatabaseModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
-        const envConfig = configService.getOrThrow<EnvConfig>('env', {
+        const envConfig: EnvConfig = configService.getOrThrow<EnvConfig>('env', {
           infer: true,
         });
 
