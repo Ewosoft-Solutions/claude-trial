@@ -10,13 +10,14 @@ import {
   BadRequestException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { MfaMethod, PrismaClient } from '@workspace/database';
 import { MfaMethodType, MfaOperationType } from '@workspace/api';
 import { MfaBaseService } from './mfa-base.service';
 import { MfaSmsService } from './mfa-sms.service';
 import { MfaEmailService } from './mfa-email.service';
 import { MfaTotpService } from './mfa-totp.service';
 import { MfaWebAuthnService } from './mfa-webauthn.service';
+import { AuthenticationResponseJSON } from '@simplewebauthn/server';
 
 /**
  * MFA Service
@@ -292,7 +293,7 @@ export class MfaService {
     webauthnOptions?: any; // For WebAuthn
   }> {
     // Get method (use primary if methodId not provided)
-    let method;
+    let method: MfaMethod;
     if (methodId) {
       method = await prisma.mfaMethod.findUnique({
         where: {
@@ -416,7 +417,7 @@ export class MfaService {
     challengeId: string,
     code?: string,
     token?: string,
-    webauthnResponse?: any,
+    webauthnResponse?: AuthenticationResponseJSON,
   ): Promise<boolean> {
     // Find challenge
     const challenge = await prisma.mfaChallenge.findUnique({

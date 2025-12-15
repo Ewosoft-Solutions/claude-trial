@@ -14,6 +14,7 @@ import {
   type VerifyRegistrationResponseOpts,
   type GenerateAuthenticationOptionsOpts,
   type VerifyAuthenticationResponseOpts,
+  type AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
 import { PrismaClient } from '@workspace/database';
 import { MfaBaseService } from './mfa-base.service';
@@ -310,7 +311,7 @@ export class MfaWebAuthnService {
   async verifyAuthentication(
     prisma: PrismaClient,
     challengeId: string,
-    authenticationResponse: any,
+    authenticationResponse: AuthenticationResponseJSON,
   ): Promise<boolean> {
     // Find challenge
     const challenge = await prisma.mfaChallenge.findUnique({
