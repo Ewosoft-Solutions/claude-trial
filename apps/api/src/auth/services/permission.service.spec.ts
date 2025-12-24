@@ -91,7 +91,7 @@ describe('PermissionService', () => {
         suspended: false,
         userTenantRoles: [],
         userTenantPermissions: [],
-      } as any);
+      });
 
       const result = await service.getUserPermissionContext(
         mockPrisma as PrismaClient,
