@@ -21,36 +21,171 @@ import {
   createMockContext,
   createPrismaClientProvider,
 } from '../../common/__tests__/test-utils';
-import { PrismaClient } from '@workspace/database';
+import { Prisma, PrismaClient, Permission } from '@workspace/database';
 import { DeepMockProxy } from 'jest-mock-extended';
 
-// Mock TenantQueriesService
-jest.mock('@workspace/api', () => ({
-  ...(jest.requireActual('@workspace/api') as Record<string, unknown>),
-  TenantQueriesService: {
-    getUserTenantProfile: jest.fn(),
+type RoleWithPermissions = Prisma.RoleGetPayload<{
+  include: { rolePermissions: { include: { permission: true } } };
+}>;
+
+type UserTenantProfile = Prisma.UserTenantGetPayload<{
+  include: {
+    userTenantRoles: {
+      include: {
+        role: {
+          include: { rolePermissions: { include: { permission: true } } };
+        };
+      };
+    };
+    userTenantPermissions: {
+      include: {
+        permission: true;
+      };
+    };
+    tenant: {
+      select: {
+        id: true;
+        name: true;
+        slug: true;
+        status: true;
+      };
+    };
+  };
+}>;
+
+type RolePermissionWithPermission = Prisma.RolePermissionGetPayload<{
+  include: { permission: true };
+}>;
+
+type UserTenantPermissionWithPermission =
+  Prisma.UserTenantPermissionGetPayload<{
+    include: { permission: true };
+  }>;
+
+const buildPermission = (name: string): Permission => {
+  const [resource = name, action = name, context] = name.split('.');
+  return {
+    id: `${name}-id`,
+    name,
+    label: name,
+    description: `${name} permission`,
+    resource,
+    action,
+    context: context ?? null,
+    category: 'test',
+    createdAt: new Date(),
+  };
+};
+
+const buildRolePermission = (
+  roleId: string,
+  permissionName: string,
+): RolePermissionWithPermission => {
+  const permission = buildPermission(permissionName);
+  return {
+    id: `${roleId}-${permissionName}-rp`,
+    roleId,
+    permissionId: permission.id,
+    grantedAt: new Date(),
+    grantedBy: null,
+    permission,
+  };
+};
+
+const buildRole = ({
+  id = 'role-id',
+  name = 'Role',
+  clearanceLevel = ClearanceLevel.TEACHER,
+  permissions = [],
+}: {
+  id?: string;
+  name?: string;
+  clearanceLevel?: number;
+  permissions?: string[];
+}): RoleWithPermissions => ({
+  id,
+  name,
+  description: null,
+  createdBy: null,
+  updatedBy: null,
+  roleType: 'system',
+  clearanceLevel,
+  isSystemRole: true,
+  tenantId: null,
+  isActive: true,
+  createdAt: new Date(),
+  updatedAt: new Date(),
+  rolePermissions: permissions.map((permissionName) =>
+    buildRolePermission(id, permissionName),
+  ),
+});
+
+const buildUserTenantPermission = (
+  userTenantId: string,
+  permissionName: string,
+  granted: boolean,
+): UserTenantPermissionWithPermission => {
+  const permission = buildPermission(permissionName);
+  return {
+    id: `${userTenantId}-${permissionName}-utp`,
+    userTenantId,
+    permissionId: permission.id,
+    granted,
+    grantedAt: new Date(),
+    grantedBy: null,
+    permission,
+  };
+};
+
+const buildUserTenantProfile = ({
+  id = 'profile-id',
+  userId = 'user-id',
+  tenantId = 'tenant-id',
+  status = ProfileStatus.ACTIVE,
+  suspended = false,
+  roles = [] as RoleWithPermissions[],
+  permissionOverrides = [] as UserTenantPermissionWithPermission[],
+}: Partial<UserTenantProfile> & {
+  roles?: RoleWithPermissions[];
+  permissionOverrides?: UserTenantPermissionWithPermission[];
+}): UserTenantProfile => ({
+  id,
+  userId,
+  tenantId,
+  status,
+  suspended,
+  suspendedAt: null,
+  suspendedBy: null,
+  suspensionReason: null,
+  invitationToken: null,
+  invitationExpiresAt: null,
+  invitationAcceptedAt: null,
+  addedBy: null,
+  addedAt: new Date(),
+  tenant: {
+    id: tenantId,
+    name: 'Tenant',
+    slug: 'tenant',
+    status: 'active',
   },
-  ProfileStatus: {
-    ACTIVE: 'active',
-    INACTIVE: 'inactive',
-    SUSPENDED: 'suspended',
-  },
-  ClearanceLevel: {
-    STUDENT: 0,
-    PARENT: 1,
-    TEACHER: 2,
-    ADMIN: 5,
-    SUPER_ADMIN: 9,
-    ARCHITECT: 10,
-  },
-}));
+  userTenantRoles: roles.map((role, index) => ({
+    id: `${id}-${role.id}-utr-${index}`,
+    userTenantId: id,
+    roleId: role.id,
+    isPrimary: index === 0,
+    assignedAt: new Date(),
+    assignedBy: null,
+    role,
+  })),
+  userTenantPermissions: permissionOverrides,
+});
 
 describe('PermissionService', () => {
   let service: PermissionService;
   let module: TestingModule;
   let mockPrisma: DeepMockProxy<PrismaClient>;
-  const mockTenantQueriesService = TenantQueriesService as jest.Mocked<
-    typeof TenantQueriesService
+  let getUserTenantProfileSpy: jest.SpiedFunction<
+    typeof TenantQueriesService.getUserTenantProfile
   >;
 
   beforeEach(async () => {
@@ -62,15 +197,21 @@ describe('PermissionService', () => {
     }).compile();
 
     service = module.get<PermissionService>(PermissionService);
+    getUserTenantProfileSpy = jest.spyOn(
+      TenantQueriesService,
+      'getUserTenantProfile',
+    );
+    getUserTenantProfileSpy.mockReset();
   });
 
   afterEach(async () => {
+    jest.restoreAllMocks();
     await module.close();
   });
 
   describe('getUserPermissionContext', () => {
     it('should return null when user tenant profile does not exist', async () => {
-      mockTenantQueriesService.getUserTenantProfile.mockResolvedValue(null);
+      getUserTenantProfileSpy.mockResolvedValue(null);
 
       const result = await service.getUserPermissionContext(
         mockPrisma as PrismaClient,
@@ -83,15 +224,9 @@ describe('PermissionService', () => {
     });
 
     it('should return null when profile is not active', async () => {
-      mockTenantQueriesService.getUserTenantProfile.mockResolvedValue({
-        id: 'profile-id',
-        userId: 'user-id',
-        tenantId: 'tenant-id',
-        status: ProfileStatus.INACTIVE,
-        suspended: false,
-        userTenantRoles: [],
-        userTenantPermissions: [],
-      });
+      getUserTenantProfileSpy.mockResolvedValue(
+        buildUserTenantProfile({ status: ProfileStatus.INACTIVE }),
+      );
 
       const result = await service.getUserPermissionContext(
         mockPrisma as PrismaClient,
@@ -104,15 +239,9 @@ describe('PermissionService', () => {
     });
 
     it('should return null when profile is suspended', async () => {
-      mockTenantQueriesService.getUserTenantProfile.mockResolvedValue({
-        id: 'profile-id',
-        userId: 'user-id',
-        tenantId: 'tenant-id',
-        status: ProfileStatus.ACTIVE,
-        suspended: true,
-        userTenantRoles: [],
-        userTenantPermissions: [],
-      } as unknown as UserTenantProfile);
+      getUserTenantProfileSpy.mockResolvedValue(
+        buildUserTenantProfile({ suspended: true }),
+      );
 
       const result = await service.getUserPermissionContext(
         mockPrisma as PrismaClient,
@@ -125,35 +254,18 @@ describe('PermissionService', () => {
     });
 
     it('should return permission context with roles and permissions', async () => {
-      mockTenantQueriesService.getUserTenantProfile.mockResolvedValue({
-        id: 'profile-id',
-        userId: 'user-id',
-        tenantId: 'tenant-id',
-        status: ProfileStatus.ACTIVE,
-        suspended: false,
-        userTenantRoles: [
-          {
-            role: {
-              id: 'role-1',
-              name: 'Teacher',
-              clearanceLevel: ClearanceLevel.TEACHER,
-              rolePermissions: [
-                {
-                  permission: {
-                    name: 'students.view',
-                  },
-                },
-                {
-                  permission: {
-                    name: 'classes.view',
-                  },
-                },
-              ],
-            },
-          },
-        ],
-        userTenantPermissions: [],
-      } as any);
+      const role = buildRole({
+        id: 'role-1',
+        name: 'Teacher',
+        clearanceLevel: ClearanceLevel.TEACHER,
+        permissions: ['students.view', 'classes.view'],
+      });
+
+      getUserTenantProfileSpy.mockResolvedValue(
+        buildUserTenantProfile({
+          roles: [role],
+        }),
+      );
 
       const result = await service.getUserPermissionContext(
         mockPrisma as PrismaClient,
@@ -167,43 +279,30 @@ describe('PermissionService', () => {
       expect(result?.tenantId).toBe('tenant-id');
       expect(result?.profileId).toBe('profile-id');
       expect(result?.clearanceLevel).toBe(ClearanceLevel.TEACHER);
-      expect(result?.roles).toEqual(['Teacher']);
+      expect(result?.roles.map((r) => r.name)).toEqual(['Teacher']);
       expect(result?.permissions.get('students.view')).toBe(true);
       expect(result?.permissions.get('classes.view')).toBe(true);
     });
 
     it('should apply profile-specific permission overrides', async () => {
-      mockTenantQueriesService.getUserTenantProfile.mockResolvedValue({
-        id: 'profile-id',
-        userId: 'user-id',
-        tenantId: 'tenant-id',
-        status: ProfileStatus.ACTIVE,
-        suspended: false,
-        userTenantRoles: [
-          {
-            role: {
-              id: 'role-1',
-              name: 'Teacher',
-              clearanceLevel: ClearanceLevel.TEACHER,
-              rolePermissions: [
-                {
-                  permission: {
-                    name: 'students.view',
-                  },
-                },
-              ],
-            },
-          },
-        ],
-        userTenantPermissions: [
-          {
-            permission: {
-              name: 'students.view',
-            },
-            granted: false, // Override: deny permission
-          },
-        ],
-      } as any);
+      const role = buildRole({
+        id: 'role-1',
+        name: 'Teacher',
+        clearanceLevel: ClearanceLevel.TEACHER,
+        permissions: ['students.view'],
+      });
+      const override = buildUserTenantPermission(
+        'profile-id',
+        'students.view',
+        false,
+      );
+
+      getUserTenantProfileSpy.mockResolvedValue(
+        buildUserTenantProfile({
+          roles: [role],
+          permissionOverrides: [override],
+        }),
+      );
 
       const result = await service.getUserPermissionContext(
         mockPrisma as PrismaClient,
@@ -217,32 +316,22 @@ describe('PermissionService', () => {
     });
 
     it('should calculate maximum clearance level from multiple roles', async () => {
-      mockTenantQueriesService.getUserTenantProfile.mockResolvedValue({
-        id: 'profile-id',
-        userId: 'user-id',
-        tenantId: 'tenant-id',
-        status: ProfileStatus.ACTIVE,
-        suspended: false,
-        userTenantRoles: [
-          {
-            role: {
-              id: 'role-1',
-              name: 'Teacher',
-              clearanceLevel: ClearanceLevel.TEACHER,
-              rolePermissions: [],
-            },
-          },
-          {
-            role: {
-              id: 'role-2',
-              name: 'Admin',
-              clearanceLevel: ClearanceLevel.ADMIN,
-              rolePermissions: [],
-            },
-          },
-        ],
-        userTenantPermissions: [],
-      } as any);
+      const teacher = buildRole({
+        id: 'role-1',
+        name: 'Teacher',
+        clearanceLevel: ClearanceLevel.TEACHER,
+      });
+      const admin = buildRole({
+        id: 'role-2',
+        name: 'Admin',
+        clearanceLevel: ClearanceLevel.MANAGEMENT,
+      });
+
+      getUserTenantProfileSpy.mockResolvedValue(
+        buildUserTenantProfile({
+          roles: [teacher, admin],
+        }),
+      );
 
       const result = await service.getUserPermissionContext(
         mockPrisma as PrismaClient,
@@ -251,7 +340,7 @@ describe('PermissionService', () => {
         'profile-id',
       );
 
-      expect(result?.clearanceLevel).toBe(ClearanceLevel.ADMIN);
+      expect(result?.clearanceLevel).toBe(ClearanceLevel.MANAGEMENT);
     });
   });
 
@@ -261,8 +350,8 @@ describe('PermissionService', () => {
         userId: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        clearanceLevel: ClearanceLevel.ADMIN,
-        roles: ['Admin'],
+        clearanceLevel: ClearanceLevel.MANAGEMENT,
+        roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
       };
@@ -273,7 +362,7 @@ describe('PermissionService', () => {
       );
 
       expect(result.granted).toBe(true);
-      expect(result.clearanceLevel).toBe(ClearanceLevel.ADMIN);
+      expect(result.clearanceLevel).toBe(ClearanceLevel.MANAGEMENT);
       expect(result.requiredClearanceLevel).toBe(ClearanceLevel.TEACHER);
     });
 
@@ -283,17 +372,20 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
       };
 
-      const result = service.checkClearanceLevel(context, ClearanceLevel.ADMIN);
+      const result = service.checkClearanceLevel(
+        context,
+        ClearanceLevel.MANAGEMENT,
+      );
 
       expect(result.granted).toBe(false);
       expect(result.reason).toBe('insufficient_clearance');
       expect(result.clearanceLevel).toBe(ClearanceLevel.TEACHER);
-      expect(result.requiredClearanceLevel).toBe(ClearanceLevel.ADMIN);
+      expect(result.requiredClearanceLevel).toBe(ClearanceLevel.MANAGEMENT);
     });
 
     it('should grant access when clearance level exactly matches requirement', () => {
@@ -301,13 +393,16 @@ describe('PermissionService', () => {
         userId: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        clearanceLevel: ClearanceLevel.ADMIN,
-        roles: ['Admin'],
+        clearanceLevel: ClearanceLevel.MANAGEMENT,
+        roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
       };
 
-      const result = service.checkClearanceLevel(context, ClearanceLevel.ADMIN);
+      const result = service.checkClearanceLevel(
+        context,
+        ClearanceLevel.MANAGEMENT,
+      );
 
       expect(result.granted).toBe(true);
     });
@@ -320,7 +415,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map([['students.view', true]]),
         roleIds: ['role-1'],
       };
@@ -336,7 +431,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map([['students.view', false]]),
         roleIds: ['role-1'],
       };
@@ -353,7 +448,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
       };
@@ -370,7 +465,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map([['students.view', true]]),
         roleIds: ['role-1'],
       };
@@ -378,7 +473,7 @@ describe('PermissionService', () => {
       const result = service.checkPermission(
         context,
         'students.view',
-        ClearanceLevel.ADMIN,
+        ClearanceLevel.MANAGEMENT,
       );
 
       expect(result.granted).toBe(false);
@@ -393,7 +488,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map([
           ['students.view', true],
           ['classes.view', true],
@@ -415,7 +510,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map([['students.view', true]]),
         roleIds: ['role-1'],
       };
@@ -437,7 +532,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map([
           ['students.view', true],
           ['classes.view', false],
@@ -459,7 +554,7 @@ describe('PermissionService', () => {
         tenantId: 'tenant-id',
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
-        roles: ['Teacher'],
+        roles: [],
         permissions: new Map([
           ['students.view', false],
           ['classes.view', false],
