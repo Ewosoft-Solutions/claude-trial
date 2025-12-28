@@ -13,6 +13,8 @@ import {
   UpdateStudentProfileDto,
   EnrollStudentDto,
   UpdateEnrollmentStatusDto,
+  BulkGuardianUpsertDto,
+  BulkGuardianUpsertItemDto,
 } from '../dto';
 import { withTenant } from '../../common/database/tenant-prisma.extension';
 import {
@@ -363,6 +365,163 @@ export class StudentService {
       data,
       include: this.studentInclude,
     });
+  }
+
+  private deriveDisplayName(item: BulkGuardianUpsertItemDto): string {
+    if (item.displayName) return item.displayName;
+    const first = item.guardianFirstName?.trim();
+    const last = item.guardianLastName?.trim();
+    if (first && last) return `${first} ${last}`;
+    if (first) return first;
+    if (last) return last;
+    const emailPrefix = item.guardianEmail.split('@')[0] || 'Guardian';
+    return emailPrefix || 'Guardian';
+  }
+
+  async bulkUpsertGuardians(
+    tenantId: string,
+    userId: string,
+    dto: BulkGuardianUpsertDto,
+  ) {
+    const errors: Array<{ index: number; message: string }> = [];
+    const results: Array<{
+      index: number;
+      studentId?: string;
+      guardianUserTenantId?: string;
+    }> = [];
+
+    const parentRole = await this.db.client.role.findFirst({
+      where: { name: 'Parent', tenantId: null },
+      select: { id: true },
+    });
+    if (!parentRole) {
+      throw new BadRequestException('Parent role not found');
+    }
+
+    for (let i = 0; i < dto.items.length; i++) {
+      const item = dto.items[i];
+      try {
+        // Resolve student
+        let student = null;
+        if (item.studentId) {
+          student = await this.db.client.student.findFirst({
+            where: { id: item.studentId, tenantId },
+            select: { id: true },
+          });
+        } else if (item.studentNumber) {
+          student = await this.db.client.student.findFirst({
+            where: { tenantId, studentNumber: item.studentNumber },
+            select: { id: true },
+          });
+        }
+        if (!student) {
+          throw new BadRequestException('Student not found for tenant');
+        }
+
+        // Upsert guardian user
+        const user = await this.db.client.user.upsert({
+          where: { email: item.guardianEmail },
+          update: {
+            firstName: item.guardianFirstName ?? undefined,
+            lastName: item.guardianLastName ?? undefined,
+            isActive: true,
+          },
+          create: {
+            email: item.guardianEmail,
+            firstName: item.guardianFirstName ?? undefined,
+            lastName: item.guardianLastName ?? undefined,
+            isActive: true,
+            isVerified: true,
+          },
+          select: { id: true },
+        });
+
+        // Upsert guardian profile
+        const profile = await this.db.client.userTenant.upsert({
+          where: {
+            userId_tenantId: {
+              userId: user.id,
+              tenantId,
+            },
+          },
+          update: { status: 'active', suspended: false },
+          create: {
+            userId: user.id,
+            tenantId,
+            status: 'active',
+            suspended: false,
+            addedBy: userId,
+          },
+          select: { id: true },
+        });
+
+        // Ensure Parent role assigned
+        await this.db.client.userTenantRole.upsert({
+          where: {
+            userTenantId_roleId: {
+              userTenantId: profile.id,
+              roleId: parentRole.id,
+            },
+          },
+          update: {},
+          create: {
+            userTenantId: profile.id,
+            roleId: parentRole.id,
+            isPrimary: true,
+            assignedBy: userId,
+          },
+        });
+
+        // Upsert guardian link
+        const displayName = this.deriveDisplayName(item);
+        await this.db.client.studentGuardian.upsert({
+          where: {
+            studentId_userTenantId: {
+              studentId: student.id,
+              userTenantId: profile.id,
+            },
+          },
+          update: {
+            relationship: item.relationship ?? 'parent',
+            isPrimary: item.isPrimary ?? false,
+            legalGuardian: item.legalGuardian ?? false,
+            contactPriority: item.contactPriority ?? null,
+            notes: displayName,
+            updatedBy: userId,
+          },
+          create: {
+            tenantId,
+            studentId: student.id,
+            userTenantId: profile.id,
+            relationship: item.relationship ?? 'parent',
+            isPrimary: item.isPrimary ?? false,
+            legalGuardian: item.legalGuardian ?? false,
+            contactPriority: item.contactPriority ?? null,
+            notes: displayName,
+            createdBy: userId,
+          },
+        });
+
+        results.push({
+          index: i,
+          studentId: student.id,
+          guardianUserTenantId: profile.id,
+        });
+      } catch (error: any) {
+        errors.push({
+          index: i,
+          message: error?.message || 'Unknown error',
+        });
+      }
+    }
+
+    return {
+      processed: dto.items.length,
+      succeeded: results.length,
+      failed: errors.length,
+      results,
+      errors,
+    };
   }
 
   async delete(tenantId: string, id: string) {

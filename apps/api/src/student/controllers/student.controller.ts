@@ -30,6 +30,7 @@ import {
   UpdateStudentProfileDto,
   EnrollStudentDto,
   UpdateEnrollmentStatusDto,
+  BulkGuardianUpsertDto,
 } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
@@ -211,6 +212,24 @@ export class StudentController {
       user!.userId,
       id,
       enrollmentId,
+      dto,
+    );
+  }
+
+  /**
+   * Bulk guardian upsert (parents onboarding/updates)
+   */
+  @Post('guardians/bulk-upsert')
+  @RequirePermissions(['students.guardians.bulk_upsert'])
+  @ApiOperation({ summary: 'Bulk upsert guardians for students' })
+  async bulkUpsertGuardians(
+    @Body() dto: BulkGuardianUpsertDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const user = req.user;
+    return this.studentService.bulkUpsertGuardians(
+      user!.tenantId,
+      user!.userId,
       dto,
     );
   }

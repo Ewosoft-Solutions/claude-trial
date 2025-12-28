@@ -9,6 +9,8 @@ import {
   IsNumber,
   IsUrl,
   MaxLength,
+  IsEmail,
+  IsBoolean,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
@@ -362,4 +364,75 @@ export class UpdateEnrollmentStatusDto {
   @IsString()
   @IsIn(ENROLLMENT_STATUSES)
   status: (typeof ENROLLMENT_STATUSES)[number];
+}
+
+export class BulkGuardianUpsertItemDto {
+  @ApiPropertyOptional({ description: 'Student ID (if known)' })
+  @IsOptional()
+  @IsString()
+  studentId?: string;
+
+  @ApiPropertyOptional({ description: 'Student number (tenant-scoped unique)' })
+  @IsOptional()
+  @IsString()
+  studentNumber?: string;
+
+  @ApiProperty({ description: 'Guardian email (unique per user)' })
+  @IsEmail()
+  guardianEmail: string;
+
+  @ApiPropertyOptional({ description: 'Guardian first name' })
+  @IsOptional()
+  @IsString()
+  guardianFirstName?: string;
+
+  @ApiPropertyOptional({ description: 'Guardian last name' })
+  @IsOptional()
+  @IsString()
+  guardianLastName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Display name (optional, otherwise derived)',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(255)
+  displayName?: string;
+
+  @ApiPropertyOptional({
+    description: 'Relationship to student',
+    enum: ['parent', 'guardian', 'other'],
+    default: 'parent',
+  })
+  @IsOptional()
+  @IsString()
+  relationship?: string = 'parent';
+
+  @ApiPropertyOptional({ description: 'Primary guardian flag' })
+  @IsOptional()
+  @IsBoolean()
+  isPrimary?: boolean = false;
+
+  @ApiPropertyOptional({ description: 'Legal guardian flag' })
+  @IsOptional()
+  @IsBoolean()
+  legalGuardian?: boolean = false;
+
+  @ApiPropertyOptional({
+    description: 'Contact priority (lower = higher priority)',
+  })
+  @IsOptional()
+  @IsNumber()
+  contactPriority?: number;
+}
+
+export class BulkGuardianUpsertDto {
+  @ApiProperty({
+    description: 'Guardian rows to upsert',
+    type: [BulkGuardianUpsertItemDto],
+  })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => BulkGuardianUpsertItemDto)
+  items: BulkGuardianUpsertItemDto[];
 }
