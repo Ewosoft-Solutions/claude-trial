@@ -74,8 +74,14 @@ const buildPermission = (name: string): Permission => {
     context: context ?? null,
     category: 'test',
     createdAt: new Date(),
-  };
+    requiredClearanceLevel: ClearanceLevel.TEACHER,
+  } as Permission;
 };
+
+const buildPermissionValue = (
+  granted: boolean,
+  requiredClearanceLevel = ClearanceLevel.TEACHER,
+) => ({ granted, requiredClearanceLevel });
 
 const buildRolePermission = (
   roleId: string,
@@ -280,8 +286,8 @@ describe('PermissionService', () => {
       expect(result?.profileId).toBe('profile-id');
       expect(result?.clearanceLevel).toBe(ClearanceLevel.TEACHER);
       expect(result?.roles.map((r) => r.name)).toEqual(['Teacher']);
-      expect(result?.permissions.get('students.view')).toBe(true);
-      expect(result?.permissions.get('classes.view')).toBe(true);
+      expect(result?.permissions.get('students.view')?.granted).toBe(true);
+      expect(result?.permissions.get('classes.view')?.granted).toBe(true);
     });
 
     it('should apply profile-specific permission overrides', async () => {
@@ -312,7 +318,7 @@ describe('PermissionService', () => {
       );
 
       expect(result).not.toBeNull();
-      expect(result?.permissions.get('students.view')).toBe(false);
+      expect(result?.permissions.get('students.view')?.granted).toBe(false);
     });
 
     it('should calculate maximum clearance level from multiple roles', async () => {
@@ -354,6 +360,7 @@ describe('PermissionService', () => {
         roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkClearanceLevel(
@@ -375,6 +382,7 @@ describe('PermissionService', () => {
         roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkClearanceLevel(
@@ -397,6 +405,7 @@ describe('PermissionService', () => {
         roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkClearanceLevel(
@@ -416,8 +425,9 @@ describe('PermissionService', () => {
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
         roles: [],
-        permissions: new Map([['students.view', true]]),
+        permissions: new Map([['students.view', buildPermissionValue(true)]]),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkPermission(context, 'students.view');
@@ -432,8 +442,9 @@ describe('PermissionService', () => {
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
         roles: [],
-        permissions: new Map([['students.view', false]]),
+        permissions: new Map([['students.view', buildPermissionValue(false)]]),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkPermission(context, 'students.view');
@@ -451,6 +462,7 @@ describe('PermissionService', () => {
         roles: [],
         permissions: new Map(),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkPermission(context, 'students.view');
@@ -466,8 +478,9 @@ describe('PermissionService', () => {
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
         roles: [],
-        permissions: new Map([['students.view', true]]),
+        permissions: new Map([['students.view', buildPermissionValue(true)]]),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkPermission(
@@ -490,10 +503,11 @@ describe('PermissionService', () => {
         clearanceLevel: ClearanceLevel.TEACHER,
         roles: [],
         permissions: new Map([
-          ['students.view', true],
-          ['classes.view', true],
+          ['students.view', buildPermissionValue(true)],
+          ['classes.view', buildPermissionValue(true)],
         ]),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkPermissions(context, [
@@ -511,8 +525,9 @@ describe('PermissionService', () => {
         profileId: 'profile-id',
         clearanceLevel: ClearanceLevel.TEACHER,
         roles: [],
-        permissions: new Map([['students.view', true]]),
+        permissions: new Map([['students.view', buildPermissionValue(true)]]),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkPermissions(context, [
@@ -534,10 +549,11 @@ describe('PermissionService', () => {
         clearanceLevel: ClearanceLevel.TEACHER,
         roles: [],
         permissions: new Map([
-          ['students.view', true],
-          ['classes.view', false],
+          ['students.view', buildPermissionValue(true)],
+          ['classes.view', buildPermissionValue(false)],
         ]),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkAnyPermission(context, [
@@ -556,10 +572,11 @@ describe('PermissionService', () => {
         clearanceLevel: ClearanceLevel.TEACHER,
         roles: [],
         permissions: new Map([
-          ['students.view', false],
-          ['classes.view', false],
+          ['students.view', buildPermissionValue(false)],
+          ['classes.view', buildPermissionValue(false)],
         ]),
         roleIds: ['role-1'],
+        permissionPoolIds: [],
       };
 
       const result = service.checkAnyPermission(context, [
@@ -569,6 +586,70 @@ describe('PermissionService', () => {
 
       expect(result.granted).toBe(false);
       expect(result.reason).toBe('none_of_permissions_granted');
+    });
+  });
+
+  describe('checkContextAwarePermission - children', () => {
+    const baseContext: UserPermissionContext = {
+      userId: 'user-id',
+      tenantId: 'tenant-id',
+      profileId: 'profile-id',
+      clearanceLevel: ClearanceLevel.TEACHER,
+      roles: [],
+      permissions: new Map([
+        ['students.view.children', buildPermissionValue(true)],
+      ]),
+      roleIds: ['role-1'],
+      permissionPoolIds: [],
+    };
+
+    it('grants when guardian link exists', async () => {
+      mockPrisma.studentGuardian.findFirst.mockResolvedValue({
+        id: 'link-id',
+      } as any);
+
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'students.view.children',
+        { studentId: 'student-id' },
+      );
+
+      expect(result.granted).toBe(true);
+      expect(mockPrisma.studentGuardian.findFirst).toHaveBeenCalledWith({
+        where: {
+          tenantId: 'tenant-id',
+          studentId: 'student-id',
+          userTenantId: 'profile-id',
+        },
+        select: { id: true },
+      });
+    });
+
+    it('denies when guardian link is missing', async () => {
+      mockPrisma.studentGuardian.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'students.view.children',
+        { studentId: 'student-id' },
+      );
+
+      expect(result.granted).toBe(false);
+      expect(result.reason).toBe('not_guardian_of_student');
+    });
+
+    it('denies when student context is missing', async () => {
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'students.view.children',
+        {},
+      );
+
+      expect(result.granted).toBe(false);
+      expect(result.reason).toBe('missing_student_context');
     });
   });
 });

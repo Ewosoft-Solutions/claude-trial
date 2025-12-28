@@ -187,7 +187,8 @@ export class PlatformOversightService {
     ];
 
     for (const perm of platformPermissions) {
-      if (userContext.permissions.get(perm)) {
+      const permission = userContext.permissions.get(perm);
+      if (permission?.granted) {
         return true;
       }
     }

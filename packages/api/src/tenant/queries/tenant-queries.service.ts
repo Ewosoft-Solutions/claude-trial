@@ -120,6 +120,17 @@ export class TenantQueriesService {
                     permission: true,
                   },
                 },
+                rolePools: {
+                  include: {
+                    pool: {
+                      select: {
+                        id: true,
+                        name: true,
+                        clearanceLevel: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },

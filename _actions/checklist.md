@@ -345,3 +345,14 @@ All foundation layer implementation tasks (Sections 1-8) have been completed:
 - **Migration Status:** Initial migrations exist; verify they're up-to-date with current schema
 - **Seed Data:** Seed script ready; run after migrations are applied
 - **Next Priority:** Operational deployment (Section 9) to get foundation running, then move to application layer
+
+### Fixes 1. Permission Strategy Design Deviation Remediation
+
+- [x] Align permission metadata with design: add `requiredClearanceLevel` and pool membership fields to `Permission` model, API, and seeds.
+- [x] Enforce pool-only custom roles: require pool selection for custom roles, block direct permission assignment, and validate clearance/platform scope.
+- [x] Default clearance enforcement: make permission checks automatically honor each permission's required clearance without per-route overrides.
+- [ ] Implement context resolvers: enforce `own_classes`, `children`, and `department` scopes in context-aware permission checks with tests.
+- [ ] Complete seeding for pools and catalog: generate 274 permissions, level 0-10 pools, pool-permission mappings, and role-pool assignments.
+- [ ] Approval for level-7 custom roles: require Owner approval via maker-checker persistence before activating clearance-7 customs.
+- [x] AI mediator alignment: populate permission pools and clearance-derived scope in mediator context; add access-filter tests.
+- [ ] Governance guardrails: add CI/lint/test to reject custom roles without pools or with permissions above their clearance.

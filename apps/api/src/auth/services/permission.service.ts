@@ -10,7 +10,6 @@ import { PrismaClient, Role } from '@workspace/database';
 import {
   TenantQueriesService,
   ProfileStatus,
-  ClearanceLevel,
   ClearanceLevelHelpers,
   AccessScope,
 } from '@workspace/api';
@@ -34,8 +33,15 @@ export interface UserPermissionContext {
   profileId: string;
   clearanceLevel: number;
   roles: Role[];
-  permissions: Map<string, boolean>; // permission name -> granted/denied
+  permissions: Map<
+    string,
+    {
+      granted: boolean;
+      requiredClearanceLevel?: number;
+    }
+  >; // permission name -> grant + metadata
   roleIds: string[];
+  permissionPoolIds: string[];
 }
 
 /**
@@ -81,25 +87,47 @@ export class PermissionService {
     // Get roles and their clearance levels
     const roles = userTenant.userTenantRoles.map((utr) => utr.role);
     const roleIds = roles.map((r) => r.id);
-    const roleNames = roles.map((r) => r.name);
-
+    const permissionPoolIds = Array.from(
+      new Set(
+        roles.flatMap((r: any) =>
+          (r.rolePools || []).map((rp: any) => rp.pool?.id).filter(Boolean),
+        ),
+      ),
+    ) as string[];
     // Get maximum clearance level from roles
     const clearanceLevel = Math.max(...roles.map((r) => r.clearanceLevel), 0);
 
     // Get permissions from roles
-    const permissions = new Map<string, boolean>();
+    const permissions = new Map<
+      string,
+      { granted: boolean; requiredClearanceLevel?: number }
+    >();
     for (const role of roles) {
       for (const rp of role.rolePermissions) {
         // Only set if not already set (first role wins)
         if (!permissions.has(rp.permission.name)) {
-          permissions.set(rp.permission.name, true);
+          const requiredClearanceLevel =
+            (rp.permission as any).requiredClearanceLevel ??
+            (rp.permission as any).clearanceLevel ??
+            undefined;
+          permissions.set(rp.permission.name, {
+            granted: true,
+            requiredClearanceLevel,
+          });
         }
       }
     }
 
     // Apply profile-specific overrides (highest priority)
     for (const utp of userTenant.userTenantPermissions) {
-      permissions.set(utp.permission.name, utp.granted);
+      const requiredClearanceLevel =
+        (utp.permission as any).requiredClearanceLevel ??
+        (utp.permission as any).clearanceLevel ??
+        undefined;
+      permissions.set(utp.permission.name, {
+        granted: utp.granted,
+        requiredClearanceLevel,
+      });
     }
 
     return {
@@ -110,6 +138,7 @@ export class PermissionService {
       roles,
       permissions,
       roleIds,
+      permissionPoolIds,
     };
   }
 
@@ -181,12 +210,26 @@ export class PermissionService {
       };
     }
 
-    if (!permissionStatus) {
-      // Permission explicitly denied
+    const effectiveRequiredClearance =
+      requiredClearanceLevel ?? permissionStatus.requiredClearanceLevel;
+
+    if (effectiveRequiredClearance !== undefined) {
+      const clearanceCheck = this.checkClearanceLevel(
+        userContext,
+        effectiveRequiredClearance,
+      );
+      if (!clearanceCheck.granted) {
+        return clearanceCheck;
+      }
+    }
+
+    if (!permissionStatus.granted) {
+      // Permission explicitly denied (after clearance check)
       return {
         granted: false,
         reason: 'permission_denied',
         clearanceLevel: userContext.clearanceLevel,
+        requiredClearanceLevel: effectiveRequiredClearance,
       };
     }
 
@@ -194,6 +237,7 @@ export class PermissionService {
     return {
       granted: true,
       clearanceLevel: userContext.clearanceLevel,
+      requiredClearanceLevel: effectiveRequiredClearance,
     };
   }
 
@@ -225,11 +269,7 @@ export class PermissionService {
 
     // Check all permissions
     for (const permissionName of permissionNames) {
-      const check = this.checkPermission(
-        userContext,
-        permissionName,
-        undefined, // Don't check clearance again
-      );
+      const check = this.checkPermission(userContext, permissionName);
       if (!check.granted) {
         return {
           ...check,
@@ -272,11 +312,7 @@ export class PermissionService {
 
     // Check if any permission is granted
     for (const permissionName of permissionNames) {
-      const check = this.checkPermission(
-        userContext,
-        permissionName,
-        undefined, // Don't check clearance again
-      );
+      const check = this.checkPermission(userContext, permissionName);
       if (check.granted) {
         return check;
       }
@@ -325,7 +361,7 @@ export class PermissionService {
 
     // Extract context from permission name (e.g., 'students.edit.own_classes')
     const parts = permissionName.split('.');
-    const contextPart = parts[parts.length - 1];
+    const contextPart = parts.at(-1) ?? undefined;
 
     // Handle context-specific checks
     switch (contextPart) {
@@ -389,8 +425,32 @@ export class PermissionService {
     context: any,
     baseCheck: PermissionCheckResult,
   ): Promise<PermissionCheckResult> {
-    // TODO: Implement children relationship check
-    // For now, return base check
+    const studentId = context.studentId || context.resourceId;
+    if (!studentId) {
+      return {
+        granted: false,
+        reason: 'missing_student_context',
+        clearanceLevel: userContext.clearanceLevel,
+      };
+    }
+
+    const guardianLink = await prisma.studentGuardian.findFirst({
+      where: {
+        tenantId: userContext.tenantId,
+        studentId,
+        userTenantId: userContext.profileId,
+      },
+      select: { id: true },
+    });
+
+    if (!guardianLink) {
+      return {
+        granted: false,
+        reason: 'not_guardian_of_student',
+        clearanceLevel: userContext.clearanceLevel,
+      };
+    }
+
     return baseCheck;
   }
 
@@ -518,12 +578,12 @@ export class PermissionService {
 
     // Get granted permissions only
     const grantedPermissions = Array.from(userContext.permissions.entries())
-      .filter(([, granted]) => granted)
+      .filter(([, value]) => value?.granted)
       .map(([name]) => name);
 
     // Get permission pools from roles (would need to be loaded from database)
     // For now, return empty array - will be populated when AI mediator is integrated
-    const permissionPools: string[] = [];
+    const permissionPools = userContext.permissionPoolIds;
 
     return {
       userId: userContext.userId,

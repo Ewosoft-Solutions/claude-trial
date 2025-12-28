@@ -21,7 +21,7 @@ export interface CreateCustomRoleInput {
   description?: string;
   clearanceLevel: number; // Must be 0-7 for custom roles
   tenantId: string;
-  permissionPoolIds?: string[];
+  permissionPoolIds: string[];
   permissionIds?: string[];
   createdBy: string;
 }
@@ -142,7 +142,14 @@ export class RoleService {
       };
     }
 
-    // 2. Validate permission pools if provided
+    // 2. Validate permission pools (required for custom roles)
+    if (!input.permissionPoolIds || input.permissionPoolIds.length === 0) {
+      return {
+        valid: false,
+        error: 'Custom roles must inherit from permission pools',
+      };
+    }
+
     if (input.permissionPoolIds && input.permissionPoolIds.length > 0) {
       const pools = await prisma.permissionPool.findMany({
         where: {
@@ -183,6 +190,19 @@ export class RoleService {
         return {
           valid: false,
           error: 'Custom roles cannot include platform-level permissions',
+        };
+      }
+
+      // Check clearance levels for selected permissions
+      const overClearance = permissions.filter(
+        (p) => p.requiredClearanceLevel > input.clearanceLevel,
+      );
+      if (overClearance.length > 0) {
+        return {
+          valid: false,
+          error: `Permissions require higher clearance level: ${overClearance
+            .map((p) => p.name)
+            .join(', ')}`,
         };
       }
 
@@ -235,6 +255,13 @@ export class RoleService {
       throw new BadRequestException(validation.error);
     }
 
+    // Enforce permission pools requirement for custom roles
+    if (!input.permissionPoolIds || input.permissionPoolIds.length === 0) {
+      throw new BadRequestException(
+        'Custom roles must select permission pools matching their clearance level',
+      );
+    }
+
     // 3. Create role
     const role = await prisma.role.create({
       data: {
@@ -249,63 +276,52 @@ export class RoleService {
       },
     });
 
-    // 4. Assign permission pools if provided
-    if (input.permissionPoolIds && input.permissionPoolIds.length > 0) {
-      await prisma.rolePermissionPool.createMany({
-        data: input.permissionPoolIds.map((poolId) => ({
-          roleId: role.id,
-          poolId,
-          assignedBy: input.createdBy,
-        })),
-      });
+    // 4. Assign permission pools (mandatory for custom roles)
+    await prisma.rolePermissionPool.createMany({
+      data: input.permissionPoolIds.map((poolId) => ({
+        roleId: role.id,
+        poolId,
+        assignedBy: input.createdBy,
+      })),
+    });
 
-      // Get permissions from pools and assign to role
-      const pools = await prisma.permissionPool.findMany({
-        where: {
-          id: { in: input.permissionPoolIds },
-        },
-        include: {
-          poolPermissions: {
-            include: {
-              permission: true,
-            },
+    // Get permissions from pools and assign to role
+    const pools = await prisma.permissionPool.findMany({
+      where: {
+        id: { in: input.permissionPoolIds },
+      },
+      include: {
+        poolPermissions: {
+          include: {
+            permission: true,
           },
         },
-      });
+      },
+    });
 
-      const permissionIds = new Set<string>();
-      for (const pool of pools) {
-        for (const pp of pool.poolPermissions) {
-          permissionIds.add(pp.permissionId);
-        }
+    const permissionIds = new Set<string>();
+    for (const pool of pools) {
+      for (const pp of pool.poolPermissions) {
+        permissionIds.add(pp.permissionId);
       }
+    }
 
-      // Add any additional permissions
-      if (input.permissionIds) {
-        for (const permId of input.permissionIds) {
-          permissionIds.add(permId);
-        }
+    // Add any additional permissions (already validated against pools)
+    if (input.permissionIds) {
+      for (const permId of input.permissionIds) {
+        permissionIds.add(permId);
       }
+    }
 
-      // Assign permissions to role
-      if (permissionIds.size > 0) {
-        await prisma.rolePermission.createMany({
-          data: Array.from(permissionIds).map((permissionId) => ({
-            roleId: role.id,
-            permissionId,
-            grantedBy: input.createdBy,
-          })),
-          skipDuplicates: true,
-        });
-      }
-    } else if (input.permissionIds && input.permissionIds.length > 0) {
-      // Assign permissions directly if no pools
+    // Assign permissions to role
+    if (permissionIds.size > 0) {
       await prisma.rolePermission.createMany({
-        data: input.permissionIds.map((permissionId) => ({
+        data: Array.from(permissionIds).map((permissionId) => ({
           roleId: role.id,
           permissionId,
           grantedBy: input.createdBy,
         })),
+        skipDuplicates: true,
       });
     }
 

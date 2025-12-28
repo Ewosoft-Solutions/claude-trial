@@ -15,6 +15,7 @@ import {
   Request,
   HttpCode,
   HttpStatus,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -30,13 +31,9 @@ import {
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { RoleService, CreateCustomRoleInput } from '../services/role.service';
-import {
-  PermissionService,
-  UserPermissionContext,
-} from '../services/permission.service';
+import { PermissionService } from '../services/permission.service';
 import { DatabaseService } from '../../common/database/database.service';
-import { TenantQueriesService } from '@workspace/api';
-import { RoleType } from '@workspace/api';
+import { RoleType, TenantQueriesService } from '@workspace/api';
 import type { AuthenticatedRequest } from '../middleware';
 
 /**
@@ -46,7 +43,7 @@ export class CreateCustomRoleDto {
   name: string;
   description?: string;
   clearanceLevel: number;
-  permissionPoolIds?: string[];
+  permissionPoolIds: string[];
   permissionIds?: string[];
 }
 
@@ -75,7 +72,7 @@ export class RoleManagementController {
   @ApiOperation({ summary: 'Get all roles for tenant' })
   @ApiResponse({ status: 200, description: 'List of roles' })
   async getRoles(@Request() req: AuthenticatedRequest) {
-    const userContext = req.userContext as UserPermissionContext | undefined;
+    const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
 
     if (!tenantId) {
@@ -156,7 +153,7 @@ export class RoleManagementController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    const userContext = req.userContext as UserPermissionContext | undefined;
+    const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
 
     if (!tenantId) {
@@ -173,6 +170,12 @@ export class RoleManagementController {
     ) {
       throw new Error(
         'Insufficient clearance level to create role with requested clearance level',
+      );
+    }
+
+    if (!data.permissionPoolIds || data.permissionPoolIds.length === 0) {
+      throw new BadRequestException(
+        'permissionPoolIds is required and cannot be empty for custom roles',
       );
     }
 
