@@ -202,7 +202,7 @@ const STUDENT_PERMISSIONS = [
     resource: 'students',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'students.view.own',
@@ -212,7 +212,7 @@ const STUDENT_PERMISSIONS = [
     action: 'view',
     context: 'own',
     category: 'academic',
-    clearanceLevel: 1,
+    requiredClearanceLevel: 1,
   },
   {
     name: 'students.view.detailed',
@@ -223,7 +223,7 @@ const STUDENT_PERMISSIONS = [
     action: 'view',
     context: 'detailed',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.view.personal_info',
@@ -233,7 +233,7 @@ const STUDENT_PERMISSIONS = [
     action: 'view',
     context: 'personal_info',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.view.academic_records',
@@ -243,7 +243,7 @@ const STUDENT_PERMISSIONS = [
     action: 'view',
     context: 'academic_records',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'students.view.medical_info',
@@ -253,7 +253,7 @@ const STUDENT_PERMISSIONS = [
     action: 'view',
     context: 'medical_info',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.edit',
@@ -262,7 +262,7 @@ const STUDENT_PERMISSIONS = [
     resource: 'students',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.edit.personal_info',
@@ -272,7 +272,7 @@ const STUDENT_PERMISSIONS = [
     action: 'edit',
     context: 'personal_info',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.edit.academic_info',
@@ -282,7 +282,7 @@ const STUDENT_PERMISSIONS = [
     action: 'edit',
     context: 'academic_info',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.edit.medical_info',
@@ -292,7 +292,7 @@ const STUDENT_PERMISSIONS = [
     action: 'edit',
     context: 'medical_info',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.create',
@@ -301,7 +301,7 @@ const STUDENT_PERMISSIONS = [
     resource: 'students',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.delete',
@@ -310,7 +310,7 @@ const STUDENT_PERMISSIONS = [
     resource: 'students',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'students.export',
@@ -319,7 +319,7 @@ const STUDENT_PERMISSIONS = [
     resource: 'students',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.import',
@@ -328,7 +328,7 @@ const STUDENT_PERMISSIONS = [
     resource: 'students',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'students.edit.own_classes',
@@ -338,7 +338,7 @@ const STUDENT_PERMISSIONS = [
     action: 'edit',
     context: 'own_classes',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
 ];
 
@@ -351,7 +351,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'courses',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'courses.view.detailed',
@@ -361,7 +361,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     action: 'view',
     context: 'detailed',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'courses.edit',
@@ -370,7 +370,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'courses',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'courses.create',
@@ -379,7 +379,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'courses',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'courses.delete',
@@ -388,7 +388,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'courses',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'courses.export',
@@ -397,7 +397,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'courses',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'courses.import',
@@ -406,7 +406,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'courses',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'schedules.view',
@@ -415,7 +415,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'schedules',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'schedules.edit',
@@ -424,7 +424,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'schedules',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'schedules.create',
@@ -433,7 +433,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'schedules',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'subjects.view',
@@ -442,7 +442,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'subjects',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'subjects.edit',
@@ -451,7 +451,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'subjects',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'subjects.create',
@@ -460,7 +460,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'subjects',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'subjects.delete',
@@ -469,7 +469,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'subjects',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'schedules.delete',
@@ -478,7 +478,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'schedules',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'schedules.export',
@@ -487,7 +487,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'schedules',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'schedules.import',
@@ -496,7 +496,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'schedules',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'subjects.export',
@@ -505,7 +505,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'subjects',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'subjects.import',
@@ -514,7 +514,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     resource: 'subjects',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -527,7 +527,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'grades',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'grades.view.own',
@@ -537,7 +537,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     action: 'view',
     context: 'own',
     category: 'academic',
-    clearanceLevel: 1,
+    requiredClearanceLevel: 1,
   },
   {
     name: 'grades.view.children',
@@ -547,7 +547,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     action: 'view',
     context: 'children',
     category: 'academic',
-    clearanceLevel: 2,
+    requiredClearanceLevel: 2,
   },
   {
     name: 'grades.edit',
@@ -556,7 +556,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'grades',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'grades.edit.own_classes',
@@ -566,7 +566,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     action: 'edit',
     context: 'own_classes',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'grades.create',
@@ -575,7 +575,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'grades',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'grades.delete',
@@ -584,7 +584,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'grades',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'grades.export',
@@ -593,7 +593,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'grades',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'grades.import',
@@ -602,7 +602,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'grades',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'assessments.view',
@@ -611,7 +611,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'assessments',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'assessments.edit',
@@ -620,7 +620,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'assessments',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'assessments.create',
@@ -629,7 +629,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'assessments',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'assessments.delete',
@@ -638,7 +638,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'assessments',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'assessments.export',
@@ -647,7 +647,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'assessments',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'assessments.import',
@@ -656,7 +656,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'assessments',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'grades.edit.own_students',
@@ -666,7 +666,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     action: 'edit',
     context: 'own_students',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'transcripts.view',
@@ -675,7 +675,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'transcripts',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'transcripts.edit',
@@ -684,7 +684,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'transcripts',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'transcripts.generate',
@@ -693,7 +693,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'transcripts',
     action: 'generate',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'transcripts.delete',
@@ -702,7 +702,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'transcripts',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'transcripts.export',
@@ -711,7 +711,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     resource: 'transcripts',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -724,7 +724,7 @@ const ATTENDANCE_PERMISSIONS = [
     resource: 'attendance',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'attendance.view.own',
@@ -734,7 +734,7 @@ const ATTENDANCE_PERMISSIONS = [
     action: 'view',
     context: 'own',
     category: 'academic',
-    clearanceLevel: 1,
+    requiredClearanceLevel: 1,
   },
   {
     name: 'attendance.view.children',
@@ -744,7 +744,7 @@ const ATTENDANCE_PERMISSIONS = [
     action: 'view',
     context: 'children',
     category: 'academic',
-    clearanceLevel: 2,
+    requiredClearanceLevel: 2,
   },
   {
     name: 'attendance.edit',
@@ -753,7 +753,7 @@ const ATTENDANCE_PERMISSIONS = [
     resource: 'attendance',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'attendance.edit.own_classes',
@@ -763,7 +763,7 @@ const ATTENDANCE_PERMISSIONS = [
     action: 'edit',
     context: 'own_classes',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'attendance.create',
@@ -772,7 +772,7 @@ const ATTENDANCE_PERMISSIONS = [
     resource: 'attendance',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'attendance.export',
@@ -781,7 +781,7 @@ const ATTENDANCE_PERMISSIONS = [
     resource: 'attendance',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'attendance.delete',
@@ -790,7 +790,7 @@ const ATTENDANCE_PERMISSIONS = [
     resource: 'attendance',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'attendance.import',
@@ -799,7 +799,7 @@ const ATTENDANCE_PERMISSIONS = [
     resource: 'attendance',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -812,7 +812,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'fees',
     action: 'view',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'fees.view.own',
@@ -822,7 +822,7 @@ const FINANCIAL_PERMISSIONS = [
     action: 'view',
     context: 'own',
     category: 'financial',
-    clearanceLevel: 2,
+    requiredClearanceLevel: 2,
   },
   {
     name: 'fees.edit',
@@ -831,7 +831,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'fees',
     action: 'edit',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'fees.create',
@@ -840,7 +840,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'fees',
     action: 'create',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'fees.delete',
@@ -849,7 +849,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'fees',
     action: 'delete',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'payments.view',
@@ -858,7 +858,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'payments',
     action: 'view',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'payments.edit',
@@ -867,7 +867,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'payments',
     action: 'edit',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'payments.refund',
@@ -876,7 +876,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'payments',
     action: 'refund',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'billing.view',
@@ -885,7 +885,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'billing',
     action: 'view',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'billing.edit',
@@ -894,7 +894,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'billing',
     action: 'edit',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'financial_reports.view',
@@ -903,7 +903,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'financial_reports',
     action: 'view',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'financial_reports.export',
@@ -912,7 +912,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'financial_reports',
     action: 'export',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'fees.export',
@@ -921,7 +921,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'fees',
     action: 'export',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'fees.import',
@@ -930,7 +930,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'fees',
     action: 'import',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'payments.export',
@@ -939,7 +939,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'payments',
     action: 'export',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'billing.export',
@@ -948,7 +948,7 @@ const FINANCIAL_PERMISSIONS = [
     resource: 'billing',
     action: 'export',
     category: 'financial',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
 ];
 
@@ -961,7 +961,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'messages',
     action: 'view',
     category: 'communication',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'messages.send',
@@ -970,7 +970,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'messages',
     action: 'send',
     category: 'communication',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'messages.send.broadcast',
@@ -980,7 +980,7 @@ const COMMUNICATION_PERMISSIONS = [
     action: 'send',
     context: 'broadcast',
     category: 'communication',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'messages.send.parents',
@@ -990,7 +990,7 @@ const COMMUNICATION_PERMISSIONS = [
     action: 'send',
     context: 'parents',
     category: 'communication',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'messages.send.students',
@@ -1000,7 +1000,7 @@ const COMMUNICATION_PERMISSIONS = [
     action: 'send',
     context: 'students',
     category: 'communication',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'messages.send.staff',
@@ -1010,7 +1010,7 @@ const COMMUNICATION_PERMISSIONS = [
     action: 'send',
     context: 'staff',
     category: 'communication',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'messages.send.own_classes',
@@ -1020,7 +1020,7 @@ const COMMUNICATION_PERMISSIONS = [
     action: 'send',
     context: 'own_classes',
     category: 'communication',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'announcements.view',
@@ -1029,7 +1029,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'announcements',
     action: 'view',
     category: 'communication',
-    clearanceLevel: 0,
+    requiredClearanceLevel: 0,
   },
   {
     name: 'announcements.create',
@@ -1038,7 +1038,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'announcements',
     action: 'create',
     category: 'communication',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'announcements.edit',
@@ -1047,7 +1047,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'announcements',
     action: 'edit',
     category: 'communication',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'announcements.delete',
@@ -1056,7 +1056,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'announcements',
     action: 'delete',
     category: 'communication',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'notifications.view',
@@ -1065,7 +1065,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'notifications',
     action: 'view',
     category: 'communication',
-    clearanceLevel: 1,
+    requiredClearanceLevel: 1,
   },
   {
     name: 'notifications.edit',
@@ -1074,7 +1074,7 @@ const COMMUNICATION_PERMISSIONS = [
     resource: 'notifications',
     action: 'edit',
     category: 'communication',
-    clearanceLevel: 1,
+    requiredClearanceLevel: 1,
   },
 ];
 
@@ -1087,7 +1087,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'staff.view.detailed',
@@ -1097,7 +1097,7 @@ const STAFF_PERMISSIONS = [
     action: 'view',
     context: 'detailed',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'staff.edit',
@@ -1106,7 +1106,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'edit',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'staff.create',
@@ -1115,7 +1115,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'create',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'staff.delete',
@@ -1124,7 +1124,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'delete',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'staff.schedules',
@@ -1133,7 +1133,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'schedules',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'staff.performance',
@@ -1142,7 +1142,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'performance',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'departments.view',
@@ -1151,7 +1151,7 @@ const STAFF_PERMISSIONS = [
     resource: 'departments',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'departments.edit',
@@ -1160,7 +1160,7 @@ const STAFF_PERMISSIONS = [
     resource: 'departments',
     action: 'edit',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'departments.create',
@@ -1169,7 +1169,7 @@ const STAFF_PERMISSIONS = [
     resource: 'departments',
     action: 'create',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'departments.delete',
@@ -1178,7 +1178,7 @@ const STAFF_PERMISSIONS = [
     resource: 'departments',
     action: 'delete',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'staff.export',
@@ -1187,7 +1187,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'export',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'staff.import',
@@ -1196,7 +1196,7 @@ const STAFF_PERMISSIONS = [
     resource: 'staff',
     action: 'import',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -1209,7 +1209,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'reports',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'reports.academic',
@@ -1218,7 +1218,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'reports',
     action: 'academic',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'reports.financial',
@@ -1227,7 +1227,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'reports',
     action: 'financial',
     category: 'administrative',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'reports.attendance',
@@ -1236,7 +1236,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'reports',
     action: 'attendance',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'reports.export',
@@ -1245,7 +1245,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'reports',
     action: 'export',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'reports.view.department',
@@ -1255,7 +1255,7 @@ const REPORTS_PERMISSIONS = [
     action: 'view',
     context: 'department',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'analytics.view',
@@ -1264,7 +1264,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'analytics',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'analytics.advanced',
@@ -1273,7 +1273,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'analytics',
     action: 'advanced',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'dashboard.view',
@@ -1282,7 +1282,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'dashboard',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 1,
+    requiredClearanceLevel: 1,
   },
   {
     name: 'dashboard.customize',
@@ -1291,7 +1291,7 @@ const REPORTS_PERMISSIONS = [
     resource: 'dashboard',
     action: 'customize',
     category: 'administrative',
-    clearanceLevel: 1,
+    requiredClearanceLevel: 1,
   },
 ];
 
@@ -1304,7 +1304,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'settings.edit',
@@ -1313,7 +1313,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'edit',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'settings.school',
@@ -1323,7 +1323,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     action: 'edit',
     context: 'school',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'settings.users',
@@ -1332,7 +1332,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'users',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'settings.roles',
@@ -1341,7 +1341,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'roles',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'settings.backup',
@@ -1350,7 +1350,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'backup',
     category: 'administrative',
-    clearanceLevel: 6,
+    requiredClearanceLevel: 6,
   },
   {
     name: 'settings.audit',
@@ -1359,7 +1359,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'audit',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'settings.integrations',
@@ -1368,7 +1368,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'integrations',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'settings.theme',
@@ -1377,7 +1377,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'theme',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'settings.features',
@@ -1386,7 +1386,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'settings',
     action: 'features',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'users.view',
@@ -1395,7 +1395,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'users',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'users.create',
@@ -1404,7 +1404,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'users',
     action: 'create',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'users.edit',
@@ -1413,7 +1413,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'users',
     action: 'edit',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'users.delete',
@@ -1422,7 +1422,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'users',
     action: 'delete',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'roles.view',
@@ -1431,7 +1431,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'roles',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'roles.create',
@@ -1440,7 +1440,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'roles',
     action: 'create',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'roles.edit',
@@ -1449,7 +1449,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'roles',
     action: 'edit',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'roles.delete',
@@ -1458,7 +1458,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     resource: 'roles',
     action: 'delete',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
 ];
 
@@ -1471,7 +1471,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'override',
     category: 'platform',
-    clearanceLevel: 10,
+    requiredClearanceLevel: 10,
   },
   {
     name: 'platform.audit',
@@ -1480,7 +1480,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'audit',
     category: 'platform',
-    clearanceLevel: 10,
+    requiredClearanceLevel: 10,
   },
   {
     name: 'platform.maintenance',
@@ -1489,7 +1489,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'maintenance',
     category: 'platform',
-    clearanceLevel: 10,
+    requiredClearanceLevel: 10,
   },
   {
     name: 'platform.backup',
@@ -1498,7 +1498,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'backup',
     category: 'platform',
-    clearanceLevel: 10,
+    requiredClearanceLevel: 10,
   },
   {
     name: 'platform.security',
@@ -1507,7 +1507,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'security',
     category: 'platform',
-    clearanceLevel: 10,
+    requiredClearanceLevel: 10,
   },
   {
     name: 'platform.tenants',
@@ -1516,7 +1516,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'tenants',
     category: 'platform',
-    clearanceLevel: 10,
+    requiredClearanceLevel: 10,
   },
   {
     name: 'platform.billing',
@@ -1525,7 +1525,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'billing',
     category: 'platform',
-    clearanceLevel: 10,
+    requiredClearanceLevel: 10,
   },
   {
     name: 'platform.support',
@@ -1534,7 +1534,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'support',
     category: 'platform',
-    clearanceLevel: 9,
+    requiredClearanceLevel: 9,
   },
   {
     name: 'platform.support.access',
@@ -1544,7 +1544,7 @@ const PLATFORM_PERMISSIONS = [
     action: 'support',
     context: 'access',
     category: 'platform',
-    clearanceLevel: 9,
+    requiredClearanceLevel: 9,
   },
   {
     name: 'platform.monitoring',
@@ -1553,7 +1553,7 @@ const PLATFORM_PERMISSIONS = [
     resource: 'platform',
     action: 'monitoring',
     category: 'platform',
-    clearanceLevel: 9,
+    requiredClearanceLevel: 9,
   },
   {
     name: 'platform.audit.limited',
@@ -1563,7 +1563,7 @@ const PLATFORM_PERMISSIONS = [
     action: 'audit',
     context: 'limited',
     category: 'platform',
-    clearanceLevel: 9,
+    requiredClearanceLevel: 9,
   },
   {
     name: 'platform.maintenance.limited',
@@ -1573,7 +1573,7 @@ const PLATFORM_PERMISSIONS = [
     action: 'maintenance',
     context: 'limited',
     category: 'platform',
-    clearanceLevel: 9,
+    requiredClearanceLevel: 9,
   },
 ];
 
@@ -1586,7 +1586,7 @@ const LIBRARY_PERMISSIONS = [
     resource: 'library',
     action: 'view',
     category: 'support_services',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'library.books.view',
@@ -1596,7 +1596,7 @@ const LIBRARY_PERMISSIONS = [
     action: 'books',
     context: 'view',
     category: 'support_services',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'library.books.edit',
@@ -1606,7 +1606,7 @@ const LIBRARY_PERMISSIONS = [
     action: 'books',
     context: 'edit',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'library.books.create',
@@ -1616,7 +1616,7 @@ const LIBRARY_PERMISSIONS = [
     action: 'books',
     context: 'create',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'library.books.delete',
@@ -1626,7 +1626,7 @@ const LIBRARY_PERMISSIONS = [
     action: 'books',
     context: 'delete',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'library.circulation',
@@ -1635,7 +1635,7 @@ const LIBRARY_PERMISSIONS = [
     resource: 'library',
     action: 'circulation',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'library.reservations',
@@ -1644,7 +1644,7 @@ const LIBRARY_PERMISSIONS = [
     resource: 'library',
     action: 'reservations',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -1657,7 +1657,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'view',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'transportation.edit',
@@ -1666,7 +1666,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'edit',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'transportation.students',
@@ -1675,7 +1675,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'students',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'transportation.drivers',
@@ -1684,7 +1684,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'drivers',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'transportation.vehicles',
@@ -1693,7 +1693,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'vehicles',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'transportation.routes',
@@ -1702,7 +1702,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'routes',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'transportation.tracking',
@@ -1711,7 +1711,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'tracking',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'transportation.emergency',
@@ -1720,7 +1720,7 @@ const TRANSPORTATION_PERMISSIONS = [
     resource: 'transportation',
     action: 'emergency',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -1733,7 +1733,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'view',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'cafeteria.menu',
@@ -1742,7 +1742,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'menu',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'cafeteria.orders',
@@ -1751,7 +1751,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'orders',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'cafeteria.payments',
@@ -1760,7 +1760,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'payments',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'cafeteria.inventory',
@@ -1769,7 +1769,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'inventory',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'cafeteria.nutrition',
@@ -1778,7 +1778,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'nutrition',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'cafeteria.allergies',
@@ -1787,7 +1787,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'allergies',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'cafeteria.reports',
@@ -1796,7 +1796,7 @@ const CAFETERIA_PERMISSIONS = [
     resource: 'cafeteria',
     action: 'reports',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -1809,7 +1809,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'view',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'health.records',
@@ -1818,7 +1818,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'records',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'health.medications',
@@ -1827,7 +1827,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'medications',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'health.emergency',
@@ -1836,7 +1836,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'emergency',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'health.immunizations',
@@ -1845,7 +1845,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'immunizations',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'health.visits',
@@ -1854,7 +1854,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'visits',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'health.reports',
@@ -1863,7 +1863,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'reports',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'health.parents',
@@ -1872,7 +1872,7 @@ const HEALTH_PERMISSIONS = [
     resource: 'health',
     action: 'parents',
     category: 'support_services',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -1885,7 +1885,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'view',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'facilities.rooms',
@@ -1894,7 +1894,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'rooms',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'facilities.maintenance',
@@ -1903,7 +1903,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'maintenance',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'facilities.equipment',
@@ -1912,7 +1912,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'equipment',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'facilities.reservations',
@@ -1921,7 +1921,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'reservations',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'facilities.cleaning',
@@ -1930,7 +1930,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'cleaning',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'facilities.security',
@@ -1939,7 +1939,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'security',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'facilities.utilities',
@@ -1948,7 +1948,7 @@ const FACILITIES_PERMISSIONS = [
     resource: 'facilities',
     action: 'utilities',
     category: 'support_services',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -1961,7 +1961,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'view',
     category: 'events',
-    clearanceLevel: 0,
+    requiredClearanceLevel: 0,
   },
   {
     name: 'events.create',
@@ -1970,7 +1970,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'create',
     category: 'events',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'events.edit',
@@ -1979,7 +1979,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'edit',
     category: 'events',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'events.delete',
@@ -1988,7 +1988,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'delete',
     category: 'events',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'events.registration',
@@ -1997,7 +1997,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'registration',
     category: 'events',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'events.attendance',
@@ -2006,7 +2006,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'attendance',
     category: 'events',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'events.volunteers',
@@ -2015,7 +2015,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'volunteers',
     category: 'events',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'events.facilities',
@@ -2024,7 +2024,7 @@ const EVENTS_PERMISSIONS = [
     resource: 'events',
     action: 'facilities',
     category: 'events',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -2037,7 +2037,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'view',
     category: 'sports',
-    clearanceLevel: 0,
+    requiredClearanceLevel: 0,
   },
   {
     name: 'sports.teams',
@@ -2046,7 +2046,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'teams',
     category: 'sports',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'sports.schedules',
@@ -2055,7 +2055,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'schedules',
     category: 'sports',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'sports.equipment',
@@ -2064,7 +2064,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'equipment',
     category: 'sports',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'sports.facilities',
@@ -2073,7 +2073,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'facilities',
     category: 'sports',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'sports.medical',
@@ -2082,7 +2082,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'medical',
     category: 'sports',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'sports.performance',
@@ -2091,7 +2091,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'performance',
     category: 'sports',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'sports.parents',
@@ -2100,7 +2100,7 @@ const SPORTS_PERMISSIONS = [
     resource: 'sports',
     action: 'parents',
     category: 'sports',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -2113,7 +2113,7 @@ const CLUBS_PERMISSIONS = [
     resource: 'clubs',
     action: 'view',
     category: 'clubs',
-    clearanceLevel: 0,
+    requiredClearanceLevel: 0,
   },
   {
     name: 'clubs.manage',
@@ -2122,7 +2122,7 @@ const CLUBS_PERMISSIONS = [
     resource: 'clubs',
     action: 'manage',
     category: 'clubs',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'clubs.meetings',
@@ -2131,7 +2131,7 @@ const CLUBS_PERMISSIONS = [
     resource: 'clubs',
     action: 'meetings',
     category: 'clubs',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'clubs.activities',
@@ -2140,7 +2140,7 @@ const CLUBS_PERMISSIONS = [
     resource: 'clubs',
     action: 'activities',
     category: 'clubs',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'clubs.funding',
@@ -2149,7 +2149,7 @@ const CLUBS_PERMISSIONS = [
     resource: 'clubs',
     action: 'funding',
     category: 'clubs',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'clubs.leadership',
@@ -2158,7 +2158,7 @@ const CLUBS_PERMISSIONS = [
     resource: 'clubs',
     action: 'leadership',
     category: 'clubs',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'clubs.achievements',
@@ -2167,7 +2167,7 @@ const CLUBS_PERMISSIONS = [
     resource: 'clubs',
     action: 'achievements',
     category: 'clubs',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -2180,7 +2180,7 @@ const PARENT_PORTAL_PERMISSIONS = [
     resource: 'parent_portal',
     action: 'view',
     category: 'communication',
-    clearanceLevel: 2,
+    requiredClearanceLevel: 2,
   },
   {
     name: 'parent_portal.communicate',
@@ -2189,7 +2189,7 @@ const PARENT_PORTAL_PERMISSIONS = [
     resource: 'parent_portal',
     action: 'communicate',
     category: 'communication',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'parent_portal.volunteer',
@@ -2198,7 +2198,7 @@ const PARENT_PORTAL_PERMISSIONS = [
     resource: 'parent_portal',
     action: 'volunteer',
     category: 'communication',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'parent_portal.meetings',
@@ -2207,7 +2207,7 @@ const PARENT_PORTAL_PERMISSIONS = [
     resource: 'parent_portal',
     action: 'meetings',
     category: 'communication',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'parent_portal.feedback',
@@ -2216,7 +2216,7 @@ const PARENT_PORTAL_PERMISSIONS = [
     resource: 'parent_portal',
     action: 'feedback',
     category: 'communication',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'community.view',
@@ -2225,7 +2225,7 @@ const PARENT_PORTAL_PERMISSIONS = [
     resource: 'community',
     action: 'view',
     category: 'communication',
-    clearanceLevel: 0,
+    requiredClearanceLevel: 0,
   },
   {
     name: 'community.partnerships',
@@ -2234,7 +2234,7 @@ const PARENT_PORTAL_PERMISSIONS = [
     resource: 'community',
     action: 'partnerships',
     category: 'communication',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -2247,7 +2247,7 @@ const INVENTORY_PERMISSIONS = [
     resource: 'inventory',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'inventory.equipment',
@@ -2256,7 +2256,7 @@ const INVENTORY_PERMISSIONS = [
     resource: 'inventory',
     action: 'equipment',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'inventory.textbooks',
@@ -2265,7 +2265,7 @@ const INVENTORY_PERMISSIONS = [
     resource: 'inventory',
     action: 'textbooks',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'inventory.supplies',
@@ -2274,7 +2274,7 @@ const INVENTORY_PERMISSIONS = [
     resource: 'inventory',
     action: 'supplies',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'inventory.technology',
@@ -2283,7 +2283,7 @@ const INVENTORY_PERMISSIONS = [
     resource: 'inventory',
     action: 'technology',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'inventory.maintenance',
@@ -2292,7 +2292,7 @@ const INVENTORY_PERMISSIONS = [
     resource: 'inventory',
     action: 'maintenance',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'inventory.disposal',
@@ -2301,7 +2301,7 @@ const INVENTORY_PERMISSIONS = [
     resource: 'inventory',
     action: 'disposal',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -2314,7 +2314,7 @@ const SAFETY_PERMISSIONS = [
     resource: 'safety',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'safety.incidents',
@@ -2323,7 +2323,7 @@ const SAFETY_PERMISSIONS = [
     resource: 'safety',
     action: 'incidents',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'safety.drills',
@@ -2332,7 +2332,7 @@ const SAFETY_PERMISSIONS = [
     resource: 'safety',
     action: 'drills',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'safety.visitors',
@@ -2341,7 +2341,7 @@ const SAFETY_PERMISSIONS = [
     resource: 'safety',
     action: 'visitors',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'safety.emergency',
@@ -2350,7 +2350,7 @@ const SAFETY_PERMISSIONS = [
     resource: 'safety',
     action: 'emergency',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'safety.cameras',
@@ -2359,7 +2359,7 @@ const SAFETY_PERMISSIONS = [
     resource: 'safety',
     action: 'cameras',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
   {
     name: 'safety.alerts',
@@ -2368,7 +2368,7 @@ const SAFETY_PERMISSIONS = [
     resource: 'safety',
     action: 'alerts',
     category: 'administrative',
-    clearanceLevel: 4,
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -2381,7 +2381,7 @@ const COMPLIANCE_PERMISSIONS = [
     resource: 'compliance',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'compliance.reports',
@@ -2390,7 +2390,7 @@ const COMPLIANCE_PERMISSIONS = [
     resource: 'compliance',
     action: 'reports',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'compliance.audits',
@@ -2399,7 +2399,7 @@ const COMPLIANCE_PERMISSIONS = [
     resource: 'compliance',
     action: 'audits',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'compliance.training',
@@ -2408,7 +2408,7 @@ const COMPLIANCE_PERMISSIONS = [
     resource: 'compliance',
     action: 'training',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'compliance.policies',
@@ -2417,7 +2417,7 @@ const COMPLIANCE_PERMISSIONS = [
     resource: 'compliance',
     action: 'policies',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'compliance.legal',
@@ -2426,7 +2426,7 @@ const COMPLIANCE_PERMISSIONS = [
     resource: 'compliance',
     action: 'legal',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
 ];
 
@@ -2439,7 +2439,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'timetable.edit',
@@ -2448,7 +2448,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.create',
@@ -2457,7 +2457,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.delete',
@@ -2466,7 +2466,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.teachers',
@@ -2475,7 +2475,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'teachers',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.rooms',
@@ -2484,7 +2484,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'rooms',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.subjects',
@@ -2493,7 +2493,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'subjects',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.conflicts',
@@ -2502,7 +2502,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'conflicts',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.export',
@@ -2511,7 +2511,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'export',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.import',
@@ -2520,7 +2520,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'import',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.substitution',
@@ -2529,7 +2529,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'substitution',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'timetable.breaks',
@@ -2538,7 +2538,7 @@ const TIMETABLE_PERMISSIONS = [
     resource: 'timetable',
     action: 'breaks',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -2551,7 +2551,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'view',
     category: 'academic',
-    clearanceLevel: 3,
+    requiredClearanceLevel: 3,
   },
   {
     name: 'exams.create',
@@ -2560,7 +2560,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'create',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.edit',
@@ -2569,7 +2569,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'edit',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.delete',
@@ -2578,7 +2578,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'delete',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.rooms',
@@ -2587,7 +2587,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'rooms',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.invigilators',
@@ -2596,7 +2596,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'invigilators',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.students',
@@ -2605,7 +2605,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'students',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.conflicts',
@@ -2614,7 +2614,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'conflicts',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.results',
@@ -2623,7 +2623,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'results',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.reports',
@@ -2632,7 +2632,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'reports',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.emergency',
@@ -2641,7 +2641,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'emergency',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'exams.accommodations',
@@ -2650,7 +2650,7 @@ const EXAMS_PERMISSIONS = [
     resource: 'exams',
     action: 'accommodations',
     category: 'academic',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
 ];
 
@@ -2663,7 +2663,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'view',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.create',
@@ -2672,7 +2672,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'create',
     category: 'administrative',
-    clearanceLevel: 0,
+    requiredClearanceLevel: 0,
   },
   {
     name: 'admissions.edit',
@@ -2681,7 +2681,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'edit',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.delete',
@@ -2690,7 +2690,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'delete',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.review',
@@ -2699,7 +2699,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'review',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.approve',
@@ -2708,7 +2708,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'approve',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'admissions.reject',
@@ -2717,7 +2717,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'reject',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'admissions.waitlist',
@@ -2726,7 +2726,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'waitlist',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.interviews',
@@ -2735,7 +2735,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'interviews',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.documents',
@@ -2744,7 +2744,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'documents',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.fees',
@@ -2753,7 +2753,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'fees',
     category: 'administrative',
-    clearanceLevel: 5,
+    requiredClearanceLevel: 5,
   },
   {
     name: 'admissions.communication',
@@ -2762,7 +2762,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'communication',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.reports',
@@ -2771,7 +2771,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'reports',
     category: 'administrative',
-    clearanceLevel: 7,
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.quotas',
@@ -2780,7 +2780,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'quotas',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
   {
     name: 'admissions.criteria',
@@ -2789,7 +2789,7 @@ const ADMISSIONS_PERMISSIONS = [
     resource: 'admissions',
     action: 'criteria',
     category: 'administrative',
-    clearanceLevel: 8,
+    requiredClearanceLevel: 8,
   },
 ];
 
@@ -2811,14 +2811,14 @@ const ROLE_TO_POOL_MAPPING: Record<string, string> = {
 // Permission to Pool mapping based on clearance level
 // Platform permissions (category: 'platform') only go to platform pools (levels 9-10)
 function getPermissionPoolsForPermission(
-  clearanceLevel: number,
+  requiredClearanceLevel: number,
   category?: string,
 ): string[] {
   const poolNames: string[] = [];
 
   // Platform permissions only go to platform pools (levels 9-10)
   if (category === 'platform') {
-    for (let level = 9; level <= clearanceLevel; level++) {
+    for (let level = 9; level <= requiredClearanceLevel; level++) {
       const pool = PERMISSION_POOLS.find((p) => p.clearanceLevel === level);
       if (pool) {
         poolNames.push(pool.name);
@@ -2826,7 +2826,7 @@ function getPermissionPoolsForPermission(
     }
   } else {
     // School permissions go to all pools at their clearance level and below
-    for (let level = 0; level <= clearanceLevel; level++) {
+    for (let level = 0; level <= requiredClearanceLevel; level++) {
       const pool = PERMISSION_POOLS.find((p) => p.clearanceLevel === level);
       if (pool) {
         poolNames.push(pool.name);
@@ -2986,7 +2986,8 @@ async function main() {
           action: permData.action,
           context: (permData as any).context || null,
           category: permData.category,
-        },
+          requiredClearanceLevel: permData.requiredClearanceLevel,
+        } as any,
         create: {
           name: permData.name,
           label: permData.label,
@@ -2995,7 +2996,8 @@ async function main() {
           action: permData.action,
           context: (permData as any).context || null,
           category: permData.category,
-        },
+          requiredClearanceLevel: permData.requiredClearanceLevel,
+        } as any,
       });
       createdPermissions[permData.name] = permission.id;
       console.log(`  ✅ Created permission: ${permData.name}`);
@@ -3007,7 +3009,7 @@ async function main() {
 
     for (const permData of allPermissions) {
       const poolNames = getPermissionPoolsForPermission(
-        permData.clearanceLevel,
+        permData.requiredClearanceLevel,
         permData.category,
       );
       const permissionId = createdPermissions[permData.name];
@@ -3081,15 +3083,10 @@ async function main() {
     console.log(`  - Role-Pool Assignments: ${rolePoolCount}`);
   } catch (error) {
     console.error('❌ Error seeding database:', error);
-    throw error;
+    process.exit(1);
+  } finally {
+    await prisma.$disconnect();
   }
 }
 
 main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await prisma.$disconnect();
-  });

@@ -72,6 +72,7 @@ model Permission {
   action      String // e.g., 'view', 'edit', 'create', 'delete'
   context     String? // e.g., 'own_classes', 'children', 'department'
   category    String // e.g., 'academic', 'administrative', 'platform', 'financial'
+  requiredClearanceLevel Int @default(0) @map("required_clearance_level") // Minimum clearance level required
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -83,6 +84,7 @@ model Permission {
   @@index([resource])
   @@index([action])
   @@index([category])
+  @@index([requiredClearanceLevel])
   @@index([resource, action]) // For fast permission lookups
   @@schema("roles-permissions")
   @@map("permissions")

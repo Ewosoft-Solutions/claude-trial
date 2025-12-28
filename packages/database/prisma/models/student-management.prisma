@@ -41,7 +41,6 @@ model Student {
   academicInfo      Json? @default("{}") @map("academic_info") // Academic history
   healthInfo        Json? @default("{}") @map("health_info") // Health records, allergies, medications
   emergencyContacts Json? @default("[]") @map("emergency_contacts") // Emergency contact information
-  guardianInfo      Json? @default("[]") @map("guardian_info") // Parent/guardian information
   specialNeeds      Json? @default("[]") @map("special_needs") // Special needs, accommodations
 
   // Status Dates
@@ -60,6 +59,7 @@ model Student {
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userTenant  UserTenant   @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
   enrollments Enrollment[]
+  guardians   StudentGuardian[] @relation("StudentGuardianStudent")
 
   @@unique([tenantId, studentNumber]) // Unique student number per tenant
   @@index([tenantId])
@@ -117,4 +117,36 @@ model Enrollment {
   @@index([enrollmentDate])
   @@schema("student-management")
   @@map("enrollments")
+}
+
+// StudentGuardian - Links guardians (UserTenant) to students
+model StudentGuardian {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  studentId      String @map("student_id")
+  userTenantId   String @map("user_tenant_id")
+
+  relationship    String  @default("parent")
+  isPrimary       Boolean @default(false) @map("is_primary")
+  legalGuardian   Boolean @default(false) @map("legal_guardian")
+  contactPriority Int?    @map("contact_priority")
+  notes           String?
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  student    Student    @relation("StudentGuardianStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  guardian   UserTenant @relation("StudentGuardianGuardian", fields: [userTenantId], references: [id], onDelete: Cascade)
+  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([studentId, userTenantId])
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([userTenantId])
+  @@schema("student-management")
+  @@map("student_guardians")
 }

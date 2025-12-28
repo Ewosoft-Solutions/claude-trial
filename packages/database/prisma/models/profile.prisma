@@ -50,6 +50,7 @@ model UserTenant {
   students              Student[] // Student profiles (for students)
   sentMessages          Message[]              @relation("MessageSender") // Messages sent by this profile
   messageReadReceipts   MessageReadReceipt[] // Read receipts for messages
+  guardianForStudents   StudentGuardian[] @relation("StudentGuardianGuardian")
 
   @@unique([userId, tenantId]) // One relationship per user-tenant pair
   @@index([userId])
