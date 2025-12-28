@@ -377,9 +377,22 @@ export class BulkGuardianUpsertItemDto {
   @IsString()
   studentNumber?: string;
 
-  @ApiProperty({ description: 'Guardian email (unique per user)' })
+  @ApiPropertyOptional({ description: 'Guardian email (unique per user)' })
+  @IsOptional()
   @IsEmail()
-  guardianEmail: string;
+  guardianEmail?: string;
+
+  @ApiPropertyOptional({ description: 'Guardian phone number' })
+  @IsOptional()
+  @IsString()
+  guardianPhone?: string;
+
+  @ApiPropertyOptional({
+    description: 'External guardian identifier (for deduplication)',
+  })
+  @IsOptional()
+  @IsString()
+  guardianId?: string;
 
   @ApiPropertyOptional({ description: 'Guardian first name' })
   @IsOptional()

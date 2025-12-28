@@ -28,7 +28,7 @@ describe('Custom Role Creation Constraints Validation', () => {
     mockPrisma = mockCtx.prisma;
 
     makerCheckerService = {
-      createApprovalRequest: jest.fn().mockResolvedValue('approval-1'),
+      createApprovalRequest: jest.fn(async () => 'approval-1'),
       approveRequest: jest.fn(),
       rejectRequest: jest.fn(),
       requiresApproval: jest.fn(),
@@ -59,6 +59,19 @@ describe('Custom Role Creation Constraints Validation', () => {
 
   describe('Clearance Level Constraints (0-7 only)', () => {
     it('should allow custom role creation at clearance level 0', async () => {
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-0',
+          name: 'Level0_Guest',
+          clearanceLevel: 0,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
       const result = await roleService.validateCustomRoleCreation(
         mockPrisma as PrismaClient,
         {
@@ -66,6 +79,8 @@ describe('Custom Role Creation Constraints Validation', () => {
           clearanceLevel: 0,
           tenantId: 'tenant-id',
           createdBy: 'user-id',
+          permissionPoolIds: ['pool-0'],
+          creatorClearanceLevel: 7,
         },
       );
 
@@ -73,6 +88,19 @@ describe('Custom Role Creation Constraints Validation', () => {
     });
 
     it('should allow custom role creation at clearance level 7', async () => {
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-7',
+          name: 'Level7_SchoolManagement',
+          clearanceLevel: 7,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
       const result = await roleService.validateCustomRoleCreation(
         mockPrisma as PrismaClient,
         {
@@ -80,6 +108,8 @@ describe('Custom Role Creation Constraints Validation', () => {
           clearanceLevel: 7,
           tenantId: 'tenant-id',
           createdBy: 'user-id',
+          permissionPoolIds: ['pool-7'],
+          creatorClearanceLevel: 8,
         },
       );
 
@@ -87,6 +117,19 @@ describe('Custom Role Creation Constraints Validation', () => {
     });
 
     it('should reject custom role creation at clearance level 8', async () => {
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-7',
+          name: 'Level7_SchoolManagement',
+          clearanceLevel: 7,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
       const result = await roleService.validateCustomRoleCreation(
         mockPrisma as PrismaClient,
         {
@@ -94,6 +137,8 @@ describe('Custom Role Creation Constraints Validation', () => {
           clearanceLevel: 8,
           tenantId: 'tenant-id',
           createdBy: 'user-id',
+          permissionPoolIds: ['pool-7'],
+          creatorClearanceLevel: 8,
         },
       );
 
@@ -102,6 +147,19 @@ describe('Custom Role Creation Constraints Validation', () => {
     });
 
     it('should reject custom role creation at clearance level 9', async () => {
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-7',
+          name: 'Level7_SchoolManagement',
+          clearanceLevel: 7,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
       const result = await roleService.validateCustomRoleCreation(
         mockPrisma as PrismaClient,
         {
@@ -109,6 +167,8 @@ describe('Custom Role Creation Constraints Validation', () => {
           clearanceLevel: 9,
           tenantId: 'tenant-id',
           createdBy: 'user-id',
+          permissionPoolIds: ['pool-7'],
+          creatorClearanceLevel: 8,
         },
       );
 
@@ -116,6 +176,19 @@ describe('Custom Role Creation Constraints Validation', () => {
     });
 
     it('should reject custom role creation at clearance level 10', async () => {
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-7',
+          name: 'Level7_SchoolManagement',
+          clearanceLevel: 7,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
       const result = await roleService.validateCustomRoleCreation(
         mockPrisma as PrismaClient,
         {
@@ -123,6 +196,8 @@ describe('Custom Role Creation Constraints Validation', () => {
           clearanceLevel: 10,
           tenantId: 'tenant-id',
           createdBy: 'user-id',
+          permissionPoolIds: ['pool-7'],
+          creatorClearanceLevel: 8,
         },
       );
 
@@ -268,6 +343,7 @@ describe('Custom Role Creation Constraints Validation', () => {
   describe('Level-7 custom role approvals', () => {
     it('creates level-7 custom role as pending and raises maker-checker request', async () => {
       mockPrisma.role.findFirst.mockResolvedValue(null);
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       mockPrisma.permissionPool.findMany.mockResolvedValue([
         {
           id: 'pool-7',
@@ -278,29 +354,9 @@ describe('Custom Role Creation Constraints Validation', () => {
           tenantId: null,
           createdAt: new Date(),
           updatedAt: new Date(),
-          poolPermissions: [
-            {
-              id: 'pp-1',
-              poolId: 'pool-7',
-              permissionId: 'perm-1',
-              addedAt: new Date(),
-              addedBy: 'user-1',
-              permission: {
-                id: 'perm-1',
-                name: 'students.view',
-                label: 'View',
-                description: '',
-                resource: 'students',
-                action: 'view',
-                context: null,
-                category: 'academic',
-                requiredClearanceLevel: 3,
-                createdAt: new Date(),
-              },
-            },
-          ],
-        },
-      ]);
+          poolPermissions: [],
+        } as any,
+      ] as any);
       mockPrisma.role.create.mockResolvedValue({
         id: 'role-1',
         name: 'Management Custom',
@@ -317,6 +373,7 @@ describe('Custom Role Creation Constraints Validation', () => {
       });
       mockPrisma.rolePermissionPool.createMany.mockResolvedValue({ count: 1 });
       mockPrisma.rolePermission.createMany.mockResolvedValue({ count: 1 });
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       mockPrisma.role.findUnique.mockResolvedValue({
         id: 'role-1',
         name: 'Management Custom',
@@ -332,7 +389,7 @@ describe('Custom Role Creation Constraints Validation', () => {
         updatedAt: new Date(),
         rolePermissions: [],
         rolePools: [],
-      });
+      } as any);
 
       const result = await roleService.createCustomRole(
         mockPrisma as unknown as PrismaClient,
@@ -358,6 +415,117 @@ describe('Custom Role Creation Constraints Validation', () => {
         'tenant-1',
       );
       expect(result.role?.isActive).toBe(false);
+    });
+  });
+
+  describe('Governance guardrails', () => {
+    it('rejects custom role creation without permission pools', async () => {
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'No Pools',
+          clearanceLevel: 3,
+          tenantId: 'tenant-1',
+          createdBy: 'user-1',
+          permissionPoolIds: [],
+          creatorClearanceLevel: 7,
+        },
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('permission pools');
+    });
+
+    it('rejects permissions requiring higher clearance than the role', async () => {
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-7',
+          name: 'Level7_SchoolManagement',
+          clearanceLevel: 7,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      mockPrisma.permission.findMany.mockResolvedValue([
+        {
+          id: 'perm-high',
+          name: 'sensitive.permission',
+          label: 'Sensitive',
+          description: '',
+          resource: 'students',
+          action: 'view',
+          category: 'academic',
+          context: null,
+          requiredClearanceLevel: 8,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'Mgmt Custom',
+          clearanceLevel: 7,
+          tenantId: 'tenant-1',
+          createdBy: 'user-1',
+          permissionPoolIds: ['pool-7'],
+          permissionIds: ['perm-high'],
+          creatorClearanceLevel: 8,
+        },
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('higher clearance');
+    });
+
+    it('rejects permissions not contained in selected pools', async () => {
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-7',
+          name: 'Level7_SchoolManagement',
+          clearanceLevel: 7,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+      ]);
+
+      mockPrisma.permission.findMany.mockResolvedValue([
+        {
+          id: 'perm-misplaced',
+          name: 'students.view.detailed',
+          label: 'View Detailed',
+          description: '',
+          resource: 'students',
+          action: 'view',
+          category: 'academic',
+          context: 'detailed',
+          requiredClearanceLevel: 7,
+          createdAt: new Date(),
+        },
+      ]);
+
+      const result = await roleService.validateCustomRoleCreation(
+        mockPrisma as PrismaClient,
+        {
+          name: 'Mgmt Custom',
+          clearanceLevel: 7,
+          tenantId: 'tenant-1',
+          createdBy: 'user-1',
+          permissionPoolIds: ['pool-7'],
+          permissionIds: ['perm-misplaced'],
+          creatorClearanceLevel: 8,
+        },
+      );
+
+      expect(result.valid).toBe(false);
+      expect(result.error).toContain('Permissions not in selected pools');
     });
   });
 });

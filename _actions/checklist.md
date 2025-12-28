@@ -352,9 +352,9 @@ All foundation layer implementation tasks (Sections 1-8) have been completed:
 - [x] Enforce pool-only custom roles: require pool selection for custom roles, block direct permission assignment, and validate clearance/platform scope.
 - [x] Default clearance enforcement: make permission checks automatically honor each permission's required clearance without per-route overrides.
 - [x] Implement context resolvers: enforce `children` scope in context-aware permission checks with tests; `own_classes` and `department` pending.
-- [ ] Complete seeding for pools and catalog: generate 274 permissions, level 0-10 pools, pool-permission mappings, and role-pool assignments.
-- [ ] Approval for level-7 custom roles: require Owner approval via maker-checker persistence before activating clearance-7 customs.
+- [x] Complete seeding for pools and catalog: generate 274 permissions, level 0-10 pools, pool-permission mappings, and role-pool assignments.
+- [x] Approval for level-7 custom roles: require Owner approval via maker-checker persistence before activating clearance-7 customs.
 - [x] AI mediator alignment: populate permission pools and clearance-derived scope in mediator context; add access-filter tests.
-- [ ] Governance guardrails: add CI/lint/test to reject custom roles without pools or with permissions above their clearance.
-- [ ] Bulk guardian import/upsert API and service (parents onboarding + updates).
-- [ ] Queue/async processing for heavy operations: bulk guardian import, CSV/Excel ingestion, invitation email dispatch, exports/reports.
+- [x] Governance guardrails: add CI/lint/test to reject custom roles without pools or with permissions above their clearance.
+- [x] Bulk guardian import/upsert API and service (parents onboarding + updates).
+- [x] Queue/async processing for heavy operations: bulk guardian import, CSV/Excel ingestion, invitation email dispatch, exports/reports.

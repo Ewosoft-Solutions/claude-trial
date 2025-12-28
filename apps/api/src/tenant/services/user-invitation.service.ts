@@ -13,9 +13,10 @@ import { EmailDomainValidationService } from './email-domain-validation.service'
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { ProfileStatus } from '@workspace/api';
-import * as crypto from 'crypto';
+import * as crypto from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { AUDIT_ACTION } from '../../common/audit/audit.constants';
+import { QueueService } from '../../common/queue/queue.service';
 
 /**
  * User Invitation Service
@@ -29,6 +30,7 @@ export class UserInvitationService {
     private readonly dbService: DatabaseService,
     private readonly emailValidationService: EmailDomainValidationService,
     private readonly auditService: TenantAuditService,
+    private readonly queueService: QueueService,
   ) {}
 
   /**
@@ -87,18 +89,16 @@ export class UserInvitationService {
     );
 
     // Create or get user
-    if (!user) {
-      // Create user without password (will be set when invitation is accepted)
-      user = await this.dbService.client.user.create({
-        data: {
-          email: data.email.toLowerCase(),
-          firstName: data.firstName,
-          lastName: data.lastName,
-          isActive: true,
-          isVerified: false, // Will be verified when invitation is accepted
-        },
-      });
-    }
+    // Create user without password (will be set when invitation is accepted)
+    user ??= await this.dbService.client.user.create({
+      data: {
+        email: data.email.toLowerCase(),
+        firstName: data.firstName,
+        lastName: data.lastName,
+        isActive: true,
+        isVerified: false, // Will be verified when invitation is accepted
+      },
+    });
 
     // Create user-tenant relationship with invitation
     const userTenant = await this.dbService.client.userTenant.create({
@@ -127,6 +127,15 @@ export class UserInvitationService {
         ),
       );
     }
+
+    // Enqueue invitation email dispatch (stub for async processing)
+    this.queueService.enqueue('invitation-email', {
+      tenantId,
+      userId: user.id,
+      userTenantId: userTenant.id,
+      email: data.email.toLowerCase(),
+      roles: data.roleIds,
+    });
 
     // Audit log
     await this.auditService.logUserAction({

@@ -125,6 +125,7 @@ model StudentGuardian {
   tenantId       String @map("tenant_id")
   studentId      String @map("student_id")
   userTenantId   String @map("user_tenant_id")
+  guardianIdentifier String? @map("guardian_identifier")
 
   relationship    String  @default("parent")
   isPrimary       Boolean @default(false) @map("is_primary")
@@ -144,9 +145,11 @@ model StudentGuardian {
   tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, userTenantId])
+  @@unique([tenantId, guardianIdentifier])
   @@index([tenantId])
   @@index([studentId])
   @@index([userTenantId])
+  @@index([guardianIdentifier])
   @@schema("student-management")
   @@map("student_guardians")
 }

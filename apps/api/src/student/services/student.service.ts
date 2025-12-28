@@ -23,6 +23,7 @@ import {
 } from '../dto/student.dto';
 import { Prisma } from '@workspace/database';
 import { UserInvitationService } from '../../tenant/services/user-invitation.service';
+import { QueueService } from '../../common/queue/queue.service';
 
 @Injectable()
 export class StudentService {
@@ -30,6 +31,7 @@ export class StudentService {
     private readonly db: DatabaseService,
     private readonly prismaTx: PrismaTransactionService,
     private readonly userInvitationService: UserInvitationService,
+    private readonly queueService: QueueService,
   ) {}
 
   private readonly studentInclude = {
@@ -376,7 +378,9 @@ export class StudentService {
     if (first && last) return `${first} ${last}`;
     if (first) return first;
     if (last) return last;
-    const emailPrefix = item.guardianEmail.split('@')[0] || 'Guardian';
+    const emailPrefix = item.guardianEmail
+      ? item.guardianEmail.split('@')[0]
+      : null;
     return emailPrefix || 'Guardian';
   }
 
@@ -385,12 +389,19 @@ export class StudentService {
     userId: string,
     dto: BulkGuardianUpsertDto,
   ) {
+    const job = this.queueService.enqueue(
+      'guardian-import',
+      { items: dto.items.length },
+      tenantId,
+    );
+
     const errors: Array<{ index: number; message: string }> = [];
     const results: Array<{
       index: number;
       studentId?: string;
       guardianUserTenantId?: string;
       invitationToken?: string;
+      identifierMatched?: 'guardianId' | 'email' | 'phone';
     }> = [];
 
     const parentRole = await this.db.client.role.findFirst({
@@ -421,25 +432,78 @@ export class StudentService {
           throw new BadRequestException('Student not found for tenant');
         }
 
-        // Normalize email
-        const email = item.guardianEmail.toLowerCase();
+        const guardianIdentifier = item.guardianId?.trim();
+        const email = item.guardianEmail?.toLowerCase();
+        const phone = item.guardianPhone?.trim();
 
-        // Check existing user/profile
-        const existingUser = await this.db.client.user.findUnique({
-          where: { email },
-          select: { id: true },
-        });
-        const existingProfile = existingUser
-          ? await this.db.client.userTenant.findFirst({
+        if (!guardianIdentifier && !email && !phone) {
+          throw new BadRequestException(
+            'At least one identifier is required: guardianId, guardianEmail, or guardianPhone',
+          );
+        }
+
+        let profileId: string | null = null;
+        let matchedBy: 'guardianId' | 'email' | 'phone' | undefined;
+        let existingUser: { id: string } | null = null;
+
+        // 1) Try guardianId -> studentGuardian lookup
+        if (guardianIdentifier) {
+          const guardianLink = await this.db.client.studentGuardian.findFirst({
+            where: { tenantId, guardianIdentifier } as any,
+            select: { userTenantId: true },
+          });
+          if (guardianLink) {
+            profileId = guardianLink.userTenantId;
+            matchedBy = 'guardianId';
+          }
+        }
+
+        // 2) Try email -> user -> profile
+        if (!profileId && email) {
+          existingUser = await this.db.client.user.findUnique({
+            where: { email },
+            select: { id: true },
+          });
+          if (existingUser) {
+            const existingProfile = await this.db.client.userTenant.findFirst({
               where: { userId: existingUser.id, tenantId },
               select: { id: true },
-            })
-          : null;
+            });
+            if (existingProfile) {
+              profileId = existingProfile.id;
+              matchedBy = 'email';
+            }
+          }
+        }
 
-        let profileId: string | null = existingProfile?.id ?? null;
+        // 3) Try phone -> user -> profile
+        if (!profileId && phone) {
+          const userByPhone = await this.db.client.user.findFirst({
+            where: { phone },
+            select: { id: true },
+          });
+          if (userByPhone) {
+            existingUser = existingUser ?? userByPhone;
+            const existingProfile = await this.db.client.userTenant.findFirst({
+              where: { userId: userByPhone.id, tenantId },
+              select: { id: true },
+            });
+            if (existingProfile) {
+              profileId = existingProfile.id;
+              matchedBy = 'phone';
+            }
+          }
+        }
+
         let invitationToken: string | null = null;
 
         if (profileId === null) {
+          if (!email) {
+            throw new BadRequestException(
+              'guardianEmail is required when creating a new guardian invitation',
+            );
+          }
+
           // Create invitation (also creates user/profile pending)
           const invite = await this.userInvitationService.createInvitation(
             tenantId,
@@ -472,6 +536,14 @@ export class StudentService {
           });
         }
 
+        // Backfill phone if provided and we found an existing user
+        if (phone && (existingUser?.id ?? null)) {
+          await this.db.client.user.update({
+            where: { id: existingUser!.id },
+            data: { phone },
+          });
+        }
+
         if (profileId === null) {
           throw new BadRequestException('Failed to create guardian profile');
         }
@@ -490,8 +562,9 @@ export class StudentService {
             legalGuardian: item.legalGuardian ?? false,
             contactPriority: item.contactPriority ?? null,
             notes: displayName,
+            guardianIdentifier: guardianIdentifier ?? null,
             updatedBy: userId,
-          },
+          } as any,
           create: {
             tenantId,
             studentId: student.id,
@@ -501,8 +574,9 @@ export class StudentService {
             legalGuardian: item.legalGuardian ?? false,
             contactPriority: item.contactPriority ?? null,
             notes: displayName,
+            guardianIdentifier: guardianIdentifier ?? null,
             createdBy: userId,
-          },
+          } as any,
         });
 
         results.push({
@@ -510,6 +584,7 @@ export class StudentService {
           studentId: student.id,
           guardianUserTenantId: profileId,
           invitationToken: invitationToken ?? undefined,
+          identifierMatched: matchedBy,
         });
       } catch (error: any) {
         errors.push({
@@ -519,7 +594,12 @@ export class StudentService {
       }
     }
 
+    const status = errors.length > 0 ? 'completed_with_errors' : 'completed';
+    this.queueService.markCompleted(job.id);
+
     return {
+      jobId: job.id,
+      status,
       processed: dto.items.length,
       succeeded: results.length,
       failed: errors.length,
