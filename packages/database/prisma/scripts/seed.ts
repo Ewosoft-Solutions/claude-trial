@@ -2808,6 +2808,173 @@ const ROLE_TO_POOL_MAPPING: Record<string, string> = {
   Guest: 'Level0_Guest',
 };
 
+// Optional sample guardian seeding to exercise guardian links and children scope
+async function seedSampleGuardian(
+  prismaInstance: typeof prisma,
+  createdRoles: Record<string, string>,
+) {
+  const parentRoleId = createdRoles['Parent'];
+  const studentRoleId = createdRoles['Student'];
+
+  if (!parentRoleId || !studentRoleId) {
+    console.warn(
+      '⚠️  Skipping sample guardian seed: Parent/Student roles not found.',
+    );
+    return;
+  }
+
+  // Upsert tenant
+  const tenant = await prismaInstance.tenant.upsert({
+    where: { slug: 'sample-school' },
+    update: { name: 'Sample School', status: 'active' },
+    create: {
+      name: 'Sample School',
+      slug: 'sample-school',
+      status: 'active',
+      settings: {},
+    },
+  });
+
+  // Upsert users
+  const parentUser = await prismaInstance.user.upsert({
+    where: { email: 'parent@example.com' },
+    update: { firstName: 'Parent', lastName: 'Guardian', isActive: true },
+    create: {
+      email: 'parent@example.com',
+      firstName: 'Parent',
+      lastName: 'Guardian',
+      isActive: true,
+      isVerified: true,
+    },
+  });
+
+  const studentUser = await prismaInstance.user.upsert({
+    where: { email: 'student@example.com' },
+    update: { firstName: 'Student', lastName: 'Sample', isActive: true },
+    create: {
+      email: 'student@example.com',
+      firstName: 'Student',
+      lastName: 'Sample',
+      isActive: true,
+      isVerified: true,
+    },
+  });
+
+  // Upsert profiles
+  const parentProfile = await prismaInstance.userTenant.upsert({
+    where: {
+      userId_tenantId: {
+        userId: parentUser.id,
+        tenantId: tenant.id,
+      },
+    },
+    update: { status: 'active', suspended: false },
+    create: {
+      userId: parentUser.id,
+      tenantId: tenant.id,
+      status: 'active',
+      suspended: false,
+    },
+  });
+
+  const studentProfile = await prismaInstance.userTenant.upsert({
+    where: {
+      userId_tenantId: {
+        userId: studentUser.id,
+        tenantId: tenant.id,
+      },
+    },
+    update: { status: 'active', suspended: false },
+    create: {
+      userId: studentUser.id,
+      tenantId: tenant.id,
+      status: 'active',
+      suspended: false,
+    },
+  });
+
+  // Assign roles
+  await prismaInstance.userTenantRole.upsert({
+    where: {
+      userTenantId_roleId: {
+        userTenantId: parentProfile.id,
+        roleId: parentRoleId,
+      },
+    },
+    update: {},
+    create: {
+      userTenantId: parentProfile.id,
+      roleId: parentRoleId,
+      isPrimary: true,
+    },
+  });
+
+  await prismaInstance.userTenantRole.upsert({
+    where: {
+      userTenantId_roleId: {
+        userTenantId: studentProfile.id,
+        roleId: studentRoleId,
+      },
+    },
+    update: {},
+    create: {
+      userTenantId: studentProfile.id,
+      roleId: studentRoleId,
+      isPrimary: true,
+    },
+  });
+
+  // Upsert student
+  const student = await prismaInstance.student.upsert({
+    where: {
+      tenantId_studentNumber: {
+        tenantId: tenant.id,
+        studentNumber: 'STU-TEST-001',
+      },
+    },
+    update: {
+      userTenantId: studentProfile.id,
+      gradeLevel: '10',
+    },
+    create: {
+      tenantId: tenant.id,
+      userTenantId: studentProfile.id,
+      studentNumber: 'STU-TEST-001',
+      admissionNumber: 'ADM-TEST-001',
+      gradeLevel: '10',
+      enrollmentStatus: 'active',
+    },
+  });
+
+  // Link guardian
+  await prismaInstance.studentGuardian.upsert({
+    where: {
+      studentId_userTenantId: {
+        studentId: student.id,
+        userTenantId: parentProfile.id,
+      },
+    },
+    update: {
+      relationship: 'parent',
+      isPrimary: true,
+      legalGuardian: true,
+    },
+    create: {
+      tenantId: tenant.id,
+      studentId: student.id,
+      userTenantId: parentProfile.id,
+      relationship: 'parent',
+      isPrimary: true,
+      legalGuardian: true,
+      contactPriority: 1,
+    },
+  });
+
+  console.log(
+    '  ✅ Seeded sample guardian/student data for sample-school (parent@example.com -> STU-TEST-001)',
+  );
+}
+
 // Permission to Pool mapping based on clearance level
 // Platform permissions (category: 'platform') only go to platform pools (levels 9-10)
 function getPermissionPoolsForPermission(
@@ -3074,6 +3241,9 @@ async function main() {
       }
     }
 
+    // Phase 6: Sample guardian data (idempotent helper)
+    await seedSampleGuardian(prisma, createdRoles);
+
     console.log('\n✨ Seed completed successfully!');
     console.log(`\n📊 Summary:`);
     console.log(`  - System Roles: ${SYSTEM_ROLES.length}`);
@@ -3089,4 +3259,4 @@ async function main() {
   }
 }
 
-main()
+main();

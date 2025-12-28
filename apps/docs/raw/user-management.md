@@ -78,6 +78,30 @@ This doc summarizes how user accounts, profiles, roles, and permissions are mode
   - `GET /guardians` – list all guardian profiles in tenant (filter by name/email, pagination).
   - `GET /guardians/:userTenantId/students` – list students linked to a guardian.
 
+### Bulk Import/Upsert Contract (guardians)
+
+- Accepted file: CSV or Excel.
+- Key columns (idempotent keys in **bold**):
+  - **student_number** (or student_id)
+  - guardian_email (required)
+  - guardian_first_name (optional)
+  - guardian_last_name (optional)
+  - display_name (optional; otherwise derived as below)
+  - relationship (parent|guardian|other; default parent)
+  - is_primary (boolean, default false)
+  - legal_guardian (boolean, default false)
+  - contact_priority (int, optional)
+- Display name derivation (if display_name not provided):
+  - If first + last exist → "First Last"
+  - If only one exists → that one
+  - Else → email prefix or fallback "Guardian"
+- Behavior:
+  - If guardian user does not exist: create User, create UserTenant (Parent role), then link.
+  - If guardian exists in tenant: reuse UserTenant; ensure Parent role assigned.
+  - Upsert StudentGuardian by (student_id, user_tenant_id).
+  - Student lookup by student_number within tenant (or direct student_id if provided).
+  - All operations tenant-scoped; reject cross-tenant references.
+
 ### AuthZ
 
 - Parent role: ensure tenant-scoped role(s) with appropriate clearance (likely low).

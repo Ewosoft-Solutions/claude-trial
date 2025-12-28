@@ -19,7 +19,7 @@ import {
   ENROLLMENT_STATUSES,
   STUDENT_ENROLLMENT_STATUSES,
 } from '../dto/student.dto';
-import { Prisma, Student } from '@workspace/database';
+import { Prisma } from '@workspace/database';
 
 @Injectable()
 export class StudentService {
@@ -28,7 +28,7 @@ export class StudentService {
     private readonly prismaTx: PrismaTransactionService,
   ) {}
 
-  private studentInclude = {
+  private readonly studentInclude = {
     userTenant: {
       include: {
         user: {
@@ -115,7 +115,6 @@ export class StudentService {
         academicInfo: dto.academicInfo ?? {},
         healthInfo: dto.healthInfo ?? {},
         emergencyContacts: dto.emergencyContacts ?? [],
-        guardianInfo: dto.guardianInfo ?? [],
         specialNeeds: dto.specialNeeds ?? [],
         enrollmentDate: dto.enrollmentDate
           ? new Date(dto.enrollmentDate)
@@ -240,7 +239,6 @@ export class StudentService {
         academicInfo: true,
         healthInfo: true,
         emergencyContacts: true,
-        guardianInfo: true,
         specialNeeds: true,
       },
     });
@@ -272,7 +270,6 @@ export class StudentService {
       healthInfo: this.mergeJson(student.healthInfo, dto.healthInfo),
       emergencyContacts:
         dto.emergencyContacts ?? student.emergencyContacts ?? [],
-      guardianInfo: dto.guardianInfo ?? student.guardianInfo ?? [],
       specialNeeds: dto.specialNeeds ?? student.specialNeeds ?? [],
       updatedBy,
     };
@@ -335,7 +332,6 @@ export class StudentService {
         academicInfo: true,
         healthInfo: true,
         emergencyContacts: true,
-        guardianInfo: true,
         specialNeeds: true,
       },
     });
@@ -358,7 +354,6 @@ export class StudentService {
       healthInfo: this.mergeJson(student.healthInfo, dto.healthInfo),
       emergencyContacts:
         dto.emergencyContacts ?? student.emergencyContacts ?? [],
-      guardianInfo: dto.guardianInfo ?? student.guardianInfo ?? [],
       specialNeeds: dto.specialNeeds ?? student.specialNeeds ?? [],
       updatedBy,
     };

@@ -126,11 +126,6 @@ export class CreateStudentDto {
   @IsArray()
   emergencyContacts?: any[];
 
-  @ApiPropertyOptional({ description: 'Guardian/parent info (array)' })
-  @IsOptional()
-  @IsArray()
-  guardianInfo?: any[];
-
   @ApiPropertyOptional({ description: 'Special needs (array)' })
   @IsOptional()
   @IsArray()
@@ -206,11 +201,6 @@ export class UpdateStudentDto {
   @IsArray()
   emergencyContacts?: any[];
 
-  @ApiPropertyOptional({ description: 'Guardian/parent info (array)' })
-  @IsOptional()
-  @IsArray()
-  guardianInfo?: any[];
-
   @ApiPropertyOptional({ description: 'Special needs (array)' })
   @IsOptional()
   @IsArray()
@@ -267,11 +257,6 @@ export class UpdateStudentProfileDto {
   @IsOptional()
   @IsArray()
   emergencyContacts?: any[];
-
-  @ApiPropertyOptional({ description: 'Guardian/parent info (array)' })
-  @IsOptional()
-  @IsArray()
-  guardianInfo?: any[];
 
   @ApiPropertyOptional({ description: 'Special needs (array)' })
   @IsOptional()
