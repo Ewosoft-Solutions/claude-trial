@@ -357,3 +357,4 @@ All foundation layer implementation tasks (Sections 1-8) have been completed:
 - [x] AI mediator alignment: populate permission pools and clearance-derived scope in mediator context; add access-filter tests.
 - [ ] Governance guardrails: add CI/lint/test to reject custom roles without pools or with permissions above their clearance.
 - [ ] Bulk guardian import/upsert API and service (parents onboarding + updates).
+- [ ] Queue/async processing for heavy operations: bulk guardian import, CSV/Excel ingestion, invitation email dispatch, exports/reports.

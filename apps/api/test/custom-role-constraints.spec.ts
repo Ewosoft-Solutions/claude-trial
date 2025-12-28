@@ -5,7 +5,7 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { describe, it, expect, beforeEach } from '@jest/globals';
+import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { RoleService } from '../src/auth/services/role.service';
 import { PermissionPoolService } from '../src/auth/services/permission-pool.service';
 import {
@@ -15,20 +15,35 @@ import {
 import { PrismaClient } from '@workspace/database';
 import { RoleType } from '@workspace/api';
 import { PRISMA_CLIENT_TOKEN } from '../src/common';
+import { MakerCheckerService } from '../src/auth/services/maker-checker.service';
 
 describe('Custom Role Creation Constraints Validation', () => {
   let roleService: RoleService;
   let permissionPoolService: PermissionPoolService;
   let mockPrisma: MockContext['prisma'];
+  let makerCheckerService: MakerCheckerService;
 
   beforeEach(async () => {
     const mockCtx = createMockContext();
     mockPrisma = mockCtx.prisma;
 
+    makerCheckerService = {
+      createApprovalRequest: jest.fn().mockResolvedValue('approval-1'),
+      approveRequest: jest.fn(),
+      rejectRequest: jest.fn(),
+      requiresApproval: jest.fn(),
+      getRequiredCheckerClearanceLevel: jest.fn(),
+      getSensitiveOperation: jest.fn(),
+    } as unknown as MakerCheckerService;
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoleService,
         PermissionPoolService,
+        {
+          provide: MakerCheckerService,
+          useValue: makerCheckerService,
+        },
         {
           provide: PRISMA_CLIENT_TOKEN,
           useValue: mockPrisma,
@@ -247,6 +262,102 @@ describe('Custom Role Creation Constraints Validation', () => {
       );
 
       expect(result.unique).toBe(true);
+    });
+  });
+
+  describe('Level-7 custom role approvals', () => {
+    it('creates level-7 custom role as pending and raises maker-checker request', async () => {
+      mockPrisma.role.findFirst.mockResolvedValue(null);
+      mockPrisma.permissionPool.findMany.mockResolvedValue([
+        {
+          id: 'pool-7',
+          name: 'Level7_SchoolManagement',
+          clearanceLevel: 7,
+          description: 'pool',
+          isSystemPool: true,
+          tenantId: null,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          poolPermissions: [
+            {
+              id: 'pp-1',
+              poolId: 'pool-7',
+              permissionId: 'perm-1',
+              addedAt: new Date(),
+              addedBy: 'user-1',
+              permission: {
+                id: 'perm-1',
+                name: 'students.view',
+                label: 'View',
+                description: '',
+                resource: 'students',
+                action: 'view',
+                context: null,
+                category: 'academic',
+                requiredClearanceLevel: 3,
+                createdAt: new Date(),
+              },
+            },
+          ],
+        },
+      ]);
+      mockPrisma.role.create.mockResolvedValue({
+        id: 'role-1',
+        name: 'Management Custom',
+        description: 'desc',
+        roleType: RoleType.CUSTOM,
+        clearanceLevel: 7,
+        tenantId: 'tenant-1',
+        isSystemRole: false,
+        isActive: false,
+        createdBy: 'user-1',
+        updatedBy: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+      mockPrisma.rolePermissionPool.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.rolePermission.createMany.mockResolvedValue({ count: 1 });
+      mockPrisma.role.findUnique.mockResolvedValue({
+        id: 'role-1',
+        name: 'Management Custom',
+        description: 'desc',
+        roleType: RoleType.CUSTOM,
+        clearanceLevel: 7,
+        tenantId: 'tenant-1',
+        isSystemRole: false,
+        isActive: false,
+        createdBy: 'user-1',
+        updatedBy: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        rolePermissions: [],
+        rolePools: [],
+      });
+
+      const result = await roleService.createCustomRole(
+        mockPrisma as unknown as PrismaClient,
+        {
+          name: 'Management Custom',
+          description: 'desc',
+          clearanceLevel: 7,
+          tenantId: 'tenant-1',
+          permissionPoolIds: ['pool-7'],
+          createdBy: 'user-1',
+          creatorClearanceLevel: 8,
+        },
+      );
+
+      expect(result.approvalStatus).toBe('pending_approval');
+      expect(result.approvalRequestId).toBe('approval-1');
+      expect(makerCheckerService.createApprovalRequest).toHaveBeenCalledWith(
+        mockPrisma,
+        'roles.custom.level7.create',
+        'user-1',
+        8,
+        expect.objectContaining({ roleId: 'role-1' }),
+        'tenant-1',
+      );
+      expect(result.role?.isActive).toBe(false);
     });
   });
 });

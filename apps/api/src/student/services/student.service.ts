@@ -22,12 +22,14 @@ import {
   STUDENT_ENROLLMENT_STATUSES,
 } from '../dto/student.dto';
 import { Prisma } from '@workspace/database';
+import { UserInvitationService } from '../../tenant/services/user-invitation.service';
 
 @Injectable()
 export class StudentService {
   constructor(
     private readonly db: DatabaseService,
     private readonly prismaTx: PrismaTransactionService,
+    private readonly userInvitationService: UserInvitationService,
   ) {}
 
   private readonly studentInclude = {
@@ -388,6 +390,7 @@ export class StudentService {
       index: number;
       studentId?: string;
       guardianUserTenantId?: string;
+      invitationToken?: string;
     }> = [];
 
     const parentRole = await this.db.client.role.findFirst({
@@ -418,67 +421,67 @@ export class StudentService {
           throw new BadRequestException('Student not found for tenant');
         }
 
-        // Upsert guardian user
-        const user = await this.db.client.user.upsert({
-          where: { email: item.guardianEmail },
-          update: {
-            firstName: item.guardianFirstName ?? undefined,
-            lastName: item.guardianLastName ?? undefined,
-            isActive: true,
-          },
-          create: {
-            email: item.guardianEmail,
-            firstName: item.guardianFirstName ?? undefined,
-            lastName: item.guardianLastName ?? undefined,
-            isActive: true,
-            isVerified: true,
-          },
+        // Normalize email
+        const email = item.guardianEmail.toLowerCase();
+
+        // Check existing user/profile
+        const existingUser = await this.db.client.user.findUnique({
+          where: { email },
           select: { id: true },
         });
+        const existingProfile = existingUser
+          ? await this.db.client.userTenant.findFirst({
+              where: { userId: existingUser.id, tenantId },
+              select: { id: true },
+            })
+          : null;
 
-        // Upsert guardian profile
-        const profile = await this.db.client.userTenant.upsert({
-          where: {
-            userId_tenantId: {
-              userId: user.id,
-              tenantId,
-            },
-          },
-          update: { status: 'active', suspended: false },
-          create: {
-            userId: user.id,
+        let profileId: string | null = existingProfile?.id ?? null;
+        let invitationToken: string | null = null;
+
+        if (profileId === null) {
+          // Create invitation (also creates user/profile pending)
+          const invite = await this.userInvitationService.createInvitation(
             tenantId,
-            status: 'active',
-            suspended: false,
-            addedBy: userId,
-          },
-          select: { id: true },
-        });
-
-        // Ensure Parent role assigned
-        await this.db.client.userTenantRole.upsert({
-          where: {
-            userTenantId_roleId: {
-              userTenantId: profile.id,
-              roleId: parentRole.id,
+            {
+              email,
+              firstName: item.guardianFirstName,
+              lastName: item.guardianLastName,
+              roleIds: [parentRole.id],
             },
-          },
-          update: {},
-          create: {
-            userTenantId: profile.id,
-            roleId: parentRole.id,
-            isPrimary: true,
-            assignedBy: userId,
-          },
-        });
+            userId,
+          );
+          profileId = invite.id;
+          invitationToken = invite.invitationToken;
+        } else {
+          // Ensure Parent role assigned for existing profile
+          await this.db.client.userTenantRole.upsert({
+            where: {
+              userTenantId_roleId: {
+                userTenantId: profileId,
+                roleId: parentRole.id,
+              },
+            },
+            update: {},
+            create: {
+              userTenantId: profileId,
+              roleId: parentRole.id,
+              isPrimary: true,
+              assignedBy: userId,
+            },
+          });
+        }
 
-        // Upsert guardian link
+        if (profileId === null) {
+          throw new BadRequestException('Failed to create guardian profile');
+        }
+
         const displayName = this.deriveDisplayName(item);
         await this.db.client.studentGuardian.upsert({
           where: {
             studentId_userTenantId: {
               studentId: student.id,
-              userTenantId: profile.id,
+              userTenantId: profileId,
             },
           },
           update: {
@@ -492,7 +495,7 @@ export class StudentService {
           create: {
             tenantId,
             studentId: student.id,
-            userTenantId: profile.id,
+            userTenantId: profileId,
             relationship: item.relationship ?? 'parent',
             isPrimary: item.isPrimary ?? false,
             legalGuardian: item.legalGuardian ?? false,
@@ -505,7 +508,8 @@ export class StudentService {
         results.push({
           index: i,
           studentId: student.id,
-          guardianUserTenantId: profile.id,
+          guardianUserTenantId: profileId,
+          invitationToken: invitationToken ?? undefined,
         });
       } catch (error: any) {
         errors.push({

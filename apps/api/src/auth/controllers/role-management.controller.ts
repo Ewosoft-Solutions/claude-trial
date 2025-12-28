@@ -187,6 +187,7 @@ export class RoleManagementController {
       permissionPoolIds: data.permissionPoolIds,
       permissionIds: data.permissionIds,
       createdBy: user.userId,
+      creatorClearanceLevel: userClearanceLevel,
     };
 
     return this.roleService.createCustomRole(this.dbService.client, input);

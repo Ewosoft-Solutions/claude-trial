@@ -411,8 +411,35 @@ export class PermissionService {
     context: any,
     baseCheck: PermissionCheckResult,
   ): Promise<PermissionCheckResult> {
-    // TODO: Implement class ownership check
-    // For now, return base check
+    const classId =
+      (typeof context.classId === 'string' && context.classId) ||
+      (await this.resolveClassIdFromContext(prisma, context));
+
+    if (!classId) {
+      return {
+        granted: false,
+        reason: 'missing_class_context',
+        clearanceLevel: userContext.clearanceLevel,
+      };
+    }
+
+    const isTeacherForClass = await prisma.classTeacher.findFirst({
+      where: {
+        classId,
+        userTenantId: userContext.profileId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+
+    if (!isTeacherForClass) {
+      return {
+        granted: false,
+        reason: 'not_class_teacher',
+        clearanceLevel: userContext.clearanceLevel,
+      };
+    }
+
     return baseCheck;
   }
 
@@ -482,9 +509,70 @@ export class PermissionService {
     context: any,
     baseCheck: PermissionCheckResult,
   ): Promise<PermissionCheckResult> {
-    // TODO: Implement department membership check
-    // For now, return base check
+    const departmentId =
+      typeof context.departmentId === 'string' ? context.departmentId : null;
+    const userDepartments: string[] | undefined = Array.isArray(
+      context.userDepartmentIds,
+    )
+      ? context.userDepartmentIds.filter(
+          (dept: any): dept is string => typeof dept === 'string',
+        )
+      : undefined;
+
+    if (!departmentId || !Array.isArray(userDepartments)) {
+      return {
+        granted: false,
+        reason: 'missing_department_context',
+        clearanceLevel: userContext.clearanceLevel,
+      };
+    }
+
+    const deptId = departmentId as string;
+    if (!userDepartments.includes(deptId)) {
+      return {
+        granted: false,
+        reason: 'not_in_department',
+        clearanceLevel: userContext.clearanceLevel,
+      };
+    }
+
     return baseCheck;
+  }
+
+  /**
+   * Resolve classId from context hints (classId | enrollmentId | assessmentId | gradeId)
+   */
+  private async resolveClassIdFromContext(
+    prisma: PrismaClient,
+    context: any,
+  ): Promise<string | null> {
+    if (typeof context.classId === 'string') return context.classId;
+
+    if (typeof context.enrollmentId === 'string') {
+      const enrollment = await prisma.enrollment.findFirst({
+        where: { id: context.enrollmentId },
+        select: { classId: true },
+      });
+      if (enrollment?.classId) return enrollment.classId;
+    }
+
+    if (typeof context.assessmentId === 'string') {
+      const assessment = await prisma.assessment.findFirst({
+        where: { id: context.assessmentId },
+        select: { classId: true },
+      });
+      if (assessment?.classId) return assessment.classId;
+    }
+
+    if (typeof context.gradeId === 'string') {
+      const grade = await prisma.grade.findFirst({
+        where: { id: context.gradeId },
+        select: { enrollment: { select: { classId: true } } },
+      });
+      if (grade?.enrollment?.classId) return grade.enrollment.classId;
+    }
+
+    return null;
   }
 
   /**
@@ -611,7 +699,6 @@ export interface AIMediatorContext {
   profileId: string;
   clearanceLevel: number; // 0-10
   roleIds: string[]; // All roles for this profile
-  // TODO: Role or Role Names, which is better?
   roles: Role[]; // Role names
   permissions: string[]; // Effective permissions (granted only)
   permissionPools: string[]; // Permission pools this user has access to

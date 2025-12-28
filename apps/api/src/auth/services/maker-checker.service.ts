@@ -6,7 +6,7 @@
  */
 
 import { Injectable, BadRequestException } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { MakerCheckerRequest, PrismaClient } from '@workspace/database';
 import { ApprovalLevel, ApprovalStatus } from '@workspace/api';
 
 /**
@@ -54,6 +54,16 @@ export class MakerCheckerService {
    */
   private readonly sensitiveOperations: Map<string, SensitiveOperation> =
     new Map([
+      [
+        'roles.custom.level7.create',
+        {
+          operation: 'roles.custom.level7.create',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['roles.create'],
+          requiredClearanceLevel: 8, // Owner must approve level-7 custom roles
+          timeLimitHours: 24,
+        },
+      ],
       [
         'students.delete',
         {
@@ -146,6 +156,16 @@ export class MakerCheckerService {
     return this.sensitiveOperations.get(operation) || null;
   }
 
+  private assertPendingRequest(request: MakerCheckerRequest) {
+    if (request.status !== ApprovalStatus.PENDING) {
+      throw new BadRequestException('Approval request already processed');
+    }
+
+    if (request.expiresAt && request.expiresAt.getTime() < Date.now()) {
+      throw new BadRequestException('Approval request expired');
+    }
+  }
+
   /**
    * Create approval request (4.8)
    *
@@ -184,15 +204,20 @@ export class MakerCheckerService {
       ? new Date(Date.now() + sensitiveOp.timeLimitHours * 60 * 60 * 1000)
       : undefined;
 
-    // Create approval request
-    // Note: This would typically be stored in a database table
-    // For now, we'll return a placeholder ID
-    const approvalRequestId = `approval_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const approval = await prisma.makerCheckerRequest.create({
+      data: {
+        tenantId,
+        operation,
+        level: sensitiveOp.level,
+        status: ApprovalStatus.PENDING,
+        makerId,
+        makerClearanceLevel,
+        requestData,
+        expiresAt,
+      },
+    });
 
-    // TODO: Store approval request in database
-    // await prisma.approvalRequest.create({ ... });
-
-    return approvalRequestId;
+    return approval.id;
   }
 
   /**
@@ -211,12 +236,52 @@ export class MakerCheckerService {
     checkerId: string,
     checkerClearanceLevel: number,
     reason?: string,
-  ): Promise<{ approved: boolean; error?: string }> {
-    // TODO: Load approval request from database
-    // TODO: Validate checker has required clearance
-    // TODO: Update approval request status
+  ): Promise<{ approved: boolean; error?: string; roleActivated?: boolean }> {
+    const request = await prisma.makerCheckerRequest.findUnique({
+      where: { id: approvalRequestId },
+    });
 
-    return { approved: true };
+    if (!request) {
+      return { approved: false, error: 'Approval request not found' };
+    }
+
+    this.assertPendingRequest(request);
+
+    const sensitiveOp = this.getSensitiveOperation(request.operation);
+    if (
+      sensitiveOp &&
+      checkerClearanceLevel < sensitiveOp.requiredClearanceLevel
+    ) {
+      return {
+        approved: false,
+        error: 'Insufficient clearance to approve this request',
+      };
+    }
+
+    const updated = await prisma.makerCheckerRequest.update({
+      where: { id: approvalRequestId },
+      data: {
+        status: ApprovalStatus.APPROVED,
+        checkerId,
+        checkerClearanceLevel,
+        approvalReason: reason,
+        approvedAt: new Date(),
+      },
+    });
+
+    let roleActivated = false;
+    if (request.operation === 'roles.custom.level7.create') {
+      const roleId = (request.requestData as any)?.roleId;
+      if (roleId) {
+        await prisma.role.update({
+          where: { id: roleId },
+          data: { isActive: true },
+        });
+        roleActivated = true;
+      }
+    }
+
+    return { approved: true, roleActivated, error: undefined };
   }
 
   /**
@@ -234,8 +299,25 @@ export class MakerCheckerService {
     checkerId: string,
     reason: string,
   ): Promise<{ rejected: boolean; error?: string }> {
-    // TODO: Load approval request from database
-    // TODO: Update approval request status
+    const request = await prisma.makerCheckerRequest.findUnique({
+      where: { id: approvalRequestId },
+    });
+
+    if (!request) {
+      return { rejected: false, error: 'Approval request not found' };
+    }
+
+    this.assertPendingRequest(request);
+
+    await prisma.makerCheckerRequest.update({
+      where: { id: approvalRequestId },
+      data: {
+        status: ApprovalStatus.REJECTED,
+        checkerId,
+        rejectionReason: reason,
+        rejectedAt: new Date(),
+      },
+    });
 
     return { rejected: true };
   }

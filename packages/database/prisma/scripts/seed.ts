@@ -164,6 +164,191 @@ const PERMISSION_POOLS = [
   },
 ];
 
+const EXPECTED_PERMISSION_COUNTS = {
+  total: 274,
+  arrays: {
+    STUDENT_PERMISSIONS: 15,
+    ACADEMIC_MANAGEMENT_PERMISSIONS: 19,
+    GRADE_ASSESSMENT_PERMISSIONS: 20,
+    ATTENDANCE_PERMISSIONS: 9,
+    FINANCIAL_PERMISSIONS: 17,
+    COMMUNICATION_PERMISSIONS: 13,
+    STAFF_PERMISSIONS: 13,
+    REPORTS_PERMISSIONS: 10,
+    SYSTEM_ADMIN_PERMISSIONS: 18,
+    PLATFORM_PERMISSIONS: 13,
+    LIBRARY_PERMISSIONS: 7,
+    TRANSPORTATION_PERMISSIONS: 8,
+    CAFETERIA_PERMISSIONS: 8,
+    HEALTH_PERMISSIONS: 8,
+    FACILITIES_PERMISSIONS: 8,
+    EVENTS_PERMISSIONS: 8,
+    SPORTS_PERMISSIONS: 8,
+    CLUBS_PERMISSIONS: 7,
+    PARENT_PORTAL_PERMISSIONS: 7,
+    INVENTORY_PERMISSIONS: 7,
+    SAFETY_PERMISSIONS: 7,
+    COMPLIANCE_PERMISSIONS: 6,
+    TIMETABLE_PERMISSIONS: 12,
+    EXAMS_PERMISSIONS: 12,
+    ADMISSIONS_PERMISSIONS: 15,
+  },
+  clearanceLevels: { min: 0, max: 10 },
+};
+
+function validatePermissionPools() {
+  const poolCount = PERMISSION_POOLS.length;
+  const uniqueLevels = new Set(PERMISSION_POOLS.map((p) => p.clearanceLevel));
+  const requiredLevels = Array.from({ length: 11 }, (_, i) => i);
+
+  if (poolCount !== 11) {
+    throw new Error(
+      `Invalid permission pool count. Expected 11 (levels 0-10), found ${poolCount}`,
+    );
+  }
+
+  for (const level of requiredLevels) {
+    if (!uniqueLevels.has(level)) {
+      throw new Error(
+        `Missing permission pool for clearance level ${level}. Pools must cover levels 0-10.`,
+      );
+    }
+  }
+
+  const nameCollisions = PERMISSION_POOLS.reduce<Record<string, number>>(
+    (acc, pool) => {
+      acc[pool.name] = (acc[pool.name] ?? 0) + 1;
+      return acc;
+    },
+    {},
+  );
+  const duplicates = Object.entries(nameCollisions)
+    .filter(([, count]) => count > 1)
+    .map(([name]) => name);
+
+  if (duplicates.length > 0) {
+    throw new Error(
+      `Duplicate permission pool names found: ${duplicates.join(', ')}`,
+    );
+  }
+}
+
+function validateRolePoolMapping(
+  roles: typeof SYSTEM_ROLES,
+  mapping: Record<string, string>,
+) {
+  const poolNames = new Set(PERMISSION_POOLS.map((p) => p.name));
+  const missingPools: string[] = [];
+  const missingRoles: string[] = [];
+
+  for (const role of roles) {
+    if (!mapping[role.name]) {
+      missingRoles.push(role.name);
+    }
+  }
+
+  for (const [roleName, poolName] of Object.entries(mapping)) {
+    if (!poolNames.has(poolName)) {
+      missingPools.push(`${roleName} -> ${poolName}`);
+    }
+  }
+
+  if (missingRoles.length > 0) {
+    throw new Error(
+      `ROLE_TO_POOL_MAPPING missing entries for roles: ${missingRoles.join(', ')}`,
+    );
+  }
+
+  if (missingPools.length > 0) {
+    throw new Error(
+      `ROLE_TO_POOL_MAPPING references pools that do not exist: ${missingPools.join(
+        '; ',
+      )}`,
+    );
+  }
+}
+
+function collectArrayCountErrors(
+  permissionArrays: Record<
+    string,
+    Array<{ requiredClearanceLevel: number; name: string; category?: string }>
+  >,
+  expectations: Record<string, number>,
+): string[] {
+  return Object.entries(expectations).reduce<string[]>(
+    (acc, [key, expected]) => {
+      const actual = permissionArrays[key]?.length ?? 0;
+      if (actual !== expected) {
+        acc.push(
+          `${key} count mismatch. Expected ${expected}, found ${actual}`,
+        );
+      }
+      return acc;
+    },
+    [],
+  );
+}
+
+function collectTotalCountErrors(
+  allPermissions: Array<{ name: string }>,
+): string[] {
+  if (allPermissions.length !== EXPECTED_PERMISSION_COUNTS.total) {
+    return [
+      `Total permissions mismatch. Expected ${EXPECTED_PERMISSION_COUNTS.total}, found ${allPermissions.length}`,
+    ];
+  }
+  return [];
+}
+
+function collectClearanceErrors(
+  allPermissions: Array<{ requiredClearanceLevel: number; name: string }>,
+): string[] {
+  return allPermissions.reduce<string[]>((acc, perm) => {
+    if (
+      perm.requiredClearanceLevel === undefined ||
+      perm.requiredClearanceLevel === null
+    ) {
+      acc.push(`Permission ${perm.name} missing requiredClearanceLevel`);
+      return acc;
+    }
+
+    if (
+      perm.requiredClearanceLevel <
+        EXPECTED_PERMISSION_COUNTS.clearanceLevels.min ||
+      perm.requiredClearanceLevel >
+        EXPECTED_PERMISSION_COUNTS.clearanceLevels.max
+    ) {
+      acc.push(
+        `Permission ${perm.name} has out-of-range clearance level ${perm.requiredClearanceLevel}. Expected ${EXPECTED_PERMISSION_COUNTS.clearanceLevels.min}-${EXPECTED_PERMISSION_COUNTS.clearanceLevels.max}.`,
+      );
+    }
+    return acc;
+  }, []);
+}
+
+function validatePermissionsCatalog(
+  permissionArrays: Record<
+    string,
+    Array<{ requiredClearanceLevel: number; name: string; category?: string }>
+  >,
+) {
+  const allPermissions = Object.values(permissionArrays).flat();
+  const errors: string[] = [
+    ...collectArrayCountErrors(
+      permissionArrays,
+      EXPECTED_PERMISSION_COUNTS.arrays,
+    ),
+    ...collectTotalCountErrors(allPermissions),
+    ...collectClearanceErrors(allPermissions),
+  ];
+
+  if (errors.length > 0) {
+    throw new Error(
+      `Permission catalog validation failed:\n - ${errors.join('\n - ')}`,
+    );
+  }
+}
+
 // All Permissions - Comprehensive List (274 permissions total)
 //
 // Permission Summary by Category:
@@ -3004,244 +3189,292 @@ function getPermissionPoolsForPermission(
   return poolNames;
 }
 
+async function seedSystemRoles() {
+  console.log('📋 Phase 1: Creating system roles...');
+  const createdRoles: Record<string, string> = {};
+
+  for (const roleData of SYSTEM_ROLES) {
+    const existing = await prisma.role.findFirst({
+      where: {
+        name: roleData.name,
+        roleType: roleData.roleType,
+        tenantId: null,
+      },
+    });
+
+    const role = existing
+      ? await prisma.role.update({
+          where: { id: existing.id },
+          data: {
+            description: roleData.description,
+            clearanceLevel: roleData.clearanceLevel,
+            isSystemRole: roleData.isSystemRole,
+          },
+        })
+      : await prisma.role.create({
+          data: {
+            name: roleData.name,
+            description: roleData.description,
+            roleType: roleData.roleType,
+            clearanceLevel: roleData.clearanceLevel,
+            isSystemRole: roleData.isSystemRole,
+            tenantId: null,
+          },
+        });
+
+    createdRoles[roleData.name] = role.id;
+    console.log(
+      `  ✅ ${existing ? 'Updated' : 'Created'} role: ${roleData.name} (Level ${roleData.clearanceLevel})`,
+    );
+  }
+
+  return createdRoles;
+}
+
+async function seedPermissionPools() {
+  console.log('\n📋 Phase 2: Creating permission pools...');
+  const createdPools: Record<string, string> = {};
+
+  for (const poolData of PERMISSION_POOLS) {
+    const existing = await prisma.permissionPool.findFirst({
+      where: {
+        name: poolData.name,
+        tenantId: null,
+      },
+    });
+
+    const pool = existing
+      ? await prisma.permissionPool.update({
+          where: { id: existing.id },
+          data: {
+            description: poolData.description,
+            clearanceLevel: poolData.clearanceLevel,
+          },
+        })
+      : await prisma.permissionPool.create({
+          data: {
+            name: poolData.name,
+            description: poolData.description,
+            clearanceLevel: poolData.clearanceLevel,
+            isSystemPool: true,
+            tenantId: null,
+          },
+        });
+
+    createdPools[poolData.name] = pool.id;
+    console.log(
+      `  ✅ ${existing ? 'Updated' : 'Created'} pool: ${poolData.name} (Level ${poolData.clearanceLevel})`,
+    );
+  }
+
+  return createdPools;
+}
+
+async function upsertPermissions(
+  allPermissions: Array<{
+    name: string;
+    label: string;
+    description: string;
+    resource: string;
+    action: string;
+    context?: string;
+    category?: string;
+    requiredClearanceLevel: number;
+  }>,
+) {
+  console.log('\n📋 Phase 3: Creating all permissions...');
+
+  console.log(`\n📋 Permission Arrays Summary:`);
+  console.log(`  - STUDENT_PERMISSIONS: ${STUDENT_PERMISSIONS.length}`);
+  console.log(
+    `  - ACADEMIC_MANAGEMENT_PERMISSIONS: ${ACADEMIC_MANAGEMENT_PERMISSIONS.length}`,
+  );
+  console.log(`  - Total in allPermissions array: ${allPermissions.length}`);
+
+  const permissionNames = allPermissions.map((p) => p.name);
+  const uniqueNames = new Set(permissionNames);
+  if (permissionNames.length !== uniqueNames.size) {
+    const duplicates = permissionNames.filter(
+      (name, index) => permissionNames.indexOf(name) !== index,
+    );
+    console.warn(
+      `  ⚠️  Found ${duplicates.length} duplicate permission names:`,
+    );
+    [...new Set(duplicates)].forEach((name) => console.warn(`     - ${name}`));
+  }
+
+  const createdPermissions: Record<string, string> = {};
+
+  for (const permData of allPermissions) {
+    const permission = await prisma.permission.upsert({
+      where: {
+        name: permData.name,
+      },
+      update: {
+        label: permData.label,
+        description: permData.description,
+        resource: permData.resource,
+        action: permData.action,
+        context: (permData as any).context || null,
+        category: permData.category,
+        requiredClearanceLevel: permData.requiredClearanceLevel,
+      } as any,
+      create: {
+        name: permData.name,
+        label: permData.label,
+        description: permData.description,
+        resource: permData.resource,
+        action: permData.action,
+        context: (permData as any).context || null,
+        category: permData.category,
+        requiredClearanceLevel: permData.requiredClearanceLevel,
+      } as any,
+    });
+    createdPermissions[permData.name] = permission.id;
+    console.log(`  ✅ Created permission: ${permData.name}`);
+  }
+
+  return createdPermissions;
+}
+
+async function assignPermissionsToPools(
+  allPermissions: Array<{
+    name: string;
+    requiredClearanceLevel: number;
+    category?: string;
+  }>,
+  createdPermissions: Record<string, string>,
+  createdPools: Record<string, string>,
+) {
+  console.log('\n📋 Phase 4: Assigning permissions to pools...');
+  let poolPermissionCount = 0;
+
+  for (const permData of allPermissions) {
+    const poolNames = getPermissionPoolsForPermission(
+      permData.requiredClearanceLevel,
+      permData.category,
+    );
+    const permissionId = createdPermissions[permData.name];
+
+    if (!permissionId) {
+      console.warn(`  ⚠️  Permission not found: ${permData.name}`);
+      continue;
+    }
+
+    for (const poolName of poolNames) {
+      const poolId = createdPools[poolName];
+
+      if (!poolId) {
+        console.warn(`  ⚠️  Pool not found: ${poolName}`);
+        continue;
+      }
+
+      await prisma.permissionPoolPermission.upsert({
+        where: {
+          poolId_permissionId: {
+            poolId,
+            permissionId,
+          },
+        },
+        update: {},
+        create: {
+          poolId,
+          permissionId,
+        },
+      });
+      poolPermissionCount++;
+    }
+  }
+
+  console.log(
+    `  ✅ Assigned ${poolPermissionCount} permission-pool relationships`,
+  );
+  return poolPermissionCount;
+}
+
+async function assignPoolsToRoles(
+  createdRoles: Record<string, string>,
+  createdPools: Record<string, string>,
+) {
+  console.log('\n📋 Phase 5: Assigning pools to roles...');
+  let rolePoolCount = 0;
+
+  for (const [roleName, poolName] of Object.entries(ROLE_TO_POOL_MAPPING)) {
+    const roleId = createdRoles[roleName];
+    const poolId = createdPools[poolName];
+
+    if (roleId && poolId) {
+      await prisma.rolePermissionPool.upsert({
+        where: {
+          roleId_poolId: {
+            roleId,
+            poolId,
+          },
+        },
+        update: {},
+        create: {
+          roleId,
+          poolId,
+        },
+      });
+      rolePoolCount++;
+      console.log(`  ✅ Assigned ${poolName} to ${roleName}`);
+    }
+  }
+
+  return rolePoolCount;
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
   try {
-    // Phase 1: Create System Roles
-    console.log('📋 Phase 1: Creating system roles...');
-    const createdRoles: Record<string, string> = {};
+    validatePermissionPools();
+    validateRolePoolMapping(SYSTEM_ROLES, ROLE_TO_POOL_MAPPING);
 
-    for (const roleData of SYSTEM_ROLES) {
-      // Find existing role by name and roleType (for platform/system roles, tenantId is null)
-      const existing = await prisma.role.findFirst({
-        where: {
-          name: roleData.name,
-          roleType: roleData.roleType,
-          tenantId: null,
-        },
-      });
+    const createdRoles = await seedSystemRoles();
+    const createdPools = await seedPermissionPools();
 
-      const role = existing
-        ? await prisma.role.update({
-            where: { id: existing.id },
-            data: {
-              description: roleData.description,
-              clearanceLevel: roleData.clearanceLevel,
-              isSystemRole: roleData.isSystemRole,
-            },
-          })
-        : await prisma.role.create({
-            data: {
-              name: roleData.name,
-              description: roleData.description,
-              roleType: roleData.roleType,
-              clearanceLevel: roleData.clearanceLevel,
-              isSystemRole: roleData.isSystemRole,
-              tenantId: null,
-            },
-          });
+    const permissionArrays = {
+      STUDENT_PERMISSIONS,
+      ACADEMIC_MANAGEMENT_PERMISSIONS,
+      GRADE_ASSESSMENT_PERMISSIONS,
+      ATTENDANCE_PERMISSIONS,
+      FINANCIAL_PERMISSIONS,
+      COMMUNICATION_PERMISSIONS,
+      STAFF_PERMISSIONS,
+      REPORTS_PERMISSIONS,
+      SYSTEM_ADMIN_PERMISSIONS,
+      PLATFORM_PERMISSIONS,
+      LIBRARY_PERMISSIONS,
+      TRANSPORTATION_PERMISSIONS,
+      CAFETERIA_PERMISSIONS,
+      HEALTH_PERMISSIONS,
+      FACILITIES_PERMISSIONS,
+      EVENTS_PERMISSIONS,
+      SPORTS_PERMISSIONS,
+      CLUBS_PERMISSIONS,
+      PARENT_PORTAL_PERMISSIONS,
+      INVENTORY_PERMISSIONS,
+      SAFETY_PERMISSIONS,
+      COMPLIANCE_PERMISSIONS,
+      TIMETABLE_PERMISSIONS,
+      EXAMS_PERMISSIONS,
+      ADMISSIONS_PERMISSIONS,
+    };
 
-      createdRoles[roleData.name] = role.id;
-      console.log(
-        `  ✅ ${existing ? 'Updated' : 'Created'} role: ${roleData.name} (Level ${roleData.clearanceLevel})`,
-      );
-    }
+    const allPermissions = Object.values(permissionArrays).flat();
 
-    // Phase 2: Create Permission Pools
-    console.log('\n📋 Phase 2: Creating permission pools...');
-    const createdPools: Record<string, string> = {};
+    validatePermissionsCatalog(permissionArrays);
 
-    for (const poolData of PERMISSION_POOLS) {
-      // Find existing pool by name (for system pools, tenantId is null)
-      const existing = await prisma.permissionPool.findFirst({
-        where: {
-          name: poolData.name,
-          tenantId: null,
-        },
-      });
-
-      const pool = existing
-        ? await prisma.permissionPool.update({
-            where: { id: existing.id },
-            data: {
-              description: poolData.description,
-              clearanceLevel: poolData.clearanceLevel,
-            },
-          })
-        : await prisma.permissionPool.create({
-            data: {
-              name: poolData.name,
-              description: poolData.description,
-              clearanceLevel: poolData.clearanceLevel,
-              isSystemPool: true,
-              tenantId: null,
-            },
-          });
-
-      createdPools[poolData.name] = pool.id;
-      console.log(
-        `  ✅ ${existing ? 'Updated' : 'Created'} pool: ${poolData.name} (Level ${poolData.clearanceLevel})`,
-      );
-    }
-
-    // Phase 3: Create All Permissions (300+ permissions)
-    console.log('\n📋 Phase 3: Creating all permissions...');
-    const allPermissions = [
-      ...STUDENT_PERMISSIONS,
-      ...ACADEMIC_MANAGEMENT_PERMISSIONS,
-      ...GRADE_ASSESSMENT_PERMISSIONS,
-      ...ATTENDANCE_PERMISSIONS,
-      ...FINANCIAL_PERMISSIONS,
-      ...COMMUNICATION_PERMISSIONS,
-      ...STAFF_PERMISSIONS,
-      ...REPORTS_PERMISSIONS,
-      ...SYSTEM_ADMIN_PERMISSIONS,
-      ...PLATFORM_PERMISSIONS,
-      ...LIBRARY_PERMISSIONS,
-      ...TRANSPORTATION_PERMISSIONS,
-      ...CAFETERIA_PERMISSIONS,
-      ...HEALTH_PERMISSIONS,
-      ...FACILITIES_PERMISSIONS,
-      ...EVENTS_PERMISSIONS,
-      ...SPORTS_PERMISSIONS,
-      ...CLUBS_PERMISSIONS,
-      ...PARENT_PORTAL_PERMISSIONS,
-      ...INVENTORY_PERMISSIONS,
-      ...SAFETY_PERMISSIONS,
-      ...COMPLIANCE_PERMISSIONS,
-      ...TIMETABLE_PERMISSIONS,
-      ...EXAMS_PERMISSIONS,
-      ...ADMISSIONS_PERMISSIONS,
-    ];
-
-    // Add validation
-    console.log(`\n📋 Permission Arrays Summary:`);
-    console.log(`  - STUDENT_PERMISSIONS: ${STUDENT_PERMISSIONS.length}`);
-    console.log(
-      `  - ACADEMIC_MANAGEMENT_PERMISSIONS: ${ACADEMIC_MANAGEMENT_PERMISSIONS.length}`,
+    const createdPermissions = await upsertPermissions(allPermissions);
+    const poolPermissionCount = await assignPermissionsToPools(
+      allPermissions,
+      createdPermissions,
+      createdPools,
     );
-    // ... log each array count
-    console.log(`  - Total in allPermissions array: ${allPermissions.length}`);
+    const rolePoolCount = await assignPoolsToRoles(createdRoles, createdPools);
 
-    // Check for duplicates
-    const permissionNames = allPermissions.map((p) => p.name);
-    const uniqueNames = new Set(permissionNames);
-    if (permissionNames.length !== uniqueNames.size) {
-      const duplicates = permissionNames.filter(
-        (name, index) => permissionNames.indexOf(name) !== index,
-      );
-      console.warn(
-        `  ⚠️  Found ${duplicates.length} duplicate permission names:`,
-      );
-      [...new Set(duplicates)].forEach((name) =>
-        console.warn(`     - ${name}`),
-      );
-    }
-
-    const createdPermissions: Record<string, string> = {};
-
-    for (const permData of allPermissions) {
-      const permission = await prisma.permission.upsert({
-        where: {
-          name: permData.name,
-        },
-        update: {
-          label: permData.label,
-          description: permData.description,
-          resource: permData.resource,
-          action: permData.action,
-          context: (permData as any).context || null,
-          category: permData.category,
-          requiredClearanceLevel: permData.requiredClearanceLevel,
-        } as any,
-        create: {
-          name: permData.name,
-          label: permData.label,
-          description: permData.description,
-          resource: permData.resource,
-          action: permData.action,
-          context: (permData as any).context || null,
-          category: permData.category,
-          requiredClearanceLevel: permData.requiredClearanceLevel,
-        } as any,
-      });
-      createdPermissions[permData.name] = permission.id;
-      console.log(`  ✅ Created permission: ${permData.name}`);
-    }
-
-    // Phase 4: Assign Permissions to Pools
-    console.log('\n📋 Phase 4: Assigning permissions to pools...');
-    let poolPermissionCount = 0;
-
-    for (const permData of allPermissions) {
-      const poolNames = getPermissionPoolsForPermission(
-        permData.requiredClearanceLevel,
-        permData.category,
-      );
-      const permissionId = createdPermissions[permData.name];
-
-      if (!permissionId) {
-        console.warn(`  ⚠️  Permission not found: ${permData.name}`);
-        continue;
-      }
-
-      for (const poolName of poolNames) {
-        const poolId = createdPools[poolName];
-
-        if (!poolId) {
-          console.warn(`  ⚠️  Pool not found: ${poolName}`);
-          continue;
-        }
-
-        await prisma.permissionPoolPermission.upsert({
-          where: {
-            poolId_permissionId: {
-              poolId,
-              permissionId,
-            },
-          },
-          update: {},
-          create: {
-            poolId,
-            permissionId,
-          },
-        });
-        poolPermissionCount++;
-      }
-    }
-    console.log(
-      `  ✅ Assigned ${poolPermissionCount} permission-pool relationships`,
-    );
-
-    // Phase 5: Assign Pools to Roles
-    console.log('\n📋 Phase 5: Assigning pools to roles...');
-    let rolePoolCount = 0;
-
-    for (const [roleName, poolName] of Object.entries(ROLE_TO_POOL_MAPPING)) {
-      const roleId = createdRoles[roleName];
-      const poolId = createdPools[poolName];
-
-      if (roleId && poolId) {
-        await prisma.rolePermissionPool.upsert({
-          where: {
-            roleId_poolId: {
-              roleId,
-              poolId,
-            },
-          },
-          update: {},
-          create: {
-            roleId,
-            poolId,
-          },
-        });
-        rolePoolCount++;
-        console.log(`  ✅ Assigned ${poolName} to ${roleName}`);
-      }
-    }
-
-    // Phase 6: Sample guardian data (idempotent helper)
     await seedSampleGuardian(prisma, createdRoles);
 
     console.log('\n✨ Seed completed successfully!');

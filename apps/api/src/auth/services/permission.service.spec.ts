@@ -652,4 +652,137 @@ describe('PermissionService', () => {
       expect(result.reason).toBe('missing_student_context');
     });
   });
+
+  describe('checkContextAwarePermission - own_classes', () => {
+    const baseContext: UserPermissionContext = {
+      userId: 'user-id',
+      tenantId: 'tenant-id',
+      profileId: 'profile-id',
+      clearanceLevel: ClearanceLevel.TEACHER,
+      roles: [],
+      permissions: new Map([
+        ['classes.edit.own_classes', buildPermissionValue(true)],
+      ]),
+      roleIds: ['role-1'],
+      permissionPoolIds: [],
+    };
+
+    it('grants when user is active teacher for class', async () => {
+      mockPrisma.classTeacher.findFirst.mockResolvedValue({
+        id: 'ct-id',
+      } as any);
+
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'classes.edit.own_classes',
+        { classId: 'class-1' },
+      );
+
+      expect(result.granted).toBe(true);
+      expect(mockPrisma.classTeacher.findFirst).toHaveBeenCalledWith({
+        where: {
+          classId: 'class-1',
+          userTenantId: 'profile-id',
+          isActive: true,
+        },
+        select: { id: true },
+      });
+    });
+
+    it('resolves classId from enrollment', async () => {
+      mockPrisma.classTeacher.findFirst.mockResolvedValue({
+        id: 'ct-id',
+      } as any);
+      mockPrisma.enrollment.findFirst.mockResolvedValue({
+        classId: 'class-2',
+      } as any);
+
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'classes.edit.own_classes',
+        { enrollmentId: 'enr-1' },
+      );
+
+      expect(result.granted).toBe(true);
+      expect(mockPrisma.enrollment.findFirst).toHaveBeenCalled();
+    });
+
+    it('denies when not class teacher', async () => {
+      mockPrisma.classTeacher.findFirst.mockResolvedValue(null);
+
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'classes.edit.own_classes',
+        { classId: 'class-1' },
+      );
+
+      expect(result.granted).toBe(false);
+      expect(result.reason).toBe('not_class_teacher');
+    });
+
+    it('denies when class context missing', async () => {
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'classes.edit.own_classes',
+        {},
+      );
+
+      expect(result.granted).toBe(false);
+      expect(result.reason).toBe('missing_class_context');
+    });
+  });
+
+  describe('checkContextAwarePermission - department', () => {
+    const baseContext: UserPermissionContext = {
+      userId: 'user-id',
+      tenantId: 'tenant-id',
+      profileId: 'profile-id',
+      clearanceLevel: ClearanceLevel.TEACHER,
+      roles: [],
+      permissions: new Map([
+        ['staff.view.department', buildPermissionValue(true)],
+      ]),
+      roleIds: ['role-1'],
+      permissionPoolIds: [],
+    };
+
+    it('grants when department matches user list', async () => {
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'staff.view.department',
+        { departmentId: 'dept-1', userDepartmentIds: ['dept-1', 'dept-2'] },
+      );
+
+      expect(result.granted).toBe(true);
+    });
+
+    it('denies when department mismatch', async () => {
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'staff.view.department',
+        { departmentId: 'dept-1', userDepartmentIds: ['dept-2'] },
+      );
+
+      expect(result.granted).toBe(false);
+      expect(result.reason).toBe('not_in_department');
+    });
+
+    it('denies when department context missing', async () => {
+      const result = await service.checkContextAwarePermission(
+        mockPrisma as unknown as PrismaClient,
+        baseContext,
+        'staff.view.department',
+        {},
+      );
+
+      expect(result.granted).toBe(false);
+      expect(result.reason).toBe('missing_department_context');
+    });
+  });
 });

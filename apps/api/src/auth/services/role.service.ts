@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
 import { RoleType, ClearanceLevel } from '@workspace/api';
+import { MakerCheckerService } from './maker-checker.service';
 
 /**
  * Custom Role Creation Input
@@ -24,6 +25,13 @@ export interface CreateCustomRoleInput {
   permissionPoolIds: string[];
   permissionIds?: string[];
   createdBy: string;
+  creatorClearanceLevel: number;
+}
+
+export interface CreateCustomRoleResult {
+  role: any;
+  approvalStatus: 'active' | 'pending_approval';
+  approvalRequestId?: string;
 }
 
 /**
@@ -49,6 +57,7 @@ export interface CustomRoleValidationResult {
  */
 @Injectable()
 export class RoleService {
+  constructor(private readonly makerCheckerService: MakerCheckerService) {}
   /**
    * Validate role name uniqueness (4.15)
    *
@@ -235,7 +244,10 @@ export class RoleService {
    * @param input - Custom role creation input
    * @returns Created role
    */
-  async createCustomRole(prisma: PrismaClient, input: CreateCustomRoleInput) {
+  async createCustomRole(
+    prisma: PrismaClient,
+    input: CreateCustomRoleInput,
+  ): Promise<CreateCustomRoleResult> {
     // 1. Validate role name uniqueness
     const nameCheck = await this.validateRoleNameUniqueness(
       prisma,
@@ -262,6 +274,8 @@ export class RoleService {
       );
     }
 
+    const requiresApproval = input.clearanceLevel === ClearanceLevel.MANAGEMENT;
+
     // 3. Create role
     const role = await prisma.role.create({
       data: {
@@ -271,10 +285,27 @@ export class RoleService {
         clearanceLevel: input.clearanceLevel,
         tenantId: input.tenantId,
         isSystemRole: false,
-        isActive: true,
+        isActive: !requiresApproval,
         createdBy: input.createdBy,
       },
     });
+
+    let approvalRequestId: string | undefined;
+
+    if (requiresApproval) {
+      approvalRequestId = await this.makerCheckerService.createApprovalRequest(
+        prisma,
+        'roles.custom.level7.create',
+        input.createdBy,
+        input.creatorClearanceLevel,
+        {
+          roleId: role.id,
+          tenantId: input.tenantId,
+          clearanceLevel: input.clearanceLevel,
+        },
+        input.tenantId,
+      );
+    }
 
     // 4. Assign permission pools (mandatory for custom roles)
     await prisma.rolePermissionPool.createMany({
@@ -326,7 +357,7 @@ export class RoleService {
     }
 
     // 5. Return role with relations
-    return prisma.role.findUnique({
+    const roleWithRelations = await prisma.role.findUnique({
       where: { id: role.id },
       include: {
         rolePermissions: {
@@ -341,6 +372,12 @@ export class RoleService {
         },
       },
     });
+
+    return {
+      role: roleWithRelations,
+      approvalStatus: requiresApproval ? 'pending_approval' : 'active',
+      approvalRequestId,
+    };
   }
 
   /**

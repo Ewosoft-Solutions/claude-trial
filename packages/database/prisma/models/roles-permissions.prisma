@@ -170,3 +170,30 @@ model RolePermissionPool {
   @@schema("roles-permissions")
   @@map("role_permission_pools")
 }
+
+// Maker-Checker Requests - Persistent approvals for sensitive operations
+model MakerCheckerRequest {
+  id                     String   @id @default(uuid())
+  tenantId               String?  @map("tenant_id")
+  operation              String
+  level                  String   @map("level") // ApprovalLevel
+  status                 String   @map("status") // ApprovalStatus
+  makerId                String   @map("maker_id")
+  makerClearanceLevel    Int      @map("maker_clearance_level")
+  checkerId              String?  @map("checker_id")
+  checkerClearanceLevel  Int?     @map("checker_clearance_level")
+  requestData            Json     @map("request_data")
+  approvalReason         String?  @map("approval_reason")
+  rejectionReason        String?  @map("rejection_reason")
+  expiresAt              DateTime? @map("expires_at")
+  approvedAt             DateTime? @map("approved_at")
+  rejectedAt             DateTime? @map("rejected_at")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([operation])
+  @@index([status])
+  @@schema("roles-permissions")
+  @@map("maker_checker_requests")
+}
