@@ -162,7 +162,17 @@ describe('PasswordService', () => {
         {
           userId: 'user-id',
           tenantId: 'tenant-id',
-          tenant: {},
+          id: 'user-tenant-id',
+          status: 'active',
+          suspended: false,
+          suspendedAt: null,
+          suspendedBy: null,
+          suspensionReason: null,
+          invitationToken: null,
+          invitationExpiresAt: null,
+          invitationAcceptedAt: null,
+          addedBy: null,
+          addedAt: new Date(),
         },
       ]);
 
@@ -274,6 +284,23 @@ describe('PasswordService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
         passwordChangedAt: recentDate,
+        passwordHash: await PasswordService.hashPassword('NewPass123'),
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        phone: '1234567890',
+        isActive: true,
+        isVerified: true,
+        emailVerifiedAt: new Date(),
+        loginAttempts: 0,
+        lockedUntil: null,
+        createdBy: null,
+        updatedBy: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        lastLoginAt: null,
       });
 
       const expired = await PasswordService.isPasswordExpired(
@@ -292,6 +319,23 @@ describe('PasswordService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
         passwordChangedAt: oldDate,
+        passwordHash: await PasswordService.hashPassword('NewPass123'),
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        phone: '1234567890',
+        isActive: true,
+        isVerified: true,
+        emailVerifiedAt: new Date(),
+        loginAttempts: 0,
+        lockedUntil: null,
+        createdBy: null,
+        updatedBy: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        lastLoginAt: null,
       });
 
       const expired = await PasswordService.isPasswordExpired(
@@ -306,7 +350,24 @@ describe('PasswordService', () => {
     it('should return false when password was never changed', async () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
-        passwordChangedAt: null,
+        passwordChangedAt: null,  
+        passwordHash: await PasswordService.hashPassword('NewPass123'),
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        phone: '1234567890',
+        isActive: true,
+        isVerified: true,
+        emailVerifiedAt: new Date(),
+        loginAttempts: 0,
+        lockedUntil: null,
+        createdBy: null,
+        updatedBy: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        lastLoginAt: null,
       });
 
       const expired = await PasswordService.isPasswordExpired(
@@ -325,6 +386,23 @@ describe('PasswordService', () => {
       mockPrisma.user.findUnique.mockResolvedValue({
         id: 'user-id',
         passwordChangedAt: oldDate,
+        passwordHash: await PasswordService.hashPassword('NewPass123'),
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        phone: '1234567890',
+        isActive: true,
+        isVerified: true,
+        emailVerifiedAt: new Date(),
+        loginAttempts: 0,
+        lockedUntil: null,
+        createdBy: null,
+        updatedBy: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        passwordResetToken: null,
+        passwordResetExpiresAt: null,
+        lastLoginAt: null,  
       });
 
       const expired = await PasswordService.isPasswordExpired(

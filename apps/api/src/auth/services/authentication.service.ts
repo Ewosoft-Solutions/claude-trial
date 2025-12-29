@@ -58,7 +58,7 @@ export interface SchoolSelectionResponse {
     tenantSlug?: string;
     userId: string;
     profileId: string;
-    roles: string[];
+    roleId: string;
     tenantStatus: TenantStatus;
     profileStatus: ProfileStatus;
   };
@@ -477,11 +477,9 @@ export class AuthenticationService {
     }
 
     // Get roles (one per profile now enforced)
-    const roles = userTenant.userTenantRole
-      ? [userTenant.userTenantRole.role.name]
-      : [];
+    const roleId = userTenant.userTenantRole?.role.id;
 
-    if (roles.length === 0) {
+    if (!roleId) {
       throw new UnauthorizedException('No active roles for this profile');
     }
 
@@ -492,7 +490,7 @@ export class AuthenticationService {
         sub: userId,
         tenantId,
         profileId,
-        roles,
+        roleId,
       },
       tenantId,
       3600, // 1 hour access token
@@ -523,13 +521,13 @@ export class AuthenticationService {
           resourceId: tenantId,
           actorId: userId,
           actorProfileId: profileId,
-          actorRole: roles[0] || null,
+          actorRole: roleId || null,
           actorEmail: userTenant.user?.email || null,
           ipAddress: ipAddress || null,
           userAgent: userAgent || null,
           description: `User selected school ${userTenant.tenant.name}`,
           metadata: {
-            roles,
+            roleId,
           },
           status: 'success',
         },
@@ -548,7 +546,7 @@ export class AuthenticationService {
         tenantSlug: userTenant.tenant.slug || undefined,
         userId,
         profileId,
-        roles,
+        roleId: roleId || null,
         tenantStatus: userTenant.tenant.status as TenantStatus,
         profileStatus: userTenant.status as ProfileStatus,
       },
@@ -602,7 +600,7 @@ export class AuthenticationService {
         sub: payload.sub,
         tenantId: payload.tenantId,
         profileId: payload.profileId,
-        roles: payload.roles,
+        roleId: payload.roleId || '',
       },
       payload.tenantId,
       3600, // 1 hour

@@ -203,17 +203,15 @@ export class SecurityPolicyService {
   ): Promise<SecurityPolicy> {
     let policy = await this.getSchoolPolicy(prisma, schoolId);
 
-    if (!policy) {
-      // Create default Basic tier policy
-      policy = await this.assignPolicy(
-        prisma,
-        schoolId,
-        'basic',
-        EnforcedBy.SCHOOL_ADMIN,
-        null,
-        'Default policy assigned on school creation',
-      );
-    }
+    // Create default Basic tier policy
+    policy ??= await this.assignPolicy(
+      prisma,
+      schoolId,
+      'basic',
+      EnforcedBy.SCHOOL_ADMIN,
+      null,
+      'Default policy assigned on school creation',
+    );
 
     return policy;
   }

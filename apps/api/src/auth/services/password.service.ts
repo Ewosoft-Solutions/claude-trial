@@ -105,14 +105,14 @@ export class PasswordService {
     }
 
     // Check numbers requirement
-    if (effectivePolicy.requireNumbers && !/[0-9]/.test(password)) {
+    if (effectivePolicy.requireNumbers && !/\d/.test(password)) {
       errors.push('Password must contain at least one number');
     }
 
     // Check special characters requirement
     if (
       effectivePolicy.requireSpecialChars &&
-      !/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+      !/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)
     ) {
       errors.push('Password must contain at least one special character');
     }
@@ -215,7 +215,7 @@ export class PasswordService {
     // }
 
     // Validate against strictest policy (default for now)
-    const effectivePolicy = strictestPolicy || DEFAULT_PASSWORD_POLICY;
+    const effectivePolicy = strictestPolicy ?? DEFAULT_PASSWORD_POLICY;
     return this.validatePasswordPolicy(password, effectivePolicy);
   }
 
@@ -296,7 +296,7 @@ export class PasswordService {
       select: { passwordChangedAt: true },
     });
 
-    if (!user || !user.passwordChangedAt) {
+    if (!user?.passwordChangedAt) {
       // No password set or never changed, not expired
       return false;
     }

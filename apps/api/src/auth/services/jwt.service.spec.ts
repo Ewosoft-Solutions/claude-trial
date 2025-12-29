@@ -69,7 +69,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: ['role1', 'role2'],
+        roleId: 'role-id',
       };
 
       jwtService.signAsync.mockResolvedValue('access-token');
@@ -102,7 +102,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: [],
+        roleId: 'role-id',
       };
 
       jwtService.signAsync.mockResolvedValue('access-token');
@@ -128,7 +128,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: ['role1'],
+        roleId: 'role-id',
       };
 
       jwtService.signAsync.mockResolvedValue('refresh-token');
@@ -158,7 +158,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: [],
+        roleId: 'role-id',
       };
 
       jwtService.signAsync.mockResolvedValue('refresh-token');
@@ -185,7 +185,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: ['role1'],
+        roleId: 'role-id',
         type: 'access',
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 3600,
@@ -211,7 +211,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: [],
+        roleId: 'role-id',
         type: 'refresh',
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 604800,
@@ -234,7 +234,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'different-tenant-id',
         profileId: 'profile-id',
-        roles: [],
+        roleId: 'role-id',
         type: 'access',
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 3600,
@@ -273,7 +273,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: ['role1'],
+        roleId: 'role-id',
         type: 'refresh',
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 604800,
@@ -296,7 +296,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: [],
+        roleId: 'role-id',
         type: 'access',
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 3600,
@@ -319,7 +319,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'different-tenant-id',
         profileId: 'profile-id',
-        roles: [],
+        roleId: '',
         type: 'refresh',
         iat: Math.floor(Date.now() / 1000),
         exp: Math.floor(Date.now() / 1000) + 604800,
@@ -371,7 +371,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: ['role1'],
+        roleId: 'role-id',
       };
 
       jwtService.signAsync
@@ -399,7 +399,7 @@ describe('AuthJWTService', () => {
         sub: 'user-id',
         tenantId: 'tenant-id',
         profileId: 'profile-id',
-        roles: [],
+        roleId: '',
       };
 
       jwtService.signAsync

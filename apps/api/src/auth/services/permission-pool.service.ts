@@ -152,7 +152,7 @@ export class PermissionPoolService {
       where: { id: roleId },
     });
 
-    if (!role) {
+    if (!role?.id) {
       return { valid: false, error: 'Role not found' };
     }
 
@@ -164,7 +164,7 @@ export class PermissionPoolService {
 
     // Check if any pool exceeds the role's clearance level
     const maxPoolLevel = Math.max(...pools.map((p) => p.clearanceLevel));
-    if (maxPoolLevel > role.clearanceLevel) {
+    if (maxPoolLevel > role?.clearanceLevel) {
       return {
         valid: false,
         error: `Selected permission pools exceed role clearance level ${role.clearanceLevel}`,

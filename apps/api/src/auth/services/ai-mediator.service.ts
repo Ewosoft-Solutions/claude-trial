@@ -110,7 +110,7 @@ export class AIMediatorService {
     // Return enhanced context with permission pools
     return {
       ...aiContext,
-      permissionPools: permissionPoolNames,
+      permissions: permissionPoolNames,
     };
   }
 
@@ -337,31 +337,34 @@ export class AIMediatorService {
       });
 
       // Determine event type based on query type
-      const eventType =
-        request.queryType === 'analytics'
-          ? AUDIT_ACTION.AI_EVENT.ANALYTICS
-          : request.queryType === 'academic'
-            ? AUDIT_ACTION.AI_EVENT.ACADEMIC
-            : AUDIT_ACTION.AI_EVENT.GENERAL;
+      let eventTypeKey: keyof typeof AUDIT_ACTION.AI_EVENT = 'GENERAL';
+      if (request.queryType === 'analytics') {
+        eventTypeKey = 'ANALYTICS';
+      } else if (request.queryType === 'academic') {
+        eventTypeKey = 'ACADEMIC';
+      }
 
       // Determine status
-      const status = validationResult.allowed
-        ? responseMetadata?.error
-          ? 'error'
-          : 'success'
-        : 'failure';
+      let status: 'error' | 'success' | 'failure';
+      if (!validationResult.allowed) {
+        status = 'failure';
+      } else if (responseMetadata?.error) {
+        status = 'error';
+      } else {
+        status = 'success';
+      }
 
       // Create audit log entry
       await prisma.auditLog.create({
         data: {
           tenantId: request.tenantId,
           eventType: AUDIT_EVENT.AI_EVENT, // Dedicated type for AI-specific events
-          action: AUDIT_ACTION.AI_EVENT[eventType],
+          action: AUDIT_ACTION.AI_EVENT[eventTypeKey],
           resource: 'ai_mediator',
           resourceId: null,
           actorId: request.userId,
           actorProfileId: request.profileId,
-          actorRole: userContext.roles[0]?.name || null,
+          actorRole: userContext.roleId || null,
           actorEmail: user?.email || null,
           ipAddress: ipAddress || null,
           userAgent: userAgent || null,

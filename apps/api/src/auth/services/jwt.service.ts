@@ -17,7 +17,7 @@ export interface JWTPayload {
   sub: string; // User ID
   tenantId: string;
   profileId: string;
-  roles: string[];
+  roleId: string;
   iat?: number;
   exp?: number;
   type: JWTTokenType;
@@ -197,7 +197,7 @@ export class AuthJWTService {
    */
   decodeToken(token: string): Partial<JWTPayload> | null {
     try {
-      return this.jwtService.decode(token) as Partial<JWTPayload>;
+      return this.jwtService.decode(token);
     } catch {
       return null;
     }

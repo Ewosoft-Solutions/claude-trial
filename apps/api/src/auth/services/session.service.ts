@@ -102,7 +102,7 @@ export class SessionService {
     }
 
     // Check if user is active
-    if (!session.user || !session.user.isActive) {
+    if (!session.user?.isActive) {
       return false;
     }
 
