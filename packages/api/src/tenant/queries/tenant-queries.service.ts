@@ -47,20 +47,12 @@ export class TenantQueriesService {
    * @param tenantId - Tenant ID
    * @returns UserTenant profile with roles and permissions
    */
-  static async getUserTenantProfile(
-    prisma: PrismaClient,
-    userId: string,
-    tenantId: string,
-  ) {
-    return prisma.userTenant.findUnique({
-      where: {
-        userId_tenantId: {
-          userId,
-          tenantId,
-        },
-      },
+  static async getUserTenantProfile(prisma: PrismaClient, profileId: string) {
+    return await prisma.userTenant.findUnique({
+      where: { id: profileId },
       include: {
-        userTenantRoles: {
+        // one-to-one role per profile
+        userTenantRole: {
           include: {
             role: {
               include: {
@@ -98,20 +90,11 @@ export class TenantQueriesService {
    * @param tenantId - Tenant ID
    * @returns Array of roles with permissions
    */
-  static async getUserTenantRoles(
-    prisma: PrismaClient,
-    userId: string,
-    tenantId: string,
-  ) {
+  static async getUserTenantRoles(prisma: PrismaClient, profileId: string) {
     const userTenant = await prisma.userTenant.findUnique({
-      where: {
-        userId_tenantId: {
-          userId,
-          tenantId,
-        },
-      },
+      where: { id: profileId },
       include: {
-        userTenantRoles: {
+        userTenantRole: {
           include: {
             role: {
               include: {
@@ -138,7 +121,9 @@ export class TenantQueriesService {
       },
     });
 
-    return userTenant?.userTenantRoles.map((utr) => utr.role) || [];
+    return userTenant?.userTenantRole?.role
+      ? [userTenant.userTenantRole.role]
+      : [];
   }
 
   /**
@@ -151,18 +136,12 @@ export class TenantQueriesService {
    */
   static async getUserTenantPermissions(
     prisma: PrismaClient,
-    userId: string,
-    tenantId: string,
+    profileId: string,
   ) {
     const userTenant = await prisma.userTenant.findUnique({
-      where: {
-        userId_tenantId: {
-          userId,
-          tenantId,
-        },
-      },
+      where: { id: profileId },
       include: {
-        userTenantRoles: {
+        userTenantRole: {
           include: {
             role: {
               include: {
@@ -189,15 +168,16 @@ export class TenantQueriesService {
 
     // Collect all role permissions
     const rolePermissions = new Map<string, boolean>();
-    for (const utr of userTenant.userTenantRoles) {
-      for (const rp of utr.role.rolePermissions) {
-        rolePermissions.set(rp.permission.name, true);
+    const role = userTenant.userTenantRole?.role;
+    if (role) {
+      for (const rp of role.rolePermissions) {
+        rolePermissions.set(rp.permission.name as string, true);
       }
     }
 
     // Apply profile-specific overrides
     for (const utp of userTenant.userTenantPermissions) {
-      rolePermissions.set(utp.permission.name, utp.granted);
+      rolePermissions.set(utp.permission.name as string, utp.granted as boolean);
     }
 
     // Convert to array
@@ -250,7 +230,7 @@ export class TenantQueriesService {
             lastName: true,
           },
         },
-        userTenantRoles: {
+        userTenantRole: {
           include: {
             role: true,
           },

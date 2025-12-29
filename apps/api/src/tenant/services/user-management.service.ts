@@ -61,22 +61,7 @@ export class UserManagementService {
     });
 
     if (existingUser) {
-      // Check if user already has access to this tenant
-      const existingAccess = await this.dbService.client.userTenant.findUnique({
-        where: {
-          userId_tenantId: {
-            userId: existingUser.id,
-            tenantId,
-          },
-        },
-        select: { id: true },
-      });
-
-      if (existingAccess) {
-        throw new ConflictException('User already has access to this tenant');
-      }
-
-      // Add existing user to tenant
+      // Add existing user to tenant (one profile per role enforcement handled downstream)
       return this.addUserToTenant(
         tenantId,
         {
@@ -209,19 +194,29 @@ export class UserManagementService {
       throw new NotFoundException('User not found');
     }
 
-    // Check if user already has access to this tenant
-    const existingAccess = await this.dbService.client.userTenant.findUnique({
-      where: {
-        userId_tenantId: {
-          userId: data.userId,
-          tenantId,
-        },
-      },
-      select: { id: true },
-    });
+    if (data.roleIds.length !== 1) {
+      throw new BadRequestException(
+        'Exactly one role must be provided per profile',
+      );
+    }
 
-    if (existingAccess) {
-      throw new ConflictException('User already has access to this tenant');
+    // Check if user already has this role in this tenant (one profile per role)
+    const existingProfileWithRole =
+      await this.dbService.client.userTenantRole.findFirst({
+        where: {
+          roleId: data.roleIds[0],
+          userTenant: {
+            userId: data.userId,
+            tenantId,
+          },
+        },
+        select: { id: true },
+      });
+
+    if (existingProfileWithRole) {
+      throw new ConflictException(
+        'User already has this role in the tenant (profile exists)',
+      );
     }
 
     // Validate email domain if tenant has email domain configured
@@ -245,21 +240,15 @@ export class UserManagementService {
       },
     });
 
-    // Assign roles
-    if (data.roleIds.length > 0) {
-      await Promise.all(
-        data.roleIds.map((roleId, index) =>
-          this.dbService.client.userTenantRole.create({
-            data: {
-              userTenantId: userTenant.id,
-              roleId,
-              isPrimary: index === 0, // First role is primary
-              assignedBy: createdBy,
-            },
-          }),
-        ),
-      );
-    }
+    // Assign single role to the new profile
+    await this.dbService.client.userTenantRole.create({
+      data: {
+        userTenantId: userTenant.id,
+        roleId: data.roleIds[0],
+        isPrimary: true,
+        assignedBy: createdBy,
+      },
+    });
 
     // 6.11: Audit log
     await this.auditService.logUserAction({

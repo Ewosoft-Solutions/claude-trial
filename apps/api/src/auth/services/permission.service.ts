@@ -71,11 +71,10 @@ export class PermissionService {
     // Get user tenant profile
     const userTenant = await TenantQueriesService.getUserTenantProfile(
       prisma,
-      userId,
-      tenantId,
+      profileId,
     );
 
-    if (!userTenant) {
+    if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {
       return null;
     }
 
@@ -84,8 +83,10 @@ export class PermissionService {
       return null;
     }
 
-    // Get roles and their clearance levels
-    const roles = userTenant.userTenantRoles.map((utr) => utr.role);
+    // Get role and its clearance level (one per profile)
+    const roles = userTenant.userTenantRole
+      ? [userTenant.userTenantRole.role]
+      : [];
     const roleIds = roles.map((r) => r.id);
     const permissionPoolIds = Array.from(
       new Set(
@@ -592,23 +593,19 @@ export class PermissionService {
     tenantId: string,
     profileId: string,
   ): Promise<{ valid: boolean; error?: string }> {
-    const userTenant = await TenantQueriesService.getUserTenantProfile(
+    const userTenant = await (TenantQueriesService as any).getUserTenantProfile(
       prisma,
-      userId,
-      tenantId,
+      profileId,
     );
 
-    if (!userTenant) {
+    if (
+      !userTenant ||
+      userTenant.userId !== userId ||
+      userTenant.tenantId !== tenantId
+    ) {
       return {
         valid: false,
         error: 'User profile not found',
-      };
-    }
-
-    if (userTenant.id !== profileId) {
-      return {
-        valid: false,
-        error: 'Profile ID mismatch',
       };
     }
 

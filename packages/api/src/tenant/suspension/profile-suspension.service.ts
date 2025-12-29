@@ -29,25 +29,18 @@ export class ProfileSuspensionService {
    * This does not affect the user's access to other schools.
    *
    * @param prisma - Prisma client instance
-   * @param userId - User ID
-   * @param tenantId - Tenant ID (school)
+   * @param profileId - Profile ID (UserTenant)
    * @param options - Suspension options
    * @returns True if suspension was successful
    */
   static async suspendProfile(
     prisma: PrismaClient,
-    userId: string,
-    tenantId: string,
+    profileId: string,
     options: SuspensionOptions,
   ): Promise<boolean> {
     try {
       const userTenant = await prisma.userTenant.findUnique({
-        where: {
-          userId_tenantId: {
-            userId,
-            tenantId,
-          },
-        },
+        where: { id: profileId },
       });
 
       if (!userTenant) {
@@ -56,12 +49,7 @@ export class ProfileSuspensionService {
 
       // Update profile status
       await prisma.userTenant.update({
-        where: {
-          userId_tenantId: {
-            userId,
-            tenantId,
-          },
-        },
+        where: { id: profileId },
         data: {
           suspended: true,
           suspendedAt: new Date(),
@@ -87,25 +75,18 @@ export class ProfileSuspensionService {
    * Removes suspension from a user's profile within a specific school.
    *
    * @param prisma - Prisma client instance
-   * @param userId - User ID
-   * @param tenantId - Tenant ID (school)
+   * @param profileId - Profile ID (UserTenant)
    * @param unsuspendedBy - User ID of the admin performing unsuspension
    * @returns True if unsuspension was successful
    */
   static async unsuspendProfile(
     prisma: PrismaClient,
-    userId: string,
-    tenantId: string,
+    profileId: string,
     unsuspendedBy: string,
   ): Promise<boolean> {
     try {
       const userTenant = await prisma.userTenant.findUnique({
-        where: {
-          userId_tenantId: {
-            userId,
-            tenantId,
-          },
-        },
+        where: { id: profileId },
       });
 
       if (!userTenant) {
@@ -114,12 +95,7 @@ export class ProfileSuspensionService {
 
       // Update profile status
       await prisma.userTenant.update({
-        where: {
-          userId_tenantId: {
-            userId,
-            tenantId,
-          },
-        },
+        where: { id: profileId },
         data: {
           suspended: false,
           suspendedAt: null,
@@ -142,22 +118,15 @@ export class ProfileSuspensionService {
    * Check if profile is suspended
    *
    * @param prisma - Prisma client instance
-   * @param userId - User ID
-   * @param tenantId - Tenant ID
+   * @param profileId - Profile ID
    * @returns True if profile is suspended
    */
   static async isProfileSuspended(
     prisma: PrismaClient,
-    userId: string,
-    tenantId: string,
+    profileId: string,
   ): Promise<boolean> {
     const userTenant = await prisma.userTenant.findUnique({
-      where: {
-        userId_tenantId: {
-          userId,
-          tenantId,
-        },
-      },
+      where: { id: profileId },
       select: {
         suspended: true,
         status: true,
@@ -175,14 +144,12 @@ export class ProfileSuspensionService {
    * Get suspension details for a profile
    *
    * @param prisma - Prisma client instance
-   * @param userId - User ID
-   * @param tenantId - Tenant ID
+   * @param profileId - Profile ID
    * @returns Suspension details or null if not suspended
    */
   static async getSuspensionDetails(
     prisma: PrismaClient,
-    userId: string,
-    tenantId: string,
+    profileId: string,
   ): Promise<{
     suspended: boolean;
     suspendedAt: Date | null;
@@ -190,12 +157,7 @@ export class ProfileSuspensionService {
     suspensionReason: string | null;
   } | null> {
     const userTenant = await prisma.userTenant.findUnique({
-      where: {
-        userId_tenantId: {
-          userId,
-          tenantId,
-        },
-      },
+      where: { id: profileId },
       select: {
         suspended: true,
         suspendedAt: true,
@@ -220,24 +182,19 @@ export class ProfileSuspensionService {
    * Suspend multiple profiles (bulk operation)
    *
    * @param prisma - Prisma client instance
-   * @param profiles - Array of {userId, tenantId} pairs
+   * @param profiles - Array of profileIds
    * @param options - Suspension options
    * @returns Number of profiles suspended
    */
   static async suspendProfiles(
     prisma: PrismaClient,
-    profiles: Array<{ userId: string; tenantId: string }>,
+    profiles: string[],
     options: SuspensionOptions,
   ): Promise<number> {
     let suspendedCount = 0;
 
-    for (const profile of profiles) {
-      const success = await this.suspendProfile(
-        prisma,
-        profile.userId,
-        profile.tenantId,
-        options,
-      );
+    for (const profileId of profiles) {
+      const success = await this.suspendProfile(prisma, profileId, options);
 
       if (success) {
         suspendedCount++;
@@ -257,16 +214,15 @@ export class ProfileSuspensionService {
    */
   static async unsuspendProfiles(
     prisma: PrismaClient,
-    profiles: Array<{ userId: string; tenantId: string }>,
+    profiles: string[],
     unsuspendedBy: string,
   ): Promise<number> {
     let unsuspendedCount = 0;
 
-    for (const profile of profiles) {
+    for (const profileId of profiles) {
       const success = await this.unsuspendProfile(
         prisma,
-        profile.userId,
-        profile.tenantId,
+        profileId,
         unsuspendedBy,
       );
 

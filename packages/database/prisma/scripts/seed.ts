@@ -3046,37 +3046,41 @@ async function seedSampleGuardian(
   });
 
   // Upsert profiles
-  const parentProfile = await prismaInstance.userTenant.upsert({
+  const existingParentProfile = await prismaInstance.userTenant.findFirst({
     where: {
-      userId_tenantId: {
-        userId: parentUser.id,
-        tenantId: tenant.id,
-      },
-    },
-    update: { status: 'active', suspended: false },
-    create: {
       userId: parentUser.id,
       tenantId: tenant.id,
-      status: 'active',
-      suspended: false,
     },
   });
 
-  const studentProfile = await prismaInstance.userTenant.upsert({
-    where: {
-      userId_tenantId: {
-        userId: studentUser.id,
+  const parentProfile =
+    existingParentProfile ??
+    (await prismaInstance.userTenant.create({
+      data: {
+        userId: parentUser.id,
         tenantId: tenant.id,
+        status: 'active',
+        suspended: false,
       },
-    },
-    update: { status: 'active', suspended: false },
-    create: {
+    }));
+
+  const existingStudentProfile = await prismaInstance.userTenant.findFirst({
+    where: {
       userId: studentUser.id,
       tenantId: tenant.id,
-      status: 'active',
-      suspended: false,
     },
   });
+
+  const studentProfile =
+    existingStudentProfile ??
+    (await prismaInstance.userTenant.create({
+      data: {
+        userId: studentUser.id,
+        tenantId: tenant.id,
+        status: 'active',
+        suspended: false,
+      },
+    }));
 
   // Assign roles
   await prismaInstance.userTenantRole.upsert({

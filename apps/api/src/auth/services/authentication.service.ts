@@ -445,54 +445,25 @@ export class AuthenticationService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<SchoolSelectionResponse> {
-    // Validate user has access to school
-    // Note: Type definitions missing prisma parameter, but implementation requires it
-    const hasAccess = await SchoolSelectionService.validateSchoolAccess(
-      prisma,
-      userId,
-      tenantId,
-    );
-
-    if (!hasAccess) {
-      throw new UnauthorizedException('Access denied to this school');
-    }
-
-    // Get user tenant profile
+    // Get user tenant profile by profileId and verify ownership/tenant match
     const userTenant = await prisma.userTenant.findUnique({
-      where: {
-        userId_tenantId: {
-          userId,
-          tenantId,
-        },
-      },
+      where: { id: profileId },
       include: {
-        user: {
-          select: {
-            email: true,
-          },
-        },
+        user: { select: { email: true, id: true } },
         tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-          },
+          select: { id: true, name: true, slug: true, status: true },
         },
-        userTenantRoles: {
-          where: {
-            role: {
-              isActive: true,
-            },
-          },
-          include: {
-            role: true,
-          },
+        userTenantRole: {
+          where: { role: { isActive: true } },
+          include: { role: true },
         },
       },
     });
 
-    if (!userTenant || userTenant.id !== profileId) {
+    if (
+      userTenant?.userId !== userId ||
+      userTenant.tenantId !== tenantId
+    ) {
       throw new UnauthorizedException('Invalid profile');
     }
 
@@ -505,8 +476,10 @@ export class AuthenticationService {
       throw new UnauthorizedException('Profile is not active');
     }
 
-    // Get roles
-    const roles = userTenant.userTenantRoles.map((utr) => utr.role.name);
+    // Get roles (one per profile now enforced)
+    const roles = userTenant.userTenantRole
+      ? [userTenant.userTenantRole.role.name]
+      : [];
 
     if (roles.length === 0) {
       throw new UnauthorizedException('No active roles for this profile');

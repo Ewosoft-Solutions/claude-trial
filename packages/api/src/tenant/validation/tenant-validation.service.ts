@@ -79,12 +79,10 @@ export class TenantValidationService {
     tenantId: string,
   ): Promise<TenantValidationResult> {
     try {
-      const userTenant = await prisma.userTenant.findUnique({
+      const userTenant = await prisma.userTenant.findFirst({
         where: {
-          userId_tenantId: {
-            userId,
-            tenantId,
-          },
+          userId,
+          tenantId,
         },
         select: {
           id: true,
@@ -230,12 +228,10 @@ export class TenantValidationService {
     roleName: string,
   ): Promise<TenantValidationResult> {
     try {
-      const userTenant = await prisma.userTenant.findUnique({
+      const userTenant = await prisma.userTenant.findFirst({
         where: {
-          userId_tenantId: {
-            userId,
-            tenantId,
-          },
+          userId,
+          tenantId,
         },
         include: {
           userTenantRoles: {

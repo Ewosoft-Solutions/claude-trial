@@ -74,7 +74,7 @@ export class SchoolSelectionService {
       },
       include: {
         tenant: true,
-        userTenantRoles: {
+        userTenantRole: {
           where: {
             role: {
               isActive: true,
@@ -90,9 +90,8 @@ export class SchoolSelectionService {
     return userTenants
       .filter((ut) => ut.tenant.status === TenantStatus.ACTIVE)
       .map((ut) => {
-        const roles = ut.userTenantRoles.map((utr) => utr.role.name);
-        const primaryRole = ut.userTenantRoles.find((utr) => utr.isPrimary)
-          ?.role.name;
+        const roles = ut.userTenantRole ? [ut.userTenantRole.role.name] : [];
+        const primaryRole = ut.userTenantRole?.role.name;
 
         return {
           tenantId: ut.tenantId,
@@ -116,12 +115,14 @@ export class SchoolSelectionService {
    * @param prisma - Prisma client instance
    * @param userId - User ID
    * @param tenantId - Target tenant ID to switch to
+   * @param profileId - Target profile ID within tenant
    * @returns New tenant context if switch is successful
    */
   static async switchSchool(
     prisma: PrismaClient,
     userId: string,
     tenantId: string,
+    profileId: string,
   ): Promise<TenantContext | null> {
     // 1. Validate user has access to tenant
     const accessValidation = await TenantValidationService.validateUserAccess(
@@ -137,11 +138,10 @@ export class SchoolSelectionService {
     // 2. Load UserTenant profile
     const userTenant = await TenantQueriesService.getUserTenantProfile(
       prisma,
-      userId,
-      tenantId,
+      profileId,
     );
 
-    if (!userTenant) {
+    if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {
       return null;
     }
 
@@ -156,8 +156,7 @@ export class SchoolSelectionService {
 
     const permissions = await TenantQueriesService.getUserTenantPermissions(
       prisma,
-      userId,
-      tenantId,
+      profileId,
     );
 
     // Filter permissions to only granted ones and map to Permission format

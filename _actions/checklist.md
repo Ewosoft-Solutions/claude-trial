@@ -358,3 +358,15 @@ All foundation layer implementation tasks (Sections 1-8) have been completed:
 - [x] Governance guardrails: add CI/lint/test to reject custom roles without pools or with permissions above their clearance.
 - [x] Bulk guardian import/upsert API and service (parents onboarding + updates).
 - [x] Queue/async processing for heavy operations: bulk guardian import, CSV/Excel ingestion, invitation email dispatch, exports/reports.
+
+### Fixes 2. Multi-tenancy & profile isolation
+
+- [ ] Enforce one-profile-per-role per tenant: allow multiple profiles per user per tenant (one per role), drop the unique (userId, tenantId) constraint, and migrate data accordingly.
+- [ ] Clarify terminology in API/UX: profile = userTenant (school + role instance), role = permission set, permission pool = clearance bundle; reflect this in API responses and UI labels.
+- [ ] Token scope: issue tokens tied to a single profile and single role; include jti and require a primary role when multiple exist (or disallow multiple roles per profile).
+- [ ] Session persistence: store sessions with jti/refresh_jti bound to profile; blacklist/revoke refresh tokens (not access tokens); add TTL cleanup for expired/revoked entries.
+- [ ] Revocation endpoints: keep logout (current), add logout-all (all profiles for user), and revoke-by-profile (for suspension/breach); ensure all active sessions for targeted profiles are invalidated.
+- [ ] Guards/refresh: on every request validate session status/jti (or an access-token revocation flag) so a revoked session blocks in-flight short-lived tokens; block suspended profiles before issuing new tokens; refresh flow checks refresh blacklist.
+- [ ] UI/selection: list profiles as School + Role; require explicit selection at login and on switch; handle multiple profiles within the same school without ambiguity.
+- [ ] Migration/reset: with DB drop allowed, adjust schema/indexes and reseed as needed to support one-profile-per-role.
+- [ ] Testability: make token TTLs configurable per env, provide test helpers to mint user/profile/session with tokens, seed multi-profile users, and keep session/blacklist checks centralized so integration tests hit the real guard path.

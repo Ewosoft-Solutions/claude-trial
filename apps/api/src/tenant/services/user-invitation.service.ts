@@ -63,23 +63,6 @@ export class UserInvitationService {
       select: { id: true },
     });
 
-    // Check if user already has access to this tenant
-    if (user) {
-      const existingAccess = await this.dbService.client.userTenant.findUnique({
-        where: {
-          userId_tenantId: {
-            userId: user.id,
-            tenantId,
-          },
-        },
-        select: { id: true },
-      });
-
-      if (existingAccess) {
-        throw new ConflictException('User already has access to this tenant');
-      }
-    }
-
     // Generate invitation token
     const invitationToken = this.generateInvitationToken();
     const expirationHours = data.expirationHours || 168; // Default: 7 days
@@ -100,6 +83,31 @@ export class UserInvitationService {
       },
     });
 
+    if (data.roleIds.length !== 1) {
+      throw new BadRequestException(
+        'Exactly one role must be provided per invitation/profile',
+      );
+    }
+
+    // Prevent duplicate profile for same role in tenant
+    const existingProfileWithRole =
+      await this.dbService.client.userTenantRole.findFirst({
+        where: {
+          roleId: data.roleIds[0],
+          userTenant: {
+            userId: user.id,
+            tenantId,
+          },
+        },
+        select: { id: true },
+      });
+
+    if (existingProfileWithRole) {
+      throw new ConflictException(
+        'User already has this role in the tenant (profile exists)',
+      );
+    }
+
     // Create user-tenant relationship with invitation
     const userTenant = await this.dbService.client.userTenant.create({
       data: {
@@ -112,21 +120,15 @@ export class UserInvitationService {
       },
     });
 
-    // Assign roles
-    if (data.roleIds.length > 0) {
-      await Promise.all(
-        data.roleIds.map((roleId, index) =>
-          this.dbService.client.userTenantRole.create({
-            data: {
-              userTenantId: userTenant.id,
-              roleId,
-              isPrimary: index === 0, // First role is primary
-              assignedBy: createdBy,
-            },
-          }),
-        ),
-      );
-    }
+    // Assign single role
+    await this.dbService.client.userTenantRole.create({
+      data: {
+        userTenantId: userTenant.id,
+        roleId: data.roleIds[0],
+        isPrimary: true,
+        assignedBy: createdBy,
+      },
+    });
 
     // Enqueue invitation email dispatch (stub for async processing)
     this.queueService.enqueue('invitation-email', {

@@ -91,20 +91,22 @@ export class ExampleTransactionService {
           }
 
           // Create profile in target tenant if it doesn't exist
-          const targetProfile = await tx.userTenant.upsert({
+          const existingTargetProfile = await tx.userTenant.findFirst({
             where: {
-              userId_tenantId: {
-                userId: sourceProfile.userId,
-                tenantId: targetTenantId,
-              },
-            },
-            update: {},
-            create: {
               userId: sourceProfile.userId,
               tenantId: targetTenantId,
-              status: 'active',
             },
           });
+
+          const targetProfile =
+            existingTargetProfile ??
+            (await tx.userTenant.create({
+              data: {
+                userId: sourceProfile.userId,
+                tenantId: targetTenantId,
+                status: 'active',
+              },
+            }));
 
           return targetProfile;
         },

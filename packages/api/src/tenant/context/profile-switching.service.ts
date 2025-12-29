@@ -5,7 +5,7 @@
  * Handles role switching and permission updates.
  */
 
-import { PrismaClient } from '@workspace/database';
+import { Prisma, PrismaClient } from '@workspace/database';
 import {
   TenantContext,
   Permission,
@@ -13,7 +13,6 @@ import {
   ProfileStatus,
 } from '../../types';
 import { TenantQueriesService } from '../queries';
-import { TenantValidationService } from '../validation';
 
 /**
  * Available Profile
@@ -59,33 +58,28 @@ export class ProfileSwitchingService {
     userId: string,
     tenantId: string,
   ): Promise<AvailableProfile[]> {
-    const userTenant = await prisma.userTenant.findUnique({
+    const profiles = await prisma.userTenant.findMany({
       where: {
-        userId_tenantId: {
-          userId,
-          tenantId,
-        },
+        userId,
+        tenantId,
       },
       include: {
-        userTenantRoles: {
-          include: {
-            role: true,
-          },
+        userTenantRole: {
+          include: { role: true },
         },
+        tenant: { select: { id: true, slug: true, status: true } },
       },
     });
 
-    if (!userTenant) {
-      return [];
-    }
-
-    return userTenant.userTenantRoles.map((utr) => ({
-      profileId: userTenant.id,
-      roleName: utr.role.name,
-      roleDescription: utr.role.description || undefined,
-      isPrimary: utr.isPrimary,
-      status: userTenant.status as ProfileStatus,
-    }));
+    return profiles
+      .map((ut: Prisma.UserTenantGetPayload<{ include: { userTenantRole: { include: { role: true } }; tenant: { select: { id: true, slug: true, status: true } } } }>) => ({
+        profileId: ut.id,
+        roleName: ut.userTenantRole?.role.name,
+        roleDescription: ut.userTenantRole?.role.description || undefined,
+        isPrimary: ut.userTenantRole?.isPrimary ?? false,
+        status: ut.status as ProfileStatus,
+      }))
+      .filter((p) => p.roleName) as AvailableProfile[];
   }
 
   /**
@@ -96,51 +90,53 @@ export class ProfileSwitchingService {
    *
    * @param prisma - Prisma client instance
    * @param context - Current tenant context
-   * @param targetRoleName - Target role name to switch to
+   * @param targetProfileId - Target profile ID to switch to
    * @returns Updated tenant context with new role/permissions
    */
   static async switchProfile(
     prisma: PrismaClient,
     context: TenantContext,
-    targetRoleName: string,
+    targetProfileId: string,
   ): Promise<TenantContext | null> {
-    // 1. Validate user has the target role in this school
-    const roleValidation = await TenantValidationService.validateUserRole(
-      prisma,
-      context.userId,
-      context.tenantId,
-      targetRoleName,
-    );
+    // 1. Load target profile and validate ownership/tenant
+    const userTenant = await prisma.userTenant.findUnique({
+      where: { id: targetProfileId },
+      include: {
+        tenant: { select: { id: true, slug: true, status: true } },
+        userTenantRole: {
+          where: { role: { isActive: true } },
+          include: { role: true },
+        },
+      },
+    });
 
-    if (!roleValidation.valid) {
+    if (
+      !userTenant ||
+      userTenant.userId !== context.userId ||
+      userTenant.tenantId !== context.tenantId
+    ) {
       return null;
     }
 
-    // 2. Get user tenant profile with roles
-    const userTenant = await TenantQueriesService.getUserTenantProfile(
-      prisma,
-      context.userId,
-      context.tenantId,
-    );
-
-    if (!userTenant) {
-      return null;
-    }
-
-    // 3. Find the target role
-    const targetRole = userTenant.userTenantRoles.find(
-      (utr) => utr.role.name === targetRoleName && utr.role.isActive,
-    );
-
+    // Each profile has exactly one role; guard against drift
+    const targetRole = userTenant.userTenantRole;
     if (!targetRole) {
       return null;
     }
 
-    // 4. Get permissions for the target role
+    // 2. Validate profile status
+    if (
+      userTenant.status !== ProfileStatus.ACTIVE ||
+      userTenant.suspended ||
+      userTenant.tenant.status !== TenantStatus.ACTIVE
+    ) {
+      return null;
+    }
+
+    // 3. Get permissions for the target profile
     const permissions = await TenantQueriesService.getUserTenantPermissions(
       prisma,
-      context.userId,
-      context.tenantId,
+      userTenant.id,
     );
 
     // Filter permissions to only granted ones
@@ -158,13 +154,13 @@ export class ProfileSwitchingService {
         category: 'general', // Will be enriched by permission service
       })) as Permission[];
 
-    // 5. Build updated context
+    // 4. Build updated context
     const updatedContext: TenantContext = {
-      tenantId: context.tenantId,
-      tenantSlug: context.tenantSlug,
+      tenantId: userTenant.tenantId,
+      tenantSlug: userTenant.tenant.slug || undefined,
       userId: context.userId,
-      profileId: context.profileId, // Profile ID stays the same
-      roles: [targetRoleName], // Single role for current context
+      profileId: userTenant.id,
+      roles: [targetRole.role.name], // Single role for current context
       permissions: grantedPermissions,
       tenantStatus: userTenant.tenant.status as TenantStatus,
       profileStatus: userTenant.status as ProfileStatus,
@@ -207,18 +203,13 @@ export class ProfileSwitchingService {
     userId: string,
     tenantId: string,
   ): Promise<boolean> {
-    const roleCount = await prisma.userTenantRole.count({
+    const profileCount = await prisma.userTenant.count({
       where: {
-        userTenant: {
-          userId,
-          tenantId,
-        },
-        role: {
-          isActive: true,
-        },
+        userId,
+        tenantId,
       },
     });
 
-    return roleCount > 1;
+    return profileCount > 1;
   }
 }
