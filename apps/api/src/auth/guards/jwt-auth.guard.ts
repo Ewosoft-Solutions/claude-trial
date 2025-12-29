@@ -43,7 +43,7 @@ export class JwtAuthGuard implements CanActivate {
 
     // Decode token to get tenant ID (without verification)
     const decoded = this.authJWTService.decodeToken(token);
-    if (!decoded || !decoded.tenantId) {
+    if (!decoded?.tenantId) {
       throw new UnauthorizedException('Invalid token format');
     }
 
@@ -65,7 +65,7 @@ export class JwtAuthGuard implements CanActivate {
       userId: payload.sub,
       tenantId: payload.tenantId,
       profileId: payload.profileId,
-      roles: payload.roles,
+      roleId: payload.roleId,
     };
 
     return true;

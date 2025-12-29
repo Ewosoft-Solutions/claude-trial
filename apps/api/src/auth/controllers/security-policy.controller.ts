@@ -31,10 +31,11 @@ import {
 } from '../dto/security-policy.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
-import { ClearanceLevelGuard } from '../guards/clearance-level.guard';
-import { RequireClearanceLevel } from '../guards/clearance-level.guard';
-import { PermissionGuard } from '../guards/permission.guard';
-import { RequirePermissions } from '../guards/permission.guard';
+import {
+  ClearanceLevelGuard,
+  RequireClearanceLevel,
+} from '../guards/clearance-level.guard';
+import { PermissionGuard, RequirePermissions } from '../guards/permission.guard';
 import { type AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
 import { EnforcedBy } from '@workspace/api';
 import { AUDIT_ACTION, DatabaseService } from '../../common';
@@ -118,7 +119,7 @@ export class SecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.ASSIGN_POLICY,
       userId,
       profileId,
-      userContext?.roles?.[0]?.name || null,
+      userContext?.roleId || null,
       user?.email || null,
       {
         before: oldPolicy
@@ -187,7 +188,7 @@ export class SecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.CHANGE_POLICY_TIER,
       userId,
       profileId,
-      userContext?.roles?.[0]?.name || null,
+      userContext?.roleId || null,
       user?.email || null,
       {
         before: {
@@ -267,7 +268,7 @@ export class PlatformSecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.SET_EMERGENCY_POLICY,
       userId,
       profileId,
-      userContext?.roles?.[0]?.name || null,
+      userContext?.roleId || null,
       user?.email || null,
       {
         before: oldPolicy
@@ -318,7 +319,7 @@ export class PlatformSecurityPolicyController {
       schoolId,
     );
 
-    if (!oldPolicy || !oldPolicy.isEmergency) {
+    if (!oldPolicy?.isEmergency) {
       throw new ForbiddenException('No emergency policy found for this school');
     }
 
@@ -335,7 +336,7 @@ export class PlatformSecurityPolicyController {
       AUDIT_ACTION.SECURITY.POLICY.REMOVE_EMERGENCY_POLICY,
       userId,
       profileId,
-      userContext?.roles?.[0]?.name || null,
+      userContext?.roleId || null,
       user?.email || null,
       {
         before: {

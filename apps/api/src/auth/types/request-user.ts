@@ -6,7 +6,7 @@ export interface RequestUser {
   userId: string;
   tenantId: string;
   profileId: string;
-  roles: string[];
+  roleId: string;
   email?: string;
   firstName?: string;
   lastName?: string;

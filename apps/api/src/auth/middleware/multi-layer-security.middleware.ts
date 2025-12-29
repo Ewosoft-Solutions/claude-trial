@@ -18,9 +18,9 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import { Request, Response, NextFunction } from 'express';
-import { PermissionService } from '../services/permission.service';
+import { PermissionService, UserPermissionContext } from '../services/permission.service';
 import { RequestUser } from '../types/request-user';
-import { UserPermissionContext } from '../services/permission.service';
+
 import { DatabaseService } from '../../common';
 
 /**

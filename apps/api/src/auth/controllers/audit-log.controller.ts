@@ -11,6 +11,7 @@ import {
   Param,
   UseGuards,
   Request,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -74,10 +75,13 @@ export class AuditLogController {
     // Filter by tenant (platform admins can see all, others see only their tenant)
     const userClearanceLevel = userContext?.clearanceLevel || 0;
     if (userClearanceLevel < 9) {
-      // Not platform admin, filter by tenant
+      // Non-admins must be scoped to their tenant
+      if (!tenantId) {
+        throw new ForbiddenException('Tenant context required');
+      }
       where.tenantId = tenantId;
     } else if (tenantId) {
-      // Platform admin can optionally filter by tenant
+      // Platform admins can optionally filter by tenant
       where.tenantId = tenantId;
     }
 
@@ -223,9 +227,7 @@ export class AuditLogController {
     };
 
     // Filter by tenant (platform admins can see all, others see only their tenant)
-    if (userClearanceLevel < 9) {
-      where.tenantId = tenantId;
-    } else if (tenantId) {
+    if (userClearanceLevel < 9 && tenantId) {
       where.tenantId = tenantId;
     }
 
@@ -291,9 +293,7 @@ export class AuditLogController {
     };
 
     // Filter by tenant (platform admins can see all, others see only their tenant)
-    if (userClearanceLevel < 9) {
-      where.tenantId = tenantId;
-    } else if (tenantId) {
+    if (userClearanceLevel < 9 && tenantId) {
       where.tenantId = tenantId;
     }
 

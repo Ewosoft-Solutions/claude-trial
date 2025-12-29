@@ -55,8 +55,8 @@ export class SecurityPolicyGuard implements CanActivate {
     // Get client IP address
     const ipAddress =
       request.ip ||
-      request.headers['x-forwarded-for']?.toString().split(',')[0] ||
-      request.connection.remoteAddress;
+      request.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() ||
+      request.socket?.remoteAddress;
 
     // Validate policy compliance
     const validation = this.securityPolicyService.validatePolicyCompliance(
@@ -97,6 +97,8 @@ export class SecurityPolicyGuard implements CanActivate {
     const method = request.method.toLowerCase();
 
     // Normalize operation name
-    return `${method}:${path}`.replace(/\/+/g, '/').replace(/^\/|\/$/g, '');
+    return `${method}:${path}`
+      .replaceAll(/\/+/g, '/')
+      .replaceAll(/(^\/|\/$)/g, '');
   }
 }

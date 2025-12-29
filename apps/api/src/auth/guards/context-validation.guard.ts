@@ -31,7 +31,7 @@ export class ContextValidationGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = (request as unknown as { user?: RequestUser }).user;
 
-    if (!user || !user.userId || !user.tenantId || !user.profileId) {
+    if (!user?.userId || !user.tenantId || !user.profileId) {
       throw new ForbiddenException('User context not found');
     }
 

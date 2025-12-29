@@ -88,7 +88,7 @@ export class PermissionGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = request.user as RequestUser | undefined;
 
-    if (!user || !user.userId || !user.tenantId || !user.profileId) {
+    if (!user?.userId || !user.tenantId || !user.profileId) {
       throw new ForbiddenException('User context not found');
     }
 

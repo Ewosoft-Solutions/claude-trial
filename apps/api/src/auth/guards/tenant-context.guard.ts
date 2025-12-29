@@ -29,7 +29,7 @@ export class TenantContextGuard implements CanActivate {
     const request = context.switchToHttp().getRequest();
     const user = (request as unknown as { user?: RequestUser }).user;
 
-    if (!user || !user.userId || !user.tenantId) {
+    if (!user?.userId || !user.tenantId) {
       throw new UnauthorizedException('User context not found');
     }
 
@@ -54,7 +54,7 @@ export class TenantContextGuard implements CanActivate {
       tenantId: user.tenantId,
       userId: user.userId,
       profileId: user.profileId,
-      roles: user.roles,
+      roleId: user.roleId,
     };
 
     return true;
