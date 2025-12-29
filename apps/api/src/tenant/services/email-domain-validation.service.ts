@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
-import * as dns from 'dns';
-import { promisify } from 'util';
+import * as dns from 'node:dns';
+import { promisify } from 'node:util';
 
 const resolveTxt = promisify(dns.resolveTxt);
 

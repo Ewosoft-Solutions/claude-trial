@@ -85,7 +85,7 @@ export class TenantController {
     const userContext = req.userContext;
 
     // Get requester role (highest clearance level role)
-    const requesterRole = userContext?.roles?.[0].name || 'User';
+    const requesterRole = userContext?.roleId || '';
 
     return this.registrationService.registerTenant(
       data,
@@ -425,7 +425,7 @@ export class TenantController {
     @Request() req: AuthenticatedRequest,
   ) {
     const userContext = req.userContext;
-    const requesterRole = userContext?.roles?.[0]?.name || 'User';
+    const requesterRole = userContext?.roleId || '';
     return this.jwtRotationService.rotateSecret(tenantId, requesterRole, data);
   }
 
@@ -444,7 +444,7 @@ export class TenantController {
     @Request() req: AuthenticatedRequest,
   ) {
     const userContext = req.userContext;
-    const requesterRole = userContext?.roles?.[0]?.name || 'User';
+    const requesterRole = userContext?.roleId || '';
     return this.jwtRotationService.emergencyRotateSecret(
       tenantId,
       requesterRole,
@@ -465,7 +465,7 @@ export class TenantController {
     @Request() req: AuthenticatedRequest,
   ) {
     const userContext = req.userContext;
-    const requesterRole = userContext?.roles?.[0]?.name || 'User';
+    const requesterRole = userContext?.roleId || '';
     return this.jwtRotationService.getSecretRotationStatus(
       tenantId,
       requesterRole,

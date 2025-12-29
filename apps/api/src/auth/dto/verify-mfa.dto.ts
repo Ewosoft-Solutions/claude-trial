@@ -4,8 +4,9 @@
  * Data Transfer Objects for MFA verification operations (3a.6).
  */
 
-import { IsString, IsOptional } from 'class-validator';
+import { IsString, IsOptional, IsObject } from 'class-validator';
 import { MfaMethodType } from '@workspace/api';
+import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 
 /**
  * Initiate MFA Verification Request
@@ -42,9 +43,9 @@ export class VerifyMfaChallengeDto {
   @IsOptional()
   token?: string; // For TOTP
 
-  @IsString()
+  @IsObject()
   @IsOptional()
-  webauthnResponse?: any; // For WebAuthn
+  webauthnResponse?: AuthenticationResponseJSON | null; // For WebAuthn
 }
 
 /**

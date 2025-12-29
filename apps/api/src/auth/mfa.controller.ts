@@ -67,7 +67,7 @@ export class MfaController {
   async getActiveMethods(@AuthUser() user: RequestUser) {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -89,7 +89,7 @@ export class MfaController {
   ) {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -132,7 +132,7 @@ export class MfaController {
   ) {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -174,11 +174,11 @@ export class MfaController {
   ): Promise<SetupTotpMfaResponseDto> {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId || !user.email) {
+    if (!user?.userId || !user.email) {
       throw new Error('User not authenticated');
     }
 
-    const email = user.email as string;
+    const email = user.email;
 
     return this.mfaService.setupTotpMethod(
       prisma,
@@ -201,11 +201,11 @@ export class MfaController {
   ): Promise<SetupWebAuthnMfaResponseDto> {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId || !user.email) {
+    if (!user?.userId || !user.email) {
       throw new Error('User not authenticated');
     }
 
-    const email = user.email as string;
+    const email = user.email;
     const displayName =
       user.firstName && user.lastName
         ? `${user.firstName} ${user.lastName}`
@@ -238,7 +238,7 @@ export class MfaController {
   ) {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -344,7 +344,7 @@ export class MfaController {
   ): Promise<InitiateMfaVerificationResponseDto> {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -399,7 +399,7 @@ export class MfaController {
   ): Promise<GenerateRecoveryCodesResponseDto> {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -430,7 +430,7 @@ export class MfaController {
   ): Promise<VerifyRecoveryCodeResponseDto> {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -457,7 +457,7 @@ export class MfaController {
   ) {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -480,7 +480,7 @@ export class MfaController {
   ) {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 
@@ -503,7 +503,7 @@ export class MfaController {
   ) {
     const prisma = this.dbService.client;
 
-    if (!user || !user.userId) {
+    if (!user?.userId) {
       throw new Error('User not authenticated');
     }
 

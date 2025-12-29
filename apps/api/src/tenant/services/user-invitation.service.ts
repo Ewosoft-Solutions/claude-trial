@@ -136,7 +136,7 @@ export class UserInvitationService {
       userId: user.id,
       userTenantId: userTenant.id,
       email: data.email.toLowerCase(),
-      roles: data.roleIds,
+      roleId: data.roleIds[0],
     });
 
     // Audit log

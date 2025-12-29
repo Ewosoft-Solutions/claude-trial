@@ -186,8 +186,8 @@ export class TenantRegistrationService {
     return name
       .toLowerCase()
       .trim()
-      .replace(/[^\w\s-]/g, '') // Remove special characters
-      .replace(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
-      .replace(/^-+|-+$/g, ''); // Remove leading/trailing hyphens
+      .replaceAll(/[^\w\s-]/g, '') // Remove special characters
+      .replaceAll(/[\s_-]+/g, '-') // Replace spaces and underscores with hyphens
+      .replaceAll(/(^-+|-+$)/g, ''); // Remove leading/trailing hyphens
   }
 }
