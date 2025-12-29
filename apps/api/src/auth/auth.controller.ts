@@ -93,17 +93,21 @@ export class AuthController {
       throw new Error('Invalid challenge');
     }
 
-    return this.authenticationService.verifyMfaAndCompleteLogin(
+    return this.authenticationService.verifyMfaAndCompleteLogin({
       prisma,
-      challenge.userId,
-      verifyMfaForLoginDto.challengeId,
-      verifyMfaForLoginDto.code,
-      verifyMfaForLoginDto.token,
-      verifyMfaForLoginDto.webauthnResponse,
-      verifyMfaForLoginDto.recoveryCode,
-      ipAddress,
-      userAgent,
-    );
+      userId: challenge.userId,
+      challengeId: verifyMfaForLoginDto.challengeId,
+      mfa: {
+        code: verifyMfaForLoginDto.code,
+        token: verifyMfaForLoginDto.token,
+        webauthnResponse: verifyMfaForLoginDto.webauthnResponse,
+        recoveryCode: verifyMfaForLoginDto.recoveryCode,
+      },
+      requestContext: {
+        ipAddress,
+        userAgent,
+      },
+    });
   }
 
   /**

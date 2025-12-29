@@ -24,6 +24,7 @@ import { AuthJWTService } from './jwt.service';
 import { SessionService } from './session.service';
 import { MfaService } from './mfa.service';
 import { MfaBaseService } from './mfa-base.service';
+import { AuthenticationResponseJSON } from '@simplewebauthn/server';
 
 /**
  * Login Response
@@ -62,6 +63,26 @@ export interface SchoolSelectionResponse {
     profileStatus: ProfileStatus;
   };
 }
+
+type MfaVerificationPayload = {
+  code?: string;
+  token?: string;
+  webauthnResponse?: AuthenticationResponseJSON;
+  recoveryCode?: string;
+};
+
+type RequestContext = {
+  ipAddress?: string;
+  userAgent?: string;
+};
+
+type VerifyMfaAndCompleteLoginParams = {
+  prisma: PrismaClient;
+  userId: string;
+  challengeId: string;
+  mfa?: MfaVerificationPayload;
+  requestContext?: RequestContext;
+};
 
 /**
  * Authentication Service
@@ -128,7 +149,7 @@ export class AuthenticationService {
     // Check if account is locked (3.11)
     const lockoutStatus = await LoginAttemptService.checkLockoutStatus(
       prisma,
-      user.id as string,
+      user.id,
     );
 
     if (lockoutStatus.isLocked) {
@@ -190,7 +211,7 @@ export class AuthenticationService {
 
     const passwordValid = await PasswordService.comparePassword(
       password,
-      user.passwordHash as string,
+      user.passwordHash,
     );
 
     if (!passwordValid) {
@@ -216,10 +237,7 @@ export class AuthenticationService {
     });
 
     // Check if user has active MFA methods (3a.9)
-    const hasMfa = await MfaBaseService.hasActiveMfaMethods(
-      prisma,
-      user.id as string,
-    );
+    const hasMfa = await MfaBaseService.hasActiveMfaMethods(prisma, user.id);
 
     // Audit: successful primary authentication
     try {
@@ -248,22 +266,22 @@ export class AuthenticationService {
 
     // Get available schools for user
     // Note: Type definitions missing prisma parameter, but implementation requires it
-    const schools = await (SchoolSelectionService.getAvailableSchools as any)(
+    const schools = await SchoolSelectionService.getAvailableSchools(
       prisma,
-      user.id as string,
+      user.id,
     );
 
     // If MFA is required, initiate verification
     if (hasMfa) {
       const primaryMethod = await MfaBaseService.getPrimaryMfaMethod(
         prisma,
-        user.id as string,
+        user.id,
       );
 
       if (primaryMethod) {
         const mfaChallenge = await this.mfaService.initiateVerification(
           prisma,
-          user.id as string,
+          user.id,
           primaryMethod.id,
           'login',
           ipAddress,
@@ -304,26 +322,23 @@ export class AuthenticationService {
   /**
    * Verify MFA and complete login (3a.9)
    *
-   * @param prisma - Prisma client instance
-   * @param userId - User ID
-   * @param challengeId - MFA challenge ID
-   * @param code - Verification code (for SMS/Email)
-   * @param token - TOTP token (for TOTP)
-   * @param webauthnResponse - WebAuthn response (for WebAuthn)
-   * @param recoveryCode - Recovery code (for recovery)
+   * @param params.prisma - Prisma client instance
+   * @param params.userId - User ID
+   * @param params.challengeId - MFA challenge ID
+   * @param params.mfa - MFA verification payload (code/token/webauthn/recovery)
+   * @param params.requestContext - Request metadata (ip/user agent)
    * @returns Login response with schools
    */
-  async verifyMfaAndCompleteLogin(
-    prisma: PrismaClient,
-    userId: string,
-    challengeId: string,
-    code?: string,
-    token?: string,
-    webauthnResponse?: any,
-    recoveryCode?: string,
-    ipAddress?: string,
-    userAgent?: string,
-  ): Promise<LoginResponse> {
+  async verifyMfaAndCompleteLogin({
+    prisma,
+    userId,
+    challengeId,
+    mfa = {},
+    requestContext,
+  }: VerifyMfaAndCompleteLoginParams): Promise<LoginResponse> {
+    const { code, token, webauthnResponse, recoveryCode } = mfa;
+    const { ipAddress, userAgent } = requestContext || {};
+
     // Verify recovery code if provided
     if (recoveryCode) {
       const recoveryValid = await this.mfaService.verifyRecoveryCode(
@@ -351,7 +366,7 @@ export class AuthenticationService {
     }
 
     // Get available schools for user
-    const schools = await (SchoolSelectionService.getAvailableSchools as any)(
+    const schools = await SchoolSelectionService.getAvailableSchools(
       prisma,
       userId,
     );
@@ -432,9 +447,11 @@ export class AuthenticationService {
   ): Promise<SchoolSelectionResponse> {
     // Validate user has access to school
     // Note: Type definitions missing prisma parameter, but implementation requires it
-    const hasAccess = await (
-      SchoolSelectionService.validateSchoolAccess as any
-    )(prisma, userId as string, tenantId as string);
+    const hasAccess = await SchoolSelectionService.validateSchoolAccess(
+      prisma,
+      userId,
+      tenantId,
+    );
 
     if (!hasAccess) {
       throw new UnauthorizedException('Access denied to this school');
@@ -590,7 +607,7 @@ export class AuthenticationService {
 
     // Decode token to get tenant ID
     const decoded = this.jwtService.decodeToken(refreshToken);
-    if (!decoded || !decoded.tenantId) {
+    if (!decoded?.tenantId) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
