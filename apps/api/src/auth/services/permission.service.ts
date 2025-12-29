@@ -6,7 +6,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { PrismaClient, Role, Prisma } from '@workspace/database';
+import { PrismaClient, Prisma } from '@workspace/database';
 import {
   TenantQueriesService,
   ProfileStatus,
@@ -31,8 +31,8 @@ export interface UserPermissionContext {
   userId: string;
   tenantId: string;
   profileId: string;
+  roleId: string;
   clearanceLevel: number;
-  roles: Role[];
   permissions: Map<
     string,
     {
@@ -40,8 +40,7 @@ export interface UserPermissionContext {
       requiredClearanceLevel?: number;
     }
   >; // permission name -> grant + metadata
-  roleIds: string[];
-  permissionPoolIds: string[];
+  permissionIds: string[];
 }
 
 // Shape of a profile with its single role and permissions
@@ -89,7 +88,6 @@ export class PermissionService {
     const userTenant = await TenantQueriesService.getUserTenantProfile(
       prisma,
       profileId,
-      tenantId,
     );
 
     if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {
@@ -103,50 +101,32 @@ export class PermissionService {
 
     // Get role and its clearance level (one per profile)
     const role = userTenant.userTenantRole?.role;
-    const roles = role ? [role] : [];
-    const roleIds = roles.map((r) => r.id);
-    const permissionPoolIds = Array.from(
-      new Set(
-        roles
-          .flatMap((r) =>
-            (r.rolePools || []).map((rp) => rp.pool?.id).filter(Boolean),
-          )
-          .filter(Boolean),
-      ),
-    ) as string[];
+    if (!role) {
+      return null;
+    }
+
+    const roleId = role.id;
+    const permissionIds = role.rolePermissions?.map((rp) => rp.permission?.id);
     // Get maximum clearance level from roles
-    const clearanceLevel = Math.max(...roles.map((r) => r.clearanceLevel), 0);
+    const clearanceLevel = role?.clearanceLevel ?? 0;
 
     // Get permissions from roles
     const permissions = new Map<
       string,
       { granted: boolean; requiredClearanceLevel?: number }
     >();
-    for (const role of roles) {
-      for (const rp of role.rolePermissions) {
-        // Only set if not already set (first role wins)
-        if (!permissions.has(rp.permission.name)) {
-          const requiredClearanceLevel =
-            (rp.permission as any).requiredClearanceLevel ??
-            (rp.permission as any).clearanceLevel ??
-            undefined;
-          permissions.set(rp.permission.name, {
-            granted: true,
-            requiredClearanceLevel,
-          });
-        }
-      }
+    for (const rp of role?.rolePermissions ?? []) {
+      permissions.set(rp.permission.id, {
+        granted: true,
+        requiredClearanceLevel: rp.permission?.requiredClearanceLevel ?? 0,
+      });
     }
 
     // Apply profile-specific overrides (highest priority)
     for (const utp of userTenant.userTenantPermissions) {
-      const requiredClearanceLevel =
-        (utp.permission as any).requiredClearanceLevel ??
-        (utp.permission as any).clearanceLevel ??
-        undefined;
-      permissions.set(utp.permission.name, {
+      permissions.set(utp.permission.id, {
         granted: utp.granted,
-        requiredClearanceLevel,
+        requiredClearanceLevel: utp.permission?.requiredClearanceLevel ?? 0,
       });
     }
 
@@ -155,10 +135,9 @@ export class PermissionService {
       tenantId,
       profileId,
       clearanceLevel,
-      roles,
+      roleId,
       permissions,
-      roleIds,
-      permissionPoolIds,
+      permissionIds,
     };
   }
 
@@ -687,17 +666,16 @@ export class PermissionService {
 
     // Get permission pools from roles (would need to be loaded from database)
     // For now, return empty array - will be populated when AI mediator is integrated
-    const permissionPools = userContext.permissionPoolIds;
+    const permissionIds = userContext.permissionIds;
 
     return {
       userId: userContext.userId,
       tenantId: userContext.tenantId,
       profileId: userContext.profileId,
       clearanceLevel: userContext.clearanceLevel,
-      roleIds: userContext.roleIds,
-      roles: userContext.roles,
+      roleId: userContext.roleId,
       permissions: grantedPermissions,
-      permissionPools,
+      permissionIds: userContext.permissionIds,
       accessScope,
     };
   }
@@ -715,8 +693,8 @@ export interface AIMediatorContext {
   profileId: string;
   clearanceLevel: number; // 0-10
   roleIds: string[]; // All roles for this profile
-  roles: Role[]; // Role names
+  roleId: string; // Role ID
   permissions: string[]; // Effective permissions (granted only)
-  permissionPools: string[]; // Permission pools this user has access to
+  permissionIds: string[]; // Permission IDs
   accessScope: AccessScope; // Derived from clearance level
 }
