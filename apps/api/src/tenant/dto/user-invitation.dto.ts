@@ -1,9 +1,10 @@
 import {
   IsString,
   IsEmail,
-  IsArray,
   IsOptional,
   IsUUID,
+  IsNotEmpty,
+  IsArray,
   ArrayMinSize,
   MinLength,
 } from 'class-validator';
@@ -27,11 +28,10 @@ export class CreateInvitationDto {
   @IsString()
   lastName?: string;
 
-  @ApiProperty({ description: 'Role IDs to assign', type: [String] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsUUID('4', { each: true })
-  roleIds: string[];
+  @ApiProperty({ description: 'Role ID to assign' })
+  @IsUUID('4')
+  @IsNotEmpty()
+  roleId: string;
 
   @ApiPropertyOptional({
     description: 'Invitation expiration in hours (default: 168 = 7 days)',

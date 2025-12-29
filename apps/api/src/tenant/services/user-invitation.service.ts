@@ -83,17 +83,11 @@ export class UserInvitationService {
       },
     });
 
-    if (data.roleIds.length !== 1) {
-      throw new BadRequestException(
-        'Exactly one role must be provided per invitation/profile',
-      );
-    }
-
     // Prevent duplicate profile for same role in tenant
     const existingProfileWithRole =
       await this.dbService.client.userTenantRole.findFirst({
         where: {
-          roleId: data.roleIds[0],
+          roleId: data.roleId,
           userTenant: {
             userId: user.id,
             tenantId,
@@ -124,7 +118,7 @@ export class UserInvitationService {
     await this.dbService.client.userTenantRole.create({
       data: {
         userTenantId: userTenant.id,
-        roleId: data.roleIds[0],
+        roleId: data.roleId,
         isPrimary: true,
         assignedBy: createdBy,
       },
@@ -136,7 +130,7 @@ export class UserInvitationService {
       userId: user.id,
       userTenantId: userTenant.id,
       email: data.email.toLowerCase(),
-      roleId: data.roleIds[0],
+      roleId: data.roleId,
     });
 
     // Audit log
@@ -147,7 +141,7 @@ export class UserInvitationService {
       performedBy: createdBy,
       metadata: {
         email: data.email,
-        roleIds: data.roleIds,
+        roleId: data.roleId,
         expirationHours,
       },
     });
