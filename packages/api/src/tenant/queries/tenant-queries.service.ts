@@ -171,13 +171,13 @@ export class TenantQueriesService {
     const role = userTenant.userTenantRole?.role;
     if (role) {
       for (const rp of role.rolePermissions) {
-        rolePermissions.set(rp.permission.name as string, true);
+        rolePermissions.set(rp.permission.name, true);
       }
     }
 
     // Apply profile-specific overrides
     for (const utp of userTenant.userTenantPermissions) {
-      rolePermissions.set(utp.permission.name as string, utp.granted as boolean);
+      rolePermissions.set(utp.permission.name, utp.granted);
     }
 
     // Convert to array

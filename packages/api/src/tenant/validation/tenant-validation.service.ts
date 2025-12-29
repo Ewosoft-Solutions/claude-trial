@@ -234,7 +234,7 @@ export class TenantValidationService {
           tenantId,
         },
         include: {
-          userTenantRoles: {
+          userTenantRole: {
             include: {
               role: true,
             },
@@ -250,9 +250,8 @@ export class TenantValidationService {
         };
       }
 
-      const hasRole = userTenant.userTenantRoles.some(
-        (utr) => utr.role.name === roleName && utr.role.isActive,
-      );
+      const role = userTenant.userTenantRole?.role;
+      const hasRole = role?.name === roleName && role.isActive === true;
 
       if (!hasRole) {
         return {

@@ -6,7 +6,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { PrismaClient, Role } from '@workspace/database';
+import { PrismaClient, Role, Prisma } from '@workspace/database';
 import {
   TenantQueriesService,
   ProfileStatus,
@@ -44,6 +44,23 @@ export interface UserPermissionContext {
   permissionPoolIds: string[];
 }
 
+// Shape of a profile with its single role and permissions
+type ProfileWithRole = Prisma.UserTenantGetPayload<{
+  include: {
+    userTenantRole: {
+      include: {
+        role: {
+          include: {
+            rolePermissions: { include: { permission: true } };
+            rolePools: { include: { pool: true } };
+          };
+        };
+      };
+    };
+    userTenantPermissions: { include: { permission: true } };
+  };
+}>;
+
 /**
  * Permission Service
  *
@@ -68,10 +85,11 @@ export class PermissionService {
     tenantId: string,
     profileId: string,
   ): Promise<UserPermissionContext | null> {
-    // Get user tenant profile
+    // Get user tenant profile with role and permission data
     const userTenant = await TenantQueriesService.getUserTenantProfile(
       prisma,
       profileId,
+      tenantId,
     );
 
     if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {
@@ -84,15 +102,16 @@ export class PermissionService {
     }
 
     // Get role and its clearance level (one per profile)
-    const roles = userTenant.userTenantRole
-      ? [userTenant.userTenantRole.role]
-      : [];
+    const role = userTenant.userTenantRole?.role;
+    const roles = role ? [role] : [];
     const roleIds = roles.map((r) => r.id);
     const permissionPoolIds = Array.from(
       new Set(
-        roles.flatMap((r: any) =>
-          (r.rolePools || []).map((rp: any) => rp.pool?.id).filter(Boolean),
-        ),
+        roles
+          .flatMap((r) =>
+            (r.rolePools || []).map((rp) => rp.pool?.id).filter(Boolean),
+          )
+          .filter(Boolean),
       ),
     ) as string[];
     // Get maximum clearance level from roles

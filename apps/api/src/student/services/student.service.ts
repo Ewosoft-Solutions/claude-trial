@@ -48,7 +48,7 @@ export class StudentService {
             isVerified: true,
           },
         },
-        userTenantRoles: {
+        userTenantRole: {
           include: {
             role: {
               select: { id: true, name: true, clearanceLevel: true },

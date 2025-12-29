@@ -162,8 +162,8 @@ export class ProfileSwitchingService {
       profileId: userTenant.id,
       roles: [targetRole.role.name], // Single role for current context
       permissions: grantedPermissions,
-      tenantStatus: userTenant.tenant.status as TenantStatus,
-      profileStatus: userTenant.status as ProfileStatus,
+      tenantStatus: userTenant.tenant.status,
+      profileStatus: userTenant.status,
     };
 
     return updatedContext;

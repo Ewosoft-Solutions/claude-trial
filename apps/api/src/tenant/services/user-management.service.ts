@@ -322,7 +322,7 @@ export class UserManagementService {
               isVerified: true,
             },
           },
-          userTenantRoles: {
+          userTenantRole: {
             include: {
               role: {
                 select: {
@@ -380,7 +380,7 @@ export class UserManagementService {
             lastLoginAt: true,
           },
         },
-        userTenantRoles: {
+        userTenantRole: {
           include: {
             role: {
               select: {
@@ -514,7 +514,7 @@ export class UserManagementService {
             isActive: true,
           },
         },
-        userTenantRoles: {
+        userTenantRole: {
           include: {
             role: {
               select: {

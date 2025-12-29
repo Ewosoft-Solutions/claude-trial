@@ -30,7 +30,7 @@ type RoleWithPermissions = Prisma.RoleGetPayload<{
 
 type UserTenantProfile = Prisma.UserTenantGetPayload<{
   include: {
-    userTenantRoles: {
+    userTenantRole: {
       include: {
         role: {
           include: { rolePermissions: { include: { permission: true } } };
@@ -174,15 +174,17 @@ const buildUserTenantProfile = ({
     slug: 'tenant',
     status: 'active',
   },
-  userTenantRoles: roles.map((role, index) => ({
-    id: `${id}-${role.id}-utr-${index}`,
-    userTenantId: id,
-    roleId: role.id,
-    isPrimary: index === 0,
-    assignedAt: new Date(),
-    assignedBy: null,
-    role,
-  })),
+  userTenantRole: roles[0]
+    ? {
+        id: `${id}-${roles[0].id}-utr`,
+        userTenantId: id,
+        roleId: roles[0].id,
+        isPrimary: true,
+        assignedAt: new Date(),
+        assignedBy: null,
+        role: roles[0],
+      }
+    : null,
   userTenantPermissions: permissionOverrides,
 });
 
@@ -606,7 +608,20 @@ describe('PermissionService', () => {
     it('grants when guardian link exists', async () => {
       mockPrisma.studentGuardian.findFirst.mockResolvedValue({
         id: 'link-id',
-      } as any);
+        tenantId: 'tenant-id',
+        createdBy: 'user-id',
+        updatedBy: 'user-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        userTenantId: 'profile-id',
+        isPrimary: true,
+        studentId: 'student-id',
+        guardianIdentifier: 'guardian-id',
+        relationship: 'parent',
+        legalGuardian: false,
+        contactPriority: 1,
+        notes: 'Guardian notes',
+      });
 
       const result = await service.checkContextAwarePermission(
         mockPrisma as unknown as PrismaClient,
@@ -670,7 +685,15 @@ describe('PermissionService', () => {
     it('grants when user is active teacher for class', async () => {
       mockPrisma.classTeacher.findFirst.mockResolvedValue({
         id: 'ct-id',
-      } as any);
+        role: 'teacher',
+        isActive: true,
+        userTenantId: 'profile-id',
+        assignedAt: new Date(),
+        assignedBy: 'user-id',
+        classId: 'class-1',
+        unassignedAt: null,
+        unassignedBy: null,
+      });
 
       const result = await service.checkContextAwarePermission(
         mockPrisma as unknown as PrismaClient,
@@ -693,10 +716,34 @@ describe('PermissionService', () => {
     it('resolves classId from enrollment', async () => {
       mockPrisma.classTeacher.findFirst.mockResolvedValue({
         id: 'ct-id',
-      } as any);
-      mockPrisma.enrollment.findFirst.mockResolvedValue({
+        role: 'teacher',
+        isActive: true,
+        userTenantId: 'profile-id',
+        assignedAt: new Date(),
+        assignedBy: 'user-id',
         classId: 'class-2',
-      } as any);
+        unassignedAt: null,
+        unassignedBy: null,
+      });
+      mockPrisma.enrollment.findFirst.mockResolvedValue({
+        id: 'enr-1',
+        studentId: 'student-1',
+        classId: 'class-2',
+        academicYearId: 'year-1',
+        termId: 'term-1',
+        status: 'active',
+        enrollmentDate: new Date(),
+        notes: 'Enrollment notes',
+        finalGrade: 'A',
+        creditsEarned: null,
+        gpaPoints: null,
+        createdBy: 'user-id',
+        updatedBy: 'user-id',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        droppedDate: null,
+        completedDate: null,
+      });
 
       const result = await service.checkContextAwarePermission(
         mockPrisma as unknown as PrismaClient,

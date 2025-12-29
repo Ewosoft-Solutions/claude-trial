@@ -145,12 +145,11 @@ export class SchoolSelectionService {
       return null;
     }
 
-    // 3. Load roles and permissions
-    const roles = userTenant.userTenantRoles
-      .filter((utr) => utr.role.isActive)
-      .map((utr) => utr.role.name);
+    // 3. Load role and permissions (single role per profile)
+    const activeRole = userTenant.userTenantRole?.role;
+    const roles = activeRole && activeRole.isActive ? [activeRole.name] : [];
 
-    if (roles.length === 0) {
+    if (!activeRole || !activeRole.isActive) {
       return null;
     }
 
