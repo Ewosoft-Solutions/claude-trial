@@ -6,7 +6,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { PrismaClient, Prisma } from '@workspace/database';
+import { PrismaClient } from '@workspace/database';
 import {
   TenantQueriesService,
   ProfileStatus,
@@ -37,28 +37,11 @@ export interface UserPermissionContext {
     string,
     {
       granted: boolean;
-      requiredClearanceLevel?: number;
+      clearanceLevel?: number;
     }
   >; // permission name -> grant + metadata
   permissionIds: string[];
 }
-
-// Shape of a profile with its single role and permissions
-type ProfileWithRole = Prisma.UserTenantGetPayload<{
-  include: {
-    userTenantRole: {
-      include: {
-        role: {
-          include: {
-            rolePermissions: { include: { permission: true } };
-            rolePools: { include: { pool: true } };
-          };
-        };
-      };
-    };
-    userTenantPermissions: { include: { permission: true } };
-  };
-}>;
 
 /**
  * Permission Service
@@ -106,29 +89,47 @@ export class PermissionService {
     }
 
     const roleId = role.id;
-    const permissionIds = role.rolePermissions?.map((rp) => rp.permission?.id);
-    // Get maximum clearance level from roles
     const clearanceLevel = role?.clearanceLevel ?? 0;
 
-    // Get permissions from roles
+    // Build permission map keyed by permission name (activity identifier)
     const permissions = new Map<
       string,
-      { granted: boolean; requiredClearanceLevel?: number }
+      { granted: boolean; clearanceLevel?: number }
     >();
     for (const rp of role?.rolePermissions ?? []) {
-      permissions.set(rp.permission.id, {
+      const permission = rp.permission;
+      const permissionName = permission?.name;
+      if (typeof permissionName !== 'string') continue;
+
+      permissions.set(permissionName, {
         granted: true,
-        requiredClearanceLevel: rp.permission?.requiredClearanceLevel ?? 0,
+        clearanceLevel: permission.requiredClearanceLevel ?? undefined,
       });
     }
 
     // Apply profile-specific overrides (highest priority)
     for (const utp of userTenant.userTenantPermissions) {
-      permissions.set(utp.permission.id, {
+      const permission = utp.permission;
+      const permissionName = permission?.name;
+      if (typeof permissionName !== 'string') continue;
+
+      // keep permissionIds list aligned with loaded permissions
+      permissions.set(permissionName, {
         granted: utp.granted,
-        requiredClearanceLevel: utp.permission?.requiredClearanceLevel ?? 0,
+        clearanceLevel: permission.requiredClearanceLevel ?? undefined,
       });
     }
+
+    const permissionIds = Array.from(
+      new Set([
+        ...(role.rolePermissions ?? [])
+          .map((rp) => rp.permission?.id)
+          .filter((id): id is string => typeof id === 'string'),
+        ...userTenant.userTenantPermissions
+          .map((utp) => utp.permission?.id)
+          .filter((id): id is string => typeof id === 'string'),
+      ]),
+    );
 
     return {
       userId,
@@ -210,7 +211,7 @@ export class PermissionService {
     }
 
     const effectiveRequiredClearance =
-      requiredClearanceLevel ?? permissionStatus.requiredClearanceLevel;
+      requiredClearanceLevel ?? permissionStatus.clearanceLevel;
 
     if (effectiveRequiredClearance !== undefined) {
       const clearanceCheck = this.checkClearanceLevel(
@@ -596,11 +597,7 @@ export class PermissionService {
       profileId,
     );
 
-    if (
-      !userTenant ||
-      userTenant.userId !== userId ||
-      userTenant.tenantId !== tenantId
-    ) {
+    if (userTenant?.userId !== userId || userTenant?.tenantId !== tenantId) {
       return {
         valid: false,
         error: 'User profile not found',
@@ -664,16 +661,13 @@ export class PermissionService {
       .filter(([, value]) => value?.granted)
       .map(([name]) => name);
 
-    // Get permission pools from roles (would need to be loaded from database)
-    // For now, return empty array - will be populated when AI mediator is integrated
-    const permissionIds = userContext.permissionIds;
-
     return {
       userId: userContext.userId,
       tenantId: userContext.tenantId,
       profileId: userContext.profileId,
       clearanceLevel: userContext.clearanceLevel,
       roleId: userContext.roleId,
+      roleIds: [userContext.roleId],
       permissions: grantedPermissions,
       permissionIds: userContext.permissionIds,
       accessScope,
