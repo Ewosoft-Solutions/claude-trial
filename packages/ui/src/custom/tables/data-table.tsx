@@ -99,7 +99,12 @@ import {
   TableHeader,
   TableRow,
 } from '@workspace/ui/components/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@workspace/ui/components/tabs';
 
 export const schema = z.object({
   id: z.number(),
@@ -112,7 +117,7 @@ export const schema = z.object({
 });
 
 // Create a separate component for the drag handle
-function DragHandle({ id }: { id: number }) {
+function DragHandle({ id }: Readonly<{ id: number }>) {
   const { attributes, listeners } = useSortable({
     id,
   });
@@ -186,7 +191,10 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
     accessorKey: 'status',
     header: 'Status',
     cell: ({ row }) => (
-      <Badge variant="outline" className="text-muted-foreground px-1.5 text-nowrap">
+      <Badge
+        variant="outline"
+        className="text-muted-foreground px-1.5 text-nowrap"
+      >
         {row.original.status === 'Done' ? (
           <CircleCheck className="fill-green-500 dark:fill-green-400 stroke-background dark:stroke-background size-3 mr-2" />
         ) : (
@@ -306,7 +314,7 @@ const columns: ColumnDef<z.infer<typeof schema>>[] = [
   },
 ];
 
-function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
+function DraggableRow({ row }: Readonly<{ row: Row<z.infer<typeof schema>> }>) {
   const { transform, transition, setNodeRef, isDragging } = useSortable({
     id: row.original.id,
   });
@@ -333,9 +341,9 @@ function DraggableRow({ row }: { row: Row<z.infer<typeof schema>> }) {
 
 export function DataTable({
   data: initialData,
-}: {
+}: Readonly<{
   data: z.infer<typeof schema>[];
-}) {
+}>) {
   const [data, setData] = React.useState(() => initialData);
   const [rowSelection, setRowSelection] = React.useState({});
   const [columnVisibility, setColumnVisibility] =
@@ -445,8 +453,7 @@ export function DataTable({
                 .getAllColumns()
                 .filter(
                   (column) =>
-                    typeof column.accessorFn !== 'undefined' &&
-                    column.getCanHide(),
+                    column.accessorFn !== undefined && column.getCanHide(),
                 )
                 .map((column) => {
                   return (
@@ -542,8 +549,10 @@ export function DataTable({
                 }}
               >
                 <SelectTrigger
-                //  size="sm" 
-                 className="w-20" id="rows-per-page">
+                  //  size="sm"
+                  className="w-20"
+                  id="rows-per-page"
+                >
                   <SelectValue
                     placeholder={table.getState().pagination.pageSize}
                   />
@@ -644,7 +653,7 @@ const chartConfig = {
   },
 } satisfies ChartConfig;
 
-function TableCellViewer({ item }: { item: z.infer<typeof schema> }) {
+function TableCellViewer({ item }: Readonly<{ item: z.infer<typeof schema> }>) {
   const isMobile = useIsMobile();
 
   return (

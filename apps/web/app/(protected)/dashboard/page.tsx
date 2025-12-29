@@ -27,8 +27,8 @@ export default function DashboardPage() {
         if (!res.ok) throw new Error('Failed to load dashboard');
         const json = await res.json();
         setMetrics(json);
-      } catch (err: any) {
-        setError(err?.message || 'Failed to load dashboard');
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : 'Failed to load dashboard');
       }
     };
     load();
