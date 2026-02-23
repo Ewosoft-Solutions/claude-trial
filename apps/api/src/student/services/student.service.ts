@@ -511,7 +511,7 @@ export class StudentService {
               email,
               firstName: item.guardianFirstName,
               lastName: item.guardianLastName,
-              roleIds: [parentRole.id],
+              roleId: parentRole.id,
             },
             userId,
           );
@@ -521,10 +521,7 @@ export class StudentService {
           // Ensure Parent role assigned for existing profile
           await this.db.client.userTenantRole.upsert({
             where: {
-              userTenantId_roleId: {
-                userTenantId: profileId,
-                roleId: parentRole.id,
-              },
+              userTenantId: profileId,
             },
             update: {},
             create: {

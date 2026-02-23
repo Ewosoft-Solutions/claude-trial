@@ -153,53 +153,51 @@ export class ExampleTransactionService {
   }
 
   /**
-   * Helper method that can work with existing transaction
+   * Helper: find-or-create a profile using an existing transaction client.
    */
-  private async createUserSettings(
-    tx: PrismaTransactionService['client'] | any,
+  private async findOrCreateProfile(
+    client: { userTenant: PrismaTransactionService['client']['userTenant'] },
     userId: string,
     tenantId: string,
     contextUserId: string,
   ) {
-    // If tx is provided, use it directly
-    // Otherwise, start a new transaction
-    if (tx) {
-      return tx.userTenant.upsert({
-        where: {
-          userId_tenantId: {
-            userId,
-            tenantId,
-          },
-        },
-        create: {
-          userId,
-          tenantId,
-          status: 'active',
-          addedBy: contextUserId,
-        },
-        update: {},
-      });
-    }
-
-    // Otherwise, use runInTransaction
-    return this.prismaTx.runInTransaction(
-      async (transactionTx) => {
-        return transactionTx.userTenant.upsert({
-          where: {
-            userId_tenantId: {
-              userId,
-              tenantId,
-            },
-          },
-          create: {
-            userId,
-            tenantId,
-            status: 'active',
-            addedBy: contextUserId,
-          },
-          update: {},
-        });
+    const existing = await client.userTenant.findFirst({
+      where: { userId, tenantId },
+    });
+    if (existing) return existing;
+    return client.userTenant.create({
+      data: {
+        userId,
+        tenantId,
+        status: 'active',
+        addedBy: contextUserId,
       },
+    });
+  }
+
+  /**
+   * Create user settings within an existing transaction.
+   */
+  private async createUserSettings(
+    tx: PrismaTransactionService['client'],
+    userId: string,
+    tenantId: string,
+    contextUserId: string,
+  ) {
+    return this.findOrCreateProfile(tx, userId, tenantId, contextUserId);
+  }
+
+  /**
+   * Create user settings in a new transaction.
+   */
+  private async createUserSettingsInTransaction(
+    userId: string,
+    tenantId: string,
+    contextUserId: string,
+  ) {
+    return this.prismaTx.runInTransaction(
+      async (tx) =>
+        this.findOrCreateProfile(tx, userId, tenantId, contextUserId),
       tenantId,
       contextUserId,
     );
@@ -226,26 +224,21 @@ export class ExampleTransactionService {
   }
 
   /**
-   * Example 5: Check transaction status
+   * Example 5a: Fetch users within a transaction (atomic read with RLS)
    */
-  async conditionalTransaction(
-    tenantId: string,
-    userId: string,
-    needsTransaction: boolean,
-  ) {
-    if (needsTransaction) {
-      return this.prismaTx.runInTransaction(
-        async (tx) => {
-          // Transaction operations
-          return tx.user.findMany();
-        },
-        tenantId,
-        userId,
-      );
-    } else {
-      // Non-transactional
-      await this.prismaTx.setContext(tenantId, userId);
-      return this.prismaTx.client.user.findMany();
-    }
+  async findUsersInTransaction(tenantId: string, userId: string) {
+    return this.prismaTx.runInTransaction(
+      async (tx) => tx.user.findMany(),
+      tenantId,
+      userId,
+    );
+  }
+
+  /**
+   * Example 5b: Fetch users without a transaction (simple RLS-scoped read)
+   */
+  async findUsers(tenantId: string, userId: string) {
+    await this.prismaTx.setContext(tenantId, userId);
+    return this.prismaTx.client.user.findMany();
   }
 }
