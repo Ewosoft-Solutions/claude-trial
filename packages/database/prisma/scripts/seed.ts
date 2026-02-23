@@ -1,4 +1,6 @@
 import { prisma } from '../../src/client.js';
+import bcrypt from 'bcrypt';
+import * as crypto from 'node:crypto';
 
 /**
  * Seed script for database initialization
@@ -8,7 +10,22 @@ import { prisma } from '../../src/client.js';
  * Phase 3: Sample Permissions (Subsets)
  * Phase 4: Assign Permissions to Pools
  * Phase 5: Assign Pools to Roles
+ * Phase 6: Platform Bootstrap (Architect account + platform tenant)
  */
+
+const PLATFORM_BOOTSTRAP = {
+  tenant: {
+    name: 'Platform Administration',
+    slug: 'platform',
+    status: 'active' as const,
+  },
+  architect: {
+    email: 'architect@schoolwithease.com',
+    firstName: 'Platform',
+    lastName: 'Architect',
+    defaultPassword: 'Architect@2025!',
+  },
+};
 
 // System Roles with clearance levels
 const SYSTEM_ROLES = [
@@ -169,14 +186,14 @@ const EXPECTED_PERMISSION_COUNTS = {
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 19,
-    GRADE_ASSESSMENT_PERMISSIONS: 20,
+    GRADE_ASSESSMENT_PERMISSIONS: 21,
     ATTENDANCE_PERMISSIONS: 9,
-    FINANCIAL_PERMISSIONS: 17,
+    FINANCIAL_PERMISSIONS: 16,
     COMMUNICATION_PERMISSIONS: 13,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
     SYSTEM_ADMIN_PERMISSIONS: 18,
-    PLATFORM_PERMISSIONS: 13,
+    PLATFORM_PERMISSIONS: 12,
     LIBRARY_PERMISSIONS: 7,
     TRANSPORTATION_PERMISSIONS: 8,
     CAFETERIA_PERMISSIONS: 8,
@@ -354,14 +371,14 @@ function validatePermissionsCatalog(
 // Permission Summary by Category:
 // - Student Management (15 permissions)
 // - Academic Management (19 permissions)
-// - Grade & Assessment (20 permissions)
+// - Grade & Assessment (21 permissions)
 // - Attendance (9 permissions)
-// - Financial (17 permissions)
+// - Financial (16 permissions)
 // - Communication (13 permissions)
 // - Staff Management (13 permissions)
 // - Reports & Analytics (10 permissions)
 // - System Administration (18 permissions)
-// - Platform (13 permissions)
+// - Platform (12 permissions)
 // - Library (7 permissions)
 // - Transportation (8 permissions)
 // - Cafeteria (8 permissions)
@@ -703,7 +720,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
   },
 ];
 
-// Grade & Assessment Permissions (20 permissions)
+// Grade & Assessment Permissions (21 permissions)
 const GRADE_ASSESSMENT_PERMISSIONS = [
   {
     name: 'grades.view',
@@ -988,7 +1005,7 @@ const ATTENDANCE_PERMISSIONS = [
   },
 ];
 
-// Financial Management Permissions (17 permissions)
+// Financial Management Permissions (16 permissions)
 const FINANCIAL_PERMISSIONS = [
   {
     name: 'fees.view',
@@ -1647,7 +1664,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
   },
 ];
 
-// Platform Permissions (13 permissions)
+// Platform Permissions (12 permissions)
 const PLATFORM_PERMISSIONS = [
   {
     name: 'platform.override',
@@ -3085,10 +3102,7 @@ async function seedSampleGuardian(
   // Assign roles
   await prismaInstance.userTenantRole.upsert({
     where: {
-      userTenantId_roleId: {
-        userTenantId: parentProfile.id,
-        roleId: parentRoleId,
-      },
+      userTenantId: parentProfile.id,
     },
     update: {},
     create: {
@@ -3100,10 +3114,7 @@ async function seedSampleGuardian(
 
   await prismaInstance.userTenantRole.upsert({
     where: {
-      userTenantId_roleId: {
-        userTenantId: studentProfile.id,
-        roleId: studentRoleId,
-      },
+      userTenantId: studentProfile.id,
     },
     update: {},
     create: {
@@ -3162,6 +3173,133 @@ async function seedSampleGuardian(
   console.log(
     '  ✅ Seeded sample guardian/student data for sample-school (parent@example.com -> STU-TEST-001)',
   );
+}
+
+/**
+ * Phase 6: Platform Bootstrap
+ *
+ * Creates the originator Architect account that can bootstrap the entire system.
+ * This is the first user who can log in and register tenants, create SuperAdmins, etc.
+ *
+ * Creates:
+ * 1. A "Platform Administration" tenant for platform-level operations
+ * 2. An Architect user with a hashed password
+ * 3. A UserTenant profile linking the Architect to the platform tenant
+ * 4. A UserTenantRole assigning the Architect role to that profile
+ */
+async function seedPlatformBootstrap(
+  prismaInstance: typeof prisma,
+  createdRoles: Record<string, string>,
+) {
+  console.log('\n📋 Phase 6: Bootstrapping platform Architect account...');
+
+  const architectRoleId = createdRoles['Architect'];
+
+  if (!architectRoleId) {
+    console.warn(
+      '⚠️  Skipping platform bootstrap: Architect role not found.',
+    );
+    return;
+  }
+
+  const platformTenant = await prismaInstance.tenant.upsert({
+    where: { slug: PLATFORM_BOOTSTRAP.tenant.slug },
+    update: {
+      name: PLATFORM_BOOTSTRAP.tenant.name,
+      status: PLATFORM_BOOTSTRAP.tenant.status,
+    },
+    create: {
+      name: PLATFORM_BOOTSTRAP.tenant.name,
+      slug: PLATFORM_BOOTSTRAP.tenant.slug,
+      status: PLATFORM_BOOTSTRAP.tenant.status,
+      settings: {
+        isPlatformTenant: true,
+        description: 'System tenant for platform administration. Do not delete.',
+      },
+    },
+  });
+
+  console.log(`  ✅ Platform tenant: ${platformTenant.name} (${platformTenant.slug})`);
+
+  const jwtSecret = crypto.randomBytes(32).toString('base64');
+  const encryptedSecret = Buffer.from(jwtSecret).toString('base64');
+
+  await prismaInstance.tenantJWTConfig.upsert({
+    where: { tenantId: platformTenant.id },
+    update: {},
+    create: {
+      tenantId: platformTenant.id,
+      jwtSecret: encryptedSecret,
+      secretSource: 'auto_generated',
+      secretRotationDate: new Date(),
+      previousSecrets: [],
+      managedBy: 'platform_admin',
+      accessibleBySchools: false,
+    },
+  });
+
+  console.log(`  ✅ JWT secret initialized for platform tenant`);
+
+  const passwordHash = await bcrypt.hash(
+    PLATFORM_BOOTSTRAP.architect.defaultPassword,
+    12,
+  );
+
+  const architectUser = await prismaInstance.user.upsert({
+    where: { email: PLATFORM_BOOTSTRAP.architect.email },
+    update: {
+      firstName: PLATFORM_BOOTSTRAP.architect.firstName,
+      lastName: PLATFORM_BOOTSTRAP.architect.lastName,
+      isActive: true,
+      isVerified: true,
+    },
+    create: {
+      email: PLATFORM_BOOTSTRAP.architect.email,
+      passwordHash,
+      firstName: PLATFORM_BOOTSTRAP.architect.firstName,
+      lastName: PLATFORM_BOOTSTRAP.architect.lastName,
+      isActive: true,
+      isVerified: true,
+    },
+  });
+
+  console.log(`  ✅ Architect user: ${architectUser.email}`);
+
+  const existingProfile = await prismaInstance.userTenant.findFirst({
+    where: {
+      userId: architectUser.id,
+      tenantId: platformTenant.id,
+    },
+  });
+
+  const architectProfile =
+    existingProfile ??
+    (await prismaInstance.userTenant.create({
+      data: {
+        userId: architectUser.id,
+        tenantId: platformTenant.id,
+        status: 'active',
+        suspended: false,
+      },
+    }));
+
+  await prismaInstance.userTenantRole.upsert({
+    where: {
+      userTenantId: architectProfile.id,
+    },
+    update: {},
+    create: {
+      userTenantId: architectProfile.id,
+      roleId: architectRoleId,
+      isPrimary: true,
+    },
+  });
+
+  console.log(`  ✅ Architect profile linked to platform tenant with Architect role`);
+  console.log(`\n  🔑 Platform bootstrap credentials:`);
+  console.log(`     Email:    ${PLATFORM_BOOTSTRAP.architect.email}`);
+  console.log(`     Password: ${PLATFORM_BOOTSTRAP.architect.defaultPassword}`);
+  console.log(`     ⚠️  Change this password immediately after first login in production!`);
 }
 
 // Permission to Pool mapping based on clearance level
@@ -3480,6 +3618,7 @@ async function main() {
     const rolePoolCount = await assignPoolsToRoles(createdRoles, createdPools);
 
     await seedSampleGuardian(prisma, createdRoles);
+    await seedPlatformBootstrap(prisma, createdRoles);
 
     console.log('\n✨ Seed completed successfully!');
     console.log(`\n📊 Summary:`);
@@ -3488,6 +3627,7 @@ async function main() {
     console.log(`  - All Permissions: ${allPermissions.length}`);
     console.log(`  - Permission-Pool Assignments: ${poolPermissionCount}`);
     console.log(`  - Role-Pool Assignments: ${rolePoolCount}`);
+    console.log(`  - Platform Architect: ${PLATFORM_BOOTSTRAP.architect.email}`);
   } catch (error) {
     console.error('❌ Error seeding database:', error);
     process.exit(1);

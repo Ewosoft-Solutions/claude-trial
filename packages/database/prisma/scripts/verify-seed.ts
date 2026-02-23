@@ -179,9 +179,10 @@ async function verifySeedData() {
     });
 
     console.log(`  ✅ Pool assignments per role:`);
-    assignmentsPerRole
-      .sort((a, b) => b.clearanceLevel - a.clearanceLevel)
-      .forEach((role) => {
+    const sortedRoleAssignments = [...assignmentsPerRole].sort(
+      (a, b) => b.clearanceLevel - a.clearanceLevel,
+    );
+    sortedRoleAssignments.forEach((role) => {
         const count = role.rolePools.length;
         console.log(`     - ${role.name}: ${count} pools`);
       });
@@ -209,6 +210,71 @@ async function verifySeedData() {
           ? '✅ All clearance levels (0-10) are covered'
           : `❌ Missing clearance levels: ${missingLevels.join(', ')}`,
     });
+
+    // 7. Verify Platform Bootstrap
+    console.log('\n📋 Checking platform bootstrap...');
+    const platformTenant = await prisma.tenant.findFirst({
+      where: { slug: 'platform' },
+    });
+
+    const architectUser = await prisma.user.findFirst({
+      where: { email: 'architect@schoolwithease.com' },
+    });
+
+    let architectProfileValid = false;
+    if (platformTenant && architectUser) {
+      const architectProfile = await prisma.userTenant.findFirst({
+        where: {
+          userId: architectUser.id,
+          tenantId: platformTenant.id,
+          status: 'active',
+        },
+        include: {
+          userTenantRole: {
+            include: { role: true },
+          },
+        },
+      });
+
+      architectProfileValid =
+        architectProfile !== null &&
+        architectProfile.userTenantRole?.role.name === 'Architect';
+    }
+
+    const bootstrapPass =
+      platformTenant !== null &&
+      architectUser?.passwordHash !== null
+
+    results.push({
+      name: 'Platform Bootstrap',
+      status: bootstrapPass ? 'pass' : 'fail',
+      expected: 'Architect user with platform tenant and role',
+      actual: bootstrapPass
+        ? `${architectUser?.email} → ${platformTenant?.slug} (Architect)`
+        : [
+            platformTenant ? null : 'Missing platform tenant',
+            architectUser ? null : 'Missing architect user',
+            architectUser && !architectUser.passwordHash
+              ? 'Architect has no password'
+              : null,
+            architectProfileValid
+              ? null
+              : 'Missing/invalid architect profile or role assignment',
+          ]
+            .filter(Boolean)
+            .join(', '),
+      message: bootstrapPass
+        ? `✅ Platform bootstrap: ${architectUser?.email} ready to log in`
+        : `❌ Platform bootstrap incomplete`,
+    });
+
+    if (bootstrapPass) {
+      console.log(
+        `  ✅ Architect: ${architectUser?.email} → tenant "${platformTenant?.slug}" with Architect role`,
+      );
+    } else {
+      console.log(`  ❌ Platform bootstrap is incomplete or missing`);
+    }
 
     // Summary
     console.log('\n' + '='.repeat(60));

@@ -76,6 +76,8 @@ export type JWTSecretRotationReason =
  * JWT Token Type
  *
  * Types of JWT tokens in the system.
- * Used to distinguish between access and refresh tokens.
+ * - access: Full tenant-scoped access token (issued after school selection)
+ * - refresh: Long-lived refresh token (issued after school selection)
+ * - pre_auth: Short-lived token issued after login, valid only for school selection
  */
-export type JWTTokenType = 'access' | 'refresh';
+export type JWTTokenType = 'access' | 'refresh' | 'pre_auth';

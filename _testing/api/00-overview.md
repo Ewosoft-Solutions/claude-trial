@@ -62,6 +62,19 @@ Roles have numeric clearance levels (0-10) that determine what operations are al
 
 Endpoints enforce minimum clearance levels. For example, `POST /tenant/register` requires clearance 8+ (Owner or higher).
 
+### Platform Bootstrap
+
+The seed script creates a **Platform Architect** account — the originator who bootstraps the entire system:
+
+| Field    | Value                           |
+| -------- | ------------------------------- |
+| Email    | `architect@schoolwithease.com`  |
+| Password | `Architect@2025!`               |
+| Role     | Architect (clearance level 10)  |
+| Tenant   | Platform Administration         |
+
+This is the first user you log in with. From there, you can register schools and create users.
+
 ### Authentication Flow (Summary)
 
 ```

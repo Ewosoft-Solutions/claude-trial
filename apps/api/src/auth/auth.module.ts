@@ -27,8 +27,11 @@ import { MfaEmailService } from './services/mfa-email.service';
 import { MfaTotpService } from './services/mfa-totp.service';
 import { MfaWebAuthnService } from './services/mfa-webauthn.service';
 import { MfaAuditService } from './services/mfa-audit.service';
-import { JwtAuthGuard, TenantContextGuard, MfaRequiredGuard } from './guards';
 import {
+  JwtAuthGuard,
+  PreAuthGuard,
+  TenantContextGuard,
+  MfaRequiredGuard,
   ClearanceLevelGuard,
   PermissionGuard,
   ContextValidationGuard,
@@ -96,6 +99,7 @@ import {
     AIMediatorService,
     // Guards
     JwtAuthGuard,
+    PreAuthGuard,
     TenantContextGuard,
     MfaRequiredGuard,
     ClearanceLevelGuard,
@@ -121,6 +125,7 @@ import {
     AIMediatorService,
     // Guards
     JwtAuthGuard,
+    PreAuthGuard,
     TenantContextGuard,
     MfaRequiredGuard,
     ClearanceLevelGuard,

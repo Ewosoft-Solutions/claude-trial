@@ -1,4 +1,5 @@
 export * from './jwt-auth.guard';
+export * from './pre-auth.guard';
 export * from './tenant-context.guard';
 export * from './mfa-required.guard';
 export * from './clearance-level.guard';

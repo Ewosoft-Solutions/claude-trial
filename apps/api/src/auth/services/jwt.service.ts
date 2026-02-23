@@ -6,6 +6,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@workspace/database';
 import { JWTSecretService, JWTTokenType } from '@workspace/api';
@@ -33,11 +34,29 @@ export interface JWTTokenResponse {
 }
 
 /**
+ * Pre-Auth JWT Payload
+ *
+ * Lightweight payload for pre-authentication tokens issued after login
+ * but before school selection.
+ */
+export interface PreAuthPayload {
+  sub: string; // User ID
+  type: 'pre_auth';
+  iat?: number;
+  exp?: number;
+}
+
+/**
  * IatExpType
  *
  * Type for Iat and Exp fields in JWT payload.
  */
 export type IatExpType = 'iat' | 'exp' | 'type';
+
+/**
+ * Pre-auth token expiry in seconds (5 minutes).
+ */
+const PRE_AUTH_TOKEN_EXPIRY = 300;
 
 /**
  * JWT Service
@@ -47,7 +66,15 @@ export type IatExpType = 'iat' | 'exp' | 'type';
 
 @Injectable()
 export class AuthJWTService {
-  constructor(private readonly jwtService: JwtService) {}
+  private readonly globalSecret: string;
+
+  constructor(
+    private readonly jwtService: JwtService,
+    configService: ConfigService,
+  ) {
+    this.globalSecret =
+      configService.get<string>('JWT_SECRET') || 'schoolwithease-default-secret';
+  }
 
   /**
    * Generate access token with school-specific secret (3.6)
@@ -230,5 +257,48 @@ export class AuthJWTService {
       refreshToken,
       expiresIn: accessExpiresIn,
     };
+  }
+
+  /**
+   * Generate a pre-auth token after successful login (before school selection).
+   *
+   * Signed with the global JWT_SECRET, valid for 5 minutes.
+   * Only contains the user ID — no tenant/role context.
+   *
+   * @param userId - Authenticated user ID
+   * @returns Signed pre-auth JWT
+   */
+  async generatePreAuthToken(userId: string): Promise<string> {
+    const payload: Omit<PreAuthPayload, 'iat' | 'exp'> = {
+      sub: userId,
+      type: 'pre_auth',
+    };
+
+    return this.jwtService.signAsync(payload, {
+      secret: this.globalSecret,
+      expiresIn: PRE_AUTH_TOKEN_EXPIRY,
+    });
+  }
+
+  /**
+   * Validate a pre-auth token.
+   *
+   * @param token - Pre-auth JWT to validate
+   * @returns The decoded payload, or null if invalid / expired / wrong type
+   */
+  async validatePreAuthToken(token: string): Promise<PreAuthPayload | null> {
+    try {
+      const payload = await this.jwtService.verifyAsync<PreAuthPayload>(token, {
+        secret: this.globalSecret,
+      });
+
+      if (payload.type !== 'pre_auth') {
+        return null;
+      }
+
+      return payload;
+    } catch {
+      return null;
+    }
   }
 }

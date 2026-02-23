@@ -1,69 +1,42 @@
-# Creating a Test User You Can Log In With
+# Creating Additional Test Users
 
-The seed script creates sample users without passwords, so they can't be used for login. You need to create a user with a hashed password to test the authentication flow.
+The seed script already creates a loginable **Platform Architect** account (`architect@schoolwithease.com` / `Architect@2025!`). This document covers creating additional users for testing different roles and scenarios.
 
-## Option A: Insert via Prisma Studio
+## The Recommended Way: Use the API
 
-1. Start Prisma Studio:
-
-```bash
-pnpm db:studio
-```
-
-2. Open the `User` table
-3. Add a new record with these values:
-
-| Field          | Value                                         |
-| -------------- | --------------------------------------------- |
-| email          | `admin@test.com`                               |
-| firstName      | `Test`                                         |
-| lastName       | `Admin`                                        |
-| isActive       | `true`                                         |
-| isVerified     | `true`                                         |
-| passwordHash   | (see below — you need a bcrypt hash)           |
-
-### Generate a Password Hash
-
-The API uses bcrypt with 12 salt rounds. Generate a hash for your desired password using Node.js:
+Once you can log in as the Architect, the easiest way to create additional users is through the API itself:
 
 ```bash
-node -e "const bcrypt = require('bcrypt'); bcrypt.hash('TestPassword123', 12).then(h => console.log(h));"
+# 1. Log in as the Architect (see Authentication guide)
+# 2. Select the target tenant
+# 3. Create a user with a specific role:
+
+curl -X POST http://localhost:3000/tenant/<tenantId>/users \
+  -H "Authorization: Bearer <accessToken>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "teacher@example.com",
+    "password": "SecurePassword123",
+    "firstName": "Jane",
+    "lastName": "Smith",
+    "roleIds": ["<teacher-role-uuid>"]
+  }'
 ```
 
-If `bcrypt` isn't available globally, run it from the API project:
+Get the role UUIDs by listing roles first:
 
 ```bash
-cd apps/api
-node -e "const bcrypt = require('bcrypt'); bcrypt.hash('TestPassword123', 12).then(h => console.log(h));"
+curl http://localhost:3000/roles \
+  -H "Authorization: Bearer <accessToken>"
 ```
 
-Copy the output (starts with `$2b$12$...`) and paste it into the `passwordHash` field.
+## Alternative: Direct Database Insert
 
-## Option B: Insert via SQL
+If you need users before the API is running, or want to create users for specific test scenarios.
 
-Connect to your PostgreSQL database and run:
+### Option A: Quick Script
 
-```sql
--- First, generate a bcrypt hash (you can use the Node.js command above)
--- Example hash for "TestPassword123":
-
-INSERT INTO "User" (id, email, "passwordHash", "firstName", "lastName", "isActive", "isVerified", "createdAt", "updatedAt")
-VALUES (
-  gen_random_uuid(),
-  'admin@test.com',
-  '<paste-your-bcrypt-hash-here>',
-  'Test',
-  'Admin',
-  true,
-  true,
-  NOW(),
-  NOW()
-);
-```
-
-## Option C: Write a Quick Script
-
-Create a temporary script file (don't commit it) at `packages/database/prisma/scripts/create-test-user.ts`:
+Create a temporary script at `packages/database/prisma/scripts/create-test-user.ts`:
 
 ```typescript
 import { prisma } from '../../src/client.js';
@@ -73,13 +46,13 @@ async function createTestUser() {
   const passwordHash = await bcrypt.hash('TestPassword123', 12);
 
   const user = await prisma.user.upsert({
-    where: { email: 'admin@test.com' },
+    where: { email: 'owner@test.com' },
     update: { passwordHash },
     create: {
-      email: 'admin@test.com',
+      email: 'owner@test.com',
       passwordHash,
       firstName: 'Test',
-      lastName: 'Admin',
+      lastName: 'Owner',
       isActive: true,
       isVerified: true,
     },
@@ -87,7 +60,6 @@ async function createTestUser() {
 
   console.log('Created user:', user.id, user.email);
 
-  // Now assign the user to the sample-school tenant with an Owner role
   const tenant = await prisma.tenant.findUnique({
     where: { slug: 'sample-school' },
   });
@@ -106,29 +78,23 @@ async function createTestUser() {
     process.exit(1);
   }
 
-  const profile = await prisma.userTenant.upsert({
-    where: {
-      userId_tenantId: {
-        userId: user.id,
-        tenantId: tenant.id,
-      },
-    },
-    update: { status: 'active' },
-    create: {
-      userId: user.id,
-      tenantId: tenant.id,
-      status: 'active',
-      suspended: false,
-    },
+  const existingProfile = await prisma.userTenant.findFirst({
+    where: { userId: user.id, tenantId: tenant.id },
   });
 
-  await prisma.userTenantRole.upsert({
-    where: {
-      userTenantId_roleId: {
-        userTenantId: profile.id,
-        roleId: ownerRole.id,
+  const profile =
+    existingProfile ??
+    (await prisma.userTenant.create({
+      data: {
+        userId: user.id,
+        tenantId: tenant.id,
+        status: 'active',
+        suspended: false,
       },
-    },
+    }));
+
+  await prisma.userTenantRole.upsert({
+    where: { userTenantId: profile.id },
     update: {},
     create: {
       userTenantId: profile.id,
@@ -139,8 +105,8 @@ async function createTestUser() {
 
   console.log('Assigned to tenant:', tenant.slug, '(profile:', profile.id, ')');
   console.log('Role: Owner (clearance level 8)');
-  console.log('\nYou can now log in with:');
-  console.log('  Email: admin@test.com');
+  console.log('\nCredentials:');
+  console.log('  Email: owner@test.com');
   console.log('  Password: TestPassword123');
 
   await prisma.$disconnect();
@@ -156,20 +122,31 @@ cd packages/database
 npx tsx prisma/scripts/create-test-user.ts
 ```
 
-## What You'll Have After This
+### Option B: Prisma Studio
 
-| Property      | Value                           |
-| ------------- | ------------------------------- |
-| Email         | `admin@test.com`                |
-| Password      | `TestPassword123`               |
-| Tenant        | `sample-school`                 |
-| Role          | Owner (clearance level 8)       |
+1. `pnpm db:studio` — opens at `http://localhost:5555`
+2. Create a `User` record with a bcrypt-hashed password
+3. Create a `UserTenant` record linking the user to a tenant
+4. Create a `UserTenantRole` record assigning a role
 
-This user can:
-- Log in via `POST /auth/login`
-- Select the `sample-school` tenant via `POST /auth/select-school`
-- Register new tenants (clearance 8+)
-- Manage users within the tenant (clearance 7+)
-- Access most school-level endpoints
+Generate a password hash:
 
-For platform-level operations (clearance 9-10), you'll need to create a user with the `SuperAdmin` or `Architect` role. Follow the same script but replace `Owner` with `SuperAdmin` or `Architect`.
+```bash
+cd apps/api
+node -e "const bcrypt = require('bcrypt'); bcrypt.hash('TestPassword123', 12).then(h => console.log(h));"
+```
+
+## Typical Test User Matrix
+
+For thorough testing, create users at different clearance levels in the same tenant:
+
+| Email                       | Role       | Clearance | Purpose                          |
+| --------------------------- | ---------- | --------- | -------------------------------- |
+| `architect@schoolwithease.com` | Architect | 10        | Platform bootstrap (from seed)   |
+| `owner@test.com`            | Owner      | 8         | School-level admin testing       |
+| `manager@test.com`          | Management | 7         | User/staff management testing    |
+| `teacher@test.com`          | Teacher    | 3         | Academic workflow testing         |
+| `parent@test.com`           | Parent     | 2         | Parent portal testing             |
+| `student@test.com`          | Student    | 1         | Student view testing              |
+
+Use the Architect account to create all of these via `POST /tenant/<id>/users`.

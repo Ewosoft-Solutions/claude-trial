@@ -10,12 +10,11 @@ import {
   Post,
   Body,
   Param,
-  // Query,
   UseGuards,
-  Request,
   HttpCode,
   HttpStatus,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -25,16 +24,14 @@ import {
 } from '@nestjs/swagger';
 import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import {
-  // ClearanceLevelGuard,
-  RequireClearanceLevel,
-} from '../guards/clearance-level.guard';
+import { RequireClearanceLevel } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { RoleService, CreateCustomRoleInput } from '../services/role.service';
 import { PermissionService } from '../services/permission.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { RoleType, TenantQueriesService } from '@workspace/api';
-import type { AuthenticatedRequest } from '../middleware';
+import { AuthUser } from '../decorators';
+import type { RequestUser } from '../types/request-user';
 
 /**
  * Create Custom Role DTO
@@ -71,15 +68,11 @@ export class RoleManagementController {
   @Get()
   @ApiOperation({ summary: 'Get all roles for tenant' })
   @ApiResponse({ status: 200, description: 'List of roles' })
-  async getRoles(@Request() req: AuthenticatedRequest) {
-    const userContext = req.userContext;
-    const tenantId = userContext?.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant context required');
-    }
-
-    return TenantQueriesService.getTenantRoles(this.dbService.client, tenantId);
+  async getRoles(@AuthUser() user: RequestUser) {
+    return TenantQueriesService.getTenantRoles(
+      this.dbService.client,
+      user.tenantId,
+    );
   }
 
   /**
@@ -90,13 +83,8 @@ export class RoleManagementController {
   @Get(':id')
   @ApiOperation({ summary: 'Get role by ID' })
   @ApiResponse({ status: 200, description: 'Role details' })
-  async getRole(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    const userContext = req.userContext;
-    const tenantId = userContext?.tenantId;
-
-    if (!tenantId) {
-      throw new Error('Tenant context required');
-    }
+  async getRole(@Param('id') id: string, @AuthUser() user: RequestUser) {
+    const tenantId = user.tenantId;
 
     const role = await this.dbService.client.role.findFirst({
       where: {
@@ -150,25 +138,28 @@ export class RoleManagementController {
   @ApiResponse({ status: 201, description: 'Role created successfully' })
   async createCustomRole(
     @Body() data: CreateCustomRoleDto,
-    @Request() req: AuthenticatedRequest,
+    @AuthUser() user: RequestUser,
   ) {
-    const user = req.user;
-    const userContext = req.userContext;
-    const tenantId = userContext?.tenantId;
+    const prisma = this.dbService.client;
+    const tenantId = user.tenantId;
 
-    if (!tenantId) {
-      throw new Error('Tenant context required');
-    }
+    const userPermissionContext =
+      await this.permissionService.getUserPermissionContext(
+        prisma,
+        user.userId,
+        tenantId,
+        user.profileId,
+      );
 
-    // Check if user can create role with requested clearance level
-    const userClearanceLevel = userContext?.clearanceLevel || 0;
+    const userClearanceLevel = userPermissionContext?.clearanceLevel || 0;
+
     if (
       !this.roleService.canCreateCustomRole(
         userClearanceLevel,
         data.clearanceLevel,
       )
     ) {
-      throw new Error(
+      throw new ForbiddenException(
         'Insufficient clearance level to create role with requested clearance level',
       );
     }
@@ -190,6 +181,6 @@ export class RoleManagementController {
       creatorClearanceLevel: userClearanceLevel,
     };
 
-    return this.roleService.createCustomRole(this.dbService.client, input);
+    return this.roleService.createCustomRole(prisma, input);
   }
 }

@@ -3,9 +3,10 @@
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
+import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
-import { AuthJWTService, JWTPayload } from './jwt.service';
+import { AuthJWTService, JWTPayload, PreAuthPayload } from './jwt.service';
 import { JWTSecretService } from '@workspace/api';
 import {
   createMockContext,
@@ -44,12 +45,20 @@ describe('AuthJWTService', () => {
       decode: jest.fn<JwtService['decode']>(),
     };
 
+    const mockConfigService = {
+      get: jest.fn().mockReturnValue('test-global-jwt-secret'),
+    };
+
     module = await Test.createTestingModule({
       providers: [
         AuthJWTService,
         {
           provide: JwtService,
           useValue: mockJwtService,
+        },
+        {
+          provide: ConfigService,
+          useValue: mockConfigService,
         },
         createPrismaClientProvider(mockPrisma),
       ],
@@ -414,6 +423,64 @@ describe('AuthJWTService', () => {
 
       expect(result.expiresIn).toBe(3600); // Default access token expiration
       expect(jwtService.signAsync).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('generatePreAuthToken', () => {
+    it('should generate pre-auth token with user ID and global secret', async () => {
+      jwtService.signAsync.mockResolvedValue('pre-auth-token');
+
+      const token = await service.generatePreAuthToken('user-id');
+
+      expect(token).toBe('pre-auth-token');
+      expect(jwtService.signAsync).toHaveBeenCalledWith(
+        { sub: 'user-id', type: 'pre_auth' },
+        { secret: 'test-global-jwt-secret', expiresIn: 300 },
+      );
+    });
+  });
+
+  describe('validatePreAuthToken', () => {
+    it('should validate a valid pre-auth token', async () => {
+      const payload: PreAuthPayload = {
+        sub: 'user-id',
+        type: 'pre_auth',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 300,
+      };
+
+      jwtService.verifyAsync.mockResolvedValue(payload);
+
+      const result = await service.validatePreAuthToken('valid-pre-auth-token');
+
+      expect(result).toEqual(payload);
+      expect(jwtService.verifyAsync).toHaveBeenCalledWith(
+        'valid-pre-auth-token',
+        { secret: 'test-global-jwt-secret' },
+      );
+    });
+
+    it('should return null for non-pre_auth token type', async () => {
+      const payload = {
+        sub: 'user-id',
+        type: 'access',
+        iat: Math.floor(Date.now() / 1000),
+        exp: Math.floor(Date.now() / 1000) + 3600,
+      };
+
+      jwtService.verifyAsync.mockResolvedValue(payload);
+
+      const result = await service.validatePreAuthToken('access-token');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for expired or invalid token', async () => {
+      jwtService.verifyAsync.mockRejectedValue(new Error('Token expired'));
+
+      const result = await service.validatePreAuthToken('expired-token');
+
+      expect(result).toBeNull();
     });
   });
 });

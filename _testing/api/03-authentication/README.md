@@ -2,7 +2,7 @@
 
 The API uses a multi-step authentication flow designed for multi-tenancy. A user can belong to multiple schools, so login is separated from school selection.
 
-**Prerequisite:** You must have a user with a password in the database. If you haven't created one yet, see [Creating a Test User](../02-seeding/creating-a-test-user.md).
+**Prerequisite:** You must have run the seed script (`pnpm db:seed`). The seed creates a platform Architect account you can log in with immediately. See [Seeding the Platform](../02-seeding/README.md).
 
 ## 3.1 The Authentication Flow
 
@@ -11,7 +11,8 @@ The API uses a multi-step authentication flow designed for multi-tenancy. A user
 │ 1. POST /auth/login                                 │
 │    Body: { email, password }                        │
 │    Returns: { user, schools[], token }              │
-│    (If MFA is required, returns mfaRequired: true)  │
+│    token = short-lived pre-auth JWT (5 min)         │
+│    (If MFA required, returns mfaRequired: true)     │
 └──────────────────┬──────────────────────────────────┘
                    │
           ┌────────┴─────────┐
@@ -44,12 +45,14 @@ The API uses a multi-step authentication flow designed for multi-tenancy. A user
 
 ### Step 1: Login
 
+Using the Architect account created by the seed script:
+
 ```bash
 curl -X POST http://localhost:3000/auth/login \
   -H "Content-Type: application/json" \
   -d '{
-    "email": "admin@test.com",
-    "password": "TestPassword123"
+    "email": "architect@schoolwithease.com",
+    "password": "Architect@2025!"
   }'
 ```
 
@@ -60,23 +63,23 @@ curl -X POST http://localhost:3000/auth/login \
   "success": true,
   "user": {
     "id": "<user-uuid>",
-    "email": "admin@test.com",
-    "firstName": "Test",
-    "lastName": "Admin"
+    "email": "architect@schoolwithease.com",
+    "firstName": "Platform",
+    "lastName": "Architect"
   },
   "schools": [
     {
       "tenantId": "<tenant-uuid>",
-      "tenantName": "Sample School",
+      "tenantName": "Platform Administration",
       "profileId": "<profile-uuid>",
-      "roles": ["Owner"]
+      "roles": ["Architect"]
     }
   ],
   "token": "<pre-auth-token>"
 }
 ```
 
-**Save these values** — you'll need `tenantId`, `profileId`, and `token` for the next step.
+**Save these values** — you'll need `tenantId`, `profileId`, and `token` for the next step. The `token` is a short-lived pre-auth JWT (valid for 5 minutes) used only for the school selection step.
 
 ### Step 2: Select School
 
@@ -102,7 +105,7 @@ curl -X POST http://localhost:3000/auth/select-school \
   "expiresIn": 3600,
   "tenantContext": {
     "tenantId": "<tenant-uuid>",
-    "tenantName": "Sample School"
+    "tenantName": "Platform Administration"
   }
 }
 ```
@@ -152,7 +155,7 @@ If you need to reset a password:
 # Request a reset (sends code via configured EMAIL_PROVIDER)
 curl -X POST http://localhost:3000/auth/request-password-reset \
   -H "Content-Type: application/json" \
-  -d '{ "email": "admin@test.com" }'
+  -d '{ "email": "architect@schoolwithease.com" }'
 
 # With EMAIL_PROVIDER=console, check the API server stdout for the reset token
 

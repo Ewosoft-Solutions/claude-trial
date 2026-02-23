@@ -38,6 +38,8 @@ export interface LoginResponse {
     lastName: string | null;
   };
   schools: UserSchoolProfile[];
+  /** Short-lived pre-auth token for the select-school step. */
+  token?: string;
   requiresMfa?: boolean;
   mfaChallengeId?: string;
   mfaMethodType?: MfaMethodType;
@@ -271,7 +273,7 @@ export class AuthenticationService {
       user.id,
     );
 
-    // If MFA is required, initiate verification
+    // If MFA is required, initiate verification (no pre-auth token yet)
     if (hasMfa) {
       const primaryMethod = await MfaBaseService.getPrimaryMfaMethod(
         prisma,
@@ -306,6 +308,8 @@ export class AuthenticationService {
       }
     }
 
+    const preAuthToken = await this.jwtService.generatePreAuthToken(user.id);
+
     return {
       success: true,
       user: {
@@ -315,6 +319,7 @@ export class AuthenticationService {
         lastName: user.lastName,
       },
       schools,
+      token: preAuthToken,
       requiresMfa: false,
     };
   }
@@ -411,6 +416,8 @@ export class AuthenticationService {
       console.error('Failed to log MFA verification', auditError);
     }
 
+    const preAuthToken = await this.jwtService.generatePreAuthToken(user.id);
+
     return {
       success: true,
       user: {
@@ -420,6 +427,7 @@ export class AuthenticationService {
         lastName: user.lastName,
       },
       schools,
+      token: preAuthToken,
       requiresMfa: false,
     };
   }

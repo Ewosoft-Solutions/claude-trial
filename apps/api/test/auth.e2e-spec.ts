@@ -95,7 +95,7 @@ describe('Authentication Flow (e2e)', () => {
   });
 
   describe('POST /auth/login', () => {
-    it('should login successfully and return schools list', async () => {
+    it('should login successfully and return schools list with pre-auth token', async () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
@@ -109,6 +109,8 @@ describe('Authentication Flow (e2e)', () => {
       expect(response.body.user.email).toBe('test@example.com');
       expect(response.body.schools).toBeDefined();
       expect(Array.isArray(response.body.schools)).toBe(true);
+      expect(response.body.token).toBeDefined();
+      expect(typeof response.body.token).toBe('string');
     });
 
     it('should reject invalid credentials', async () => {
@@ -140,7 +142,6 @@ describe('Authentication Flow (e2e)', () => {
     let loginToken: string;
 
     beforeEach(async () => {
-      // First login to get user context
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
@@ -148,14 +149,10 @@ describe('Authentication Flow (e2e)', () => {
           password: 'TestPassword123',
         });
 
-      // Note: In a real implementation, you might need to handle MFA here
-      // For now, assuming login returns a token or we need to mock the auth guard
-      loginToken = loginResponse.body.token || 'mock-token';
+      loginToken = loginResponse.body.token;
     });
 
     it('should select school and return JWT tokens', async () => {
-      // This test requires proper JWT setup and mocking
-      // For now, we'll test the structure
       const response = await request(app.getHttpServer() as Server)
         .post('/auth/select-school')
         .set('Authorization', `Bearer ${loginToken}`)
@@ -164,7 +161,6 @@ describe('Authentication Flow (e2e)', () => {
           profileId: testProfile.id,
         });
 
-      // Expect either success or 401 if token is not properly set up
       expect([200, 401]).toContain(response.status);
 
       if (response.status === 200) {
@@ -173,6 +169,31 @@ describe('Authentication Flow (e2e)', () => {
         expect(response.body.refreshToken).toBeDefined();
         expect(response.body.tenantContext).toBeDefined();
       }
+    });
+
+    it('should reject request without pre-auth token', async () => {
+      const response = await request(app.getHttpServer() as Server)
+        .post('/auth/select-school')
+        .send({
+          tenantId: testTenant.id,
+          profileId: testProfile.id,
+        })
+        .expect(401);
+
+      expect(response.body.message).toContain('No token provided');
+    });
+
+    it('should reject request with invalid pre-auth token', async () => {
+      const response = await request(app.getHttpServer() as Server)
+        .post('/auth/select-school')
+        .set('Authorization', 'Bearer invalid-token')
+        .send({
+          tenantId: testTenant.id,
+          profileId: testProfile.id,
+        })
+        .expect(401);
+
+      expect(response.body.message).toContain('Invalid or expired pre-auth token');
     });
   });
 

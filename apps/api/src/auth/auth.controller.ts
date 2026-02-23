@@ -26,7 +26,7 @@ import {
 } from './dto';
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
-import { JwtAuthGuard } from './guards';
+import { JwtAuthGuard, PreAuthGuard } from './guards';
 import { DatabaseService } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
@@ -114,24 +114,27 @@ export class AuthController {
    * Select school / Switch context (3.3)
    *
    * POST /auth/select-school
+   *
+   * Requires the short-lived pre-auth token returned from /auth/login
+   * (or /auth/verify-mfa-login) in the Authorization header.
    */
   @Post('select-school')
   @HttpCode(HttpStatus.OK)
-  @UseGuards(JwtAuthGuard) // Simplified - in production, use proper auth
+  @UseGuards(PreAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Select active school/tenant context' })
   async selectSchool(
     @Body() selectSchoolDto: SelectSchoolDto,
-    @AuthUser() user: RequestUser,
-    @Req() req: Request,
+    @Req() req: Request & { user?: { userId: string } },
   ) {
     const prisma = this.dbService.client;
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'];
+    const userId = req.user!.userId;
 
     return this.authenticationService.selectSchool(
       prisma,
-      user.userId,
+      userId,
       selectSchoolDto.tenantId,
       selectSchoolDto.profileId,
       ipAddress,
