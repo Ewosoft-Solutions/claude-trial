@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="compact">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Architect Flow — SchoolWithEase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sketch.css">
+<style>
+  .af-stage { flex:1; min-height:0; display:none; }
+  .af-stage.on { display:flex; flex-direction:column; }
+  .af-scroll { flex:1; min-height:0; overflow:auto; padding:14px 20px; }
+
+  /* shared helpers */
+  .hintline { font-size:11.5px; color:var(--ink-faint); margin:7px 0 0; line-height:1.4; }
+  .hintline b { color:var(--ink-soft); font-weight:700; }
+  .cmeta { display:block; font-size:10.5px; color:var(--ink-faint); margin-top:2px; line-height:1.1; }
+  .req { color:var(--note); }
+
+  /* ---- map autocomplete field ---- */
+  .mapfield { position:relative; }
+  #addr-input { cursor:text; }
+  .mapsugg { border:2px solid var(--line-soft); border-radius:9px; margin-top:6px; overflow:hidden; background:var(--frame); }
+  .msug { display:flex; align-items:center; gap:10px; padding:8px 11px; cursor:pointer; border-bottom:1.5px dashed var(--line-soft); }
+  .msug:last-child { border-bottom:none; }
+  .msug.on { background:color-mix(in srgb,var(--accent) 12%,transparent); }
+  .msug .pin { width:22px;height:22px;border:2px solid var(--line-soft);border-radius:6px;display:grid;place-items:center;font-size:12px;flex:none; }
+  .msug.on .pin { border-color:var(--accent); color:var(--accent); }
+  .msug b { font-size:13px; display:block; }
+  .msug small { font-size:11px; color:var(--ink-faint); }
+  .mapview { position:relative; margin-top:9px; height:140px; border:2px solid var(--line); border-radius:10px; overflow:hidden;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 21px, color-mix(in srgb,var(--line-soft) 35%,transparent) 21px, color-mix(in srgb,var(--line-soft) 35%,transparent) 22px),
+      repeating-linear-gradient(90deg, transparent, transparent 21px, color-mix(in srgb,var(--line-soft) 35%,transparent) 21px, color-mix(in srgb,var(--line-soft) 35%,transparent) 22px),
+      var(--skel-2); }
+  .mapview .road { position:absolute; background:color-mix(in srgb,var(--line-soft) 70%,transparent); }
+  .mapview .r1 { left:0; right:0; top:54%; height:8px; transform:rotate(-3deg); }
+  .mapview .r2 { top:0; bottom:0; left:38%; width:8px; }
+  .mapview .r3 { left:0; right:30%; top:22%; height:5px; transform:rotate(2deg); }
+  .mapview .mappin { position:absolute; left:38%; top:54%; transform:translate(-50%,-100%); font-size:26px; color:var(--accent); text-shadow:0 1px 0 #fff; }
+  .mapview .maptag { position:absolute; left:8px; bottom:8px; background:var(--frame); border:2px solid var(--line-soft); border-radius:7px; padding:2px 8px; font-size:11px; }
+  .mapview .mapchip { position:absolute; right:8px; top:8px; background:var(--accent); color:#fff; border-radius:7px; padding:2px 9px; font-size:11px; }
+
+  /* ---- colour field (primary / secondary) ---- */
+  .colorfield { display:flex; align-items:center; gap:9px; flex-wrap:wrap; border:2px solid var(--line); border-radius:9px; padding:8px 10px; background:var(--frame); }
+  .cf-prev { width:26px;height:26px;border-radius:7px;border:2px solid rgba(0,0,0,.18); flex:none; }
+  .cf-prev.none { background:repeating-linear-gradient(45deg,var(--skel),var(--skel) 4px,var(--frame) 4px,var(--frame) 8px); }
+  .cf-hex { font-size:13px; font-family:'Kalam',cursive; letter-spacing:.5px; min-width:74px; }
+  .cf-hex.ph { color:var(--ink-faint); }
+  .cf-pick { font-size:11.5px; color:var(--ink-soft); border:2px dashed var(--line-soft); border-radius:30px; padding:3px 10px; cursor:pointer; }
+  .cf-swatches { display:flex; gap:6px; margin-left:4px; }
+  .cf-sw { width:20px;height:20px;border-radius:6px;border:2px solid var(--line); cursor:pointer; }
+  .cf-sw.on { box-shadow:0 0 0 2px var(--frame),0 0 0 4px var(--accent); }
+  .cf-clear { margin-left:auto; font-size:11px; color:var(--ink-faint); cursor:pointer; text-decoration:underline dotted; }
+
+  /* ================= STAGE 6 — PLAN & PRICING ================= */
+  .plan2 { display:grid; grid-template-columns: 1.05fr .95fr; gap:26px; align-items:start; }
+  .plan-build { min-width:0; }
+  @media (max-width:920px){ .plan2 { grid-template-columns:1fr; } }
+
+  .tiergrid { display:grid; grid-template-columns:repeat(3,1fr); gap:11px; }
+  .tier { border:2px solid var(--line); border-radius:11px; padding:11px 12px; cursor:pointer; background:var(--frame); display:flex; flex-direction:column; gap:8px; box-shadow:3px 4px 0 -2px var(--line-soft); }
+  .tier.on { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 9%,transparent); box-shadow:3px 4px 0 -2px var(--accent); }
+  .tier-h { display:flex; align-items:baseline; justify-content:space-between; gap:6px; }
+  .tier-h b { font-size:15px; }
+  .tier-pr { text-align:right; font-family:'Caveat',cursive; font-size:21px; line-height:1; color:var(--ink); white-space:nowrap; }
+  .tier-pr small { display:block; font-family:'Kalam',cursive; font-size:10.5px; color:var(--ink-faint); }
+  .tier.on .tier-pr { color:var(--accent); }
+  .tier-feats { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:4px; }
+  .tier-feats li { font-size:11.5px; color:var(--ink-soft); padding-left:15px; position:relative; line-height:1.25; }
+  .tier-feats li::before { content:"✓"; position:absolute; left:0; color:var(--accent); font-size:11px; }
+  .frow.agreed { background:color-mix(in srgb,var(--accent) 7%,transparent); border:2px dashed var(--accent); border-radius:11px; padding:12px 13px; margin-top:4px; }
+  .inp.big { font-size:16px; font-family:'Caveat',cursive; padding:11px 13px; }
+
+  /* ---- generated invoice ---- */
+  .plan-invoice { position:sticky; top:0; display:flex; flex-direction:column; gap:11px; }
+  .inv-doc { border:2px solid var(--line); border-radius:13px; background:var(--frame); padding:16px 17px; box-shadow:6px 8px 0 -3px var(--line-soft); }
+  .inv-top { display:flex; align-items:flex-start; justify-content:space-between; margin-bottom:13px; }
+  .inv-from { font-family:'Caveat',cursive; font-size:25px; line-height:1; }
+  .inv-meta { font-size:11px; color:var(--ink-faint); margin-top:2px; }
+  .inv-badge { border:2px solid var(--line-soft); color:var(--ink-soft); border-radius:7px; padding:3px 10px; font-size:11px; letter-spacing:1.5px; transform:rotate(3deg); }
+  .inv-bill { display:flex; justify-content:space-between; gap:14px; padding:11px 0; border-top:2px dashed var(--line-soft); border-bottom:2px dashed var(--line-soft); }
+  .inv-bill .inv-k { display:block; font-size:10.5px; text-transform:uppercase; letter-spacing:.6px; color:var(--ink-faint); margin-bottom:2px; }
+  .inv-bill b { font-size:13.5px; }
+  .inv-bill small { display:block; font-size:11px; color:var(--ink-faint); }
+  .inv-billr { text-align:right; }
+  .inv-lines { padding:11px 0 4px; display:flex; flex-direction:column; gap:9px; }
+  .inv-line { display:flex; align-items:flex-start; justify-content:space-between; gap:12px; font-size:12.5px; }
+  .inv-line .il-d b { font-size:12.5px; }
+  .inv-line .il-d small { display:block; color:var(--ink-faint); font-size:11px; line-height:1.2; }
+  .inv-line .il-amt { font-family:'Kalam',cursive; white-space:nowrap; }
+  .inv-line.muted .il-amt, .inv-line.muted b { color:var(--ink-faint); }
+  .inv-tot { border-top:2px solid var(--line); margin-top:6px; padding-top:9px; display:flex; flex-direction:column; gap:6px; }
+  .inv-tr { display:flex; justify-content:space-between; gap:12px; font-size:13px; }
+  .inv-tr.disc { color:var(--accent); }
+  .inv-tr.disc small { color:var(--ink-faint); margin-left:4px; }
+  .inv-tr.grand { font-family:'Caveat',cursive; font-size:22px; padding-top:7px; border-top:2px dashed var(--line-soft); }
+  .inv-tr.yr { font-size:11.5px; color:var(--ink-faint); }
+  .inv-tr.yr small { color:var(--ink-faint); }
+  .inv-foot { font-size:11px; color:var(--ink-faint); line-height:1.45; margin:12px 0 0; }
+  .inv-actions { display:flex; gap:9px; }
+  .pulse { animation:invpulse .5s ease; }
+  @keyframes invpulse { 0%{ transform:scale(.985); opacity:.6; } 100%{ transform:scale(1); opacity:1; } }
+
+  /* ---- maker-checker governance ---- */
+  .mkc { margin-top:14px; border:2px solid var(--line); border-radius:12px; background:var(--frame); padding:13px 14px; box-shadow:4px 5px 0 -2px var(--line-soft); }
+  .mkc.off { opacity:.55; }
+  .mkc-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; }
+  .mkc-head b { font-size:14px; }
+  .mkc-head small { display:block; color:var(--ink-faint); font-size:11.5px; margin-top:2px; max-width:430px; line-height:1.35; }
+  .mkc-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin:13px 0 11px; }
+  @media (max-width:780px){ .mkc-grid { grid-template-columns:1fr; } }
+  .mkc-row { display:flex; align-items:flex-start; gap:9px; border:2px solid var(--line-soft); border-radius:10px; padding:9px 10px; }
+  .mkc-row.on { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 7%,transparent); }
+  .mkc-ic { width:24px;height:24px;border:2px solid var(--line-soft);border-radius:7px;display:grid;place-items:center;font-size:12px;flex:none; }
+  .mkc-row.on .mkc-ic { border-color:var(--accent); color:var(--accent); }
+  .mkc-tx { flex:1; min-width:0; }
+  .mkc-tx b { font-size:12.5px; }
+  .mkc-tx small { display:block; color:var(--ink-faint); font-size:10.5px; line-height:1.3; margin-top:2px; }
+  .mkc-row .sw { margin-top:2px; flex:none; }
+  .mkc-foot { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding-top:11px; border-top:2px dashed var(--line-soft); font-size:12px; color:var(--ink-soft); }
+  .mkc-foot .mkc-k { font-size:11.5px; color:var(--ink-soft); }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <h1>Architect <span class="tm">flow</span> <span style="font-family:'Kalam';font-size:18px;color:var(--ink-soft);">· the platform architect's workspace</span></h1>
+      <p>How the architect stands up a tenant and how the <b>3-tier data matrix</b> behaves once it's live: <b>Organisation ▸ Campus ▸ Institution Profile</b>. Onboarding auto-detects small vs enterprise; the model, workspace switcher, reporting roll-ups &amp; polymorphic UI all flow from it. Every tab is live — click around.</p>
+    </div>
+    <div class="kit-meta">low-fi · v2<br>data-matrix</div>
+  </div>
+
+  <hr class="rule">
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true"  data-target="pane-onboarding">Onboarding<b>wizard · scenario A/B</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-data">Data model<b>ER · FK mapping</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-workspaces">Workspaces<b>switcher matrix</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-reporting">Reporting<b>cross-tier roll-ups</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-poly">Polymorphic UI<b>level-driven</b></button>
+  </div>
+
+  <section class="layout active" id="pane-onboarding">
+    <div class="lead">
+      <h2>Onboarding &amp; the Scale-Down rule</h2>
+      <span class="pill">5 steps · live</span>
+      <p>Create the org, shape its structure (this is where the system decides <b>Scenario A</b> vs <b>B</b>), seat the first admin, switch on features, set roles. Step 2 is the heart of it.</p>
+    </div>
+
+  <div class="frame" style="height:806px;">
+    <div class="topbar">
+      <div class="tenant"><span class="sq"></span> SchoolWithEase <span style="color:var(--ink-faint)">▾</span></div>
+      <div class="crumbs"><span>Platform</span><span class="sep">▸</span><span>Schools</span><span class="sep">▸</span><span class="cur" id="af-crumb">New school</span></div>
+      <div class="search"><span>⌕</span> Search… <span class="kbd">⌘K</span></div>
+      <div class="tb-icons"><span class="ico">◔</span><span class="ico">⚑</span><span class="av">AO</span></div>
+    </div>
+
+    <div class="body">
+      <div class="rail">
+        <div class="logo"></div>
+        <div class="ri">◉</div><div class="ri on">▦</div><div class="ri">✦</div><div class="ri">◷</div>
+        <div class="ri spring">⚙</div>
+      </div>
+
+      <div class="nav">
+        <div class="nav-h"><b>Platform</b><span style="color:var(--ink-faint)">‹‹</span></div>
+        <div class="grp-label">Manage</div>
+        <div class="nitem"><span class="ti"></span><span>Dashboard</span></div>
+        <div class="nitem on"><span class="ti"></span><span>Schools</span><span class="cnt">1.2k</span></div>
+        <div class="nitem"><span class="ti"></span><span>Users</span></div>
+        <div class="nitem"><span class="ti"></span><span>Plans &amp; Billing</span></div>
+        <div class="grp-label">Insight</div>
+        <div class="nitem"><span class="ti"></span><span>Analytics</span></div>
+        <div class="nitem"><span class="ti"></span><span>Support</span><span class="cnt">18</span></div>
+        <div class="nitem"><span class="ti"></span><span>Audit Logs</span></div>
+      </div>
+
+      <div class="main">
+        <div class="main-head">
+          <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+            <h3 id="af-title">Create a school</h3>
+            <span class="sub" id="af-sub">New school onboarding · step 1 of 4</span>
+          </div>
+          <div class="actions"><span class="btn">Save draft</span><span class="btn">✕ Close</span></div>
+        </div>
+
+        <!-- STEPPER -->
+        <div class="stepper" style="margin:0;border:none;border-top:2px solid var(--line-soft);border-bottom:2px solid var(--line-soft);border-radius:0;">
+          <div class="step active" data-step="1"><span class="num">1</span><span class="stx"><b>Create</b><small>org details</small></span></div>
+          <div class="step-conn" data-conn="1"></div>
+          <div class="step" data-step="2"><span class="num">2</span><span class="stx"><b>Structure</b><small>campuses &amp; levels</small></span></div>
+          <div class="step-conn" data-conn="2"></div>
+          <div class="step" data-step="3"><span class="num">3</span><span class="stx"><b>Invite</b><small>first admin</small></span></div>
+          <div class="step-conn" data-conn="3"></div>
+          <div class="step" data-step="4"><span class="num">4</span><span class="stx"><b>Features</b><small>core &amp; add-ons</small></span></div>
+          <div class="step-conn" data-conn="4"></div>
+          <div class="step" data-step="5"><span class="num">5</span><span class="stx"><b>Roles</b><small>permissions</small></span></div>
+          <div class="step-conn" data-conn="5"></div>
+          <div class="step" data-step="6"><span class="num">6</span><span class="stx"><b>Plan</b><small>pricing &amp; invoice</small></span></div>
+        </div>
+
+        <!-- ================= STAGE 1 — CREATE ================= -->
+        <section class="af-stage on" id="st1">
+          <div class="wizard">
+            <div class="wz-rail">
+              <div class="ws on" data-sec="identity"><span class="wn">1</span> Identity</div>
+              <div class="ws" data-sec="location"><span class="wn">2</span> Location</div>
+              <div class="ws" data-sec="branding"><span class="wn">3</span> Branding</div>
+              <div class="ws" data-sec="academic"><span class="wn">4</span> Academic</div>
+            </div>
+
+            <div class="wz-form">
+              <div class="sec" data-secpane="identity">
+                <div class="frow"><span class="flab">School name <span class="req">*</span></span><div class="inp">Greenfield Academy</div></div>
+                <div class="frow"><span class="flab">Institution type <span class="req">*</span></span>
+                  <div class="choice-row" id="inst-choices">
+                    <div class="choice on" data-it="Secondary"><span class="gly">▦</span> Secondary</div>
+                    <div class="choice" data-it="Primary"><span class="gly">✎</span> Primary</div>
+                    <div class="choice" data-it="University"><span class="gly">◈</span> University</div>
+                    <div class="choice" data-it="Nursery"><span class="gly">❀</span> Nursery</div>
+                    <div class="choice" data-it="Training"><span class="gly">⚒</span> Training</div>
+                  </div>
+                </div>
+                <div class="frow-grid">
+                  <div class="frow"><span class="flab">Founded <span style="color:var(--ink-faint)">(optional)</span></span><div class="inp ph">e.g. 1998</div></div>
+                  <div class="frow"><span class="flab">Motto <span style="color:var(--ink-faint)">(optional)</span></span><div class="inp ph">Knowledge &amp; character</div></div>
+                </div>
+              </div>
+
+              <div class="sec" data-secpane="location" hidden>
+                <div class="frow"><span class="flab">Address <span class="req">*</span> <span style="color:var(--ink-faint)">· type to search, pick on the map</span></span>
+                  <div class="mapfield" id="mapfield">
+                    <div class="inp" id="addr-input"><span style="color:var(--ink-soft)">⌕</span> 12 Bourdillon Road, Ikoyi… <span class="suffix">⌖ locate</span></div>
+                    <div class="mapsugg" id="mapsugg">
+                      <div class="msug on" data-addr="12 Bourdillon Road, Ikoyi, Lagos"><span class="pin">⌖</span><div><b>12 Bourdillon Road</b><small>Ikoyi · Lagos · Nigeria</small></div></div>
+                      <div class="msug" data-addr="14 Bourdillon Crescent, Victoria Island, Lagos"><span class="pin">⌖</span><div><b>14 Bourdillon Crescent</b><small>Victoria Island · Lagos</small></div></div>
+                      <div class="msug" data-addr="3 Bourdillon Close, Ikeja, Lagos"><span class="pin">⌖</span><div><b>3 Bourdillon Close</b><small>Ikeja · Lagos</small></div></div>
+                    </div>
+                    <div class="mapview" id="mapview">
+                      <span class="road r1"></span><span class="road r2"></span><span class="road r3"></span>
+                      <span class="mappin">⌖</span>
+                      <span class="maptag">6.4521° N, 3.4319° E</span>
+                      <span class="mapchip">country &amp; timezone auto-filled →</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="frow-grid">
+                  <div class="frow"><span class="flab">Country <span style="color:var(--ink-faint)">(from map)</span></span><div class="inp">Nigeria <span class="suffix">auto</span></div></div>
+                  <div class="frow"><span class="flab">Timezone <span style="color:var(--ink-faint)">(from map)</span></span><div class="inp">GMT+1 · Lagos <span class="suffix">auto</span></div></div>
+                </div>
+                <div class="frow-grid">
+                  <div class="frow"><span class="flab">Primary language</span><div class="inp">English <span class="suffix">▾</span></div></div>
+                  <div class="frow"><span class="flab">Currency</span><div class="inp">₦ NGN <span class="suffix">▾</span></div></div>
+                </div>
+              </div>
+
+              <div class="sec" data-secpane="branding" hidden>
+                <div class="frow"><span class="flab">School logo <span style="color:var(--ink-faint)">(optional)</span></span>
+                  <div class="uploadbox"><span class="ub-ic">↥</span> Drop a logo, or click to upload<br><span style="color:var(--ink-faint)">PNG / SVG · square works best</span></div>
+                </div>
+                <div class="frow"><span class="flab">Primary colour <span style="color:var(--ink-faint)">(optional)</span></span>
+                  <div class="colorfield" data-role="primary">
+                    <span class="cf-prev" id="cf-prev-primary" style="background:#4f6df5;"></span>
+                    <span class="cf-hex" id="cf-hex-primary">#4F6DF5</span>
+                    <span class="cf-pick">◑ picker</span>
+                    <span class="cf-swatches">
+                      <span class="cf-sw on" style="background:#4f6df5" data-c="#4f6df5"></span>
+                      <span class="cf-sw" style="background:#1f8a5b" data-c="#1f8a5b"></span>
+                      <span class="cf-sw" style="background:#c2452f" data-c="#c2452f"></span>
+                      <span class="cf-sw" style="background:#7a5ae0" data-c="#7a5ae0"></span>
+                      <span class="cf-sw" style="background:#0e7490" data-c="#0e7490"></span>
+                    </span>
+                    <span class="cf-clear" data-role="primary">clear</span>
+                  </div>
+                </div>
+                <div class="frow"><span class="flab">Secondary colour <span style="color:var(--ink-faint)">(optional)</span></span>
+                  <div class="colorfield" data-role="secondary">
+                    <span class="cf-prev none" id="cf-prev-secondary"></span>
+                    <span class="cf-hex ph" id="cf-hex-secondary">none set</span>
+                    <span class="cf-pick">◑ picker</span>
+                    <span class="cf-swatches">
+                      <span class="cf-sw" style="background:#f2b705" data-c="#f2b705"></span>
+                      <span class="cf-sw" style="background:#0e7490" data-c="#0e7490"></span>
+                      <span class="cf-sw" style="background:#c2452f" data-c="#c2452f"></span>
+                      <span class="cf-sw" style="background:#2c2b27" data-c="#2c2b27"></span>
+                      <span class="cf-sw" style="background:#7a5ae0" data-c="#7a5ae0"></span>
+                    </span>
+                    <span class="cf-clear" data-role="secondary">clear</span>
+                  </div>
+                </div>
+                <p style="font-size:11px;color:var(--ink-faint);margin:2px 0 0;line-height:1.4;">Both optional — leave blank for the SchoolWithEase defaults. Paste a hex or pick a swatch.</p>
+              </div>
+
+              <div class="sec" data-secpane="academic" hidden>
+                <div class="frow"><span class="flab">Academic year</span><div class="inp">2024 / 2025 <span class="suffix">▾</span></div></div>
+                <div class="frow"><span class="flab">Term structure</span>
+                  <div class="choice-row" id="term-choices">
+                    <div class="choice on" data-term="Termly"><span class="gly">3</span> 3 Terms</div>
+                    <div class="choice" data-term="Semester"><span class="gly">2</span> 2 Semesters</div>
+                  </div>
+                  <p class="hintline">Sets the default billing period in step 6 (termly vs per&nbsp;semester).</p>
+                </div>
+                <div class="frow"><span class="flab">Grading scheme</span><div class="inp">A–F letter grades <span class="suffix">▾</span></div></div>
+              </div>
+            </div>
+
+            <div class="wz-preview">
+              <div class="pvk">Live preview</div>
+              <div class="card" style="gap:11px;">
+                <div style="display:flex;align-items:center;gap:10px;"><span class="av" id="pv-logo" style="width:38px;height:38px;border-radius:11px;background:var(--accent);color:#fff;">GA</span><div><b style="font-size:15px;">Greenfield Academy</b><div style="font-size:11px;color:var(--ink-faint);" id="pv-type">Secondary</div></div></div>
+                <div class="boxs" style="padding:9px;"><div class="field"><span class="lab">Brand</span><span style="display:flex;gap:6px;align-items:center;"><span id="pv-c1" style="width:15px;height:15px;border-radius:4px;background:#4f6df5;border:1.5px solid rgba(0,0,0,.12);"></span><span id="pv-c2" style="width:15px;height:15px;border-radius:4px;background:repeating-linear-gradient(45deg,#eee,#eee 3px,#fff 3px,#fff 6px);border:1.5px solid rgba(0,0,0,.12);"></span><span style="font-size:11px;color:var(--ink-faint);" id="pv-cnote">primary set</span></span></div></div>
+                <div style="display:flex;gap:7px;flex-wrap:wrap;"><span class="chip" id="pv-loc">Lagos · GMT+1</span><span class="chip" id="pv-plan">Plan set in step 6</span></div>
+                <div class="boxs" style="padding:9px;"><div class="field"><span class="lab">Status</span><span class="statbadge warn">Draft — not launched</span></div></div>
+              </div>
+              <p style="font-size:11px;color:var(--ink-faint);margin-top:11px;line-height:1.4;">Everything here can change after launch from the school's settings.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= STAGE 2 — STRUCTURE (SCALE-DOWN ACCORDION) ================= -->
+        <section class="af-stage" id="st2">
+          <div class="structure" style="flex:1;min-height:0;" data-scenario="B" id="struct">
+            <div class="struct-left">
+              <div style="font-size:12px;color:var(--ink-soft);margin-bottom:11px;">Pick a starting shape — the config engine reads it and decides how much UI to expose. Add a campus to a small school and watch it cross over.</div>
+              <div class="scen-toggle" id="scen-toggle">
+                <div class="scb" data-scen="A"><b>Sunny Days Academy</b><small>1 location · 1 level (Nursery)</small><span class="tag">Scenario A · small</span></div>
+                <div class="scb on" data-scen="B"><b>Greenfield Group (HQ)</b><small>2 campuses · 4 institution profiles</small><span class="tag">Scenario B · enterprise</span></div>
+              </div>
+              <div class="otree" id="otree"></div>
+            </div>
+            <div class="struct-right">
+              <div class="verdict" id="verdict"></div>
+              <p class="genline" id="genline"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= STAGE 3 — INVITE ================= -->
+        <section class="af-stage" id="st3">
+          <div class="af-scroll">
+            <div class="cols" style="grid-template-columns:1fr 1.25fr;align-items:start;">
+              <div class="panel">
+                <div class="ph"><b>Invite first administrator</b></div>
+        <p style="font-size:12px;color:var(--ink-soft);margin:0 0 13px;">They'll receive an email to set a password and take ownership of <b>Greenfield Academy</b>.</p>
+                <div class="frow-grid" style="grid-template-columns:78px 1fr 1fr;">
+                  <div class="frow"><span class="flab">Title</span><div class="inp">Mr. <span class="suffix">▾</span></div></div>
+                  <div class="frow"><span class="flab">First name <span class="req">*</span></span><div class="inp">Bello</div></div>
+                  <div class="frow"><span class="flab">Last name <span class="req">*</span></span><div class="inp">Adewale</div></div>
+                </div>
+                <div class="frow-grid">
+                  <div class="frow"><span class="flab">Middle name <span style="color:var(--ink-faint)">(optional)</span></span><div class="inp ph">Oluwaseun</div></div>
+                  <div class="frow"><span class="flab">Preferred name <span style="color:var(--ink-faint)">(optional)</span></span><div class="inp ph">what they go by</div></div>
+                </div>
+                <p class="hintline" style="margin:-7px 0 13px;">Captured as parts — so the platform can derive initials <b>BA</b>, the salutation <b>Mr. Adewale</b>, and a first-name greeting <b>Hi Bello</b> wherever each is needed.</p>
+                <div class="frow"><span class="flab">Email <span class="req">*</span></span><div class="inp ph">name@greenfield.edu</div></div>
+                <div class="frow"><span class="flab">Assign role</span>
+                  <div class="choice-row">
+                    <div class="choice on"><span class="gly">♔</span> School Owner</div>
+                    <div class="choice"><span class="gly">⌨</span> IT Admin</div>
+                  </div>
+                </div>
+                <div class="frow"><span class="flab">Personal note <span style="color:var(--ink-faint)">(optional)</span></span><div class="inp ph" style="height:54px;align-items:flex-start;">Welcome aboard! Your school workspace is ready…</div></div>
+                <div style="display:flex;gap:9px;margin-top:4px;"><span class="btn pri" id="send-invite">✉ Send invite</span><span class="btn">＋ Add another</span></div>
+                <div class="boxs" style="padding:10px;margin-top:14px;display:flex;gap:10px;align-items:flex-start;"><span class="fic" style="width:30px;height:30px;border:2px solid var(--line-soft);border-radius:8px;display:grid;place-items:center;flex:none;">↥</span><div style="font-size:12px;"><b>Bulk-invite staff</b><div style="color:var(--ink-faint);margin:1px 0 6px;">Import many at once — same name-part columns map automatically.</div><div style="display:flex;gap:6px;flex-wrap:wrap;"><span class="chip" style="font-size:11px;">⎘ CSV</span><span class="chip" style="font-size:11px;">▦ Excel .xlsx</span><span class="chip" style="font-size:11px;">❐ Google Sheets link</span></div></div></div>
+              </div>
+
+              <div class="panel">
+                <div class="ph"><b>Pending invites</b><span class="more" id="inv-count">2 sent</span></div>
+                <table class="tbl"><thead><tr><th>Person</th><th>Role</th><th>Status</th><th></th></tr></thead>
+                  <tbody id="inv-body">
+                    <tr><td><div style="display:flex;align-items:center;gap:8px;"><span class="av" style="width:22px;height:22px;font-size:9px;">BA</span>Mr. Bello A.</div></td><td>School Owner</td><td><span class="statbadge warn">Sent</span></td><td><span class="btn rsnd" style="padding:3px 9px;font-size:11px;">Resend</span> <span class="btn rvk" style="padding:3px 9px;font-size:11px;">Revoke</span></td></tr>
+                    <tr><td><div style="display:flex;align-items:center;gap:8px;"><span class="av" style="width:22px;height:22px;font-size:9px;">GO</span>Mrs. Grace O.</div></td><td>IT Admin</td><td><span class="statbadge ok">Accepted</span></td><td><span style="color:var(--ink-faint);font-size:11px;">joined</span></td></tr>
+                  </tbody>
+                </table>
+                <p style="font-size:11px;color:var(--ink-faint);margin-top:12px;line-height:1.4;">Invites expire in 14 days. Owners can invite the rest of the staff themselves once they're in. <a href="Auth Flow.html" style="color:var(--accent);">See what the invitee gets →</a></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= STAGE 4 — FEATURES ================= -->
+        <section class="af-stage" id="st4">
+          <div class="af-scroll">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:15px;flex-wrap:wrap;">
+              <span style="font-size:13px;color:var(--ink-soft);">Modules enabled here decide which nav items &amp; screens this school sees.</span>
+              <span class="chip ok" style="margin-left:auto;" id="feat-count">11 enabled</span>
+            </div>
+
+            <div class="feat-group">
+              <div class="fgh"><b>Core</b><small>always on · included in every plan</small></div>
+              <div class="feat-row"><span class="fic">◉</span><div class="ftx"><b>Student Records</b><small>Profiles, enrolment, directory</small></div><div class="fctl"><span class="statbadge ok">Included</span><span class="sw on locked"></span></div></div>
+              <div class="feat-row"><span class="fic">✓</span><div class="ftx"><b>Attendance</b><small>Daily &amp; per-class registers</small></div><div class="fctl"><span class="statbadge ok">Included</span><span class="sw on locked"></span></div></div>
+              <div class="feat-row"><span class="fic">#</span><div class="ftx"><b>Gradebook</b><small>Assessments, results, reports</small></div><div class="fctl"><span class="statbadge ok">Included</span><span class="sw on locked"></span></div></div>
+              <div class="feat-row"><span class="fic">✉</span><div class="ftx"><b>Messaging</b><small>Staff, student &amp; parent comms</small></div><div class="fctl"><span class="statbadge ok">Included</span><span class="sw on locked"></span></div></div>
+              <div class="feat-row"><span class="fic">◷</span><div class="ftx"><b>Timetable</b><small>Class schedules &amp; rooms</small></div><div class="fctl"><span class="statbadge ok">Included</span><span class="sw on locked"></span></div></div>
+            </div>
+
+            <div class="feat-group">
+              <div class="fgh"><b>Add-ons</b><small>toggle freely · included in Pro</small></div>
+              <div class="feat-row" data-feat="finance"><span class="fic">$</span><div class="ftx"><b>Finance &amp; Fees</b><small>Invoicing, payments, defaulters</small></div><div class="fctl"><span class="statbadge ok stchip">Added</span><span class="sw on" data-toggle></span></div></div>
+              <div class="feat-row" data-feat="lms"><span class="fic">▤</span><div class="ftx"><b>LMS / Resources</b><small>Lesson materials &amp; virtual classes</small></div><div class="fctl"><span class="statbadge ok stchip">Added</span><span class="sw on" data-toggle></span></div></div>
+              <div class="feat-row" data-feat="library"><span class="fic">▦</span><div class="ftx"><b>Library</b><small>Catalogue, lending, returns</small></div><div class="fctl"><span class="statbadge stchip" style="border-color:var(--line-soft);color:var(--ink-faint);">Available</span><span class="sw" data-toggle></span></div></div>
+              <div class="feat-row" data-feat="transport"><span class="fic">⛟</span><div class="ftx"><b>Transport</b><small>Routes, buses, pickup tracking</small></div><div class="fctl"><span class="statbadge stchip" style="border-color:var(--line-soft);color:var(--ink-faint);">Available</span><span class="sw" data-toggle></span></div></div>
+              <div class="feat-row" data-feat="behaviour"><span class="fic">★</span><div class="ftx"><b>Behaviour &amp; Merits</b><small>Points, incidents, rewards</small></div><div class="fctl"><span class="statbadge ok stchip">Added</span><span class="sw on" data-toggle></span></div></div>
+            </div>
+
+            <div class="feat-group">
+              <div class="fgh"><b>On request</b><small>needs platform approval before it switches on</small></div>
+              <div class="feat-row" data-feat="analytics" data-request><span class="fic">◈</span><div class="ftx"><b>Analytics Pro</b><small>Cohort insights, predictive flags</small></div><div class="fctl"><span class="statbadge stchip" style="border-color:var(--line-soft);color:var(--ink-faint);">Available</span><span class="btn reqbtn" style="padding:4px 11px;font-size:12px;">Request</span></div></div>
+              <div class="feat-row" data-feat="biometric" data-request><span class="fic">☉</span><div class="ftx"><b>Biometric Attendance</b><small>Fingerprint / face check-in</small></div><div class="fctl"><span class="statbadge stchip" style="border-color:var(--line-soft);color:var(--ink-faint);">Available</span><span class="btn reqbtn" style="padding:4px 11px;font-size:12px;">Request</span></div></div>
+              <div class="feat-row" data-feat="api" data-request><span class="fic">⚇</span><div class="ftx"><b>API &amp; Integrations</b><small>Webhooks, SIS sync, SSO</small></div><div class="fctl"><span class="statbadge stchip" style="border-color:var(--line-soft);color:var(--ink-faint);">Available</span><span class="btn reqbtn" style="padding:4px 11px;font-size:12px;">Request</span></div></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= STAGE 5 — ROLES & PERMISSIONS ================= -->
+        <section class="af-stage" id="st5">
+          <div class="rbac">
+            <div class="role-list" id="role-list"></div>
+            <div class="rbac-main">
+              <div style="display:flex;flex-direction:column;gap:0;margin-bottom:9px;">
+                <h3 style="font-family:'Caveat',cursive;font-size:24px;margin:0;line-height:1.05;" id="rb-role">Principal</h3>
+                <span class="sub" id="rb-roledesc">Leadership · school-wide</span>
+              </div>
+              <div class="preset-bar">
+                <span class="pl">Apply preset:</span>
+                <span class="pillbtn preset" id="preset-lead" data-preset="Principal">Principal</span>
+                <span class="pillbtn preset" data-preset="ITAdmin">IT Admin</span>
+                <span class="pillbtn preset" data-preset="Teacher">Teacher</span>
+                <span class="pillbtn preset" data-preset="Finance">Finance</span>
+                <span class="pillbtn preset" data-preset="Readonly">Read-only</span>
+                <span class="statbadge" id="preset-state" style="margin-left:auto;">Preset: Principal</span>
+              </div>
+              <table class="matrix" id="rb-matrix"></table>
+              <div class="scope-note">
+                <span>Data scope:</span>
+                <span class="seg"><button data-scope="School" aria-pressed="true">Whole school</button><button data-scope="Year" aria-pressed="false">Year groups</button><button data-scope="Own" aria-pressed="false">Own classes</button></span>
+                <span style="margin-left:auto;color:var(--ink-faint);">● filled = allowed · ring = overrides preset · faded = locked</span>
+              </div>
+
+              <div class="mkc" id="mkc">
+                <div class="mkc-head">
+                  <div><b>Maker-checker approvals</b><small>Org-wide · a second authorised role must approve sensitive changes before they take effect</small></div>
+                  <span class="sw on" id="mkc-master" data-mkc-master></span>
+                </div>
+                <div class="mkc-grid" id="mkc-grid">
+                  <div class="mkc-row on" data-mkc="security"><span class="mkc-ic">⛿</span><div class="mkc-tx"><b>Security &amp; access</b><small>Role edits, permission grants, SSO &amp; data-export rules</small></div><span class="sw on" data-mkc-toggle></span></div>
+                  <div class="mkc-row on" data-mkc="billing"><span class="mkc-ic">₦</span><div class="mkc-tx"><b>Billing &amp; plan</b><small>Plan tier, agreed price, payment details &amp; invoices</small></div><span class="sw on" data-mkc-toggle></span></div>
+                  <div class="mkc-row on" data-mkc="records"><span class="mkc-ic">◈</span><div class="mkc-tx"><b>Published academic records</b><small>Edits to released results, transcripts &amp; report cards</small></div><span class="sw on" data-mkc-toggle></span></div>
+                </div>
+                <div class="mkc-foot">
+                  <span class="mkc-k">Approvers required</span>
+                  <span class="seg" id="mkc-appr"><button data-appr="1" aria-pressed="true">1</button><button data-appr="2" aria-pressed="false">2</button></span>
+                  <span class="mkc-k" style="margin-left:14px;">Eligible checkers</span>
+                  <span class="chip" style="font-size:11px;">School Owner</span><span class="chip" style="font-size:11px;">IT Admin</span>
+                  <span id="mkc-summary" class="statbadge ok" style="margin-left:auto;">3 domains gated</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ================= STAGE 6 — PLAN & PRICING ================= -->
+        <section class="af-stage" id="st6">
+          <div class="af-scroll">
+            <div class="plan2">
+              <!-- LEFT: build the deal -->
+              <div class="plan-build">
+                <div class="frow"><span class="flab">Billing basis</span>
+                  <div class="choice-row" id="basis-choices">
+                    <div class="choice on" data-basis="period"><span class="gly">◷</span> Per period<small class="cmeta">flat fee each term / semester</small></div>
+                    <div class="choice" data-basis="seat"><span class="gly">◍</span> Per active user<small class="cmeta">scales with enrolment</small></div>
+                  </div>
+                  <p class="hintline">Schools that budget by term pick <b>per period</b>; groups with swinging enrolment prefer <b>per user</b>. You can also blend — a base period fee plus a per-seat overage.</p>
+                </div>
+
+                <div class="frow" id="period-row"><span class="flab">Billing period</span>
+                  <span class="seg" id="period-seg">
+                    <button data-period="Monthly" aria-pressed="false">Monthly · ×12</button>
+                    <button data-period="Termly" aria-pressed="true">Termly · ×3</button>
+                    <button data-period="Annual" aria-pressed="false">Annual</button>
+                  </span>
+                  <p class="hintline" id="period-hint">Options follow the institution — term schools bill monthly / termly / annual; universities get per-semester instead.</p>
+                </div>
+
+                <div class="frow"><span class="flab">Plan tier <span style="color:var(--ink-faint)">· decides what's included</span></span>
+                  <div class="tiergrid" id="tier-choices">
+                    <div class="tier" data-tier="Starter">
+                      <div class="tier-h"><b>Starter</b><span class="tier-pr"><span data-listprice="Starter">₦180k</span><small>/term</small></span></div>
+                      <ul class="tier-feats"><li>Core suite</li><li>Up to 400 students</li><li>Email support</li></ul>
+                    </div>
+                    <div class="tier on" data-tier="Pro">
+                      <div class="tier-h"><b>Pro</b><span class="tier-pr"><span data-listprice="Pro">₦420k</span><small>/term</small></span></div>
+                      <ul class="tier-feats"><li>Everything in Starter</li><li>Finance, LMS, Behaviour</li><li>Up to 2,000 students</li><li>Priority support</li></ul>
+                    </div>
+                    <div class="tier" data-tier="Enterprise">
+                      <div class="tier-h"><b>Enterprise</b><span class="tier-pr"><span data-listprice="Enterprise">₦900k</span><small>/term</small></span></div>
+                      <ul class="tier-feats"><li>Everything in Pro</li><li>Analytics Pro, Biometric</li><li>Unlimited students · multi-campus</li><li>Dedicated success manager</li></ul>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="frow-grid">
+                  <div class="frow"><span class="flab">Enrolment (seats)</span><div class="inp" id="seats-inp">1,500 <span class="suffix">students</span></div></div>
+                  <div class="frow" id="seatprice-row"><span class="flab">Per-seat rate</span><div class="inp ph">₦ — <span class="suffix">period basis</span></div></div>
+                </div>
+
+                <div class="frow agreed">
+                  <span class="flab">Agreed price <span style="color:var(--ink-faint)">· what we actually bill this school, per period</span></span>
+                  <div class="inp big" id="agreed-inp">₦ 357,000 <span class="suffix">negotiated</span></div>
+                  <p class="hintline">Tap to set how much we slash off list (−15% → −30% → bill list). The invoice books the gap as a professional discount, and it rescales with the billing period.</p>
+                </div>
+              </div>
+
+              <!-- RIGHT: generated invoice -->
+              <div class="plan-invoice">
+                <div class="inv-doc" id="inv-doc">
+                  <div class="inv-top">
+                    <div>
+                      <div class="inv-from">SchoolWithEase</div>
+                      <div class="inv-meta">Pro-forma · not yet charged</div>
+                    </div>
+                    <div class="inv-badge">DRAFT</div>
+                  </div>
+                  <div class="inv-bill">
+                    <div><span class="inv-k">Billed to</span><b>Greenfield Academy</b><small>Ikoyi · Lagos · Nigeria</small></div>
+                    <div class="inv-billr"><span class="inv-k">Cycle</span><b id="inv-cycle">Termly</b><small id="inv-cycledesc">3 invoices / year</small></div>
+                  </div>
+
+                  <div class="inv-lines" id="inv-lines"><!-- built by JS --></div>
+
+                  <div class="inv-tot">
+                    <div class="inv-tr"><span>List price</span><span id="inv-list">₦420,000</span></div>
+                    <div class="inv-tr disc" id="inv-discrow"><span>Negotiated discount <small id="inv-discpct">−14%</small></span><span id="inv-disc">−₦60,000</span></div>
+                    <div class="inv-tr grand"><span>Billed per period</span><span id="inv-grand">₦360,000</span></div>
+                    <div class="inv-tr yr"><span>Indicative / year <small id="inv-yrnote">× 3 terms</small></span><span id="inv-year">₦1,080,000</span></div>
+                  </div>
+                  <p class="inv-foot">Generated from the plan, enrolment &amp; agreed price. The discount line is what we’re professionally slashing off list — visible to the school, logged for revenue reporting.</p>
+                </div>
+                <div class="inv-actions">
+                  <span class="btn pri" id="inv-gen">↻ Regenerate invoice</span>
+                  <span class="btn" id="inv-send">✉ Send pro-forma</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- FOOT -->
+        <div class="wz-foot">
+          <span class="btn" id="af-back" style="opacity:.5;">‹ Back</span>
+          <span style="font-size:12px;color:var(--ink-faint);" id="af-hint">Fill the essentials — you can refine everything after launch.</span>
+          <span class="btn pri" id="af-next" style="margin-left:auto;">Continue ›</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="statusbar"><span class="s-dot"></span> Draft saved · just now <span class="spring"></span> SchoolWithEase · Platform <span>⌘K to jump</span></div>
+    <div class="toast" id="af-toast"></div>
+  </div>
+
+  <div class="notes" id="af-notes"></div>
+  </section>
+
+  <!-- ============================================================
+       PANE — DATA MODEL (ER)
+       ============================================================ -->
+  <section class="layout" id="pane-data">
+    <div class="lead">
+      <h2>Data model · how the three tiers map</h2>
+      <span class="pill">ER · foreign keys</span>
+      <p>Five backbone tables plus a scope junction. The whole hierarchy resolves through foreign keys — and one rule is sacred: <b>academic data attaches to an Institution, never to an Org or a Campus.</b></p>
+    </div>
+
+    <div class="frame" style="height:776px;">
+      <div class="main-head" style="border-bottom:2px solid var(--line); padding:13px 18px 12px;">
+        <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+          <h3>Core relational model</h3>
+          <span class="sub">Organisation ▸ Campus ▸ Institution + Users · Roles · scope junction</span>
+        </div>
+        <div class="actions" style="gap:14px;align-items:center;font-size:12px;color:var(--ink-soft);">
+          <span class="tk" style="display:flex;align-items:center;gap:6px;"><span class="key pk" style="font-size:9px;border:1.5px solid var(--accent);color:var(--accent);border-radius:5px;padding:1px 5px;">PK</span> primary</span>
+          <span class="tk" style="display:flex;align-items:center;gap:6px;"><span class="key fk" style="font-size:9px;border:1.5px solid var(--note);color:var(--note);border-radius:5px;padding:1px 5px;">FK</span> foreign</span>
+          <span class="tk" style="display:flex;align-items:center;gap:6px;"><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--note)" stroke-width="2.6"/></svg> core rule</span>
+          <span class="tk" style="display:flex;align-items:center;gap:6px;"><svg width="34" height="8"><line x1="0" y1="4" x2="34" y2="4" stroke="var(--line-soft)" stroke-width="2.2" stroke-dasharray="5 5"/></svg> scope / denorm</span>
+        </div>
+      </div>
+
+      <div class="er-wrap">
+        <div class="er-canvas">
+          <svg class="er-lines" viewBox="0 0 1140 712" preserveAspectRatio="none">
+            <line x1="129" y1="205" x2="129" y2="285"></line>
+            <text class="card" x="136" y="250">1 ─ N</text>
+            <path d="M228 372 L372 332"></path>
+            <text class="card" x="262" y="343">1 ─ N</text>
+            <path class="rel-soft" d="M228 112 L420 244"></path>
+            <text class="card" x="300" y="168">org_id</text>
+            <path class="rel-core" d="M512 244 L742 214"></path>
+            <path d="M228 582 L372 560"></path>
+            <text class="card" x="250" y="560">user_id</text>
+            <path d="M700 430 L572 572"></path>
+            <text class="card" x="612" y="520">role_id</text>
+            <path class="rel-soft" d="M372 624 L228 446"></path>
+            <path class="rel-soft" d="M452 512 L452 470"></path>
+          </svg>
+
+          <div class="entity hub" style="left:30px;top:30px;">
+            <div class="eh"><span class="eic">▣</span><div><b>Organizations</b><small>OVERLORD · the group / HQ</small></div></div>
+            <div class="erow"><span class="fn">id</span><span class="key pk">PK</span></div>
+            <div class="erow"><span class="fn">name</span><span class="ty">text</span></div>
+            <div class="erow"><span class="fn">plan_tier</span><span class="ty">enum</span></div>
+            <div class="erow"><span class="fn">billing_ref</span><span class="ty">text</span></div>
+            <div class="erow"><span class="fn">settings</span><span class="ty">json</span></div>
+          </div>
+
+          <div class="entity" style="left:30px;top:285px;">
+            <div class="eh"><span class="eic">⌖</span><div><b>Campuses</b><small>HORIZONTAL · locations</small></div></div>
+            <div class="erow"><span class="fn">id</span><span class="key pk">PK</span></div>
+            <div class="erow"><span class="fn">org_id</span><span class="key fk">FK</span></div>
+            <div class="erow"><span class="fn">name</span><span class="ty">text</span></div>
+            <div class="erow"><span class="fn">region</span><span class="ty">text</span></div>
+            <div class="erow"><span class="fn">timezone</span><span class="ty">text</span></div>
+          </div>
+
+          <div class="entity" style="left:30px;top:520px;">
+            <div class="eh"><span class="eic">☻</span><div><b>Users</b><small>people · org-scoped</small></div></div>
+            <div class="erow"><span class="fn">id</span><span class="key pk">PK</span></div>
+            <div class="erow"><span class="fn">org_id</span><span class="key fk">FK</span></div>
+            <div class="erow"><span class="fn">email</span><span class="ty">text</span></div>
+            <div class="erow"><span class="fn">full_name</span><span class="ty">text</span></div>
+          </div>
+
+          <div class="entity hub" style="left:372px;top:240px;">
+            <div class="eh"><span class="eic">◈</span><div><b>Institutions</b><small>VERTICAL · academic profile</small></div></div>
+            <div class="erow"><span class="fn">id</span><span class="key pk">PK</span></div>
+            <div class="erow"><span class="fn">campus_id</span><span class="key fk">FK</span></div>
+            <div class="erow"><span class="fn">org_id</span><span class="key fk">FK</span></div>
+            <div class="erow"><span class="fn">level</span><span class="ty">enum</span></div>
+            <div class="erow"><span class="fn">grading_rules</span><span class="ty">json</span></div>
+            <div class="erow"><span class="fn">term_structure</span><span class="ty">json</span></div>
+            <div class="erow"><span class="fn">calendar_id</span><span class="ty">ref</span></div>
+          </div>
+
+          <div class="entity" style="left:372px;top:512px;">
+            <div class="eh"><span class="eic">⚿</span><div><b>UserRoleAssignment</b><small>junction · who-where-as-what</small></div></div>
+            <div class="erow"><span class="fn">id</span><span class="key pk">PK</span></div>
+            <div class="erow"><span class="fn">user_id</span><span class="key fk">FK</span></div>
+            <div class="erow"><span class="fn">role_id</span><span class="key fk">FK</span></div>
+            <div class="erow hot"><span class="fn">campus_id</span><span class="key fk">FK</span></div>
+            <div class="erow hot"><span class="fn">institution_id</span><span class="key fk">FK</span></div>
+          </div>
+
+          <div class="entity hub" style="left:700px;top:36px;">
+            <div class="eh"><span class="eic">▤</span><div><b>Academic data</b><small>grades · timetable · courses</small></div></div>
+            <div class="erow"><span class="fn">id</span><span class="key pk">PK</span></div>
+            <div class="erow hot"><span class="fn">institution_id</span><span class="key fk">FK</span></div>
+            <div class="erow"><span class="fn">kind</span><span class="ty">enum</span></div>
+            <div class="erow"><span class="fn">term_id</span><span class="ty">ref</span></div>
+            <div class="erow"><span class="fn">payload</span><span class="ty">json</span></div>
+          </div>
+
+          <div class="entity" style="left:700px;top:300px;">
+            <div class="eh"><span class="eic">♔</span><div><b>Roles</b><small>RBAC presets · org-scoped</small></div></div>
+            <div class="erow"><span class="fn">id</span><span class="key pk">PK</span></div>
+            <div class="erow"><span class="fn">org_id</span><span class="key fk">FK</span></div>
+            <div class="erow"><span class="fn">name</span><span class="ty">text</span></div>
+            <div class="erow"><span class="fn">permissions</span><span class="ty">json</span></div>
+          </div>
+
+          <div class="er-tag" style="left:556px;top:150px;">Core rule → academic rows FK to <b>institution_id</b> only. Never org_id or campus_id.</div>
+          <div class="er-tag" style="left:600px;top:600px;border-color:var(--accent);color:var(--accent);">Mr. Bello = <b>2 rows</b> here:<br>(Primary · Mainland) + (Secondary · Island)</div>
+
+          <span class="mark" style="left:6px;top:6px;">1</span>
+          <span class="mark" style="left:344px;top:216px;">2</span>
+          <span class="mark" style="left:672px;top:12px;">3</span>
+          <span class="mark" style="left:344px;top:488px;">4</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>One tenant key</b><p>Every table carries <code style="font-family:Kalam">org_id</code>. It's the multi-tenant boundary — every query is filtered by it before anything else.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Campus hosts many profiles</b><p>Institutions sit under a campus (<code style="font-family:Kalam">campus_id</code>) but keep <code style="font-family:Kalam">org_id</code> too, so one campus can run Primary <i>and</i> Secondary side by side.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>The sacred FK</b><p>Grades, timetables &amp; course registration point at <code style="font-family:Kalam">institution_id</code> — so grading rules &amp; terms can differ per level without leaking across tiers.</p></div></div>
+      <div class="note"><span class="n">4</span><div><b>Cross-cutting staff</b><p>The junction lets one teacher hold different roles in different (campus, institution) pairs — each is just another assignment row.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PANE — WORKSPACE SWITCHER
+       ============================================================ -->
+  <section class="layout" id="pane-workspaces">
+    <div class="lead">
+      <h2>Workspace switcher matrix</h2>
+      <span class="pill">executive owner · 3 dimensions</span>
+      <p>How a group owner pivots context across <b>Org ▸ Campus ▸ Level</b>. Pick a cell in each column; the whole shell — nav, dashboards, reports — rebinds to that scope.</p>
+    </div>
+
+    <div class="tierkey">
+      <span class="tk"><span class="sw3 t-org"></span> <b>Organisation</b> overlord</span>
+      <span class="tk"><span class="sw3 t-camp"></span> <b>Campus</b> horizontal</span>
+      <span class="tk"><span class="sw3 t-inst"></span> <b>Institution</b> vertical</span>
+    </div>
+
+    <div class="frame" style="height:560px;">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Group <span style="color:var(--ink-faint)">▾</span></div>
+        <div class="crumbs" id="ws-crumbs"><span>Greenfield Group</span><span class="sep">▸</span><span>Mainland</span><span class="sep">▸</span><span class="cur">Secondary</span></div>
+        <div class="search"><span>⌕</span> Switch workspace… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">⚑</span><span class="av">AO</span></div>
+        <span class="mark" style="top:9px; left:188px;">1</span>
+      </div>
+
+      <div class="body" style="display:block;padding:18px 20px;overflow:auto;">
+        <div style="font-family:'Caveat',cursive;font-size:22px;margin-bottom:11px;">Jump to a workspace</div>
+        <div class="ws-matrix" id="ws-matrix" style="height:328px;">
+          <div class="ws-col" data-dim="org">
+            <div class="wch"><span class="lvl" style="background:var(--accent);"></span><b>Organisation</b><small>overlord</small></div>
+            <div class="ws-opts">
+              <div class="ws-opt on" data-val="Greenfield Group"><span class="av">GG</span><div class="tx"><div>Greenfield Group</div><small>HQ · 2 campuses</small></div><span class="chk">✓</span></div>
+              <div class="ws-opt dim" data-val="All orgs"><span class="av">✦</span><div class="tx"><div>All organisations</div><small>portfolio view</small></div><span class="chk">✓</span></div>
+            </div>
+          </div>
+          <div class="ws-col" data-dim="campus">
+            <div class="wch"><span class="lvl" style="background:color-mix(in srgb,var(--accent) 38%,var(--frame));"></span><b>Campus</b><small>horizontal</small></div>
+            <div class="ws-opts">
+              <div class="ws-opt on" data-val="Mainland"><span class="av">ML</span><div class="tx"><div>Mainland Campus</div><small>Primary · Secondary</small></div><span class="chk">✓</span></div>
+              <div class="ws-opt" data-val="Island"><span class="av">IS</span><div class="tx"><div>Island Campus</div><small>Nursery · Secondary · Voc.</small></div><span class="chk">✓</span></div>
+              <div class="ws-opt" data-val="All campuses"><span class="av">▦</span><div class="tx"><div>All campuses</div><small>group-wide</small></div><span class="chk">✓</span></div>
+            </div>
+          </div>
+          <div class="ws-col" data-dim="level">
+            <div class="wch"><span class="lvl" style="border-style:dashed;background:var(--frame);"></span><b>Institution</b><small>vertical</small></div>
+            <div class="ws-opts" id="ws-levels">
+              <div class="ws-opt" data-val="Nursery"><span class="av">❀</span><div class="tx"><div>Nursery</div></div><span class="chk">✓</span></div>
+              <div class="ws-opt" data-val="Primary"><span class="av">✎</span><div class="tx"><div>Primary</div></div><span class="chk">✓</span></div>
+              <div class="ws-opt on" data-val="Secondary"><span class="av">▦</span><div class="tx"><div>Secondary</div></div><span class="chk">✓</span></div>
+              <div class="ws-opt" data-val="Vocational"><span class="av">⚒</span><div class="tx"><div>Vocational</div></div><span class="chk">✓</span></div>
+              <div class="ws-opt" data-val="All levels"><span class="av">◈</span><div class="tx"><div>All levels</div><small>roll up</small></div><span class="chk">✓</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="ws-bar">
+          <span style="font-family:'Caveat',cursive;font-size:18px;color:var(--ink-soft);">Now viewing:</span>
+          <div class="crumbset" id="ws-result">
+            <span class="pc"><span class="d" style="background:var(--accent);"></span>Greenfield Group</span>
+            <span class="arrow">▸</span>
+            <span class="pc"><span class="d" style="background:color-mix(in srgb,var(--accent) 38%,var(--frame));"></span>Mainland</span>
+            <span class="arrow">▸</span>
+            <span class="pc"><span class="d" style="border:2px dashed var(--line-soft);background:var(--frame);"></span>Secondary</span>
+          </div>
+          <span class="applied">rebinds nav · dashboards · reports</span>
+        </div>
+        <span class="mark" style="top:64px; right:24px;">2</span>
+        <span class="mark" style="bottom:62px; left:24px;">3</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Always-visible breadcrumb</b><p>The active Org ▸ Campus ▸ Level lives in the command bar so the owner never loses their place across the group.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Pick per column</b><p>Three independent lists, one per tier. Any column can be set to <i>All</i> to roll up — e.g. “All campuses · Secondary” compares the same level everywhere.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Scope cascades</b><p>The chosen cell rebinds the entire shell. This whole matrix is <b>hidden for Scenario A</b> tenants (see variations →).</p></div></div>
+    </div>
+
+    <div class="lead" style="margin-top:26px;">
+      <h2>Switcher variations</h2>
+      <span class="pill">3 forms + scale-down</span>
+      <p>Same job, three shapes — plus the small-school case where the switcher disappears entirely.</p>
+    </div>
+
+    <div class="minis" style="grid-template-columns:1fr 1fr 1fr;display:grid;gap:20px;align-items:start;">
+      <div>
+        <div class="frame mini">
+          <div class="swvar">
+            <div class="svh"><b style="font-family:'Caveat',cursive;font-size:16px;">Matrix</b><span style="margin-left:auto;color:var(--ink-faint);font-size:11px;">chosen ✦</span></div>
+            <div class="svb">
+              <div class="tier-rail">
+                <div class="trc"><span class="tch">Org</span><span class="ti2 on">Greenfield</span></div>
+                <div class="trc"><span class="tch">Campus</span><span class="ti2 on">Mainland</span><span class="ti2">Island</span></div>
+                <div class="trc"><span class="tch">Level</span><span class="ti2 on">Secondary</span><span class="ti2">Primary</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="framecap"><b>A · Three-column matrix</b> — all options at once</div>
+      </div>
+      <div>
+        <div class="frame mini">
+          <div class="swvar">
+            <div class="svh"><b style="font-family:'Caveat',cursive;font-size:16px;">Stacked drop-downs</b></div>
+            <div class="svb">
+              <div class="stackdrops">
+                <div class="sd"><span class="sl">Organisation</span><div class="dd"><span class="d" style="background:var(--accent);"></span>Greenfield Group<span class="cv">▾</span></div></div>
+                <div class="sd"><span class="sl">Campus</span><div class="dd"><span class="d" style="background:color-mix(in srgb,var(--accent) 38%,var(--frame));"></span>Mainland<span class="cv">▾</span></div></div>
+                <div class="sd"><span class="sl">Institution</span><div class="dd"><span class="d" style="border:2px dashed var(--line-soft);"></span>Secondary<span class="cv">▾</span></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="framecap"><b>B · Stacked drop-downs</b> — compact, narrow rails</div>
+      </div>
+      <div>
+        <div class="frame mini">
+          <div class="swvar">
+            <div class="svh"><b style="font-family:'Caveat',cursive;font-size:16px;">Scenario A</b><span style="margin-left:auto;" class="statbadge ok">single</span></div>
+            <div class="svb" style="justify-content:center;align-items:center;text-align:center;">
+              <div class="bigstate" style="height:auto;gap:9px;">
+                <div class="glyph" style="width:46px;height:46px;font-size:20px;">⊘</div>
+                <h4 style="font-size:19px;">No switcher</h4>
+                <p style="font-size:12px;">Sunny Days has 1 campus · 1 level. The matrix is suppressed — nothing to switch between.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="framecap"><b>C · Scale-down</b> — hidden for small schools</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PANE — REPORTING ENGINE
+       ============================================================ -->
+  <section class="layout" id="pane-reporting">
+    <div class="lead">
+      <h2>Universal reporting engine</h2>
+      <span class="pill">cross-campus · cross-level</span>
+      <p>One query surface that rolls up the whole hierarchy. Choose what to group by and what to measure; the engine aggregates from the leaf institutions upward, always inside the tenant's <code style="font-family:Kalam;font-size:13px;">org_id</code>.</p>
+    </div>
+
+    <div class="frame" style="height:660px;">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Group <span style="color:var(--ink-faint)">▾</span></div>
+        <div class="crumbs"><span>Master dashboard</span><span class="sep">▸</span><span class="cur">Reporting</span></div>
+        <div class="search"><span>⌕</span> Saved reports… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">⎙</span><span class="av">AO</span></div>
+      </div>
+
+      <div class="report">
+        <div class="rep-builder">
+          <div class="rbh">Build a report</div>
+          <div class="rep-grp">
+            <div class="rgl">Measure</div>
+            <div class="rep-opt radio on" data-measure="revenue"><span class="bx">●</span> Revenue</div>
+            <div class="rep-opt radio" data-measure="outstanding"><span class="bx">●</span> Outstanding fees</div>
+            <div class="rep-opt radio" data-measure="payroll"><span class="bx">●</span> Staff payroll</div>
+          </div>
+          <div class="rep-grp">
+            <div class="rgl">Group by</div>
+            <div class="rep-opt on" data-dim="campus"><span class="bx">✓</span> Campus</div>
+            <div class="rep-opt on" data-dim="level"><span class="bx">✓</span> Level</div>
+          </div>
+          <div class="rep-grp">
+            <div class="rgl">Filter</div>
+            <div class="rep-opt" style="cursor:default;border-style:dashed;"><span class="bx" style="border:none;">·</span> Term: 2024/25</div>
+            <div class="rep-opt" style="cursor:default;border-style:dashed;"><span class="bx" style="border:none;">·</span> Org: Greenfield</div>
+          </div>
+          <div class="rep-run"><span class="btn pri" id="rep-run" style="display:block;text-align:center;">▷ Run query</span></div>
+        </div>
+
+        <div class="rep-canvas">
+          <div class="rep-q" id="rep-q"></div>
+          <div class="rep-kpis" id="rep-kpis"></div>
+          <div class="panel" style="padding:12px 14px;">
+            <div class="ph"><b id="rep-title">Revenue · by campus &amp; level</b><span class="more" id="rep-sub">2024/25 · all campuses</span></div>
+            <table class="rollup-tbl" id="rep-table"></table>
+          </div>
+          <span class="mark" style="top:62px; left:236px;">2</span>
+        </div>
+        <span class="mark" style="top:120px; left:12px;">1</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Pick measure + dimensions</b><p>Measure is the number; dimensions are the <code style="font-family:Kalam">GROUP BY</code>. Drop the Level dimension and the table collapses to campus totals.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Roll-up, not flat</b><p>Sub-totals per campus, a grand total, and the underlying query update live — the engine sums leaf institutions up each tier.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Tenant-safe by construction</b><p>Because every row carries <code style="font-family:Kalam">org_id</code>, the same query is safe for a 1-school tenant or a 40-campus group — the filter just widens.</p></div></div>
+      <div class="note"><span class="n">4</span><div><b>Academic ↔ finance join</b><p>Headcount comes from institution-scoped academic data; revenue &amp; payroll from campus ledgers — joined on the shared hierarchy keys.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PANE — POLYMORPHIC UI
+       ============================================================ -->
+  <section class="layout" id="pane-poly">
+    <div class="lead">
+      <h2>Polymorphic UI · driven by level</h2>
+      <span class="pill">same shell · 4 behaviours</span>
+      <p>The Institution's <code style="font-family:Kalam;font-size:13px;">level</code> toggles features at runtime. Nursery hides GPA and shows developmental tracking; Vocational swaps in modular short-courses &amp; certification. Flip between them:</p>
+    </div>
+
+    <div class="frame" style="height:600px;">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Group <span style="color:var(--ink-faint)">▾</span></div>
+        <div class="crumbs"><span>Mainland</span><span class="sep">▸</span><span class="cur" id="poly-crumb">Secondary</span></div>
+        <div class="search"><span>⌕</span> Search… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="av">AO</span></div>
+      </div>
+
+      <div class="poly-switch" id="poly-switch">
+        <span class="pl2">Institution level:</span>
+        <div class="lvl-pill" data-level="Nursery"><span class="g">❀</span> Nursery</div>
+        <div class="lvl-pill" data-level="Primary"><span class="g">✎</span> Primary</div>
+        <div class="lvl-pill on" data-level="Secondary"><span class="g">▦</span> Secondary</div>
+        <div class="lvl-pill" data-level="Vocational"><span class="g">⚒</span> Vocational</div>
+        <span class="mark" style="top:-10px; right:18px;">1</span>
+      </div>
+
+      <div class="poly-body">
+        <div class="poly-nav" id="poly-nav"></div>
+        <div class="poly-main" id="poly-main"></div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>One enum, many shells</b><p>The level field is the switch. Changing it re-derives the nav, the dashboards, the workflows — no separate codebase per school type.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Suppress, don't disable</b><p>Irrelevant features (GPA at Nursery) are removed from the UI entirely rather than greyed — the screen stays honest to that level.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Activate the relevant flow</b><p>Vocational unlocks modular registration &amp; certification; Nursery unlocks developmental observations &amp; guardian notes.</p></div></div>
+    </div>
+  </section>
+
+  <p class="footnote">— architect workspace · interactive wireframe · open Tweaks for theme &amp; accent —</p>
+</div>
+
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+  const DENSITY = { compact: 0.82, regular: 1, comfy: 1.15 };
+  const TD = /*EDITMODE-BEGIN*/{
+    "dark": false,
+    "accent": "#4f6df5",
+    "density": "compact"
+  }/*EDITMODE-END*/;
+  function apply(t){const r=document.documentElement;r.setAttribute('data-theme',t.dark?'dark':'light');r.setAttribute('data-density',t.density);r.style.setProperty('--accent',t.accent);r.style.setProperty('--pad',String(DENSITY[t.density]||1));}
+  function App(){const [t,setTweak]=useTweaks(TD);React.useEffect(()=>{apply(t);},[t]);
+    return (<TweaksPanel title="Tweaks">
+      <TweakSection label="Appearance" />
+      <TweakToggle label="Dark mode" value={t.dark} onChange={(v)=>setTweak('dark',v)} />
+      <TweakColor label="Accent" value={t.accent} options={['#4f6df5','#1f8a5b','#c2452f','#7a5ae0','#0e7490']} onChange={(v)=>setTweak('accent',v)} />
+      <TweakRadio label="Density" value={t.density} options={['compact','regular','comfy']} onChange={(v)=>setTweak('density',v)} />
+    </TweaksPanel>);}
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+<script src="architect-flow.js"></script>
+<script src="data-matrix.js"></script>
+</body>
+</html>

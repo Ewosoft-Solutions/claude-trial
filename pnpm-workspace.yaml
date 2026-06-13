@@ -1,3 +1,10 @@
 packages:
   - "apps/*"
   - "packages/*"
+
+# Pin a single copy of the React type packages across the workspace.
+# Without this, transitive deps (e.g. Radix UI) pull an older @types/react,
+# and multiple copies make forwardRef components fail as JSX element types.
+overrides:
+  "@types/react": "19.2.17"
+  "@types/react-dom": "19.2.3"

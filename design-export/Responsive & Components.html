@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="regular" data-annot="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchoolWithEase — Responsive & Components</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sketch.css">
+<link rel="stylesheet" href="hybrid.css">
+</head>
+<body>
+<div class="page">
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <div class="masthead">
+    <div>
+      <h1>School<span class="tm">With</span>Ease <span style="font-family:'Kalam';font-size:18px;color:var(--ink-soft);">— responsive &amp; components</span></h1>
+      <p>How one design system spans phone to wall-monitor, and the shared parts it's built from. <b>Design for one ecosystem, not separate apps</b> — same data layer, device-specific layouts.</p>
+    </div>
+    <div class="kit-meta">low-fi · v1<br>one system, every screen</div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===================== TABS ===================== -->
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-target="responsive">Responsive system<b>4 breakpoints, one surface</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="components">Component library<b>nav · cards · tables · states</b></button>
+  </div>
+
+  <!-- ============================================================
+       RESPONSIVE SYSTEM
+       ============================================================ -->
+  <section class="layout active" id="responsive">
+    <div class="lead">
+      <h2>One surface, four breakpoints</h2>
+      <span class="pill">mobile → tablet → desktop → large</span>
+      <p>The same dashboard reflows across sizes — single column with bottom nav on a phone, up to a multi-panel analytics layout on a large display. Navigation, column count and density adapt; the data and brand stay constant.</p>
+    </div>
+
+    <div class="bpset">
+      <!-- MOBILE -->
+      <div class="bpcol">
+        <div class="bpframe" style="width:236px;height:430px;">
+          <div class="mini-top"><span class="hamb" style="width:24px;height:24px;font-size:12px;">☰</span><b style="font-family:'Caveat';font-size:17px;">Dashboard</b><span style="margin-left:auto;" class="av" >M</span></div>
+          <div style="flex:1;padding:11px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+            <div class="kpi-card"><span class="lab">Attendance</span><span class="val">96%</span></div>
+            <div class="kpi-card"><span class="lab">GPA</span><span class="val">3.7</span></div>
+            <div class="card"><span class="skel" style="width:50%"></span><span class="skel" style="width:85%"></span><span class="skel" style="width:70%"></span></div>
+          </div>
+          <div class="botnav" style="height:46px;"><div class="bi on"><span class="ti" style="width:18px;height:18px;"></span></div><div class="bi"><span class="ti" style="width:18px;height:18px;"></span></div><div class="bi"><span class="ti" style="width:18px;height:18px;"></span></div><div class="bi"><span class="ti" style="width:18px;height:18px;"></span></div></div>
+        </div>
+        <div class="bpcap"><b>Mobile</b><small>&lt; 768px</small>single column · bottom nav</div>
+      </div>
+
+      <!-- TABLET -->
+      <div class="bpcol">
+        <div class="bpframe" style="width:356px;height:430px;">
+          <div class="mini-top"><span class="hamb" style="width:24px;height:24px;font-size:12px;">☰</span><b style="font-family:'Caveat';font-size:17px;">Dashboard</b><span class="search" style="max-width:120px;margin:0 0 0 10px;padding:3px 9px;font-size:11px;">⌕ Search</span><span style="margin-left:auto;" class="av">M</span></div>
+          <div style="flex:1;display:flex;overflow:hidden;">
+            <div style="width:112px;border-right:2px solid var(--line-soft);background:var(--panel);padding:9px;display:flex;flex-direction:column;gap:5px;">
+              <div class="nitem on" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Home</div>
+              <div class="nitem" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Students</div>
+              <div class="nitem" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Finance</div>
+              <div class="nitem" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Reports</div>
+            </div>
+            <div style="flex:1;padding:11px;display:flex;flex-direction:column;gap:10px;overflow:hidden;">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:9px;"><div class="kpi-card"><span class="lab">Att.</span><span class="val">96%</span></div><div class="kpi-card"><span class="lab">GPA</span><span class="val">3.7</span></div></div>
+              <div class="card"><span class="skel" style="width:45%"></span><div class="chart-bars" style="height:60px;"><i style="height:50%"></i><i style="height:70%"></i><i class="hl" style="height:90%"></i><i style="height:60%"></i><i style="height:75%"></i></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="bpcap"><b>Tablet</b><small>768 – 1024px</small>two columns · labelled sidebar</div>
+      </div>
+
+      <!-- DESKTOP -->
+      <div class="bpcol">
+        <div class="bpframe" style="width:548px;height:430px;">
+          <div class="mini-top"><span class="sq"></span><span style="font-size:12px;">Greenfield ▾</span><span class="search" style="max-width:180px;margin:0 auto;padding:3px 10px;font-size:11px;">⌕ Search… <span class="kbd">⌘K</span></span><span class="av">PO</span></div>
+          <div style="flex:1;display:flex;overflow:hidden;">
+            <div style="width:120px;border-right:2px solid var(--line-soft);background:var(--panel);padding:9px;display:flex;flex-direction:column;gap:6px;">
+              <div class="nitem on" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Home</div>
+              <div class="nitem" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Students</div>
+              <div class="nitem" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Finance</div>
+              <div class="nitem" style="padding:5px 7px;font-size:11px;"><span class="ti" style="width:13px;height:13px;"></span>Reports</div>
+            </div>
+            <div style="flex:1;padding:11px;display:flex;flex-direction:column;gap:9px;overflow:hidden;">
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;"><div class="kpi-card" style="padding:8px;"><span class="lab">Enrol</span><span class="val" style="font-size:22px;">1.2k</span></div><div class="kpi-card" style="padding:8px;"><span class="lab">Att.</span><span class="val" style="font-size:22px;">94%</span></div><div class="kpi-card" style="padding:8px;"><span class="lab">Fees</span><span class="val" style="font-size:22px;">82%</span></div></div>
+              <div class="card" style="flex:1;"><span class="skel" style="width:40%"></span><div class="chart-bars" style="height:90px;"><i style="height:40%"></i><i style="height:55%"></i><i style="height:50%"></i><i style="height:70%"></i><i class="hl" style="height:88%"></i><i style="height:64%"></i><i style="height:76%"></i></div></div>
+            </div>
+            <div style="width:120px;border-left:2px solid var(--line-soft);background:var(--panel);padding:9px;display:flex;flex-direction:column;gap:8px;"><b style="font-family:'Caveat';font-size:14px;">✦ Insights</b><span class="skel" style="width:90%"></span><span class="skel" style="width:70%"></span><span class="skel" style="width:80%"></span></div>
+          </div>
+        </div>
+        <div class="bpcap"><b>Desktop</b><small>1024px +</small>sidebar · 3-col · utility panel</div>
+      </div>
+
+      <!-- LARGE -->
+      <div class="bpcol">
+        <div class="bpframe" style="width:660px;height:430px;">
+          <div class="mini-top"><span class="sq"></span><span style="font-size:12px;">Greenfield ▾</span><span style="font-size:11px;color:var(--ink-soft);">▸ Management ▸ Executive</span><span class="search" style="max-width:200px;margin:0 auto;padding:3px 10px;font-size:11px;">⌕ Search…</span><span class="av">PO</span></div>
+          <div style="flex:1;display:flex;overflow:hidden;">
+            <div style="width:138px;border-right:2px solid var(--line-soft);background:var(--panel);padding:9px;display:flex;flex-direction:column;gap:5px;"><div class="grp-label" style="margin:2px;">Overview</div><div class="nitem on" style="padding:4px 6px;font-size:10.5px;">Executive</div><div class="nitem" style="padding:4px 6px;font-size:10.5px;">Analytics</div><div class="nitem" style="padding:4px 6px;font-size:10.5px;">Finance</div><div class="grp-label" style="margin:2px;">Institution</div><div class="nitem" style="padding:4px 6px;font-size:10.5px;">Campuses</div><div class="nitem" style="padding:4px 6px;font-size:10.5px;">Staff</div></div>
+            <div style="flex:1;padding:10px;display:flex;flex-direction:column;gap:8px;overflow:hidden;">
+              <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:7px;"><div class="kpi-card" style="padding:7px;"><span class="lab">Enrol</span><span class="val" style="font-size:19px;">1,284</span></div><div class="kpi-card" style="padding:7px;"><span class="lab">Att.</span><span class="val" style="font-size:19px;">94%</span></div><div class="kpi-card" style="padding:7px;"><span class="lab">Fees</span><span class="val" style="font-size:19px;">82%</span></div><div class="kpi-card" style="padding:7px;"><span class="lab">Ratio</span><span class="val" style="font-size:19px;">1:18</span></div></div>
+              <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px;flex:1;">
+                <div class="card"><span class="skel" style="width:35%"></span><div class="chart-bars" style="height:90px;"><i style="height:40%"></i><i style="height:50%"></i><i style="height:58%"></i><i style="height:64%"></i><i style="height:72%"></i><i style="height:80%"></i><i class="hl" style="height:90%"></i></div></div>
+                <div class="card" style="align-items:center;justify-content:center;"><div class="donut" style="width:84px;height:84px;"><span class="dc" style="font-size:15px;">94%</span></div></div>
+              </div>
+              <div class="card" style="padding:8px;"><span class="skel sm" style="width:30%;margin-bottom:6px;"></span><div style="display:flex;gap:14px;font-size:10px;color:var(--ink-soft);"><span>Main 642</span><span>North 418</span><span>West 224</span></div></div>
+            </div>
+            <div style="width:118px;border-left:2px solid var(--line-soft);background:var(--panel);padding:9px;display:flex;flex-direction:column;gap:7px;"><b style="font-family:'Caveat';font-size:13px;">✦ Insights</b><div class="insight-row" style="padding:6px 0;"><span class="spark" style="width:22px;height:22px;font-size:11px;">▼</span><div class="it" style="font-size:9.5px;">West fees</div></div><div class="insight-row" style="padding:6px 0;"><span class="spark" style="width:22px;height:22px;font-size:11px;">▲</span><div class="it" style="font-size:9.5px;">Y10 up</div></div></div>
+          </div>
+        </div>
+        <div class="bpcap"><b>Large desktop</b><small>1440px +</small>multi-panel · dense · viz-forward</div>
+      </div>
+    </div>
+
+    <!-- adaptation rules -->
+    <div class="lead" style="margin-top:30px;">
+      <h2>What adapts</h2>
+      <span class="pill">the rules behind the reflow</span>
+    </div>
+    <div class="complib" style="grid-template-columns:repeat(auto-fit,minmax(240px,1fr));">
+      <div class="comp-card"><div class="cch"><b>Navigation</b></div><div class="ccb" style="font-size:12.5px;color:var(--ink);gap:8px;"><div>📱 Bottom nav (5 tabs)</div><div>▸ Icon-only sidebar</div><div>▸ Labelled sidebar</div><div>▸ Grouped sidebar + counts</div></div><div class="ccnote">Bottom bar on phones; a persistent sidebar from desktop up.</div></div>
+      <div class="comp-card"><div class="cch"><b>Columns</b></div><div class="ccb" style="font-size:12.5px;gap:8px;"><div>1 column · stacked cards</div><div>2 columns · content zones</div><div>3 columns + utility panel</div><div>4-col dense + side panels</div></div><div class="ccnote">Card grids step up 1 → 2 → 3 → 4 as width allows.</div></div>
+      <div class="comp-card"><div class="cch"><b>Density &amp; targets</b></div><div class="ccb" style="font-size:12.5px;gap:8px;"><div>Large touch targets (≥44px)</div><div>Mixed touch / pointer</div><div>Compact rows, hover states</div><div>Dense tables, keyboard-first</div></div><div class="ccnote">Touch-first shrinks to information-dense as input shifts to mouse + keys.</div></div>
+      <div class="comp-card"><div class="cch"><b>Detail pattern</b></div><div class="ccb" style="font-size:12.5px;gap:8px;"><div>Full-screen sheet / push</div><div>Slide-over drawer</div><div>Inline inspector panel</div><div>Persistent master–detail</div></div><div class="ccnote">A record opens fuller and more in-place the more room there is.</div></div>
+    </div>
+
+    <div class="notes" style="margin-top:18px;">
+      <div class="note"><span class="n">✦</span><div><b>Constant across all four</b><p>Same data layer, same brand, same component vocabulary. Only layout, navigation and density change — never the meaning.</p></div></div>
+      <div class="note"><span class="n">↔</span><div><b>Context of use drives it</b><p>Phones optimise for quick actions in motion; large displays optimise for dense analysis at a desk. The breakpoints encode that intent.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       COMPONENT LIBRARY
+       ============================================================ -->
+  <section class="layout" id="components">
+    <div class="lead">
+      <h2>Component library</h2>
+      <span class="pill">the shared kit</span>
+      <p>The reusable parts every screen is assembled from — each works in light/dark, at any density, on touch or pointer. Tuned in the Tweaks panel; these are the wireframe primitives, not final styling.</p>
+    </div>
+
+    <div class="complib">
+
+      <!-- 13 · bottom nav -->
+      <div class="comp-card">
+        <div class="cch"><b>Bottom navigation</b><small>mobile · 4–5 tabs</small></div>
+        <div class="ccb">
+          <div class="phone sm" style="width:100%;height:auto;border-radius:14px;">
+            <div class="botnav" style="border-top:none;border-radius:0;">
+              <div class="bi on"><span class="ti"></span>Home</div>
+              <div class="bi"><span class="ti"></span>Time</div>
+              <div class="bi"><span class="ti"></span>Tasks</div>
+              <div class="bi"><span class="ti"></span>Tutor</div>
+              <div class="bi"><span class="ti"></span>More</div>
+            </div>
+          </div>
+        </div>
+        <div class="ccnote">Thumb-reachable, persistent, role-aware labels. Active tab carries the accent.</div>
+      </div>
+
+      <!-- 14 · sidebar nav -->
+      <div class="comp-card">
+        <div class="cch"><b>Sidebar navigation</b><small>web · grouped</small></div>
+        <div class="ccb">
+          <div class="minibar">
+            <div class="mb-nav">
+              <div class="grp-label" style="margin:0 0 2px;">Records</div>
+              <div class="nitem on" style="padding:5px 7px;font-size:12px;"><span class="ti" style="width:13px;height:13px;"></span>Directory<span class="cnt">1.2k</span></div>
+              <div class="nitem" style="padding:5px 7px;font-size:12px;"><span class="ti" style="width:13px;height:13px;"></span>Attendance</div>
+              <div class="grp-label" style="margin:4px 0 2px;">Manage</div>
+              <div class="nitem" style="padding:5px 7px;font-size:12px;"><span class="ti" style="width:13px;height:13px;"></span>Admissions<span class="cnt">12</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="ccnote">Grouped, collapsible list with counts. Collapses to an icon-only sidebar when width is tight.</div>
+      </div>
+
+      <!-- 15 · dashboard cards -->
+      <div class="comp-card">
+        <div class="cch"><b>Dashboard cards</b><small>KPI · chart · list</small></div>
+        <div class="ccb">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <div class="kpi-card"><span class="lab">Attendance</span><span class="val">94%</span><span class="tr">▲ 1.1%</span></div>
+            <div class="kpi-card"><span class="lab">Fees</span><span class="val">82%</span><span class="tr down">▼ 3%</span></div>
+          </div>
+          <div class="card"><div class="ch"><span class="dot"></span><b>Trend</b><span class="grip">⠿</span></div><div class="chart-bars" style="height:54px;"><i style="height:40%"></i><i style="height:60%"></i><i class="hl" style="height:88%"></i><i style="height:55%"></i><i style="height:70%"></i></div></div>
+          <div class="card"><div class="ch"><span class="dot"></span><b>Needs attention</b></div><div class="attn-row"><span class="ic warn">!</span><div class="tx">Lab report due<small>tomorrow 5pm</small></div><span class="go">›</span></div></div>
+        </div>
+        <div class="ccnote">KPI (value + delta), chart, and list cards — draggable on the widget canvas.</div>
+      </div>
+
+      <!-- 16 · notification cards -->
+      <div class="comp-card">
+        <div class="cch"><b>Notification cards</b><small>4 priority tiers</small></div>
+        <div class="ccb">
+          <div class="notif critcard"><span class="pri crit">⚠</span><div class="ntx"><b>School closed</b><p>Critical · acknowledge</p></div></div>
+          <div class="notif"><span class="pri high">!</span><div class="ntx"><b>Fee deadline</b><p>High · 6 days</p></div><span class="unread"></span></div>
+          <div class="notif read"><span class="pri med">▤</span><div class="ntx"><b>New grade</b><p>Medium · Biology A</p></div></div>
+          <div class="notif read"><span class="pri low">◷</span><div class="ntx"><b>Sports day moved</b><p>Low · Friday</p></div></div>
+        </div>
+        <div class="ccnote">Critical → high → medium → low. Unread dot, acknowledge action on critical.</div>
+      </div>
+
+      <!-- 17 · data tables -->
+      <div class="comp-card" style="grid-column:span 2;">
+        <div class="cch"><b>Data tables</b><small>web · sortable · multi-select</small></div>
+        <div class="ccb">
+          <div class="bulkbar" style="margin-bottom:0;"><span class="cnt2">2</span> selected <span class="sp"><span class="btn" style="padding:3px 10px;">✉ Message</span><span class="btn" style="padding:3px 10px;">⎙ Export</span></span></div>
+          <div class="linetbl-wrap">
+            <table class="tbl">
+              <thead><tr><th style="width:28px;"><span class="rowsel on">✓</span></th><th>Student ▾</th><th>Class</th><th>Attendance</th><th>Fees</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td><span class="rowsel on">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">AB</span> Ada Bello</td><td>10B</td><td>96%</td><td><span class="statbadge ok">Paid</span></td><td><span class="chip ok">Active</span></td></tr>
+                <tr><td><span class="rowsel on">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">CO</span> Chidi Obi</td><td>10B</td><td>92%</td><td><span class="statbadge warn">₦85k</span></td><td><span class="chip ok">Active</span></td></tr>
+                <tr><td><span class="rowsel">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">EN</span> Ene Nuhu</td><td>9A</td><td>88%</td><td><span class="statbadge ok">Paid</span></td><td><span class="chip">On leave</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        <div class="ccnote">Avatar cells, status badges, sortable headers, checkbox select feeding the bulk action bar. Sticky header &amp; frozen first column for wide grids.</div>
+      </div>
+
+      <!-- 18 · offline banner -->
+      <div class="comp-card">
+        <div class="cch"><b>Offline banner</b><small>connection states</small></div>
+        <div class="ccb">
+          <div class="offbanner"><span class="od"></span><div><b>Offline</b><small>Updated 12 min ago</small></div><span class="rf">↻</span></div>
+          <div class="offbanner amber"><span class="od"></span><div><b>3 changes queued</b><small>Sends on reconnect</small></div></div>
+          <div class="offbanner ok"><span class="od"></span><div><b>Back online — syncing</b><small>3 of 4 done</small></div></div>
+        </div>
+        <div class="ccnote">Red = offline, amber = pending, accent = reconnecting. Always carries a timestamp.</div>
+      </div>
+
+      <!-- 19 · quick action menu -->
+      <div class="comp-card">
+        <div class="cch"><b>Quick action menu</b><small>mobile · FAB</small></div>
+        <div class="ccb" style="position:relative;min-height:200px;align-items:flex-end;">
+          <div class="qmenu" style="position:absolute;right:14px;bottom:74px;">
+            <div class="qrow"><span class="ql">Scan / upload</span><span class="qb">⊞</span></div>
+            <div class="qrow"><span class="ql">Voice note</span><span class="qb">♪</span></div>
+            <div class="qrow"><span class="ql">Ask tutor</span><span class="qb">✦</span></div>
+          </div>
+          <div class="fab" style="position:absolute;right:14px;bottom:12px;">＋</div>
+        </div>
+        <div class="ccnote">The FAB fans into context actions — camera, voice, tutor, message — over a dim scrim.</div>
+      </div>
+
+      <!-- 20 · capability chips -->
+      <div class="comp-card">
+        <div class="cch"><b>Device capabilities</b><small>PWA surfaces</small></div>
+        <div class="ccb">
+          <div class="caps">
+            <span class="cap"><span class="cg">⊞</span> Camera upload</span>
+            <span class="cap"><span class="cg">♪</span> Voice notes</span>
+            <span class="cap"><span class="cg">⌖</span> GPS attendance</span>
+            <span class="cap"><span class="cg">⊟</span> Biometric login</span>
+            <span class="cap"><span class="cg">◔</span> Push notifications</span>
+            <span class="cap"><span class="cg">⇩</span> Offline cache</span>
+          </div>
+        </div>
+        <div class="ccnote">Native-feeling PWA capabilities, exposed as small affordances where each is used.</div>
+      </div>
+
+    </div>
+
+    <div class="notes" style="margin-top:22px;">
+      <div class="note"><span class="n">✓</span><div><b>Tokenised &amp; themable</b><p>Every component reads the same colour, density and accent tokens — flip the Tweaks panel and the whole kit responds.</p></div></div>
+      <div class="note"><span class="n">✓</span><div><b>One vocabulary, two contexts</b><p>The same cards, tables and banners appear on mobile and web — sized for the context, never redesigned per platform.</p></div></div>
+    </div>
+  </section>
+
+  <p class="footnote">— one ecosystem, every screen · open Tweaks (toolbar) to switch theme, density, accent &amp; toggle annotations —</p>
+</div>
+
+<!-- ===================== TWEAKS ISLAND ===================== -->
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script>
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', 'false'); });
+      t.setAttribute('aria-selected', 'true');
+      var id = t.getAttribute('data-target');
+      document.querySelectorAll('.layout').forEach(function (s) { s.classList.toggle('active', s.id === id); });
+    });
+  });
+</script>
+
+<script type="text/babel">
+  const DENSITY = { compact: 0.82, regular: 1, comfy: 1.15 };
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "dark": true,
+    "accent": "#4f6df5",
+    "density": "regular",
+    "annot": true
+  }/*EDITMODE-END*/;
+
+  function apply(t) {
+    const r = document.documentElement;
+    r.setAttribute('data-theme', t.dark ? 'dark' : 'light');
+    r.setAttribute('data-density', t.density);
+    r.setAttribute('data-annot', t.annot ? 'on' : 'off');
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--pad', String(DENSITY[t.density] || 1));
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(() => { apply(t); }, [t]);
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Appearance" />
+        <TweakToggle label="Dark mode" value={t.dark} onChange={(v) => setTweak('dark', v)} />
+        <TweakColor label="Accent" value={t.accent}
+          options={['#4f6df5', '#1f8a5b', '#c2452f', '#7a5ae0', '#0e7490']}
+          onChange={(v) => setTweak('accent', v)} />
+        <TweakSection label="Layout" />
+        <TweakRadio label="Density" value={t.density} options={['compact', 'regular', 'comfy']}
+          onChange={(v) => setTweak('density', v)} />
+        <TweakToggle label="Annotations" value={t.annot} onChange={(v) => setTweak('annot', v)} />
+      </TweaksPanel>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,16 +1,16 @@
 import type { Metadata } from 'next';
-import localFont from 'next/font/local';
+import { Geist, Geist_Mono } from 'next/font/google';
 
 import '@workspace/ui/globals.css';
 import { ThemeProvider } from './providers/theme-provider';
 import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
 
-const geistSans = localFont({
-  src: './fonts/GeistVF.woff',
+const geistSans = Geist({
+  subsets: ['latin'],
   variable: '--font-geist-sans',
 });
-const geistMono = localFont({
-  src: './fonts/GeistMonoVF.woff',
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
   variable: '--font-geist-mono',
 });
 

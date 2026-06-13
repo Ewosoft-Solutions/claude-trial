@@ -11,7 +11,6 @@
     "check-types": "tsc --noEmit"
   },
   "dependencies": {
-    "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@workspace/ui": "workspace:*",
     "class-variance-authority": "^0.7.1",
@@ -27,10 +26,8 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.15",
     "@types/node": "^22.18.12",
-    "@types/react": "19.1.0",
-    "@types/react-dom": "19.1.1",
-    "@workspace/api": "workspace:*",
-    "@workspace/database": "workspace:*",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/tailwind-config": "workspace:^",
     "@workspace/typescript-config": "workspace:*",

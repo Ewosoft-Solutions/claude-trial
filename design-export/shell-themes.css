@@ -1,0 +1,243 @@
+/* ============================================================
+   SchoolWithEase — Hi-Fi direction themes
+   Three temperaments of the same Layout A shell, light + dark.
+   Anchor accent: teal #0f766e · highlight cyan #0ea5e9
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   1 · BEACON — calm, trustworthy, institutional
+   ------------------------------------------------------------ */
+.shell[data-dir="beacon"] {
+  --pad: 1.05;
+  --font-body: "Hanken Grotesk", system-ui, sans-serif;
+  --font-display: "Hanken Grotesk", system-ui, sans-serif;
+  --tracking: 0;
+
+  --bg: #f3f7f6; --surface: #ffffff; --panel: #f9fbfb; --rail-bg: #eff4f3;
+  --elevated: #ffffff; --inset: #eef4f3; --hover: color-mix(in oklab, #0f766e 6%, transparent);
+
+  --ink: #112e2b; --ink-2: #47615d; --ink-3: #8aa19d;
+  --line: #e1eae8; --line-2: #eef3f2;
+
+  --accent: #0f766e; --accent-ink: #ffffff; --accent-2: #0ea5e9;
+  --accent-tint: color-mix(in oklab, #0f766e 10%, transparent);
+  --accent-border: color-mix(in oklab, #0f766e 88%, #000);
+  --chip-bg: color-mix(in oklab, #0f766e 7%, transparent);
+
+  --pos: #15966a; --neg: #d4543a; --warn: #cf8a26;
+
+  --radius: 12px; --radius-sm: 9px;
+  --mark-radius: 9px; --av-radius: 50%; --av-radius-lg: 14px; --bar-radius: 5px;
+  --nav-on-ink: var(--accent); --nav-on-bg: var(--accent-tint); --nav-bar-w: 3px;
+
+  --shadow-card: 0 1px 2px rgba(16,42,40,.05), 0 8px 22px -16px rgba(16,42,40,.30);
+  --shadow-btn: 0 1px 1.5px rgba(16,42,40,.07);
+  --shadow-accent: 0 3px 10px -3px color-mix(in oklab, #0f766e 55%, transparent);
+}
+.shell[data-dir="beacon"][data-theme="dark"] {
+  --bg: #0c1716; --surface: #14201e; --panel: #101b1a; --rail-bg: #0f1817;
+  --elevated: #14201e; --inset: #0f1b19; --hover: rgba(255,255,255,.05);
+  --ink: #e8f0ee; --ink-2: #9cb4b0; --ink-3: #6a847f;
+  --line: #21302d; --line-2: #1a2624;
+  --accent: #2cc9b4; --accent-ink: #052420; --accent-2: #38bdf8;
+  --accent-tint: color-mix(in oklab, #2cc9b4 15%, transparent);
+  --accent-border: color-mix(in oklab, #2cc9b4 70%, #000);
+  --chip-bg: color-mix(in oklab, #2cc9b4 12%, transparent);
+  --pos: #34d399; --neg: #f87171; --warn: #fbbf24;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.32), 0 10px 26px -16px rgba(0,0,0,.7);
+  --shadow-btn: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-accent: 0 3px 12px -3px color-mix(in oklab, #2cc9b4 45%, transparent);
+}
+
+/* ------------------------------------------------------------
+   2 · LEDGER — crisp, data-dense, productive (flat + hairline)
+   ------------------------------------------------------------ */
+.shell[data-dir="ledger"] {
+  --pad: 0.9;
+  --font-body: "Public Sans", system-ui, sans-serif;
+  --font-display: "Public Sans", system-ui, sans-serif;
+  --tracking: -0.003em;
+
+  --bg: #fbfbfa; --surface: #ffffff; --panel: #fafaf8; --rail-bg: #f6f6f3;
+  --elevated: #ffffff; --inset: #f3f3f1; --hover: rgba(20,22,20,.045);
+
+  --ink: #181a19; --ink-2: #5b625f; --ink-3: #969b97;
+  --line: #e5e6e3; --line-2: #f0f0ed;
+
+  --accent: #0f766e; --accent-ink: #ffffff; --accent-2: #0891b2;
+  --accent-tint: color-mix(in oklab, #0f766e 9%, transparent);
+  --accent-border: color-mix(in oklab, #0f766e 88%, #000);
+  --chip-bg: rgba(20,22,20,.05);
+
+  --pos: #0e8a5f; --neg: #c84a30; --warn: #b07415;
+
+  --radius: 7px; --radius-sm: 6px;
+  --mark-radius: 6px; --av-radius: 7px; --av-radius-lg: 9px; --bar-radius: 3px;
+  --nav-on-ink: var(--ink); --nav-on-bg: rgba(20,22,20,.055); --nav-bar-w: 2px;
+
+  --shadow-card: 0 1px 1px rgba(20,22,20,.025);
+  --shadow-btn: none;
+  --shadow-accent: none;
+}
+.shell[data-dir="ledger"][data-theme="dark"] {
+  --bg: #121313; --surface: #1a1b1b; --panel: #161717; --rail-bg: #161717;
+  --elevated: #1a1b1b; --inset: #161717; --hover: rgba(255,255,255,.05);
+  --ink: #ededeb; --ink-2: #a0a39f; --ink-3: #6b6e6a;
+  --line: #2a2b29; --line-2: #222322;
+  --accent: #29c6b1; --accent-ink: #04231f; --accent-2: #22d3ee;
+  --accent-tint: color-mix(in oklab, #29c6b1 13%, transparent);
+  --accent-border: color-mix(in oklab, #29c6b1 70%, #000);
+  --chip-bg: rgba(255,255,255,.06);
+  --nav-on-bg: rgba(255,255,255,.07);
+  --pos: #34d399; --neg: #f87171; --warn: #f5b942;
+  --shadow-card: 0 1px 1px rgba(0,0,0,.3);
+}
+
+/* ------------------------------------------------------------
+   3 · HARBOR — warm, human, approachable (rounded + airy)
+   ------------------------------------------------------------ */
+.shell[data-dir="harbor"] {
+  --pad: 1.04;
+  --font-body: "Figtree", system-ui, sans-serif;
+  --font-display: "Figtree", system-ui, sans-serif;
+  --tracking: 0;
+
+  --bg: #f7f4ef; --surface: #fffdfa; --panel: #faf6f0; --rail-bg: #f2eee6;
+  --elevated: #fffdfa; --inset: #f1ebe2; --hover: color-mix(in oklab, #0f766e 6%, transparent);
+
+  --ink: #2b2722; --ink-2: #6d665c; --ink-3: #a39b8e;
+  --line: #ece4d9; --line-2: #f3ece3;
+
+  --accent: #0f766e; --accent-ink: #ffffff; --accent-2: #ef9d2a;
+  --accent-tint: color-mix(in oklab, #0f766e 12%, transparent);
+  --accent-border: color-mix(in oklab, #0f766e 88%, #000);
+  --chip-bg: color-mix(in oklab, #0f766e 8%, transparent);
+
+  --pos: #1f9e6f; --neg: #e0654a; --warn: #df9226;
+
+  --radius: 16px; --radius-sm: 12px;
+  --mark-radius: 12px; --av-radius: 50%; --av-radius-lg: 16px; --bar-radius: 7px;
+  --nav-on-ink: #ffffff; --nav-on-bg: var(--accent); --nav-bar-w: 0px;
+
+  --shadow-card: 0 1px 2px rgba(60,48,32,.05), 0 12px 28px -18px rgba(60,48,32,.34);
+  --shadow-btn: 0 1px 2px rgba(60,48,32,.09);
+  --shadow-accent: 0 4px 13px -3px color-mix(in oklab, #0f766e 48%, transparent);
+}
+/* solid active pill needs a legible count badge (light + dark via --nav-on-ink) */
+.shell[data-dir="harbor"] .nitem.on .count {
+  color: var(--nav-on-ink);
+  background: color-mix(in oklab, var(--nav-on-ink) 20%, transparent);
+}
+.shell[data-dir="harbor"][data-theme="dark"] {
+  --bg: #19120c; --surface: #221a13; --panel: #1e160f; --rail-bg: #1c140d;
+  --elevated: #221a13; --inset: #1c140d; --hover: rgba(255,255,255,.05);
+  --ink: #f1ebe2; --ink-2: #b6ab9b; --ink-3: #867a6a;
+  --line: #342a20; --line-2: #29211a;
+  --accent: #2cc9b4; --accent-ink: #052420; --accent-2: #f7b545;
+  --accent-tint: color-mix(in oklab, #2cc9b4 15%, transparent);
+  --accent-border: color-mix(in oklab, #2cc9b4 70%, #000);
+  --chip-bg: color-mix(in oklab, #2cc9b4 11%, transparent);
+  --nav-on-ink: #052420; --nav-on-bg: var(--accent);
+  --pos: #34d399; --neg: #f87171; --warn: #f7b545;
+  --shadow-card: 0 1px 2px rgba(0,0,0,.34), 0 12px 30px -18px rgba(0,0,0,.7);
+  --shadow-btn: 0 1px 2px rgba(0,0,0,.3);
+  --shadow-accent: 0 4px 14px -3px color-mix(in oklab, #2cc9b4 45%, transparent);
+}
+
+/* ------------------------------------------------------------
+   4 · AURORA — playful, neon, glassmorphic (dark only)
+   Hand-drawn Caveat display · gradient aurora bg · area charts
+   Blend: neon blue · blurple · pink · green
+   ------------------------------------------------------------ */
+.shell[data-dir="aurora"] {
+  --pad: 1.04;
+  --font-body: "Plus Jakarta Sans", system-ui, sans-serif;
+  --font-display: "Caveat", "Plus Jakarta Sans", cursive;
+  --tracking: 0;
+
+  --bg: #07060f;
+  --surface: rgba(255,255,255,.045);
+  --panel: rgba(255,255,255,.028);
+  --rail-bg: rgba(255,255,255,.022);
+  --elevated: rgba(16,14,34,.5);
+  --inset: rgba(255,255,255,.05);
+  --hover: rgba(255,255,255,.065);
+
+  --ink: #eef0ff; --ink-2: #b7bae4; --ink-3: #8084b6;
+  --line: rgba(255,255,255,.10); --line-2: rgba(255,255,255,.055);
+
+  --accent: #5b8cff; --accent-ink: #06081f; --accent-2: #ff6fae;
+  --accent-tint: rgba(91,140,255,.16);
+  --accent-border: color-mix(in oklab, #5b8cff 60%, transparent);
+  --chip-bg: rgba(255,255,255,.06);
+
+  --pos: #2ee6a6; --neg: #ff6b81; --warn: #ffce5c;
+
+  --radius: 18px; --radius-sm: 12px;
+  --mark-radius: 10px; --av-radius: 50%; --av-radius-lg: 18px; --bar-radius: 6px;
+  --nav-on-ink: #ffffff; --nav-on-bg: transparent; --nav-bar-w: 0px;
+
+  --shadow-card: 0 1px 0 rgba(255,255,255,.05) inset, 0 18px 40px -24px rgba(0,0,0,.85);
+  --shadow-btn: none;
+  --shadow-accent: 0 6px 22px -6px color-mix(in oklab, #5b8cff 60%, transparent);
+
+  /* aurora field + glass surfaces (dark) */
+  --aurora-field:
+    radial-gradient(58% 52% at 10% -4%,  rgba(74,120,255,.55)  0%, transparent 58%),
+    radial-gradient(52% 56% at 92% 4%,   rgba(150,92,255,.52)  0%, transparent 60%),
+    radial-gradient(48% 58% at 86% 104%, rgba(255,79,158,.40)  0%, transparent 58%),
+    radial-gradient(54% 62% at 4% 102%,  rgba(35,224,168,.32)  0%, transparent 58%),
+    linear-gradient(160deg, #0c0926 0%, #08060f 52%, #0b0614 100%);
+  --glass-topbar: rgba(12,10,28,.62);
+  --glass-rail: rgba(255,255,255,.025);
+  --glass-nav: rgba(10,9,24,.42);
+  --glass-inspector: rgba(10,9,24,.44);
+  --glass-status: rgba(10,9,24,.5);
+  --glass-card: linear-gradient(165deg, rgba(255,255,255,.075), rgba(255,255,255,.028));
+  --glass-inset: 0 1px 0 rgba(255,255,255,.07) inset, 0 22px 48px -28px rgba(0,0,0,.9);
+  --grain: rgba(255,255,255,.05); --grain-op: .35;
+  --h1-grad: linear-gradient(92deg, #a9c2ff, #d9b8ff 55%, #ffc2e0);
+  --float-ink: #ffffff; --float-shadow: 0 2px 10px rgba(91,140,255,.8);
+  --dot-core: #ffffff;
+}
+
+.shell[data-dir="aurora"][data-theme="light"] {
+  --bg: #eceefc;
+  --surface: rgba(255,255,255,.72);
+  --panel: rgba(255,255,255,.5);
+  --rail-bg: rgba(255,255,255,.42);
+  --elevated: rgba(255,255,255,.8);
+  --inset: rgba(255,255,255,.62);
+  --hover: rgba(40,40,90,.05);
+
+  --ink: #191b38; --ink-2: #4c5080; --ink-3: #8a8fbb;
+  --line: rgba(40,40,90,.12); --line-2: rgba(40,40,90,.06);
+
+  --accent: #4f6df5; --accent-ink: #ffffff; --accent-2: #ff5fa8;
+  --accent-tint: rgba(79,109,245,.13);
+  --accent-border: color-mix(in oklab, #4f6df5 60%, transparent);
+  --chip-bg: rgba(40,40,90,.05);
+
+  --pos: #12b886; --neg: #f0506e; --warn: #d98a25;
+
+  --shadow-card: 0 1px 0 rgba(255,255,255,.7) inset, 0 18px 38px -24px rgba(40,40,100,.4);
+  --shadow-accent: 0 6px 22px -6px color-mix(in oklab, #4f6df5 55%, transparent);
+
+  --aurora-field:
+    radial-gradient(58% 52% at 10% -4%,  rgba(99,140,255,.40)  0%, transparent 60%),
+    radial-gradient(52% 56% at 92% 4%,   rgba(168,120,255,.38)  0%, transparent 62%),
+    radial-gradient(48% 58% at 86% 104%, rgba(255,130,190,.34)  0%, transparent 60%),
+    radial-gradient(54% 62% at 4% 102%,  rgba(70,225,180,.30)  0%, transparent 60%),
+    linear-gradient(160deg, #eef0ff 0%, #f4f0ff 52%, #fdeef6 100%);
+  --glass-topbar: rgba(255,255,255,.72);
+  --glass-rail: rgba(255,255,255,.4);
+  --glass-nav: rgba(255,255,255,.48);
+  --glass-inspector: rgba(255,255,255,.5);
+  --glass-status: rgba(255,255,255,.58);
+  --glass-card: linear-gradient(165deg, rgba(255,255,255,.92), rgba(255,255,255,.62));
+  --glass-inset: 0 1px 0 rgba(255,255,255,.8) inset, 0 22px 44px -28px rgba(40,40,100,.4);
+  --grain: rgba(60,60,120,.05); --grain-op: .3;
+  --h1-grad: linear-gradient(92deg, #4f6df5, #a855f7 55%, #ff5fa8);
+  --float-ink: #2a2d55; --float-shadow: 0 2px 10px rgba(120,140,255,.5);
+  --dot-core: #4f6df5;
+}

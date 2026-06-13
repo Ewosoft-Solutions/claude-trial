@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="regular" data-annot="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchoolWithEase — Mobile Experience Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sketch.css">
+<link rel="stylesheet" href="hybrid.css">
+</head>
+<body>
+<div class="page">
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <div class="masthead">
+    <div>
+      <h1>School<span class="tm">With</span>Ease <span style="font-family:'Kalam';font-size:18px;color:var(--ink-soft);">— mobile experience</span></h1>
+      <p>The PWA side of one platform. <b>Mobile is for acting quickly</b> — daily activities, notifications, communication and the AI Tutor, built for thumbs and patchy connections. Bottom nav, FABs, sheets and offline-first throughout.</p>
+    </div>
+    <div class="kit-meta">low-fi · v1<br>act fast, on the go</div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===================== TABS ===================== -->
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-target="student">Student<b>dashboard · tutor</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="parent">Parent<b>child switcher · fees</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="teacher">Teacher<b>quick actions</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="notif">Notifications<b>priority inbox</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="offline">Offline<b>cached · syncing</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="tutor">AI Tutor<b>entry flow</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="states">UI states<b>empty · loading · error</b></button>
+  </div>
+
+  <!-- ============================================================
+       STUDENT
+       ============================================================ -->
+  <section class="layout active" id="student">
+    <div class="lead">
+      <h2>Student · daily dashboard</h2>
+      <span class="pill">home · timetable · tasks · tutor</span>
+      <p>Everything a student needs before first bell: today's schedule, what's due, attendance, and one tap to the Study Tutor. The FAB is the quick-capture for homework photos &amp; voice notes.</p>
+    </div>
+
+    <div class="phones">
+      <!-- 1 · dashboard -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">8:12</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar">
+          <div class="ava">M</div>
+          <div class="greet"><b>Hi Maya 👋</b><small>Term 3 · Greenfield Academy</small></div>
+          <span class="sp"></span>
+          <div class="bell">◔<span class="bdg">4</span></div>
+        </div>
+        <div class="pbody">
+          <div class="pkpis">
+            <div class="kpi-card"><span class="lab">Attendance</span><span class="val">96%</span><span class="tr">▲ on track</span></div>
+            <div class="kpi-card"><span class="lab">GPA · term</span><span class="val">3.7</span><span class="tr">▲ 0.2</span></div>
+          </div>
+          <div class="psec-h"><b>Today</b><span class="more">Timetable ›</span></div>
+          <div class="box" style="padding:11px 13px;">
+            <div class="sched-row"><span class="tm">08:30</span><span class="bar2"></span><div class="tx" style="flex:1"><b style="font-size:13px;">Biology · Osmosis</b><small style="color:var(--ink-faint);font-size:11px;display:block;">Lab 2 · Mr Bello</small></div></div>
+            <div class="sched-row"><span class="tm">10:00</span><span class="bar2"></span><div class="tx" style="flex:1"><b style="font-size:13px;">Maths · Algebra</b><small style="color:var(--ink-faint);font-size:11px;display:block;">Room 14</small></div></div>
+            <div class="sched-row dim"><span class="tm">11:00</span><span class="bar2"></span><div class="tx" style="flex:1"><b style="font-size:13px;">Physics · virtual</b><small style="color:var(--ink-faint);font-size:11px;display:block;">Join from app</small></div></div>
+          </div>
+          <div class="psec-h"><b>Due soon</b><span class="more">4 items</span></div>
+          <div class="attn-row"><span class="ic warn">!</span><div class="tx">Biology lab report<small>Due tomorrow · 5pm</small></div><span class="go">›</span></div>
+          <div class="attn-row"><span class="ic">▤</span><div class="tx">Maths problem set<small>Due in 3 days</small></div><span class="go">›</span></div>
+          <div class="fab pulse">＋</div>
+        </div>
+        <div class="botnav">
+          <div class="bi on"><span class="ti"></span>Home</div>
+          <div class="bi"><span class="ti"></span>Timetable</div>
+          <div class="bi"><span class="ti"></span>Tasks</div>
+          <div class="bi"><span class="ti"></span>Tutor</div>
+          <div class="bi"><span class="ti"></span>More</div>
+        </div>
+        <span class="mark" style="top:60px; left:14px;">1</span>
+        <span class="mark" style="bottom:150px; right:6px;">2</span>
+        <span class="mark" style="bottom:14px; left:50%; transform:translateX(-90px);">3</span>
+      </div>
+
+      <!-- 2 · grades detail (swipe target) -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">8:12</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar">
+          <span class="ic2">‹</span>
+          <div class="greet"><b style="font-size:22px;">Grades</b><small>Term 3 · 8 subjects</small></div>
+          <span class="sp"></span>
+          <span class="ic2">⤓</span>
+        </div>
+        <div class="pbody tight">
+          <div class="seg" style="align-self:stretch;"><button aria-pressed="true">Subjects</button><button aria-pressed="false">Trend</button><button aria-pressed="false">Feedback</button></div>
+          <div class="card"><div class="ch"><span class="dot"></span><b>Biology</b><span class="statbadge ok" style="margin-left:auto;">A · 92</span></div><div class="chart-bars" style="height:54px;"><i style="height:50%"></i><i style="height:62%"></i><i style="height:70%"></i><i class="hl" style="height:92%"></i></div></div>
+          <div class="card"><div class="ch"><span class="dot"></span><b>Mathematics</b><span class="statbadge ok" style="margin-left:auto;">B+ · 86</span></div><div class="chart-bars" style="height:54px;"><i style="height:60%"></i><i style="height:55%"></i><i style="height:74%"></i><i class="hl" style="height:80%"></i></div></div>
+          <div class="card"><div class="ch"><span class="dot"></span><b>Physics</b><span class="statbadge warn" style="margin-left:auto;">C · 71</span></div><div class="chart-bars" style="height:54px;"><i style="height:70%"></i><i style="height:55%"></i><i style="height:48%"></i><i class="hl" style="height:62%"></i></div></div>
+          <div class="boxs" style="padding:11px;display:flex;gap:9px;align-items:center;"><span class="spark">✦</span><div style="font-size:12px;">Ask the Tutor to explain your Physics dip<small style="display:block;color:var(--ink-faint);font-size:11px;margin-top:2px;">grounded in your last 3 assessments</small></div></div>
+        </div>
+        <div class="botnav">
+          <div class="bi"><span class="ti"></span>Home</div>
+          <div class="bi"><span class="ti"></span>Timetable</div>
+          <div class="bi on"><span class="ti"></span>Tasks</div>
+          <div class="bi"><span class="ti"></span>Tutor</div>
+          <div class="bi"><span class="ti"></span>More</div>
+        </div>
+        <span class="scrawl" style="top:96px; right:-6px; transform:rotate(6deg);">swipe ↔ subjects</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Glanceable header</b><p>Avatar, greeting, term context and a notification bell with unread count — the same masthead on every mobile surface.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Quick-capture FAB</b><p>The pulsing action button opens camera upload, voice note or "ask the tutor" — the one-tap things students do most.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Five-tab bottom nav</b><p>Home · Timetable · Tasks · Tutor · More. Thumb-reachable, persistent, and role-aware (labels change per user type).</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PARENT
+       ============================================================ -->
+  <section class="layout" id="parent">
+    <div class="lead">
+      <h2>Parent · multi-child home</h2>
+      <span class="pill">child switcher · fees · alerts</span>
+      <p>A parent watching two children needs to switch context instantly, see progress, settle fees and not miss an attendance alert. The child switcher pins to the top of every parent screen.</p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">7:48</span><span class="sig">●●● 4G <span class="bat"></span></span></div>
+        <div class="appbar">
+          <div class="ava">O</div>
+          <div class="greet"><b>Mrs Okoro</b><small>2 children · Greenfield</small></div>
+          <span class="sp"></span>
+          <div class="bell">◔<span class="bdg">2</span></div>
+        </div>
+        <div class="pbody">
+          <div class="kidtabs">
+            <div class="kidtab on"><span class="av">M</span> Maya · Y10</div>
+            <div class="kidtab"><span class="av">A</span> Adam · Y7</div>
+          </div>
+          <div class="pkpis">
+            <div class="kpi-card"><span class="lab">Attendance</span><span class="val">96%</span><span class="tr">▲ good</span></div>
+            <div class="kpi-card"><span class="lab">Avg grade</span><span class="val">B+</span><span class="tr">▲ rising</span></div>
+          </div>
+          <div class="offbanner" style="border-color:var(--note);background:color-mix(in srgb,var(--note) 8%,transparent);">
+            <span class="od"></span>
+            <div><b>Late arrival logged</b><small>Maya · today 08:41 · Period 1</small></div>
+            <span class="rf">View</span>
+          </div>
+          <div class="panel" style="padding:12px 13px;">
+            <div class="ph"><b>Fees</b><span class="more">Term 3</span></div>
+            <div class="kpi-row" style="align-items:baseline;gap:8px;"><span class="kpi" style="font-size:30px;">₦85k</span><span class="sub" style="color:var(--ink-soft);font-size:12px;">due in 6 days</span></div>
+            <div class="prog" style="margin:9px 0;"><i style="width:64%"></i></div>
+            <div style="display:flex;gap:8px;"><span class="btn pri" style="flex:1;text-align:center;">Pay now</span><span class="btn" style="flex:1;text-align:center;">Plan</span></div>
+          </div>
+          <div class="psec-h"><b>From school</b><span class="more">All ›</span></div>
+          <div class="feed-row"><span class="dotc"></span><div class="ft">Sports day moved to Fri 14th<small>Announcement · 1h ago</small></div></div>
+          <div class="fab">✎</div>
+        </div>
+        <div class="botnav">
+          <div class="bi on"><span class="ti"></span>Home</div>
+          <div class="bi"><span class="ti"></span>Children</div>
+          <div class="bi"><span class="ti"></span>Pay</div>
+          <div class="bi"><span class="ti"></span>Messages</div>
+          <div class="bi"><span class="ti"></span>More</div>
+        </div>
+        <span class="mark" style="top:104px; left:14px;">1</span>
+        <span class="mark" style="top:300px; right:6px;">2</span>
+      </div>
+
+      <!-- payment sheet -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">7:49</span><span class="sig">●●● 4G <span class="bat"></span></span></div>
+        <div class="appbar">
+          <div class="ava">O</div>
+          <div class="greet"><b>Pay fees</b><small>Maya Okoro · Y10</small></div>
+          <span class="sp"></span>
+          <span class="ic2">✕</span>
+        </div>
+        <div class="pbody" style="filter:saturate(.6) opacity(.5);">
+          <div class="pkpis"><div class="kpi-card"><span class="lab">Balance</span><span class="val">₦85k</span></div><div class="kpi-card"><span class="lab">Paid</span><span class="val">₦150k</span></div></div>
+          <div class="skel" style="width:80%"></div><div class="skel" style="width:60%"></div>
+        </div>
+        <div class="sheet" style="bottom:0;">
+          <div class="handle"></div>
+          <div style="font-family:'Caveat';font-size:22px;margin-bottom:4px;">Confirm payment</div>
+          <div class="boxs" style="padding:11px;margin-bottom:11px;">
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;"><span style="color:var(--ink-soft)">Term 3 tuition</span><b>₦85,000</b></div>
+            <div style="display:flex;justify-content:space-between;font-size:13px;padding:4px 0;border-top:2px dashed var(--line-soft);"><span style="color:var(--ink-soft)">Method</span><span>Card · 4291</span></div>
+          </div>
+          <div class="caps" style="margin-bottom:12px;"><span class="cap"><span class="cg">⊞</span> Face ID to confirm</span></div>
+          <span class="btn pri" style="display:block;text-align:center;padding:11px;">Pay ₦85,000</span>
+        </div>
+        <span class="mark" style="bottom:250px; left:14px;">3</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Child switcher</b><p>Pinned pills swap the entire screen's context between children. Everything below — grades, fees, alerts — follows the selection.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Fees front-and-centre</b><p>Outstanding balance, due date and a one-tap Pay. Payment plans available for parents who need them.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Biometric confirm</b><p>Sheets rise for focused tasks; Face ID / fingerprint confirms sensitive actions like payment without a password.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       TEACHER
+       ============================================================ -->
+  <section class="layout" id="teacher">
+    <div class="lead">
+      <h2>Teacher · on-the-go quick actions</h2>
+      <span class="pill">attendance · review · message</span>
+      <p>Mobile for teachers is for the corridor and the classroom door, not deep admin (that lives on web). Big touch targets for the three things done between lessons: register, review, reach out.</p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">9:58</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar">
+          <div class="ava">B</div>
+          <div class="greet"><b>Mr Bello</b><small>Now: 10B · Biology · Lab 2</small></div>
+          <span class="sp"></span>
+          <div class="bell">◔<span class="bdg">3</span></div>
+        </div>
+        <div class="pbody">
+          <div class="qa-grid">
+            <div class="qa pri"><span class="ic">☑</span> Take attendance</div>
+            <div class="qa"><span class="ic">✎</span> Review work</div>
+            <div class="qa"><span class="ic">✉</span> Message class</div>
+            <div class="qa"><span class="ic">✦</span> AI insights</div>
+          </div>
+          <div class="psec-h"><b>10B · today</b><span class="more">Class ›</span></div>
+          <div class="pkpis three">
+            <div class="kpi-card"><span class="lab">Present</span><span class="val">27</span></div>
+            <div class="kpi-card"><span class="lab">Absent</span><span class="val">2</span></div>
+            <div class="kpi-card"><span class="lab">To grade</span><span class="val">14</span></div>
+          </div>
+          <div class="psec-h"><b>Needs grading</b><span class="more">14</span></div>
+          <div class="attn-row"><span class="ic">▤</span><div class="tx">Osmosis worksheet<small>22 submitted · 14 ungraded</small></div><span class="go">›</span></div>
+          <div class="attn-row"><span class="ic warn">!</span><div class="tx">Lab safety quiz<small>Closes 5pm today</small></div><span class="go">›</span></div>
+          <div class="fab pulse">☑</div>
+        </div>
+        <div class="botnav">
+          <div class="bi on"><span class="ti"></span>Home</div>
+          <div class="bi"><span class="ti"></span>Classes</div>
+          <div class="bi"><span class="ti"></span>Messages</div>
+          <div class="bi"><span class="ti"></span>Tools</div>
+          <div class="bi"><span class="ti"></span>More</div>
+        </div>
+        <span class="mark" style="top:104px; left:14px;">1</span>
+        <span class="mark" style="bottom:150px; right:6px;">2</span>
+      </div>
+
+      <!-- attendance roster sheet -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">9:59</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar">
+          <span class="ic2">‹</span>
+          <div class="greet"><b style="font-size:22px;">Attendance</b><small>10B · Biology · 29</small></div>
+          <span class="sp"></span>
+          <span class="ic2">⊙</span>
+        </div>
+        <div class="pbody tight">
+          <div class="offbanner ok"><span class="od"></span><div><b>GPS verified</b><small>You're in Lab 2 · register unlocked</small></div></div>
+          <div class="roster-row"><span class="av">AB</span><div style="flex:1;font-size:13px;">Ada Bello</div><div class="toggle2"><span class="psel">P</span><span>A</span></div></div>
+          <div class="roster-row"><span class="av">CO</span><div style="flex:1;font-size:13px;">Chidi Obi</div><div class="toggle2"><span class="psel">P</span><span>A</span></div></div>
+          <div class="roster-row"><span class="av">EN</span><div style="flex:1;font-size:13px;">Ene Nuhu</div><div class="toggle2"><span>P</span><span class="asel">A</span></div></div>
+          <div class="roster-row"><span class="av">FK</span><div style="flex:1;font-size:13px;">Femi Kazeem</div><div class="toggle2"><span class="psel">P</span><span>A</span></div></div>
+          <div class="roster-row"><span class="av">GU</span><div style="flex:1;font-size:13px;">Grace Udo</div><div class="toggle2"><span class="psel">P</span><span>A</span></div></div>
+        </div>
+        <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 14px;border-top:2px solid var(--line);background:var(--frame);display:flex;gap:9px;align-items:center;">
+          <span style="font-size:12px;color:var(--ink-soft);">27 present · 2 absent</span>
+          <span class="btn pri" style="margin-left:auto;">Submit register</span>
+        </div>
+        <span class="mark" style="top:96px; left:14px;">3</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Action-first grid</b><p>The teacher's mobile home is verbs, not data. Take attendance is the primary, everything else one tap away.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Class in context</b><p>The header shows the lesson happening right now; the FAB defaults to the most likely action — opening the register.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>GPS-aware register</b><p>Location confirms the teacher is in the room before unlocking attendance. Tap P/A per pupil, submit once.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       NOTIFICATIONS
+       ============================================================ -->
+  <section class="layout" id="notif">
+    <div class="lead">
+      <h2>Notification center</h2>
+      <span class="pill">critical → low · acknowledge</span>
+      <p>One inbox, four priority levels. Critical notices (closures, safety) demand an acknowledgement; everything else is filterable and marks read on open. Same model powers the web panel.</p>
+    </div>
+
+    <div class="phones">
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">7:31</span><span class="sig">●●● 4G <span class="bat"></span></span></div>
+        <div class="appbar">
+          <div class="greet"><b style="font-size:23px;">Notifications</b><small>6 unread</small></div>
+          <span class="sp"></span>
+          <span class="ic2">⊜</span>
+        </div>
+        <div class="pbody tight">
+          <div class="fchips">
+            <span class="fchip on">All <span class="ct">12</span></span>
+            <span class="fchip">Critical <span class="ct">1</span></span>
+            <span class="fchip">High <span class="ct">3</span></span>
+            <span class="fchip">Medium</span>
+            <span class="fchip">Low</span>
+          </div>
+          <div class="notif critcard">
+            <span class="pri crit">⚠</span>
+            <div class="ntx"><b>School closed tomorrow</b><p>Storm warning. All classes online from 9am. Tap to acknowledge.</p>
+              <div class="ack"><span class="btn pri" style="padding:4px 11px;">Acknowledge</span><span class="btn" style="padding:4px 11px;">Details</span></div>
+            </div>
+          </div>
+          <div class="prilabel">Today</div>
+          <div class="notif"><span class="pri high">!</span><div class="ntx"><b>Maya marked late</b><p>Period 1 · 08:41</p><span class="tm">22 min ago</span></div><span class="unread"></span></div>
+          <div class="notif"><span class="pri high">₦</span><div class="ntx"><b>Fee deadline in 6 days</b><p>Term 3 balance ₦85,000</p><span class="tm">1h ago</span></div><span class="unread"></span></div>
+          <div class="notif read"><span class="pri med">▤</span><div class="ntx"><b>New grade · Biology</b><p>Osmosis worksheet · A (92)</p><span class="tm">3h ago</span></div></div>
+          <div class="notif read"><span class="pri low">◷</span><div class="ntx"><b>Sports day moved</b><p>Now Friday 14th</p><span class="tm">Yesterday</span></div></div>
+        </div>
+        <div class="botnav">
+          <div class="bi"><span class="ti"></span>Home</div>
+          <div class="bi"><span class="ti"></span>Children</div>
+          <div class="bi"><span class="ti"></span>Pay</div>
+          <div class="bi on"><span class="ti"></span>Alerts</div>
+          <div class="bi"><span class="ti"></span>More</div>
+        </div>
+        <span class="mark" style="top:96px; left:14px;">1</span>
+        <span class="mark" style="top:150px; right:6px;">2</span>
+        <span class="mark" style="bottom:200px; right:6px;">3</span>
+      </div>
+
+      <!-- priority key + push permission -->
+      <div class="phone sm">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">7:31</span><span class="sig">●●● 4G <span class="bat"></span></span></div>
+        <div class="appbar"><div class="greet"><b style="font-size:21px;">Alert settings</b><small>per category</small></div></div>
+        <div class="pbody tight">
+          <div class="prilabel">Priority levels</div>
+          <div class="notif" style="padding:8px 10px;"><span class="pri crit">⚠</span><div class="ntx"><b>Critical</b><p>Closures · safety</p></div><span class="sw on"></span></div>
+          <div class="notif" style="padding:8px 10px;"><span class="pri high">!</span><div class="ntx"><b>High</b><p>Attendance · fees</p></div><span class="sw on"></span></div>
+          <div class="notif" style="padding:8px 10px;"><span class="pri med">▤</span><div class="ntx"><b>Medium</b><p>Grades · messages</p></div><span class="sw on"></span></div>
+          <div class="notif" style="padding:8px 10px;"><span class="pri low">◷</span><div class="ntx"><b>Low</b><p>Events · news</p></div><span class="sw"></span></div>
+          <div class="boxs" style="padding:10px;display:flex;gap:8px;align-items:center;font-size:11.5px;color:var(--ink-soft);"><span class="cg" style="width:24px;height:24px;border:2px solid var(--line-soft);border-radius:7px;display:grid;place-items:center;">♪</span> Critical alerts always sound, even on silent.</div>
+        </div>
+        <span class="mark" style="top:96px; right:6px;">4</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Filter by priority</b><p>Chips scope the inbox; counts show what's waiting. The same four-tier model is shared with the web notification panel.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Critical must be acknowledged</b><p>Closures and safety notices sit at the top with an explicit Acknowledge — they don't clear on scroll.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Read / unread</b><p>Unread carry an accent dot and full contrast; opened items dim. Grouped Today / Earlier.</p></div></div>
+      <div class="note"><span class="n">4</span><div><b>Per-tier opt-out</b><p>Users mute low-priority push but critical always sounds — a safety guarantee baked into the system.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       OFFLINE
+       ============================================================ -->
+  <section class="layout" id="offline">
+    <div class="lead">
+      <h2>Offline mode &amp; sync states</h2>
+      <span class="pill">cached · pending · reconnecting</span>
+      <p>A PWA for schools with patchy networks. Timetable, assignments, grades and announcements stay readable offline; writes queue and replay on reconnect. Every screen tells you how fresh it is.</p>
+    </div>
+
+    <div class="statestrip">
+      <!-- main offline dashboard -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">8:42</span><span class="sig"><span class="off">No signal</span> <span class="bat low"></span></span></div>
+        <div class="appbar">
+          <div class="ava">M</div>
+          <div class="greet"><b>Hi Maya 👋</b><small>Offline · cached view</small></div>
+          <span class="sp"></span>
+          <div class="bell">◔</div>
+        </div>
+        <div class="pbody">
+          <div class="offbanner"><span class="od"></span><div><b>You're offline</b><small>Last updated 8:42am · 12 min ago</small></div><span class="rf">↻ Retry</span></div>
+          <div class="psec-h"><b>Available offline</b></div>
+          <div class="box" style="padding:11px 13px;">
+            <div class="sched-row"><span class="tm">08:30</span><span class="bar2"></span><div style="flex:1;font-size:13px;"><b>Biology · Osmosis</b></div></div>
+            <div class="sched-row"><span class="tm">10:00</span><span class="bar2"></span><div style="flex:1;font-size:13px;"><b>Maths · Algebra</b></div></div>
+          </div>
+          <div class="attn-row"><span class="ic">▤</span><div class="tx">Biology lab report<small>Cached · due tomorrow</small></div><span class="go">›</span></div>
+          <div class="card unavail">
+            <div class="ch"><span class="dot"></span><b>Live classes</b></div>
+            <span class="unavail-tag">⊘ Needs connection</span>
+          </div>
+        </div>
+        <div class="botnav">
+          <div class="bi on"><span class="ti"></span>Home</div>
+          <div class="bi"><span class="ti"></span>Timetable</div>
+          <div class="bi"><span class="ti"></span>Tasks</div>
+          <div class="bi"><span class="ti"></span>Tutor</div>
+          <div class="bi"><span class="ti"></span>More</div>
+        </div>
+        <span class="mark" style="top:60px; right:6px;">1</span>
+        <span class="mark" style="bottom:130px; left:14px;">2</span>
+      </div>
+
+      <!-- mini states column -->
+      <div style="display:flex;flex-direction:column;gap:16px;">
+        <div class="bpframe" style="width:300px;">
+          <div class="ccb" style="padding:13px;background:var(--frame);gap:10px;">
+            <span class="framecap" style="margin:0;text-align:left;"><b>State · cached available</b></span>
+            <div class="offbanner"><span class="od"></span><div><b>Offline</b><small>Reading from cache</small></div><span class="rf">↻</span></div>
+            <span style="font-size:12px;color:var(--ink-soft);">Timetable, grades, assignments &amp; announcements all readable.</span>
+          </div>
+        </div>
+        <div class="bpframe" style="width:300px;">
+          <div class="ccb" style="padding:13px;background:var(--frame);gap:10px;">
+            <span class="framecap" style="margin:0;text-align:left;"><b>State · sync pending</b></span>
+            <div class="offbanner amber"><span class="od"></span><div><b>3 changes queued</b><small>Will send when you reconnect</small></div></div>
+            <div class="caps"><span class="cap"><span class="cg">✎</span> Attendance ×1</span><span class="cap"><span class="cg">✉</span> Replies ×2</span></div>
+          </div>
+        </div>
+        <div class="bpframe" style="width:300px;">
+          <div class="ccb" style="padding:13px;background:var(--frame);gap:10px;">
+            <span class="framecap" style="margin:0;text-align:left;"><b>State · reconnecting</b></span>
+            <div class="offbanner ok"><span class="od"></span><div><b>Back online — syncing</b><small>Sending 3 queued changes…</small></div></div>
+            <div class="prog"><i style="width:72%"></i></div>
+          </div>
+        </div>
+        <span class="mark" style="position:static;display:inline-grid;">3</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Honest freshness</b><p>An offline banner with a "last updated" timestamp and manual Retry sits at the top of every cached screen.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Graceful fallback</b><p>Features that need a live connection (virtual classes, payments) render as dashed, disabled tiles — never broken.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Queue &amp; replay</b><p>Cached → Sync pending → Reconnecting. Writes made offline queue locally and replay automatically on return.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       AI TUTOR
+       ============================================================ -->
+  <section class="layout" id="tutor">
+    <div class="lead">
+      <h2>AI Tutor · entry flow</h2>
+      <span class="pill">FAB → grounded sheet</span>
+      <p>The Study Tutor is one tap from anywhere. It opens grounded in the lesson the student is on, offers starter prompts, and keeps a cached history readable offline. Three steps: tap, ground, ask.</p>
+    </div>
+
+    <div class="phones">
+      <!-- step 1: FAB highlighted -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">8:30</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar"><div class="ava">M</div><div class="greet"><b>Biology</b><small>Lesson 4 · Osmosis</small></div><span class="sp"></span><div class="bell">◔</div></div>
+        <div class="pbody">
+          <div class="card"><div class="ch"><span class="dot"></span><b>Lesson 4 · Osmosis</b></div><div class="lines"><span class="skel" style="width:92%"></span><span class="skel" style="width:80%"></span><span class="skel" style="width:88%"></span><span class="skel" style="width:60%"></span></div></div>
+          <div class="attn-row"><span class="ic">▤</span><div class="tx">Osmosis worksheet<small>Due tomorrow</small></div><span class="go">›</span></div>
+          <div class="qmenu">
+            <div class="qrow"><span class="ql">Ask the tutor</span><span class="qb">✦</span></div>
+          </div>
+          <div class="fab pulse">✦</div>
+        </div>
+        <div class="botnav"><div class="bi on"><span class="ti"></span>Home</div><div class="bi"><span class="ti"></span>Timetable</div><div class="bi"><span class="ti"></span>Tasks</div><div class="bi"><span class="ti"></span>Tutor</div><div class="bi"><span class="ti"></span>More</div></div>
+        <span class="scrawl" style="bottom:130px; right:78px;">always one tap →</span>
+        <span class="mark" style="bottom:150px; right:6px;">1</span>
+      </div>
+
+      <!-- step 2: tutor sheet open -->
+      <div class="phone">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">8:30</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar" style="filter:opacity(.5);"><div class="ava">M</div><div class="greet"><b>Biology</b><small>Lesson 4 · Osmosis</small></div></div>
+        <div class="pbody" style="filter:opacity(.35);"><div class="skel" style="width:90%"></div><div class="skel" style="width:70%"></div></div>
+        <div class="sheet" style="bottom:0;top:78px;display:flex;flex-direction:column;">
+          <div class="handle"></div>
+          <div style="display:flex;align-items:center;gap:9px;margin-bottom:9px;">
+            <span class="spark" style="width:30px;height:30px;">✦</span>
+            <div><b style="font-family:'Caveat';font-size:21px;display:block;line-height:1;">Study Companion</b><small style="color:var(--ink-soft);font-size:11px;">grounded · Biology L4 · Osmosis</small></div>
+            <span class="ic2" style="margin-left:auto;">✕</span>
+          </div>
+          <div class="chip ok" style="align-self:flex-start;margin-bottom:10px;">⛁ source-linked to your lesson</div>
+          <div class="box" style="padding:11px;font-size:12.5px;line-height:1.4;margin-bottom:10px;">Hi Maya 👋 I'm grounded in your Osmosis lesson. Ask me anything, or start with one of these.</div>
+          <div class="psec-h" style="margin-bottom:7px;"><b style="font-size:15px;">Try asking</b></div>
+          <div class="qa-grid" style="margin-bottom:11px;">
+            <div class="qa" style="font-size:12px;"><span class="ic">✦</span> Explain osmosis simply</div>
+            <div class="qa" style="font-size:12px;"><span class="ic">✦</span> Make 5 practice Qs</div>
+            <div class="qa" style="font-size:12px;"><span class="ic">✦</span> Summarise this lesson</div>
+            <div class="qa" style="font-size:12px;"><span class="ic">✦</span> Quiz me</div>
+          </div>
+          <div class="inp ph" style="margin-top:auto;">Ask about your lesson…<span class="suffix">➤</span></div>
+        </div>
+        <span class="mark" style="top:120px; left:14px;">2</span>
+        <span class="mark" style="bottom:200px; right:6px;">3</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>One-tap entry</b><p>The Tutor FAB rides above the bottom nav on every learning screen and via the Tutor tab — never more than a tap away.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Opens grounded</b><p>The sheet knows the current lesson and says so — "source-linked to your lesson" — for academic integrity and trust.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Starter prompts</b><p>Four lesson-aware prompts lower the blank-page barrier; the field below accepts free questions and voice input.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       UI STATES
+       ============================================================ -->
+  <section class="layout" id="states">
+    <div class="lead">
+      <h2>Mobile UI states</h2>
+      <span class="pill">empty · loading · syncing · error · menu</span>
+      <p>The states every mobile surface must handle gracefully — so the wireframes aren't just the happy path. Loading uses skeletons; errors offer a way out; the quick-action menu fans from the FAB.</p>
+    </div>
+
+    <div class="phones">
+      <!-- empty -->
+      <div class="phone sm">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">9:41</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar"><div class="greet"><b style="font-size:21px;">Tasks</b><small>Nothing due</small></div></div>
+        <div class="pbody"><div class="bigstate"><span class="glyph">☑</span><h4>All caught up</h4><p>No assignments due. New tasks appear here the moment a teacher sets them.</p><span class="btn">Browse subjects</span></div></div>
+        <div class="botnav"><div class="bi"><span class="ti"></span>Home</div><div class="bi"><span class="ti"></span>Time</div><div class="bi on"><span class="ti"></span>Tasks</div><div class="bi"><span class="ti"></span>Tutor</div><div class="bi"><span class="ti"></span>More</div></div>
+        <span class="framecap" style="position:absolute;bottom:-30px;left:0;right:0;"><b>Empty</b></span>
+      </div>
+
+      <!-- loading skeleton -->
+      <div class="phone sm">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">9:41</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar"><div class="ava shimmer" style="background:var(--skel);"></div><div class="greet"><span class="skel" style="width:90px;margin-bottom:5px;"></span><span class="skel sm" style="width:60px;"></span></div></div>
+        <div class="pbody">
+          <div class="pkpis"><div class="kpi-card shimmer"><span class="skel sm" style="width:60%"></span><span class="skel tall" style="width:50%"></span></div><div class="kpi-card shimmer"><span class="skel sm" style="width:60%"></span><span class="skel tall" style="width:50%"></span></div></div>
+          <div class="card shimmer"><span class="skel" style="width:40%"></span><span class="skel" style="width:90%"></span><span class="skel" style="width:75%"></span></div>
+          <div class="card shimmer"><span class="skel" style="width:55%"></span><span class="skel" style="width:80%"></span></div>
+        </div>
+        <div class="botnav"><div class="bi on"><span class="ti"></span>Home</div><div class="bi"><span class="ti"></span>Time</div><div class="bi"><span class="ti"></span>Tasks</div><div class="bi"><span class="ti"></span>Tutor</div><div class="bi"><span class="ti"></span>More</div></div>
+        <span class="framecap" style="position:absolute;bottom:-30px;left:0;right:0;"><b>Loading</b></span>
+      </div>
+
+      <!-- syncing -->
+      <div class="phone sm">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">9:41</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar"><div class="ava">M</div><div class="greet"><b style="font-size:21px;">Home</b><small>Syncing…</small></div></div>
+        <div class="pbody">
+          <div class="offbanner ok"><span class="od"></span><div><b>Syncing your data</b><small>3 of 4 done</small></div></div>
+          <div class="prog"><i style="width:75%"></i></div>
+          <div class="pkpis"><div class="kpi-card"><span class="lab">Attendance</span><span class="val">96%</span></div><div class="kpi-card"><span class="lab">GPA</span><span class="val">3.7</span></div></div>
+          <div class="card"><div class="ch"><span class="dot"></span><b>Today</b></div><span class="skel" style="width:80%"></span><span class="skel" style="width:60%"></span></div>
+        </div>
+        <div class="botnav"><div class="bi on"><span class="ti"></span>Home</div><div class="bi"><span class="ti"></span>Time</div><div class="bi"><span class="ti"></span>Tasks</div><div class="bi"><span class="ti"></span>Tutor</div><div class="bi"><span class="ti"></span>More</div></div>
+        <span class="framecap" style="position:absolute;bottom:-30px;left:0;right:0;"><b>Syncing</b></span>
+      </div>
+
+      <!-- error -->
+      <div class="phone sm">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">9:41</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar"><div class="greet"><b style="font-size:21px;">Home</b><small style="color:var(--note);">Couldn't load</small></div></div>
+        <div class="pbody"><div class="bigstate"><span class="glyph" style="border-color:var(--note);color:var(--note);">⚠</span><h4>Something went wrong</h4><p>We couldn't reach the server. Your cached data is still available below.</p><div style="display:flex;gap:8px;"><span class="btn pri">↻ Try again</span><span class="btn">Use offline</span></div></div></div>
+        <div class="botnav"><div class="bi on"><span class="ti"></span>Home</div><div class="bi"><span class="ti"></span>Time</div><div class="bi"><span class="ti"></span>Tasks</div><div class="bi"><span class="ti"></span>Tutor</div><div class="bi"><span class="ti"></span>More</div></div>
+        <span class="framecap" style="position:absolute;bottom:-30px;left:0;right:0;"><b>Error</b></span>
+      </div>
+
+      <!-- quick action menu -->
+      <div class="phone sm">
+        <div class="notch"></div>
+        <div class="pstat"><span class="clock">9:41</span><span class="sig">●●● 5G <span class="bat"></span></span></div>
+        <div class="appbar"><div class="ava">M</div><div class="greet"><b style="font-size:21px;">Home</b></div></div>
+        <div class="pbody" style="filter:opacity(.45);"><div class="pkpis"><div class="kpi-card"><span class="lab">Att.</span><span class="val">96%</span></div><div class="kpi-card"><span class="lab">GPA</span><span class="val">3.7</span></div></div></div>
+        <div class="scrim" style="background:rgba(0,0,0,.18);"></div>
+        <div class="qmenu" style="bottom:78px;">
+          <div class="qrow"><span class="ql">Scan / upload</span><span class="qb">⊞</span></div>
+          <div class="qrow"><span class="ql">Voice note</span><span class="qb">♪</span></div>
+          <div class="qrow"><span class="ql">Ask tutor</span><span class="qb">✦</span></div>
+          <div class="qrow"><span class="ql">Message</span><span class="qb">✉</span></div>
+        </div>
+        <div class="fab" style="bottom:18px;background:var(--note);">✕</div>
+        <div class="botnav"><div class="bi on"><span class="ti"></span>Home</div><div class="bi"><span class="ti"></span>Time</div><div class="bi"><span class="ti"></span>Tasks</div><div class="bi"><span class="ti"></span>Tutor</div><div class="bi"><span class="ti"></span>More</div></div>
+        <span class="framecap" style="position:absolute;bottom:-30px;left:0;right:0;"><b>Quick menu</b></span>
+      </div>
+    </div>
+
+    <div class="notes" style="margin-top:42px;">
+      <div class="note"><span class="n">✓</span><div><b>Empty</b><p>A reason it's empty plus a next action — never a blank screen.</p></div></div>
+      <div class="note"><span class="n">~</span><div><b>Loading</b><p>Shaped skeletons that match the real layout so the page doesn't jump.</p></div></div>
+      <div class="note"><span class="n">↻</span><div><b>Syncing</b><p>A progress banner; the screen stays usable with cached data underneath.</p></div></div>
+      <div class="note"><span class="n">!</span><div><b>Error</b><p>Plain language, a retry, and a fallback to offline — always a way forward.</p></div></div>
+      <div class="note"><span class="n">＋</span><div><b>Quick menu</b><p>The FAB fans into context actions over a dim scrim; tap-out or ✕ to close.</p></div></div>
+    </div>
+  </section>
+
+  <p class="footnote">— mobile = act fast · open Tweaks (toolbar) to switch theme, density, accent &amp; toggle annotations —</p>
+</div>
+
+<!-- ===================== TWEAKS ISLAND ===================== -->
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script>
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', 'false'); });
+      t.setAttribute('aria-selected', 'true');
+      var id = t.getAttribute('data-target');
+      document.querySelectorAll('.layout').forEach(function (s) { s.classList.toggle('active', s.id === id); });
+    });
+  });
+</script>
+
+<script type="text/babel">
+  const DENSITY = { compact: 0.82, regular: 1, comfy: 1.15 };
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "dark": false,
+    "accent": "#4f6df5",
+    "density": "regular",
+    "annot": true
+  }/*EDITMODE-END*/;
+
+  function apply(t) {
+    const r = document.documentElement;
+    r.setAttribute('data-theme', t.dark ? 'dark' : 'light');
+    r.setAttribute('data-density', t.density);
+    r.setAttribute('data-annot', t.annot ? 'on' : 'off');
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--pad', String(DENSITY[t.density] || 1));
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(() => { apply(t); }, [t]);
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Appearance" />
+        <TweakToggle label="Dark mode" value={t.dark} onChange={(v) => setTweak('dark', v)} />
+        <TweakColor label="Accent" value={t.accent}
+          options={['#4f6df5', '#1f8a5b', '#c2452f', '#7a5ae0', '#0e7490']}
+          onChange={(v) => setTweak('accent', v)} />
+        <TweakSection label="Layout" />
+        <TweakRadio label="Density" value={t.density} options={['compact', 'regular', 'comfy']}
+          onChange={(v) => setTweak('density', v)} />
+        <TweakToggle label="Annotations" value={t.annot} onChange={(v) => setTweak('annot', v)} />
+      </TweaksPanel>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+</body>
+</html>
