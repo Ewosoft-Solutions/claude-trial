@@ -12,12 +12,72 @@ Phase 1 - Design System Foundation
 
 Completion:
 
-~43% (Milestones 1–3 of 7 complete: Web Preview Scaffold, Token Foundation,
-Core Shell Components)
+~57% (Milestones 1–4 of 7 complete: Web Preview Scaffold, Token Foundation,
+Core Shell Components, Role-Aware Navigation Model)
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-13) — Milestone 4: Role-Aware Navigation Model
+
+Added a typed, declarative navigation model that drives the M3 shell, filtered
+by the same role / clearance / permission vocabulary the backend will authorize
+against (requirements/access-control.md + permissions.md). The shell components
+are unchanged in contract — they still consume `RailItem[]` / `NavGroup[]` and
+carry no roles, permissions, or tenant logic. Built on the
+`chore/technical-debt-cleanup` branch (M4 changes are currently uncommitted —
+see Known Issues for the git-state note).
+
+New model (in `packages/ui`, framework-agnostic, no React/side effects):
+
+- **`types/access.types.ts`** — RBAC primitives: `ClearanceLevel` (0–10),
+  `StandardRole`, `RoleKey` (standard + custom), `SchoolType` (polymorphic),
+  `NavScope` (`platform` | `school`), `PermissionKey`, `ViewerContext` (the
+  signed-in viewer), and `NavAccess` (a node's guard: `minClearance`, `scope`,
+  `roles`, `schoolTypes`, `anyPermission`, `allPermissions` — AND across fields).
+- **`types/navigation.types.ts`** — declarative config: `NavNode`,
+  `NavGroupNode`, `NavSectionNode` (a rail destination + its secondary panel),
+  `NavigationConfig` (sections + footer), and `ResolvedNavigation` (shell-ready
+  output). Nodes carry an `href` (route) and `access` guard, never an `active`
+  flag.
+- **`lib/navigation.ts`** — pure resolver: `canAccess` (guard eval),
+  `isRouteActive` (exact / ancestor match), `CLEARANCE_BY_ROLE`, and
+  `resolveNavigation(config, viewer, currentPath, { onNavigate? })`. Drops nodes
+  the viewer can't access, collapses empty groups / panels, and marks exactly
+  one active leaf (most-specific route wins) plus its owning section. With
+  `onNavigate` the items dispatch via `onSelect` (controlled routing, used by the
+  preview); without it they carry `href` (plain links).
+
+Preview (`apps/web/app/design-system/shell/`):
+
+- **`navigation.data.tsx`** (preview-only) — example `SCHOOL_NAV` and
+  `PLATFORM_NAV` configs with realistic access guards, plus four viewer personas
+  (Registrar, Teacher, Owner @ school; Architect @ platform).
+- **`page.tsx`** — rewired to resolve the sidebar from the model. Hardcoded
+  `active: true` flags are gone; active state derives from a simulated in-page
+  route (selecting any destination updates it). Added a **persona switcher**
+  (shared `Select`) so reviewers can watch role/clearance/permission/scope
+  filtering live; selecting a platform persona swaps the whole surface to
+  `PLATFORM_NAV`. Page title, breadcrumbs, and panel header derive from the
+  active route / tenant.
+
+Also fixed a latent M3 bug surfaced by wiring `onSelect` onto rail items: in
+`AppSidebar`'s `NavElement`, the Radix Tooltip (`asChild`) injects its own
+`onClick`, which clobbered `onSelect` due to spread order — rail clicks silently
+did nothing. `NavElement` now composes both handlers.
+
+### Verification (Milestone 4)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ · `build` ✅ (6/6 static).
+- Live preview: Registrar sees Overview/Students/Classes/Attendance/Reports
+  (Finance correctly hidden — clearance 4 < 5); Architect flips to the platform
+  rail (Tenants/Analytics/Audit/Support/Billing); rail + secondary-nav clicks
+  move active state along the route; mobile (375) collapses to the bottom tab
+  bar with the active tab tracking the route; light + dark verified.
+- Resolver cross-checked against the real configs via a throwaway `tsx` harness
+  for Teacher / Owner / Architect routes (group-emptying, permission filtering,
+  and deepest-match active all correct).
 
 ## Session Summary (2026-06-13) — Technical Debt Cleanup (TD-001, TD-003, TD-004)
 
@@ -188,6 +248,26 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Milestone 4 (Role-Aware Navigation Model) — uncommitted on chore/technical-debt-cleanup
+
+Created:
+
+- packages/ui/src/types/access.types.ts (RBAC primitives)
+- packages/ui/src/types/navigation.types.ts (navigation config + resolved shapes)
+- packages/ui/src/lib/navigation.ts (canAccess / isRouteActive / resolveNavigation)
+- apps/web/app/design-system/shell/navigation.data.tsx (example configs + personas)
+
+Edited:
+
+- packages/ui/src/custom/shell/app-sidebar.tsx (NavElement: compose injected
+  onClick with onSelect — fixes rail items being inert)
+- apps/web/app/design-system/shell/page.tsx (resolve sidebar from the model;
+  remove hardcoded active flags; add persona switcher)
+- AI_HANDOFF.md (this file)
+
+No changes to the Prisma schema or any API. The model is pure TypeScript; the
+shell component contracts (`RailItem[]` / `NavGroup[]`) are unchanged.
+
 ## Technical Debt Cleanup (TD-001, TD-003, TD-004) — branch chore/technical-debt-cleanup
 
 Deleted:
@@ -306,18 +386,18 @@ shared UI to type-check from `apps/web`.
 
 High Priority
 
-- Milestone 4: Typed role-aware / tenant-aware navigation model. The shell is
-  already data-driven (`RailItem[]` / `NavGroup[]`); M4 should add the config
-  layer that selects/filters these by role, clearance level, permission keys,
-  tenant context, and active route — driving `active` state from the current
-  path rather than hardcoded flags in the preview.
+- Milestone 5: State components (loading, skeletons, empty, error, forbidden,
+  offline/read-only, validation summary). The navigation model already exposes a
+  `forbidden`-style concept via access filtering; M5 adds the page/section states
+  themselves.
 
 Medium Priority
 
-- Milestone 5: State components (loading, empty, error, forbidden, offline,
-  validation summary).
 - Milestone 6: Layout patterns (dashboard, list/detail, table, form, settings).
   The shell preview's main body is a placeholder for these.
+- Wire the M4 navigation model to real auth/session + the Next router once
+  product screens exist (replace the simulated in-page route and persona switcher
+  with `usePathname` + the real `ViewerContext`). Likely Phase 2.
 
 Low Priority
 
@@ -329,6 +409,13 @@ Low Priority
 
 # Known Issues
 
+- Git state: most of the project (shell, `/design-system`, requirements, this
+  doc's siblings) is still **uncommitted/untracked** in the working tree; `main`
+  holds the old template. Only the TD-cleanup touched files were committed, on
+  `chore/technical-debt-cleanup`. The Milestone 4 changes sit **uncommitted on
+  that same branch** (stacked on the cleanup). Before any push, decide how to
+  carve these into commits/branches — they are currently intermingled in the
+  working tree.
 - TD-002: notification service not implemented. Unbuilt feature (not cleanup);
   remains the only pending item in TECHNICAL_DEBT.md.
 - TD-001, TD-003, TD-004: resolved this session (branch
@@ -366,8 +453,11 @@ Breaking Changes: None.
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`)
 Build:      ✅ Passed (`pnpm --filter web build`)
-Visual:     ✅ `/design-system/shell` verified light + dark, desktop + mobile
-Unit Tests: ⚠ None added (presentational components; verified via preview)
+Visual:     ✅ `/design-system/shell` verified light + dark, desktop + mobile;
+            persona switching + route-derived active state confirmed live
+Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
+            cross-checked via a throwaway tsx harness — a real unit test for
+            `resolveNavigation` is a good Phase-2 follow-up)
 E2E:        ⚠ Not applicable yet
 
 ---
@@ -379,23 +469,21 @@ Read:
 - AI_CONTEXT.md
 - AI_HANDOFF.md
 - CURRENT_PHASE.md
-- implementation-roadmap.md (Milestone 4)
+- implementation-roadmap.md (Milestone 5)
 - DESIGN_RULES.md
-- requirements/access-control.md and requirements/permissions.md (for the
-  role / clearance / permission-key model)
+- design-export/ (for any state visuals — loading, empty, error, forbidden)
 
-Then begin Phase 1 / Milestone 4 (Role-Aware Navigation Model):
+Then begin Phase 1 / Milestone 5 (State And Feedback Components):
 
-- Build a typed route/navigation config that drives the Milestone 3 shell
-  (`packages/ui/src/custom/shell/app-sidebar.tsx`, which already consumes
-  `RailItem[]` / `NavGroup[]`). Add support for role, clearance level,
-  permission keys, tenant context, school type, and active-route state.
-- Derive nav `active` state from the current route instead of the hardcoded
-  flags in `/design-system/shell`.
-- Provide example SchoolWithEase navigation data (preview only) representing
-  both platform-level and school-level navigation.
-- Keep rendering data-driven; do NOT hardcode permissions or tenant logic in
-  components.
+- Build reusable state components so screens never appear blank or undefined:
+  loading, skeleton patterns, empty, error, forbidden, offline/read-only, and a
+  validation-summary pattern.
+- Put them in `packages/ui` (typed props, no embedded copy), and preview them on
+  a `/design-system` route. Reuse existing primitives; do not create one-off UI.
+- States must support concise titles/actions without layout shift and be
+  accessible/keyboard-friendly where actions exist.
+- The `forbidden` state should pair naturally with the M4 navigation model
+  (access filtering hides nav; `forbidden` covers direct/deep-link access).
 
 Requirements:
 
@@ -404,3 +492,6 @@ Requirements:
 - Reuse `packages/ui` components; do not create one-off UI.
 - Pass type-check, lint, and build before considering complete.
 - Update AI_HANDOFF.md when done.
+
+Note: before pushing, resolve the git-state item under Known Issues (M4 changes
+are uncommitted, stacked on `chore/technical-debt-cleanup`).
