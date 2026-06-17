@@ -168,6 +168,20 @@ export function resolveNavigation(
   };
 }
 
+/**
+ * Find the deepest active leaf among resolved nav items (depth-first), so a
+ * host can derive the page title / breadcrumb leaf from the active route.
+ * Prefers the most specific (deepest) active descendant.
+ */
+export function findActiveNavItem(items: NavItem[]): NavItem | undefined {
+  for (const item of items) {
+    const child = item.items ? findActiveNavItem(item.items) : undefined;
+    if (child) return child;
+    if (item.active) return item;
+  }
+  return undefined;
+}
+
 /* ---- internals ------------------------------------------------ */
 
 function toRailItem(

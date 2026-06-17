@@ -53,10 +53,12 @@ import {
   PageHeader,
   SegmentedControl,
 } from '@workspace/ui/custom/shell/page-header';
-import { resolveNavigation } from '@workspace/ui/lib/navigation';
+import {
+  resolveNavigation,
+  findActiveNavItem,
+} from '@workspace/ui/lib/navigation';
 import type {
   BreadcrumbEntry,
-  NavItem,
   PageHeaderMeta,
   SchoolOption,
   UserMenuItem,
@@ -258,17 +260,6 @@ function PersonaSwitcher({
   );
 }
 
-/* ---- helpers ------------------------------------------------- */
-/** Find the deepest active nav item (for the page title / breadcrumb). */
-function findActiveItem(items: NavItem[]): NavItem | undefined {
-  for (const item of items) {
-    const child = item.items ? findActiveItem(item.items) : undefined;
-    if (child) return child;
-    if (item.active) return item;
-  }
-  return undefined;
-}
-
 /* ---- composed preview ---------------------------------------- */
 export default function ShellPreviewPage() {
   const [activeSchool, setActiveSchool] = React.useState(SCHOOLS[0]!.id);
@@ -295,7 +286,7 @@ export default function ShellPreviewPage() {
     onNavigate: setCurrentPath,
   });
 
-  const activeItem = findActiveItem(nav.navGroups.flatMap((g) => g.items));
+  const activeItem = findActiveNavItem(nav.navGroups.flatMap((g) => g.items));
   const sectionTitle = nav.navHeader?.title ?? 'Overview';
   const pageTitle = activeItem?.label ?? sectionTitle;
 

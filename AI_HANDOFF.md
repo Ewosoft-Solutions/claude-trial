@@ -8,17 +8,83 @@ Last Updated: 2026-06-17
 
 Current Phase:
 
-Phase 1 - Design System Foundation — **COMPLETE** (next: Phase 2)
+Phase 2 - Dashboard Infrastructure & Role/Tenant-Aware Navigation — **IN PROGRESS**
 
 Completion:
 
-100% (Milestones 1–7 of 7 complete: Web Preview Scaffold, Token Foundation,
-Core Shell Components, Role-Aware Navigation Model, State And Feedback
-Components, Layout Patterns, Verification And Documentation)
+Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
+Phase 2: first task done — the M4 navigation model is now wired to a real
+`ViewerContext` (session seam) and the Next router, with the first authenticated
+product surface (`/overview`) built from the shared M6 layouts + M5 states.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-17) — Phase 2 · Nav wiring + first authenticated surface
+
+Replaced the design-system shell preview's *simulated* in-page route + persona
+switcher with the **real** session + router wiring, and built the first product
+dashboard. Also repointed the git remote to the new repo (see Known Issues).
+
+New shared UI (built in `packages/ui` first, per the rules):
+
+- **`hooks/use-navigation.ts`** — `useResolvedNavigation(config, viewer,
+  currentPath, { onNavigate? })`: a memoized React wrapper over the pure
+  `resolveNavigation`. Carries no `next/navigation` dependency — the host passes
+  the path (`usePathname()`) and an `onNavigate` (`router.push`).
+- **`lib/navigation.ts`** — promoted `findActiveNavItem(items)` (deepest active
+  leaf) from the preview's local copy into the shared lib; the shell preview now
+  imports it (de-duplicated).
+
+New app infrastructure (`apps/web`):
+
+- **`app/providers/viewer-provider.tsx`** — `ViewerProvider` + `useViewer()`: the
+  **auth/session seam**. Supplies the typed `ViewerContext` (clearance / roles /
+  permissions / scope / tenant) plus the shell's user profile + switchable
+  schools. ⚠ Currently a **mock session** (Owner @ St. Jude, clearance 8) — this
+  is the single place a real auth source plugs in; nothing downstream changes.
+  Switching schools updates `tenantId` + `schoolType` on the viewer.
+- **`lib/navigation/app-navigation.tsx`** — the **real** product navigation
+  (`SCHOOL_NAV` / `PLATFORM_NAV` + `configForViewer`), promoted out of the
+  preview-only file (now the single source of truth; the preview re-exports it
+  and keeps only its example personas). Routes map to `(app)` group paths.
+- **`app/(app)/layout.tsx`** + **`app/(app)/app-chrome.tsx`** — the authenticated
+  shell. `layout` mounts `ViewerProvider`; `AppChrome` (client) resolves the nav
+  via `useResolvedNavigation(config, viewer, usePathname(), { onNavigate:
+  router.push })` and renders `AppShell` (header + `SchoolSwitcher` + `UserMenu` +
+  resolved `AppSidebar`). Breadcrumbs derive from the active section/leaf; the
+  switcher supplies the tenant (so the trail starts at the section, no
+  duplication).
+- **`app/(app)/overview/page.tsx`** — the first real surface: the school
+  (Owner) dashboard from `DashboardLayout` + `StatGrid` + primitives. KPIs (e.g.
+  outstanding-fees delta reads negative via `intent`), a Needs-attention list, an
+  Enrollment-overview card, and a Recent-activity aside. Greeting + tenant come
+  from `useViewer()`. Product copy lives in the page; shared components stay
+  data-driven.
+- **`app/(app)/[...slug]/page.tsx`** — a catch-all placeholder rendering the M5
+  `EmptyState` ("… isn't built yet") so every nav destination stays explorable
+  without 404s while Phase 3+ screens don't exist. More specific routes (e.g.
+  `/overview`) take precedence.
+- **`app/page.tsx`** — `/` now redirects to `/overview` (was `/design-system`).
+
+### Verification (Phase 2 · nav wiring)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (9/9 routes; `/overview` static, `/[...slug]` dynamic, `/design-system/*`
+  intact).
+- Live preview (standalone-in-/tmp workaround): `/overview` renders the Owner
+  dashboard — full rail (Overview/Students/Classes/Attendance/Finance/Reports;
+  Finance visible since Owner clears level 5), six KPI tiles, attention list,
+  enrollment card, activity aside. **Real router wiring confirmed**: clicking the
+  Students rail did a client-side `router.push('/students')`, marked the rail
+  active, and resolved its secondary panel (Enrollment 42 / Directory 1.2k /
+  Gradebook → Report cards · Transcripts / Fees 7 / …). Navigating to a leaf
+  (`/students/enrollment`) set `aria-current` on Enrollment and rendered the M5
+  placeholder. No console errors. Breadcrumb starts at the section (no tenant
+  duplication beside the switcher).
+
+
 
 ## Session Summary (2026-06-17) — Milestone 7: Verification And Documentation
 
@@ -411,6 +477,30 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Phase 2 — Nav wiring + first authenticated surface
+
+Created:
+
+- packages/ui/src/hooks/use-navigation.ts (useResolvedNavigation)
+- apps/web/app/providers/viewer-provider.tsx (ViewerProvider + useViewer; mock session)
+- apps/web/lib/navigation/app-navigation.tsx (real SCHOOL_NAV / PLATFORM_NAV / configForViewer)
+- apps/web/app/(app)/layout.tsx (mounts ViewerProvider)
+- apps/web/app/(app)/app-chrome.tsx (live shell: usePathname + router.push)
+- apps/web/app/(app)/overview/page.tsx (Owner dashboard — M6 + M5)
+- apps/web/app/(app)/[...slug]/page.tsx (M5 EmptyState placeholder for unbuilt routes)
+
+Edited:
+
+- packages/ui/src/lib/navigation.ts (export findActiveNavItem)
+- apps/web/app/page.tsx (redirect `/` → `/overview`)
+- apps/web/app/design-system/shell/navigation.data.tsx (re-export the promoted
+  config; keep only preview personas — de-duplicated)
+- apps/web/app/design-system/shell/page.tsx (use shared findActiveNavItem)
+- CURRENT_PHASE.md (→ Phase 2)
+- AI_HANDOFF.md (this file)
+
+No Prisma schema or API changes. The shell component contracts are unchanged.
+
 ## Milestone 7 (Verification And Documentation)
 
 Created:
@@ -608,14 +698,20 @@ shared UI to type-check from `apps/web`.
 
 # Outstanding Tasks
 
-Phase 1 is complete (all 7 milestones). The items below carry into Phase 2 —
-see also the Known Gaps section of `packages/ui/README.md`.
+Phase 1 is complete (all 7 milestones); Phase 2 has begun. The items below carry
+forward — see also the Known Gaps section of `packages/ui/README.md`.
 
 High Priority (Phase 2 entry)
 
-- Wire the M4 navigation model to real auth/session + the Next router once
-  product screens exist (replace the simulated in-page route and persona switcher
-  with `usePathname` + the real `ViewerContext`).
+- ✅ DONE — wired the M4 navigation model to a real `ViewerContext` + the Next
+  router (`usePathname` / `router.push`) and built the first authenticated
+  surface (`/overview`). See the Phase 2 session summary above.
+- Replace the **mock session** in `app/providers/viewer-provider.tsx` with a real
+  auth source (NextAuth / server component / API). The seam is in place; nothing
+  downstream needs to change.
+- Build out real screens for the high-traffic nav destinations (Students
+  directory/enrollment, Attendance, Finance) that currently fall through to the
+  `[...slug]` placeholder.
 
 Medium Priority
 
@@ -633,13 +729,18 @@ Low Priority (cleanups)
 
 # Known Issues
 
-- Git state: the project lives on branch **`claude`**. Initial commit `357ccbf`
-  consolidated the earlier shell / nav / `/design-system` / requirements work;
-  **M5** is `ec57703`, **M6** is `1392571`. The **Milestone 7** changes
-  (`packages/ui/README.md`, the index "Preview surfaces" catalog, and this doc)
-  are **uncommitted in the working tree** on `claude` — pending the user's
-  go-ahead. Commit them before any push. Nothing has been pushed; `main` still
-  holds the old template.
+- Git state: the project lives on branch **`claude`**. History: `357ccbf`
+  (initial) → `ec57703` (M5) → `1392571` (M6) → `a92953b` (M7 docs) → Phase 2
+  nav-wiring commit. **Remote repointed** (this session) from `school-monorepo`
+  to the new repo: `origin` → `git@ewosofttechnologies.github.com:Ewosoft-Solutions/claude-trial.git`
+  (org SSH-alias form, so it uses the Ewosoft key).
+- ⚠ **Push blocked — local SSH auth, user action required.** `git push` fails
+  with `Permission denied (publickey)`: the ssh-agent has **no identities
+  loaded** (`ssh-add -l` → none) and the keys are passphrase-protected, so the
+  non-interactive shell can't unlock them. Fix (user, in their own terminal):
+  `ssh-add ~/.ssh/id_ed25519_ewosofttechnologies` (enter passphrase) then
+  `git push -u origin claude` — or `gh auth login` for HTTPS. Nothing has been
+  pushed yet; `main`/remote do not exist there until the first push.
 - Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
   the Claude app's preview-launcher helper has **not been granted access to the
   `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:
@@ -703,11 +804,12 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 8/8 static)
-Visual:     ✅ M7 index "Preview surfaces" catalog verified in the preview
-            browser (standalone-in-/tmp workaround), no console errors. M6
-            layouts, M5 states, and M3 shell each verified in prior sessions
-            (light + dark + mobile, with interactions).
+Build:      ✅ Passed (`pnpm --filter web build`, 9/9 routes)
+Visual:     ✅ Phase 2 `/overview` verified in the preview browser
+            (standalone-in-/tmp workaround): Owner dashboard renders; real
+            router navigation (rail → secondary panel → leaf placeholder) and
+            access filtering confirmed; no console errors. Earlier: M7 catalog,
+            M6 layouts, M5 states, M3 shell verified in prior sessions.
 Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
             notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
@@ -719,32 +821,36 @@ E2E:        ⚠ Not applicable yet
 
 # Next Recommended Prompt
 
-Phase 1 (Design System Foundation) is complete. Before starting Phase 2:
+Phase 2 has begun: the nav model is wired to a real `ViewerContext` + the Next
+router, and `/overview` is live (see the Phase 2 session summary).
 
-- **Commit M7** — `packages/ui/README.md`, the `/design-system` "Preview
-  surfaces" catalog, and this doc are uncommitted on `claude` (see Known Issues →
-  Git state). Decide whether to also push `claude` / open a PR to `main`.
+**Before anything else (carried over):**
+
+- **Push** — nothing is pushed yet and the push is blocked on local SSH auth
+  (see Known Issues → Push blocked). Load the org key
+  (`ssh-add ~/.ssh/id_ed25519_ewosofttechnologies`) or `gh auth login`, then
+  `git push -u origin claude`. Decide whether to open a PR to `main`.
 
 Read first:
 
-- AI_CONTEXT.md
-- AI_HANDOFF.md
-- CURRENT_PHASE.md (still says Phase 1 — update it to Phase 2 when starting)
-- implementation-roadmap.md (Phase 2 scope) + requirements/ docs for the target area
+- AI_CONTEXT.md · AI_HANDOFF.md · CURRENT_PHASE.md (now Phase 2)
+- implementation-roadmap.md + requirements/ docs for the target area
 - packages/ui/README.md (how to consume the foundation + Known Gaps)
 
-Then begin Phase 2 (Dashboard infrastructure / role-aware + tenant-aware
-navigation per AI_CONTEXT.md). The natural first task:
+Natural next Phase 2 tasks (pick one):
 
-- Wire the M4 navigation model to a real `ViewerContext` (auth/session) and the
-  Next router (`usePathname`), replacing the simulated in-page route + persona
-  switcher in the shell preview. Build the first real authenticated surface from
-  the M6 layout patterns + M5 states.
+- Build a real **Students directory** surface from the M6 `DataTableLayout`
+  (search/filter toolbar + table + `SkeletonTable`/`EmptyState` wiring), replacing
+  its `[...slug]` placeholder — the highest-traffic destination.
+- Build the **Enrollment** and **Attendance** surfaces similarly.
+- Replace the **mock session** (`app/providers/viewer-provider.tsx`) with a real
+  auth source when the auth flow lands.
+- Add unit tests for `resolveNavigation` / `canAccess` / `isRouteActive` /
+  `findActiveNavItem` (still only cross-checked manually).
 
 Requirements:
 
-- Reuse `packages/ui` components; do not create one-off UI. Build new shared UI
-  in `packages/ui` first.
+- Reuse `packages/ui` components; build new shared UI in `packages/ui` first.
 - Pass type-check, lint, and build before considering complete.
 - Update AI_HANDOFF.md when done.
 
