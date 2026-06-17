@@ -8,17 +8,49 @@ Last Updated: 2026-06-17
 
 Current Phase:
 
-Phase 1 - Design System Foundation
+Phase 1 - Design System Foundation — **COMPLETE** (next: Phase 2)
 
 Completion:
 
-~86% (Milestones 1–6 of 7 complete: Web Preview Scaffold, Token Foundation,
+100% (Milestones 1–7 of 7 complete: Web Preview Scaffold, Token Foundation,
 Core Shell Components, Role-Aware Navigation Model, State And Feedback
-Components, Layout Patterns)
+Components, Layout Patterns, Verification And Documentation)
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-17) — Milestone 7: Verification And Documentation
+
+Final Phase-1 milestone — documentation + a consolidated component index. No new
+runtime UI patterns; this captures how to consume the foundation and what's left
+for Phase 2.
+
+- **`packages/ui/README.md`** (new) — the canonical usage doc: how to consume
+  `@workspace/ui` (the `exports` map + import examples, host-app setup), the
+  token layer & theming, the **tenant-branding boundary** (brandable colour
+  roles only, scoped to `data-tenant`; never structural tokens), a full
+  **component catalog** (primitives · M3 shell · M4 nav model · M5 states · M6
+  layouts · utilities), a **preview-route index**, an **accessibility checklist**,
+  **responsive verification notes**, and a **known-gaps list** for Phase 2.
+- **`/design-system` index** — added a "Preview surfaces" catalog (cards linking
+  to `/shell`, `/states`, `/layouts`) built from the shared Card/Button
+  primitives, pointing at the README for usage. The primitive showcases
+  (buttons, badges, form controls, cards) remain below.
+
+With this, Phase 1 (Design System Foundation) is complete: `apps/web` is a
+working preview surface; `packages/ui` exposes reusable, typed, themeable
+components (tokens, shell, navigation model, states, layouts); light/dark have
+parity; nothing embeds template/product data; the preview works mobile +
+desktop; and usage + limitations are documented.
+
+### Verification (Milestone 7)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (8/8 static).
+- `/design-system` index verified in the preview browser (standalone-in-/tmp
+  workaround): the three preview-surface cards render with working "Open
+  preview" links; no console errors.
 
 ## Session Summary (2026-06-17) — Milestone 6: Layout Patterns
 
@@ -379,6 +411,20 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Milestone 7 (Verification And Documentation)
+
+Created:
+
+- packages/ui/README.md (design-system usage notes, catalog, accessibility
+  checklist, responsive notes, Phase-2 known gaps)
+
+Edited:
+
+- apps/web/app/design-system/page.tsx (added the "Preview surfaces" catalog)
+- AI_HANDOFF.md (this file)
+
+No changes to `packages/ui` components, the Prisma schema, or any API.
+
 ## Milestone 6 (Layout Patterns)
 
 Created:
@@ -560,24 +606,28 @@ shared UI to type-check from `apps/web`.
 
 ---
 
-# Outstanding Tasks (Phase 1)
+# Outstanding Tasks
 
-High Priority
+Phase 1 is complete (all 7 milestones). The items below carry into Phase 2 —
+see also the Known Gaps section of `packages/ui/README.md`.
 
-- Milestone 7: Verification & documentation — design-system usage notes,
-  component preview index, accessibility checklist, responsive verification
-  notes, and a known-gaps list for Phase 2. This is the last Phase-1 milestone.
+High Priority (Phase 2 entry)
 
-Medium Priority
 - Wire the M4 navigation model to real auth/session + the Next router once
   product screens exist (replace the simulated in-page route and persona switcher
-  with `usePathname` + the real `ViewerContext`). Likely Phase 2.
+  with `usePathname` + the real `ViewerContext`).
 
-Low Priority
+Medium Priority
 
-- Milestone 7: Design-system usage docs + accessibility/responsive notes.
-- Cleanup: fix the `@workspace/ui` lint script's missing eslint dep. (The
-  legacy shadcn template component removal — formerly TD-001 — is done.)
+- Add unit tests for the pure resolver (`resolveNavigation` / `canAccess` /
+  `isRouteActive`) — currently cross-checked only via a throwaway harness.
+
+Low Priority (cleanups)
+
+- Fix the `@workspace/ui` lint script's missing eslint dep (source is covered by
+  `tsc` + the `web` lint today).
+- Regenerate + commit `pnpm-lock.yaml` (stale `lockfileVersion 5.4`).
+- TD-002 (notification service) — unbuilt feature in `TECHNICAL_DEBT.md`.
 
 ---
 
@@ -585,10 +635,11 @@ Low Priority
 
 - Git state: the project lives on branch **`claude`**. Initial commit `357ccbf`
   consolidated the earlier shell / nav / `/design-system` / requirements work;
-  **Milestone 5** is committed as `ec57703` (`feat(ui): M5 state & feedback
-  components`). The **Milestone 6** changes (layout patterns + layouts preview +
-  this doc) are **uncommitted in the working tree** on `claude` — not yet
-  committed pending the user's go-ahead. Commit them before any push.
+  **M5** is `ec57703`, **M6** is `1392571`. The **Milestone 7** changes
+  (`packages/ui/README.md`, the index "Preview surfaces" catalog, and this doc)
+  are **uncommitted in the working tree** on `claude` — pending the user's
+  go-ahead. Commit them before any push. Nothing has been pushed; `main` still
+  holds the old template.
 - Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
   the Claude app's preview-launcher helper has **not been granted access to the
   `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:
@@ -626,7 +677,7 @@ Low Priority
   `9.0`. Regenerating/committing it is a deferred, separate cleanup.
 - `pnpm --filter @workspace/ui lint` fails to resolve `eslint` (package has no
   direct eslint dependency). Pre-existing infra; shell source is covered by
-  `tsc` + the `web` lint. Tracked under the Milestone 7 cleanup item.
+  `tsc` + the `web` lint. Deferred to Phase 2 (see README Known Gaps).
 - Aurora's glassmorphic surfaces remain flattened to solid colour roles in the
   token layer (Milestone 2 decision). The shell renders against those flat
   roles; the decorative aurora gradient field was not reintroduced and is
@@ -652,14 +703,13 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 8/8 static incl.
-            `/design-system/layouts` + `/design-system/states`)
-Visual:     ✅ M6 verified in the managed preview browser (standalone-in-/tmp
-            workaround — see Known Issues): all 5 layout patterns in light +
-            dark + mobile (375), with interactions (list/detail selection,
-            data-table data/loading/empty wiring M5 SkeletonTable + EmptyState,
-            form ValidationSummary focus, settings aria-current). No console
-            errors. M5 states + M3 shell verified in prior sessions.
+Build:      ✅ Passed (`pnpm --filter web build`, 8/8 static)
+Visual:     ✅ M7 index "Preview surfaces" catalog verified in the preview
+            browser (standalone-in-/tmp workaround), no console errors. M6
+            layouts, M5 states, and M3 shell each verified in prior sessions
+            (light + dark + mobile, with interactions).
+Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
+            notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
             cross-checked via a throwaway tsx harness — a real unit test for
             `resolveNavigation` is a good Phase-2 follow-up)
@@ -669,35 +719,34 @@ E2E:        ⚠ Not applicable yet
 
 # Next Recommended Prompt
 
-Read:
+Phase 1 (Design System Foundation) is complete. Before starting Phase 2:
+
+- **Commit M7** — `packages/ui/README.md`, the `/design-system` "Preview
+  surfaces" catalog, and this doc are uncommitted on `claude` (see Known Issues →
+  Git state). Decide whether to also push `claude` / open a PR to `main`.
+
+Read first:
 
 - AI_CONTEXT.md
 - AI_HANDOFF.md
-- CURRENT_PHASE.md
-- implementation-roadmap.md (Milestone 7)
-- DESIGN_RULES.md
+- CURRENT_PHASE.md (still says Phase 1 — update it to Phase 2 when starting)
+- implementation-roadmap.md (Phase 2 scope) + requirements/ docs for the target area
+- packages/ui/README.md (how to consume the foundation + Known Gaps)
 
-Then begin Phase 1 / Milestone 7 (Verification And Documentation) — the final
-Phase-1 milestone:
+Then begin Phase 2 (Dashboard infrastructure / role-aware + tenant-aware
+navigation per AI_CONTEXT.md). The natural first task:
 
-- Write design-system usage notes: how to consume `@workspace/ui` (tokens,
-  components, the M3 shell, M4 navigation model, M5 states, M6 layouts), and the
-  tenant-branding boundary (brandable colour roles only — see globals.css).
-- Add a component preview index and an accessibility checklist + responsive
-  verification notes covering the existing preview routes
-  (`/design-system`, `/shell`, `/states`, `/layouts`).
-- Capture a known-gaps list for Phase 2 (e.g. wiring the M4 nav to real
-  auth/router; unit tests for `resolveNavigation`; the `@workspace/ui` lint
-  eslint-resolution fix; lockfile regeneration).
+- Wire the M4 navigation model to a real `ViewerContext` (auth/session) and the
+  Next router (`usePathname`), replacing the simulated in-page route + persona
+  switcher in the shell preview. Build the first real authenticated surface from
+  the M6 layout patterns + M5 states.
 
 Requirements:
 
-- Reuse `packages/ui` components; do not create one-off UI.
+- Reuse `packages/ui` components; do not create one-off UI. Build new shared UI
+  in `packages/ui` first.
 - Pass type-check, lint, and build before considering complete.
 - Update AI_HANDOFF.md when done.
-
-Note: the M6 work is uncommitted in the working tree on `claude`. Commit it
-(see Known Issues → Git state) before pushing.
 
 Note: the preview launcher is blocked by macOS TCC (see Known Issues). The
 default `web` launch config serves a self-contained build from `/tmp`; after

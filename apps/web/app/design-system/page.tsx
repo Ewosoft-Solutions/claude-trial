@@ -65,6 +65,43 @@ export default function DesignSystemPage() {
 
       <div className="space-y-12">
         <Section
+          title="Preview surfaces"
+          description="Live previews of the shared component set. See packages/ui/README.md for usage, the accessibility checklist, and known gaps."
+        >
+          <div className="grid gap-4 sm:grid-cols-3">
+            {[
+              {
+                href: '/design-system/shell',
+                title: 'Application shell',
+                body: 'Header, rail, navigation, school switcher, user menu — driven by the role-aware navigation model (persona switcher).',
+              },
+              {
+                href: '/design-system/states',
+                title: 'States & feedback',
+                body: 'Loading, skeletons, empty, error, forbidden, offline/read-only banners, and the validation summary.',
+              },
+              {
+                href: '/design-system/layouts',
+                title: 'Layout patterns',
+                body: 'Dashboard, list/detail, data table, form, and settings — composed from primitives and the states above.',
+              },
+            ].map((s) => (
+              <Card key={s.href} className="gap-0 py-5">
+                <CardHeader className="px-5">
+                  <CardTitle className="text-base">{s.title}</CardTitle>
+                  <CardDescription>{s.body}</CardDescription>
+                </CardHeader>
+                <CardFooter className="px-5 pt-4">
+                  <Button asChild variant="outline" size="sm">
+                    <a href={s.href}>Open preview →</a>
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))}
+          </div>
+        </Section>
+
+        <Section
           title="Buttons"
           description="Variants and sizes from the shared button component."
         >
