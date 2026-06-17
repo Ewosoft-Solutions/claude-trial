@@ -51,6 +51,9 @@ export default function DesignSystemPage() {
         </div>
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" size="sm">
+            <a href="/design-system/states">View states →</a>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <a href="/design-system/shell">View app shell →</a>
           </Button>
           <ModeToggle />

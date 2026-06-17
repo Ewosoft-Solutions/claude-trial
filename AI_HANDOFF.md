@@ -1,6 +1,6 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-06-13
+Last Updated: 2026-06-17
 
 ---
 
@@ -12,12 +12,88 @@ Phase 1 - Design System Foundation
 
 Completion:
 
-~57% (Milestones 1–4 of 7 complete: Web Preview Scaffold, Token Foundation,
-Core Shell Components, Role-Aware Navigation Model)
+~71% (Milestones 1–5 of 7 complete: Web Preview Scaffold, Token Foundation,
+Core Shell Components, Role-Aware Navigation Model, State And Feedback
+Components)
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-17) — Milestone 5: State And Feedback Components
+
+Added reusable page/section state components so screens never render blank or
+undefined. All live in `packages/ui/src/custom/states/`, are data-driven (every
+title / description / action label is consumer-supplied — no embedded product
+copy), reuse existing primitives (Button, Skeleton, Input/Label in the preview),
+and map their tones onto the M2 status tokens (`success` / `warning` / `info` /
+`destructive`). Previewed on a new `/design-system/states` route.
+
+New shared contract:
+
+- **`types/states.types.ts`** — `StateTone`, `StateActionVariant`, `StateAction`
+  (href OR onClick, optional icon/variant/disabled/ariaLabel), and
+  `ValidationItem` (key · message · optional `fieldId` for focus linking).
+
+Components (in `packages/ui/src/custom/states/`):
+
+- **`state-view.tsx`** — `StateView`, the shared centered scaffold behind the
+  full-surface states (tone medallion · title · description · primary/secondary
+  actions · footer slot). `compact` for in-card use. Sets `aria-labelledby` /
+  `aria-describedby`; accepts `role` / `aria-live`. Also exports
+  `StateActionButton` (maps a `StateAction` onto the shared Button, link when
+  `href` set) — reused by the banners.
+- **`page-states.tsx`** — `EmptyState` (neutral), `ErrorState` (destructive,
+  `role="alert"`), `ForbiddenState` (warning). Thin presets over `StateView`
+  with default decorative lucide icons; override `icon`/`tone` or pass
+  `icon={null}`. `ForbiddenState` pairs with the M4 nav model: access filtering
+  hides nav the viewer can't reach, `ForbiddenState` covers the direct/deep-link
+  case (it enforces nothing — authorization stays server-side).
+- **`loading-state.tsx`** — `Spinner` (token-coloured `animate-spin`) and
+  `LoadingState` (centered, `role="status"` / `aria-busy`, optional label,
+  `compact`).
+- **`skeletons.tsx`** — content-shaped placeholders that prevent layout shift:
+  `SkeletonText`, `SkeletonList`, `SkeletonTable`, `SkeletonCardGrid`,
+  `SkeletonForm`. Each composes the shared `Skeleton` primitive; bars are
+  `aria-hidden` under a `role="status"` busy region.
+- **`notice-banner.tsx`** — `NoticeBanner` (non-blocking inline strip; content
+  still renders beneath), plus `OfflineBanner` (warning) and `ReadOnlyBanner`
+  (info) presets. Optional trailing action + dismiss button.
+- **`validation-summary.tsx`** — `ValidationSummary`, grouped form errors,
+  `role="alert"`, focusable (`tabIndex={-1}`, `autoFocus` + forwarded ref) so a
+  form can move focus to it on submit; items with `fieldId` render as links that
+  focus/scroll the offending control. Renders nothing when `items` is empty.
+
+Preview (`apps/web/app/design-system/states/page.tsx`, client component holding
+all sample copy): a labelled section per state, full-surface states framed in
+bordered cards, an interactive offline-banner dismiss/restore, and a working
+validation demo (submit empty → summary appears, auto-focuses, links focus the
+field). Linked from the `/design-system` index ("View states").
+
+### Verification (Milestone 5)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (`/design-system/states` prerendered static, 7/7 pages).
+- Rendering verified against a dev server: `/design-system/states` returns 200,
+  all seven state categories render server-side, no error overlay, ARIA roles
+  present (10× `role="status"`, 1× `role="alert"`), and `ValidationSummary`
+  correctly absent until a failed submit. Tone utilities (`bg-*/NN` tints,
+  `text-balance`/`text-pretty`, `animate-spin`) confirmed compiled in the served
+  CSS.
+- Visual (light + dark, desktop): verified in the managed preview browser. Full
+  dark-mode page captured (all 7 categories, distinct legible tones); light mode
+  captured for the loading/skeleton/empty/error region. ARIA confirmed via a11y
+  snapshot (loading/skeletons/banners → `status`; error → `alert`; empty/
+  forbidden → labelled groups with actions). Interactions exercised: empty
+  submit renders the `ValidationSummary` (`role="alert"`, receives focus) and
+  lists both field errors; clicking the "guardian email" error focuses the
+  `vs-email` input; the offline banner's dismiss toggles to the restore button.
+  No console errors.
+- ⚠ The managed preview browser only worked via a **standalone-in-`/tmp`
+  workaround** — the preview launcher is blocked by macOS Privacy (TCC) from
+  reading the project under `~/Documents` (confirmed: it reads `/tmp` fine,
+  `EPERM`s on `apps/web/package.json`). See Known Issues for the user-side fix
+  and the reproducible workaround.
 
 ## Session Summary (2026-06-13) — Milestone 4: Role-Aware Navigation Model
 
@@ -248,7 +324,32 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
-## Milestone 4 (Role-Aware Navigation Model) — uncommitted on chore/technical-debt-cleanup
+## Milestone 5 (State And Feedback Components)
+
+Created:
+
+- packages/ui/src/types/states.types.ts (StateTone, StateAction, ValidationItem)
+- packages/ui/src/custom/states/state-view.tsx (StateView + StateActionButton)
+- packages/ui/src/custom/states/page-states.tsx (Empty / Error / Forbidden)
+- packages/ui/src/custom/states/loading-state.tsx (Spinner + LoadingState)
+- packages/ui/src/custom/states/skeletons.tsx (text/list/table/card-grid/form)
+- packages/ui/src/custom/states/notice-banner.tsx (NoticeBanner + Offline/ReadOnly)
+- packages/ui/src/custom/states/validation-summary.tsx (ValidationSummary)
+- apps/web/app/design-system/states/page.tsx (preview surface; holds sample copy)
+
+Edited:
+
+- apps/web/app/design-system/page.tsx (added "View states" link)
+- apps/web/next.config.ts (added `output: 'standalone'` — enables the
+  preview-from-/tmp workaround for the macOS TCC launcher block; see Known Issues)
+- .claude/launch.json (added the `web-standalone` preview config used for the
+  workaround; the default `pnpm`-based `web` config is unchanged)
+- AI_HANDOFF.md (this file)
+
+No changes to existing `packages/ui` components, the Prisma schema, or any API.
+State components only consume existing primitives and the M2 tokens.
+
+## Milestone 4 (Role-Aware Navigation Model)
 
 Created:
 
@@ -386,15 +487,12 @@ shared UI to type-check from `apps/web`.
 
 High Priority
 
-- Milestone 5: State components (loading, skeletons, empty, error, forbidden,
-  offline/read-only, validation summary). The navigation model already exposes a
-  `forbidden`-style concept via access filtering; M5 adds the page/section states
-  themselves.
+- Milestone 6: Layout patterns (dashboard, list/detail, table, form, settings).
+  The shell preview's main body is a placeholder for these. Compose the M3 shell
+  + M5 states (e.g. table layout with `SkeletonTable` loading / `EmptyState`
+  empty; form layout with `ValidationSummary`).
 
 Medium Priority
-
-- Milestone 6: Layout patterns (dashboard, list/detail, table, form, settings).
-  The shell preview's main body is a placeholder for these.
 - Wire the M4 navigation model to real auth/session + the Next router once
   product screens exist (replace the simulated in-page route and persona switcher
   with `usePathname` + the real `ViewerContext`). Likely Phase 2.
@@ -409,13 +507,38 @@ Low Priority
 
 # Known Issues
 
-- Git state: most of the project (shell, `/design-system`, requirements, this
-  doc's siblings) is still **uncommitted/untracked** in the working tree; `main`
-  holds the old template. Only the TD-cleanup touched files were committed, on
-  `chore/technical-debt-cleanup`. The Milestone 4 changes sit **uncommitted on
-  that same branch** (stacked on the cleanup). Before any push, decide how to
-  carve these into commits/branches — they are currently intermingled in the
-  working tree.
+- Git state: the project now lives on branch **`claude`**, where the initial
+  commit (`357ccbf`) consolidated the previously-uncommitted shell / nav /
+  `/design-system` / requirements work (this supersedes the old "M4 uncommitted
+  on `chore/technical-debt-cleanup`" note). The **Milestone 5** changes (state
+  components + states preview + this doc) are **uncommitted in the working tree**
+  on `claude` — not yet committed because the user has not asked to commit/push.
+  Before any push, commit them on `claude` (or a feature branch) with the M4
+  history already captured in `357ccbf`.
+- Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
+  the Claude app's preview-launcher helper has **not been granted access to the
+  `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:
+  uv_cwd` (can't stat its cwd under Documents) and `EPERM: open/access` on
+  `apps/web/package.json`. Confirmed by isolation — the launcher reads a script
+  in `/tmp` fine but `EPERM`s on any file under the project tree. Not a project
+  or `launch.json` issue: the Bash tool (different entitlement) reads the tree
+  and `next dev` launched from `apps/web` serves normally.
+  Real fix (user action): System Settings → Privacy & Security → **Files and
+  Folders** → enable the **Documents Folder** for Claude (or add Claude under
+  **Full Disk Access**), then the default `web` launch config works. Alternatively
+  move the repo out of `~/Documents` (e.g. `~/dev`).
+  Workaround used for M5 (no grant needed): build a self-contained server and
+  serve it from `/tmp`, which the launcher can read. Reproducible steps —
+  1) `output: 'standalone'` is set in `apps/web/next.config.ts`;
+  2) `pnpm --filter web build`;
+  3) copy `apps/web/.next/standalone/.` → `/tmp/swe-preview/`, then copy
+     `apps/web/.next/static` → `/tmp/swe-preview/apps/web/.next/static`
+     (and `public` if present);
+  4) `/tmp/swe-run.cjs` chdir's to `/tmp/swe-preview/apps/web` and
+     `import()`s `server.js` (ESM) with `PORT=4319`;
+  5) the `web-standalone` launch config (`node /tmp/swe-run.cjs`, port 4319) is
+     what `preview_start` runs. NB: it serves a production *snapshot* (rebuild +
+     re-copy after source changes) and `/tmp` is cleared on reboot.
 - TD-002: notification service not implemented. Unbuilt feature (not cleanup);
   remains the only pending item in TECHNICAL_DEBT.md.
 - TD-001, TD-003, TD-004: resolved this session (branch
@@ -451,10 +574,15 @@ Breaking Changes: None.
 # Testing Status
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
-Lint:       ✅ Passed (`pnpm --filter web lint`)
-Build:      ✅ Passed (`pnpm --filter web build`)
-Visual:     ✅ `/design-system/shell` verified light + dark, desktop + mobile;
-            persona switching + route-derived active state confirmed live
+Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
+Build:      ✅ Passed (`pnpm --filter web build`, 7/7 static incl.
+            `/design-system/states`)
+Visual:     ✅ M5 verified in the managed preview browser (via the
+            standalone-in-/tmp workaround for the TCC issue — see Known Issues):
+            light + dark, all 7 state categories, ARIA roles, and interactions
+            (validation submit→focus→field-link, banner dismiss). No console
+            errors. M3 `/design-system/shell` previously verified light + dark,
+            desktop + mobile.
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
             cross-checked via a throwaway tsx harness — a real unit test for
             `resolveNavigation` is a good Phase-2 follow-up)
@@ -473,17 +601,16 @@ Read:
 - DESIGN_RULES.md
 - design-export/ (for any state visuals — loading, empty, error, forbidden)
 
-Then begin Phase 1 / Milestone 5 (State And Feedback Components):
+Then begin Phase 1 / Milestone 6 (Layout Patterns):
 
-- Build reusable state components so screens never appear blank or undefined:
-  loading, skeleton patterns, empty, error, forbidden, offline/read-only, and a
-  validation-summary pattern.
+- Build reusable layout patterns for common authenticated surfaces: dashboard,
+  list/detail, data table, form, and settings.
 - Put them in `packages/ui` (typed props, no embedded copy), and preview them on
-  a `/design-system` route. Reuse existing primitives; do not create one-off UI.
-- States must support concise titles/actions without layout shift and be
-  accessible/keyboard-friendly where actions exist.
-- The `forbidden` state should pair naturally with the M4 navigation model
-  (access filtering hides nav; `forbidden` covers direct/deep-link access).
+  a `/design-system` route. Patterns must compose existing shared components —
+  the M3 shell, M4 navigation model, and the M5 state components (e.g. a table
+  layout wiring `SkeletonTable` for loading and `EmptyState` for no rows; a form
+  layout wiring `ValidationSummary`). Do not create one-off UI.
+- Patterns must be responsive and avoid page-specific styling.
 
 Requirements:
 
@@ -493,5 +620,8 @@ Requirements:
 - Pass type-check, lint, and build before considering complete.
 - Update AI_HANDOFF.md when done.
 
-Note: before pushing, resolve the git-state item under Known Issues (M4 changes
-are uncommitted, stacked on `chore/technical-debt-cleanup`).
+Note: the M5 work is uncommitted in the working tree on `claude`. Commit it
+(see Known Issues → Git state) before pushing.
+
+Note: if `preview_start` still fails with `EPERM uv_cwd` (see Known Issues),
+verify via a dev server launched directly from `apps/web` plus curl, as M5 did.
