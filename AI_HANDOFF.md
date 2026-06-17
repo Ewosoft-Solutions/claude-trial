@@ -12,13 +12,68 @@ Phase 1 - Design System Foundation
 
 Completion:
 
-~71% (Milestones 1–5 of 7 complete: Web Preview Scaffold, Token Foundation,
+~86% (Milestones 1–6 of 7 complete: Web Preview Scaffold, Token Foundation,
 Core Shell Components, Role-Aware Navigation Model, State And Feedback
-Components)
+Components, Layout Patterns)
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-17) — Milestone 6: Layout Patterns
+
+Added five reusable authenticated-surface layout patterns in
+`packages/ui/src/custom/layouts/`. They are composition scaffolds — slots +
+typed data, no embedded product copy — that compose existing primitives (Card,
+Table, Button, Input/Label), the M3 `PageHeader`, and the M5 state components.
+Previewed on a new `/design-system/layouts` route (a `Tabs` switcher over the
+five patterns; sample copy lives in the preview).
+
+New shared contract:
+
+- **`types/layout.types.ts`** — `StatItem` (+ `StatDelta` / `StatTrend` with a
+  good/bad `intent` so "fees up" can read negative) and `SettingsNavItem`.
+
+Building block + patterns (in `packages/ui/src/custom/layouts/`):
+
+- **`stat-grid.tsx`** — `StatGrid` + `StatCard`: the compact Aurora KPI tile
+  (label · big value · trend delta), auto-fitting responsive grid, optional
+  link/button per tile. Data-driven (`StatItem[]`).
+- **`dashboard-layout.tsx`** — `DashboardLayout`: header slot + optional stat
+  row + a responsive main/aside content grid (aside stacks under main < lg).
+- **`list-detail-layout.tsx`** — `ListDetailLayout`: fixed-width master list +
+  flexible detail pane; on < md shows one pane at a time via `showDetail`
+  (consumer drives it from selection and supplies the "back" affordance).
+- **`data-table-layout.tsx`** — `DataTableLayout`: Card-framed toolbar (title +
+  search/filters/actions) + table body + footer; `loading` swaps in a
+  `SkeletonTable`, `empty` swaps in the consumer's `EmptyState` (M5 wiring) so
+  the view never renders blank. The table is passed as children (shared Table
+  primitive).
+- **`form-layout.tsx`** — `FormLayout` + `FormSection`: a `<form>` with a
+  validation-summary slot (wire the M5 `ValidationSummary`), divider-separated
+  titled sections (leading heading column + responsive field grid), a
+  right-aligned action bar, and an optional sticky aside.
+- **`settings-layout.tsx`** — `SettingsLayout` + `SettingsNav`: a sticky section
+  nav (vertical at md+, horizontal scroller on mobile) beside a content panel;
+  nav is data-driven (`SettingsNavItem[]`) and marks the active item with
+  `aria-current`.
+
+### Verification (Milestone 6)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (`/design-system/layouts` prerendered static, 8/8 pages).
+- Visual (managed preview browser, via the standalone-in-/tmp workaround):
+  all five patterns rendered and exercised in **light + dark**, plus **mobile**
+  (375 — tabs wrap, stat grid collapses to one column, columns stack). Confirmed
+  interactions: dashboard KPI deltas colour by intent (outstanding-fees ↑ reads
+  red); list/detail selection updates the detail pane + `aria-current`; data
+  table cycles data → loading (`SkeletonTable`, `aria-busy`) → empty
+  (`EmptyState` with actions); form empty-submit shows the wired
+  `ValidationSummary` (`role="alert"`, receives focus, 2 errors); settings nav
+  switches sections and tracks `aria-current`. No console errors.
+- Note: Radix `Tabs` triggers in the production-snapshot preview only switched
+  under a full synthesised pointer sequence (pointerdown→mouseup→click); a bare
+  `.click()` was a no-op. Preview-harness quirk, not a component issue.
 
 ## Session Summary (2026-06-17) — Milestone 5: State And Feedback Components
 
@@ -324,6 +379,28 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Milestone 6 (Layout Patterns)
+
+Created:
+
+- packages/ui/src/types/layout.types.ts (StatItem, StatDelta, SettingsNavItem)
+- packages/ui/src/custom/layouts/stat-grid.tsx (StatGrid + StatCard)
+- packages/ui/src/custom/layouts/dashboard-layout.tsx (DashboardLayout)
+- packages/ui/src/custom/layouts/list-detail-layout.tsx (ListDetailLayout)
+- packages/ui/src/custom/layouts/data-table-layout.tsx (DataTableLayout)
+- packages/ui/src/custom/layouts/form-layout.tsx (FormLayout + FormSection)
+- packages/ui/src/custom/layouts/settings-layout.tsx (SettingsLayout + SettingsNav)
+- apps/web/app/design-system/layouts/page.tsx (preview; holds sample copy)
+
+Edited:
+
+- apps/web/app/design-system/page.tsx (added "View layouts" link)
+- AI_HANDOFF.md (this file)
+
+No changes to existing `packages/ui` components, the Prisma schema, or any API.
+Layout patterns only compose existing primitives, the M3 PageHeader, and the M5
+state components.
+
 ## Milestone 5 (State And Feedback Components)
 
 Created:
@@ -487,10 +564,9 @@ shared UI to type-check from `apps/web`.
 
 High Priority
 
-- Milestone 6: Layout patterns (dashboard, list/detail, table, form, settings).
-  The shell preview's main body is a placeholder for these. Compose the M3 shell
-  + M5 states (e.g. table layout with `SkeletonTable` loading / `EmptyState`
-  empty; form layout with `ValidationSummary`).
+- Milestone 7: Verification & documentation — design-system usage notes,
+  component preview index, accessibility checklist, responsive verification
+  notes, and a known-gaps list for Phase 2. This is the last Phase-1 milestone.
 
 Medium Priority
 - Wire the M4 navigation model to real auth/session + the Next router once
@@ -507,14 +583,12 @@ Low Priority
 
 # Known Issues
 
-- Git state: the project now lives on branch **`claude`**, where the initial
-  commit (`357ccbf`) consolidated the previously-uncommitted shell / nav /
-  `/design-system` / requirements work (this supersedes the old "M4 uncommitted
-  on `chore/technical-debt-cleanup`" note). The **Milestone 5** changes (state
-  components + states preview + this doc) are **uncommitted in the working tree**
-  on `claude` — not yet committed because the user has not asked to commit/push.
-  Before any push, commit them on `claude` (or a feature branch) with the M4
-  history already captured in `357ccbf`.
+- Git state: the project lives on branch **`claude`**. Initial commit `357ccbf`
+  consolidated the earlier shell / nav / `/design-system` / requirements work;
+  **Milestone 5** is committed as `ec57703` (`feat(ui): M5 state & feedback
+  components`). The **Milestone 6** changes (layout patterns + layouts preview +
+  this doc) are **uncommitted in the working tree** on `claude` — not yet
+  committed pending the user's go-ahead. Commit them before any push.
 - Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
   the Claude app's preview-launcher helper has **not been granted access to the
   `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:
@@ -525,20 +599,23 @@ Low Priority
   and `next dev` launched from `apps/web` serves normally.
   Real fix (user action): System Settings → Privacy & Security → **Files and
   Folders** → enable the **Documents Folder** for Claude (or add Claude under
-  **Full Disk Access**), then the default `web` launch config works. Alternatively
-  move the repo out of `~/Documents` (e.g. `~/dev`).
-  Workaround used for M5 (no grant needed): build a self-contained server and
-  serve it from `/tmp`, which the launcher can read. Reproducible steps —
+  **Full Disk Access**), then switch the `web` launch config back to the
+  `web-pnpm` form for live HMR. Alternatively move the repo out of `~/Documents`
+  (e.g. `~/dev`).
+  Workaround in use (no grant needed): the default **`web`** launch config runs
+  a self-contained build from `/tmp`, which the launcher can read; `web-pnpm`
+  holds the original `pnpm --filter web exec next dev` form for once the grant
+  is in place. Reproducible refresh after any source change —
   1) `output: 'standalone'` is set in `apps/web/next.config.ts`;
   2) `pnpm --filter web build`;
-  3) copy `apps/web/.next/standalone/.` → `/tmp/swe-preview/`, then copy
-     `apps/web/.next/static` → `/tmp/swe-preview/apps/web/.next/static`
+  3) `rm -rf /tmp/swe-preview && cp -R apps/web/.next/standalone/. /tmp/swe-preview/`,
+     then `cp -R apps/web/.next/static /tmp/swe-preview/apps/web/.next/static`
      (and `public` if present);
-  4) `/tmp/swe-run.cjs` chdir's to `/tmp/swe-preview/apps/web` and
-     `import()`s `server.js` (ESM) with `PORT=4319`;
-  5) the `web-standalone` launch config (`node /tmp/swe-run.cjs`, port 4319) is
-     what `preview_start` runs. NB: it serves a production *snapshot* (rebuild +
-     re-copy after source changes) and `/tmp` is cleared on reboot.
+  4) `/tmp/swe-run.cjs` chdir's to `/tmp/swe-preview/apps/web` and `import()`s
+     `server.js` (ESM) with `PORT=3001`;
+  5) restart via `preview_start web` (port 3001). NB: it serves a production
+     *snapshot* — rebuild + re-copy after source changes — and `/tmp` clears on
+     reboot.
 - TD-002: notification service not implemented. Unbuilt feature (not cleanup);
   remains the only pending item in TECHNICAL_DEBT.md.
 - TD-001, TD-003, TD-004: resolved this session (branch
@@ -575,14 +652,14 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 7/7 static incl.
-            `/design-system/states`)
-Visual:     ✅ M5 verified in the managed preview browser (via the
-            standalone-in-/tmp workaround for the TCC issue — see Known Issues):
-            light + dark, all 7 state categories, ARIA roles, and interactions
-            (validation submit→focus→field-link, banner dismiss). No console
-            errors. M3 `/design-system/shell` previously verified light + dark,
-            desktop + mobile.
+Build:      ✅ Passed (`pnpm --filter web build`, 8/8 static incl.
+            `/design-system/layouts` + `/design-system/states`)
+Visual:     ✅ M6 verified in the managed preview browser (standalone-in-/tmp
+            workaround — see Known Issues): all 5 layout patterns in light +
+            dark + mobile (375), with interactions (list/detail selection,
+            data-table data/loading/empty wiring M5 SkeletonTable + EmptyState,
+            form ValidationSummary focus, settings aria-current). No console
+            errors. M5 states + M3 shell verified in prior sessions.
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
             cross-checked via a throwaway tsx harness — a real unit test for
             `resolveNavigation` is a good Phase-2 follow-up)
@@ -597,31 +674,32 @@ Read:
 - AI_CONTEXT.md
 - AI_HANDOFF.md
 - CURRENT_PHASE.md
-- implementation-roadmap.md (Milestone 5)
+- implementation-roadmap.md (Milestone 7)
 - DESIGN_RULES.md
-- design-export/ (for any state visuals — loading, empty, error, forbidden)
 
-Then begin Phase 1 / Milestone 6 (Layout Patterns):
+Then begin Phase 1 / Milestone 7 (Verification And Documentation) — the final
+Phase-1 milestone:
 
-- Build reusable layout patterns for common authenticated surfaces: dashboard,
-  list/detail, data table, form, and settings.
-- Put them in `packages/ui` (typed props, no embedded copy), and preview them on
-  a `/design-system` route. Patterns must compose existing shared components —
-  the M3 shell, M4 navigation model, and the M5 state components (e.g. a table
-  layout wiring `SkeletonTable` for loading and `EmptyState` for no rows; a form
-  layout wiring `ValidationSummary`). Do not create one-off UI.
-- Patterns must be responsive and avoid page-specific styling.
+- Write design-system usage notes: how to consume `@workspace/ui` (tokens,
+  components, the M3 shell, M4 navigation model, M5 states, M6 layouts), and the
+  tenant-branding boundary (brandable colour roles only — see globals.css).
+- Add a component preview index and an accessibility checklist + responsive
+  verification notes covering the existing preview routes
+  (`/design-system`, `/shell`, `/states`, `/layouts`).
+- Capture a known-gaps list for Phase 2 (e.g. wiring the M4 nav to real
+  auth/router; unit tests for `resolveNavigation`; the `@workspace/ui` lint
+  eslint-resolution fix; lockfile regeneration).
 
 Requirements:
 
-- Follow approved designs (design-export) and the access-control requirements
-  as source of truth.
 - Reuse `packages/ui` components; do not create one-off UI.
 - Pass type-check, lint, and build before considering complete.
 - Update AI_HANDOFF.md when done.
 
-Note: the M5 work is uncommitted in the working tree on `claude`. Commit it
+Note: the M6 work is uncommitted in the working tree on `claude`. Commit it
 (see Known Issues → Git state) before pushing.
 
-Note: if `preview_start` still fails with `EPERM uv_cwd` (see Known Issues),
-verify via a dev server launched directly from `apps/web` plus curl, as M5 did.
+Note: the preview launcher is blocked by macOS TCC (see Known Issues). The
+default `web` launch config serves a self-contained build from `/tmp`; after
+editing source, rebuild + re-copy to `/tmp` and restart `preview_start web`
+(steps in Known Issues), or grant Documents access and use `web-pnpm`.
