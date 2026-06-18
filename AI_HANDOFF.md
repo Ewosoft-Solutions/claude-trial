@@ -1,6 +1,6 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-06-17
+Last Updated: 2026-06-18
 
 ---
 
@@ -13,13 +13,57 @@ Phase 2 - Dashboard Infrastructure & Role/Tenant-Aware Navigation — **IN PROGR
 Completion:
 
 Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
-Phase 2: first task done — the M4 navigation model is now wired to a real
-`ViewerContext` (session seam) and the Next router, with the first authenticated
-product surface (`/overview`) built from the shared M6 layouts + M5 states.
+Phase 2: nav model wired to a real `ViewerContext` (session seam) + the Next
+router; `/overview` dashboard live; **`/students/directory`** now a real
+collection surface (M6 `DataTableLayout` + new shared `StatusBadge`), replacing
+its `[...slug]` placeholder.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Student directory surface
+
+Built the first real **collection** surface — `/students/directory` — from the
+M6 `DataTableLayout`, replacing the `[...slug]` placeholder for that route. Also
+added one small shared display component it needed (built in `packages/ui`
+first, per the rules).
+
+New shared UI (`packages/ui`):
+
+- **`custom/data-display/status-badge.tsx`** — `StatusBadge`: a tone-driven
+  status pill (Active / Suspended / Graduating / Paid / Owing …) for tables and
+  rows. Reuses the M5 `StateTone` union and the same status-token mapping as the
+  state medallions (so tones read consistently across surfaces); optional
+  leading `dot`. The base `Badge` primitive keeps the brand/secondary/
+  destructive/outline variants — `StatusBadge` adds the semantic status tones it
+  lacked. Presentational + server-safe (no hooks).
+
+New app surface (`apps/web`):
+
+- **`app/(app)/students/directory/page.tsx`** — the student directory. Composes
+  `PageHeader` + `DataTableLayout` (toolbar + Table + footer) wired to the M5
+  states: a brief mount-time `loading` shows the `SkeletonTable`, and an
+  over-filtered result shows the `EmptyState` (with a "Clear filters" reset
+  action), so the view never renders blank. Toolbar = debounce-free search
+  (name / ID / guardian) + class `Select` + status `Select`; footer shows
+  "Showing N of M" + a clear-filters link. Rows render avatar initials, the
+  enrollment `StatusBadge` (with dot) and a fee `StatusBadge`. Mock rows + copy
+  live in the page; the tenant comes from `useViewer()`. More specific than the
+  `[...slug]` catch-all, so it takes precedence.
+
+### Verification (Phase 2 · student directory)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (10/10 routes; `/students/directory` static).
+- Live preview (standalone-in-/tmp workaround): directory renders all 12 mock
+  students with status + fee pills; secondary nav resolves with **Directory**
+  active (Records / Academics / Operations) and the breadcrumb reads
+  "Students / Directory". Exercised the toolbar: a non-matching search collapses
+  the table to the `EmptyState` ("No students match your filters"); its "Clear
+  filters" action restores all 12 rows and resets the footer to "Showing 12 of
+  12". Verified **light + dark** at desktop (tones legible in both). No console
+  errors.
 
 ## Session Summary (2026-06-17) — Phase 2 · Nav wiring + first authenticated surface
 
@@ -477,6 +521,22 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Phase 2 — Student directory surface
+
+Created:
+
+- packages/ui/src/custom/data-display/status-badge.tsx (StatusBadge — tone pill)
+- apps/web/app/(app)/students/directory/page.tsx (student directory surface)
+
+Edited:
+
+- packages/ui/README.md (added the "Data display" catalog entry for StatusBadge)
+- AI_HANDOFF.md (this file)
+
+No Prisma schema or API changes. `DataTableLayout` and the M5 states are
+consumed unchanged; `/students/directory` now resolves ahead of the `[...slug]`
+placeholder.
+
 ## Phase 2 — Nav wiring + first authenticated surface
 
 Created:
@@ -709,9 +769,12 @@ High Priority (Phase 2 entry)
 - Replace the **mock session** in `app/providers/viewer-provider.tsx` with a real
   auth source (NextAuth / server component / API). The seam is in place; nothing
   downstream needs to change.
-- Build out real screens for the high-traffic nav destinations (Students
-  directory/enrollment, Attendance, Finance) that currently fall through to the
-  `[...slug]` placeholder.
+- Build out real screens for the high-traffic nav destinations that currently
+  fall through to the `[...slug]` placeholder. ✅ **Students directory** done
+  (`/students/directory`). Next: **Enrollment** (`/students/enrollment`) and
+  **Attendance** (`/attendance/daily` + `/students/attendance`) — both fit the
+  same `DataTableLayout` + `StatusBadge` recipe; Attendance daily-register may
+  want a per-row toggle (present/absent/late).
 
 Medium Priority
 
@@ -729,18 +792,14 @@ Low Priority (cleanups)
 
 # Known Issues
 
-- Git state: the project lives on branch **`claude`**. History: `357ccbf`
-  (initial) → `ec57703` (M5) → `1392571` (M6) → `a92953b` (M7 docs) → Phase 2
-  nav-wiring commit. **Remote repointed** (this session) from `school-monorepo`
-  to the new repo: `origin` → `git@ewosofttechnologies.github.com:Ewosoft-Solutions/claude-trial.git`
-  (org SSH-alias form, so it uses the Ewosoft key).
-- ⚠ **Push blocked — local SSH auth, user action required.** `git push` fails
-  with `Permission denied (publickey)`: the ssh-agent has **no identities
-  loaded** (`ssh-add -l` → none) and the keys are passphrase-protected, so the
-  non-interactive shell can't unlock them. Fix (user, in their own terminal):
-  `ssh-add ~/.ssh/id_ed25519_ewosofttechnologies` (enter passphrase) then
-  `git push -u origin claude` — or `gh auth login` for HTTPS. Nothing has been
-  pushed yet; `main`/remote do not exist there until the first push.
+- Git state: the project lives on branch **`claude`**, fully pushed. `origin` is
+  now the HTTPS remote `https://github.com/Ewosoft-Solutions/claude-trial.git`
+  (the earlier SSH-alias form is gone, so the old passphrase-key blocker no
+  longer applies). `origin/claude` is at the latest local commit; `main`,
+  `codex`, and `chore/technical-debt-cleanup` also exist on the remote. No PR
+  from `claude` → `main` is open yet (deferred by choice — open one when Phase 2
+  has more substance). NB: the Phase-2 *student-directory* work (this session)
+  is **uncommitted** in the working tree — commit + push it.
 - Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
   the Claude app's preview-launcher helper has **not been granted access to the
   `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:
@@ -804,12 +863,13 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 9/9 routes)
-Visual:     ✅ Phase 2 `/overview` verified in the preview browser
-            (standalone-in-/tmp workaround): Owner dashboard renders; real
-            router navigation (rail → secondary panel → leaf placeholder) and
-            access filtering confirmed; no console errors. Earlier: M7 catalog,
-            M6 layouts, M5 states, M3 shell verified in prior sessions.
+Build:      ✅ Passed (`pnpm --filter web build`, 10/10 routes)
+Visual:     ✅ `/students/directory` verified in the preview browser
+            (standalone-in-/tmp workaround): 12 rows with status/fee pills;
+            search → EmptyState → "Clear filters" reset cycle confirmed;
+            Directory active in the secondary nav; light + dark legible; no
+            console errors. Earlier: Phase 2 `/overview` dashboard + real router
+            navigation; M7 catalog, M6 layouts, M5 states, M3 shell.
 Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
             notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
@@ -821,28 +881,28 @@ E2E:        ⚠ Not applicable yet
 
 # Next Recommended Prompt
 
-Phase 2 has begun: the nav model is wired to a real `ViewerContext` + the Next
-router, and `/overview` is live (see the Phase 2 session summary).
+Phase 2 in progress: nav model wired to a real `ViewerContext` + the Next
+router; `/overview` dashboard and `/students/directory` are live (see the Phase 2
+session summaries). The directory introduced the shared `StatusBadge`.
 
-**Before anything else (carried over):**
+**Before anything else:**
 
-- **Push** — nothing is pushed yet and the push is blocked on local SSH auth
-  (see Known Issues → Push blocked). Load the org key
-  (`ssh-add ~/.ssh/id_ed25519_ewosofttechnologies`) or `gh auth login`, then
-  `git push -u origin claude`. Decide whether to open a PR to `main`.
+- **Commit + push** the student-directory work (it is uncommitted in the working
+  tree). `origin` is now HTTPS and the old SSH blocker is gone, so a plain
+  `git push` works. Decide whether to open a PR to `main` (currently deferred).
 
 Read first:
 
-- AI_CONTEXT.md · AI_HANDOFF.md · CURRENT_PHASE.md (now Phase 2)
+- AI_CONTEXT.md · AI_HANDOFF.md · CURRENT_PHASE.md (Phase 2)
 - implementation-roadmap.md + requirements/ docs for the target area
 - packages/ui/README.md (how to consume the foundation + Known Gaps)
 
 Natural next Phase 2 tasks (pick one):
 
-- Build a real **Students directory** surface from the M6 `DataTableLayout`
-  (search/filter toolbar + table + `SkeletonTable`/`EmptyState` wiring), replacing
-  its `[...slug]` placeholder — the highest-traffic destination.
-- Build the **Enrollment** and **Attendance** surfaces similarly.
+- Build the **Enrollment** (`/students/enrollment`) and **Attendance**
+  (`/attendance/daily`, `/students/attendance`) surfaces — same
+  `DataTableLayout` + `StatusBadge` recipe as the directory. Attendance's daily
+  register likely wants a per-row present/absent/late control.
 - Replace the **mock session** (`app/providers/viewer-provider.tsx`) with a real
   auth source when the auth flow lands.
 - Add unit tests for `resolveNavigation` / `canAccess` / `isRouteActive` /

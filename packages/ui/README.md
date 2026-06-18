@@ -138,6 +138,13 @@ and the M5 states: `StatGrid` / `StatCard`, `DashboardLayout`,
 `FormLayout` / `FormSection` (wires `ValidationSummary`), `SettingsLayout` /
 `SettingsNav`.
 
+### Data display — `custom/data-display/*`
+`StatusBadge` — a tone-driven status pill (Active / Suspended / Paid / Owing …)
+for tables, list rows and detail panes. Reuses the M5 `StateTone` union and the
+same status-token mapping as the state medallions, so tones read consistently;
+optional leading `dot`. The base `Badge` primitive stays for brand/secondary/
+destructive/outline variants.
+
 ### Utilities
 `lib/utils.ts` → `cn()` (clsx + tailwind-merge). `hooks/use-mobile.ts`.
 `custom/mode-toggle`, `custom/colors/color-scheme`.
