@@ -25,11 +25,54 @@ the **Finance** area (invoices · payments · reports), the **Settings** area
 `SettingsLayout`), and the **Reports** area (`/reports/academic` ·
 `/reports/analytics`, on the new shared chart wrappers) — each replacing its
 `[...slug]` placeholder. Every M6 layout pattern is exercised in-app, and the
-`chart` primitive now has reusable wrappers used in-app.
+`chart` primitive now has reusable wrappers used in-app. The pure nav resolver
+(`packages/ui/src/lib/navigation.ts`) is now unit-tested (26 cases) on a
+finally-wired `@workspace/vitest-config` shared runner.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Nav resolver unit tests + vitest runner
+
+Stood up the first test suite on the web/UI side and wired the shared test
+runner the monorepo was scaffolded for but never finished.
+
+Test runner (`@workspace/vitest-config`): its `src` was empty, so the package's
+`dist/configs/*` exports resolved to nothing **and** `turbo run build` aborted on
+it (`tsc` over an empty `include`). Populated `src` with a buildable shared
+config — `configs/base-config.ts` (`baseConfig`, node env, istanbul coverage) and
+`configs/ui-config.ts` (`uiConfig`, layering jsdom) re-exported from `index.ts`
+(NodeNext, so internal imports carry `.js`). Deleted the stale root `base.ts`
+(it referenced a nonexistent `src/test-setup.ts` and the wrong coverage
+provider). `pnpm --filter @workspace/vitest-config build` now emits the dist the
+exports promise, and the repo-wide build no longer aborts here.
+
+Consumer (`packages/ui`): added `vitest` + `@workspace/vitest-config` devDeps, a
+`test` script (`vitest run`), and `vitest.config.ts` re-exporting `baseConfig`
+(the nav helpers are pure, so node env suffices — switch to `uiConfig` when
+component tests arrive).
+
+Coverage — `packages/ui/src/lib/navigation.test.ts`, **26 cases** over the pure
+nav helpers (previously only cross-checked by hand):
+
+- **`canAccess`** — every guard field (scope · minClearance inclusive · roles ·
+  schoolTypes incl. missing-type · anyPermission · allPermissions) plus AND
+  semantics across fields.
+- **`isRouteActive`** — exact match, ancestor match, root-only-exact, the
+  trailing-slash prefix guard (`/students` not active on `/students-archive`).
+- **`resolveNavigation`** — section access filtering, active section + most-
+  specific active leaf, panel header/groups exposure, access-gated group
+  collapse, the unmatched-route case, footer-section activation, and link vs
+  `onNavigate` (controlled) dispatch.
+- **`findActiveNavItem`** — deepest-active descendant, active-parent fallback,
+  none-active → undefined.
+
+Verified: `@workspace/ui` test 26/26 ✅ · web check-types ✅ · web lint ✅ · web
+build ✅ · `packages/ui` `tsc -p` (incl. test + config files) ✅. The pre-existing
+`apps/api` Jest failure (`permission.service.spec.ts`) and the
+`@workspace/database` build error (Prisma `ERR_REQUIRE_ESM`, Node 20.18 <
+required 20.19) are unrelated and untouched by this work.
 
 ## Session Summary (2026-06-18) — Phase 2 · Reports area + shared chart wrappers
 
