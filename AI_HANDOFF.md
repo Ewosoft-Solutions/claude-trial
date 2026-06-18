@@ -20,14 +20,74 @@ layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
 **Students** area (now complete: directory · enrollment · attendance history ·
 fees · transport · gradebook → report-cards + transcripts), **Attendance**
 (`/attendance/daily`), the **Classes** area (timetable · subjects · gradebook),
-the **Finance** area (invoices · payments · reports), and the **Settings** area
+the **Finance** area (invoices · payments · reports), the **Settings** area
 (general · branding · features · roles · users · audit, on the M6
-`SettingsLayout`) — each replacing its `[...slug]` placeholder. Every M6 layout
-pattern is exercised in-app.
+`SettingsLayout`), and the **Reports** area (`/reports/academic` ·
+`/reports/analytics`, on the new shared chart wrappers) — each replacing its
+`[...slug]` placeholder. Every M6 layout pattern is exercised in-app, and the
+`chart` primitive now has reusable wrappers used in-app.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Reports area + shared chart wrappers
+
+Built the last placeholder section — **Reports** — and, per the rules, the
+reusable chart UI it needed in `packages/ui` first. The `chart` primitive
+(shadcn + recharts) existed but had no app-facing wrapper and recharts is **not**
+a dependency of `apps/web`; the new wrappers keep recharts confined to
+`packages/ui`.
+
+New shared UI (in `packages/ui`):
+
+- **`types/chart.types.ts`** — `ChartDatum` (a data row) + `ChartSeries`
+  (`key` / `label` / optional `color`, defaulting to the rotating `--chart-1..5`
+  tokens). The typed contract both wrappers consume.
+- **`custom/charts/trend-chart.tsx`** — `TrendChart`: multi-series `area`
+  (gradient bands) or `line` over a category/time axis; optional `stacked`, auto
+  legend for >1 series, accessible `role="img"` + `aria-label`.
+- **`custom/charts/category-bar-chart.tsx`** — `CategoryBarChart`: grouped or
+  `stacked` bars, `column` (vertical) or `bar` (horizontal) orientation.
+
+Both hold no product copy (preview supplies data + labels), build the primitive's
+`ChartConfig` from the series list, and set `isAnimationActive={false}` so marks
+paint at final geometry on mount.
+
+New app surfaces (`apps/web`, each replacing its `[...slug]` placeholder):
+
+- **`reports/academic`** — academic performance: StatGrid headline + grade
+  distribution (column bars) + average-score trend (area, cohort vs school) +
+  pass-rate-by-subject (horizontal bars).
+- **`reports/analytics`** — operational analytics: StatGrid + enrollment movement
+  (area, joined vs withdrew) + weekly attendance rate (line) + admissions funnel
+  (grouped bars) + capacity-by-campus (shared `Meter`).
+- **`reports/page.tsx`** — `/reports` redirects to `/reports/academic` (matches
+  the `finance` / `classes` section-landing pattern).
+
+Two recharts gotchas were hit and fixed during browser verification (both now
+documented in `packages/ui/README.md` → Charts):
+
+1. **Fragment-wrapped axes are dropped.** The bar wrapper first wrapped its
+   conditional `XAxis`/`YAxis` in a React fragment; recharts discovers axis
+   children by type and does **not** traverse fragments, so the chart silently
+   rendered with no axes and a wrong default domain (tiny invisible bars). Fixed
+   by passing the axes as **direct** children with conditional props.
+2. **Mount-animation blank flash.** Marks animating from zero left charts blank
+   in the (fast) snapshot screenshots; `isAnimationActive={false}` makes them
+   deterministic and avoids the flash for real users.
+
+### Verification (Phase 2 · Reports)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (`/reports` redirect + `/reports/academic` + `/reports/analytics`; the two leaf
+  routes ~295 kB first-load with the recharts chunk).
+- Live preview (standalone-in-/tmp workaround, port 3013): both surfaces render
+  every chart correctly — grade bars proportioned A–F, the cohort-vs-school area
+  bands, the green horizontal pass-rate bars (61→91%), the enrollment area +
+  attendance line, the grouped admissions funnel with legend, and the four
+  capacity Meters tone-coloured. `/reports` → `/reports/academic` confirmed. No
+  console warnings/errors.
 
 ## Session Summary (2026-06-18) — Phase 2 · Session seam moved server-side
 
