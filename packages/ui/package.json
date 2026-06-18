@@ -4,7 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "lint": "eslint . --max-warnings 0"
+    "lint": "eslint . --max-warnings 0",
+    "test": "vitest run"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.1.0",
@@ -52,8 +53,10 @@
     "@types/react-dom": "^19.1.7",
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "@workspace/vitest-config": "workspace:*",
     "tailwindcss": "^4.1.11",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vitest": "^4.0.14"
   },
   "exports": {
     "./globals.css": "./src/styles/globals.css",
