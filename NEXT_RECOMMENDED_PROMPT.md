@@ -9,13 +9,15 @@ router; `/overview` dashboard live; real product surfaces built on the M6
 layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
 Students area (`/students/directory`, `/students/enrollment`), Attendance
 (`/attendance/daily`), the Classes area (`/classes/timetable`,
-`/classes/subjects`, `/classes/gradebook`), and the Finance area
-(`/finance/invoices`, `/finance/payments`, `/finance/reports`) — see the Phase 2
-session summaries in `AI_HANDOFF.md`.
+`/classes/subjects`, `/classes/gradebook`), the Finance area
+(`/finance/invoices`, `/finance/payments`, `/finance/reports`), and the Settings
+area (general/branding/features/roles/users/audit on the M6 `SettingsLayout`) —
+see the Phase 2 session summaries in `AI_HANDOFF.md`. Every M6 layout pattern is
+now exercised in-app.
 
 **Git state:** branch `claude` is on `origin`
 (`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS — no SSH
-blocker). The Finance work + these doc updates may be uncommitted in the working
+blocker). The Settings work + these doc updates may be uncommitted in the working
 tree — `git status` first, then commit + push. No PR from `claude` → `main` is
 open yet (deferred by choice).
 
@@ -27,12 +29,15 @@ Read first:
 
 Natural next Phase 2 tasks (pick one):
 
-- Build more placeholder surfaces with the established recipes: **Reports**
-  (`/reports/*` — `StatGrid` + `Meter`, or the `chart` primitive for a more
-  analytics-flavoured surface), the **Settings** surfaces (`/settings/*` via the
-  M6 `SettingsLayout` — not yet exercised in-app), the per-student **attendance
-  history** (`/students/attendance`, distinct from the class daily register), or
-  the **Students** sub-pages (fees / transport / gradebook).
+- Finish the remaining placeholder surfaces with the established recipes:
+  **Reports** (`/reports/*` — `StatGrid` + `Meter`, or the `chart` primitive for
+  a more analytics-flavoured surface), the per-student **attendance history**
+  (`/students/attendance`, distinct from the class daily register), or the
+  **Students** sub-pages (`/students/fees`, `/students/transport`,
+  `/students/gradebook/*`).
+- Tidy-up: the app-shell secondary nav duplicates the in-panel `SettingsNav` —
+  consider emptying the Settings section groups in `app-navigation.tsx` (see the
+  Settings session's design note).
 - Replace the **mock session** (`app/providers/viewer-provider.tsx`) with a real
   auth source when the auth flow lands.
 - Add unit tests for `resolveNavigation` / `canAccess` / `isRouteActive` /

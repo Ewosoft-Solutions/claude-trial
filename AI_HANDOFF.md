@@ -18,13 +18,58 @@ router; `/overview` dashboard live; real product surfaces built on the M6
 layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
 **Students** area (`/students/directory`, `/students/enrollment`), **Attendance**
 (`/attendance/daily`), the **Classes** area (`/classes/timetable` ·
-`/classes/subjects` · `/classes/gradebook`), and the **Finance** area
-(`/finance/invoices` · `/finance/payments` · `/finance/reports`, `/finance` →
-invoices redirect) — each replacing its `[...slug]` placeholder.
+`/classes/subjects` · `/classes/gradebook`), the **Finance** area
+(`/finance/invoices` · `/finance/payments` · `/finance/reports`), and the
+**Settings** area (general · branding · features · roles · users · audit, on the
+M6 `SettingsLayout`) — each replacing its `[...slug]` placeholder. Every M6
+layout pattern is now exercised in-app.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Settings surfaces (M6 SettingsLayout)
+
+Built the Settings area on the M6 `SettingsLayout` + `SettingsNav` — the last M6
+pattern not yet used in-app. No new shared component (reuses SettingsLayout,
+Card, Table, Input/Select, Toggle, StatusBadge).
+
+New app surfaces (`apps/web`):
+
+- **`app/(app)/settings/layout.tsx`** — a route-group layout that renders the
+  `SettingsLayout` shell (PageHeader + section nav) once; section pages supply
+  only their content panel. Active section derives from `usePathname`; nav items
+  are real links (client routing).
+- **`settings/general`** — school profile + academic/locale forms (Cards of
+  Input/Select + save bar).
+- **`settings/branding`** — logo slot, brand-colour swatch picker (interactive),
+  default-theme `ToggleGroup`. The tenant-branding surface.
+- **`settings/features`** — module toggles on the shared `Toggle` (live
+  enabled-count; tinted on-state).
+- **`settings/roles`** — roles table with clearance-tone `StatusBadge`s + a
+  "Custom" tag.
+- **`settings/users`** — staff-accounts table (avatars, role, active/invited/
+  suspended pills).
+- **`settings/audit`** — activity trail with category-tone `StatusBadge`s.
+- **`settings/page.tsx`** — `/settings` redirects to `/settings/general`.
+
+⚠ Design note: the app-shell's secondary nav already lists the Settings
+sub-items (from `resolveNavigation`), so it now visually overlaps the in-panel
+`SettingsNav`. Both are functional; a follow-up could empty the Settings section
+groups in `app-navigation.tsx` so the shell panel doesn't duplicate the section
+nav when a dedicated settings layout owns it.
+
+### Verification (Phase 2 · Settings)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (6 section pages + `/settings` redirect; 27 routes).
+- Live preview (standalone-in-/tmp workaround): all six sections render with the
+  sticky section nav marking the active item + breadcrumb "Settings / …".
+  **Features** toggles are live (flipping Messaging On→Off updated its state +
+  the enabled count); **Branding** swatch selection + theme toggle work;
+  **General** forms, **Roles** (clearance pills + Custom tag), **Users**
+  (status pills), **Audit** (category pills) all render. `/settings` redirected
+  to general. No console errors.
 
 ## Session Summary (2026-06-18) — Phase 2 · Finance surfaces (+ Meter)
 
@@ -646,6 +691,27 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Phase 2 — Settings surfaces (M6 SettingsLayout)
+
+Created:
+
+- apps/web/app/(app)/settings/layout.tsx (SettingsLayout shell + section nav)
+- apps/web/app/(app)/settings/general/page.tsx (profile + locale forms)
+- apps/web/app/(app)/settings/branding/page.tsx (logo, colour swatches, theme)
+- apps/web/app/(app)/settings/features/page.tsx (module toggles)
+- apps/web/app/(app)/settings/roles/page.tsx (roles table)
+- apps/web/app/(app)/settings/users/page.tsx (users table)
+- apps/web/app/(app)/settings/audit/page.tsx (audit log)
+- apps/web/app/(app)/settings/page.tsx (/settings → /settings/general redirect)
+
+Edited:
+
+- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+
+No Prisma schema or API changes. No new shared component — Settings reuses
+`SettingsLayout` + existing primitives. Resolves ahead of the `[...slug]`
+placeholder.
+
 ## Phase 2 — Finance surfaces (+ Meter)
 
 Created:
@@ -951,12 +1017,12 @@ High Priority (Phase 2 entry)
   (`/students/directory`), **Enrollment** (`/students/enrollment`), **Attendance
   daily register** (`/attendance/daily`), **Classes** (`/classes/timetable` ·
   `/classes/subjects` · `/classes/gradebook`), **Finance** (`/finance/invoices` ·
-  `/finance/payments` · `/finance/reports`). Remaining placeholders worth
-  building: **Reports** (`/reports/*`), the per-student **attendance history**
-  (`/students/attendance`), the **Students** sub-pages (fees / transport /
-  gradebook), and the **Settings** surfaces — all fit the `DataTableLayout` /
-  `StatGrid` / `SettingsLayout` + `StatusBadge` / `ScheduleGrid` / `Meter`
-  recipes.
+  `/finance/payments` · `/finance/reports`), **Settings** (general · branding ·
+  features · roles · users · audit). Remaining placeholders worth building:
+  **Reports** (`/reports/*`), the per-student **attendance history**
+  (`/students/attendance`), and the **Students** sub-pages (fees / transport /
+  gradebook) — all fit the `DataTableLayout` / `StatGrid` + `StatusBadge` /
+  `ScheduleGrid` / `Meter` recipes.
 
 Medium Priority
 
@@ -1045,15 +1111,16 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 20 routes)
-Visual:     ✅ Finance area verified in the preview browser (standalone-in-/tmp):
-            `/finance/invoices` (billing StatGrid + status pills),
-            `/finance/payments` (method + status pills), `/finance/reports`
-            (StatGrid + Meter breakdowns), `/finance` redirect → invoices; no
-            console errors. Earlier: Classes (timetable/subjects/gradebook),
-            `/students/enrollment` (pipeline StatGrid), `/attendance/daily` (live
-            toggles 10/0/0 → 7/1/2), `/students/directory` (search → EmptyState →
-            reset; light + dark), `/overview` + real router nav; M5–M7.
+Build:      ✅ Passed (`pnpm --filter web build`, 27 routes)
+Visual:     ✅ Settings area verified in the preview browser (standalone-in-/tmp):
+            all six sections render via the M6 SettingsLayout (active section nav
+            + breadcrumb); Features toggles + Branding swatches/theme interactive;
+            `/settings` redirect → general; no console errors. Earlier: Finance
+            (invoices/payments/reports + Meter), Classes
+            (timetable/subjects/gradebook), `/students/enrollment`,
+            `/attendance/daily` (live toggles 10/0/0 → 7/1/2),
+            `/students/directory` (search → EmptyState → reset; light + dark),
+            `/overview` + real router nav; M5–M7.
 Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
             notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
