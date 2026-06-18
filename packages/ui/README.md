@@ -152,6 +152,23 @@ viewports instead of reflowing.
 value text, `MeterTone` fill). Accessible `progressbar` role. Generalises the
 one-off bars in the dashboard / finance surfaces.
 
+### Charts — `custom/charts/*`
+Typed, data-driven wrappers over the `chart` primitive + recharts, so app pages
+consume a small typed API and **recharts stays confined to `packages/ui`** (it is
+not a dependency of `apps/web`). Both take `data` rows + an `xKey` + a `series`
+list (`ChartSeries` from `types/chart.types.ts`; colours default to the rotating
+`--chart-1..5` tokens) and expose an accessible `role="img"` region.
+`TrendChart` — multi-series `area` (gradient bands) or `line` over a category /
+time axis; optional `stacked`, auto legend for >1 series.
+`CategoryBarChart` — grouped or `stacked` bars, `column` (vertical) or `bar`
+(horizontal) orientation.
+Both set `isAnimationActive={false}` so marks paint at final geometry on mount
+(no blank-chart flash; deterministic for SSR/snapshot rendering). The richer
+`custom/charts/chart-area-interactive` (time-range toggle) remains for reference.
+> recharts gotcha baked in: axis children are passed **directly** (never wrapped
+> in a React fragment), since recharts discovers `XAxis`/`YAxis` by type and does
+> not traverse fragments — wrapping them silently drops the axes.
+
 ### Utilities
 `lib/utils.ts` → `cn()` (clsx + tailwind-merge). `hooks/use-mobile.ts`.
 `custom/mode-toggle`, `custom/colors/color-scheme`.
