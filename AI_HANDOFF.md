@@ -14,14 +14,57 @@ Completion:
 
 Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
 Phase 2: nav model wired to a real `ViewerContext` (session seam) + the Next
-router; `/overview` dashboard live; real collection surfaces built on the M6
-`DataTableLayout` + shared `StatusBadge` — **`/students/directory`**,
-**`/students/enrollment`** (admissions pipeline), and **`/attendance/daily`**
-(interactive daily register) — each replacing its `[...slug]` placeholder.
+router; `/overview` dashboard live; real product surfaces built on the M6
+layouts + shared `StatusBadge` — **`/students/directory`**,
+**`/students/enrollment`** (admissions pipeline), **`/attendance/daily`**
+(interactive daily register), and the **Classes** area (**`/classes/timetable`**
+on the new shared `ScheduleGrid`, **`/classes/subjects`**, **`/classes/gradebook`**,
+`/classes` → timetable redirect) — each replacing its `[...slug]` placeholder.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Classes surfaces (+ ScheduleGrid)
+
+Built the Classes area and added the one shared component it needed (in
+`packages/ui` first, per the rules). The timetable is the first in-app surface
+that is a *grid*, not a table.
+
+New shared UI (`packages/ui`):
+
+- **`custom/data-display/schedule-grid.tsx`** — `ScheduleGrid`: a data-driven
+  weekly day × period schedule/timetable grid. Takes `days`, `SchedulePeriod[]`
+  and `ScheduleEntry[]` (placed by `(day, period)`), with light `ScheduleTone`
+  colour-coding per entry. CSS-grid layout; scrolls horizontally on narrow
+  viewports rather than reflowing. Server-safe.
+
+New app surfaces (`apps/web`):
+
+- **`app/(app)/classes/timetable/page.tsx`** — weekly class timetable on
+  `ScheduleGrid`, with a class `Select` swapping the week's entries, a subject
+  colour legend (reusing `StatusBadge`), and a recurring Break row.
+- **`app/(app)/classes/subjects/page.tsx`** — the subject catalog: the directory
+  recipe (`DataTableLayout` + search + level `Select` + SkeletonTable +
+  EmptyState/reset). Columns: subject (+ code), teacher, class count, periods/wk,
+  status `StatusBadge`.
+- **`app/(app)/classes/gradebook/page.tsx`** — a class gradebook: a scores table
+  (students × CA1/CA2/Exam → computed Total + letter-grade `StatusBadge`) framed
+  by `DataTableLayout`, with class + subject selectors and a live class average.
+- **`app/(app)/classes/page.tsx`** — the `/classes` section landing `redirect()`s
+  to `/classes/timetable` (server component; the primary teaching view).
+
+### Verification (Phase 2 · Classes)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (timetable / subjects / gradebook static; `/classes` redirect).
+- Live preview (standalone-in-/tmp workaround): **Timetable** renders the
+  ScheduleGrid (Mon–Fri × 6 periods) with colour-coded subject blocks, the Break
+  row, the legend and the class selector. **Subjects** renders the catalog (10/10)
+  with Active/Elective/Archived pills. **Gradebook** renders computed totals +
+  letter-grade pills (A/B green, D amber, F red) and the class average (71%).
+  `/classes` redirected to `/classes/timetable`. Correct nav section active on
+  each; breadcrumbs read "Classes / …". No console errors.
 
 ## Session Summary (2026-06-18) — Phase 2 · Enrollment + Attendance surfaces
 
@@ -564,6 +607,24 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Phase 2 — Classes surfaces (+ ScheduleGrid)
+
+Created:
+
+- packages/ui/src/custom/data-display/schedule-grid.tsx (ScheduleGrid + types)
+- apps/web/app/(app)/classes/timetable/page.tsx (timetable on ScheduleGrid)
+- apps/web/app/(app)/classes/subjects/page.tsx (subject catalog)
+- apps/web/app/(app)/classes/gradebook/page.tsx (class gradebook)
+- apps/web/app/(app)/classes/page.tsx (/classes → /classes/timetable redirect)
+
+Edited:
+
+- packages/ui/README.md (added the ScheduleGrid catalog entry)
+- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+
+No Prisma schema or API changes. The Classes leaves resolve ahead of the
+`[...slug]` placeholder; `ScheduleGrid` is the only new shared component.
+
 ## Phase 2 — Enrollment + Attendance surfaces
 
 Created:
@@ -831,11 +892,13 @@ High Priority (Phase 2 entry)
 - Build out real screens for the high-traffic nav destinations that currently
   fall through to the `[...slug]` placeholder. ✅ Done: **Students directory**
   (`/students/directory`), **Enrollment** (`/students/enrollment`), **Attendance
-  daily register** (`/attendance/daily`). Remaining placeholders worth building:
-  **Classes** (`/classes/*`), **Finance** (`/finance/*`), **Reports**
-  (`/reports/*`), the per-student **attendance history** (`/students/attendance`),
-  and the **Settings** surfaces — all fit the `DataTableLayout` / `StatGrid` /
-  `SettingsLayout` + `StatusBadge` recipes.
+  daily register** (`/attendance/daily`), **Classes** (`/classes/timetable` ·
+  `/classes/subjects` · `/classes/gradebook`). Remaining placeholders worth
+  building: **Finance** (`/finance/*`), **Reports** (`/reports/*`), the
+  per-student **attendance history** (`/students/attendance`), the **Students**
+  sub-pages (fees / transport / gradebook), and the **Settings** surfaces — all
+  fit the `DataTableLayout` / `StatGrid` / `SettingsLayout` + `StatusBadge` /
+  `ScheduleGrid` recipes.
 
 Medium Priority
 
@@ -924,14 +987,15 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 12/12 routes)
-Visual:     ✅ `/students/enrollment` (pipeline StatGrid + stage/decision pills)
-            and `/attendance/daily` (live present/absent/late toggles updating
-            the summary 10/0/0 → 7/1/2) verified in the preview browser
-            (standalone-in-/tmp workaround); no console errors. Earlier:
-            `/students/directory` (search → EmptyState → reset; light + dark);
-            Phase 2 `/overview` dashboard + real router navigation; M7 catalog,
-            M6 layouts, M5 states, M3 shell.
+Build:      ✅ Passed (`pnpm --filter web build`, 15 routes)
+Visual:     ✅ Classes area verified in the preview browser (standalone-in-/tmp):
+            `/classes/timetable` (ScheduleGrid + legend + class switch),
+            `/classes/subjects` (catalog + status pills), `/classes/gradebook`
+            (computed totals + grade pills + class average), `/classes` redirect
+            → timetable; no console errors. Earlier: `/students/enrollment`
+            (pipeline StatGrid + pills), `/attendance/daily` (live toggles
+            10/0/0 → 7/1/2), `/students/directory` (search → EmptyState → reset;
+            light + dark), `/overview` dashboard + real router nav; M5–M7.
 Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
             notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver

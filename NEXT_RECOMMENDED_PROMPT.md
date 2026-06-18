@@ -5,16 +5,17 @@
 > `AI_HANDOFF.md` holds the full status / history this summarizes.
 
 Phase 2 in progress: nav model wired to a real `ViewerContext` + the Next
-router; `/overview` dashboard live; three real collection surfaces built on the
-M6 `DataTableLayout` + shared `StatusBadge` — `/students/directory`,
+router; `/overview` dashboard live; real product surfaces built on the M6
+layouts + shared `StatusBadge` / `ScheduleGrid` — `/students/directory`,
 `/students/enrollment` (admissions pipeline), `/attendance/daily` (interactive
-daily register) — see the Phase 2 session summaries in `AI_HANDOFF.md`.
+register), and the Classes area (`/classes/timetable`, `/classes/subjects`,
+`/classes/gradebook`) — see the Phase 2 session summaries in `AI_HANDOFF.md`.
 
 **Git state:** branch `claude` is on `origin`
 (`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS — no SSH
-blocker). The Enrollment/Attendance work + these doc updates may be uncommitted
-in the working tree — `git status` first, then commit + push. No PR from
-`claude` → `main` is open yet (deferred by choice).
+blocker). The Classes work + these doc updates may be uncommitted in the working
+tree — `git status` first, then commit + push. No PR from `claude` → `main` is
+open yet (deferred by choice).
 
 Read first:
 
@@ -24,11 +25,12 @@ Read first:
 
 Natural next Phase 2 tasks (pick one):
 
-- Build more placeholder surfaces with the established recipes: **Classes**
-  (`/classes/*`), **Finance** (`/finance/*` — `DataTableLayout` + `StatGrid`),
-  **Reports** (`/reports/*`), the per-student **attendance history**
-  (`/students/attendance`, distinct from the class daily register), or the
-  **Settings** surfaces (`/settings/*` via `SettingsLayout`).
+- Build more placeholder surfaces with the established recipes: **Finance**
+  (`/finance/*` — `DataTableLayout` + `StatGrid`), **Reports** (`/reports/*`),
+  the per-student **attendance history** (`/students/attendance`, distinct from
+  the class daily register), the **Students** sub-pages (fees / transport /
+  gradebook), or the **Settings** surfaces (`/settings/*` via `SettingsLayout` —
+  not yet exercised in-app).
 - Replace the **mock session** (`app/providers/viewer-provider.tsx`) with a real
   auth source when the auth flow lands.
 - Add unit tests for `resolveNavigation` / `canAccess` / `isRouteActive` /

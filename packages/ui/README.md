@@ -144,6 +144,10 @@ for tables, list rows and detail panes. Reuses the M5 `StateTone` union and the
 same status-token mapping as the state medallions, so tones read consistently;
 optional leading `dot`. The base `Badge` primitive stays for brand/secondary/
 destructive/outline variants.
+`ScheduleGrid` — a weekly day × period schedule/timetable grid. Data-driven
+(`days`, `SchedulePeriod[]`, `ScheduleEntry[]`); entries placed by (day, period)
+with light `ScheduleTone` colour-coding. Scrolls horizontally on narrow
+viewports instead of reflowing.
 
 ### Utilities
 `lib/utils.ts` → `cn()` (clsx + tailwind-merge). `hooks/use-mobile.ts`.
