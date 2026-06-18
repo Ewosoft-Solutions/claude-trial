@@ -16,17 +16,50 @@ Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
 Phase 2: nav model wired to a real `ViewerContext` (session seam) + the Next
 router; `/overview` dashboard live; real product surfaces built on the M6
 layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
-**Students** area (`/students/directory`, `/students/enrollment`), **Attendance**
-(`/attendance/daily`), the **Classes** area (`/classes/timetable` ·
-`/classes/subjects` · `/classes/gradebook`), the **Finance** area
-(`/finance/invoices` · `/finance/payments` · `/finance/reports`), and the
-**Settings** area (general · branding · features · roles · users · audit, on the
-M6 `SettingsLayout`) — each replacing its `[...slug]` placeholder. Every M6
-layout pattern is now exercised in-app.
+**Students** area (now complete: directory · enrollment · attendance history ·
+fees · transport · gradebook → report-cards + transcripts), **Attendance**
+(`/attendance/daily`), the **Classes** area (timetable · subjects · gradebook),
+the **Finance** area (invoices · payments · reports), and the **Settings** area
+(general · branding · features · roles · users · audit, on the M6
+`SettingsLayout`) — each replacing its `[...slug]` placeholder. Every M6 layout
+pattern is exercised in-app.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Students sub-pages (Students area complete)
+
+Cleared the remaining Students placeholders with the established recipe
+(`DataTableLayout` + `StatusBadge` + the shared `Meter`). No new shared
+component.
+
+New app surfaces (`apps/web`):
+
+- **`students/fees`** — per-student fee balances (student-centric, vs the
+  `/finance/invoices` ledger): StatGrid summary + balances table (paid /
+  part-paid / owing pills).
+- **`students/transport`** — bus-route assignments (route · stop · pickup;
+  assigned / waitlist / unassigned pills).
+- **`students/attendance`** — per-student attendance *history* (distinct from the
+  class daily register): present-rate `Meter` per row + absence/lateness tally +
+  on-track / at-risk flag.
+- **`students/gradebook/report-cards`** — term report cards (average + grade pill
+  + published / ready / draft).
+- **`students/gradebook/transcripts`** — cumulative transcripts (CGPA · credits ·
+  honors / good / probation standing).
+- **`students/gradebook/page.tsx`** — `/students/gradebook` redirects to
+  report-cards.
+
+### Verification (Phase 2 · Students sub-pages)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (5 pages + gradebook redirect; 33 routes).
+- Live preview (standalone-in-/tmp workaround): all five render with correct
+  status pills, the attendance present-rate `Meter`s tone by rate, the gradebook
+  sub-nav expands (Report cards / Transcripts), and `/students/gradebook`
+  redirected to report-cards. Correct nav group active + breadcrumb on each. No
+  console errors.
 
 ## Session Summary (2026-06-18) — Phase 2 · Settings surfaces (M6 SettingsLayout)
 
@@ -691,6 +724,25 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Phase 2 — Students sub-pages (Students area complete)
+
+Created:
+
+- apps/web/app/(app)/students/fees/page.tsx (per-student fee balances)
+- apps/web/app/(app)/students/transport/page.tsx (route assignments)
+- apps/web/app/(app)/students/attendance/page.tsx (attendance history; uses Meter)
+- apps/web/app/(app)/students/gradebook/report-cards/page.tsx (term report cards)
+- apps/web/app/(app)/students/gradebook/transcripts/page.tsx (cumulative transcripts)
+- apps/web/app/(app)/students/gradebook/page.tsx (→ report-cards redirect)
+
+Edited:
+
+- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+
+No Prisma schema or API changes. No new shared component — reuse of
+`DataTableLayout` / `StatGrid` / `Meter` / `StatusBadge`. All resolve ahead of
+the `[...slug]` placeholder; the Students nav section is now fully built.
+
 ## Phase 2 — Settings surfaces (M6 SettingsLayout)
 
 Created:
@@ -1018,11 +1070,11 @@ High Priority (Phase 2 entry)
   daily register** (`/attendance/daily`), **Classes** (`/classes/timetable` ·
   `/classes/subjects` · `/classes/gradebook`), **Finance** (`/finance/invoices` ·
   `/finance/payments` · `/finance/reports`), **Settings** (general · branding ·
-  features · roles · users · audit). Remaining placeholders worth building:
-  **Reports** (`/reports/*`), the per-student **attendance history**
-  (`/students/attendance`), and the **Students** sub-pages (fees / transport /
-  gradebook) — all fit the `DataTableLayout` / `StatGrid` + `StatusBadge` /
-  `ScheduleGrid` / `Meter` recipes.
+  features · roles · users · audit), and the full **Students** area (directory ·
+  enrollment · attendance history · fees · transport · gradebook report-cards +
+  transcripts). The main remaining placeholder section is **Reports**
+  (`/reports/academic`, `/reports/analytics`) — fits `StatGrid` + `Meter` or the
+  `chart` primitive.
 
 Medium Priority
 
@@ -1111,16 +1163,16 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 27 routes)
-Visual:     ✅ Settings area verified in the preview browser (standalone-in-/tmp):
-            all six sections render via the M6 SettingsLayout (active section nav
-            + breadcrumb); Features toggles + Branding swatches/theme interactive;
-            `/settings` redirect → general; no console errors. Earlier: Finance
-            (invoices/payments/reports + Meter), Classes
-            (timetable/subjects/gradebook), `/students/enrollment`,
-            `/attendance/daily` (live toggles 10/0/0 → 7/1/2),
-            `/students/directory` (search → EmptyState → reset; light + dark),
-            `/overview` + real router nav; M5–M7.
+Build:      ✅ Passed (`pnpm --filter web build`, 33 routes)
+Visual:     ✅ Students sub-pages verified in the preview browser
+            (standalone-in-/tmp): fees (StatGrid + balance pills), transport
+            (assignment pills), attendance history (present-rate Meters +
+            on-track/at-risk), report-cards (grade + publish pills), transcripts
+            (CGPA + standing), `/students/gradebook` redirect → report-cards; no
+            console errors. Earlier: Settings (6 sections + interactive toggles),
+            Finance (invoices/payments/reports + Meter), Classes, enrollment,
+            `/attendance/daily` (live toggles 10/0/0 → 7/1/2), directory
+            (search → EmptyState → reset; light + dark), `/overview`; M5–M7.
 Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
             notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver

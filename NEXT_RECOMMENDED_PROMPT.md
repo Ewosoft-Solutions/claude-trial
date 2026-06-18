@@ -7,19 +7,19 @@
 Phase 2 in progress: nav model wired to a real `ViewerContext` + the Next
 router; `/overview` dashboard live; real product surfaces built on the M6
 layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
-Students area (`/students/directory`, `/students/enrollment`), Attendance
-(`/attendance/daily`), the Classes area (`/classes/timetable`,
-`/classes/subjects`, `/classes/gradebook`), the Finance area
-(`/finance/invoices`, `/finance/payments`, `/finance/reports`), and the Settings
-area (general/branding/features/roles/users/audit on the M6 `SettingsLayout`) —
-see the Phase 2 session summaries in `AI_HANDOFF.md`. Every M6 layout pattern is
-now exercised in-app.
+full Students area (directory · enrollment · attendance history · fees ·
+transport · gradebook report-cards + transcripts), Attendance
+(`/attendance/daily`), the Classes area (timetable · subjects · gradebook), the
+Finance area (invoices · payments · reports), and the Settings area
+(general/branding/features/roles/users/audit on the M6 `SettingsLayout`) — see
+the Phase 2 session summaries in `AI_HANDOFF.md`. Every M6 layout pattern is
+exercised in-app.
 
 **Git state:** branch `claude` is on `origin`
 (`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS — no SSH
-blocker). The Settings work + these doc updates may be uncommitted in the working
-tree — `git status` first, then commit + push. No PR from `claude` → `main` is
-open yet (deferred by choice).
+blocker). The Students sub-pages + these doc updates may be uncommitted in the
+working tree — `git status` first, then commit + push. No PR from `claude` →
+`main` is open yet (deferred by choice).
 
 Read first:
 
@@ -29,12 +29,10 @@ Read first:
 
 Natural next Phase 2 tasks (pick one):
 
-- Finish the remaining placeholder surfaces with the established recipes:
-  **Reports** (`/reports/*` — `StatGrid` + `Meter`, or the `chart` primitive for
-  a more analytics-flavoured surface), the per-student **attendance history**
-  (`/students/attendance`, distinct from the class daily register), or the
-  **Students** sub-pages (`/students/fees`, `/students/transport`,
-  `/students/gradebook/*`).
+- Build the last placeholder section — **Reports** (`/reports/academic`,
+  `/reports/analytics`): a good chance to use the `chart` primitive
+  (`packages/ui/components/chart.tsx`, recharts) alongside `StatGrid` + `Meter`
+  for a more analytics-flavoured surface. (`/reports` would redirect to one.)
 - Tidy-up: the app-shell secondary nav duplicates the in-panel `SettingsNav` —
   consider emptying the Settings section groups in `app-navigation.tsx` (see the
   Settings session's design note).
