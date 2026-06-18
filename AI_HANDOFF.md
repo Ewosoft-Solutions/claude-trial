@@ -15,15 +15,54 @@ Completion:
 Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
 Phase 2: nav model wired to a real `ViewerContext` (session seam) + the Next
 router; `/overview` dashboard live; real product surfaces built on the M6
-layouts + shared `StatusBadge` — **`/students/directory`**,
-**`/students/enrollment`** (admissions pipeline), **`/attendance/daily`**
-(interactive daily register), and the **Classes** area (**`/classes/timetable`**
-on the new shared `ScheduleGrid`, **`/classes/subjects`**, **`/classes/gradebook`**,
-`/classes` → timetable redirect) — each replacing its `[...slug]` placeholder.
+layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
+**Students** area (`/students/directory`, `/students/enrollment`), **Attendance**
+(`/attendance/daily`), the **Classes** area (`/classes/timetable` ·
+`/classes/subjects` · `/classes/gradebook`), and the **Finance** area
+(`/finance/invoices` · `/finance/payments` · `/finance/reports`, `/finance` →
+invoices redirect) — each replacing its `[...slug]` placeholder.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Finance surfaces (+ Meter)
+
+Built the Finance area (owner-gated; the nav section needs clearance 5) and added
+one shared component it needed (in `packages/ui` first, per the rules).
+
+New shared UI (`packages/ui`):
+
+- **`custom/data-display/meter.tsx`** — `Meter`: a labelled ratio / progress bar
+  (`value` / `max`, optional label + trailing value, `MeterTone` fill, accessible
+  `progressbar` role). Generalises the one-off bars used in the dashboard /
+  finance surfaces. Server-safe.
+
+New app surfaces (`apps/web`):
+
+- **`app/(app)/finance/invoices/page.tsx`** — fee invoices: an M6 `StatGrid`
+  billing summary (billed / collected / outstanding / overdue, derived live) +
+  `DataTableLayout` (search + status filter, SkeletonTable, EmptyState/reset).
+  Status reads as a `StatusBadge`; amounts use compact ₦ formatting.
+- **`app/(app)/finance/payments/page.tsx`** — payment receipts: `DataTableLayout`
+  (search + method filter), status `StatusBadge`, ₦ amounts, collected total.
+- **`app/(app)/finance/reports/page.tsx`** — financial reports: a `StatGrid`
+  headline + two breakdown cards built on the shared `Meter` (collection rate by
+  class, revenue mix by category).
+- **`app/(app)/finance/page.tsx`** — `/finance` `redirect()`s to
+  `/finance/invoices` (the primary billing view).
+
+### Verification (Phase 2 · Finance)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (invoices / payments / reports static; `/finance` redirect; 20 routes).
+- Live preview (standalone-in-/tmp workaround): **Invoices** renders the billing
+  StatGrid (₦1.9M billed / ₦1.1M collected / ₦810k outstanding / 3 overdue) + the
+  ledger with paid/part-paid/overdue/draft pills. **Payments** renders 9 receipts
+  with method + completed/failed/pending/refunded pills (₦1.1M collected).
+  **Reports** renders the headline StatGrid + tone-coded `Meter` breakdowns
+  (collection by class, revenue by category). `/finance` redirected to invoices.
+  Correct nav section active; breadcrumbs read "Finance / …". No console errors.
 
 ## Session Summary (2026-06-18) — Phase 2 · Classes surfaces (+ ScheduleGrid)
 
@@ -607,6 +646,24 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Phase 2 — Finance surfaces (+ Meter)
+
+Created:
+
+- packages/ui/src/custom/data-display/meter.tsx (Meter + MeterTone)
+- apps/web/app/(app)/finance/invoices/page.tsx (fee invoices + StatGrid)
+- apps/web/app/(app)/finance/payments/page.tsx (payment receipts)
+- apps/web/app/(app)/finance/reports/page.tsx (financial reports + Meters)
+- apps/web/app/(app)/finance/page.tsx (/finance → /finance/invoices redirect)
+
+Edited:
+
+- packages/ui/README.md (added the Meter catalog entry)
+- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+
+No Prisma schema or API changes. The Finance leaves resolve ahead of the
+`[...slug]` placeholder; `Meter` is the only new shared component.
+
 ## Phase 2 — Classes surfaces (+ ScheduleGrid)
 
 Created:
@@ -893,12 +950,13 @@ High Priority (Phase 2 entry)
   fall through to the `[...slug]` placeholder. ✅ Done: **Students directory**
   (`/students/directory`), **Enrollment** (`/students/enrollment`), **Attendance
   daily register** (`/attendance/daily`), **Classes** (`/classes/timetable` ·
-  `/classes/subjects` · `/classes/gradebook`). Remaining placeholders worth
-  building: **Finance** (`/finance/*`), **Reports** (`/reports/*`), the
-  per-student **attendance history** (`/students/attendance`), the **Students**
-  sub-pages (fees / transport / gradebook), and the **Settings** surfaces — all
-  fit the `DataTableLayout` / `StatGrid` / `SettingsLayout` + `StatusBadge` /
-  `ScheduleGrid` recipes.
+  `/classes/subjects` · `/classes/gradebook`), **Finance** (`/finance/invoices` ·
+  `/finance/payments` · `/finance/reports`). Remaining placeholders worth
+  building: **Reports** (`/reports/*`), the per-student **attendance history**
+  (`/students/attendance`), the **Students** sub-pages (fees / transport /
+  gradebook), and the **Settings** surfaces — all fit the `DataTableLayout` /
+  `StatGrid` / `SettingsLayout` + `StatusBadge` / `ScheduleGrid` / `Meter`
+  recipes.
 
 Medium Priority
 
@@ -987,15 +1045,15 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 15 routes)
-Visual:     ✅ Classes area verified in the preview browser (standalone-in-/tmp):
-            `/classes/timetable` (ScheduleGrid + legend + class switch),
-            `/classes/subjects` (catalog + status pills), `/classes/gradebook`
-            (computed totals + grade pills + class average), `/classes` redirect
-            → timetable; no console errors. Earlier: `/students/enrollment`
-            (pipeline StatGrid + pills), `/attendance/daily` (live toggles
-            10/0/0 → 7/1/2), `/students/directory` (search → EmptyState → reset;
-            light + dark), `/overview` dashboard + real router nav; M5–M7.
+Build:      ✅ Passed (`pnpm --filter web build`, 20 routes)
+Visual:     ✅ Finance area verified in the preview browser (standalone-in-/tmp):
+            `/finance/invoices` (billing StatGrid + status pills),
+            `/finance/payments` (method + status pills), `/finance/reports`
+            (StatGrid + Meter breakdowns), `/finance` redirect → invoices; no
+            console errors. Earlier: Classes (timetable/subjects/gradebook),
+            `/students/enrollment` (pipeline StatGrid), `/attendance/daily` (live
+            toggles 10/0/0 → 7/1/2), `/students/directory` (search → EmptyState →
+            reset; light + dark), `/overview` + real router nav; M5–M7.
 Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
             notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver

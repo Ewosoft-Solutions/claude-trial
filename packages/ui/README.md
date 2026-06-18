@@ -148,6 +148,9 @@ destructive/outline variants.
 (`days`, `SchedulePeriod[]`, `ScheduleEntry[]`); entries placed by (day, period)
 with light `ScheduleTone` colour-coding. Scrolls horizontally on narrow
 viewports instead of reflowing.
+`Meter` — a labelled ratio / progress bar (`value` / `max`, optional label +
+value text, `MeterTone` fill). Accessible `progressbar` role. Generalises the
+one-off bars in the dashboard / finance surfaces.
 
 ### Utilities
 `lib/utils.ts` → `cn()` (clsx + tailwind-merge). `hooks/use-mobile.ts`.
