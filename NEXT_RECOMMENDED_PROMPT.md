@@ -15,11 +15,16 @@ Finance area (invoices · payments · reports), and the Settings area
 the Phase 2 session summaries in `AI_HANDOFF.md`. Every M6 layout pattern is
 exercised in-app.
 
+Also done (2026-06-18 tidy-up): the app-shell secondary nav no longer duplicates
+the in-panel `SettingsNav` — the Settings footer entry in `app-navigation.tsx`
+dropped its `groups` (kept `panelHeader` for the breadcrumb), so Settings is a
+rail-only footer link and the dedicated settings layout owns the section nav.
+
 **Git state:** branch `claude` is on `origin`
 (`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS — no SSH
-blocker). The Students sub-pages + these doc updates may be uncommitted in the
-working tree — `git status` first, then commit + push. No PR from `claude` →
-`main` is open yet (deferred by choice).
+blocker), previously fully pushed. The Settings nav de-dup (two source files) +
+these doc updates are uncommitted in the working tree — `git status` first, then
+commit + push. No PR from `claude` → `main` is open yet (deferred by choice).
 
 Read first:
 
@@ -33,9 +38,6 @@ Natural next Phase 2 tasks (pick one):
   `/reports/analytics`): a good chance to use the `chart` primitive
   (`packages/ui/components/chart.tsx`, recharts) alongside `StatGrid` + `Meter`
   for a more analytics-flavoured surface. (`/reports` would redirect to one.)
-- Tidy-up: the app-shell secondary nav duplicates the in-panel `SettingsNav` —
-  consider emptying the Settings section groups in `app-navigation.tsx` (see the
-  Settings session's design note).
 - Replace the **mock session** (`app/providers/viewer-provider.tsx`) with a real
   auth source when the auth flow lands.
 - Add unit tests for `resolveNavigation` / `canAccess` / `isRouteActive` /

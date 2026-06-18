@@ -28,6 +28,41 @@ pattern is exercised in-app.
 
 # Completed Work
 
+## Session Summary (2026-06-18) — Phase 2 · Settings nav de-duplication (tidy-up)
+
+Resolved the design note flagged by the Settings session: the app-shell's
+secondary nav panel duplicated the in-panel `SettingsNav` on `/settings/*`.
+Removed the `groups` from the **Settings** footer entry in
+`apps/web/lib/navigation/app-navigation.tsx`, so `resolveNavigation` yields no
+secondary-nav groups for that section and `AppSidebar` renders no panel
+(`app-sidebar.tsx` only mounts `NavPanel` when `navGroups.length > 0`). Settings
+is now a rail-only footer link (like Help); the dedicated settings route group
+(`app/(app)/settings/layout.tsx`) is the sole owner of the section nav.
+
+- Kept `panelHeader` on the Settings entry — `AppChrome` derives the breadcrumb
+  section title from it, so the trail still reads "Settings" (the page's own
+  `PageHeader` + `SettingsNav` supply the section/leaf context).
+- Updated the stale comment in `settings/layout.tsx` (it claimed the main nav
+  model still filters the settings sections — no longer true; per-permission
+  filtering of individual settings sections is now a follow-up to add in that
+  layout from the viewer's permissions).
+
+No shared component changed; no new component. The previously brandable/access
+guards on the removed settings sub-items are no longer in the nav config — when
+per-section permission filtering is needed it belongs in `settings/layout.tsx`.
+
+### Verification (Phase 2 · Settings nav de-dup)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (all 6 settings section pages + `/settings` redirect still build; route count
+  unchanged).
+- Live preview (standalone-in-/tmp workaround, on port 3013 since a sibling
+  project held 3001): on `/settings/general` the DOM has **no**
+  `nav[aria-label="Secondary"]` (the duplicate panel is gone), the in-panel
+  `SettingsNav` still lists all six sections (General → Audit log), the **Help**
+  and **Settings** footer rail buttons still render (Settings remains reachable
+  from the rail), and the breadcrumb reads "Settings". No console errors.
+
 ## Session Summary (2026-06-18) — Phase 2 · Students sub-pages (Students area complete)
 
 Cleared the remaining Students placeholders with the established recipe
@@ -86,11 +121,11 @@ New app surfaces (`apps/web`):
 - **`settings/audit`** — activity trail with category-tone `StatusBadge`s.
 - **`settings/page.tsx`** — `/settings` redirects to `/settings/general`.
 
-⚠ Design note: the app-shell's secondary nav already lists the Settings
-sub-items (from `resolveNavigation`), so it now visually overlaps the in-panel
-`SettingsNav`. Both are functional; a follow-up could empty the Settings section
-groups in `app-navigation.tsx` so the shell panel doesn't duplicate the section
-nav when a dedicated settings layout owns it.
+⚠ Design note (✅ RESOLVED in the 2026-06-18 nav de-dup session above): the
+app-shell's secondary nav listed the Settings sub-items (from
+`resolveNavigation`), overlapping the in-panel `SettingsNav`. Fixed by emptying
+the Settings section groups in `app-navigation.tsx` so the shell panel no longer
+duplicates the section nav now that the dedicated settings layout owns it.
 
 ### Verification (Phase 2 · Settings)
 
@@ -723,6 +758,20 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 ---
 
 # Files Modified
+
+## Phase 2 — Settings nav de-duplication (tidy-up)
+
+Edited:
+
+- apps/web/lib/navigation/app-navigation.tsx (removed `groups` from the Settings
+  footer entry; kept `panelHeader` for the breadcrumb)
+- apps/web/app/(app)/settings/layout.tsx (refreshed the stale section-filtering
+  comment)
+- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+
+No Prisma schema or API changes. No shared component changed. `.claude/launch.json`
+was temporarily pointed at port 3013 for preview verification (a sibling project
+held 3001) and reverted to 3001 — not part of the committed diff.
 
 ## Phase 2 — Students sub-pages (Students area complete)
 

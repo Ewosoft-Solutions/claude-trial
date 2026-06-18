@@ -235,27 +235,12 @@ export const SCHOOL_NAV: NavigationConfig = {
       icon: <Settings />,
       href: '/settings',
       access: { anyPermission: ['settings.view', 'settings.school'] },
+      // No `groups`: the dedicated settings route group
+      // (app/(app)/settings/layout.tsx) renders its own in-panel SettingsNav,
+      // so listing the sub-sections here would only duplicate that panel in the
+      // shell. Settings is a rail-only footer link (like Help). `panelHeader` is
+      // kept because the breadcrumb still derives its section title from it.
       panelHeader: { icon: <Settings />, title: 'Settings' },
-      groups: [
-        {
-          key: 'workspace',
-          label: 'Workspace',
-          items: [
-            { key: 'general', label: 'General', icon: <Settings />, href: '/settings/general', access: { anyPermission: ['settings.view', 'settings.school'] } },
-            { key: 'branding', label: 'Branding', icon: <Settings />, href: '/settings/branding', access: { anyPermission: ['settings.theme'] } },
-            { key: 'features', label: 'Features', icon: <Settings />, href: '/settings/features', access: { anyPermission: ['settings.features'] } },
-          ],
-        },
-        {
-          key: 'access',
-          label: 'Access',
-          items: [
-            { key: 'roles', label: 'Roles & permissions', icon: <ShieldCheck />, href: '/settings/roles', access: { anyPermission: ['settings.roles'] } },
-            { key: 'users', label: 'Users', icon: <Users />, href: '/settings/users', access: { anyPermission: ['settings.users'] } },
-            { key: 'audit', label: 'Audit log', icon: <ScrollText />, href: '/settings/audit', access: { anyPermission: ['settings.audit'] } },
-          ],
-        },
-      ],
     },
   ],
 };

@@ -9,9 +9,11 @@
    links so navigation is real client-side routing. Section pages
    under this group render only their own panel content.
 
-   Note: every section is listed here. Real per-permission filtering
-   of settings sections happens in the main nav model
-   (resolveNavigation); the mock Owner sees them all.
+   Note: every section is listed here unconditionally. This layout now
+   owns the settings section nav — the shell's main nav model no longer
+   carries the settings sub-items (they would only duplicate this panel),
+   so per-permission filtering of individual sections is a follow-up to add
+   here (reading the viewer's permissions). The mock Owner sees them all.
    ============================================================ */
 
 import { usePathname } from 'next/navigation';
