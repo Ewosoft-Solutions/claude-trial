@@ -14,13 +14,56 @@ Completion:
 
 Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
 Phase 2: nav model wired to a real `ViewerContext` (session seam) + the Next
-router; `/overview` dashboard live; **`/students/directory`** now a real
-collection surface (M6 `DataTableLayout` + new shared `StatusBadge`), replacing
-its `[...slug]` placeholder.
+router; `/overview` dashboard live; real collection surfaces built on the M6
+`DataTableLayout` + shared `StatusBadge` — **`/students/directory`**,
+**`/students/enrollment`** (admissions pipeline), and **`/attendance/daily`**
+(interactive daily register) — each replacing its `[...slug]` placeholder.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Enrollment + Attendance surfaces
+
+Built two more real surfaces from the directory recipe (M6 `DataTableLayout` +
+`StatusBadge` + M5 states). No new shared component was needed — both reuse
+existing `packages/ui` parts (the attendance per-row control maps onto the
+shared `ToggleGroup`).
+
+New app surfaces (`apps/web`):
+
+- **`app/(app)/students/enrollment/page.tsx`** — the admissions pipeline.
+  `PageHeader` + an M6 `StatGrid` pipeline summary (Applications / In review /
+  Accepted / Waitlisted, derived live from the data) + `DataTableLayout`
+  (search + stage `Select` + decision `Select`; SkeletonTable on mount-load;
+  EmptyState + "Clear filters" when over-filtered). Rows show applicant, applying-
+  for class, submitted date, a stage `StatusBadge` and a decision `StatusBadge`
+  (accepted = success, pending = warning, waitlisted = info, rejected =
+  destructive).
+- **`app/(app)/attendance/daily/page.tsx`** — the daily attendance register.
+  `PageHeader` (+ "Mark all present" / "Save register") + `DataTableLayout` with
+  a class `Select` + date `Input` toolbar. Each row carries a present/absent/late
+  control built on the shared `ToggleGroup` (tinted on-states via the status
+  tokens) plus a status `StatusBadge`; a live summary of present/absent/late
+  counts sits in the card description and updates as marks change. Mock roster +
+  copy live in the page.
+
+The sibling `/students/attendance` leaf is intentionally left on the `[...slug]`
+placeholder — it is a *per-student* attendance history, a distinct surface from
+the class daily register (a good follow-up).
+
+### Verification (Phase 2 · Enrollment + Attendance)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (12/12 routes; `/students/enrollment` + `/attendance/daily` both static).
+- Live preview (standalone-in-/tmp workaround): **Enrollment** renders the
+  pipeline StatGrid (12 / 6 / 3 / 2) + 12 applications with stage/decision pills;
+  breadcrumb "Students / Enrollment". **Attendance** renders the JSS 1A register
+  with the live summary (seeded 10 present · 0 absent · 0 late); exercising the
+  toggles (one Absent + two Late) updated the summary to 7 / 1 / 2 and flipped
+  the affected row's status pill — confirming the controlled per-row state.
+  Breadcrumb "Attendance / Daily register"; correct nav section active on each.
+  No console errors.
 
 ## Session Summary (2026-06-18) — Phase 2 · Student directory surface
 
@@ -521,6 +564,22 @@ been removed from the working tree). This satisfies Phase 1 / Milestone 1
 
 # Files Modified
 
+## Phase 2 — Enrollment + Attendance surfaces
+
+Created:
+
+- apps/web/app/(app)/students/enrollment/page.tsx (admissions pipeline)
+- apps/web/app/(app)/attendance/daily/page.tsx (daily attendance register)
+
+Edited:
+
+- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+
+No Prisma schema or API changes. No new shared component — both surfaces reuse
+existing `packages/ui` parts (`DataTableLayout`, `StatGrid`, `StatusBadge`,
+`ToggleGroup`, M5 states). Both routes resolve ahead of the `[...slug]`
+placeholder.
+
 ## Phase 2 — Student directory surface
 
 Created:
@@ -770,11 +829,13 @@ High Priority (Phase 2 entry)
   auth source (NextAuth / server component / API). The seam is in place; nothing
   downstream needs to change.
 - Build out real screens for the high-traffic nav destinations that currently
-  fall through to the `[...slug]` placeholder. ✅ **Students directory** done
-  (`/students/directory`). Next: **Enrollment** (`/students/enrollment`) and
-  **Attendance** (`/attendance/daily` + `/students/attendance`) — both fit the
-  same `DataTableLayout` + `StatusBadge` recipe; Attendance daily-register may
-  want a per-row toggle (present/absent/late).
+  fall through to the `[...slug]` placeholder. ✅ Done: **Students directory**
+  (`/students/directory`), **Enrollment** (`/students/enrollment`), **Attendance
+  daily register** (`/attendance/daily`). Remaining placeholders worth building:
+  **Classes** (`/classes/*`), **Finance** (`/finance/*`), **Reports**
+  (`/reports/*`), the per-student **attendance history** (`/students/attendance`),
+  and the **Settings** surfaces — all fit the `DataTableLayout` / `StatGrid` /
+  `SettingsLayout` + `StatusBadge` recipes.
 
 Medium Priority
 
@@ -863,13 +924,14 @@ Breaking Changes: None.
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
 Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 10/10 routes)
-Visual:     ✅ `/students/directory` verified in the preview browser
-            (standalone-in-/tmp workaround): 12 rows with status/fee pills;
-            search → EmptyState → "Clear filters" reset cycle confirmed;
-            Directory active in the secondary nav; light + dark legible; no
-            console errors. Earlier: Phase 2 `/overview` dashboard + real router
-            navigation; M7 catalog, M6 layouts, M5 states, M3 shell.
+Build:      ✅ Passed (`pnpm --filter web build`, 12/12 routes)
+Visual:     ✅ `/students/enrollment` (pipeline StatGrid + stage/decision pills)
+            and `/attendance/daily` (live present/absent/late toggles updating
+            the summary 10/0/0 → 7/1/2) verified in the preview browser
+            (standalone-in-/tmp workaround); no console errors. Earlier:
+            `/students/directory` (search → EmptyState → reset; light + dark);
+            Phase 2 `/overview` dashboard + real router navigation; M7 catalog,
+            M6 layouts, M5 states, M3 shell.
 Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
             notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
@@ -881,40 +943,6 @@ E2E:        ⚠ Not applicable yet
 
 # Next Recommended Prompt
 
-Phase 2 in progress: nav model wired to a real `ViewerContext` + the Next
-router; `/overview` dashboard and `/students/directory` are live (see the Phase 2
-session summaries). The directory introduced the shared `StatusBadge`.
-
-**Before anything else:**
-
-- **Commit + push** the student-directory work (it is uncommitted in the working
-  tree). `origin` is now HTTPS and the old SSH blocker is gone, so a plain
-  `git push` works. Decide whether to open a PR to `main` (currently deferred).
-
-Read first:
-
-- AI_CONTEXT.md · AI_HANDOFF.md · CURRENT_PHASE.md (Phase 2)
-- implementation-roadmap.md + requirements/ docs for the target area
-- packages/ui/README.md (how to consume the foundation + Known Gaps)
-
-Natural next Phase 2 tasks (pick one):
-
-- Build the **Enrollment** (`/students/enrollment`) and **Attendance**
-  (`/attendance/daily`, `/students/attendance`) surfaces — same
-  `DataTableLayout` + `StatusBadge` recipe as the directory. Attendance's daily
-  register likely wants a per-row present/absent/late control.
-- Replace the **mock session** (`app/providers/viewer-provider.tsx`) with a real
-  auth source when the auth flow lands.
-- Add unit tests for `resolveNavigation` / `canAccess` / `isRouteActive` /
-  `findActiveNavItem` (still only cross-checked manually).
-
-Requirements:
-
-- Reuse `packages/ui` components; build new shared UI in `packages/ui` first.
-- Pass type-check, lint, and build before considering complete.
-- Update AI_HANDOFF.md when done.
-
-Note: the preview launcher is blocked by macOS TCC (see Known Issues). The
-default `web` launch config serves a self-contained build from `/tmp`; after
-editing source, rebuild + re-copy to `/tmp` and restart `preview_start web`
-(steps in Known Issues), or grant Documents access and use `web-pnpm`.
+Moved to its own file: **[`NEXT_RECOMMENDED_PROMPT.md`](./NEXT_RECOMMENDED_PROMPT.md)** — start the next
+session with **"Read NEXT_RECOMMENDED_PROMPT.md"**. Keep it in sync at the end of each
+session (it summarizes the status/history captured in full above).
