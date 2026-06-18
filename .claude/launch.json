@@ -5,7 +5,7 @@
       "name": "web",
       "runtimeExecutable": "node",
       "runtimeArgs": ["/tmp/swe-run.cjs"],
-      "port": 3001
+      "port": 3013
     },
     {
       "name": "web-pnpm",

@@ -13,8 +13,9 @@ Phase 2 - Dashboard Infrastructure & Role/Tenant-Aware Navigation — **IN PROGR
 Completion:
 
 Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
-Phase 2: nav model wired to a real `ViewerContext` (session seam) + the Next
-router; `/overview` dashboard live; real product surfaces built on the M6
+Phase 2: nav model wired to a real `ViewerContext` driven by a server
+`getSession()` seam (`apps/web/lib/session.ts`, still mock — auth backend
+pending) + the Next router; `/overview` dashboard live; real product surfaces built on the M6
 layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
 **Students** area (now complete: directory · enrollment · attendance history ·
 fees · transport · gradebook → report-cards + transcripts), **Attendance**
@@ -27,6 +28,50 @@ pattern is exercised in-app.
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-18) — Phase 2 · Session seam moved server-side
+
+Turned the `viewer-provider.tsx` module-constant mock into a real **server
+seam**, so the eventual auth swap is a one-function change and no session data
+ships in the client bundle. (Investigation first confirmed the full auth swap is
+still blocked: `apps/web` has no `middleware`, no `app/api` route handlers, no
+NextAuth, and does not depend on `@workspace/api`; `packages/api` is a NestJS
+*library* — tenant-context / JWT-secret / school-selection / suspension services
+— with no authentication endpoint. There is nothing real to wire into yet, so
+this session does the in-scope prep toward it.)
+
+- **New `apps/web/lib/session.ts`** (server-only — no `'use client'`): owns the
+  `Session` / `SessionSchool` types and the mock data, and exports
+  `async getSession(): Promise<Session | null>` — THE single seam where auth
+  plugs in (replace only its body later). The wire payload is kept plainly
+  serializable for the server→client boundary: `permissions` is a
+  `readonly PermissionKey[]` (array, not a `Set`).
+- **`viewer-provider.tsx`** is now purely the client context: it takes the
+  resolved `session` as a **prop**, derives the `permissions` `Set` (memoised),
+  and builds the `ViewerContext`. Same public API (`ViewerProvider` /
+  `useViewer`) — no consumer (`app-chrome`, `overview`, `students/directory`)
+  changed.
+- **`app/(app)/layout.tsx`** is now an **async server component**: it
+  `await getSession()`, renders the shell via `<ViewerProvider session>` when
+  signed in, and otherwise renders an unauthenticated surface (a `StateView`
+  "You're not signed in", info tone) instead of the shell. A real sign-in
+  redirect lands with the auth flow.
+
+Flow: `getSession()` (server) → `(app)` layout → `<ViewerProvider session>` →
+`ViewerContext` → the navigation model. No shared `packages/ui` component
+changed; no new shared component.
+
+### Verification (Phase 2 · Session seam)
+
+- `pnpm --filter web check-types` ✅ · `lint` ✅ (0 warnings) · `build` ✅
+  (route count unchanged; all routes still prerender — the async layout +
+  `getSession()` stay static).
+- Live preview (standalone-in-/tmp workaround, on port 3013 since a sibling
+  project holds 3001): `/overview` renders the full Owner shell driven by the
+  server-injected session — "St. Jude Academy" switcher, "Mr Bello / MB" user
+  menu, the complete Owner-filtered rail (Overview → Reports), and the dashboard
+  body. No console errors/warnings, confirming the server→client session prop
+  (incl. the rebuilt permissions `Set`) hydrates cleanly.
 
 ## Session Summary (2026-06-18) — Phase 2 · Settings nav de-duplication (tidy-up)
 
@@ -1172,8 +1217,10 @@ Low Priority (cleanups)
      then `cp -R apps/web/.next/static /tmp/swe-preview/apps/web/.next/static`
      (and `public` if present);
   4) `/tmp/swe-run.cjs` chdir's to `/tmp/swe-preview/apps/web` and `import()`s
-     `server.js` (ESM) with `PORT=3001`;
-  5) restart via `preview_start web` (port 3001). NB: it serves a production
+     `server.js` (ESM) with `PORT=3013` (3013, not 3001 — a sibling project,
+     `codex_trial/apps/api`, permanently holds 3001; the `web` launch config's
+     `port` is set to 3013 to match);
+  5) restart via `preview_start web` (port 3013). NB: it serves a production
      *snapshot* — rebuild + re-copy after source changes — and `/tmp` clears on
      reboot.
 - TD-002: notification service not implemented. Unbuilt feature (not cleanup);
