@@ -59,6 +59,16 @@ Read first:
 - AI_CONTEXT.md · AI_HANDOFF.md · CURRENT_PHASE.md (Phase 2)
 - implementation-roadmap.md + requirements/ docs for the target area
 - packages/ui/README.md (how to consume the foundation + Known Gaps)
+- **`apps/api`** — the real NestJS backend (auth / RBAC / MFA / maker-checker /
+  audit / tenant), DB-backed via `packages/database` (Prisma). The frontend does
+  not consume it yet. (`packages/api` is a separate service *library* — not the
+  HTTP app.)
+
+> ⚠ **Phase numbering is overloaded.** The internal roadmap / `CURRENT_PHASE.md`
+> use Phase 1 = design-system foundation, Phase 2 = dashboard infra (where we are).
+> The product `requirements/PRD.md` §11 uses different numbers (Phase 1 = core
+> platform, Phase 2 = PWA/ops, Phase 3 = AI). Same word, different scales — say
+> which when it matters.
 
 Natural next Phase 2 tasks (pick one):
 
@@ -68,11 +78,19 @@ Natural next Phase 2 tasks (pick one):
   `app-navigation.test.tsx`), or the remaining shell/layout components
   (`PageHeader`, `AppShell`, `SettingsLayout`, `DashboardLayout`). For any recharts
   surface, reuse the jsdom stub `packages/ui/src/test/recharts-mock.tsx`.
-- Replace the mock `getSession()` (`apps/web/lib/session.ts`) with a real auth
-  source **once the auth flow lands** (still blocked — verified 2026-06-20: no auth
-  backend / endpoint exists; `packages/api` is a NestJS service lib with no
-  `@Controller`, no `next-auth`, and no login page in `apps/web`). The seam is
-  ready: only the function body changes.
+- **Wire `getSession()` to the real auth backend — NOT blocked** (correction
+  2026-06-20: earlier hand-offs wrongly said no auth backend exists — they only
+  checked `packages/api`, the service *library*). The actual backend is the
+  **`apps/api` NestJS app**, which is real and DB-backed: `POST /auth/login` →
+  `verify-mfa-login` → `select-school` → `refresh` / `logout`, plus password
+  reset, and controllers for role/permission management, audit, MFA, tenant, and
+  breach response (`apps/api/src/auth/auth.controller.ts`; 7 Prisma migrations
+  incl. `maker_checker`). The frontend is **not yet wired** — `apps/web` imports
+  neither `@workspace/api` nor `@workspace/database`, and `getSession()` is a
+  mock. The seam is ready (only the function body changes); the real work is the
+  HTTP integration (login flow + token/refresh + `select-school`) and matching
+  the `Session` shape to what those endpoints return. This is the highest-value
+  next task — it validates the access-control model end-to-end.
 - **Keep PR #1 current / drive it to merge.** PR #1 (`claude` → `main`) is open
   and tracks the branch; refresh its body when you push notable work, and
   coordinate the merge into `main` when Phase 2 is ready to land.

@@ -6,6 +6,25 @@ Last Updated: 2026-06-20
 
 # Current Status
 
+> ⚠ **Correction (2026-06-20) — the auth/RBAC backend DOES exist.** Earlier
+> hand-offs (and the pt.1 "task 4" note below) wrongly stated there is no auth
+> backend. That conclusion only inspected `packages/api` (a NestJS service
+> *library*). The real backend is the **`apps/api` NestJS application**: DB-backed
+> (Prisma, via `packages/database`), with `POST /auth/login` → `verify-mfa-login`
+> → `select-school` → `refresh` / `logout` + password reset
+> (`apps/api/src/auth/auth.controller.ts`), and 20 controllers covering
+> role/permission management, audit, MFA, tenant, security-policy and breach
+> response; 7 migrations incl. `maker_checker`. **What's missing is the
+> frontend↔backend wiring**: `apps/web` imports neither `@workspace/api` nor
+> `@workspace/database`, and `getSession()` is still a mock. So `getSession()`
+> real-auth wiring is **unblocked** — it's an HTTP-integration task, not a
+> "wait for the backend" task.
+>
+> ⚠ **Phase numbering is overloaded.** Internal docs (this file, `CURRENT_PHASE.md`,
+> `implementation-roadmap.md`): Phase 1 = design-system, Phase 2 = dashboard infra.
+> `requirements/PRD.md` §11: Phase 1 = core platform, Phase 2 = PWA/ops, Phase 3 =
+> AI. Different scales — disambiguate when it matters.
+
 Current Phase:
 
 Phase 2 - Dashboard Infrastructure & Role/Tenant-Aware Navigation — **IN PROGRESS**
@@ -14,8 +33,9 @@ Completion:
 
 Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
 Phase 2: nav model wired to a real `ViewerContext` driven by a server
-`getSession()` seam (`apps/web/lib/session.ts`, still mock — auth backend
-pending) + the Next router; `/overview` dashboard live; real product surfaces built on the M6
+`getSession()` seam (`apps/web/lib/session.ts`, still mock — the real `apps/api`
+auth backend exists but is not yet wired; see the correction above) + the Next
+router; `/overview` dashboard live; real product surfaces built on the M6
 layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
 **Students** area (now complete: directory · enrollment · attendance history ·
 fees · transport · gradebook → report-cards + transcripts), **Attendance**
@@ -85,7 +105,9 @@ direction-inferred tone when `intent` is omitted (up → success, flat → muted
 Cleared the pre-existing `web` lint failure, gave `DonutChart` its first real
 consumer, and extended component coverage to `ScheduleGrid`. (A fourth requested
 task — replacing the mock `getSession()` with real auth — was inspected and
-confirmed still **blocked**: no auth source exists; see below.)
+~~confirmed still **blocked**: no auth source exists~~. **Correction 2026-06-20:
+that was wrong — the `apps/api` auth backend exists; see the correction at the
+top of Current Status.**)
 
 **1 — `web` lint failure cleared.** Swapped the five raw `<a href>` internal
 links flagged by `no-html-link-for-pages` for next/link `<Link>` across
@@ -110,13 +132,17 @@ across 4 files. The chart wrappers (`DonutChart` / `TrendChart` /
 through recharts' `ResponsiveContainer`, which collapses to zero size in jsdom
 (legend/cells never mount), so a container-size mock is needed first.
 
-**4 — `getSession()` real-auth wiring: still blocked (inspected).** Confirmed
-`packages/api` is a pure NestJS service library — **no `@Controller`, no
-`@Post`/`@Get`, no `main.ts`/bootstrap, no auth or login endpoint** — and there
-is no `next-auth`/auth dependency and no login/sign-in page in `apps/web`. There
-is no auth source to read a real session from, so the seam
-(`apps/web/lib/session.ts`) is left as the documented mock. It remains correctly
-designed: only the `getSession()` body changes when auth lands.
+**4 — `getSession()` real-auth wiring: ~~still blocked (inspected)~~.**
+> ⚠ **Superseded 2026-06-20 — this conclusion was WRONG.** It inspected only
+> `packages/api` (a service library) and missed the real **`apps/api`** NestJS
+> auth backend. See the correction at the top of Current Status. The seam is
+> unblocked; the remaining work is HTTP integration, not waiting for a backend.
+
+Original (incorrect) note: confirmed `packages/api` is a pure NestJS service
+library — no `@Controller`/`@Post`/`@Get`/`main.ts`, no auth or login endpoint —
+and there is no `next-auth` dependency or login page in `apps/web`, so the seam
+(`apps/web/lib/session.ts`) was left as the documented mock. (The error: the
+auth backend lives in `apps/api`, not `packages/api`.)
 
 **Verification (Node 22 unless noted):** `web` lint ✅ · `web` check-types ✅ ·
 `@workspace/ui` `tsc -p` ✅ · UI tests 48/48 ✅ · web tests 13/13 ✅ (run on the
@@ -289,6 +315,10 @@ NextAuth, and does not depend on `@workspace/api`; `packages/api` is a NestJS
 *library* — tenant-context / JWT-secret / school-selection / suspension services
 — with no authentication endpoint. There is nothing real to wire into yet, so
 this session does the in-scope prep toward it.)
+> ⚠ **Correction 2026-06-20:** the "nothing real to wire into yet" claim was
+> wrong — the **`apps/api`** NestJS app provides the real auth endpoints
+> (`/auth/login`, `/select-school`, `/refresh`, …). See Current Status. The seam
+> prep done here is still valid; the backend was simply mis-located in this note.
 
 - **New `apps/web/lib/session.ts`** (server-only — no `'use client'`): owns the
   `Session` / `SessionSchool` types and the mock data, and exports

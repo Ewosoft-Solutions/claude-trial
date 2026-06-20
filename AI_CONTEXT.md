@@ -56,13 +56,19 @@ Repository Structure:
 
 apps/
 
-* web
-* api
+* web — Next.js frontend (design system + product surfaces; currently mock data,
+  not yet wired to the backend)
+* api — **the real NestJS backend** (HTTP app): auth/login + MFA + select-school
+  + refresh, RBAC (role/permission management), maker-checker, audit, tenant,
+  breach response. DB-backed via `packages/database` (Prisma). `main.ts` bootstraps + listens.
 
 packages/
 
-* api
-* database
+* api — NestJS **service library** consumed by `apps/api` (tenant-context,
+  JWT-secret, school-selection, suspension). NOT the HTTP app — don't confuse it
+  with `apps/api` (a past hand-off did, and wrongly concluded "no auth backend").
+* database — Prisma schema + client (`@workspace/database`); models for tenant,
+  roles/permissions, users, academic structure, assessment, audit, etc.
 * ui
 * eslint-config
 * jest-config
