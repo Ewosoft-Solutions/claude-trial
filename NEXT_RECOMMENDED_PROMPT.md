@@ -47,12 +47,12 @@ before it built the chart wrappers (`TrendChart` / `CategoryBarChart`); see
 `AI_HANDOFF.md`.
 
 **Git state:** branch `claude` is on `origin`
-(`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS). The accumulated
-Phase 2 work (the nav-test / component-test / DonutChart batch, the pt.1 lint fix
-+ `/finance/reports` consumer + `schedule-grid.test.tsx`, and this pt.2 work) is
-now **committed locally on `claude` in logical splits but not yet pushed** —
-`git status` / `git log origin/claude..claude` first. No PR from `claude` →
-`main` is open yet (deferred by choice).
+(`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS). All accumulated
+Phase 2 work is **committed and pushed** to `origin/claude`. **PR #1 is OPEN**
+(`claude` → `main`, https://github.com/Ewosoft-Solutions/claude-trial/pull/1) and
+tracks the whole branch — its title/body were refreshed 2026-06-20 to cover the
+Reports area, chart wrappers, DonutChart consumers, and the test suite. Push new
+work to `claude` and it lands in PR #1 automatically; keep the PR body current.
 
 Read first:
 
@@ -73,8 +73,9 @@ Natural next Phase 2 tasks (pick one):
   backend / endpoint exists; `packages/api` is a NestJS service lib with no
   `@Controller`, no `next-auth`, and no login page in `apps/web`). The seam is
   ready: only the function body changes.
-- **Open the `claude` → `main` PR** if the accumulated Phase 2 work is ready to
-  land (several sessions are now committed on `claude`; no PR is open yet).
+- **Keep PR #1 current / drive it to merge.** PR #1 (`claude` → `main`) is open
+  and tracks the branch; refresh its body when you push notable work, and
+  coordinate the merge into `main` when Phase 2 is ready to land.
 
 Requirements:
 
