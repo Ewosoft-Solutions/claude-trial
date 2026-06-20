@@ -3,10 +3,11 @@
 /* ============================================================
    /finance/reports — financial reports
 
-   A light analytics surface: an M6 StatGrid headline + two breakdown
-   cards built on the shared Meter (collection rate by class, revenue
-   mix by category). Mock figures + copy live here; StatGrid and Meter
-   stay data-driven. Replaces the `[...slug]` placeholder.
+   A light analytics surface: an M6 StatGrid headline + three breakdown
+   cards — a shared DonutChart (fee-status split) plus two Meter lists
+   (collection rate by class, revenue mix by category). Mock figures +
+   copy live here; StatGrid, DonutChart and Meter stay data-driven.
+   Replaces the `[...slug]` placeholder.
    ============================================================ */
 
 import { Download } from 'lucide-react';
@@ -23,6 +24,8 @@ import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { Meter, type MeterTone } from '@workspace/ui/custom/data-display/meter';
+import { DonutChart } from '@workspace/ui/custom/charts/donut-chart';
+import type { ChartSlice } from '@workspace/ui/types/chart.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
@@ -58,6 +61,14 @@ const BY_CLASS: { label: string; value: number; tone: MeterTone }[] = [
   { label: 'SSS 3A', value: 81, tone: 'info' },
 ];
 
+/** Fee status split — share of billed fees by settlement state. */
+const FEE_STATUS: ChartSlice[] = [
+  { key: 'paid', label: 'Paid in full', value: 72, color: 'var(--chart-2)' },
+  { key: 'partial', label: 'Partial', value: 13, color: 'var(--chart-3)' },
+  { key: 'outstanding', label: 'Outstanding', value: 10, color: 'var(--chart-4)' },
+  { key: 'overdue', label: 'Overdue', value: 5, color: 'var(--chart-5)' },
+];
+
 /** Revenue mix by category (share of term revenue). */
 const BY_CATEGORY: { label: string; value: number; amount: string }[] = [
   { label: 'Tuition', value: 68, amount: '₦8.4M' },
@@ -83,7 +94,21 @@ export default function FinanceReportsPage() {
 
         <StatGrid items={STATS} />
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-3">
+          <Card className="shadow-card">
+            <CardHeader>
+              <CardTitle className="text-base">Fee status</CardTitle>
+              <CardDescription>Share of billed fees · Spring Term 2025</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <DonutChart
+                slices={FEE_STATUS}
+                height={240}
+                aria-label="Fee status split by share of billed fees"
+              />
+            </CardContent>
+          </Card>
+
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Collection rate by class</CardTitle>

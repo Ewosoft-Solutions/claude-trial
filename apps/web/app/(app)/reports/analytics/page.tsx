@@ -6,9 +6,10 @@
    A chart-led surface for school-wide trends: an M6 StatGrid
    headline over the shared chart wrappers (TrendChart for the
    enrollment + attendance trends, CategoryBarChart for the stacked
-   admissions funnel) plus a shared Meter breakdown of capacity by
-   campus. Mock figures + copy live here; the charts, StatGrid and
-   Meter stay data-driven. Replaces the `[...slug]` placeholder.
+   admissions funnel, DonutChart for the enrolment-by-level split)
+   plus a shared Meter breakdown of capacity by campus. Mock figures +
+   copy live here; the charts, StatGrid and Meter stay data-driven.
+   Replaces the `[...slug]` placeholder.
    ============================================================ */
 
 import { Download } from 'lucide-react';
@@ -26,8 +27,13 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { Meter, type MeterTone } from '@workspace/ui/custom/data-display/meter';
 import { CategoryBarChart } from '@workspace/ui/custom/charts/category-bar-chart';
+import { DonutChart } from '@workspace/ui/custom/charts/donut-chart';
 import { TrendChart } from '@workspace/ui/custom/charts/trend-chart';
-import type { ChartDatum, ChartSeries } from '@workspace/ui/types/chart.types';
+import type {
+  ChartDatum,
+  ChartSeries,
+  ChartSlice,
+} from '@workspace/ui/types/chart.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
@@ -101,6 +107,13 @@ const FUNNEL_SERIES: ChartSeries[] = [
   { key: 'enrolled', label: 'Enrolled', color: 'var(--chart-2)' },
 ];
 
+/** Enrolment share by school level (part-to-whole). */
+const BY_LEVEL: ChartSlice[] = [
+  { key: 'primary', label: 'Primary', value: 612 },
+  { key: 'junior', label: 'Junior secondary', value: 498 },
+  { key: 'senior', label: 'Senior secondary', value: 310 },
+];
+
 /** Seat utilisation by campus. */
 const CAPACITY: { label: string; value: number; tone: MeterTone }[] = [
   { label: 'Main campus', value: 92, tone: 'warning' },
@@ -161,21 +174,35 @@ export default function AnalyticsReportPage() {
           </Card>
         </div>
 
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="shadow-card lg:col-span-2">
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle className="text-base">Admissions funnel</CardTitle>
+            <CardDescription>
+              Applied → offered → enrolled · by month
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <CategoryBarChart
+              data={FUNNEL_DATA}
+              xKey="month"
+              series={FUNNEL_SERIES}
+              height={260}
+              aria-label="Admissions funnel by month"
+            />
+          </CardContent>
+        </Card>
+
+        <div className="grid gap-4 lg:grid-cols-2">
+          <Card className="shadow-card">
             <CardHeader>
-              <CardTitle className="text-base">Admissions funnel</CardTitle>
-              <CardDescription>
-                Applied → offered → enrolled · by month
-              </CardDescription>
+              <CardTitle className="text-base">Enrolment by level</CardTitle>
+              <CardDescription>Share of 1,420 enrolled · 2024–25</CardDescription>
             </CardHeader>
             <CardContent>
-              <CategoryBarChart
-                data={FUNNEL_DATA}
-                xKey="month"
-                series={FUNNEL_SERIES}
-                height={260}
-                aria-label="Admissions funnel by month"
+              <DonutChart
+                slices={BY_LEVEL}
+                height={240}
+                aria-label="Enrolment share by school level"
               />
             </CardContent>
           </Card>
