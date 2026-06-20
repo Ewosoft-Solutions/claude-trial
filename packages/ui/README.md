@@ -155,14 +155,18 @@ one-off bars in the dashboard / finance surfaces.
 ### Charts — `custom/charts/*`
 Typed, data-driven wrappers over the `chart` primitive + recharts, so app pages
 consume a small typed API and **recharts stays confined to `packages/ui`** (it is
-not a dependency of `apps/web`). Both take `data` rows + an `xKey` + a `series`
-list (`ChartSeries` from `types/chart.types.ts`; colours default to the rotating
-`--chart-1..5` tokens) and expose an accessible `role="img"` region.
+not a dependency of `apps/web`). The axis-based wrappers take `data` rows + an
+`xKey` + a `series` list (`ChartSeries` from `types/chart.types.ts`; colours
+default to the rotating `--chart-1..5` tokens); all expose an accessible
+`role="img"` region.
 `TrendChart` — multi-series `area` (gradient bands) or `line` over a category /
 time axis; optional `stacked`, auto legend for >1 series.
 `CategoryBarChart` — grouped or `stacked` bars, `column` (vertical) or `bar`
 (horizontal) orientation.
-Both set `isAnimationActive={false}` so marks paint at final geometry on mount
+`DonutChart` — part-to-whole composition over a `slices` list (`ChartSlice`); a
+`donut` (hollow centre, default) or solid `pie`. Slices resolve their colour +
+legend/tooltip label from the config via `nameKey="key"`.
+All set `isAnimationActive={false}` so marks paint at final geometry on mount
 (no blank-chart flash; deterministic for SSR/snapshot rendering). The richer
 `custom/charts/chart-area-interactive` (time-range toggle) remains for reference.
 > recharts gotcha baked in: axis children are passed **directly** (never wrapped
