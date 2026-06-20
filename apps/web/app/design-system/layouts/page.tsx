@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import * as React from 'react';
 import {
   Bell,
@@ -525,7 +526,7 @@ export default function LayoutsPage() {
         </div>
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" size="sm">
-            <a href="/design-system">← Design system</a>
+            <Link href="/design-system">← Design system</Link>
           </Button>
           <ModeToggle />
         </div>

@@ -1,5 +1,7 @@
 'use client';
 
+import Link from 'next/link';
+
 import { Button } from '@workspace/ui/components/button';
 import { Badge } from '@workspace/ui/components/badge';
 import {
@@ -51,13 +53,13 @@ export default function DesignSystemPage() {
         </div>
         <div className="flex items-center gap-3">
           <Button asChild variant="outline" size="sm">
-            <a href="/design-system/states">View states →</a>
+            <Link href="/design-system/states">View states →</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <a href="/design-system/layouts">View layouts →</a>
+            <Link href="/design-system/layouts">View layouts →</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
-            <a href="/design-system/shell">View app shell →</a>
+            <Link href="/design-system/shell">View app shell →</Link>
           </Button>
           <ModeToggle />
         </div>
@@ -93,7 +95,7 @@ export default function DesignSystemPage() {
                 </CardHeader>
                 <CardFooter className="px-5 pt-4">
                   <Button asChild variant="outline" size="sm">
-                    <a href={s.href}>Open preview →</a>
+                    <Link href={s.href}>Open preview →</Link>
                   </Button>
                 </CardFooter>
               </Card>
