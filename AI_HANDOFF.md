@@ -1,6 +1,6 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-06-18
+Last Updated: 2026-06-20
 
 ---
 
@@ -25,13 +25,160 @@ the **Finance** area (invoices · payments · reports), the **Settings** area
 `SettingsLayout`), and the **Reports** area (`/reports/academic` ·
 `/reports/analytics`, on the new shared chart wrappers) — each replacing its
 `[...slug]` placeholder. Every M6 layout pattern is exercised in-app, and the
-`chart` primitive now has reusable wrappers used in-app. The pure nav resolver
-(`packages/ui/src/lib/navigation.ts`) is now unit-tested (26 cases) on a
-finally-wired `@workspace/vitest-config` shared runner.
+`chart` primitive now has reusable wrappers used in-app — including `DonutChart`,
+now **consumed twice**: the fee-status split on `/finance/reports` and the
+enrolment-by-level split on `/reports/analytics`. On the wired
+`@workspace/vitest-config` shared runner there are now suites of three kinds: the
+pure nav resolver (`packages/ui`, 26 cases), `packages/ui` **component** tests
+under jsdom (`StatusBadge` · `Meter` · `ScheduleGrid` · `StatGrid` · the three
+chart wrappers `DonutChart`/`TrendChart`/`CategoryBarChart` — UI now **72** total
+across 8 files), and the **web-side** suite asserting the shipped `app-navigation`
+config resolves per viewer (`apps/web`, 13 cases). The recharts wrappers are
+tested via a shared jsdom `ResponsiveContainer` stub
+(`packages/ui/src/test/recharts-mock.tsx`). The pre-existing `web` lint failure
+(`no-html-link-for-pages` in `design-system/*`) is **fixed** — those raw `<a>`
+internal links are now next/link `<Link>`.
 
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-20, pt. 2) — Phase 2 · chart-wrapper tests + DonutChart 2nd surface + StatGrid tests
+
+Closed out the last untested `packages/ui` family (the recharts chart wrappers),
+gave `DonutChart` a second real consumer, and added `StatGrid` coverage.
+
+**1 — chart-wrapper tests (the recharts/jsdom blocker, solved).** Added a shared
+stub at `packages/ui/src/test/recharts-mock.tsx` — `withFixedResponsiveContainer`
+swaps recharts' `ResponsiveContainer` (which measures via `ResizeObserver`, absent
+in jsdom, and renders nothing at 0×0) for a fixed 800×400 passthrough that clones
+the chart child with explicit width/height, so the SVG mounts. Each chart test
+file applies it via `vi.mock('recharts', …)`. New suites:
+`custom/charts/donut-chart.test.tsx` (**5** — accessible name, one sector per
+slice, legend on/off, pie variant), `trend-chart.test.tsx` (**6** — accessible
+name, area vs line per series, multi-series legend, single-series legend default
++ override) and `category-bar-chart.test.tsx` (**5** — accessible name, one bar
+layer per series, column/bar orientation, legend behaviour). Assertions lean on
+the `role="img"` name (forwarded by `ChartContainer`), legend label text, and
+recharts layer classes (`.recharts-area` / `.recharts-line` / `.recharts-bar` /
+`.recharts-pie-sector`).
+
+**2 — `DonutChart` second consumer.** `/reports/analytics`
+(`apps/web/app/(app)/reports/analytics/page.tsx`) now renders an enrolment-by-level
+split (Primary / Junior / Senior as `ChartSlice[]`). The bottom of the page was
+restructured: the admissions funnel goes full-width, and a new 2-col row pairs the
+donut with the existing capacity-by-campus `Meter` list.
+
+**3 — `StatGrid` / `StatCard` tests.** New `custom/layouts/stat-grid.test.tsx`
+(**8**): one tile per item with label + value, `minTileWidth` → auto-fit column
+template, the three render modes (plain div / link via `href` / button via
+`onSelect`, incl. an `onSelect` click), the optional `hint` line, explicit
+positive/negative delta tone (`text-success` / `text-destructive`), and
+direction-inferred tone when `intent` is omitted (up → success, flat → muted).
+
+**Verification (Node 22 unless noted):** UI tests **72/72** ✅ (8 files) ·
+`@workspace/ui` `tsc -p` ✅ · web check-types ✅ · web lint ✅ · web tests 13/13 ✅
+(default Node 20.18) · `web` build ✅.
+
+## Session Summary (2026-06-20) — Phase 2 · lint fix + DonutChart consumer + ScheduleGrid tests
+
+Cleared the pre-existing `web` lint failure, gave `DonutChart` its first real
+consumer, and extended component coverage to `ScheduleGrid`. (A fourth requested
+task — replacing the mock `getSession()` with real auth — was inspected and
+confirmed still **blocked**: no auth source exists; see below.)
+
+**1 — `web` lint failure cleared.** Swapped the five raw `<a href>` internal
+links flagged by `no-html-link-for-pages` for next/link `<Link>` across
+`app/design-system/{page,layouts/page,states/page}.tsx` (added the `Link`
+import to each). `pnpm --filter web lint` is **green** again (`--max-warnings 0`).
+
+**2 — `DonutChart` consumed on a real surface.** `/finance/reports`
+(`apps/web/app/(app)/finance/reports/page.tsx`) now renders a fee-status split
+(Paid / Partial / Outstanding / Overdue, as `ChartSlice[]` on the `--chart-N`
+tokens) via the shared `DonutChart`; the breakdown row was rebalanced from two
+columns to three (donut + the two existing `Meter` lists). First consumer of the
+wrapper that previously shipped ahead of demand.
+
+**3 — `ScheduleGrid` component tests (jsdom).** New
+`packages/ui/src/custom/data-display/schedule-grid.test.tsx` (**9 cases**):
+day/period header counts, period time sub-label presence/absence, cell count =
+days × periods, entry placement (title + subtitle), empty-cell `sr-only` label +
+custom `emptyLabel`, one-entry-per-cell (last wins on a clash), tone card classes
+(incl. neutral default), and table semantics. `@workspace/ui` is now **48 tests**
+across 4 files. The chart wrappers (`DonutChart` / `TrendChart` /
+`CategoryBarChart`) remain **untested** by deliberate deferral — they render
+through recharts' `ResponsiveContainer`, which collapses to zero size in jsdom
+(legend/cells never mount), so a container-size mock is needed first.
+
+**4 — `getSession()` real-auth wiring: still blocked (inspected).** Confirmed
+`packages/api` is a pure NestJS service library — **no `@Controller`, no
+`@Post`/`@Get`, no `main.ts`/bootstrap, no auth or login endpoint** — and there
+is no `next-auth`/auth dependency and no login/sign-in page in `apps/web`. There
+is no auth source to read a real session from, so the seam
+(`apps/web/lib/session.ts`) is left as the documented mock. It remains correctly
+designed: only the `getSession()` body changes when auth lands.
+
+**Verification (Node 22 unless noted):** `web` lint ✅ · `web` check-types ✅ ·
+`@workspace/ui` `tsc -p` ✅ · UI tests 48/48 ✅ · web tests 13/13 ✅ (run on the
+default Node 20.18) · `web` build ✅.
+
+## Session Summary (2026-06-18) — Phase 2 · app-navigation tests + first component tests + DonutChart
+
+Extended the now-wired test runner in three directions, and added the
+composition chart wrapper.
+
+**1 — `apps/web` navigation config tests (first web-side suite).** Wired vitest
+into `apps/web` (added `vitest` + `@workspace/vitest-config` devDeps, a `test`
+script, and `vitest.config.ts` re-exporting `baseConfig` — node env, since
+config resolution is pure). New `apps/web/lib/navigation/app-navigation.test.tsx`
+(**13 cases**) asserts the *shipped* `SCHOOL_NAV` / `PLATFORM_NAV` configs
+resolve correctly for representative viewers (owner / teacher / bursar / minimal
+student / platform admin / scoped operator): `configForViewer` scope routing,
+section visibility, the finance clearance gate (denied at clearance 3 even with
+the permission), panel-group + nested-leaf permission filtering, active-state
+derivation, and the group-less settings footer.
+
+To transpile the config's JSX in tests, **`baseConfig` now applies
+`@vitejs/plugin-react`** (automatic runtime) instead of an `esbuild.jsx` option —
+the workspace is on vitest 4.1.8 / Vite 8 / Rolldown, where `esbuild.jsx` is not
+honoured. The plugin is inert for pure `.ts` files, so the resolver suite is
+unaffected; it also sets up component tests under `uiConfig`.
+
+**2 — first `packages/ui` component tests (jsdom).** Switched
+`packages/ui/vitest.config.ts` to `uiConfig` (jsdom) + a `vitest.setup.ts`
+registering `@testing-library/jest-dom` matchers and RTL `cleanup`. Added
+`@testing-library/{react,dom,jest-dom}` devDeps. New render tests:
+`status-badge.test.tsx` (**5**) — children, default + semantic tone surfaces,
+the optional dot, className/attr passthrough — and `meter.test.tsx` (**8**) —
+label + rounded percentage, progressbar a11y semantics, over-max / negative /
+zero-max clamping, `valueLabel` override, `hideValue`, tone fill. `@workspace/ui`
+is now **39 tests** across 3 files (26 resolver + 13 component).
+
+> The jsdom tests require **Node ≥20.19** (jsdom 27 → `html-encoding-sniffer@6`
+> → an ESM dep `require()`d only on ≥20.19) — the *same* threshold the repo's
+> `engines` and the existing `@workspace/database` build already demand. Run the
+> UI/component suites under e.g. `nvm` v22; the pure resolver + web suites still
+> run on the default 20.18.
+
+**3 — `DonutChart` (composition chart wrapper).** Added
+`custom/charts/donut-chart.tsx` — the part-to-whole sibling to `TrendChart`
+(time) and `CategoryBarChart` (comparison). Consumes a new `ChartSlice`
+(`types/chart.types.ts`); `donut` (default) or solid `pie`; slices resolve
+colour + legend/tooltip label from the config via `nameKey="key"`; keeps the
+`isAnimationActive={false}` convention. Not yet consumed by any surface (built
+ahead per the shared-UI-first rule). README → Charts updated.
+
+Verified (under Node 22): `@workspace/ui` test **39/39** ✅ · web test **13/13**
+✅ · web check-types ✅ · `packages/ui` `tsc -p` (incl. tests + donut) ✅ ·
+`@workspace/vitest-config` build ✅ · web build ✅.
+
+⚠ **`pnpm --filter web lint` now fails** on **5 pre-existing**
+`@next/next/no-html-link-for-pages` warnings (lint uses `--max-warnings 0`) in
+**untouched** `app/design-system/{page,layouts/page,states/page}.tsx` (raw `<a>`
+internal links). These predate this work and were masked by ESLint's cache; the
+`pnpm install` runs here busted the cache and surfaced them. **None of this
+session's added files are flagged.** Flagged as a background task (swap `<a>` →
+next/link `<Link>`); not fixed here to avoid unrelated scope.
 
 ## Session Summary (2026-06-18) — Phase 2 · Nav resolver unit tests + vitest runner
 
