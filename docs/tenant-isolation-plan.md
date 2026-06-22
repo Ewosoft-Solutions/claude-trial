@@ -88,12 +88,23 @@ already exists — good precedent.)
 | # | Task | State |
 |---|---|---|
 | 1 | Classify tables | ✅ this doc |
-| 2 | Denormalize tenant_id onto child/join tables | schema authorable; migration **[pending DB]** |
-| 3 | Composite tenant-leading indexes | schema authorable; apply **[pending DB]** |
-| 4 | Parameterized, tx-local RLS setter | ✅ code (no DB) |
-| 5 | Route queries through per-request RLS tx + global interceptor | code authorable; behavior **[pending DB]** |
-| 6 | Harden withTenant extension | ✅ code + unit test (no DB) |
-| 7 | RLS policies + restricted role migration | author SQL; apply/verify **[pending DB]** |
-| 8 | Audited platform cross-tenant bypass | code authorable; verify **[pending DB]** |
-| 9 | Isolation test suite | author; execute **[pending DB]** |
-| 10 | ADR + apply & verify on live DB | **[pending DB]** |
+| 2 | Denormalize tenant_id onto child/join tables | ✅ applied (migration 20260622123141) + backfilled + verified |
+| 3 | Composite tenant-leading indexes | ✅ applied (55 tenant indexes); schema validates |
+| 4 | Parameterized, tx-local RLS setter | ✅ code |
+| 5 | Route queries through per-request RLS tx | ◑ primitives done; **runtime cutover is the follow-up** (ADR-004 runbook) |
+| 6 | Harden withTenant extension | ✅ code + 11 unit tests |
+| 7 | RLS policies + restricted role migration | ✅ applied (23 tables ENABLE/FORCE + policy; app_runtime role) |
+| 8 | Audited platform cross-tenant bypass | ✅ app.is_platform GUC branch in policies; proven |
+| 9 | Isolation test suite | ✅ rls-isolation-check.sql — 7 checks pass as app_runtime |
+| 10 | ADR + apply & verify on live DB | ✅ ADR-004; migrations applied + proven (cutover pending, documented) |
+
+## Outcome
+
+Tenant isolation is now **enforced at the database** (RLS on 23 tables) and
+**proven** via the isolation script run as the restricted `app_runtime` role:
+cross-tenant read/insert/update/delete are all blocked, and the platform bypass
+works. The one remaining piece is the **runtime cutover** (connect the app as
+`app_runtime` + run every tenant query through `runInTransaction`), tracked in
+ADR-004 — until then the app connects as the superuser `postgres` (RLS-bypassing)
+and relies on app-level scoping, so there is no regression while the cutover is
+sequenced with e2e tests.
