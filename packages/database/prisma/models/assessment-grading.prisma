@@ -76,6 +76,7 @@ model Assessment {
   classId        String @map("class_id")
   academicYearId String @map("academic_year_id") // Denormalized for easier queries
   termId         String @map("term_id") // Denormalized for easier queries
+  tenantId       String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Assessment Information
   name        String // e.g., "Midterm Exam", "Final Project", "Chapter 5 Quiz"
@@ -118,6 +119,8 @@ model Assessment {
   @@index([status])
   @@index([dueDate])
   @@index([type])
+  @@index([tenantId])
+  @@index([tenantId, classId])
   @@schema("academic-structure")
   @@map("assessments")
 }
@@ -127,6 +130,7 @@ model Grade {
   id           String @id @default(uuid())
   enrollmentId String @map("enrollment_id")
   assessmentId String @map("assessment_id")
+  tenantId     String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Grade Values
   pointsEarned Decimal? @map("points_earned") // Points earned (e.g., 85.5)
@@ -165,6 +169,8 @@ model Grade {
   @@index([status])
   @@index([submittedAt])
   @@index([gradedAt])
+  @@index([tenantId])
+  @@index([tenantId, assessmentId])
   @@schema("academic-structure")
   @@map("grades")
 }

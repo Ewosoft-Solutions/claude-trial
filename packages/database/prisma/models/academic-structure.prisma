@@ -73,6 +73,7 @@ model AcademicYear {
 model Term {
   id             String   @id @default(uuid())
   academicYearId String   @map("academic_year_id")
+  tenantId       String?  @map("tenant_id") // Denormalized from academicYear for RLS + tenant-scoped queries
   name           String // e.g., "Fall Term", "Semester 1", "Trimester 1"
   type           String // 'semester' | 'trimester' | 'quarter' | 'term' | 'custom'
   startDate      DateTime @map("start_date")
@@ -98,6 +99,8 @@ model Term {
   @@index([status])
   @@index([order])
   @@index([startDate, endDate])
+  @@index([tenantId])
+  @@index([tenantId, academicYearId])
   @@schema("academic-structure")
   @@map("terms")
 }
@@ -152,6 +155,7 @@ model Class {
   courseId       String @map("course_id")
   termId         String @map("term_id")
   academicYearId String @map("academic_year_id") // Denormalized for easier queries
+  tenantId       String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Section Information
   section String // e.g., "A", "B", "Section 1", "Morning"
@@ -195,6 +199,9 @@ model Class {
   @@index([academicYearId])
   @@index([status])
   @@index([room])
+  @@index([tenantId])
+  @@index([tenantId, termId])
+  @@index([tenantId, status])
   @@schema("academic-structure")
   @@map("classes")
 }
@@ -206,6 +213,7 @@ model ClassTeacher {
   id           String @id @default(uuid())
   classId      String @map("class_id")
   userTenantId String @map("user_tenant_id") // Teacher's profile (UserTenant)
+  tenantId     String? @map("tenant_id") // Denormalized from class for RLS
 
   // Role/Assignment Type
   role String @default("teacher") // 'teacher' | 'assistant' | 'co-teacher' | 'substitute'
@@ -227,6 +235,7 @@ model ClassTeacher {
   @@index([classId])
   @@index([userTenantId])
   @@index([isActive])
+  @@index([tenantId])
   @@schema("academic-structure")
   @@map("class_teachers")
 }

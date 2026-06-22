@@ -82,6 +82,7 @@ model Enrollment {
   classId        String @map("class_id")
   academicYearId String @map("academic_year_id")
   termId         String @map("term_id") // Denormalized for easier queries
+  tenantId       String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Enrollment Details
   enrollmentDate DateTime @default(now()) @map("enrollment_date")
@@ -119,6 +120,9 @@ model Enrollment {
   @@index([termId])
   @@index([status])
   @@index([enrollmentDate])
+  @@index([tenantId])
+  @@index([tenantId, classId])
+  @@index([tenantId, studentId])
   @@schema("student-management")
   @@map("enrollments")
 }

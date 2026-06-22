@@ -68,6 +68,7 @@ model UserTenantRole {
   id           String   @id @default(uuid())
   userTenantId String   @map("user_tenant_id")
   roleId       String   @map("role_id")
+  tenantId     String?  @map("tenant_id") // Denormalized from userTenant for RLS
   isPrimary    Boolean  @default(false) @map("is_primary") // Primary role for the profile
   assignedAt   DateTime @default(now()) @map("assigned_at")
   assignedBy   String?  @map("assigned_by")
@@ -80,6 +81,7 @@ model UserTenantRole {
   @@index([userTenantId])
   @@index([roleId])
   @@index([isPrimary])
+  @@index([tenantId])
   @@schema("profile")
   @@map("user_tenant_roles")
 }
@@ -89,6 +91,7 @@ model UserTenantPermission {
   id           String   @id @default(uuid())
   userTenantId String   @map("user_tenant_id")
   permissionId String   @map("permission_id")
+  tenantId     String?  @map("tenant_id") // Denormalized from userTenant for RLS
   granted      Boolean  @default(true) // true = granted, false = denied (override)
   grantedAt    DateTime @default(now()) @map("granted_at")
   grantedBy    String?  @map("granted_by")
@@ -99,6 +102,7 @@ model UserTenantPermission {
   @@unique([userTenantId, permissionId])
   @@index([userTenantId])
   @@index([permissionId])
+  @@index([tenantId])
   @@schema("profile")
   @@map("user_tenant_permissions")
 }
