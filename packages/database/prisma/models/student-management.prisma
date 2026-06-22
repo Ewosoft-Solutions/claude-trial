@@ -67,6 +67,10 @@ model Student {
   @@index([enrollmentStatus])
   @@index([gradeLevel])
   @@index([studentNumber])
+  // Tenant-leading composites for the common list filters (each query hits
+  // only its tenant's slice — keeps lists fast as the table grows).
+  @@index([tenantId, enrollmentStatus])
+  @@index([tenantId, gradeLevel])
   @@schema("student-management")
   @@map("students")
 }

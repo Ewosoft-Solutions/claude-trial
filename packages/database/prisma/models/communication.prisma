@@ -63,6 +63,10 @@ model Announcement {
   @@index([priority])
   @@index([publishAt])
   @@index([createdAt])
+  // Tenant-leading composites for the announcement feed (filter by status,
+  // order by recency) scoped to one tenant.
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
   @@schema("communication")
   @@map("announcements")
 }
@@ -113,6 +117,9 @@ model Message {
   @@index([status])
   @@index([createdAt])
   @@index([sentAt])
+  // Tenant-leading composites for the sent list and recency ordering.
+  @@index([tenantId, senderId])
+  @@index([tenantId, createdAt])
   @@schema("communication")
   @@map("messages")
 }
