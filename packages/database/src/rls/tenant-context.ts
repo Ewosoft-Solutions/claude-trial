@@ -3,53 +3,52 @@
  *
  * Utilities for setting tenant context in database sessions for RLS policies.
  * This ensures that RLS policies can correctly filter data by tenant.
+ *
+ * Implementation notes:
+ * - Uses `set_config(setting, value, is_local=true)` — the function form of
+ *   `SET LOCAL`. It is **transaction-scoped**, so it MUST be called inside a
+ *   transaction (see `PrismaTransactionService.runInTransaction`); outside one
+ *   it has no lasting effect on a pooled connection.
+ * - The value is passed as a **bound parameter** via `$executeRaw` (tagged
+ *   template), never string-interpolated — no SQL-injection surface even though
+ *   the tenant/user id originates from a (trusted) JWT.
+ * - RLS policies should read the value with
+ *   `NULLIF(current_setting('app.current_tenant_id', true), '')::uuid` so a
+ *   missing/empty context resolves to NULL (deny) rather than erroring.
  */
 
 import { PrismaClient } from '@prisma/client';
 
 /**
- * Set tenant context for RLS
+ * Set tenant context for RLS (transaction-scoped).
  *
- * Sets the tenant context in the database session so RLS policies
- * can filter data appropriately. This should be called before any
- * database queries that need tenant isolation.
- *
- * @param prisma - Prisma client instance
+ * @param prisma - Prisma client/transaction instance
  * @param tenantId - Tenant ID to set as context
  */
 export async function setTenantContext(
   prisma: PrismaClient,
   tenantId: string,
 ): Promise<void> {
-  // Use SET LOCAL for transaction-scoped context
-  // This ensures context is only active for the current transaction
-  await prisma.$executeRawUnsafe(
-    `SET LOCAL app.current_tenant_id = '${tenantId}'`,
-  );
+  await prisma.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
 }
 
 /**
- * Set user context for RLS
+ * Set user context for RLS (transaction-scoped).
  *
- * Sets the user context in the database session for user-specific
- * RLS policies (e.g., users can only see their own data).
- *
- * @param prisma - Prisma client instance
+ * @param prisma - Prisma client/transaction instance
  * @param userId - User ID to set as context
  */
 export async function setUserContext(
   prisma: PrismaClient,
   userId: string,
 ): Promise<void> {
-  await prisma.$executeRawUnsafe(`SET LOCAL app.current_user_id = '${userId}'`);
+  await prisma.$executeRaw`SELECT set_config('app.current_user_id', ${userId}, true)`;
 }
 
 /**
- * Set both tenant and user context
+ * Set both tenant and user context.
  *
- * Convenience function to set both contexts at once.
- *
- * @param prisma - Prisma client instance
+ * @param prisma - Prisma client/transaction instance
  * @param tenantId - Tenant ID
  * @param userId - User ID (optional)
  */
@@ -65,34 +64,31 @@ export async function setContext(
 }
 
 /**
- * Clear tenant context
+ * Clear tenant context.
  *
- * Clears the tenant context from the database session.
- * Should be called after operations complete or on error.
+ * Resets the GUC to an empty string. With transaction-scoped context this is
+ * usually unnecessary (it resets at transaction end), but it is kept for the
+ * session-scoped fallback path.
  *
- * @param prisma - Prisma client instance
+ * @param prisma - Prisma client/transaction instance
  */
 export async function clearTenantContext(prisma: PrismaClient): Promise<void> {
-  await prisma.$executeRawUnsafe(`SET LOCAL app.current_tenant_id = NULL`);
+  await prisma.$executeRaw`SELECT set_config('app.current_tenant_id', '', true)`;
 }
 
 /**
- * Clear user context
+ * Clear user context.
  *
- * Clears the user context from the database session.
- *
- * @param prisma - Prisma client instance
+ * @param prisma - Prisma client/transaction instance
  */
 export async function clearUserContext(prisma: PrismaClient): Promise<void> {
-  await prisma.$executeRawUnsafe(`SET LOCAL app.current_user_id = NULL`);
+  await prisma.$executeRaw`SELECT set_config('app.current_user_id', '', true)`;
 }
 
 /**
- * Clear all contexts
+ * Clear all contexts.
  *
- * Convenience function to clear both tenant and user contexts.
- *
- * @param prisma - Prisma client instance
+ * @param prisma - Prisma client/transaction instance
  */
 export async function clearContext(prisma: PrismaClient): Promise<void> {
   await clearTenantContext(prisma);
@@ -100,13 +96,13 @@ export async function clearContext(prisma: PrismaClient): Promise<void> {
 }
 
 /**
- * Execute query with tenant context
+ * Execute a query with tenant context set, clearing it afterwards.
  *
- * Wrapper function that sets tenant context, executes a query,
- * and clears context afterwards. Useful for ensuring context is
- * properly managed even if an error occurs.
+ * NOTE: For real isolation this must run inside a transaction so the
+ * transaction-scoped GUC applies to the wrapped queries on the same connection.
+ * Prefer `PrismaTransactionService.runInTransaction`.
  *
- * @param prisma - Prisma client instance
+ * @param prisma - Prisma client/transaction instance
  * @param tenantId - Tenant ID
  * @param query - Query function to execute
  * @param userId - Optional user ID
