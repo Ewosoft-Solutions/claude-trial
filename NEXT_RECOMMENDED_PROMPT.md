@@ -14,7 +14,27 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-20 pt.2 — chart-wrapper tests + DonutChart 2nd surface + StatGrid tests):
+Latest session (2026-06-20 pt.3 — backend assessment + tenant isolation enforced):
+Did a deep backend assessment (`apps/api` NestJS is a real auth/RBAC/academic
+core) and **fixed the #1 gap — tenant data isolation was not actually enforced**.
+Now enforced at the DB via **Postgres RLS on 23 tables** + a restricted
+`app_runtime` role + an audited `app.is_platform` bypass, **proven** by
+`packages/database/prisma/scripts/rls-isolation-check.sql` (cross-tenant
+read/insert/update/delete all blocked). Also denormalized `tenant_id` onto child
+tables (+ backfill), added tenant-leading composite indexes, parameterized the
+RLS setter, hardened the `withTenant` extension (+11 unit tests), and made it a
+**self-enforcing standard**: CI guard `db:rls:check` (fails the build on an
+unguarded tenant table), `ALTER DEFAULT PRIVILEGES`, and `enforce_tenant_rls()`.
+See `ARCHITECTURE_DECISIONS.md` ADR-004, `docs/tenant-isolation-plan.md`, and the
+ordered **`docs/backend-remediation-plan.md`**. The one piece left on isolation is
+the **runtime cutover** (app → `app_runtime`) = Step 1 below.
+
+> ▶ **Next session: start with `docs/backend-remediation-plan.md`** — the backend
+> gaps from the assessment are ordered into sequential, pick-up-able steps
+> (Step 1 = RLS runtime cutover; then CI; then frontend↔backend auth wiring;
+> then attendance, finance, polymorphism, tests).
+
+Prior session (2026-06-20 pt.2 — chart-wrapper tests + DonutChart 2nd surface + StatGrid tests):
 **(1)** Tested the last untested `packages/ui` family, the recharts chart
 wrappers. Added a shared jsdom stub `packages/ui/src/test/recharts-mock.tsx`
 (`withFixedResponsiveContainer` swaps recharts' `ResponsiveContainer` — which
@@ -63,6 +83,9 @@ Read first:
   audit / tenant), DB-backed via `packages/database` (Prisma). The frontend does
   not consume it yet. (`packages/api` is a separate service *library* — not the
   HTTP app.)
+- **`docs/backend-remediation-plan.md`** — the ordered backend steps (START HERE).
+- **`ARCHITECTURE_DECISIONS.md` ADR-004** + `docs/tenant-isolation-plan.md` —
+  tenant isolation design, the RLS standard, and the runtime-cutover runbook.
 
 > ⚠ **Phase numbering is overloaded.** The internal roadmap / `CURRENT_PHASE.md`
 > use Phase 1 = design-system foundation, Phase 2 = dashboard infra (where we are).
@@ -70,30 +93,29 @@ Read first:
 > platform, Phase 2 = PWA/ops, Phase 3 = AI). Same word, different scales — say
 > which when it matters.
 
-Natural next Phase 2 tasks (pick one):
+Next tasks — follow **`docs/backend-remediation-plan.md`** (ordered):
 
-- **More test coverage** now that all `packages/ui` component families are
-  exercised. Best remaining targets: **page-level resolution in `apps/web`** (a
-  rendered page resolving its nav / viewer state — patterns: `navigation.test.ts`,
-  `app-navigation.test.tsx`), or the remaining shell/layout components
-  (`PageHeader`, `AppShell`, `SettingsLayout`, `DashboardLayout`). For any recharts
-  surface, reuse the jsdom stub `packages/ui/src/test/recharts-mock.tsx`.
-- **Wire `getSession()` to the real auth backend — NOT blocked** (correction
-  2026-06-20: earlier hand-offs wrongly said no auth backend exists — they only
-  checked `packages/api`, the service *library*). The actual backend is the
-  **`apps/api` NestJS app**, which is real and DB-backed: `POST /auth/login` →
-  `verify-mfa-login` → `select-school` → `refresh` / `logout`, plus password
-  reset, and controllers for role/permission management, audit, MFA, tenant, and
-  breach response (`apps/api/src/auth/auth.controller.ts`; 7 Prisma migrations
-  incl. `maker_checker`). The frontend is **not yet wired** — `apps/web` imports
-  neither `@workspace/api` nor `@workspace/database`, and `getSession()` is a
-  mock. The seam is ready (only the function body changes); the real work is the
-  HTTP integration (login flow + token/refresh + `select-school`) and matching
-  the `Session` shape to what those endpoints return. This is the highest-value
-  next task — it validates the access-control model end-to-end.
-- **Keep PR #1 current / drive it to merge.** PR #1 (`claude` → `main`) is open
-  and tracks the branch; refresh its body when you push notable work, and
-  coordinate the merge into `main` when Phase 2 is ready to land.
+1. **RLS runtime cutover (Step 1, in progress)** — connect the app as
+   `app_runtime` + route every tenant query through `runInTransaction` (sets the
+   GUC) so the proven DB isolation goes live for the app. Runbook in ADR-004.
+   Needs e2e tests of the running NestJS app.
+2. **CI pipeline (Step 2)** — `.github/workflows/ci.yml` with a Postgres service:
+   `migrate deploy` → `db:rls:check` → type-check / lint / build / tests. Makes
+   the isolation standard and the "must compile/lint/type-check" rule enforced.
+3. **Frontend↔backend auth slice (Step 3)** — replace mock `getSession()`
+   (`apps/web/lib/session.ts`) with real `apps/api` `/auth/login` → `/select-school`
+   → `/refresh`; contract-test the payload vs the `Session` shape. (Not blocked —
+   the backend is `apps/api`, DB-backed.)
+4. Then **attendance**, **finance**, **polymorphism**, **backend tests/hygiene** —
+   see Steps 4–8 in the plan.
+
+Also ongoing: **keep PR #1 current** (`claude` → `main`, open, tracks the branch)
+and refresh its body when you push notable work.
+
+Parallel/independent UI option (not backend): more `packages/ui` coverage —
+page-level resolution in `apps/web` or shell/layout components (`PageHeader`,
+`AppShell`, `SettingsLayout`, `DashboardLayout`); reuse the jsdom recharts stub
+`packages/ui/src/test/recharts-mock.tsx`.
 
 Requirements:
 

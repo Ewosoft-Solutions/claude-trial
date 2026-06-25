@@ -63,6 +63,35 @@ internal links are now next/link `<Link>`.
 
 # Completed Work
 
+## Session Summary (2026-06-20, pt. 3) — Backend assessment + tenant isolation enforced (RLS)
+
+Deep backend assessment of `apps/api` (real NestJS auth/RBAC/academic core) →
+gaps captured + ordered in **`docs/backend-remediation-plan.md`**. Fixed the #1
+gap: **tenant data isolation, which was not actually enforced**.
+
+- **RLS enforced on 23 tables** (ENABLE/FORCE + `tenant_isolation` policy),
+  restricted non-superuser `app_runtime` role, audited `app.is_platform` bypass.
+  Migrations: `…_rls_policies_and_runtime_role`, `…_denormalize_tenant_id_child_tables`,
+  `…_tenant_rls_standard`. Tenant id is TEXT (not uuid) — policies compare as text.
+- **Denormalized `tenant_id`** onto 9 child tables (+ backfill from parents) so
+  each has a direct, indexed policy; added **tenant-leading composite indexes**.
+- **Parameterized** the RLS setter (`set_config(...,true)`); **hardened** the
+  `withTenant` extension (pure `applyTenantScope` + 11 unit tests; single
+  update/delete can't be where-scoped in Prisma → RLS is the enforcer).
+- **Proven**: `packages/database/prisma/scripts/rls-isolation-check.sql` (7 checks
+  as `app_runtime` — cross-tenant read/insert/update/delete blocked; platform
+  bypass works); also verified on a child table.
+- **Made a self-enforcing standard**: CI guard `db:rls:check` (fails build on an
+  unguarded tenant table), `ALTER DEFAULT PRIVILEGES` (auto-grant new tables),
+  `enforce_tenant_rls()` (`db:rls:enforce`); convention checklist in
+  `docs/tenant-isolation-plan.md` + `packages/database/README.md`. See ADR-004.
+- **Remaining**: runtime cutover (app → `app_runtime`) = Step 1 of the
+  remediation plan; the app still connects as superuser `postgres` (RLS-bypassing)
+  so there is no regression meanwhile.
+
+> Pre-change DB backup at `/tmp/swe-db-backup/`. Earlier `getSession()`-blocked
+> claim corrected (see Current Status): the auth backend is `apps/api`.
+
 ## Session Summary (2026-06-20, pt. 2) — Phase 2 · chart-wrapper tests + DonutChart 2nd surface + StatGrid tests
 
 Closed out the last untested `packages/ui` family (the recharts chart wrappers),
