@@ -83,5 +83,13 @@ The DB layer is enforced and proven, but the app still connects as `postgres`
 isolation is enforced for any client using `app_runtime` (e.g. the test suite)
 but not for the app, which still relies on app-level scoping.
 
+Made durable (so new tables adhere automatically):
+- CI guard `db:rls:check` (`rls-coverage-check.sql`) FAILS the build if any table
+  with a `tenant_id`/`school_id` column lacks RLS + a `tenant_isolation` policy.
+- `ALTER DEFAULT PRIVILEGES` auto-grants future tables to `app_runtime`.
+- `enforce_tenant_rls()` (idempotent; `db:rls:enforce`) applies the strict policy
+  to any tenant-scoped table missing one, without clobbering existing policies.
+- Convention checklist in `docs/tenant-isolation-plan.md` + `packages/database/README.md`.
+
 Date:
 2026-06-20

@@ -257,3 +257,22 @@ As the application grows, you can add more context-based files:
 - `mfa.prisma` - Multi-factor authentication models
 - `security-policy.prisma` - Security policy models
 - `jwt-secrets.prisma` - JWT secret management models
+
+## Tenant isolation (Row-Level Security) — REQUIRED for new tables
+
+Tenant data isolation is enforced at the database via Postgres RLS (see
+`ARCHITECTURE_DECISIONS.md` ADR-004 and `docs/tenant-isolation-plan.md`).
+
+**Any new table with a `tenant_id`/`school_id` column MUST have RLS + a
+`tenant_isolation` policy.** This is enforced in CI:
+
+```bash
+pnpm --filter @workspace/database db:rls:check    # fails if a tenant table lacks RLS
+pnpm --filter @workspace/database db:rls:enforce  # apply strict policy to any missing
+```
+
+When adding a tenant-scoped model, follow the checklist in
+`docs/tenant-isolation-plan.md` (add `tenantId` + indexes, call
+`enforce_tenant_rls()` in the migration, backfill, add the model to
+`STRICT_TENANT_MODELS`). `ALTER DEFAULT PRIVILEGES` already auto-grants new
+tables to the runtime `app_runtime` role.

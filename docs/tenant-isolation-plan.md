@@ -98,6 +98,34 @@ already exists — good precedent.)
 | 9 | Isolation test suite | ✅ rls-isolation-check.sql — 7 checks pass as app_runtime |
 | 10 | ADR + apply & verify on live DB | ✅ ADR-004; migrations applied + proven (cutover pending, documented) |
 
+## Making it a standard (so new tables adhere automatically)
+
+The fix is not a one-off list — three mechanisms keep new models compliant:
+
+1. **CI guard (the enforcement):** `pnpm --filter @workspace/database db:rls:check`
+   runs `prisma/scripts/rls-coverage-check.sql`, which **fails (non-zero exit)** if
+   any table with a `tenant_id`/`school_id` column lacks `ENABLE`/`FORCE` RLS + a
+   `tenant_isolation` policy. Wire this into CI (after `migrate deploy`). Proven to
+   fail on an unguarded table and pass when all are covered.
+2. **Auto-grant:** `ALTER DEFAULT PRIVILEGES` means any future table created by
+   the migration owner is automatically granted CRUD to `app_runtime` — no manual
+   GRANT needed.
+3. **Auto-apply helper:** `enforce_tenant_rls()` (idempotent) applies the strict
+   policy to any tenant-scoped table missing one, without clobbering the existing
+   nullable-catalog policies. Run via `db:rls:enforce` or call it from a migration.
+
+### Checklist — adding a tenant-scoped table/model
+
+- Add `tenantId String? @map("tenant_id")` (+ `@@index([tenantId])` and a
+  `@@index([tenantId, <hotFilter>])` composite) to the Prisma model.
+- In the migration, either call `SELECT enforce_tenant_rls();` (strict policy,
+  safe default) **or** hand-write the policy if the table needs the nullable
+  "global rows" semantics (like `roles`/`permission_pools`).
+- Backfill `tenant_id` for existing rows from the parent.
+- Add the model to `STRICT_TENANT_MODELS` in
+  `apps/api/src/common/database/tenant-prisma.extension.ts` (app-layer scoping).
+- Ensure `db:rls:check` passes. CI will block the merge if it doesn't.
+
 ## Outcome
 
 Tenant isolation is now **enforced at the database** (RLS on 23 tables) and

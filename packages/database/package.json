@@ -23,6 +23,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/scripts/seed.ts",
     "db:verify": "tsx prisma/scripts/verify-seed.ts",
+    "db:rls:check": "prisma db execute --file prisma/scripts/rls-coverage-check.sql",
+    "db:rls:enforce": "prisma db execute --file prisma/scripts/rls-enforce.sql",
     "db:studio": "prisma studio",
     "dev": "tsup src/* --watch",
     "prebuild": "npm run db:generate",
