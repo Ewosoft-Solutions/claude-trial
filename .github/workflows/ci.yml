@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [main, claude]
+  pull_request:
+    branches: [main]
+
+jobs:
+  ci:
+    name: Build, Lint, Type-check, Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: schoolwithease
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Owner URL used by migrations and db:rls:check
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/schoolwithease
+      # Runtime URL — same DB, restricted role created by migrations
+      APP_RUNTIME_DATABASE_URL: postgresql://app_runtime:app_runtime_pw@localhost:5432/schoolwithease
+      # NestJS / JWT
+      JWT_SECRET: ci-secret-not-for-production
+      NODE_ENV: test
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 22
+        uses: actions/setup-node@v4
+        with:
+          # Node ≥20.19 required by repo engines; UI jsdom suite needs it too
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - name: Get pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path --silent)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: pnpm-${{ runner.os }}-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: pnpm-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # ── Database ──────────────────────────────────────────────────────────
+      - name: Run migrations
+        working-directory: packages/database
+        run: pnpm db:deploy
+
+      - name: Grant app_runtime LOGIN for CI
+        run: |
+          psql "$DATABASE_URL" -c "ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime_pw';"
+
+      - name: RLS coverage check (gate)
+        working-directory: packages/database
+        run: pnpm db:rls:check
+
+      # ── Type-check ────────────────────────────────────────────────────────
+      - name: Type-check packages/database
+        working-directory: packages/database
+        run: pnpm exec tsc -p tsconfig.json --noEmit
+
+      - name: Type-check apps/api
+        working-directory: apps/api
+        run: pnpm exec tsc -p tsconfig.build.json --noEmit
+
+      - name: Type-check apps/web
+        working-directory: apps/web
+        run: pnpm check-types
+
+      # ── Lint ──────────────────────────────────────────────────────────────
+      - name: Lint apps/api
+        working-directory: apps/api
+        run: pnpm lint
+
+      - name: Lint apps/web
+        working-directory: apps/web
+        run: pnpm lint
+
+      # ── Build ─────────────────────────────────────────────────────────────
+      - name: Build packages/database
+        working-directory: packages/database
+        run: pnpm build
+
+      - name: Build apps/api
+        working-directory: apps/api
+        run: pnpm build
+
+      - name: Build apps/web
+        working-directory: apps/web
+        run: pnpm build
+
+      # ── Tests ─────────────────────────────────────────────────────────────
+      - name: Test packages/ui (vitest — requires Node ≥20.19)
+        working-directory: packages/ui
+        run: pnpm test
+
+      - name: Test apps/web (vitest)
+        working-directory: apps/web
+        run: pnpm test
+
+      - name: Test apps/api (jest unit)
+        working-directory: apps/api
+        run: pnpm test
+
+      - name: Test apps/api e2e — RLS isolation
+        working-directory: apps/api
+        run: pnpm test:e2e
+        # e2e specs skip automatically when APP_RUNTIME_DATABASE_URL is not set;
+        # here it IS set, so the isolation specs run for real.
