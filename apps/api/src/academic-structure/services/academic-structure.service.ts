@@ -4,6 +4,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
+import { TenantDbService } from '../../common/database/tenant-db.service';
 import { PrismaTransactionService } from '../../common/database/prisma-transaction.service';
 import {
   CreateAcademicYearDto,
@@ -27,8 +28,14 @@ import {
 export class AcademicStructureService {
   constructor(
     private readonly db: DatabaseService,
+    private readonly tenantDb: TenantDbService,
     private readonly prismaTx: PrismaTransactionService,
   ) {}
+
+  /** Scoped app_runtime client inside a @TenantScoped request; else privileged. */
+  private get client() {
+    return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
+  }
 
   private assertStatus(value: string, allowed: readonly string[], message: string) {
     if (!allowed.includes(value)) {
@@ -78,14 +85,14 @@ export class AcademicStructureService {
       this.assertStatus(status, ACADEMIC_YEAR_STATUSES, 'Invalid academic year status');
       where.status = status;
     }
-    return this.db.client.academicYear.findMany({
+    return this.client.academicYear.findMany({
       where,
       orderBy: [{ isDefault: 'desc' }, { startDate: 'desc' }],
     });
   }
 
   async getAcademicYear(tenantId: string, id: string) {
-    const year = await this.db.client.academicYear.findFirst({
+    const year = await this.client.academicYear.findFirst({
       where: { id, tenantId },
       include: { terms: true },
     });
@@ -103,7 +110,7 @@ export class AcademicStructureService {
       this.assertStatus(dto.status, ACADEMIC_YEAR_STATUSES, 'Invalid academic year status');
     }
 
-    const existing = await this.db.client.academicYear.findFirst({
+    const existing = await this.client.academicYear.findFirst({
       where: { id, tenantId },
     });
     if (!existing) throw new NotFoundException('Academic year not found');
@@ -142,13 +149,13 @@ export class AcademicStructureService {
   }
 
   async deleteAcademicYear(tenantId: string, id: string) {
-    const existing = await this.db.client.academicYear.findFirst({
+    const existing = await this.client.academicYear.findFirst({
       where: { id, tenantId },
       select: { id: true },
     });
     if (!existing) throw new NotFoundException('Academic year not found');
 
-    await this.db.client.academicYear.delete({ where: { id } });
+    await this.client.academicYear.delete({ where: { id } });
     return { success: true };
   }
 
@@ -161,7 +168,7 @@ export class AcademicStructureService {
   ) {
     this.assertStatus(dto.status ?? 'planned', TERM_STATUSES, 'Invalid term status');
 
-    const year = await this.db.client.academicYear.findFirst({
+    const year = await this.client.academicYear.findFirst({
       where: { id: academicYearId, tenantId },
     });
     if (!year) throw new NotFoundException('Academic year not found');
@@ -170,7 +177,7 @@ export class AcademicStructureService {
       throw new BadRequestException('startDate must be before endDate');
     }
 
-    return this.db.client.term.create({
+    return this.client.term.create({
       data: {
         academicYearId,
         name: dto.name,
@@ -186,20 +193,20 @@ export class AcademicStructureService {
   }
 
   async listTerms(tenantId: string, academicYearId: string) {
-    const year = await this.db.client.academicYear.findFirst({
+    const year = await this.client.academicYear.findFirst({
       where: { id: academicYearId, tenantId },
       select: { id: true },
     });
     if (!year) throw new NotFoundException('Academic year not found');
 
-    return this.db.client.term.findMany({
+    return this.client.term.findMany({
       where: { academicYearId },
       orderBy: [{ order: 'asc' }, { startDate: 'asc' }],
     });
   }
 
   async getTerm(tenantId: string, termId: string) {
-    const term = await this.db.client.term.findFirst({
+    const term = await this.client.term.findFirst({
       where: { id: termId, academicYear: { tenantId } },
     });
     if (!term) throw new NotFoundException('Term not found');
@@ -211,7 +218,7 @@ export class AcademicStructureService {
       this.assertStatus(dto.status, TERM_STATUSES, 'Invalid term status');
     }
 
-    const term = await this.db.client.term.findFirst({
+    const term = await this.client.term.findFirst({
       where: { id: termId, academicYear: { tenantId } },
     });
     if (!term) throw new NotFoundException('Term not found');
@@ -222,7 +229,7 @@ export class AcademicStructureService {
       }
     }
 
-    return this.db.client.term.update({
+    return this.client.term.update({
       where: { id: termId },
       data: {
         name: dto.name ?? undefined,
@@ -238,13 +245,13 @@ export class AcademicStructureService {
   }
 
   async deleteTerm(tenantId: string, termId: string) {
-    const term = await this.db.client.term.findFirst({
+    const term = await this.client.term.findFirst({
       where: { id: termId, academicYear: { tenantId } },
       select: { id: true },
     });
     if (!term) throw new NotFoundException('Term not found');
 
-    await this.db.client.term.delete({ where: { id: termId } });
+    await this.client.term.delete({ where: { id: termId } });
     return { success: true };
   }
 
@@ -253,13 +260,13 @@ export class AcademicStructureService {
     this.assertStatus(dto.status ?? 'active', COURSE_STATUSES, 'Invalid course status');
 
     // Ensure unique code per tenant
-    const existing = await this.db.client.course.findFirst({
+    const existing = await this.client.course.findFirst({
       where: { tenantId, code: dto.code },
       select: { id: true },
     });
     if (existing) throw new BadRequestException('Course code already exists');
 
-    return this.db.client.course.create({
+    return this.client.course.create({
       data: {
         tenantId,
         code: dto.code,
@@ -292,14 +299,14 @@ export class AcademicStructureService {
       where.status = status;
     }
 
-    return this.db.client.course.findMany({
+    return this.client.course.findMany({
       where,
       orderBy: [{ category: 'asc' }, { code: 'asc' }],
     });
   }
 
   async getCourse(tenantId: string, id: string) {
-    const course = await this.db.client.course.findFirst({
+    const course = await this.client.course.findFirst({
       where: { id, tenantId },
     });
     if (!course) throw new NotFoundException('Course not found');
@@ -311,20 +318,20 @@ export class AcademicStructureService {
       this.assertStatus(dto.status, COURSE_STATUSES, 'Invalid course status');
     }
 
-    const course = await this.db.client.course.findFirst({
+    const course = await this.client.course.findFirst({
       where: { id, tenantId },
     });
     if (!course) throw new NotFoundException('Course not found');
 
     if (dto.code && dto.code !== course.code) {
-      const exists = await this.db.client.course.findFirst({
+      const exists = await this.client.course.findFirst({
         where: { tenantId, code: dto.code },
         select: { id: true },
       });
       if (exists) throw new BadRequestException('Course code already exists');
     }
 
-    return this.db.client.course.update({
+    return this.client.course.update({
       where: { id },
       data: {
         code: dto.code ?? undefined,
@@ -344,13 +351,13 @@ export class AcademicStructureService {
   }
 
   async deleteCourse(tenantId: string, id: string) {
-    const course = await this.db.client.course.findFirst({
+    const course = await this.client.course.findFirst({
       where: { id, tenantId },
       select: { id: true },
     });
     if (!course) throw new NotFoundException('Course not found');
 
-    await this.db.client.course.delete({ where: { id } });
+    await this.client.course.delete({ where: { id } });
     return { success: true };
   }
 
@@ -358,26 +365,26 @@ export class AcademicStructureService {
   async createClass(tenantId: string, userId: string, dto: CreateClassDto) {
     this.assertStatus(dto.status ?? 'active', CLASS_STATUSES, 'Invalid class status');
 
-    const course = await this.db.client.course.findFirst({
+    const course = await this.client.course.findFirst({
       where: { id: dto.courseId, tenantId },
       select: { id: true },
     });
     if (!course) throw new BadRequestException('Course not found for tenant');
 
-    const term = await this.db.client.term.findFirst({
+    const term = await this.client.term.findFirst({
       where: { id: dto.termId, academicYear: { id: dto.academicYearId, tenantId } },
       select: { id: true },
     });
     if (!term) throw new BadRequestException('Term not found for tenant/year');
 
     // Ensure unique section for course+term
-    const existing = await this.db.client.class.findFirst({
+    const existing = await this.client.class.findFirst({
       where: { courseId: dto.courseId, termId: dto.termId, section: dto.section },
       select: { id: true },
     });
     if (existing) throw new BadRequestException('Section already exists for course and term');
 
-    return this.db.client.class.create({
+    return this.client.class.create({
       data: {
         courseId: dto.courseId,
         termId: dto.termId,
@@ -413,7 +420,7 @@ export class AcademicStructureService {
     }
 
     const [data, total] = await Promise.all([
-      this.db.client.class.findMany({
+      this.client.class.findMany({
         where,
         skip,
         take: limit,
@@ -424,7 +431,7 @@ export class AcademicStructureService {
           academicYear: true,
         },
       }),
-      this.db.client.class.count({ where }),
+      this.client.class.count({ where }),
     ]);
 
     return {
@@ -441,7 +448,7 @@ export class AcademicStructureService {
   }
 
   async getClass(tenantId: string, id: string) {
-    const cls = await this.db.client.class.findFirst({
+    const cls = await this.client.class.findFirst({
       where: { id, academicYear: { tenantId } },
       include: {
         course: true,
@@ -478,7 +485,7 @@ export class AcademicStructureService {
       this.assertStatus(dto.status, CLASS_STATUSES, 'Invalid class status');
     }
 
-    const cls = await this.db.client.class.findFirst({
+    const cls = await this.client.class.findFirst({
       where: { id, academicYear: { tenantId } },
     });
     if (!cls) throw new NotFoundException('Class not found');
@@ -487,7 +494,7 @@ export class AcademicStructureService {
       throw new BadRequestException('Capacity cannot be less than current enrollment');
     }
 
-    return this.db.client.class.update({
+    return this.client.class.update({
       where: { id },
       data: {
         section: dto.section ?? undefined,
@@ -503,24 +510,24 @@ export class AcademicStructureService {
   }
 
   async deleteClass(tenantId: string, id: string) {
-    const cls = await this.db.client.class.findFirst({
+    const cls = await this.client.class.findFirst({
       where: { id, academicYear: { tenantId } },
       select: { id: true },
     });
     if (!cls) throw new NotFoundException('Class not found');
 
-    await this.db.client.class.delete({ where: { id } });
+    await this.client.class.delete({ where: { id } });
     return { success: true };
   }
 
   async updateSchedule(tenantId: string, userId: string, id: string, dto: UpdateScheduleDto) {
-    const cls = await this.db.client.class.findFirst({
+    const cls = await this.client.class.findFirst({
       where: { id, academicYear: { tenantId } },
       select: { id: true },
     });
     if (!cls) throw new NotFoundException('Class not found');
 
-    return this.db.client.class.update({
+    return this.client.class.update({
       where: { id },
       data: {
         schedule: dto.schedule,
@@ -536,20 +543,20 @@ export class AcademicStructureService {
     classId: string,
     dto: AssignStudentToClassDto,
   ) {
-    const cls = await this.db.client.class.findFirst({
+    const cls = await this.client.class.findFirst({
       where: { id: classId, academicYear: { tenantId } },
     });
     if (!cls) throw new NotFoundException('Class not found');
 
     // Validate student
-    const student = await this.db.client.student.findFirst({
+    const student = await this.client.student.findFirst({
       where: { id: dto.studentId, tenantId },
       select: { id: true },
     });
     if (!student) throw new NotFoundException('Student not found');
 
     // Existing enrollment?
-    const existing = await this.db.client.enrollment.findFirst({
+    const existing = await this.client.enrollment.findFirst({
       where: {
         studentId: dto.studentId,
         classId,
@@ -595,7 +602,7 @@ export class AcademicStructureService {
     classId: string,
     studentId: string,
   ) {
-    const enrollment = await this.db.client.enrollment.findFirst({
+    const enrollment = await this.client.enrollment.findFirst({
       where: { classId, studentId, class: { academicYear: { tenantId } } },
       select: { id: true, status: true },
     });
@@ -620,13 +627,13 @@ export class AcademicStructureService {
   }
 
   async listClassStudents(tenantId: string, classId: string) {
-    const cls = await this.db.client.class.findFirst({
+    const cls = await this.client.class.findFirst({
       where: { id: classId, academicYear: { tenantId } },
       select: { id: true },
     });
     if (!cls) throw new NotFoundException('Class not found');
 
-    return this.db.client.enrollment.findMany({
+    return this.client.enrollment.findMany({
       where: { classId },
       include: {
         student: {

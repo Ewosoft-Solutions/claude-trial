@@ -16,7 +16,7 @@ import {
   BulkGuardianUpsertDto,
   BulkGuardianUpsertItemDto,
 } from '../dto';
-import { withTenant } from '../../common/database/tenant-prisma.extension';
+import { TenantDbService } from '../../common/database/tenant-db.service';
 import {
   ENROLLMENT_STATUSES,
   STUDENT_ENROLLMENT_STATUSES,
@@ -29,10 +29,16 @@ import { QueueService } from '../../common/queue/queue.service';
 export class StudentService {
   constructor(
     private readonly db: DatabaseService,
+    private readonly tenantDb: TenantDbService,
     private readonly prismaTx: PrismaTransactionService,
     private readonly userInvitationService: UserInvitationService,
     private readonly queueService: QueueService,
   ) {}
+
+  /** Scoped app_runtime client inside a @TenantScoped request; else privileged. */
+  private get client() {
+    return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
+  }
 
   private readonly studentInclude = {
     userTenant: {
@@ -95,7 +101,7 @@ export class StudentService {
     this.ensureValidStudentStatus(dto.enrollmentStatus ?? 'active');
 
     // Validate userTenant belongs to tenant
-    const profile = await this.db.client.userTenant.findFirst({
+    const profile = await this.client.userTenant.findFirst({
       where: { id: dto.userTenantId, tenantId },
       select: { id: true },
     });
@@ -104,9 +110,7 @@ export class StudentService {
       throw new BadRequestException('UserTenant profile not found for tenant');
     }
 
-    const tenantClient = withTenant(this.db.client, tenantId);
-
-    return tenantClient.student.create({
+    return this.client.student.create({
       data: {
         tenantId,
         userTenantId: dto.userTenantId,
@@ -182,14 +186,14 @@ export class StudentService {
     }
 
     const [data, total] = await Promise.all([
-      this.db.client.student.findMany({
+      this.client.student.findMany({
         where,
         skip,
         take: limit,
         orderBy: { createdAt: 'desc' },
         include: this.studentInclude,
       }),
-      this.db.client.student.count({ where }),
+      this.client.student.count({ where }),
     ]);
 
     return {
@@ -206,7 +210,7 @@ export class StudentService {
   }
 
   async getById(tenantId: string, id: string) {
-    const student = await this.db.client.student.findFirst({
+    const student = await this.client.student.findFirst({
       where: { id, tenantId },
       include: {
         ...this.studentInclude,
@@ -237,7 +241,7 @@ export class StudentService {
       this.ensureValidStudentStatus(dto.enrollmentStatus);
     }
 
-    const student = await this.db.client.student.findFirst({
+    const student = await this.client.student.findFirst({
       where: { id, tenantId },
       select: {
         id: true,
@@ -280,7 +284,7 @@ export class StudentService {
       updatedBy,
     };
 
-    return this.db.client.student.update({
+    return this.client.student.update({
       where: { id },
       data,
       include: this.studentInclude,
@@ -295,7 +299,7 @@ export class StudentService {
   ) {
     this.ensureValidStudentStatus(dto.enrollmentStatus);
 
-    const exists = await this.db.client.student.findFirst({
+    const exists = await this.client.student.findFirst({
       where: { id, tenantId },
       select: { id: true },
     });
@@ -304,7 +308,7 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    return this.db.client.student.update({
+    return this.client.student.update({
       where: { id },
       data: {
         enrollmentStatus: dto.enrollmentStatus,
@@ -330,7 +334,7 @@ export class StudentService {
     id: string,
     dto: UpdateStudentProfileDto,
   ) {
-    const student = await this.db.client.student.findFirst({
+    const student = await this.client.student.findFirst({
       where: { id, tenantId },
       select: {
         id: true,
@@ -364,7 +368,7 @@ export class StudentService {
       updatedBy,
     };
 
-    return this.db.client.student.update({
+    return this.client.student.update({
       where: { id },
       data,
       include: this.studentInclude,
@@ -404,7 +408,7 @@ export class StudentService {
       identifierMatched?: 'guardianId' | 'email' | 'phone';
     }> = [];
 
-    const parentRole = await this.db.client.role.findFirst({
+    const parentRole = await this.client.role.findFirst({
       where: { name: 'Parent', tenantId: null },
       select: { id: true },
     });
@@ -418,12 +422,12 @@ export class StudentService {
         // Resolve student
         let student = null;
         if (item.studentId) {
-          student = await this.db.client.student.findFirst({
+          student = await this.client.student.findFirst({
             where: { id: item.studentId, tenantId },
             select: { id: true },
           });
         } else if (item.studentNumber) {
-          student = await this.db.client.student.findFirst({
+          student = await this.client.student.findFirst({
             where: { tenantId, studentNumber: item.studentNumber },
             select: { id: true },
           });
@@ -448,7 +452,7 @@ export class StudentService {
 
         // 1) Try guardianId -> studentGuardian lookup
         if (guardianIdentifier) {
-          const guardianLink = await this.db.client.studentGuardian.findFirst({
+          const guardianLink = await this.client.studentGuardian.findFirst({
             where: { tenantId, guardianIdentifier } as any,
             select: { userTenantId: true },
           });
@@ -460,12 +464,12 @@ export class StudentService {
 
         // 2) Try email -> user -> profile
         if (!profileId && email) {
-          existingUser = await this.db.client.user.findUnique({
+          existingUser = await this.client.user.findUnique({
             where: { email },
             select: { id: true },
           });
           if (existingUser) {
-            const existingProfile = await this.db.client.userTenant.findFirst({
+            const existingProfile = await this.client.userTenant.findFirst({
               where: { userId: existingUser.id, tenantId },
               select: { id: true },
             });
@@ -478,13 +482,13 @@ export class StudentService {
 
         // 3) Try phone -> user -> profile
         if (!profileId && phone) {
-          const userByPhone = await this.db.client.user.findFirst({
+          const userByPhone = await this.client.user.findFirst({
             where: { phone },
             select: { id: true },
           });
           if (userByPhone) {
             existingUser = existingUser ?? userByPhone;
-            const existingProfile = await this.db.client.userTenant.findFirst({
+            const existingProfile = await this.client.userTenant.findFirst({
               where: { userId: userByPhone.id, tenantId },
               select: { id: true },
             });
@@ -519,7 +523,7 @@ export class StudentService {
           invitationToken = invite.invitationToken;
         } else {
           // Ensure Parent role assigned for existing profile
-          await this.db.client.userTenantRole.upsert({
+          await this.client.userTenantRole.upsert({
             where: {
               userTenantId: profileId,
             },
@@ -535,7 +539,7 @@ export class StudentService {
 
         // Backfill phone if provided and we found an existing user
         if (phone && (existingUser?.id ?? null)) {
-          await this.db.client.user.update({
+          await this.client.user.update({
             where: { id: existingUser!.id },
             data: { phone },
           });
@@ -546,7 +550,7 @@ export class StudentService {
         }
 
         const displayName = this.deriveDisplayName(item);
-        await this.db.client.studentGuardian.upsert({
+        await this.client.studentGuardian.upsert({
           where: {
             studentId_userTenantId: {
               studentId: student.id,
@@ -606,7 +610,7 @@ export class StudentService {
   }
 
   async delete(tenantId: string, id: string) {
-    const exists = await this.db.client.student.findFirst({
+    const exists = await this.client.student.findFirst({
       where: { id, tenantId },
       select: { id: true },
     });
@@ -615,7 +619,7 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    await this.db.client.student.delete({
+    await this.client.student.delete({
       where: { id },
     });
 
@@ -630,7 +634,7 @@ export class StudentService {
   ) {
     this.ensureValidEnrollmentStatus(dto.status ?? 'active');
 
-    const student = await this.db.client.student.findFirst({
+    const student = await this.client.student.findFirst({
       where: { id: studentId, tenantId },
       select: { id: true },
     });
@@ -638,7 +642,7 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    const klass = await this.db.client.class.findFirst({
+    const klass = await this.client.class.findFirst({
       where: {
         id: dto.classId,
         academicYearId: dto.academicYearId,
@@ -657,7 +661,7 @@ export class StudentService {
     }
 
     // Ensure not already enrolled
-    const existing = await this.db.client.enrollment.findFirst({
+    const existing = await this.client.enrollment.findFirst({
       where: {
         studentId,
         classId: dto.classId,
@@ -702,7 +706,7 @@ export class StudentService {
   }
 
   async listEnrollments(tenantId: string, studentId: string) {
-    const student = await this.db.client.student.findFirst({
+    const student = await this.client.student.findFirst({
       where: { id: studentId, tenantId },
       select: { id: true },
     });
@@ -710,7 +714,7 @@ export class StudentService {
       throw new NotFoundException('Student not found');
     }
 
-    return this.db.client.enrollment.findMany({
+    return this.client.enrollment.findMany({
       where: { studentId },
       orderBy: { enrollmentDate: 'desc' },
       include: { class: true, academicYear: true, term: true },
@@ -726,7 +730,7 @@ export class StudentService {
   ) {
     this.ensureValidEnrollmentStatus(dto.status);
 
-    const enrollment = await this.db.client.enrollment.findFirst({
+    const enrollment = await this.client.enrollment.findFirst({
       where: { id: enrollmentId, studentId },
       include: {
         student: { select: { tenantId: true } },

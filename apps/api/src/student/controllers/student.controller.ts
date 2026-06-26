@@ -21,6 +21,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { StudentService } from '../services/student.service';
 import {
   CreateStudentDto,
@@ -37,6 +38,7 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiTags(SwaggerTags.students.name)
 @Controller('students')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class StudentController {
   constructor(private readonly studentService: StudentService) {}

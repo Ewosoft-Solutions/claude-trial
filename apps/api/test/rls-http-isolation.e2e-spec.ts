@@ -125,4 +125,20 @@ d('RLS HTTP isolation (vertical slice)', () => {
       .expect(200);
     expect(titles(asB.body)).not.toContain('HTTP-A2');
   });
+
+  it('a second migrated module (/academic-years) is also tenant-isolated', async () => {
+    await owner.academicYear.createMany({
+      data: [
+        { tenantId: A, name: 'AY-A', startDate: new Date(), endDate: new Date() },
+        { tenantId: B, name: 'AY-B', startDate: new Date(), endDate: new Date() },
+      ],
+    });
+    const asA = await request(server)
+      .get('/academic-years')
+      .set('X-Test-Tenant', A)
+      .expect(200);
+    const names = (asA.body as { name: string }[]).map((y) => y.name);
+    expect(names).toContain('AY-A');
+    expect(names).not.toContain('AY-B');
+  });
 });

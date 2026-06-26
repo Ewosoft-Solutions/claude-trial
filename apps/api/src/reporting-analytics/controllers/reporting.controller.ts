@@ -15,6 +15,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { ReportingAnalyticsService } from '../services/reporting-analytics.service';
 import {
   AcademicPerformanceReportDto,
@@ -28,6 +29,7 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiTags(SwaggerTags.reports.name)
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class ReportingController {
   constructor(private readonly reportingService: ReportingAnalyticsService) {}

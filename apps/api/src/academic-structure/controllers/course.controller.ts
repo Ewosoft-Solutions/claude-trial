@@ -18,6 +18,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { AcademicStructureService } from '../services/academic-structure.service';
 import { CreateCourseDto, UpdateCourseDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
@@ -25,6 +26,7 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiTags(SwaggerTags.courses.name)
 @Controller('courses')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class CourseController {
   constructor(private readonly academicService: AcademicStructureService) {}

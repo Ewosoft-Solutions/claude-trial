@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
+import { TenantDbService } from '../../common/database/tenant-db.service';
 import { QueueService } from '../../common/queue/queue.service';
 import {
   AcademicPerformanceReportDto,
@@ -13,8 +14,14 @@ import {
 export class ReportingAnalyticsService {
   constructor(
     private readonly db: DatabaseService,
+    private readonly tenantDb: TenantDbService,
     private readonly queueService: QueueService,
   ) {}
+
+  /** Scoped app_runtime client inside a @TenantScoped request; else privileged. */
+  private get client() {
+    return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
+  }
 
   // Academic performance: aggregates grades by class/assessment
   async academicPerformance(
@@ -37,7 +44,7 @@ export class ReportingAnalyticsService {
     if (dto.termId)
       where.assessment = { ...where.assessment, termId: dto.termId };
 
-    const grades = await this.db.client.grade.findMany({
+    const grades = await this.client.grade.findMany({
       where,
       include: {
         assessment: {
@@ -124,16 +131,16 @@ export class ReportingAnalyticsService {
   async dashboard(tenantId: string, dto: DashboardQueryDto) {
     const [students, classes, assessments, messages, announcements] =
       await Promise.all([
-        this.db.client.student.count({ where: { tenantId } }),
-        this.db.client.class.count({ where: { academicYear: { tenantId } } }),
-        this.db.client.assessment.count({
+        this.client.student.count({ where: { tenantId } }),
+        this.client.class.count({ where: { academicYear: { tenantId } } }),
+        this.client.assessment.count({
           where: {
             academicYear: { tenantId },
             academicYearId: dto.academicYearId ?? undefined,
           },
         }),
-        this.db.client.message.count({ where: { tenantId } }),
-        this.db.client.announcement.count({ where: { tenantId } }),
+        this.client.message.count({ where: { tenantId } }),
+        this.client.announcement.count({ where: { tenantId } }),
       ]);
 
     return {

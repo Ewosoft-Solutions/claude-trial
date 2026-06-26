@@ -18,6 +18,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { AssessmentGradingService } from '../services/assessment-grading.service';
 import {
   CreateAssessmentDto,
@@ -29,6 +30,7 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiTags(SwaggerTags.assessments.name)
 @Controller('assessments')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class AssessmentController {
   constructor(private readonly gradingService: AssessmentGradingService) {}
