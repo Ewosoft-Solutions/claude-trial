@@ -60,6 +60,34 @@ only on authorized platform endpoints.
 a request for tenant A cannot read/write tenant B; platform endpoints still work;
 `db:rls:check` green.
 
+**Progress (2026-06-20):**
+- ✅ **Keystone proven** — `pnpm --filter @workspace/database db:rls:proof`
+  (`rls-prisma-proof.ts`) connects as `app_runtime` through the REAL stack
+  (Prisma 7 + `@prisma/adapter-pg`) and confirms an interactive `$transaction`
+  keeps the `app.current_tenant_id` GUC on one pooled connection: cross-tenant
+  read/write/update all blocked. So the runtime DB machinery enforces RLS.
+- ✅ `app_runtime` LOGIN enabled on the **local** dev DB (`ALTER ROLE app_runtime
+  LOGIN PASSWORD '…'`; uncommitted — prod uses a secret). App **builds** (`nest build`).
+- ✅ Assets for the e2e exist: `apps/api/test/multi-tenant-isolation.e2e-spec.ts`
+  + harness (`jest-e2e.json`, `setup-env.ts`); seed creds
+  `architect@schoolwithease.com` / `Architect@2025!`.
+
+**Remaining (the invasive part — do as a focused unit, verify by booting):**
+1. Make ALL runtime DB access RLS-context-aware. The app has 3 patterns:
+   `DatabaseService.client`, direct `PRISMA_CLIENT_TOKEN` injection, and
+   `PrismaTransactionService.client`. Cleanest: an AsyncLocalStorage holding the
+   per-request tx client + a Prisma client `$extends`/proxy (or route everything
+   through one accessor) so a request's queries use the tx with the GUC. A global
+   interceptor opens `runInTransaction` for authenticated tenant requests (skip
+   login/pre-auth; set `app.is_platform` for platform scope).
+2. Point `apps/api` runtime `DATABASE_URL` at `app_runtime` (migrations stay on
+   the owner via `packages/database/.env`); update `env.*.template`.
+3. Get `multi-tenant-isolation.e2e-spec.ts` green **with the app connected as
+   `app_runtime`** (that's the real proof) + `db:rls:check` green.
+> Risk: wrapping requests in one tx + a non-bypass role means any query path that
+> escapes the ALS context returns nothing — so this must be verified by booting
+> the app and running the e2e suite, iterating to green.
+
 ### Step 2 — CI pipeline
 **Why:** makes the isolation standard (and "must compile/lint/type-check") actually
 enforced; nothing gates merges today.

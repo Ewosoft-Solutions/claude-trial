@@ -100,8 +100,13 @@ closed. It is a multi-session effort — do not stop after one step.
 
 1. **RLS runtime cutover (Step 1, in progress)** — connect the app as
    `app_runtime` + route every tenant query through `runInTransaction` (sets the
-   GUC) so the proven DB isolation goes live for the app. Runbook in ADR-004.
-   Needs e2e tests of the running NestJS app.
+   GUC) so the proven DB isolation goes live for the app. **Keystone done**
+   (`db:rls:proof` proves the real Prisma+pg-adapter stack enforces RLS as
+   `app_runtime`; app builds; e2e harness + `multi-tenant-isolation.e2e-spec.ts`
+   exist). **Remaining = the invasive wiring** (make all 3 DB-access patterns
+   RLS-context-aware via ALS + a Prisma `$extends`/proxy + a global interceptor,
+   point `apps/api` `DATABASE_URL` at `app_runtime`, get the isolation e2e green
+   as `app_runtime`). See `docs/backend-remediation-plan.md` Step 1 + ADR-004.
 2. **CI pipeline (Step 2)** — `.github/workflows/ci.yml` with a Postgres service:
    `migrate deploy` → `db:rls:check` → type-check / lint / build / tests. Makes
    the isolation standard and the "must compile/lint/type-check" rule enforced.
