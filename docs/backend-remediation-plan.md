@@ -125,6 +125,30 @@ client that connects as `app_runtime` (reporting tools, future services, the app
 post-cutover) cannot cross tenants. The remaining work flips the primary NestJS
 app onto that role, which is a deliberate architectural task.
 
+**Two more constraints found (2026-06-20), and a simpler design that beats them:**
+- `@prisma/adapter-pg` (v7) binds to a `pg.Pool`, **not a single `PoolClient`** —
+  so clean per-request *connection pinning* isn't directly supported. The
+  Prisma-native option is an interactive `$transaction` whose callback spans the
+  request (awkward) — OR the two-client design below.
+- The JWT uses **per-tenant secrets in `tenant_jwt_configs`** (RLS-protected), so
+  decoding a token to learn its tenant needs a privileged read first → a circular
+  dependency if the whole app runs as a single `app_runtime` role from middleware.
+
+**Recommended (revised) design — two clients, avoids both problems:**
+- **Privileged client** (owner / RLS-bypass) used by auth services, the guards,
+  and platform endpoints. The auth flow + per-tenant-secret lookup work exactly as
+  today (no circularity); guards' authz reads work (no guard-ordering problem).
+- **`app_runtime` client** used only by **tenant-data services** (students,
+  academic, communication, …). A global **interceptor runs after the guards**, so
+  `request.user.tenantId` is known; it wraps the handler in
+  `runInTransaction(tenantId)` (sets the GUC) and exposes the tx client to those
+  services via AsyncLocalStorage. Tenant DATA is RLS-enforced; trusted auth/
+  platform code stays privileged.
+- Verify with a **real** login-based e2e (architect seed creds → select school →
+  hit `/students` for tenant A → assert tenant B invisible), app's tenant client
+  on `app_runtime`. This is a focused build best done in a session where the API
+  can be run/iterated interactively; it is NOT a quick wiring.
+
 ### Step 2 — CI pipeline
 **Why:** makes the isolation standard (and "must compile/lint/type-check") actually
 enforced; nothing gates merges today.
