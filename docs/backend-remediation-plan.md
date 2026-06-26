@@ -60,18 +60,38 @@ only on authorized platform endpoints.
 a request for tenant A cannot read/write tenant B; platform endpoints still work;
 `db:rls:check` green.
 
-**Progress (2026-06-20):**
-- ✅ **Vertical slice built + proven through the real NestJS DI** —
-  `TenantDbService.runScoped(tenantId, userId, fn)` runs work in one tx on the
-  `app_runtime` client with the GUC set (ALS-propagated tx client; `runPlatform()`
-  = audited `app.is_platform` bypass). `test/rls-tenant-isolation.e2e-spec.ts`
-  boots `AppModule` and proves **6/6**: scoped reads isolated, scoped client
-  throws outside a scope, cross-tenant write rejected, updateMany 0 rows, platform
-  bypass sees all. Gated on `APP_RUNTIME_DATABASE_URL` (skips otherwise — no
-  regression). Two-client wiring in `database.module.ts` (`TENANT_PRISMA_CLIENT_TOKEN`).
-  **Remaining to close Step 1:** HTTP interceptor + `@TenantScoped` decorator;
-  migrate tenant-data services from `DatabaseService.client` → `TenantDbService.client`;
-  a real login-based HTTP e2e; flip `apps/api` runtime `DATABASE_URL` → `app_runtime`.
+**Status (2026-06-20): mechanism COMPLETE + proven; breadth rollout in progress.**
+- ✅ **Two-client wiring** (`database.module.ts`, `TENANT_PRISMA_CLIENT_TOKEN`):
+  a tenant client connects as `app_runtime` when `APP_RUNTIME_DATABASE_URL` is set
+  (falls back to the privileged URL otherwise — no regression).
+- ✅ **`TenantDbService.runScoped(tenantId, userId, fn)`** — one tx on the
+  `app_runtime` client with the GUC set, ALS-propagated tx client; `runPlatform()`
+  = audited `app.is_platform` bypass.
+- ✅ **`RlsTenantInterceptor` (global) + `@TenantScoped`** — opens the per-request
+  scope after the guards (so `tenantId` is known); no-op for non-scoped/auth/platform
+  routes. Services use a `client` getter (`isScoped ? tenant tx : privileged`) so a
+  migration is safe before its route is scoped.
+- ✅ **Communication module migrated** (Announcement + Message controllers
+  `@TenantScoped`; `CommunicationService` on the `client` getter) as the reference.
+- ✅ **Proven**: `test/rls-tenant-isolation.e2e-spec.ts` (DI, 6/6) +
+  `test/rls-http-isolation.e2e-spec.ts` (real HTTP through the interceptor, 4/4) —
+  tenant A reads only A, 404 for B's row, cross-tenant write rejected, platform
+  bypass works. `db:rls:check` green. `nest build` green. Both specs skip without
+  `APP_RUNTIME_DATABASE_URL`.
+- ✅ `env.*.template` document `APP_RUNTIME_DATABASE_URL`.
+
+**Closeout checklist (mechanical — repeat the communication pattern):**
+1. For each remaining tenant-data service, inject `TenantDbService`, add the
+   `private get client()` getter, replace `this.<db>.client` → `this.client`, and
+   mark its controller(s) `@TenantScoped`: **students**, **academic-structure**
+   (year/term/course/class), **assessment-grading** (assessment/grade/grading-system),
+   **reporting-analytics**. (Auth, tenant-admin, and platform controllers stay on
+   the privileged client by design.) Add a quick HTTP isolation check per area
+   (copy `rls-http-isolation.e2e-spec.ts`).
+2. Set `APP_RUNTIME_DATABASE_URL` (the `app_runtime` role) in each deploy env so
+   the app actually runs RLS-enforced. (`app_runtime` is created NOLOGIN by
+   migration; grant it LOGIN + a secret password at deploy.)
+3. Wire `db:rls:proof` + both e2e specs into CI (Step 2).
 - ✅ **Keystone proven** — `pnpm --filter @workspace/database db:rls:proof`
   (`rls-prisma-proof.ts`) connects as `app_runtime` through the REAL stack
   (Prisma 7 + `@prisma/adapter-pg`) and confirms an interactive `$transaction`
