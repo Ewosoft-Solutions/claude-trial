@@ -88,6 +88,43 @@ a request for tenant A cannot read/write tenant B; platform endpoints still work
 > escapes the ALS context returns nothing — so this must be verified by booting
 > the app and running the e2e suite, iterating to green.
 
+**Findings from a deeper dig (2026-06-20) — Step 1 is bigger than the runbook assumed:**
+- **Guard-ordering problem (the real blocker).** NestJS runs **middleware → guards
+  → interceptors → handler**. Guards already hit the DB for authz (permission /
+  tenant-context guards read `user_tenants`/`roles`). Under `app_runtime`, those
+  reads need the RLS context **already set** — but an *interceptor* that opens
+  `runInTransaction` runs **after** guards, so guard queries would see nothing and
+  every request 403s. ⇒ The "interceptor wraps handler in a tx" approach is
+  **insufficient**. The context must be established before guards and span the
+  whole request.
+- **Interactive-tx-per-request doesn't fit the lifecycle.** A Prisma interactive
+  `$transaction(fn)` can't cleanly stay open across middleware→guards→handler.
+  The robust pattern is **per-request connection pinning**: in middleware, check
+  out one `pg` connection, `SET app.current_tenant_id` (session-level) on it, bind
+  all of the request's Prisma queries to that connection via AsyncLocalStorage,
+  then reset + release at request end. Auth/pre-tenant/platform routes set
+  `app.is_platform='on'` instead. This is a real piece of connection-management
+  architecture, not a wiring task.
+- **The existing e2e is a stub.** `apps/api/test/multi-tenant-isolation.e2e-spec.ts`
+  hits `GET/POST /api/resources` (no such endpoint → 404) with hardcoded fake
+  tokens (`Bearer user1-token`). It never worked. A **real** isolation e2e must be
+  written: log in via `/auth/login` (seed creds), select a school, hit a real
+  tenant-scoped endpoint (e.g. `/students`), assert tenant B's data is invisible.
+
+**Recommended approach for Step 1 going forward:**
+1. Build a request-scoped RLS connection manager (pin a `pg` connection per
+   request, session GUC, ALS propagation; set in middleware so it covers guards).
+   Make `DatabaseService.client` + the raw `PRISMA_CLIENT_TOKEN` resolve to it.
+2. Classify routes: tenant-scoped (set `app.current_tenant_id`) vs auth/platform
+   (`app.is_platform='on'`); a decorator + sensible default.
+3. Write a real login-based isolation e2e; flip `apps/api` `DATABASE_URL` to
+   `app_runtime`; iterate to green; `db:rls:check` green.
+
+Note: the **DB-level enforcement already shipped is a real security gain** — any
+client that connects as `app_runtime` (reporting tools, future services, the app
+post-cutover) cannot cross tenants. The remaining work flips the primary NestJS
+app onto that role, which is a deliberate architectural task.
+
 ### Step 2 — CI pipeline
 **Why:** makes the isolation standard (and "must compile/lint/type-check") actually
 enforced; nothing gates merges today.
