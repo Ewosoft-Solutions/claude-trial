@@ -14,7 +14,17 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-20 pt.3 — backend assessment + tenant isolation enforced):
+Latest session (2026-06-26 — CI pipeline, Step 2):
+Added `.github/workflows/ci.yml` (Step 2). Pipeline: Postgres 16 service →
+`migrate deploy` → `app_runtime` LOGIN grant → `db:rls:check` (gate fails on
+unguarded tenant table) → type-check (`packages/database` / `apps/api` /
+`apps/web`) → lint (`apps/api` / `apps/web`) → build (all three) → tests
+(`packages/ui` vitest Node 22, `apps/web` vitest, `apps/api` jest unit +
+e2e RLS isolation). RLS e2e specs run for real in CI (`APP_RUNTIME_DATABASE_URL`
+wired); skip in envs without it. Node 22 satisfies `engines ≥20.19`. Committed
+and pushed to `origin/claude`; lands in PR #1 automatically.
+
+Prior session (2026-06-20 pt.3 — backend assessment + tenant isolation enforced):
 Did a deep backend assessment (`apps/api` NestJS is a real auth/RBAC/academic
 core) and **fixed the #1 gap — tenant data isolation was not actually enforced**.
 Now enforced at the DB via **Postgres RLS on 23 tables** + a restricted
@@ -98,7 +108,10 @@ This is the committed backend backlog, **not a pick-one menu**: complete each st
 to its acceptance criteria, commit, then move to the next, until every gap is
 closed. It is a multi-session effort — do not stop after one step.
 
-1. ✅ **RLS runtime cutover (Step 1) — COMPLETE in code.** Two-client design
+1. ✅ **RLS runtime cutover (Step 1) — COMPLETE in code.**
+2. ✅ **CI pipeline (Step 2) — COMPLETE.** `.github/workflows/ci.yml` added
+   (Postgres service, migrate, db:rls:check gate, type-check/lint/build/tests
+   for all three apps). Pushed to `origin/claude` / PR #1. Two-client design
    (`TenantDbService.runScoped` on the app_runtime client + GUC + ALS), global
    `RlsTenantInterceptor` + `@TenantScoped`, scoped-or-privileged `client` getter;
    `PrismaTransactionService` reuses the request scope so transactional writes are
@@ -107,7 +120,8 @@ closed. It is a multi-session effort — do not stop after one step.
    controllers `@TenantScoped`. Proven: DI 6/6 + HTTP 5/5; `db:rls:check` + build
    green. **Only remaining**: set `APP_RUNTIME_DATABASE_URL` (app_runtime role) in
    each deploy env — operational, documented in `env.*.template`.
-2. **CI pipeline (Step 2)** — `.github/workflows/ci.yml` with a Postgres service:
+2. ✅ **CI pipeline (Step 2) — COMPLETE.**
+3. **Frontend↔backend auth slice (Step 3)** — replace mock `getSession()`
    `migrate deploy` → `db:rls:check` → type-check / lint / build / tests. Makes
    the isolation standard and the "must compile/lint/type-check" rule enforced.
 3. **Frontend↔backend auth slice (Step 3)** — replace mock `getSession()`
@@ -121,6 +135,9 @@ closed. It is a multi-session effort — do not stop after one step.
    `packages/api`↔`apps/api` boundary, stop tracking build artifacts.
 8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
    admissions/events, phased; each follows the RLS checklist.
+
+> ▶ **Next session: Step 3** — frontend↔backend auth wiring (`apps/web/lib/session.ts`
+> → real `/auth/login` → `/select-school` → `/refresh`). See `docs/backend-remediation-plan.md` Step 3.
 
 Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
 in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.
