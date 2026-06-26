@@ -61,6 +61,17 @@ a request for tenant A cannot read/write tenant B; platform endpoints still work
 `db:rls:check` green.
 
 **Progress (2026-06-20):**
+- ✅ **Vertical slice built + proven through the real NestJS DI** —
+  `TenantDbService.runScoped(tenantId, userId, fn)` runs work in one tx on the
+  `app_runtime` client with the GUC set (ALS-propagated tx client; `runPlatform()`
+  = audited `app.is_platform` bypass). `test/rls-tenant-isolation.e2e-spec.ts`
+  boots `AppModule` and proves **6/6**: scoped reads isolated, scoped client
+  throws outside a scope, cross-tenant write rejected, updateMany 0 rows, platform
+  bypass sees all. Gated on `APP_RUNTIME_DATABASE_URL` (skips otherwise — no
+  regression). Two-client wiring in `database.module.ts` (`TENANT_PRISMA_CLIENT_TOKEN`).
+  **Remaining to close Step 1:** HTTP interceptor + `@TenantScoped` decorator;
+  migrate tenant-data services from `DatabaseService.client` → `TenantDbService.client`;
+  a real login-based HTTP e2e; flip `apps/api` runtime `DATABASE_URL` → `app_runtime`.
 - ✅ **Keystone proven** — `pnpm --filter @workspace/database db:rls:proof`
   (`rls-prisma-proof.ts`) connects as `app_runtime` through the REAL stack
   (Prisma 7 + `@prisma/adapter-pg`) and confirms an interactive `$transaction`
