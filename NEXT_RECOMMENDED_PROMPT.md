@@ -93,7 +93,10 @@ Read first:
 > platform, Phase 2 = PWA/ops, Phase 3 = AI). Same word, different scales — say
 > which when it matters.
 
-Next tasks — follow **`docs/backend-remediation-plan.md`** (ordered):
+Next tasks — work through **ALL** of `docs/backend-remediation-plan.md` in order.
+This is the committed backend backlog, **not a pick-one menu**: complete each step
+to its acceptance criteria, commit, then move to the next, until every gap is
+closed. It is a multi-session effort — do not stop after one step.
 
 1. **RLS runtime cutover (Step 1, in progress)** — connect the app as
    `app_runtime` + route every tenant query through `runInTransaction` (sets the
@@ -106,8 +109,16 @@ Next tasks — follow **`docs/backend-remediation-plan.md`** (ordered):
    (`apps/web/lib/session.ts`) with real `apps/api` `/auth/login` → `/select-school`
    → `/refresh`; contract-test the payload vs the `Session` shape. (Not blocked —
    the backend is `apps/api`, DB-backed.)
-4. Then **attendance**, **finance**, **polymorphism**, **backend tests/hygiene** —
-   see Steps 4–8 in the plan.
+4. **Attendance domain (Step 4)** — model + API + wire `/attendance/*` (no backend yet).
+5. **Finance/billing domain (Step 5)** — model + API + wire `/finance/*` (no backend yet).
+6. **Realize polymorphism (Step 6)** — `schoolType`-driven nav + feature-toggle backing.
+7. **Backend tests + hygiene (Step 7)** — auth e2e, in-app isolation test,
+   `packages/api`↔`apps/api` boundary, stop tracking build artifacts.
+8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
+   admissions/events, phased; each follows the RLS checklist.
+
+Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
+in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.
 
 Also ongoing: **keep PR #1 current** (`claude` → `main`, open, tracks the branch)
 and refresh its body when you push notable work.

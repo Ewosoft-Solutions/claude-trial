@@ -1,5 +1,10 @@
 # Backend Remediation Plan — sequential steps
 
+> **Goal: fix them ALL.** Work top to bottom, completing each step to its
+> acceptance criteria before starting the next; this is the committed backlog, not
+> a pick-one menu. Definition of done: Steps 1–7 complete (Step 8 is phased), every
+> scorecard gap closed or explicitly deferred, `db:rls:check` + CI green.
+>
 > Created 2026-06-20. Captures the gaps from the deep backend assessment and
 > orders them into steps that can be picked up one at a time. Companion docs:
 > `docs/requirement-pillar-scorecard.md` (where we are vs requirements),
