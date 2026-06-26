@@ -17,6 +17,14 @@ import { EnvConfig } from '../config/env.config';
 export const PRISMA_CLIENT_TOKEN = 'PrismaClient';
 
 /**
+ * Injection token for the tenant-scoped PrismaClient that connects as the
+ * restricted `app_runtime` role (RLS-enforcing). Used by `TenantDbService`.
+ * Falls back to the privileged connection when `APP_RUNTIME_DATABASE_URL` is
+ * unset (pre-cutover; RLS bypassed, no regression).
+ */
+export const TENANT_PRISMA_CLIENT_TOKEN = 'TenantPrismaClient';
+
+/**
  * Database Service
  *
  * Manages Prisma client lifecycle and provides database utilities.

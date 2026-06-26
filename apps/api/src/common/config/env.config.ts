@@ -11,6 +11,13 @@ import Joi from 'joi';
 
 export interface EnvironmentConfig {
   DATABASE_URL: string;
+  /**
+   * Optional runtime connection as the restricted, non-BYPASSRLS `app_runtime`
+   * role. When set, tenant-data services use it so Postgres RLS enforces tenant
+   * isolation at runtime. Falls back to DATABASE_URL (owner) when unset — RLS is
+   * then bypassed (pre-cutover behaviour, no regression). See ADR-004.
+   */
+  APP_RUNTIME_DATABASE_URL?: string;
   NODE_ENV: 'development' | 'test' | 'production' | string;
   PORT: number;
   JWT_SECRET?: string;
@@ -66,6 +73,9 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgres', 'postgresql'] })
     .required(),
+  APP_RUNTIME_DATABASE_URL: Joi.string()
+    .uri({ scheme: ['postgres', 'postgresql'] })
+    .optional(),
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production')
     .default('development'),

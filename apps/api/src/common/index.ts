@@ -2,6 +2,8 @@ export * from './common.module';
 export * from './database/database.module';
 export * from './database/database.service';
 export * from './database/prisma-transaction.service';
+export * from './database/tenant-db.service';
+export * from './database/rls-als';
 export * from './database/tenant-prisma.extension';
 export * from './database/rls-context.interceptor';
 export * from './logger/logger.module';

@@ -57,6 +57,7 @@ import { AppController } from './app.controller';
 
         return {
           databaseUrl: envConfig.DATABASE_URL,
+          tenantDatabaseUrl: envConfig.APP_RUNTIME_DATABASE_URL,
           poolMin: envConfig.DB_POOL_MIN,
           poolMax: envConfig.DB_POOL_MAX,
           connectionTimeout: envConfig.DB_CONNECTION_TIMEOUT,

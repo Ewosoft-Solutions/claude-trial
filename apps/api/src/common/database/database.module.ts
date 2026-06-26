@@ -2,8 +2,13 @@ import { Global, Module, DynamicModule, FactoryProvider } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@workspace/database';
 import { PrismaPg } from '@prisma/adapter-pg';
 import pg from 'pg';
-import { DatabaseService, PRISMA_CLIENT_TOKEN } from './database.service';
+import {
+  DatabaseService,
+  PRISMA_CLIENT_TOKEN,
+  TENANT_PRISMA_CLIENT_TOKEN,
+} from './database.service';
 import { PrismaTransactionService } from './prisma-transaction.service';
+import { TenantDbService } from './tenant-db.service';
 
 /**
  * Database Module Options
@@ -12,6 +17,11 @@ import { PrismaTransactionService } from './prisma-transaction.service';
  */
 export interface DatabaseModuleOptions {
   databaseUrl: string;
+  /**
+   * Connection for the restricted `app_runtime` role (RLS-enforcing), used by
+   * `TenantDbService`. Defaults to `databaseUrl` when unset (RLS bypassed).
+   */
+  tenantDatabaseUrl?: string;
   poolMin?: number;
   poolMax?: number;
   connectionTimeout?: number;
@@ -19,6 +29,28 @@ export interface DatabaseModuleOptions {
   logLevels?: Prisma.LogLevel[];
   errorFormat?: 'pretty' | 'minimal' | 'colorless';
   isServerless?: boolean;
+}
+
+/** Build a PrismaClient over a pg pool for the given connection string. */
+function buildPrismaClient(
+  connectionString: string,
+  config: DatabaseModuleOptions,
+): PrismaClient {
+  const { Pool } = pg;
+  const poolConfig: pg.PoolConfig = {
+    connectionString,
+    min: config.poolMin ?? (config.isServerless ? 0 : 2),
+    max: config.poolMax ?? (config.isServerless ? 1 : 10),
+    idleTimeoutMillis: config.isServerless ? 10_000 : 30_000,
+    connectionTimeoutMillis: config.connectionTimeout ?? 5_000,
+    statement_timeout: config.queryTimeout ?? 30_000,
+  };
+  const adapter = new PrismaPg(new Pool(poolConfig));
+  return new PrismaClient({
+    adapter,
+    log: config.logLevels?.length ? config.logLevels : undefined,
+    errorFormat: config.errorFormat ?? 'minimal',
+  });
 }
 
 /**
@@ -56,38 +88,42 @@ export class DatabaseModule {
       provide: PRISMA_CLIENT_TOKEN,
       useFactory: async (...args: unknown[]): Promise<PrismaClient> => {
         const config = await options.useFactory(...args);
+        return buildPrismaClient(config.databaseUrl, config);
+      },
+      inject: options.inject ?? [],
+    };
 
-        const { Pool } = pg;
-
-        // Serverless-aware pool configuration
-        // For serverless: max=1-3, for Kubernetes: max=10-20
-        const poolConfig: pg.PoolConfig = {
-          connectionString: config.databaseUrl,
-          min: config.poolMin ?? (config.isServerless ? 0 : 2),
-          max: config.poolMax ?? (config.isServerless ? 1 : 10),
-          idleTimeoutMillis: config.isServerless ? 10_000 : 30_000,
-          connectionTimeoutMillis: config.connectionTimeout ?? 5_000,
-          // Query timeout via statement_timeout
-          statement_timeout: config.queryTimeout ?? 30_000,
-        };
-
-        const pool = new Pool(poolConfig);
-
-        const adapter = new PrismaPg(pool);
-
-        return new PrismaClient({
-          adapter,
-          log: config.logLevels?.length ? config.logLevels : undefined,
-          errorFormat: config.errorFormat ?? 'minimal',
-        });
+    // Tenant-scoped client (connects as `app_runtime` when configured) used by
+    // TenantDbService so RLS enforces isolation at runtime. Falls back to the
+    // privileged URL when APP_RUNTIME_DATABASE_URL is unset (pre-cutover).
+    const tenantPrismaProvider = {
+      provide: TENANT_PRISMA_CLIENT_TOKEN,
+      useFactory: async (...args: unknown[]): Promise<PrismaClient> => {
+        const config = await options.useFactory(...args);
+        return buildPrismaClient(
+          config.tenantDatabaseUrl ?? config.databaseUrl,
+          config,
+        );
       },
       inject: options.inject ?? [],
     };
 
     return {
       module: DatabaseModule,
-      providers: [prismaProvider, DatabaseService, PrismaTransactionService],
-      exports: [PRISMA_CLIENT_TOKEN, DatabaseService, PrismaTransactionService],
+      providers: [
+        prismaProvider,
+        tenantPrismaProvider,
+        DatabaseService,
+        PrismaTransactionService,
+        TenantDbService,
+      ],
+      exports: [
+        PRISMA_CLIENT_TOKEN,
+        TENANT_PRISMA_CLIENT_TOKEN,
+        DatabaseService,
+        PrismaTransactionService,
+        TenantDbService,
+      ],
     };
   }
 
@@ -121,6 +157,7 @@ export class DatabaseModule {
 
         return {
           databaseUrl: envConfig.DATABASE_URL,
+          tenantDatabaseUrl: envConfig.APP_RUNTIME_DATABASE_URL,
           poolMin: envConfig.DB_POOL_MIN,
           poolMax: envConfig.DB_POOL_MAX,
           connectionTimeout: envConfig.DB_CONNECTION_TIMEOUT,
