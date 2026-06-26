@@ -98,17 +98,15 @@ This is the committed backend backlog, **not a pick-one menu**: complete each st
 to its acceptance criteria, commit, then move to the next, until every gap is
 closed. It is a multi-session effort — do not stop after one step.
 
-1. **RLS runtime cutover (Step 1) — mechanism DONE + proven; breadth rollout left.**
-   Built the two-client design: `TenantDbService.runScoped` (app_runtime client +
-   GUC + AsyncLocalStorage), a global `RlsTenantInterceptor` + `@TenantScoped`, and
-   a service `client` getter (scoped-or-privileged). Communication module migrated
-   as the reference. **Proven**: `rls-tenant-isolation.e2e` (DI 6/6) +
-   `rls-http-isolation.e2e` (real HTTP 4/4); `db:rls:check` + `nest build` green.
-   **Remaining (mechanical):** apply the same `client`-getter + `@TenantScoped`
-   pattern to students / academic-structure / assessment-grading / reporting
-   services (+ a quick HTTP isolation check each), and set
-   `APP_RUNTIME_DATABASE_URL` in deploy. See `docs/backend-remediation-plan.md`
-   Step 1 closeout checklist.
+1. ✅ **RLS runtime cutover (Step 1) — COMPLETE in code.** Two-client design
+   (`TenantDbService.runScoped` on the app_runtime client + GUC + ALS), global
+   `RlsTenantInterceptor` + `@TenantScoped`, scoped-or-privileged `client` getter;
+   `PrismaTransactionService` reuses the request scope so transactional writes are
+   RLS-enforced too. **All tenant-data services migrated** (communication,
+   students, academic-structure, assessment-grading, reporting-analytics) + 9
+   controllers `@TenantScoped`. Proven: DI 6/6 + HTTP 5/5; `db:rls:check` + build
+   green. **Only remaining**: set `APP_RUNTIME_DATABASE_URL` (app_runtime role) in
+   each deploy env — operational, documented in `env.*.template`.
 2. **CI pipeline (Step 2)** — `.github/workflows/ci.yml` with a Postgres service:
    `migrate deploy` → `db:rls:check` → type-check / lint / build / tests. Makes
    the isolation standard and the "must compile/lint/type-check" rule enforced.

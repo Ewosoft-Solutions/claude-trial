@@ -80,18 +80,20 @@ a request for tenant A cannot read/write tenant B; platform endpoints still work
   `APP_RUNTIME_DATABASE_URL`.
 - ✅ `env.*.template` document `APP_RUNTIME_DATABASE_URL`.
 
-**Closeout checklist (mechanical — repeat the communication pattern):**
-1. For each remaining tenant-data service, inject `TenantDbService`, add the
-   `private get client()` getter, replace `this.<db>.client` → `this.client`, and
-   mark its controller(s) `@TenantScoped`: **students**, **academic-structure**
-   (year/term/course/class), **assessment-grading** (assessment/grade/grading-system),
-   **reporting-analytics**. (Auth, tenant-admin, and platform controllers stay on
-   the privileged client by design.) Add a quick HTTP isolation check per area
-   (copy `rls-http-isolation.e2e-spec.ts`).
-2. Set `APP_RUNTIME_DATABASE_URL` (the `app_runtime` role) in each deploy env so
-   the app actually runs RLS-enforced. (`app_runtime` is created NOLOGIN by
-   migration; grant it LOGIN + a secret password at deploy.)
-3. Wire `db:rls:proof` + both e2e specs into CI (Step 2).
+**Closeout checklist:**
+1. ✅ **DONE** — all tenant-data services migrated (communication, students,
+   academic-structure, assessment-grading, reporting-analytics): scoped-or-
+   privileged `client` getter + `this.client`; all 9 controllers `@TenantScoped`.
+   `PrismaTransactionService.runInTransaction` reuses the request RLS scope so
+   transactional writes are RLS-enforced too. Auth/tenant-admin/platform stay
+   privileged by design. Proven: DI 6/6 + HTTP 5/5 (announcements + academic-years).
+2. ⏳ **Deploy step** — set `APP_RUNTIME_DATABASE_URL` (the `app_runtime` role) in
+   each env so the app runs RLS-enforced. (`app_runtime` is created NOLOGIN by
+   migration; grant LOGIN + a secret password at deploy.) Documented in `env.*.template`.
+3. → **Step 2** — wire `db:rls:check` + `db:rls:proof` + both e2e specs into CI.
+
+**Step 1 status: COMPLETE in code** (mechanism + full service rollout + proof).
+Only the deploy-time env flip (#2, operational) and CI wiring (Step 2) remain.
 - ✅ **Keystone proven** — `pnpm --filter @workspace/database db:rls:proof`
   (`rls-prisma-proof.ts`) connects as `app_runtime` through the REAL stack
   (Prisma 7 + `@prisma/adapter-pg`) and confirms an interactive `$transaction`
