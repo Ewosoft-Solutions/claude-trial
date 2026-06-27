@@ -17,6 +17,9 @@ importers:
       '@workspace/vitest-config':
         specifier: workspace:*
         version: link:packages/vitest-config
+      eslint:
+        specifier: ^9.31.0
+        version: 9.39.4(jiti@2.7.0)
       prettier:
         specifier: ^3.6.0
         version: 3.8.4
