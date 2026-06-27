@@ -43,7 +43,6 @@ function buildPrismaClient(
     max: config.poolMax ?? (config.isServerless ? 1 : 10),
     idleTimeoutMillis: config.isServerless ? 10_000 : 30_000,
     connectionTimeoutMillis: config.connectionTimeout ?? 5_000,
-    statement_timeout: config.queryTimeout ?? 30_000,
   };
   const adapter = new PrismaPg(new Pool(poolConfig));
   return new PrismaClient({
