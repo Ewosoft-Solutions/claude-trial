@@ -105,7 +105,7 @@ export default function LoginPage() {
                 name="code"
                 type="text"
                 inputMode="numeric"
-                autoComplete="one-time-code"
+                autoComplete="off"
                 pattern="\d{6}"
                 maxLength={6}
                 required
