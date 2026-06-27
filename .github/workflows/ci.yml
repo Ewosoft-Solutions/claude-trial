@@ -109,7 +109,7 @@ jobs:
 
       # ── Lint ──────────────────────────────────────────────────────────────
       - name: Lint apps/api
-        run: pnpm exec eslint "apps/api/{src,apps,libs,test}/**/*.ts"
+        run: pnpm exec eslint --config apps/api/eslint.config.mjs "apps/api/{src,apps,libs,test}/**/*.ts"
 
       - name: Lint apps/web
         working-directory: apps/web
