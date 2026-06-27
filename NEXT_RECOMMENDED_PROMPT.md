@@ -14,7 +14,20 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-27 — Attendance domain, Step 4):
+Latest session (2026-06-27 — Finance/billing domain, Step 5):
+`FeeInvoice` + `Payment` Prisma models in new `finance` schema (tenant_id NOT NULL),
+migration `20260627200000_finance_domain` (tables + indexes + RLS policy on both tables;
+`app_runtime` grants). `rls-coverage-check.sql` updated to include `finance` schema.
+NestJS `FinanceModule`: DTOs, `FinanceService` (RLS-scoped; listInvoices, createInvoice,
+updateInvoice, invoiceSummary, listPayments, recordPayment — the last auto-updates invoice
+`amountPaid`+`status`), `FinanceController` (`@TenantScoped`; GET/POST/PATCH /finance/invoices,
+GET /finance/invoices/summary, GET /finance/invoices/:id, GET/POST /finance/payments).
+Frontend `/finance/invoices` and `/finance/payments` refactored into server components +
+client islands (`InvoicesClient` / `PaymentsClient`); Route Handlers `/api/finance/invoices`
+and `/api/finance/payments` proxy to NestJS with httpOnly cookie Bearer. Mock fallback retained.
+Verification: api build ✅ · web type-check ✅ · web lint ✅ · web build ✅. Pushed to origin/claude / PR #1.
+
+Prior session (2026-06-27 — Attendance domain, Step 4):
 Added `AttendanceRecord` Prisma model (student-management schema, tenant_id NOT NULL),
 migration `20260627100000_attendance_domain` (table + indexes + explicit RLS policy —
 `db:rls:check` passes). NestJS `AttendanceModule`: `BulkMarkAttendanceDto`, `AttendanceService`
@@ -133,17 +146,20 @@ closed. It is a multi-session effort — do not stop after one step.
 4. ✅ **Attendance domain (Step 4) — COMPLETE.** `AttendanceRecord` model + migration + RLS +
    `AttendanceModule` (NestJS) + `/attendance/daily` wired to real API (server component +
    client island + Route Handlers `/api/attendance` + `/api/students`). `db:rls:check` ✅.
-5. **Finance/billing domain (Step 5)** — model + API + wire `/finance/*` (no backend yet).
+5. ✅ **Finance/billing domain (Step 5) — COMPLETE.** `FeeInvoice` + `Payment` models + migration
+   + RLS + `FinanceModule` (NestJS) + `/finance/invoices` and `/finance/payments` wired to real
+   API (server components + client islands + Route Handlers). `db:rls:check` guard includes
+   `finance` schema.
 6. **Realize polymorphism (Step 6)** — `schoolType`-driven nav + feature-toggle backing.
 7. **Backend tests + hygiene (Step 7)** — auth e2e, in-app isolation test,
    `packages/api`↔`apps/api` boundary, stop tracking build artifacts.
 8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
    admissions/events, phased; each follows the RLS checklist.
 
-> ▶ **Next session: Step 5** — Finance/billing domain: Prisma model(s) for
-> fees/invoices/payments (tenant-scoped + RLS), NestJS API, wire `/finance/*` to
-> real data. Follow the same pattern as Step 4 (RLS checklist, `db:rls:check` must
-> stay green, Route Handlers proxy with httpOnly cookie Bearer).
+> ▶ **Next session: Step 6** — Realize polymorphism: `schoolType`-driven nav + feature-toggle
+> backing. The `schoolType` column was added to `Tenant` in Step 3 migration
+> `20260627000000_tenant_school_type` and is in `UserSchoolProfile`. Wire it into the nav
+> visibility model so sections like Transport, HR, Library are shown/hidden per school type.
 
 Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
 in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.

@@ -63,6 +63,44 @@ internal links are now next/link `<Link>`.
 
 # Completed Work
 
+## Session Summary (2026-06-27, Step 5) — Finance/billing domain
+
+**Step 5 of backend-remediation-plan.md — COMPLETE.**
+
+- **Prisma models** `FeeInvoice` + `Payment` (`packages/database/prisma/models/finance.prisma`):
+  both `tenant_id NOT NULL` in new `finance` schema. `FeeInvoice` tracks billing records with
+  `amountDue`/`amountPaid` in kobo (integer minor units), `status` (draft/issued/paid/partial/
+  overdue/cancelled). `Payment` links to `FeeInvoice` with method/paidAt/amount/status. Relations
+  added to `Tenant` model. `finance` schema added to `datasource.schemas`.
+- **Migration** `20260627200000_finance_domain`: creates `finance` schema, `fee_invoices` +
+  `payments` tables, indexes, explicit `ENABLE/FORCE ROW LEVEL SECURITY` + `tenant_isolation`
+  policy on both tables; grants `app_runtime` role access to finance schema.
+- **RLS coverage guard updated** — `'finance'` added to `app_schemas` in
+  `rls-coverage-check.sql`; `db:rls:check` will catch any unguarded finance table.
+- **NestJS `FinanceModule`** (`apps/api/src/finance/`):
+  - DTOs: `CreateInvoiceDto`, `UpdateInvoiceDto`, `ListInvoicesDto`, `RecordPaymentDto`,
+    `ListPaymentsDto` (with `INVOICE_STATUSES` / `PAYMENT_STATUSES` / `PAYMENT_METHODS` consts).
+  - `FinanceService`: RLS-scoped `client` getter; `listInvoices`, `getInvoice` (with payments),
+    `createInvoice` (auto-generates `invoiceNumber`), `updateInvoice`, `invoiceSummary` (totals
+    + statusCounts), `listPayments`, `recordPayment` (creates payment, updates invoice
+    `amountPaid` + `status` atomically).
+  - `FinanceController` (`@TenantScoped`): `GET /finance/invoices`, `GET /finance/invoices/summary`,
+    `GET /finance/invoices/:id`, `POST /finance/invoices`, `PATCH /finance/invoices/:id`,
+    `GET /finance/payments`, `POST /finance/payments` — all behind `JwtAuthGuard +
+    TenantContextGuard + PermissionGuard`. Permissions `finance.view` / `finance.manage`.
+  - `SwaggerTags.finance` added; module registered in `AppModule`.
+- **Frontend wiring** (`/finance/invoices`, `/finance/payments`):
+  - Pages split into server component (data fetch via `serverApiGet`) + client island
+    (`InvoicesClient` / `PaymentsClient`) following the Step 4 attendance pattern.
+  - Route Handlers: `app/api/finance/invoices/route.ts` (GET + POST) and
+    `app/api/finance/payments/route.ts` (GET + POST) — proxy to NestJS with httpOnly
+    access-token cookie as Bearer via `getBearerFromCookies`.
+  - Client islands accept real API invoices/payments as props; fall back to built-in mock data
+    when props are empty (i.e. when `NEXT_PUBLIC_API_URL` is unset).
+  - amounts stored as kobo (integer) from API; `nairaFromKobo` helper displays as ₦Xk / ₦X.XM.
+- **Verification**: api `nest build` ✅ · web type-check ✅ · web lint ✅ · web build ✅.
+- **Pushed** to `origin/claude` / lands in PR #1.
+
 ## Session Summary (2026-06-27, Step 4) — Attendance domain
 
 **Step 4 of backend-remediation-plan.md — COMPLETE.**
