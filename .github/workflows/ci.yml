@@ -77,10 +77,14 @@ jobs:
         working-directory: packages/database
         run: pnpm db:rls:check
 
-      # ── Generate Prisma client (needed for type-check) ───────────────────
-      - name: Generate Prisma client
+      # ── Build shared packages (needed for type-check of apps) ────────────
+      - name: Build packages/database
         working-directory: packages/database
-        run: pnpm db:generate
+        run: pnpm build
+
+      - name: Build packages/api
+        working-directory: packages/api
+        run: pnpm build
 
       # ── Type-check ────────────────────────────────────────────────────────
       - name: Type-check packages/database
@@ -104,11 +108,7 @@ jobs:
         working-directory: apps/web
         run: pnpm lint
 
-      # ── Build ─────────────────────────────────────────────────────────────
-      - name: Build packages/database
-        working-directory: packages/database
-        run: pnpm build
-
+      # ── Build apps ────────────────────────────────────────────────────────
       - name: Build apps/api
         working-directory: apps/api
         run: pnpm build
