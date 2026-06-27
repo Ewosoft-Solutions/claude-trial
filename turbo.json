@@ -1,7 +1,9 @@
 {
   "$schema": "https://turborepo.com/schema.json",
   "globalEnv": [
+    "NODE_ENV",
     "PORT",
+    "NEXT_PUBLIC_API_URL",
     "WEBAUTHN_RP_NAME",
     "WEBAUTHN_RP_ID",
     "WEBAUTHN_ORIGIN"

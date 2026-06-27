@@ -44,6 +44,9 @@ export interface UserSchoolProfile {
 
   /** Tenant status */
   tenantStatus: TenantStatus;
+
+  /** Institution category (nullable until explicitly set on the tenant) */
+  schoolType?: string;
 }
 
 /**
@@ -102,6 +105,7 @@ export class SchoolSelectionService {
           primaryRole,
           status: ut.status as ProfileStatus,
           tenantStatus: ut.tenant.status as TenantStatus,
+          schoolType: (ut.tenant as any).schoolType ?? undefined,
         };
       });
   }

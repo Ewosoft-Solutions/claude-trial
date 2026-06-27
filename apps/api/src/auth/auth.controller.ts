@@ -6,12 +6,14 @@
 
 import {
   Controller,
+  Get,
   Post,
   Body,
   HttpCode,
   HttpStatus,
   Req,
   UseGuards,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { type Request } from 'express';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -26,10 +28,12 @@ import {
 } from './dto';
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
+import { PermissionService } from './services/permission.service';
 import { JwtAuthGuard, PreAuthGuard } from './guards';
 import { DatabaseService } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
+import { SchoolSelectionService } from '@workspace/api';
 
 /**
  * Authentication Controller
@@ -42,8 +46,95 @@ export class AuthController {
   constructor(
     private readonly authenticationService: AuthenticationService,
     private readonly passwordResetService: PasswordResetService,
+    private readonly permissionService: PermissionService,
     private readonly dbService: DatabaseService,
   ) {}
+
+  /**
+   * Get current session context (me)
+   *
+   * GET /auth/me
+   *
+   * Returns the full session payload needed by the web frontend.
+   * Protected by JwtAuthGuard — requires a valid access token.
+   */
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Get current authenticated user session context' })
+  async getMe(@AuthUser() user: RequestUser) {
+    const prisma = this.dbService.client;
+    const { userId, tenantId, profileId } = user;
+
+    // Resolve permission context (role, clearanceLevel, permission names)
+    const ctx = await this.permissionService.getUserPermissionContext(
+      prisma,
+      userId,
+      tenantId,
+      profileId,
+    );
+
+    if (!ctx) {
+      throw new UnauthorizedException('Session context unavailable');
+    }
+
+    // Resolve user profile
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { email: true, firstName: true, lastName: true },
+    });
+
+    if (!dbUser) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    // Resolve role name (for caption)
+    const role = await prisma.role.findUnique({
+      where: { id: ctx.roleId },
+      select: { name: true, clearanceLevel: true },
+    });
+
+    // Resolve all accessible schools for the user
+    const schools = await SchoolSelectionService.getAvailableSchools(
+      prisma,
+      userId,
+    );
+
+    const firstName = dbUser.firstName ?? '';
+    const lastName = dbUser.lastName ?? '';
+    const fullName = [firstName, lastName].filter(Boolean).join(' ') || dbUser.email;
+    const initials = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || dbUser.email[0].toUpperCase();
+
+    return {
+      user: {
+        name: fullName,
+        email: dbUser.email,
+        initials,
+        caption: role?.name ?? 'Staff',
+        color: '#334155',
+      },
+      scope: 'school' as const,
+      clearanceLevel: ctx.clearanceLevel,
+      roles: [role?.name ?? 'Staff'],
+      permissions: [...ctx.permissions.entries()]
+        .filter(([, v]) => v.granted)
+        .map(([name]) => name),
+      defaultSchoolId: tenantId,
+      schools: schools.map((s) => ({
+        id: s.tenantId,
+        name: s.tenantName,
+        initials: s.tenantName
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((w: string) => w[0])
+          .join('')
+          .toUpperCase(),
+        caption: s.primaryRole ?? 'Staff',
+        color: '#4f6df5',
+        schoolType: (s.schoolType || 'secondary') as string,
+      })),
+    };
+  }
 
   /**
    * Login (3.2, 3a.9)

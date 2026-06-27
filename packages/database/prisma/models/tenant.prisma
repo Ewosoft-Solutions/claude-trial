@@ -21,6 +21,7 @@ model Tenant {
   name        String
   slug        String?  @unique
   emailDomain String?  @map("email_domain") // Optional, for validation
+  schoolType  String?  @map("school_type") // 'nursery'|'primary'|'secondary'|'university'|'college'|'training_institute'|'organization'
   status      String   @default("pending") // 'active' | 'pending' | 'suspended'
   settings    Json? // School-specific settings (JSONB)
   createdBy   String?  @map("created_by")

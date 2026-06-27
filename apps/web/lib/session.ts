@@ -1,28 +1,34 @@
 /* ============================================================
    Session seam — the single source of the signed-in session
 
-   `getSession()` is THE seam where authentication plugs in. Today it
-   returns mock data (there is no auth backend yet — the auth UI flow
-   is a post-Phase-1 candidate). When auth lands, replace only this
-   function's body — read the session from NextAuth / a cookie / an
-   API — and everything downstream is unchanged:
+   `getSession()` is THE seam where authentication plugs in.
+   It reads the access-token cookie set by /api/auth/login and exchanges it
+   for the full session payload via GET /auth/me on the NestJS backend.
 
      getSession()  →  (app) layout (server)  →  <ViewerProvider session>
                    →  ViewerContext  →  the navigation model
 
    This module is server-only (no `'use client'`): it runs in the
-   server layout so the mock — and, later, real secrets/tokens — never
-   ship in the client bundle. The returned `Session` is passed across
-   the server→client boundary as a plain, serializable payload, so
-   `permissions` is an array here (the client provider builds the Set).
+   server layout so cookies/tokens never ship in the client bundle.
+   The returned `Session` is passed across the server→client boundary as a
+   plain, serializable payload, so `permissions` is an array here (the
+   client provider derives the lookup Set).
+
+   MOCK FALLBACK: when NEXT_PUBLIC_API_URL is not set and there is no
+   access-token cookie, a hardcoded mock session is returned so local
+   development without a running backend works out of the box.
+   Remove the mock block once the backend is always available.
    ============================================================ */
 
+import { cookies } from 'next/headers';
 import type {
   PermissionKey,
   SchoolType,
   ViewerContext,
 } from '@workspace/ui/types/access.types';
 import type { SchoolOption, UserProfile } from '@workspace/ui/types/shell.types';
+import { apiClient, ApiError } from './api-client';
+import { COOKIE_ACCESS_TOKEN } from './auth-cookies';
 
 /** A school the viewer can switch between, plus its polymorphic type. */
 export interface SessionSchool extends SchoolOption {
@@ -47,7 +53,84 @@ export interface Session {
   defaultSchoolId?: string;
 }
 
-/* ---- mock session (replace with the real auth lookup) -------- */
+/** Shape of GET /auth/me response from apps/api */
+interface MeResponse {
+  user: {
+    name: string;
+    email: string;
+    initials: string;
+    caption: string;
+    color: string;
+  };
+  scope: 'school' | 'platform';
+  clearanceLevel: number;
+  roles: string[];
+  permissions: string[];
+  defaultSchoolId?: string;
+  schools: Array<{
+    id: string;
+    name: string;
+    initials: string;
+    caption: string;
+    color: string;
+    schoolType: string;
+  }>;
+}
+
+/**
+ * Resolve the signed-in session, or `null` when there is none.
+ *
+ * Reads the httpOnly access-token cookie and fetches /auth/me.
+ * Returns null when there is no cookie or the token is invalid.
+ * Falls back to the mock session in dev when the API is not configured.
+ */
+export async function getSession(): Promise<Session | null> {
+  const cookieStore = await cookies();
+  const accessToken = cookieStore.get(COOKIE_ACCESS_TOKEN)?.value;
+
+  // ── Dev fallback ────────────────────────────────────────────────────────
+  // When no token is present and the API URL is not configured, return the
+  // mock so the frontend is usable without a running backend.
+  if (!accessToken) {
+    if (!process.env.NEXT_PUBLIC_API_URL) {
+      return MOCK_SESSION;
+    }
+    return null;
+  }
+
+  // ── Real auth ───────────────────────────────────────────────────────────
+  try {
+    const me = await apiClient.get<MeResponse>('/auth/me', {
+      Authorization: `Bearer ${accessToken}`,
+    });
+
+    return {
+      user: me.user,
+      scope: me.scope,
+      clearanceLevel: me.clearanceLevel as ViewerContext['clearanceLevel'],
+      roles: me.roles,
+      permissions: me.permissions as PermissionKey[],
+      defaultSchoolId: me.defaultSchoolId,
+      schools: me.schools.map((s) => ({
+        id: s.id,
+        name: s.name,
+        initials: s.initials,
+        caption: s.caption,
+        color: s.color,
+        schoolType: ((s.schoolType || 'secondary') as SchoolType),
+      })),
+    };
+  } catch (err) {
+    if (err instanceof ApiError && (err.status === 401 || err.status === 403)) {
+      return null;
+    }
+    // Unexpected error — log and fall through to null (unauthenticated state)
+    console.error('[getSession] /auth/me error:', err);
+    return null;
+  }
+}
+
+/* ---- mock session (used in dev when no backend is running) ----------- */
 const OWNER_PERMISSIONS: PermissionKey[] = [
   'students.view',
   'students.view.detailed',
@@ -118,15 +201,3 @@ const MOCK_SESSION: Session = {
     },
   ],
 };
-
-/**
- * Resolve the signed-in session, or `null` when there is none.
- *
- * ⚠ STUB: returns mock data. Replace the body with the real lookup
- * when auth lands; the signature (`Promise<Session | null>`) is the
- * contract the rest of the app already builds on. `null` drives the
- * unauthenticated surface in the `(app)` layout.
- */
-export async function getSession(): Promise<Session | null> {
-  return MOCK_SESSION;
-}

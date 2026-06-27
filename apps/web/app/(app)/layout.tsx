@@ -14,9 +14,7 @@
    redirect lands with the auth flow; see lib/session.ts.)
    ============================================================ */
 
-import { LogIn } from 'lucide-react';
-
-import { StateView } from '@workspace/ui/custom/states/state-view';
+import { redirect } from 'next/navigation';
 
 import { ViewerProvider } from '@/app/providers/viewer-provider';
 import { getSession } from '@/lib/session';
@@ -30,16 +28,7 @@ export default async function AppLayout({
   const session = await getSession();
 
   if (!session) {
-    return (
-      <div className="grid h-svh w-full place-items-center px-6">
-        <StateView
-          icon={<LogIn aria-hidden />}
-          tone="info"
-          title="You're not signed in"
-          description="Sign in to access your school. Authentication isn't available in this preview yet."
-        />
-      </div>
-    );
+    redirect('/login');
   }
 
   return (

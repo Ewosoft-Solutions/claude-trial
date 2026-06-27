@@ -14,7 +14,7 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-26 — CI pipeline, Step 2):
+Latest session (2026-06-27 — CI pipeline, Step 2):
 Added `.github/workflows/ci.yml` (Step 2). Pipeline: Postgres 16 service →
 `migrate deploy` → `app_runtime` LOGIN grant → `db:rls:check` (gate fails on
 unguarded tenant table) → type-check (`packages/database` / `apps/api` /
@@ -36,13 +36,7 @@ RLS setter, hardened the `withTenant` extension (+11 unit tests), and made it a
 **self-enforcing standard**: CI guard `db:rls:check` (fails the build on an
 unguarded tenant table), `ALTER DEFAULT PRIVILEGES`, and `enforce_tenant_rls()`.
 See `ARCHITECTURE_DECISIONS.md` ADR-004, `docs/tenant-isolation-plan.md`, and the
-ordered **`docs/backend-remediation-plan.md`**. The one piece left on isolation is
-the **runtime cutover** (app → `app_runtime`) = Step 1 below.
-
-> ▶ **Next session: start with `docs/backend-remediation-plan.md`** — the backend
-> gaps from the assessment are ordered into sequential, pick-up-able steps
-> (Step 1 = RLS runtime cutover; then CI; then frontend↔backend auth wiring;
-> then attendance, finance, polymorphism, tests).
+ordered **`docs/backend-remediation-plan.md`**.
 
 Prior session (2026-06-20 pt.2 — chart-wrapper tests + DonutChart 2nd surface + StatGrid tests):
 **(1)** Tested the last untested `packages/ui` family, the recharts chart
@@ -56,25 +50,11 @@ shows an enrolment-by-level split; the page bottom was restructured (funnel
 full-width, then a 2-col row of donut + capacity `Meter`). **(3)** Added
 `custom/layouts/stat-grid.test.tsx` (8 — tile count, `minTileWidth`, div/link/button
 render modes + `onSelect` click, `hint`, delta tone by intent + by direction).
-UI now **72 tests** / 8 files. Verified: UI 72/72 ✅ (Node 22) · `packages/ui`
-`tsc -p` ✅ · web check-types ✅ · web lint ✅ · web 13/13 ✅ (Node 20.18) · web build ✅.
+UI now **72 tests** / 8 files.
 
 > ⚠ The jsdom (component) suite requires **Node ≥20.19** — the same threshold the
 > repo `engines` + the `@workspace/database` build already need. Run UI tests
 > under `nvm` v22; the resolver + web suites still pass on the default 20.18.
-
-Prior session (2026-06-20 pt.1 — lint fix + DonutChart 1st consumer + ScheduleGrid tests):
-cleared the pre-existing `web` lint failure (raw `<a>` → next/link `<Link>` in
-`app/design-system/*`), gave `DonutChart` its first consumer (fee-status split on
-`/finance/reports`), and added `schedule-grid.test.tsx` (9 cases). See
-`AI_HANDOFF.md`.
-
-Earlier session (2026-06-18 — Nav resolver tests): finished wiring the shared
-runner (`@workspace/vitest-config` had an empty `src`) and added the first suite
-— `packages/ui/src/lib/navigation.test.ts`, **26 cases** over `canAccess` /
-`isRouteActive` / `resolveNavigation` / `findActiveNavItem`. The Reports session
-before it built the chart wrappers (`TrendChart` / `CategoryBarChart`); see
-`AI_HANDOFF.md`.
 
 **Git state:** branch `claude` is on `origin`
 (`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS). All accumulated
@@ -108,10 +88,7 @@ This is the committed backend backlog, **not a pick-one menu**: complete each st
 to its acceptance criteria, commit, then move to the next, until every gap is
 closed. It is a multi-session effort — do not stop after one step.
 
-1. ✅ **RLS runtime cutover (Step 1) — COMPLETE in code.**
-2. ✅ **CI pipeline (Step 2) — COMPLETE.** `.github/workflows/ci.yml` added
-   (Postgres service, migrate, db:rls:check gate, type-check/lint/build/tests
-   for all three apps). Pushed to `origin/claude` / PR #1. Two-client design
+1. ✅ **RLS runtime cutover (Step 1) — COMPLETE in code.** Two-client design
    (`TenantDbService.runScoped` on the app_runtime client + GUC + ALS), global
    `RlsTenantInterceptor` + `@TenantScoped`, scoped-or-privileged `client` getter;
    `PrismaTransactionService` reuses the request scope so transactional writes are
@@ -120,10 +97,10 @@ closed. It is a multi-session effort — do not stop after one step.
    controllers `@TenantScoped`. Proven: DI 6/6 + HTTP 5/5; `db:rls:check` + build
    green. **Only remaining**: set `APP_RUNTIME_DATABASE_URL` (app_runtime role) in
    each deploy env — operational, documented in `env.*.template`.
-2. ✅ **CI pipeline (Step 2) — COMPLETE.**
-3. **Frontend↔backend auth slice (Step 3)** — replace mock `getSession()`
-   `migrate deploy` → `db:rls:check` → type-check / lint / build / tests. Makes
-   the isolation standard and the "must compile/lint/type-check" rule enforced.
+2. ✅ **CI pipeline (Step 2) — COMPLETE.** `.github/workflows/ci.yml` added
+   (Postgres 16 service, `migrate deploy`, `db:rls:check` gate, type-check / lint /
+   build / tests for all three apps including e2e RLS isolation). Pushed to
+   `origin/claude` / PR #1.
 3. **Frontend↔backend auth slice (Step 3)** — replace mock `getSession()`
    (`apps/web/lib/session.ts`) with real `apps/api` `/auth/login` → `/select-school`
    → `/refresh`; contract-test the payload vs the `Session` shape. (Not blocked —
