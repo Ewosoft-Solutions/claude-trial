@@ -58,8 +58,9 @@ model Student {
   // Relations
   tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userTenant  UserTenant   @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
-  enrollments Enrollment[]
-  guardians   StudentGuardian[] @relation("StudentGuardianStudent")
+  enrollments        Enrollment[]
+  guardians          StudentGuardian[]  @relation("StudentGuardianStudent")
+  attendanceRecords  AttendanceRecord[]
 
   @@unique([tenantId, studentNumber]) // Unique student number per tenant
   @@index([tenantId])

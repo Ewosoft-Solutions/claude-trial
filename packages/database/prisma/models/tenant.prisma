@@ -41,7 +41,8 @@ model Tenant {
   auditLogs       AuditLog[]
   jwtConfig       TenantJWTConfig?
   securityPolicy  SchoolSecurityPolicy?
-  studentGuardians StudentGuardian[]
+  studentGuardians  StudentGuardian[]
+  attendanceRecords AttendanceRecord[]
 
   @@index([status])
   @@index([emailDomain])

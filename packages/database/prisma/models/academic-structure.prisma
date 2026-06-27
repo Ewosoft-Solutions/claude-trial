@@ -189,9 +189,10 @@ model Class {
   course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
   term          Term           @relation(fields: [termId], references: [id], onDelete: Cascade)
   academicYear  AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  classTeachers ClassTeacher[] // Teacher assignments
-  enrollments   Enrollment[] // Student enrollments
-  assessments   Assessment[] // Assessments/assignments
+  classTeachers     ClassTeacher[]     // Teacher assignments
+  enrollments       Enrollment[]       // Student enrollments
+  assessments       Assessment[]       // Assessments/assignments
+  attendanceRecords AttendanceRecord[]
 
   @@unique([courseId, termId, section]) // Unique section per course-term combination
   @@index([courseId])

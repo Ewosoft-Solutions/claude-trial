@@ -17,6 +17,7 @@ import { AcademicStructureModule } from './academic-structure/academic-structure
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
 import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
+import { AttendanceModule } from './attendance/attendance.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { Prisma } from '@workspace/database';
@@ -81,6 +82,7 @@ import { AppController } from './app.controller';
     AssessmentGradingModule,
     CommunicationModule,
     ReportingAnalyticsModule,
+    AttendanceModule,
   ],
   controllers: [AppController],
   providers: [
