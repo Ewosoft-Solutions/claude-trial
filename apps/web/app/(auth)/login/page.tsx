@@ -6,6 +6,7 @@ import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Card } from '@workspace/ui/components/card';
+import { OtpInput } from '@workspace/ui/components/otp-input';
 
 type MfaState = {
   challengeId: string;
@@ -17,6 +18,7 @@ export default function LoginPage() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [mfa, setMfa] = useState<MfaState | null>(null);
+  const [otpCode, setOtpCode] = useState('');
 
   function handleCredentials(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -42,6 +44,7 @@ export default function LoginPage() {
         }
 
         if (data.requiresMfa) {
+          setOtpCode('');
           setMfa({ challengeId: data.mfaChallengeId, mfaMethodType: data.mfaMethodType ?? 'email' });
           return;
         }
@@ -54,12 +57,9 @@ export default function LoginPage() {
     });
   }
 
-  function handleMfa(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  function submitMfa(code: string) {
+    if (code.length !== 6) return;
     setError(null);
-
-    const form = new FormData(e.currentTarget);
-    const code = form.get('code') as string;
 
     startTransition(async () => {
       try {
@@ -73,6 +73,7 @@ export default function LoginPage() {
 
         if (!res.ok) {
           setError(data.error ?? 'Invalid code. Please try again.');
+          setOtpCode('');
           return;
         }
 
@@ -82,6 +83,11 @@ export default function LoginPage() {
         setError('Unable to connect to the server. Please try again.');
       }
     });
+  }
+
+  function handleMfa(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    submitMfa(otpCode);
   }
 
   if (mfa) {
@@ -97,20 +103,15 @@ export default function LoginPage() {
             <p className="text-sm text-muted-foreground">{hint}</p>
           </div>
 
-          <form onSubmit={handleMfa} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="code">Verification code</Label>
-              <Input
-                id="code"
-                name="code"
-                type="text"
-                inputMode="numeric"
-                autoComplete="off"
-                pattern="\d{6}"
-                maxLength={6}
-                required
-                placeholder="000000"
-                autoFocus
+          <form onSubmit={handleMfa} className="space-y-6">
+            <div className="space-y-3">
+              <Label>Verification code</Label>
+              <OtpInput
+                value={otpCode}
+                onChange={setOtpCode}
+                onComplete={submitMfa}
+                disabled={isPending}
+                className="justify-center"
               />
             </div>
 
@@ -120,13 +121,17 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" className="w-full" disabled={isPending}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={isPending || otpCode.length < 6}
+            >
               {isPending ? 'Verifying…' : 'Verify'}
             </Button>
             <button
               type="button"
               className="w-full text-sm text-muted-foreground underline underline-offset-4"
-              onClick={() => { setMfa(null); setError(null); }}
+              onClick={() => { setMfa(null); setOtpCode(''); setError(null); }}
             >
               Back to sign in
             </button>
