@@ -77,6 +77,11 @@ jobs:
         working-directory: packages/database
         run: pnpm db:rls:check
 
+      # ── Generate Prisma client (needed for type-check) ───────────────────
+      - name: Generate Prisma client
+        working-directory: packages/database
+        run: pnpm db:generate
+
       # ── Type-check ────────────────────────────────────────────────────────
       - name: Type-check packages/database
         working-directory: packages/database
