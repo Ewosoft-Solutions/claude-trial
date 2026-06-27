@@ -14,7 +14,22 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-27 — CI pipeline, Step 2):
+Latest session (2026-06-27 — frontend↔backend auth slice, Step 3):
+Closed the biggest architectural gap — `apps/web` now has a real auth flow
+backed by `apps/api`. Added `schoolType` column to Tenant (migration
+`20260627000000_tenant_school_type`). Extended `UserSchoolProfile` with
+`schoolType`. Added `GET /auth/me` to `AuthController` (full Session-compatible
+payload). In `apps/web`: `lib/api-client.ts` (typed fetch wrapper),
+`lib/auth-cookies.ts` (httpOnly cookie helpers), Route Handlers
+(`/api/auth/login` · `/api/auth/logout` · `/api/auth/refresh`), login page
+(`app/(auth)/login/page.tsx`), real `getSession()` (reads cookie → `/auth/me`,
+mock fallback in dev when `NEXT_PUBLIC_API_URL` unset), `(app)` layout
+redirects to `/login` on no-session, 8-case contract test
+(`lib/session.contract.test.ts`). `turbo.json` declares `NODE_ENV` +
+`NEXT_PUBLIC_API_URL` in `globalEnv`. Verification: web check-types ✅ ·
+web lint ✅ · web 21/21 ✅ · web build ✅ · api build ✅.
+
+Prior session (2026-06-27 — CI pipeline, Step 2):
 Added `.github/workflows/ci.yml` (Step 2). Pipeline: Postgres 16 service →
 `migrate deploy` → `app_runtime` LOGIN grant → `db:rls:check` (gate fails on
 unguarded tenant table) → type-check (`packages/database` / `apps/api` /
@@ -101,10 +116,9 @@ closed. It is a multi-session effort — do not stop after one step.
    (Postgres 16 service, `migrate deploy`, `db:rls:check` gate, type-check / lint /
    build / tests for all three apps including e2e RLS isolation). Pushed to
    `origin/claude` / PR #1.
-3. **Frontend↔backend auth slice (Step 3)** — replace mock `getSession()`
-   (`apps/web/lib/session.ts`) with real `apps/api` `/auth/login` → `/select-school`
-   → `/refresh`; contract-test the payload vs the `Session` shape. (Not blocked —
-   the backend is `apps/api`, DB-backed.)
+3. ✅ **Frontend↔backend auth slice (Step 3) — COMPLETE.** `GET /auth/me` added
+   to api; Route Handlers + login page + real `getSession()` in web; contract
+   test 8/8 ✅. Dev fallback mock retained when `NEXT_PUBLIC_API_URL` unset.
 4. **Attendance domain (Step 4)** — model + API + wire `/attendance/*` (no backend yet).
 5. **Finance/billing domain (Step 5)** — model + API + wire `/finance/*` (no backend yet).
 6. **Realize polymorphism (Step 6)** — `schoolType`-driven nav + feature-toggle backing.
@@ -113,8 +127,9 @@ closed. It is a multi-session effort — do not stop after one step.
 8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
    admissions/events, phased; each follows the RLS checklist.
 
-> ▶ **Next session: Step 3** — frontend↔backend auth wiring (`apps/web/lib/session.ts`
-> → real `/auth/login` → `/select-school` → `/refresh`). See `docs/backend-remediation-plan.md` Step 3.
+> ▶ **Next session: Step 4** — Attendance domain: Prisma model(s) + NestJS API
+> endpoints + wire `/attendance/daily` and `/students/attendance` to real data.
+> Follow the RLS checklist (tenant_id column + `db:rls:check` must stay green).
 
 Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
 in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.
