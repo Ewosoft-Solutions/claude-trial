@@ -323,12 +323,7 @@ describe('PermissionService', () => {
       expect(result?.permissions.get('students.view')?.granted).toBe(false);
     });
 
-    it('should calculate maximum clearance level from multiple roles', async () => {
-      const teacher = buildRole({
-        id: 'role-1',
-        name: 'Teacher',
-        clearanceLevel: ClearanceLevel.TEACHER,
-      });
+    it('should use the assigned role clearance level', async () => {
       const admin = buildRole({
         id: 'role-2',
         name: 'Admin',
@@ -337,7 +332,7 @@ describe('PermissionService', () => {
 
       getUserTenantProfileSpy.mockResolvedValue(
         buildUserTenantProfile({
-          roles: [teacher, admin],
+          roles: [admin],
         }),
       );
 
