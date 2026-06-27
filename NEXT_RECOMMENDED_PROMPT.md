@@ -14,7 +14,18 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-27 — frontend↔backend auth slice, Step 3):
+Latest session (2026-06-27 — Attendance domain, Step 4):
+Added `AttendanceRecord` Prisma model (student-management schema, tenant_id NOT NULL),
+migration `20260627100000_attendance_domain` (table + indexes + explicit RLS policy —
+`db:rls:check` passes). NestJS `AttendanceModule`: `BulkMarkAttendanceDto`, `AttendanceService`
+(RLS-scoped client getter), `AttendanceController` (`@TenantScoped`; GET /attendance, GET
+/attendance/summary, POST /attendance/bulk). Frontend `/attendance/daily` refactored into
+server component (fetches classes/students/records via `lib/server-api.ts`) + `DailyRegisterClient`
+(interactive state + save); Route Handlers `/api/attendance` (GET+POST) and `/api/students`
+proxy to NestJS with httpOnly cookie Bearer. Mock fallback retained. Verification: `db:rls:check`
+✅ · api build ✅ · web type-check ✅ · web lint ✅ · web build ✅. Pushed to origin/claude / PR #1.
+
+Prior session (2026-06-27 — frontend↔backend auth slice, Step 3):
 Closed the biggest architectural gap — `apps/web` now has a real auth flow
 backed by `apps/api`. Added `schoolType` column to Tenant (migration
 `20260627000000_tenant_school_type`). Extended `UserSchoolProfile` with
@@ -119,7 +130,9 @@ closed. It is a multi-session effort — do not stop after one step.
 3. ✅ **Frontend↔backend auth slice (Step 3) — COMPLETE.** `GET /auth/me` added
    to api; Route Handlers + login page + real `getSession()` in web; contract
    test 8/8 ✅. Dev fallback mock retained when `NEXT_PUBLIC_API_URL` unset.
-4. **Attendance domain (Step 4)** — model + API + wire `/attendance/*` (no backend yet).
+4. ✅ **Attendance domain (Step 4) — COMPLETE.** `AttendanceRecord` model + migration + RLS +
+   `AttendanceModule` (NestJS) + `/attendance/daily` wired to real API (server component +
+   client island + Route Handlers `/api/attendance` + `/api/students`). `db:rls:check` ✅.
 5. **Finance/billing domain (Step 5)** — model + API + wire `/finance/*` (no backend yet).
 6. **Realize polymorphism (Step 6)** — `schoolType`-driven nav + feature-toggle backing.
 7. **Backend tests + hygiene (Step 7)** — auth e2e, in-app isolation test,
@@ -127,9 +140,10 @@ closed. It is a multi-session effort — do not stop after one step.
 8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
    admissions/events, phased; each follows the RLS checklist.
 
-> ▶ **Next session: Step 4** — Attendance domain: Prisma model(s) + NestJS API
-> endpoints + wire `/attendance/daily` and `/students/attendance` to real data.
-> Follow the RLS checklist (tenant_id column + `db:rls:check` must stay green).
+> ▶ **Next session: Step 5** — Finance/billing domain: Prisma model(s) for
+> fees/invoices/payments (tenant-scoped + RLS), NestJS API, wire `/finance/*` to
+> real data. Follow the same pattern as Step 4 (RLS checklist, `db:rls:check` must
+> stay green, Route Handlers proxy with httpOnly cookie Bearer).
 
 Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
 in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.

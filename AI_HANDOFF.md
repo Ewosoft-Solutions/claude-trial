@@ -1,6 +1,6 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-06-20
+Last Updated: 2026-06-27
 
 ---
 
@@ -62,6 +62,39 @@ internal links are now next/link `<Link>`.
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-27, Step 4) — Attendance domain
+
+**Step 4 of backend-remediation-plan.md — COMPLETE.**
+
+- **Prisma model** `AttendanceRecord` (`packages/database/prisma/models/attendance.prisma`):
+  `tenant_id NOT NULL`, relations to Tenant/Student/Class, unique on (tenantId, studentId,
+  classId, date), in `student-management` schema. Relations added to Student, Class, Tenant.
+- **Migration** `20260627100000_attendance_domain`: creates `attendance_records` table +
+  indexes + explicit `ENABLE/FORCE ROW LEVEL SECURITY` + `tenant_isolation` policy (self-
+  contained; does not depend on `enforce_tenant_rls()` being called separately).
+- **`db:rls:check` passes** — `attendance_records` is covered.
+- **NestJS `AttendanceModule`** (`apps/api/src/attendance/`):
+  - `BulkMarkAttendanceDto`, `ListAttendanceDto`, `MarkAttendanceDto` (status: present/absent/late/excused)
+  - `AttendanceService`: `client` getter (RLS-scoped inside `@TenantScoped`), `bulkUpsert`
+    (upsert on the unique index), `list` (with filters), `summary`.
+  - `AttendanceController` (`@TenantScoped`): `GET /attendance`, `GET /attendance/summary`,
+    `POST /attendance/bulk` — all behind `JwtAuthGuard + TenantContextGuard + PermissionGuard`.
+  - Registered in `AppModule`; `SwaggerTags.attendance` added.
+- **Frontend wiring** (`/attendance/daily`):
+  - Page split into server component (data fetch) + `DailyRegisterClient` (interactive island).
+  - Server component calls `serverApiGet` (new `lib/server-api.ts` — server-only helper with
+    cookie auth + no-store cache) to fetch initial classes, enrolled students, and existing
+    attendance marks before rendering.
+  - Route Handlers: `app/api/attendance/route.ts` (GET list + POST bulk) and
+    `app/api/students/route.ts` (GET) — both proxy to NestJS with the httpOnly access-token
+    cookie forwarded as Bearer via `getBearerFromCookies`.
+  - Client: class/date selector re-fetches records; per-pupil mark toggles; "Save register"
+    POSTs to `/api/attendance`; "Saved ✓" / "Save failed" feedback; added 'excused' as a
+    fourth status (neutral badge).
+  - Mock fallback retained when `NEXT_PUBLIC_API_URL` is unset.
+- **Verification**: `db:rls:check` ✅ · api `nest build` ✅ · web type-check ✅ · web lint ✅ · web build ✅.
+- **Pushed** to `origin/claude` / lands in PR #1.
 
 ## Session Summary (2026-06-20, pt. 3) — Backend assessment + tenant isolation enforced (RLS)
 
