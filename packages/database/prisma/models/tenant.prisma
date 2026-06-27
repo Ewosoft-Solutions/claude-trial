@@ -43,6 +43,8 @@ model Tenant {
   securityPolicy  SchoolSecurityPolicy?
   studentGuardians  StudentGuardian[]
   attendanceRecords AttendanceRecord[]
+  feeInvoices       FeeInvoice[]
+  payments          Payment[]
 
   @@index([status])
   @@index([emailDomain])
