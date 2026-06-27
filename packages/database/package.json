@@ -22,6 +22,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/scripts/seed.ts",
+    "db:seed:dev": "tsx prisma/scripts/seed-dev-personas.ts",
     "db:verify": "tsx prisma/scripts/verify-seed.ts",
     "db:rls:check": "prisma db execute --file prisma/scripts/rls-coverage-check.sql",
     "db:rls:enforce": "prisma db execute --file prisma/scripts/rls-enforce.sql",
