@@ -94,6 +94,23 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
 
+  const userMenu: UserMenuItem[] = React.useMemo(
+    () =>
+      USER_MENU.map((item) =>
+        item.key === 'signout'
+          ? {
+              ...item,
+              onSelect: async () => {
+                await fetch('/api/auth/logout', { method: 'POST' });
+                router.push('/login');
+                router.refresh();
+              },
+            }
+          : item,
+      ),
+    [router],
+  );
+
   const navigate = React.useCallback(
     (href: string) => router.push(href),
     [router],
@@ -146,7 +163,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               <>
                 <HeaderActions />
                 <div className="mx-0.5 h-5 w-px bg-border max-md:hidden" />
-                <UserMenu user={user} items={USER_MENU} />
+                <UserMenu user={user} items={userMenu} />
               </>
             }
           />
