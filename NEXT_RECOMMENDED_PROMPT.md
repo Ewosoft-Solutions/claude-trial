@@ -14,7 +14,16 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-29 — schoolType-driven nav polymorphism, Step 6):
+Latest session (2026-06-29 — backend tests + hygiene, Step 7):
+Auth e2e un-skipped + fixed (per-test unique fixtures, real JWT config + role setup, real
+refresh-token test); `multi-tenant-isolation.e2e-spec.ts` rewritten with a real login-based
+flow (JwtAuthGuard + TenantContextGuard run for real, only PermissionGuard overridden;
+5 isolation assertions through real JWTs); `packages/api/README.md` documents the
+`packages/api` vs `apps/api` boundary; 4 compiled JS artifacts removed from
+`packages/api/src/` + `.gitignore` extended. Verification: api build ✅ · api type-check
+✅ · web type-check ✅. Pushed to origin/claude / PR #1.
+
+Prior session (2026-06-29 — schoolType-driven nav polymorphism, Step 6):
 `schoolType` from `ViewerContext` wired into `SCHOOL_NAV`: Transport section
 (`schoolTypes: ['nursery','primary','secondary']`), Library (`primary/secondary/university/college`),
 HR (`secondary/university/college/training_institute/organization`) — each also guarded by a
@@ -162,13 +171,16 @@ closed. It is a multi-session effort — do not stop after one step.
 6. ✅ **Realize polymorphism (Step 6) — COMPLETE.** `schoolType`-driven nav: Transport/Library/HR
    top-level sections gated by `schoolTypes` arrays in `SCHOOL_NAV`; students/transport sub-item
    gated identically; route layout stubs for all three; 5 new test assertions.
-7. **Backend tests + hygiene (Step 7)** — auth e2e, in-app isolation test,
-   `packages/api`↔`apps/api` boundary, stop tracking build artifacts.
+7. ✅ **Backend tests + hygiene (Step 7) — COMPLETE.** Auth e2e un-skipped + fixed
+   (real JWT config + role setup, real refresh-token test, unique fixtures); multi-tenant
+   isolation test rewritten with real JWT login flow; `packages/api/README.md` boundary
+   docs added; 4 compiled JS artifacts removed from git.
 8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
    admissions/events, phased; each follows the RLS checklist.
 
-> ▶ **Next session: Step 7** — Backend tests + hygiene: auth e2e, in-app RLS isolation test,
-> `packages/api`↔`apps/api` boundary clarification, stop tracking build artifacts.
+> ▶ **Next session: Step 8** — Remaining operational modules (phased): transport, library,
+> health, HR/payroll, admissions, events — each follows the RLS checklist. Steps 1–7 are
+> all complete; this is the last open item in the backend remediation plan.
 
 Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
 in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.

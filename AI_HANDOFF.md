@@ -63,6 +63,35 @@ internal links are now next/link `<Link>`.
 
 # Completed Work
 
+## Session Summary (2026-06-29, Step 7) — backend tests + hygiene
+
+**Step 7 of backend-remediation-plan.md — COMPLETE.**
+
+- **Auth e2e un-skipped and fixed** (`apps/api/test/auth.e2e-spec.ts`):
+  - Per-test unique slug + email (no slug conflicts between runs).
+  - `JWTSecretService.initializeTenantJWTSecret` + Role + `UserTenantRole` created in `beforeEach` so
+    `select-school` can issue real JWTs (it requires a role on the profile).
+  - Tests now assert 200 for `select-school` (not the weak `[200, 401]` hedge).
+  - Refresh test does a full login → select-school flow to get a real refresh token, then exercises
+    `POST /auth/refresh` and asserts a new access token is returned.
+  - Gated on `APP_RUNTIME_DATABASE_URL` (consistent with the other e2e specs).
+- **`multi-tenant-isolation.e2e-spec.ts` rewritten** with a real login-based flow:
+  - Creates 2 tenants with JWT configs, 2 users, 2 roles, 2 profiles.
+  - Logs in each user via `/auth/login` → `/auth/select-school` to get real tenant-scoped JWTs.
+  - `JwtAuthGuard` + `TenantContextGuard` run for real (no stub); only `PermissionGuard` overridden.
+  - Five assertions: A sees only A announcements; B sees only B; A cannot fetch B's announcement by id;
+    A-created announcement is invisible to B; unauthenticated request → 401.
+  - Proves that RLS isolation holds end-to-end through the full JWT + tenant-context pipeline.
+  - Gated on `APP_RUNTIME_DATABASE_URL`.
+- **`packages/api` boundary documented** (`packages/api/README.md`): clarifies that `packages/api`
+  (`@workspace/api`) is a shared library (tenant/JWT utilities, link entities, shared types) distinct
+  from `apps/api` (the NestJS HTTP app that imports it).
+- **Build artifacts removed**: 4 compiled `.js` files in `packages/api/src/` untracked via
+  `git rm --cached`; `.gitignore` extended with `packages/api/src/**/*.js` to prevent recurrence.
+- Verification: api build ✅ · api type-check ✅ · web type-check ✅.
+
+---
+
 ## Session Summary (2026-06-29, Step 6) — schoolType-driven nav polymorphism
 
 **Step 6 of backend-remediation-plan.md — COMPLETE.**
