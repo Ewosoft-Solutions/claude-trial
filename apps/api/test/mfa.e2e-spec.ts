@@ -65,7 +65,7 @@ describe('MFA Flows (e2e)', () => {
     testTenant = await prisma.tenant.create({
       data: {
         name: 'Test School',
-        slug: 'test-school',
+        slug: 'test-school-mfa',
         status: 'active',
       },
     });
@@ -75,7 +75,7 @@ describe('MFA Flows (e2e)', () => {
       await PasswordService.hashPassword('TestPassword123');
     testUser = await prisma.user.create({
       data: {
-        email: 'test@example.com',
+        email: 'test-mfa@example.com',
         passwordHash: hashedPassword,
         firstName: 'Test',
         lastName: 'User',
@@ -116,7 +116,7 @@ describe('MFA Flows (e2e)', () => {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({
           method: 'email',
-          email: 'test@example.com',
+          email: 'test-mfa@example.com',
         })
         .expect(200);
 
@@ -253,7 +253,7 @@ describe('MFA Flows (e2e)', () => {
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
-          email: 'test@example.com',
+          email: 'test-mfa@example.com',
           password: 'TestPassword123',
         })
         .expect(200);
@@ -267,7 +267,7 @@ describe('MFA Flows (e2e)', () => {
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
-          email: 'test@example.com',
+          email: 'test-mfa@example.com',
           password: 'TestPassword123',
         });
 

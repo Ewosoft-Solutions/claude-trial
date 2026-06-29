@@ -64,7 +64,7 @@ describe('Authentication Flow (e2e)', () => {
     testTenant = await prisma.tenant.create({
       data: {
         name: 'Test School',
-        slug: 'test-school',
+        slug: 'test-school-auth',
         status: 'active',
       },
     });
@@ -74,7 +74,7 @@ describe('Authentication Flow (e2e)', () => {
       await PasswordService.hashPassword('TestPassword123');
     testUser = await prisma.user.create({
       data: {
-        email: 'test@example.com',
+        email: 'test-auth@example.com',
         passwordHash: hashedPassword,
         firstName: 'Test',
         lastName: 'User',
@@ -97,7 +97,7 @@ describe('Authentication Flow (e2e)', () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
-          email: 'test@example.com',
+          email: 'test-auth@example.com',
           password: 'TestPassword123',
         })
         .expect(200);
@@ -115,7 +115,7 @@ describe('Authentication Flow (e2e)', () => {
       const response = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
-          email: 'test@example.com',
+          email: 'test-auth@example.com',
           password: 'WrongPassword',
         })
         .expect(401);
@@ -143,7 +143,7 @@ describe('Authentication Flow (e2e)', () => {
       const loginResponse = await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({
-          email: 'test@example.com',
+          email: 'test-auth@example.com',
           password: 'TestPassword123',
         });
 

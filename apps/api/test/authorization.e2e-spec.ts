@@ -75,7 +75,7 @@ describe('Authorization System (e2e)', () => {
     testTenant = await prisma.tenant.create({
       data: {
         name: 'Test School',
-        slug: 'test-school',
+        slug: 'test-school-authz',
         status: 'active',
       },
     });
@@ -85,7 +85,7 @@ describe('Authorization System (e2e)', () => {
       await PasswordService.hashPassword('TestPassword123');
     testUser = await prisma.user.create({
       data: {
-        email: 'test@example.com',
+        email: 'test-authz@example.com',
         passwordHash: hashedPassword,
         firstName: 'Test',
         lastName: 'User',
