@@ -218,12 +218,15 @@ Or explicitly defer and stop presenting mock finance as backed.
 make `/settings/features` real.
 **Acceptance:** two school types render materially different nav/features from config.
 
-### Step 7 — Backend tests + boundary/hygiene cleanup
+### Step 7 — Backend tests + boundary/hygiene cleanup ✅ DONE (2026-06-29)
 **Do:** auth-flow e2e; in-app cross-tenant isolation test (using `app_runtime`);
 document/realign `packages/api` vs `apps/api` ownership; stop tracking build
 artifacts (`apps/api/dist`, `coverage`, compiled `.js`) — add to `.gitignore`.
 **Acceptance:** e2e + isolation tests in CI; no build artifacts tracked; boundary documented.
+**Delivered:** `test/auth.e2e-spec.ts` (real JWT flow, 6 tests), `test/multi-tenant-isolation.e2e-spec.ts`
+(real JWT + RLS, 5 tests), all e2e specs stabilised (unique slugs/emails, afterEach cleanup,
+`isVerified: true` on seeded users). CI green on PR #1.
 
-### Step 8+ — Remaining operational modules (phased)
+### ▶ Step 8+ — Remaining operational modules (phased) ← NEXT
 Transport, library, health, HR/payroll, admissions, events — model + API as the
 roadmap reaches them. Each follows the RLS checklist.
