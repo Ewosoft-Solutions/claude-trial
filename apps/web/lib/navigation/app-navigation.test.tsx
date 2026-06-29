@@ -29,32 +29,61 @@ function makeViewer(overrides: Partial<ViewerContext> = {}): ViewerContext {
   };
 }
 
-/** Proprietor — full clearance + every school permission. */
+/** All permissions a school owner might hold (used to build typed fixtures). */
+const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
+  'students.view',
+  'admissions.view',
+  'attendance.view',
+  'attendance.export',
+  'courses.view',
+  'schedules.view',
+  'subjects.view',
+  'grades.view',
+  'transcripts.view',
+  'timetable.view',
+  'fees.view',
+  'billing.view',
+  'payments.view',
+  'financial_reports.view',
+  'transportation.view',
+  'library.view',
+  'hr.view',
+  'reports.view',
+  'reports.academic',
+  'analytics.view',
+  'settings.view',
+  'settings.school',
+]);
+
+/** Proprietor of a secondary school — all permissions + schoolType that unlocks all sections. */
 const OWNER = makeViewer({
   clearanceLevel: 8,
   roles: ['Owner'],
-  permissions: new Set<PermissionKey>([
-    'students.view',
-    'admissions.view',
-    'attendance.view',
-    'attendance.export',
-    'courses.view',
-    'schedules.view',
-    'subjects.view',
-    'grades.view',
-    'transcripts.view',
-    'timetable.view',
-    'fees.view',
-    'billing.view',
-    'payments.view',
-    'financial_reports.view',
-    'transportation.view',
-    'reports.view',
-    'reports.academic',
-    'analytics.view',
-    'settings.view',
-    'settings.school',
-  ]),
+  schoolType: 'secondary',
+  permissions: ALL_SCHOOL_PERMISSIONS,
+});
+
+/** Owner of a primary school — transport + library visible; HR is not. */
+const PRIMARY_OWNER = makeViewer({
+  clearanceLevel: 8,
+  roles: ['Owner'],
+  schoolType: 'primary',
+  permissions: ALL_SCHOOL_PERMISSIONS,
+});
+
+/** Owner of a university — library + HR visible; transport is not. */
+const UNIVERSITY_OWNER = makeViewer({
+  clearanceLevel: 8,
+  roles: ['Owner'],
+  schoolType: 'university',
+  permissions: ALL_SCHOOL_PERMISSIONS,
+});
+
+/** Owner with no schoolType set (e.g. organisation) — only non-gated sections. */
+const UNTYPED_OWNER = makeViewer({
+  clearanceLevel: 8,
+  roles: ['Owner'],
+  permissions: ALL_SCHOOL_PERMISSIONS,
 });
 
 /**
@@ -120,7 +149,7 @@ describe('configForViewer', () => {
 /* ---- SCHOOL_NAV — section visibility --------------------------- */
 
 describe('SCHOOL_NAV section visibility', () => {
-  it('offers every section + footer to the owner', () => {
+  it('offers core sections + all schoolType-gated sections to a secondary-school owner', () => {
     const { railItems, railFooterItems } = resolveNavigation(
       SCHOOL_NAV,
       OWNER,
@@ -133,6 +162,9 @@ describe('SCHOOL_NAV section visibility', () => {
       'attendance',
       'finance',
       'reports',
+      'transport',
+      'library',
+      'hr',
     ]);
     expect(railFooterItems.map((i) => i.key)).toEqual(['help', 'settings']);
   });
@@ -240,6 +272,46 @@ describe('SCHOOL_NAV panel resolution', () => {
     expect(
       resolved.railFooterItems.find((i) => i.key === 'settings')?.active,
     ).toBe(true);
+  });
+});
+
+/* ---- SCHOOL_NAV — schoolType-gated sections -------------------- */
+
+describe('SCHOOL_NAV schoolType visibility', () => {
+  it('shows transport + library but not HR for a primary school', () => {
+    const { railItems } = resolveNavigation(SCHOOL_NAV, PRIMARY_OWNER, '/overview');
+    const keys = railItems.map((i) => i.key);
+    expect(keys).toContain('transport');
+    expect(keys).toContain('library');
+    expect(keys).not.toContain('hr');
+  });
+
+  it('shows library + HR but not transport for a university', () => {
+    const { railItems } = resolveNavigation(SCHOOL_NAV, UNIVERSITY_OWNER, '/overview');
+    const keys = railItems.map((i) => i.key);
+    expect(keys).not.toContain('transport');
+    expect(keys).toContain('library');
+    expect(keys).toContain('hr');
+  });
+
+  it('hides all schoolType-gated sections when schoolType is absent', () => {
+    const { railItems } = resolveNavigation(SCHOOL_NAV, UNTYPED_OWNER, '/overview');
+    const keys = railItems.map((i) => i.key);
+    expect(keys).not.toContain('transport');
+    expect(keys).not.toContain('library');
+    expect(keys).not.toContain('hr');
+  });
+
+  it('hides the students/transport sub-item for a university viewer', () => {
+    const { navGroups } = resolveNavigation(SCHOOL_NAV, UNIVERSITY_OWNER, '/students');
+    const ops = navGroups.find((g) => g.key === 'student-ops');
+    expect(ops?.items.map((i) => i.key)).not.toContain('transport');
+  });
+
+  it('shows the students/transport sub-item for a primary school viewer', () => {
+    const { navGroups } = resolveNavigation(SCHOOL_NAV, PRIMARY_OWNER, '/students');
+    const ops = navGroups.find((g) => g.key === 'student-ops');
+    expect(ops?.items.map((i) => i.key)).toContain('transport');
   });
 });
 

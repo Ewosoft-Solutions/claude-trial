@@ -16,8 +16,11 @@
 
 import {
   Banknote,
+  BookMarked,
   BookOpen,
+  Briefcase,
   Building2,
+  Bus,
   CalendarDays,
   ChartColumn,
   CircleQuestionMark,
@@ -140,9 +143,12 @@ export const SCHOOL_NAV: NavigationConfig = {
             {
               key: 'transport',
               label: 'Transport',
-              icon: <CalendarDays />,
+              icon: <Bus />,
               href: '/students/transport',
-              access: { anyPermission: ['transportation.view'] },
+              access: {
+                anyPermission: ['transportation.view'],
+                schoolTypes: ['nursery', 'primary', 'secondary'],
+              },
             },
           ],
         },
@@ -217,6 +223,108 @@ export const SCHOOL_NAV: NavigationConfig = {
           items: [
             { key: 'academic', label: 'Academic', icon: <GraduationCap />, href: '/reports/academic', access: { anyPermission: ['reports.academic', 'reports.view'] } },
             { key: 'analytics', label: 'Analytics', icon: <ChartColumn />, href: '/reports/analytics', access: { anyPermission: ['analytics.view'] } },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'transport',
+      label: 'Transport',
+      icon: <Bus />,
+      href: '/transport',
+      // Transport is only relevant for schools that physically move students.
+      access: {
+        anyPermission: ['transportation.view'],
+        schoolTypes: ['nursery', 'primary', 'secondary'],
+      },
+      panelHeader: { icon: <Bus />, title: 'Transport' },
+      groups: [
+        {
+          key: 'routes',
+          label: 'Routes',
+          items: [
+            {
+              key: 'routes-list',
+              label: 'Routes',
+              icon: <Bus />,
+              href: '/transport/routes',
+              access: { anyPermission: ['transportation.view'] },
+            },
+            {
+              key: 'pickups',
+              label: 'Pickups & drops',
+              icon: <Contact />,
+              href: '/transport/pickups',
+              access: { anyPermission: ['transportation.view'] },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'library',
+      label: 'Library',
+      icon: <BookMarked />,
+      href: '/library',
+      // Library management is relevant for primary schools and above.
+      access: {
+        anyPermission: ['library.view'],
+        schoolTypes: ['primary', 'secondary', 'university', 'college'],
+      },
+      panelHeader: { icon: <BookMarked />, title: 'Library' },
+      groups: [
+        {
+          key: 'catalog',
+          label: 'Catalog',
+          items: [
+            {
+              key: 'books',
+              label: 'Books',
+              icon: <BookMarked />,
+              href: '/library/books',
+              access: { anyPermission: ['library.view'] },
+            },
+            {
+              key: 'loans',
+              label: 'Loans',
+              icon: <ScrollText />,
+              href: '/library/loans',
+              access: { anyPermission: ['library.view'] },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'hr',
+      label: 'HR',
+      icon: <Briefcase />,
+      href: '/hr',
+      // HR/staff management is relevant for secondary schools and above.
+      access: {
+        anyPermission: ['hr.view'],
+        schoolTypes: ['secondary', 'university', 'college', 'training_institute', 'organization'],
+      },
+      panelHeader: { icon: <Briefcase />, title: 'Human Resources' },
+      groups: [
+        {
+          key: 'staff',
+          label: 'Staff',
+          items: [
+            {
+              key: 'staff-directory',
+              label: 'Directory',
+              icon: <Users />,
+              href: '/hr/directory',
+              access: { anyPermission: ['hr.view'] },
+            },
+            {
+              key: 'staff-leave',
+              label: 'Leave',
+              icon: <CalendarDays />,
+              href: '/hr/leave',
+              access: { anyPermission: ['hr.view'] },
+            },
           ],
         },
       ],
