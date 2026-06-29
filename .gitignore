@@ -32,6 +32,11 @@ playwright-report/
 out/
 build
 dist
+# Compiled JS emitted into src/ by packages/api tsc (belongs in dist/, not src/)
+packages/api/src/**/*.js
+packages/api/src/**/*.d.ts
+packages/api/src/**/*.js.map
+packages/api/src/**/*.d.ts.map
 
 # IDEs and editors
 /.idea

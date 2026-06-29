@@ -1,258 +1,222 @@
 /**
- * Multi-Tenant Isolation Integration Tests
+ * Multi-Tenant Isolation — real login-based e2e (Step 7)
  *
- * Tests that tenant data is properly isolated and users cannot access other tenants' data.
+ * Proves that tenant data isolation holds when requests carry real JWTs
+ * (not just stubbed guards). JwtAuthGuard + TenantContextGuard run for real;
+ * only PermissionGuard is overridden so we don't need to seed full RBAC.
+ *
+ * Requires APP_RUNTIME_DATABASE_URL; skips otherwise.
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { INestApplication } from '@nestjs/common';
+import {
+  INestApplication,
+  CanActivate,
+  ExecutionContext,
+} from '@nestjs/common';
 import request from 'supertest';
+import { Server } from 'http';
 import {
   describe,
   it,
   expect,
   beforeAll,
   afterAll,
-  beforeEach,
 } from '@jest/globals';
 import { AppModule } from '../src/app.module';
-import type { Tenant, User, UserTenant } from '@workspace/database';
-import { PasswordService } from '../src/auth/services/password.service';
 import { DatabaseService } from '../src/common';
-import { Server } from 'http';
+import { PasswordService } from '../src/auth/services/password.service';
+import { PermissionGuard } from '../src/auth/guards/permission.guard';
+import { JWTSecretService } from '@workspace/api';
 
-describe.skip('Multi-Tenant Isolation (e2e)', () => {
+const HAS_DB = !!process.env.APP_RUNTIME_DATABASE_URL;
+const d = HAS_DB ? describe : describe.skip;
+
+/** Allow all permission checks — auth + tenant context still run for real. */
+const allowAllPermissions: CanActivate = {
+  canActivate: (_ctx: ExecutionContext) => true,
+};
+
+d('Multi-Tenant Isolation — real JWT flow (e2e)', () => {
   let app: INestApplication;
-  let database: DatabaseService;
-  let prisma: DatabaseService['client'];
-  let tenant1: Tenant;
-  let tenant2: Tenant;
-  let user1: User;
-  let user2: User;
-  let profile1: UserTenant;
-  let profile2: UserTenant;
-  // let resource1: Record<string, unknown>; // Resource in tenant1
-  let resource2: Record<string, unknown>; // Resource in tenant2
+  let server: Server;
+  let owner: DatabaseService['client'];
+
+  const ts = Date.now();
+  const slugA = `iso-a-${ts}`;
+  const slugB = `iso-b-${ts}`;
+
+  let tenantAId: string;
+  let tenantBId: string;
+  let tokenA: string; // access token for user in tenant A
+  let tokenB: string; // access token for user in tenant B
+  let annBId: string; // announcement id in tenant B
 
   beforeAll(async () => {
-    const moduleFixture: TestingModule = await Test.createTestingModule({
+    const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
-    }).compile();
+    })
+      .overrideGuard(PermissionGuard)
+      .useValue(allowAllPermissions)
+      .compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleRef.createNestApplication();
     await app.init();
+    server = app.getHttpServer() as Server;
+    owner = app.get(DatabaseService).client;
 
-    database = app.get(DatabaseService);
-    prisma = database.client;
-  });
+    // ── Seed two isolated tenants with users, roles, and profiles ──────────
 
-  afterEach(async () => {
-    if (profile1) {
-      await prisma.userTenant.deleteMany({ where: { id: profile1.id } });
-      profile1 = null as any;
-    }
-    if (profile2) {
-      await prisma.userTenant.deleteMany({ where: { id: profile2.id } });
-      profile2 = null as any;
-    }
-    if (user1) {
-      await prisma.user.deleteMany({ where: { id: user1.id } });
-      user1 = null as any;
-    }
-    if (user2) {
-      await prisma.user.deleteMany({ where: { id: user2.id } });
-      user2 = null as any;
-    }
-    if (tenant1) {
-      await prisma.tenant.deleteMany({ where: { id: tenant1.id } });
-      tenant1 = null as any;
-    }
-    if (tenant2) {
-      await prisma.tenant.deleteMany({ where: { id: tenant2.id } });
-      tenant2 = null as any;
-    }
+    const [tA, tB] = await Promise.all([
+      owner.tenant.create({ data: { name: 'Iso School A', slug: slugA, status: 'active' } }),
+      owner.tenant.create({ data: { name: 'Iso School B', slug: slugB, status: 'active' } }),
+    ]);
+    tenantAId = tA.id;
+    tenantBId = tB.id;
+
+    await Promise.all([
+      JWTSecretService.initializeTenantJWTSecret(owner, tenantAId),
+      JWTSecretService.initializeTenantJWTSecret(owner, tenantBId),
+    ]);
+
+    const pw = await PasswordService.hashPassword('IsoTest@2025!');
+    const [uA, uB] = await Promise.all([
+      owner.user.create({ data: { email: `iso-a-${ts}@example.com`, passwordHash: pw, firstName: 'A', lastName: 'User' } }),
+      owner.user.create({ data: { email: `iso-b-${ts}@example.com`, passwordHash: pw, firstName: 'B', lastName: 'User' } }),
+    ]);
+
+    const [rA, rB] = await Promise.all([
+      owner.role.create({ data: { name: `iso-role-a-${ts}`, roleType: 'custom', clearanceLevel: 1, tenantId: tenantAId, isActive: true } }),
+      owner.role.create({ data: { name: `iso-role-b-${ts}`, roleType: 'custom', clearanceLevel: 1, tenantId: tenantBId, isActive: true } }),
+    ]);
+
+    const [profA, profB] = await Promise.all([
+      owner.userTenant.create({
+        data: {
+          userId: uA.id, tenantId: tenantAId, status: 'active', suspended: false,
+          userTenantRole: { create: { roleId: rA.id, tenantId: tenantAId, isPrimary: true } },
+        },
+      }),
+      owner.userTenant.create({
+        data: {
+          userId: uB.id, tenantId: tenantBId, status: 'active', suspended: false,
+          userTenantRole: { create: { roleId: rB.id, tenantId: tenantBId, isPrimary: true } },
+        },
+      }),
+    ]);
+
+    // ── Login each user and select their school ────────────────────────────
+
+    const loginAndSelect = async (
+      email: string,
+      tenantId: string,
+      profileId: string,
+    ): Promise<string> => {
+      const loginRes = await request(server)
+        .post('/auth/login')
+        .send({ email, password: 'IsoTest@2025!' });
+
+      const selectRes = await request(server)
+        .post('/auth/select-school')
+        .set('Authorization', `Bearer ${loginRes.body.token}`)
+        .send({ tenantId, profileId });
+
+      return selectRes.body.accessToken as string;
+    };
+
+    [tokenA, tokenB] = await Promise.all([
+      loginAndSelect(`iso-a-${ts}@example.com`, tenantAId, profA.id),
+      loginAndSelect(`iso-b-${ts}@example.com`, tenantBId, profB.id),
+    ]);
+
+    // ── Pre-seed one announcement per tenant via the API ───────────────────
+
+    await request(server)
+      .post('/announcements')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ targetType: 'all', title: `Ann-A-${ts}`, content: 'A side' });
+
+    const annBRes = await request(server)
+      .post('/announcements')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .send({ targetType: 'all', title: `Ann-B-${ts}`, content: 'B side' });
+
+    annBId = (annBRes.body as { id?: string }).id ?? '';
   });
 
   afterAll(async () => {
-    await app.close();
+    // Clean up in dependency order
+    if (owner) {
+      await owner.announcement.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
+      // userTenantRole and Session cascade-delete when userTenant is removed
+      await owner.userTenantRole.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
+      await owner.userTenant.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
+      await owner.role.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
+      await owner.user.deleteMany({ where: { email: { in: [`iso-a-${ts}@example.com`, `iso-b-${ts}@example.com`] } } });
+      await owner.tenantJWTConfig.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
+      await owner.tenant.deleteMany({ where: { slug: { in: [slugA, slugB] } } });
+    }
+    if (app) await app.close();
   });
 
-  beforeEach(async () => {
-    // Create two tenants
-    tenant1 = await prisma.tenant.create({
-      data: {
-        name: 'School 1',
-        slug: 'school-1',
-        status: 'active',
-      },
-    });
+  it('user A sees only tenant A announcements', async () => {
+    const res = await request(server)
+      .get('/announcements')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(200);
 
-    tenant2 = await prisma.tenant.create({
-      data: {
-        name: 'School 2',
-        slug: 'school-2',
-        status: 'active',
-      },
-    });
-
-    // Create two users
-    const hashedPassword =
-      await PasswordService.hashPassword('TestPassword123');
-    user1 = await prisma.user.create({
-      data: {
-        email: 'user1@example.com',
-        passwordHash: hashedPassword,
-        firstName: 'User',
-        lastName: 'One',
-      },
-    });
-
-    user2 = await prisma.user.create({
-      data: {
-        email: 'user2@example.com',
-        passwordHash: hashedPassword,
-        firstName: 'User',
-        lastName: 'Two',
-      },
-    });
-
-    // Create profiles
-    profile1 = await prisma.userTenant.create({
-      data: {
-        userId: user1.id,
-        tenantId: tenant1.id,
-        status: 'active',
-        suspended: false,
-      },
-    });
-
-    profile2 = await prisma.userTenant.create({
-      data: {
-        userId: user2.id,
-        tenantId: tenant2.id,
-        status: 'active',
-        suspended: false,
-      },
-    });
-
-    // Create tenant-specific resources (example: students, classes, etc.)
-    // This is a placeholder - adjust based on actual schema
-    // resource1 = await prisma.student.create({
-    //   data: {
-    //     tenantId: tenant1.id,
-    //     name: 'Student 1',
-    //   },
-    // });
-    //
-    // resource2 = await prisma.student.create({
-    //   data: {
-    //     tenantId: tenant2.id,
-    //     name: 'Student 2',
-    //   },
-    // });
+    const titles = ((res.body as { data?: { title: string }[] }).data ?? []).map((a) => a.title);
+    expect(titles).toContain(`Ann-A-${ts}`);
+    expect(titles).not.toContain(`Ann-B-${ts}`);
   });
 
-  describe('Data Isolation', () => {
-    it("should only return resources from user's tenant", async () => {
-      // User1 should only see tenant1 resources
-      const response = await request(app.getHttpServer() as Server)
-        .get('/api/resources')
-        .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant1.id)
-        .expect(200);
+  it('user B sees only tenant B announcements', async () => {
+    const res = await request(server)
+      .get('/announcements')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .expect(200);
 
-      const resources = response.body.data || response.body;
-      expect(Array.isArray(resources)).toBe(true);
-      // All resources should belong to tenant1
-      resources.forEach((resource: Record<string, unknown>) => {
-        expect(resource.tenantId).toBe(tenant1.id);
-      });
-    });
+    const titles = ((res.body as { data?: { title: string }[] }).data ?? []).map((a) => a.title);
+    expect(titles).toContain(`Ann-B-${ts}`);
+    expect(titles).not.toContain(`Ann-A-${ts}`);
+  });
 
-    it("should prevent user from accessing other tenant's resources", async () => {
-      // User1 trying to access tenant2's resource
-      const response = await request(app.getHttpServer() as Server)
-        .get(`/api/resources/${resource2?.id}`)
-        .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant1.id)
-        .expect(404); // Should return 404, not 403, to avoid information leakage
+  it("user A cannot read tenant B's announcement by id (404)", async () => {
+    if (!annBId) return; // skip if creation failed
+    await request(server)
+      .get(`/announcements/${annBId}`)
+      .set('Authorization', `Bearer ${tokenA}`)
+      .expect(404);
+  });
 
-      expect(response.body.message).not.toContain(tenant2.id);
-    });
+  it('announcement created by A is invisible to B', async () => {
+    const res = await request(server)
+      .post('/announcements')
+      .set('Authorization', `Bearer ${tokenA}`)
+      .send({ targetType: 'all', title: `Ann-A2-${ts}`, content: 'cross-check' })
+      .expect(201);
 
-    it('should prevent user from creating resources in other tenant', async () => {
-      // User1 trying to create resource in tenant2
-      const response = await request(app.getHttpServer() as Server)
-        .post('/api/resources')
-        .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant2.id) // Wrong tenant
-        .send({
-          name: 'Unauthorized Resource',
-        })
-        .expect(403);
+    const newId = (res.body as { id?: string }).id;
 
-      expect(response.body.message).toContain('tenant');
-    });
+    // B listing: new A announcement absent
+    const listRes = await request(server)
+      .get('/announcements')
+      .set('Authorization', `Bearer ${tokenB}`)
+      .expect(200);
 
-    it("should prevent user from updating other tenant's resources", async () => {
-      // User1 trying to update tenant2's resource
-      const response = await request(app.getHttpServer() as Server)
-        .put(`/api/resources/${resource2?.id}`)
-        .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant1.id)
-        .send({
-          name: 'Updated Name',
-        })
+    const titles = ((listRes.body as { data?: { title: string }[] }).data ?? []).map((a) => a.title);
+    expect(titles).not.toContain(`Ann-A2-${ts}`);
+
+    // B direct fetch: 404
+    if (newId) {
+      await request(server)
+        .get(`/announcements/${newId}`)
+        .set('Authorization', `Bearer ${tokenB}`)
         .expect(404);
-
-      expect(response.body.message).not.toContain(tenant2.id);
-    });
-
-    it("should prevent user from deleting other tenant's resources", async () => {
-      // User1 trying to delete tenant2's resource
-      const response = await request(app.getHttpServer() as Server)
-        .delete(`/api/resources/${resource2?.id}`)
-        .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant1.id)
-        .expect(404);
-
-      expect(response.body.message).not.toContain(tenant2.id);
-    });
+    }
   });
 
-  describe('Tenant Context Validation', () => {
-    it('should require tenant context header', async () => {
-      const response = await request(app.getHttpServer() as Server)
-        .get('/api/resources')
-        .set('Authorization', 'Bearer valid-token')
-        .expect(400);
-
-      expect(response.body.message).toContain('tenant');
-    });
-
-    it('should validate user belongs to tenant', async () => {
-      // User1 trying to use tenant2 context
-      const response = await request(app.getHttpServer() as Server)
-        .get('/api/resources')
-        .set('Authorization', 'Bearer user1-token')
-        .set('X-Tenant-Id', tenant2.id)
-        .expect(403);
-
-      expect(response.body.message).toContain('tenant');
-    });
-  });
-
-  describe('Row-Level Security', () => {
-    it('should enforce RLS policies at database level', async () => {
-      // Direct database query should respect RLS
-      // This test verifies that even direct queries are filtered
-      const resources = await prisma.$queryRaw`
-        SELECT * FROM resources WHERE tenant_id = ${tenant1.id}
-      `;
-
-      // All results should belong to tenant1
-      expect(Array.isArray(resources)).toBe(true);
-      // Verify RLS is working (adjust based on actual schema)
-    });
+  it('rejects request with no token (401)', async () => {
+    await request(server).get('/announcements').expect(401);
   });
 });

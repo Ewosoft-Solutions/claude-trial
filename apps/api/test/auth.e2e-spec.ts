@@ -1,7 +1,8 @@
 /**
  * Authentication Flow Integration Tests
  *
- * Tests the complete authentication flow including login, school selection, and token refresh.
+ * Tests the complete auth flow: login → select-school → refresh.
+ * Requires APP_RUNTIME_DATABASE_URL (a real Postgres DB); skips otherwise.
  */
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -14,19 +15,27 @@ import {
   beforeAll,
   afterAll,
   beforeEach,
+  afterEach,
 } from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { PasswordService } from '../src/auth/services/password.service';
 import { DatabaseService } from '../src/common';
+import { JWTSecretService } from '@workspace/api';
 import { Server } from 'http';
 
-describe.skip('Authentication Flow (e2e)', () => {
+const HAS_DB = !!process.env.APP_RUNTIME_DATABASE_URL;
+const d = HAS_DB ? describe : describe.skip;
+
+d('Authentication Flow (e2e)', () => {
   let app: INestApplication;
-  let database: DatabaseService;
   let prisma: DatabaseService['client'];
-  let testUser: any;
-  let testTenant: any;
-  let testProfile: any;
+
+  // Per-test fixtures (recreated fresh for each test)
+  let testEmail = '';
+  let testTenant: { id: string; slug: string } | null = null;
+  let testUser: { id: string } | null = null;
+  let testRole: { id: string } | null = null;
+  let testProfile: { id: string } | null = null;
 
   beforeAll(async () => {
     const moduleFixture: TestingModule = await Test.createTestingModule({
@@ -35,24 +44,7 @@ describe.skip('Authentication Flow (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
-
-    database = app.get(DatabaseService);
-    prisma = database.client;
-  });
-
-  afterEach(async () => {
-    if (testProfile) {
-      await prisma.userTenant.deleteMany({ where: { id: testProfile.id } });
-      testProfile = null as any;
-    }
-    if (testUser) {
-      await prisma.user.deleteMany({ where: { id: testUser.id } });
-      testUser = null as any;
-    }
-    if (testTenant) {
-      await prisma.tenant.deleteMany({ where: { id: testTenant.id } });
-      testTenant = null as any;
-    }
+    prisma = app.get(DatabaseService).client;
   });
 
   afterAll(async () => {
@@ -60,169 +52,186 @@ describe.skip('Authentication Flow (e2e)', () => {
   });
 
   beforeEach(async () => {
-    // Create test tenant
+    const ts = Date.now();
+    const slug = `auth-e2e-${ts}`;
+    testEmail = `test-auth-${ts}@example.com`;
+
     testTenant = await prisma.tenant.create({
-      data: {
-        name: 'Test School',
-        slug: 'test-school-auth',
-        status: 'active',
-      },
+      data: { name: 'Auth E2E School', slug, status: 'active' },
     });
 
-    // Create test user
-    const hashedPassword =
-      await PasswordService.hashPassword('TestPassword123');
+    // JWT config is required for select-school to issue tokens
+    await JWTSecretService.initializeTenantJWTSecret(prisma, testTenant.id);
+
+    const hashedPassword = await PasswordService.hashPassword('TestPassword123');
     testUser = await prisma.user.create({
       data: {
-        email: 'test-auth@example.com',
+        email: testEmail,
         passwordHash: hashedPassword,
         firstName: 'Test',
         lastName: 'User',
       },
     });
 
-    // Create test profile
+    testRole = await prisma.role.create({
+      data: {
+        name: `auth-e2e-role-${Date.now()}`,
+        roleType: 'custom',
+        clearanceLevel: 1,
+        tenantId: testTenant.id,
+        isActive: true,
+      },
+    });
+
     testProfile = await prisma.userTenant.create({
       data: {
         userId: testUser.id,
         tenantId: testTenant.id,
         status: 'active',
         suspended: false,
+        userTenantRole: {
+          create: {
+            roleId: testRole.id,
+            tenantId: testTenant.id,
+            isPrimary: true,
+          },
+        },
       },
     });
   });
 
+  afterEach(async () => {
+    // Delete in dependency order: role assignment → profile → user → JWT config → tenant
+    if (testProfile) {
+      await prisma.userTenantRole.deleteMany({ where: { userTenantId: testProfile.id } });
+      await prisma.userTenant.deleteMany({ where: { id: testProfile.id } });
+      testProfile = null;
+    }
+    if (testUser) {
+      await prisma.user.deleteMany({ where: { id: testUser.id } });
+      testUser = null;
+    }
+    if (testRole) {
+      await prisma.role.deleteMany({ where: { id: testRole.id } });
+      testRole = null;
+    }
+    if (testTenant) {
+      await prisma.tenantJWTConfig.deleteMany({ where: { tenantId: testTenant.id } });
+      await prisma.tenant.deleteMany({ where: { id: testTenant.id } });
+      testTenant = null;
+    }
+  });
+
   describe('POST /auth/login', () => {
-    it('should login successfully and return schools list with pre-auth token', async () => {
-      const response = await request(app.getHttpServer() as Server)
+    it('should return user + schools list + pre-auth token', async () => {
+      const res = await request(app.getHttpServer() as Server)
         .post('/auth/login')
-        .send({
-          email: 'test-auth@example.com',
-          password: 'TestPassword123',
-        })
+        .send({ email: testEmail, password: 'TestPassword123' })
         .expect(200);
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.user).toBeDefined();
-      expect(response.body.user.email).toBe('test@example.com');
-      expect(response.body.schools).toBeDefined();
-      expect(Array.isArray(response.body.schools)).toBe(true);
-      expect(response.body.token).toBeDefined();
-      expect(typeof response.body.token).toBe('string');
+      expect(res.body.success).toBe(true);
+      expect(res.body.user).toBeDefined();
+      expect(res.body.user.email).toBe(testEmail);
+      expect(Array.isArray(res.body.schools)).toBe(true);
+      expect(typeof res.body.token).toBe('string');
     });
 
-    it('should reject invalid credentials', async () => {
-      const response = await request(app.getHttpServer() as Server)
+    it('should reject wrong password', async () => {
+      const res = await request(app.getHttpServer() as Server)
         .post('/auth/login')
-        .send({
-          email: 'test-auth@example.com',
-          password: 'WrongPassword',
-        })
+        .send({ email: testEmail, password: 'WrongPassword' })
         .expect(401);
 
-      expect(response.body.success).toBe(false);
+      expect(res.body.success).toBe(false);
     });
 
     it('should reject non-existent user', async () => {
-      const response = await request(app.getHttpServer() as Server)
+      const res = await request(app.getHttpServer() as Server)
         .post('/auth/login')
-        .send({
-          email: 'nonexistent@example.com',
-          password: 'TestPassword123',
-        })
+        .send({ email: 'nobody@example.com', password: 'TestPassword123' })
         .expect(401);
 
-      expect(response.body.success).toBe(false);
+      expect(res.body.success).toBe(false);
     });
   });
 
   describe('POST /auth/select-school', () => {
-    let loginToken: string;
+    let preAuthToken: string;
 
     beforeEach(async () => {
-      const loginResponse = await request(app.getHttpServer() as Server)
+      const loginRes = await request(app.getHttpServer() as Server)
         .post('/auth/login')
-        .send({
-          email: 'test-auth@example.com',
-          password: 'TestPassword123',
-        });
-
-      loginToken = loginResponse.body.token;
+        .send({ email: testEmail, password: 'TestPassword123' });
+      preAuthToken = loginRes.body.token as string;
     });
 
-    it('should select school and return JWT tokens', async () => {
-      const response = await request(app.getHttpServer() as Server)
+    it('should issue access + refresh tokens after school selection', async () => {
+      const res = await request(app.getHttpServer() as Server)
         .post('/auth/select-school')
-        .set('Authorization', `Bearer ${loginToken}`)
-        .send({
-          tenantId: testTenant.id,
-          profileId: testProfile.id,
-        });
+        .set('Authorization', `Bearer ${preAuthToken}`)
+        .send({ tenantId: testTenant!.id, profileId: testProfile!.id })
+        .expect(200);
 
-      expect([200, 401]).toContain(response.status);
-
-      if (response.status === 200) {
-        expect(response.body.success).toBe(true);
-        expect(response.body.accessToken).toBeDefined();
-        expect(response.body.refreshToken).toBeDefined();
-        expect(response.body.tenantContext).toBeDefined();
-      }
+      expect(res.body.success).toBe(true);
+      expect(typeof res.body.accessToken).toBe('string');
+      expect(typeof res.body.refreshToken).toBe('string');
+      expect(res.body.tenantContext).toBeDefined();
+      expect(res.body.tenantContext.tenantId).toBe(testTenant!.id);
     });
 
     it('should reject request without pre-auth token', async () => {
-      const response = await request(app.getHttpServer() as Server)
+      const res = await request(app.getHttpServer() as Server)
         .post('/auth/select-school')
-        .send({
-          tenantId: testTenant.id,
-          profileId: testProfile.id,
-        })
+        .send({ tenantId: testTenant!.id, profileId: testProfile!.id })
         .expect(401);
 
-      expect(response.body.message).toContain('No token provided');
+      expect(res.body.message).toContain('No token provided');
     });
 
     it('should reject request with invalid pre-auth token', async () => {
-      const response = await request(app.getHttpServer() as Server)
+      const res = await request(app.getHttpServer() as Server)
         .post('/auth/select-school')
         .set('Authorization', 'Bearer invalid-token')
-        .send({
-          tenantId: testTenant.id,
-          profileId: testProfile.id,
-        })
+        .send({ tenantId: testTenant!.id, profileId: testProfile!.id })
         .expect(401);
 
-      expect(response.body.message).toContain('Invalid or expired pre-auth token');
+      expect(res.body.message).toContain('Invalid or expired pre-auth token');
     });
   });
 
   describe('POST /auth/refresh', () => {
-    it('should refresh access token with valid refresh token', async () => {
-      // This test requires a valid refresh token
-      // In a real scenario, you'd get this from select-school endpoint
-      const response = await request(app.getHttpServer() as Server)
-        .post('/auth/refresh')
-        .send({
-          refreshToken: 'valid-refresh-token',
-        });
+    let refreshToken: string;
 
-      // Expect either success or 401 if token is invalid
-      expect([200, 401]).toContain(response.status);
+    beforeEach(async () => {
+      const loginRes = await request(app.getHttpServer() as Server)
+        .post('/auth/login')
+        .send({ email: testEmail, password: 'TestPassword123' });
 
-      if (response.status === 200) {
-        expect(response.body.success).toBe(true);
-        expect(response.body.accessToken).toBeDefined();
-      }
+      const selectRes = await request(app.getHttpServer() as Server)
+        .post('/auth/select-school')
+        .set('Authorization', `Bearer ${loginRes.body.token}`)
+        .send({ tenantId: testTenant!.id, profileId: testProfile!.id });
+
+      refreshToken = selectRes.body.refreshToken as string;
     });
 
-    it('should reject invalid refresh token', async () => {
-      const response = await request(app.getHttpServer() as Server)
+    it('should issue a new access token for a valid refresh token', async () => {
+      const res = await request(app.getHttpServer() as Server)
         .post('/auth/refresh')
-        .send({
-          refreshToken: 'invalid-refresh-token',
-        })
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(typeof res.body.accessToken).toBe('string');
+    });
+
+    it('should reject an invalid refresh token', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken: 'invalid-refresh-token' })
         .expect(401);
 
-      expect(response.body.success).toBe(false);
+      expect(res.body.success).toBe(false);
     });
   });
 });
