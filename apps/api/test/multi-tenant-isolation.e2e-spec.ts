@@ -81,8 +81,8 @@ d('Multi-Tenant Isolation — real JWT flow (e2e)', () => {
 
     const pw = await PasswordService.hashPassword('IsoTest@2025!');
     const [uA, uB] = await Promise.all([
-      owner.user.create({ data: { email: `iso-a-${ts}@example.com`, passwordHash: pw, firstName: 'A', lastName: 'User' } }),
-      owner.user.create({ data: { email: `iso-b-${ts}@example.com`, passwordHash: pw, firstName: 'B', lastName: 'User' } }),
+      owner.user.create({ data: { email: `iso-a-${ts}@example.com`, passwordHash: pw, firstName: 'A', lastName: 'User', isVerified: true, isActive: true } }),
+      owner.user.create({ data: { email: `iso-b-${ts}@example.com`, passwordHash: pw, firstName: 'B', lastName: 'User', isVerified: true, isActive: true } }),
     ]);
 
     const [rA, rB] = await Promise.all([

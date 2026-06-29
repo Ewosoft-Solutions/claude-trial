@@ -70,6 +70,8 @@ d('Authentication Flow (e2e)', () => {
         passwordHash: hashedPassword,
         firstName: 'Test',
         lastName: 'User',
+        isVerified: true,
+        isActive: true,
       },
     });
 
