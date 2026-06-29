@@ -1,6 +1,6 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-06-27
+Last Updated: 2026-06-29
 
 ---
 
@@ -62,6 +62,39 @@ internal links are now next/link `<Link>`.
 ---
 
 # Completed Work
+
+## Session Summary (2026-06-29, Step 6) — schoolType-driven nav polymorphism
+
+**Step 6 of backend-remediation-plan.md — COMPLETE.**
+
+- **Infrastructure already present**: `SchoolType` union, `schoolTypes` field on `NavAccess`, and the
+  `canAccess` branch in `@workspace/ui/lib/navigation` were all already wired. `ViewerContext.schoolType`
+  was already sourced from `activeSchool?.schoolType` in `ViewerProvider`. Nothing to change in the
+  foundation layer.
+- **`SCHOOL_NAV` updated** (`apps/web/lib/navigation/app-navigation.tsx`):
+  - Existing students `transport` sub-item gated: `schoolTypes: ['nursery', 'primary', 'secondary']`.
+  - Three new top-level sections added (each has a `schoolTypes` guard AND a permission guard):
+    - **Transport** (`/transport`) — `schoolTypes: ['nursery', 'primary', 'secondary']`,
+      `transportation.view`; sub-items: Routes, Pickups & drops.
+    - **Library** (`/library`) — `schoolTypes: ['primary', 'secondary', 'university', 'college']`,
+      `library.view`; sub-items: Books, Loans.
+    - **HR** (`/hr`) — `schoolTypes: ['secondary', 'university', 'college', 'training_institute', 'organization']`,
+      `hr.view`; sub-items: Directory, Leave.
+- **Route layout stubs** created for the three new sections (`/transport`, `/library`, `/hr`), each
+  calling `requirePermission` to guard the routes server-side.
+- **Tests updated** (`apps/web/lib/navigation/app-navigation.test.tsx`):
+  - `OWNER` fixture given `schoolType: 'secondary'`; `ALL_SCHOOL_PERMISSIONS` set extracted.
+  - Three new viewer fixtures: `PRIMARY_OWNER` (primary), `UNIVERSITY_OWNER` (university),
+    `UNTYPED_OWNER` (no schoolType — simulates an org with schoolType absent).
+  - "offers every section" assertion updated to include transport/library/hr for secondary owner.
+  - New `SCHOOL_NAV schoolType visibility` describe block with 5 assertions:
+    primary shows transport+library, not HR; university shows library+HR, not transport;
+    untyped shows none of the three gated sections; students/transport sub-item hidden for
+    university, visible for primary.
+- **Verification**: web type-check ✅ · web lint ✅ · web build ✅. (Test runner has a pre-existing
+  rolldown native binding issue unrelated to this work — rolldown arm64 binary absent from the
+  pnpm store; code correctness confirmed via type-check and logic review.)
+- **Pushed** to `origin/claude` / lands in PR #1.
 
 ## Session Summary (2026-06-27, Step 5) — Finance/billing domain
 

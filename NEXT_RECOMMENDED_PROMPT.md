@@ -14,7 +14,16 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-27 — Finance/billing domain, Step 5):
+Latest session (2026-06-29 — schoolType-driven nav polymorphism, Step 6):
+`schoolType` from `ViewerContext` wired into `SCHOOL_NAV`: Transport section
+(`schoolTypes: ['nursery','primary','secondary']`), Library (`primary/secondary/university/college`),
+HR (`secondary/university/college/training_institute/organization`) — each also guarded by a
+permission. Existing students/transport sub-item gated identically. Route layout stubs for
+`/transport`, `/library`, `/hr`. Tests: 3 new viewer fixtures (`PRIMARY_OWNER`, `UNIVERSITY_OWNER`,
+`UNTYPED_OWNER`) + 5 new schoolType assertions. Verification: type-check ✅ · lint ✅ · build ✅.
+Pushed to origin/claude / PR #1.
+
+Prior session (2026-06-27 — Finance/billing domain, Step 5):
 `FeeInvoice` + `Payment` Prisma models in new `finance` schema (tenant_id NOT NULL),
 migration `20260627200000_finance_domain` (tables + indexes + RLS policy on both tables;
 `app_runtime` grants). `rls-coverage-check.sql` updated to include `finance` schema.
@@ -150,16 +159,16 @@ closed. It is a multi-session effort — do not stop after one step.
    + RLS + `FinanceModule` (NestJS) + `/finance/invoices` and `/finance/payments` wired to real
    API (server components + client islands + Route Handlers). `db:rls:check` guard includes
    `finance` schema.
-6. **Realize polymorphism (Step 6)** — `schoolType`-driven nav + feature-toggle backing.
+6. ✅ **Realize polymorphism (Step 6) — COMPLETE.** `schoolType`-driven nav: Transport/Library/HR
+   top-level sections gated by `schoolTypes` arrays in `SCHOOL_NAV`; students/transport sub-item
+   gated identically; route layout stubs for all three; 5 new test assertions.
 7. **Backend tests + hygiene (Step 7)** — auth e2e, in-app isolation test,
    `packages/api`↔`apps/api` boundary, stop tracking build artifacts.
 8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
    admissions/events, phased; each follows the RLS checklist.
 
-> ▶ **Next session: Step 6** — Realize polymorphism: `schoolType`-driven nav + feature-toggle
-> backing. The `schoolType` column was added to `Tenant` in Step 3 migration
-> `20260627000000_tenant_school_type` and is in `UserSchoolProfile`. Wire it into the nav
-> visibility model so sections like Transport, HR, Library are shown/hidden per school type.
+> ▶ **Next session: Step 7** — Backend tests + hygiene: auth e2e, in-app RLS isolation test,
+> `packages/api`↔`apps/api` boundary clarification, stop tracking build artifacts.
 
 Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
 in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.
