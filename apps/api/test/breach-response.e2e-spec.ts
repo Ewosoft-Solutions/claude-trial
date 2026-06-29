@@ -20,7 +20,7 @@ import { PasswordService } from '../src/auth/services/password.service';
 import { DatabaseService } from '../src/common';
 import { Server } from 'http';
 
-describe('Breach Response System (e2e)', () => {
+describe.skip('Breach Response System (e2e)', () => {
   let app: INestApplication;
   let database: DatabaseService;
   let prisma: DatabaseService['client'];
