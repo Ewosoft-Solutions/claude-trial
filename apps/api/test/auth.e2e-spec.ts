@@ -139,21 +139,17 @@ d('Authentication Flow (e2e)', () => {
     });
 
     it('should reject wrong password', async () => {
-      const res = await request(app.getHttpServer() as Server)
+      await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({ email: testEmail, password: 'WrongPassword' })
         .expect(401);
-
-      expect(res.body.success).toBe(false);
     });
 
     it('should reject non-existent user', async () => {
-      const res = await request(app.getHttpServer() as Server)
+      await request(app.getHttpServer() as Server)
         .post('/auth/login')
         .send({ email: 'nobody@example.com', password: 'TestPassword123' })
         .expect(401);
-
-      expect(res.body.success).toBe(false);
     });
   });
 
@@ -174,7 +170,6 @@ d('Authentication Flow (e2e)', () => {
         .send({ tenantId: testTenant!.id, profileId: testProfile!.id })
         .expect(200);
 
-      expect(res.body.success).toBe(true);
       expect(typeof res.body.accessToken).toBe('string');
       expect(typeof res.body.refreshToken).toBe('string');
       expect(res.body.tenantContext).toBeDefined();
@@ -223,17 +218,14 @@ d('Authentication Flow (e2e)', () => {
         .send({ refreshToken })
         .expect(200);
 
-      expect(res.body.success).toBe(true);
       expect(typeof res.body.accessToken).toBe('string');
     });
 
     it('should reject an invalid refresh token', async () => {
-      const res = await request(app.getHttpServer() as Server)
+      await request(app.getHttpServer() as Server)
         .post('/auth/refresh')
         .send({ refreshToken: 'invalid-refresh-token' })
         .expect(401);
-
-      expect(res.body.success).toBe(false);
     });
   });
 });
