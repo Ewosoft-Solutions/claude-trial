@@ -43,34 +43,30 @@ describe('Authorization System (e2e)', () => {
     prisma = database.client;
   });
 
-  afterAll(async () => {
-    // Cleanup
+  afterEach(async () => {
     if (testProfile) {
-      await prisma.userTenant.deleteMany({
-        where: { id: testProfile.id },
-      });
+      await prisma.userTenant.deleteMany({ where: { id: testProfile.id } });
+      testProfile = null as any;
     }
     if (testUser) {
-      await prisma.user.deleteMany({
-        where: { id: testUser.id },
-      });
-    }
-    if (testTenant) {
-      await prisma.tenant.deleteMany({
-        where: { id: testTenant.id },
-      });
+      await prisma.user.deleteMany({ where: { id: testUser.id } });
+      testUser = null as any;
     }
     if (testRole) {
-      await prisma.role.deleteMany({
-        where: { id: testRole.id },
-      });
+      await prisma.role.deleteMany({ where: { id: testRole.id } });
+      testRole = null as any;
     }
     if (testPermission) {
-      await prisma.permission.deleteMany({
-        where: { id: testPermission.id },
-      });
+      await prisma.permission.deleteMany({ where: { id: testPermission.id } });
+      testPermission = null as any;
     }
+    if (testTenant) {
+      await prisma.tenant.deleteMany({ where: { id: testTenant.id } });
+      testTenant = null as any;
+    }
+  });
 
+  afterAll(async () => {
     await app.close();
   });
 

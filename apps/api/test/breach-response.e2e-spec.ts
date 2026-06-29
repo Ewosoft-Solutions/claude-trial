@@ -41,24 +41,22 @@ describe('Breach Response System (e2e)', () => {
     prisma = database.client;
   });
 
-  afterAll(async () => {
-    // Cleanup
+  afterEach(async () => {
     if (testProfile) {
-      await prisma.userTenant.deleteMany({
-        where: { id: testProfile.id },
-      });
+      await prisma.userTenant.deleteMany({ where: { id: testProfile.id } });
+      testProfile = null as any;
     }
     if (testUser) {
-      await prisma.user.deleteMany({
-        where: { id: testUser.id },
-      });
+      await prisma.user.deleteMany({ where: { id: testUser.id } });
+      testUser = null as any;
     }
     if (testTenant) {
-      await prisma.tenant.deleteMany({
-        where: { id: testTenant.id },
-      });
+      await prisma.tenant.deleteMany({ where: { id: testTenant.id } });
+      testTenant = null as any;
     }
+  });
 
+  afterAll(async () => {
     await app.close();
   });
 
