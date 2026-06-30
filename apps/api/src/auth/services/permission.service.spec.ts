@@ -24,8 +24,16 @@ import {
 import { Prisma, PrismaClient, Permission } from '@workspace/database';
 import { DeepMockProxy } from 'jest-mock-extended';
 
+type RolePoolInclude = {
+  rolePools: {
+    include: {
+      pool: { include: { poolPermissions: { include: { permission: true } } } };
+    };
+  };
+};
+
 type RoleWithPermissions = Prisma.RoleGetPayload<{
-  include: { rolePermissions: { include: { permission: true } } };
+  include: RolePoolInclude;
 }>;
 
 type UserTenantProfile = Prisma.UserTenantGetPayload<{
@@ -33,7 +41,7 @@ type UserTenantProfile = Prisma.UserTenantGetPayload<{
     userTenantRole: {
       include: {
         role: {
-          include: { rolePermissions: { include: { permission: true } } };
+          include: RolePoolInclude;
         };
       };
     };
@@ -53,8 +61,15 @@ type UserTenantProfile = Prisma.UserTenantGetPayload<{
   };
 }>;
 
-type RolePermissionWithPermission = Prisma.RolePermissionGetPayload<{
-  include: { permission: true };
+type PermissionPoolPermissionWithPermission =
+  Prisma.PermissionPoolPermissionGetPayload<{
+    include: { permission: true };
+  }>;
+
+type RolePermissionPoolWithPool = Prisma.RolePermissionPoolGetPayload<{
+  include: {
+    pool: { include: { poolPermissions: { include: { permission: true } } } };
+  };
 }>;
 
 type UserTenantPermissionWithPermission =
@@ -83,18 +98,51 @@ const buildPermissionValue = (
   clearanceLevel = ClearanceLevel.TEACHER,
 ) => ({ granted, clearanceLevel });
 
-const buildRolePermission = (
-  roleId: string,
+const buildPoolPermission = (
+  poolId: string,
   permissionName: string,
-): RolePermissionWithPermission => {
+): PermissionPoolPermissionWithPermission => {
   const permission = buildPermission(permissionName);
   return {
-    id: `${roleId}-${permissionName}-rp`,
-    roleId,
+    id: `${poolId}-${permissionName}-pp`,
+    poolId,
     permissionId: permission.id,
-    grantedAt: new Date(),
-    grantedBy: null,
+    addedAt: new Date(),
+    addedBy: null,
     permission,
+  };
+};
+
+/**
+ * Builds a single RolePermissionPool wrapping one pool containing all of
+ * the given permissions — mirrors the real shape resolved through
+ * Role -> RolePermissionPool -> PermissionPool -> PermissionPoolPermission,
+ * the canonical source of a role's permissions (see TenantQueriesService).
+ */
+const buildRolePool = (
+  roleId: string,
+  permissionNames: string[],
+): RolePermissionPoolWithPool => {
+  const poolId = `${roleId}-pool`;
+  return {
+    id: `${roleId}-${poolId}-rpp`,
+    roleId,
+    poolId,
+    assignedAt: new Date(),
+    assignedBy: null,
+    pool: {
+      id: poolId,
+      name: `${roleId} pool`,
+      clearanceLevel: ClearanceLevel.TEACHER,
+      description: null,
+      isSystemPool: true,
+      tenantId: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      poolPermissions: permissionNames.map((permissionName) =>
+        buildPoolPermission(poolId, permissionName),
+      ),
+    },
   };
 };
 
@@ -121,9 +169,7 @@ const buildRole = ({
   isActive: true,
   createdAt: new Date(),
   updatedAt: new Date(),
-  rolePermissions: permissions.map((permissionName) =>
-    buildRolePermission(id, permissionName),
-  ),
+  rolePools: permissions.length > 0 ? [buildRolePool(id, permissions)] : [],
 });
 
 const buildUserTenantPermission = (

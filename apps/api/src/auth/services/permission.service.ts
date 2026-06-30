@@ -91,13 +91,18 @@ export class PermissionService {
     const roleId = role.id;
     const clearanceLevel = role?.clearanceLevel ?? 0;
 
-    // Build permission map keyed by permission name (activity identifier)
+    // Build permission map keyed by permission name (activity identifier).
+    // Permission pools are the single canonical source of a role's
+    // permissions — see TenantQueriesService.resolveRolePoolPermissions.
+    const rolePoolPermissions = role
+      ? TenantQueriesService.resolveRolePoolPermissions(role)
+      : [];
+
     const permissions = new Map<
       string,
       { granted: boolean; clearanceLevel?: number }
     >();
-    for (const rp of role?.rolePermissions ?? []) {
-      const permission = rp.permission;
+    for (const permission of rolePoolPermissions) {
       const permissionName = permission?.name;
       if (typeof permissionName !== 'string') continue;
 
@@ -122,8 +127,8 @@ export class PermissionService {
 
     const permissionIds = Array.from(
       new Set([
-        ...(role.rolePermissions ?? [])
-          .map((rp) => rp.permission?.id)
+        ...rolePoolPermissions
+          .map((permission) => permission?.id)
           .filter((id): id is string => typeof id === 'string'),
         ...userTenant.userTenantPermissions
           .map((utp) => utp.permission?.id)

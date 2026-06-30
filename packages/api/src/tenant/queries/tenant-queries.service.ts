@@ -56,9 +56,21 @@ export class TenantQueriesService {
           include: {
             role: {
               include: {
-                rolePermissions: {
+                // Permission pools are the single canonical source of a
+                // role's permissions (see resolveRolePoolPermissions) —
+                // the direct RolePermission join is intentionally not
+                // queried here to keep permission resolution unambiguous.
+                rolePools: {
                   include: {
-                    permission: true,
+                    pool: {
+                      include: {
+                        poolPermissions: {
+                          include: {
+                            permission: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -145,9 +157,19 @@ export class TenantQueriesService {
           include: {
             role: {
               include: {
-                rolePermissions: {
+                // Permission pools are the single canonical source of a
+                // role's permissions — see resolveRolePoolPermissions.
+                rolePools: {
                   include: {
-                    permission: true,
+                    pool: {
+                      include: {
+                        poolPermissions: {
+                          include: {
+                            permission: true,
+                          },
+                        },
+                      },
+                    },
                   },
                 },
               },
@@ -166,12 +188,12 @@ export class TenantQueriesService {
       return [];
     }
 
-    // Collect all role permissions
+    // Collect all permissions granted to the role via its pools
     const rolePermissions = new Map<string, boolean>();
     const role = userTenant.userTenantRole?.role;
     if (role) {
-      for (const rp of role.rolePermissions) {
-        rolePermissions.set(rp.permission.name, true);
+      for (const permission of TenantQueriesService.resolveRolePoolPermissions(role)) {
+        rolePermissions.set(permission.name, true);
       }
     }
 
@@ -189,6 +211,39 @@ export class TenantQueriesService {
     );
 
     return permissions;
+  }
+
+  /**
+   * Resolve a role's effective permissions from its permission pools.
+   *
+   * Permission pools are the single canonical source of a role's
+   * permissions — a role is never granted permissions directly. Dedupes
+   * across pools (a role may belong to more than one pool) by permission id.
+   *
+   * @param role - A Role loaded with `rolePools.pool.poolPermissions.permission`
+   * @returns Deduplicated array of Permission records
+   */
+  static resolveRolePoolPermissions(role: {
+    rolePools: Array<{
+      pool: {
+        poolPermissions: Array<{
+          permission: {
+            id: string;
+            name: string;
+            requiredClearanceLevel: number;
+            [key: string]: unknown;
+          };
+        }>;
+      };
+    }>;
+  }): Array<{ id: string; name: string; requiredClearanceLevel: number; [key: string]: unknown }> {
+    const byId = new Map<string, { id: string; name: string; requiredClearanceLevel: number; [key: string]: unknown }>();
+    for (const rolePool of role.rolePools) {
+      for (const poolPermission of rolePool.pool.poolPermissions) {
+        byId.set(poolPermission.permission.id, poolPermission.permission);
+      }
+    }
+    return Array.from(byId.values());
   }
 
   /**
