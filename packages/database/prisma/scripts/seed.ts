@@ -3145,17 +3145,24 @@ function getPermissionPoolsForPermission(
 ): string[] {
   const poolNames: string[] = [];
 
+  // Clearance is a floor, not a ceiling: a permission requiring level R
+  // must be available to every pool at R *and above* (more-privileged
+  // tiers always retain everything less-privileged tiers can do, plus
+  // more) — never to pools below R. Iterating the other direction (0..R)
+  // would leak high-clearance permissions (e.g. requiredClearanceLevel: 8
+  // "users.delete") down into low-clearance pools like Level3_Teacher.
+
   // Platform permissions only go to platform pools (levels 9-10)
   if (category === 'platform') {
-    for (let level = 9; level <= requiredClearanceLevel; level++) {
+    for (let level = Math.max(9, requiredClearanceLevel); level <= 10; level++) {
       const pool = PERMISSION_POOLS.find((p) => p.clearanceLevel === level);
       if (pool) {
         poolNames.push(pool.name);
       }
     }
   } else {
-    // School permissions go to all pools at their clearance level and below
-    for (let level = 0; level <= requiredClearanceLevel; level++) {
+    // School permissions go to their clearance level and every level above it
+    for (let level = requiredClearanceLevel; level <= 10; level++) {
       const pool = PERMISSION_POOLS.find((p) => p.clearanceLevel === level);
       if (pool) {
         poolNames.push(pool.name);
