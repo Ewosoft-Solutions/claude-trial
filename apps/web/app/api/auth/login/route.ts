@@ -16,7 +16,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { apiClient, ApiError } from '@/lib/api-client';
 import {
   COOKIE_ACCESS_TOKEN,
+  COOKIE_POST_LOGIN_REDIRECT,
   COOKIE_REFRESH_TOKEN,
+  isSafeRedirectPath,
+  makeClearCookie,
   makeSetCookie,
 } from '@/lib/auth-cookies';
 
@@ -94,11 +97,17 @@ export async function POST(req: NextRequest) {
       { Authorization: `Bearer ${loginRes.token}` },
     );
 
+    // Single-use post-login redirect, read from the httpOnly cookie the
+    // auth middleware set (never trust a client-supplied value here either).
+    const redirectCookie = req.cookies.get(COOKIE_POST_LOGIN_REDIRECT)?.value;
+    const redirectTo = isSafeRedirectPath(redirectCookie) ? redirectCookie : undefined;
+
     // Set httpOnly cookies — 1 h access, 7 d refresh
     const response = NextResponse.json({
       success: true,
       schools: loginRes.schools,
       tenantContext: selectRes.tenantContext,
+      redirectTo,
     });
 
     response.headers.append(
@@ -109,6 +118,7 @@ export async function POST(req: NextRequest) {
       'Set-Cookie',
       makeSetCookie(COOKIE_REFRESH_TOKEN, selectRes.refreshToken, 7 * 24 * 3600),
     );
+    response.headers.append('Set-Cookie', makeClearCookie(COOKIE_POST_LOGIN_REDIRECT));
 
     return response;
   } catch (err) {

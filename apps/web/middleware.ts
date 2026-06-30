@@ -7,7 +7,11 @@
  * must not redirect in that case.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { COOKIE_ACCESS_TOKEN } from './lib/auth-cookies';
+import {
+  COOKIE_ACCESS_TOKEN,
+  COOKIE_POST_LOGIN_REDIRECT,
+  isSafeRedirectPath,
+} from './lib/auth-cookies';
 
 const PUBLIC_PATHS = new Set(['/login', '/forgot-password', '/reset-password']);
 
@@ -33,8 +37,23 @@ export function middleware(req: NextRequest) {
   if (!hasToken) {
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
-    loginUrl.searchParams.set('from', pathname);
-    return NextResponse.redirect(loginUrl);
+    loginUrl.search = '';
+    const res = NextResponse.redirect(loginUrl);
+
+    // Stash the intended destination in an httpOnly cookie instead of a
+    // `?from=` query param — keeps it out of the URL bar, browser history,
+    // and referrer headers, and out of reach of client JS / user editing.
+    if (isSafeRedirectPath(pathname)) {
+      res.cookies.set(COOKIE_POST_LOGIN_REDIRECT, pathname, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 300,
+      });
+    }
+
+    return res;
   }
 
   return NextResponse.next();

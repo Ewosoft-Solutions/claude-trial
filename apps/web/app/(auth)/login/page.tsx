@@ -49,7 +49,7 @@ export default function LoginPage() {
           return;
         }
 
-        router.push('/overview');
+        router.push(data.redirectTo ?? '/overview');
         router.refresh();
       } catch {
         setError('Unable to connect to the server. Please try again.');
@@ -77,7 +77,7 @@ export default function LoginPage() {
           return;
         }
 
-        router.push('/overview');
+        router.push(data.redirectTo ?? '/overview');
         router.refresh();
       } catch {
         setError('Unable to connect to the server. Please try again.');

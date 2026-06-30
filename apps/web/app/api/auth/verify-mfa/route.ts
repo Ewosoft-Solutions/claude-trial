@@ -12,7 +12,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { apiClient, ApiError } from '@/lib/api-client';
 import {
   COOKIE_ACCESS_TOKEN,
+  COOKIE_POST_LOGIN_REDIRECT,
   COOKIE_REFRESH_TOKEN,
+  isSafeRedirectPath,
+  makeClearCookie,
   makeSetCookie,
 } from '@/lib/auth-cookies';
 
@@ -62,7 +65,14 @@ export async function POST(req: NextRequest) {
       { Authorization: `Bearer ${verifyRes.token}` },
     );
 
-    const response = NextResponse.json({ success: true, tenantContext: selectRes.tenantContext });
+    const redirectCookie = req.cookies.get(COOKIE_POST_LOGIN_REDIRECT)?.value;
+    const redirectTo = isSafeRedirectPath(redirectCookie) ? redirectCookie : undefined;
+
+    const response = NextResponse.json({
+      success: true,
+      tenantContext: selectRes.tenantContext,
+      redirectTo,
+    });
 
     response.headers.append(
       'Set-Cookie',
@@ -72,6 +82,7 @@ export async function POST(req: NextRequest) {
       'Set-Cookie',
       makeSetCookie(COOKIE_REFRESH_TOKEN, selectRes.refreshToken, 7 * 24 * 3600),
     );
+    response.headers.append('Set-Cookie', makeClearCookie(COOKIE_POST_LOGIN_REDIRECT));
 
     return response;
   } catch (err) {
