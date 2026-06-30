@@ -189,6 +189,23 @@ async function findOrCreateUserTenant(userId: string, tenantId: string) {
   });
 }
 
+/**
+ * Creates a fresh UserTenant row even if one already exists for this
+ * (userId, tenantId) pair — used to give one user a second profile (and
+ * thus a second role) at the same school, since role is 1:1 with profile.
+ * Idempotent via a marker lookup on (userId, tenantId, role) through the
+ * linked UserTenantRole rather than on UserTenant itself.
+ */
+async function createAdditionalProfile(userId: string, tenantId: string, roleId: string) {
+  const existing = await prisma.userTenant.findFirst({
+    where: { userId, tenantId, userTenantRole: { roleId } },
+  });
+  if (existing) return existing;
+  return prisma.userTenant.create({
+    data: { userId, tenantId, status: 'active', suspended: false },
+  });
+}
+
 async function assignRole(userTenantId: string, roleId: string, tenantId: string) {
   const existing = await prisma.userTenantRole.findUnique({ where: { userTenantId } });
   if (existing) return existing;
@@ -603,6 +620,42 @@ async function seedAttendanceData(tenantId: string) {
 }
 
 // ---------------------------------------------------------------------------
+// Multi-school, multi-role persona — exercises the schools[].profiles[]
+// grouping: one user with two profiles at Greenfield (Teacher + Parent)
+// and a third profile at Sunrise (Teacher).
+// ---------------------------------------------------------------------------
+
+async function seedMultiProfilePersona(
+  roles: Record<string, string>,
+  passwordHash: string,
+) {
+  console.log('\n📋 Seeding multi-school, multi-role persona...');
+
+  const greenfield = await prisma.tenant.findUnique({ where: { slug: 'greenfield-secondary' } });
+  const sunrise = await prisma.tenant.findUnique({ where: { slug: 'sunrise-primary' } });
+  if (!greenfield || !sunrise) {
+    console.warn('  ⚠️  Tenants not found — run tenant seeding first. Skipping multi-profile persona.');
+    return;
+  }
+
+  const user = await upsertUser('multi@schoolwithease.test', 'Multi', 'Profile', passwordHash);
+
+  // Greenfield: Teacher profile (own UserTenant row)
+  const greenfieldTeacher = await findOrCreateUserTenant(user.id, greenfield.id);
+  await assignRole(greenfieldTeacher.id, roles['Teacher']!, greenfield.id);
+
+  // Greenfield: second profile, Parent — same user, same school, different role
+  const greenfieldParent = await createAdditionalProfile(user.id, greenfield.id, roles['Parent']!);
+  await assignRole(greenfieldParent.id, roles['Parent']!, greenfield.id);
+
+  // Sunrise: Teacher profile — same user, different school
+  const sunriseTeacher = await findOrCreateUserTenant(user.id, sunrise.id);
+  await assignRole(sunriseTeacher.id, roles['Teacher']!, sunrise.id);
+
+  console.log('  ✅ multi@schoolwithease.test → Greenfield: Teacher + Parent, Sunrise: Teacher');
+}
+
+// ---------------------------------------------------------------------------
 // Utility
 // ---------------------------------------------------------------------------
 
@@ -641,6 +694,8 @@ async function main() {
       }
     }
 
+    await seedMultiProfilePersona(roles, passwordHash);
+
     console.log('\n✨ Dev-persona seed complete!\n');
     console.log('📋 Account summary');
     console.log('─'.repeat(70));
@@ -659,6 +714,9 @@ async function main() {
       console.log('');
     }
 
+    console.log('Multi-school / multi-role test account');
+    console.log('  multi@schoolwithease.test          Greenfield: Teacher + Parent, Sunrise: Teacher');
+    console.log('');
     console.log('  Default password: DevPassword@2025!');
     console.log('─'.repeat(70));
   } catch (err) {
