@@ -33,22 +33,22 @@ export const ENROLLMENT_STATUSES = [
 ] as const;
 
 class StudentDocumentDto {
-  @ApiProperty({ description: 'Document name' })
+  @ApiProperty({ description: 'Document name', example: 'Birth Certificate' })
   @IsString()
   @MaxLength(255)
   name: string;
 
-  @ApiProperty({ description: 'Document URL' })
+  @ApiProperty({ description: 'Document URL', example: 'https://files.schoolwithease.com/docs/birth-cert-001.pdf' })
   @IsUrl()
   url: string;
 
-  @ApiPropertyOptional({ description: 'Document type (e.g., pdf, image)' })
+  @ApiPropertyOptional({ description: 'Document type (e.g., pdf, image)', example: 'pdf' })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   type?: string;
 
-  @ApiPropertyOptional({ description: 'Optional description' })
+  @ApiPropertyOptional({ description: 'Optional description', example: 'Certified copy submitted at admission' })
   @IsOptional()
   @IsString()
   @MaxLength(500)
@@ -56,25 +56,25 @@ class StudentDocumentDto {
 }
 
 export class CreateStudentDto {
-  @ApiProperty({ description: 'Student number (unique per tenant)' })
+  @ApiProperty({ description: 'Student number (unique per tenant)', example: 'STU-2025-0042' })
   @IsString()
   studentNumber: string;
 
-  @ApiProperty({ description: 'UserTenant profile ID for the student' })
+  @ApiProperty({ description: 'UserTenant profile ID for the student', example: 'a1b2c3d4-e5f6-4789-9abc-def012345678' })
   @IsString()
   userTenantId: string;
 
-  @ApiPropertyOptional({ description: 'Admission number' })
+  @ApiPropertyOptional({ description: 'Admission number', example: 'ADM-2025-0042' })
   @IsOptional()
   @IsString()
   admissionNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Admission date' })
+  @ApiPropertyOptional({ description: 'Admission date', example: '2025-09-01' })
   @IsOptional()
   @IsDateString()
   admissionDate?: string;
 
-  @ApiPropertyOptional({ description: 'Grade level (e.g., 9, 10, K)' })
+  @ApiPropertyOptional({ description: 'Grade level (e.g., 9, 10, K)', example: '9' })
   @IsOptional()
   @IsString()
   gradeLevel?: string;
@@ -83,74 +83,90 @@ export class CreateStudentDto {
     description: 'Enrollment status',
     enum: STUDENT_ENROLLMENT_STATUSES,
     default: 'active',
+    example: 'active',
   })
   @IsOptional()
   @IsIn(STUDENT_ENROLLMENT_STATUSES)
   enrollmentStatus?: (typeof STUDENT_ENROLLMENT_STATUSES)[number] = 'active';
 
-  @ApiPropertyOptional({ description: 'Enrollment date' })
+  @ApiPropertyOptional({ description: 'Enrollment date', example: '2025-09-01' })
   @IsOptional()
   @IsDateString()
   enrollmentDate?: string;
 
-  @ApiPropertyOptional({ description: 'Graduation date' })
+  @ApiPropertyOptional({ description: 'Graduation date', example: '2029-06-30' })
   @IsOptional()
   @IsDateString()
   graduationDate?: string;
 
-  @ApiPropertyOptional({ description: 'Withdrawal date' })
+  @ApiPropertyOptional({ description: 'Withdrawal date', example: '2026-01-15' })
   @IsOptional()
   @IsDateString()
   withdrawalDate?: string;
 
-  @ApiPropertyOptional({ description: 'Transfer date' })
+  @ApiPropertyOptional({ description: 'Transfer date', example: '2026-01-15' })
   @IsOptional()
   @IsDateString()
   transferDate?: string;
 
-  @ApiPropertyOptional({ description: 'Personal information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Personal information (JSON)',
+    example: { dateOfBirth: '2011-04-12', gender: 'female', nationality: 'Nigerian' },
+  })
   @IsOptional()
   @IsObject()
   personalInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Academic information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Academic information (JSON)',
+    example: { previousSchool: 'Sunrise Primary School', stream: 'Science' },
+  })
   @IsOptional()
   @IsObject()
   academicInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Health information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Health information (JSON)',
+    example: { bloodGroup: 'O+', allergies: ['peanuts'] },
+  })
   @IsOptional()
   @IsObject()
   healthInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Emergency contacts (array)' })
+  @ApiPropertyOptional({
+    description: 'Emergency contacts (array)',
+    example: [{ name: 'Mrs. E. Achebe', relationship: 'Mother', phone: '+234-801-234-5678' }],
+  })
   @IsOptional()
   @IsArray()
   emergencyContacts?: any[];
 
-  @ApiPropertyOptional({ description: 'Special needs (array)' })
+  @ApiPropertyOptional({
+    description: 'Special needs (array)',
+    example: ['dyslexia support'],
+  })
   @IsOptional()
   @IsArray()
   specialNeeds?: any[];
 }
 
 export class UpdateStudentDto {
-  @ApiPropertyOptional({ description: 'Student number (unique per tenant)' })
+  @ApiPropertyOptional({ description: 'Student number (unique per tenant)', example: 'STU-2025-0042' })
   @IsOptional()
   @IsString()
   studentNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Admission number' })
+  @ApiPropertyOptional({ description: 'Admission number', example: 'ADM-2025-0042' })
   @IsOptional()
   @IsString()
   admissionNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Admission date' })
+  @ApiPropertyOptional({ description: 'Admission date', example: '2025-09-01' })
   @IsOptional()
   @IsDateString()
   admissionDate?: string;
 
-  @ApiPropertyOptional({ description: 'Grade level (e.g., 9, 10, K)' })
+  @ApiPropertyOptional({ description: 'Grade level (e.g., 9, 10, K)', example: '9' })
   @IsOptional()
   @IsString()
   gradeLevel?: string;
@@ -158,52 +174,68 @@ export class UpdateStudentDto {
   @ApiPropertyOptional({
     description: 'Enrollment status',
     enum: STUDENT_ENROLLMENT_STATUSES,
+    example: 'active',
   })
   @IsOptional()
   @IsIn(STUDENT_ENROLLMENT_STATUSES)
   enrollmentStatus?: (typeof STUDENT_ENROLLMENT_STATUSES)[number];
 
-  @ApiPropertyOptional({ description: 'Enrollment date' })
+  @ApiPropertyOptional({ description: 'Enrollment date', example: '2025-09-01' })
   @IsOptional()
   @IsDateString()
   enrollmentDate?: string;
 
-  @ApiPropertyOptional({ description: 'Graduation date' })
+  @ApiPropertyOptional({ description: 'Graduation date', example: '2029-06-30' })
   @IsOptional()
   @IsDateString()
   graduationDate?: string;
 
-  @ApiPropertyOptional({ description: 'Withdrawal date' })
+  @ApiPropertyOptional({ description: 'Withdrawal date', example: '2026-01-15' })
   @IsOptional()
   @IsDateString()
   withdrawalDate?: string;
 
-  @ApiPropertyOptional({ description: 'Transfer date' })
+  @ApiPropertyOptional({ description: 'Transfer date', example: '2026-01-15' })
   @IsOptional()
   @IsDateString()
   transferDate?: string;
 
-  @ApiPropertyOptional({ description: 'Personal information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Personal information (JSON)',
+    example: { dateOfBirth: '2011-04-12', gender: 'female', nationality: 'Nigerian' },
+  })
   @IsOptional()
   @IsObject()
   personalInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Academic information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Academic information (JSON)',
+    example: { previousSchool: 'Sunrise Primary School', stream: 'Science' },
+  })
   @IsOptional()
   @IsObject()
   academicInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Health information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Health information (JSON)',
+    example: { bloodGroup: 'O+', allergies: ['peanuts'] },
+  })
   @IsOptional()
   @IsObject()
   healthInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Emergency contacts (array)' })
+  @ApiPropertyOptional({
+    description: 'Emergency contacts (array)',
+    example: [{ name: 'Mrs. E. Achebe', relationship: 'Mother', phone: '+234-801-234-5678' }],
+  })
   @IsOptional()
   @IsArray()
   emergencyContacts?: any[];
 
-  @ApiPropertyOptional({ description: 'Special needs (array)' })
+  @ApiPropertyOptional({
+    description: 'Special needs (array)',
+    example: ['dyslexia support'],
+  })
   @IsOptional()
   @IsArray()
   specialNeeds?: any[];
@@ -213,59 +245,75 @@ export class UpdateStudentStatusDto {
   @ApiProperty({
     description: 'New enrollment status',
     enum: STUDENT_ENROLLMENT_STATUSES,
+    example: 'graduated',
   })
   @IsString()
   @IsIn(STUDENT_ENROLLMENT_STATUSES)
   enrollmentStatus: (typeof STUDENT_ENROLLMENT_STATUSES)[number];
 
-  @ApiPropertyOptional({ description: 'Graduation date' })
+  @ApiPropertyOptional({ description: 'Graduation date', example: '2029-06-30' })
   @IsOptional()
   @IsDateString()
   graduationDate?: string;
 
-  @ApiPropertyOptional({ description: 'Withdrawal date' })
+  @ApiPropertyOptional({ description: 'Withdrawal date', example: '2026-01-15' })
   @IsOptional()
   @IsDateString()
   withdrawalDate?: string;
 
-  @ApiPropertyOptional({ description: 'Transfer date' })
+  @ApiPropertyOptional({ description: 'Transfer date', example: '2026-01-15' })
   @IsOptional()
   @IsDateString()
   transferDate?: string;
 
-  @ApiPropertyOptional({ description: 'Enrollment date' })
+  @ApiPropertyOptional({ description: 'Enrollment date', example: '2025-09-01' })
   @IsOptional()
   @IsDateString()
   enrollmentDate?: string;
 }
 
 export class UpdateStudentProfileDto {
-  @ApiPropertyOptional({ description: 'Personal information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Personal information (JSON)',
+    example: { dateOfBirth: '2011-04-12', gender: 'female', nationality: 'Nigerian' },
+  })
   @IsOptional()
   @IsObject()
   personalInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Academic information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Academic information (JSON)',
+    example: { previousSchool: 'Sunrise Primary School', stream: 'Science' },
+  })
   @IsOptional()
   @IsObject()
   academicInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Health information (JSON)' })
+  @ApiPropertyOptional({
+    description: 'Health information (JSON)',
+    example: { bloodGroup: 'O+', allergies: ['peanuts'] },
+  })
   @IsOptional()
   @IsObject()
   healthInfo?: Record<string, any>;
 
-  @ApiPropertyOptional({ description: 'Emergency contacts (array)' })
+  @ApiPropertyOptional({
+    description: 'Emergency contacts (array)',
+    example: [{ name: 'Mrs. E. Achebe', relationship: 'Mother', phone: '+234-801-234-5678' }],
+  })
   @IsOptional()
   @IsArray()
   emergencyContacts?: any[];
 
-  @ApiPropertyOptional({ description: 'Special needs (array)' })
+  @ApiPropertyOptional({
+    description: 'Special needs (array)',
+    example: ['dyslexia support'],
+  })
   @IsOptional()
   @IsArray()
   specialNeeds?: any[];
 
-  @ApiPropertyOptional({ description: 'Student photo URL' })
+  @ApiPropertyOptional({ description: 'Student photo URL', example: 'https://files.schoolwithease.com/photos/stu-2025-0042.jpg' })
   @IsOptional()
   @IsUrl()
   photoUrl?: string;
@@ -284,41 +332,42 @@ export class UpdateStudentProfileDto {
 export class SearchStudentsDto extends PaginationDto {
   @ApiPropertyOptional({
     description: 'Search by name, email, or student number',
+    example: 'Achebe',
   })
   @IsOptional()
   @IsString()
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by enrollment status' })
+  @ApiPropertyOptional({ description: 'Filter by enrollment status', enum: STUDENT_ENROLLMENT_STATUSES, example: 'active' })
   @IsOptional()
   @IsIn(STUDENT_ENROLLMENT_STATUSES)
   enrollmentStatus?: (typeof STUDENT_ENROLLMENT_STATUSES)[number];
 
-  @ApiPropertyOptional({ description: 'Filter by grade level' })
+  @ApiPropertyOptional({ description: 'Filter by grade level', example: '9' })
   @IsOptional()
   @IsString()
   gradeLevel?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by student number' })
+  @ApiPropertyOptional({ description: 'Filter by student number', example: 'STU-2025-0042' })
   @IsOptional()
   @IsString()
   studentNumber?: string;
 }
 
 export class EnrollStudentDto {
-  @ApiProperty({ description: 'Class ID to enroll the student in' })
+  @ApiProperty({ description: 'Class ID to enroll the student in', example: 'c2d3e4f5-a6b7-4890-9bcd-ef0123456789' })
   @IsString()
   classId: string;
 
-  @ApiProperty({ description: 'Academic year ID' })
+  @ApiProperty({ description: 'Academic year ID', example: 'd3e4f5a6-b7c8-4901-9cde-f01234567890' })
   @IsString()
   academicYearId: string;
 
-  @ApiProperty({ description: 'Term ID' })
+  @ApiProperty({ description: 'Term ID', example: 'e4f5a6b7-c8d9-4012-9def-012345678901' })
   @IsString()
   termId: string;
 
-  @ApiPropertyOptional({ description: 'Enrollment date' })
+  @ApiPropertyOptional({ description: 'Enrollment date', example: '2025-09-01' })
   @IsOptional()
   @IsDateString()
   enrollmentDate?: string;
@@ -326,6 +375,7 @@ export class EnrollStudentDto {
   @ApiPropertyOptional({
     description: 'Enrollment status',
     enum: ENROLLMENT_STATUSES,
+    example: 'active',
     default: 'active',
   })
   @IsOptional()
@@ -334,22 +384,23 @@ export class EnrollStudentDto {
 
   @ApiPropertyOptional({
     description: 'Final grade (for bulk import or updates)',
+    example: 'A',
   })
   @IsOptional()
   @IsString()
   finalGrade?: string;
 
-  @ApiPropertyOptional({ description: 'Credits earned' })
+  @ApiPropertyOptional({ description: 'Credits earned', example: 3 })
   @IsOptional()
   @IsNumber()
   creditsEarned?: number;
 
-  @ApiPropertyOptional({ description: 'GPA points' })
+  @ApiPropertyOptional({ description: 'GPA points', example: 3.8 })
   @IsOptional()
   @IsNumber()
   gpaPoints?: number;
 
-  @ApiPropertyOptional({ description: 'Notes' })
+  @ApiPropertyOptional({ description: 'Notes', example: 'Transferred from JSS 1B due to class size' })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -360,6 +411,7 @@ export class UpdateEnrollmentStatusDto {
   @ApiProperty({
     description: 'New enrollment status',
     enum: ENROLLMENT_STATUSES,
+    example: 'completed',
   })
   @IsString()
   @IsIn(ENROLLMENT_STATUSES)
@@ -367,45 +419,47 @@ export class UpdateEnrollmentStatusDto {
 }
 
 export class BulkGuardianUpsertItemDto {
-  @ApiPropertyOptional({ description: 'Student ID (if known)' })
+  @ApiPropertyOptional({ description: 'Student ID (if known)', example: 'a1b2c3d4-e5f6-4789-9abc-def012345678' })
   @IsOptional()
   @IsString()
   studentId?: string;
 
-  @ApiPropertyOptional({ description: 'Student number (tenant-scoped unique)' })
+  @ApiPropertyOptional({ description: 'Student number (tenant-scoped unique)', example: 'STU-2025-0042' })
   @IsOptional()
   @IsString()
   studentNumber?: string;
 
-  @ApiPropertyOptional({ description: 'Guardian email (unique per user)' })
+  @ApiPropertyOptional({ description: 'Guardian email (unique per user)', example: 'e.achebe@example.com' })
   @IsOptional()
   @IsEmail()
   guardianEmail?: string;
 
-  @ApiPropertyOptional({ description: 'Guardian phone number' })
+  @ApiPropertyOptional({ description: 'Guardian phone number', example: '+234-801-234-5678' })
   @IsOptional()
   @IsString()
   guardianPhone?: string;
 
   @ApiPropertyOptional({
     description: 'External guardian identifier (for deduplication)',
+    example: 'GUARD-2025-0010',
   })
   @IsOptional()
   @IsString()
   guardianId?: string;
 
-  @ApiPropertyOptional({ description: 'Guardian first name' })
+  @ApiPropertyOptional({ description: 'Guardian first name', example: 'Ezinne' })
   @IsOptional()
   @IsString()
   guardianFirstName?: string;
 
-  @ApiPropertyOptional({ description: 'Guardian last name' })
+  @ApiPropertyOptional({ description: 'Guardian last name', example: 'Achebe' })
   @IsOptional()
   @IsString()
   guardianLastName?: string;
 
   @ApiPropertyOptional({
     description: 'Display name (optional, otherwise derived)',
+    example: 'Mrs. E. Achebe',
   })
   @IsOptional()
   @IsString()
@@ -415,24 +469,26 @@ export class BulkGuardianUpsertItemDto {
   @ApiPropertyOptional({
     description: 'Relationship to student',
     enum: ['parent', 'guardian', 'other'],
+    example: 'parent',
     default: 'parent',
   })
   @IsOptional()
   @IsString()
   relationship?: string = 'parent';
 
-  @ApiPropertyOptional({ description: 'Primary guardian flag' })
+  @ApiPropertyOptional({ description: 'Primary guardian flag', example: true })
   @IsOptional()
   @IsBoolean()
   isPrimary?: boolean = false;
 
-  @ApiPropertyOptional({ description: 'Legal guardian flag' })
+  @ApiPropertyOptional({ description: 'Legal guardian flag', example: true })
   @IsOptional()
   @IsBoolean()
   legalGuardian?: boolean = false;
 
   @ApiPropertyOptional({
     description: 'Contact priority (lower = higher priority)',
+    example: 1,
   })
   @IsOptional()
   @IsNumber()

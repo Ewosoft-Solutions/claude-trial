@@ -32,6 +32,7 @@ export class AIQueryRequestDto {
     description: 'Query type (academic, analytics, or general)',
     enum: AIQueryType,
     default: AIQueryType.GENERAL,
+    example: AIQueryType.ACADEMIC,
   })
   @IsOptional()
   @IsEnum(AIQueryType)
