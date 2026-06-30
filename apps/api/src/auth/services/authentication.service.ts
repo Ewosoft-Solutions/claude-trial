@@ -27,6 +27,21 @@ import { MfaBaseService } from './mfa-base.service';
 import { AuthenticationResponseJSON } from '@simplewebauthn/server';
 
 /**
+ * School picker option — the minimal subset of UserSchoolProfile needed to
+ * let a user pick which school to sign into. Deliberately omits `roles`
+ * and `primaryRole`: at this point in the flow the user has supplied
+ * credentials but has not completed MFA (if enabled) or selected a school,
+ * so no role/organizational detail should be disclosed yet. Full profile
+ * detail (including role) is only returned post-authentication, from
+ * GET /auth/me.
+ */
+export type SchoolPickerOption = Omit<UserSchoolProfile, 'roles' | 'primaryRole'>;
+
+function toSchoolPickerOptions(schools: UserSchoolProfile[]): SchoolPickerOption[] {
+  return schools.map(({ roles: _roles, primaryRole: _primaryRole, ...rest }) => rest);
+}
+
+/**
  * Login Response
  */
 export interface LoginResponse {
@@ -37,7 +52,7 @@ export interface LoginResponse {
     firstName: string | null;
     lastName: string | null;
   };
-  schools: UserSchoolProfile[];
+  schools: SchoolPickerOption[];
   /** Short-lived pre-auth token for the select-school step. */
   token?: string;
   requiresMfa?: boolean;
@@ -318,7 +333,7 @@ export class AuthenticationService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      schools,
+      schools: toSchoolPickerOptions(schools),
       token: preAuthToken,
       requiresMfa: false,
     };
@@ -426,7 +441,7 @@ export class AuthenticationService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      schools,
+      schools: toSchoolPickerOptions(schools),
       token: preAuthToken,
       requiresMfa: false,
     };

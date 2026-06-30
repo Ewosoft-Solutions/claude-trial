@@ -33,11 +33,12 @@ interface LoginBody {
 interface LoginApiResponse {
   success: boolean;
   user: { id: string; email: string; firstName: string | null; lastName: string | null };
+  // Minimal school-picker shape — no role/org detail until after select-school.
   schools: Array<{
     tenantId: string;
     tenantName: string;
+    tenantSlug?: string;
     profileId: string;
-    primaryRole?: string;
     schoolType?: string;
   }>;
   token?: string;
