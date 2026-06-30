@@ -1,12 +1,14 @@
 /**
  * Dev-persona seed — local development only, never run in CI or production.
  *
- * Prerequisite: `db:seed` (main seed) must have run first so that system
- * roles and permission pools already exist in the database.
+ * Prerequisites (run in order):
+ *   1. pnpm --filter @workspace/database db:deploy   — apply all migrations
+ *   2. pnpm --filter @workspace/database db:seed     — system roles + architect
+ * Then run this script.
  *
  * Creates two realistic school tenants (secondary + primary) each populated
  * with eight named personas — one per clearance level from Owner (L8) down
- * to Student (L1) — plus a platform SuperAdmin account. The platform
+ * to Student (L1). The platform
  * Architect (L10) is already created by the main seed and is reused here.
  *
  * All operations are idempotent (upsert / findFirst-or-create), so re-running
@@ -28,10 +30,10 @@
  *   parent@        Parent      L2   Own children only
  *   student@       Student     L1   Own academic data
  *
- * Platform personas (shared, not tenant-scoped)
- * ---------------------------------------------
+ * Platform personas
+ * ------------------
  *   superadmin@platform.test   SuperAdmin  L9
- *   architect@platform.test    Architect   L10  (created by main seed; reused here)
+ *   architect@schoolwithease.com  Architect  L10  (created by db:seed — not re-seeded here)
  *
  * Default password for every dev account: DevPassword@2025!
  * WARNING: never use these credentials outside of a local dev database.
@@ -248,7 +250,6 @@ async function seedPlatformSuperAdmin(
 ) {
   console.log('\n📋 Seeding platform SuperAdmin persona...');
 
-  // Reuse the platform tenant created by the main seed
   const platformTenant = await prisma.tenant.findUnique({ where: { slug: 'platform' } });
   if (!platformTenant) {
     console.warn('  ⚠️  Platform tenant not found — run db:seed first. Skipping SuperAdmin.');
@@ -265,7 +266,7 @@ async function seedPlatformSuperAdmin(
   const profile = await findOrCreateUserTenant(user.id, platformTenant.id);
   await assignRole(profile.id, roles['SuperAdmin']!, platformTenant.id);
 
-  console.log(`  ✅ superadmin@platform.test → SuperAdmin (L9) on platform tenant`);
+  console.log('  ✅ superadmin@platform.test → SuperAdmin (L9) on platform tenant');
 }
 
 // ---------------------------------------------------------------------------
@@ -644,7 +645,7 @@ async function main() {
     console.log('📋 Account summary');
     console.log('─'.repeat(70));
     console.log('Platform');
-    console.log('  architect@platform.test      Architect   L10  (created by db:seed)');
+    console.log('  architect@schoolwithease.com Architect   L10  (created by db:seed)');
     console.log('  superadmin@platform.test     SuperAdmin  L9');
     console.log('');
 
