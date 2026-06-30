@@ -98,11 +98,6 @@ export class RoleManagementController {
         ],
       },
       include: {
-        rolePermissions: {
-          include: {
-            permission: true,
-          },
-        },
         rolePools: {
           include: {
             pool: {

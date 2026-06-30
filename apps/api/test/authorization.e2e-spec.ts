@@ -115,11 +115,27 @@ describe.skip('Authorization System (e2e)', () => {
       },
     });
 
-    // Assign permission to role
-    await prisma.rolePermission.create({
+    // Assign permission to role via a permission pool — permission
+    // resolution is pools-only, there is no direct role-permission link.
+    const testPool = await prisma.permissionPool.create({
+      data: {
+        name: 'Test Pool',
+        clearanceLevel: 2,
+        isSystemPool: false,
+      },
+    });
+
+    await prisma.permissionPoolPermission.create({
+      data: {
+        poolId: testPool.id,
+        permissionId: testPermission.id,
+      },
+    });
+
+    await prisma.rolePermissionPool.create({
       data: {
         roleId: testRole.id,
-        permissionId: testPermission.id,
+        poolId: testPool.id,
       },
     });
 

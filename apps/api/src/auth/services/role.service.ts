@@ -330,44 +330,26 @@ export class RoleService {
       },
     });
 
-    const permissionIds = new Set<string>();
-    for (const pool of pools) {
-      for (const pp of pool.poolPermissions) {
-        permissionIds.add(pp.permissionId);
-      }
-    }
-
-    // Add any additional permissions (already validated against pools)
-    if (input.permissionIds) {
-      for (const permId of input.permissionIds) {
-        permissionIds.add(permId);
-      }
-    }
-
-    // Assign permissions to role
-    if (permissionIds.size > 0) {
-      await prisma.rolePermission.createMany({
-        data: Array.from(permissionIds).map((permissionId) => ({
-          roleId: role.id,
-          permissionId,
-          grantedBy: input.createdBy,
-        })),
-        skipDuplicates: true,
-      });
-    }
+    // Permission resolution is pools-only (see TenantQueriesService.resolveRolePoolPermissions) —
+    // direct per-permission grants are not written here. `input.permissionIds`, when present, has
+    // already been validated (clearance + pool membership) in validateCustomRoleCreation purely as
+    // an input constraint; the role's actual permissions come entirely from its assigned pools.
 
     // 5. Return role with relations
     const roleWithRelations = await prisma.role.findUnique({
       where: { id: role.id },
       include: {
-        rolePermissions: {
-          include: {
-            permission: true,
-          },
-        },
         rolePools: {
           include: {
-            pool: true,
+            pool: {
+              include: {
+                poolPermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },

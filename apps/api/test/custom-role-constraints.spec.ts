@@ -372,7 +372,6 @@ describe('Custom Role Creation Constraints Validation', () => {
         updatedAt: new Date(),
       });
       mockPrisma.rolePermissionPool.createMany.mockResolvedValue({ count: 1 });
-      mockPrisma.rolePermission.createMany.mockResolvedValue({ count: 1 });
       // eslint-disable-next-line @typescript-eslint/no-unsafe-argument
       mockPrisma.role.findUnique.mockResolvedValue({
         id: 'role-1',
@@ -387,7 +386,6 @@ describe('Custom Role Creation Constraints Validation', () => {
         updatedBy: null,
         createdAt: new Date(),
         updatedAt: new Date(),
-        rolePermissions: [],
         rolePools: [],
       } as any);
 
