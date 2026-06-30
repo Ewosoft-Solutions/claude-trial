@@ -30,9 +30,20 @@ import type { SchoolOption, UserProfile } from '@workspace/ui/types/shell.types'
 import { apiClient, ApiError } from './api-client';
 import { COOKIE_ACCESS_TOKEN } from './auth-cookies';
 
-/** A school the viewer can switch between, plus its polymorphic type. */
+/** One profile (role) a viewer holds at a given school — a user can hold
+ *  more than one (e.g. parent + teacher at the same school). */
+export interface SessionSchoolProfile {
+  profileId: string;
+  role: string;
+  caption: string;
+}
+
+/** A school the viewer can switch between, plus its polymorphic type.
+ *  `caption` reflects the viewer's first/active profile at this school;
+ *  `profiles` carries the full set for a future profile switcher. */
 export interface SessionSchool extends SchoolOption {
   schoolType: SchoolType;
+  profiles?: SessionSchoolProfile[];
 }
 
 /**
@@ -71,9 +82,9 @@ interface MeResponse {
     id: string;
     name: string;
     initials: string;
-    caption: string;
     color: string;
     schoolType: string;
+    profiles: Array<{ profileId: string; role: string; caption: string }>;
   }>;
 }
 
@@ -115,9 +126,12 @@ export async function getSession(): Promise<Session | null> {
         id: s.id,
         name: s.name,
         initials: s.initials,
-        caption: s.caption,
+        // Today every viewer has exactly one profile per school; this
+        // takes the first until a profile-switcher UI consumes `profiles`.
+        caption: s.profiles[0]?.caption ?? 'Staff',
         color: s.color,
         schoolType: ((s.schoolType || 'secondary') as SchoolType),
+        profiles: s.profiles,
       })),
     };
   } catch (err) {

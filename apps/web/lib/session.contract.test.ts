@@ -34,9 +34,11 @@ const RAW_ME_RESPONSE = {
       id: 'tenant-abc',
       name: 'St. Jude Academy',
       initials: 'SJ',
-      caption: 'Principal',
       color: '#4f6df5',
       schoolType: 'secondary',
+      profiles: [
+        { profileId: 'profile-1', role: 'Principal', caption: 'Principal' },
+      ],
     },
   ],
 } satisfies {
@@ -50,9 +52,9 @@ const RAW_ME_RESPONSE = {
     id: string;
     name: string;
     initials: string;
-    caption: string;
     color: string;
     schoolType: string;
+    profiles: Array<{ profileId: string; role: string; caption: string }>;
   }>;
 };
 
@@ -70,9 +72,10 @@ function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
       id: s.id,
       name: s.name,
       initials: s.initials,
-      caption: s.caption,
+      caption: s.profiles[0]?.caption ?? 'Staff',
       color: s.color,
       schoolType: ((s.schoolType || 'secondary') as SchoolType),
+      profiles: s.profiles,
     })),
   };
 }
@@ -135,5 +138,30 @@ describe('Session contract — /auth/me ↔ Session shape', () => {
     });
     // empty string coerces to 'secondary' via the ?? fallback
     expect(withUnknownType.schools[0]!.schoolType).toBe('secondary');
+  });
+
+  it('a school carries its full profiles array, not just the active one', () => {
+    expect(session.schools[0]!.profiles).toEqual([
+      { profileId: 'profile-1', role: 'Principal', caption: 'Principal' },
+    ]);
+  });
+
+  it('multiple profiles at the same school stay one school entry, caption from the first profile', () => {
+    const dualProfile = mapMeResponseToSession({
+      ...RAW_ME_RESPONSE,
+      schools: [
+        {
+          ...RAW_ME_RESPONSE.schools[0]!,
+          profiles: [
+            { profileId: 'profile-1', role: 'Parent', caption: 'Parent' },
+            { profileId: 'profile-2', role: 'Teacher', caption: 'Teacher' },
+          ],
+        },
+      ],
+    });
+
+    expect(dualProfile.schools).toHaveLength(1);
+    expect(dualProfile.schools[0]!.caption).toBe('Parent');
+    expect(dualProfile.schools[0]!.profiles).toHaveLength(2);
   });
 });

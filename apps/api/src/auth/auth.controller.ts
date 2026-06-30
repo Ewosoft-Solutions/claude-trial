@@ -33,7 +33,53 @@ import { JwtAuthGuard, PreAuthGuard } from './guards';
 import { DatabaseService, extractBearerToken } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
-import { SchoolSelectionService } from '@workspace/api';
+import { SchoolSelectionService, type UserSchoolProfile } from '@workspace/api';
+
+/**
+ * Groups one-entry-per-profile UserSchoolProfile rows into one entry per
+ * school, each with a nested `profiles` array. A user can hold more than
+ * one profile at the same school (e.g. parent + teacher) — without this
+ * grouping the same school would appear multiple times under a "schools"
+ * label, each time with a different role, which misrepresents distinct
+ * profiles as if they were distinct schools.
+ */
+function groupProfilesBySchool(profiles: UserSchoolProfile[]) {
+  const bySchool = new Map<
+    string,
+    {
+      id: string;
+      name: string;
+      initials: string;
+      color: string;
+      schoolType: string;
+      profiles: Array<{ profileId: string; role: string; caption: string }>;
+    }
+  >();
+
+  for (const p of profiles) {
+    let school = bySchool.get(p.tenantId);
+    if (!school) {
+      school = {
+        id: p.tenantId,
+        name: p.tenantName,
+        initials: p.tenantName
+          .split(/\s+/)
+          .slice(0, 2)
+          .map((w: string) => w[0])
+          .join('')
+          .toUpperCase(),
+        color: '#4f6df5',
+        schoolType: p.schoolType || 'secondary',
+        profiles: [],
+      };
+      bySchool.set(p.tenantId, school);
+    }
+    const role = p.primaryRole ?? 'Staff';
+    school.profiles.push({ profileId: p.profileId, role, caption: role });
+  }
+
+  return Array.from(bySchool.values());
+}
 
 /**
  * Authentication Controller
@@ -94,8 +140,12 @@ export class AuthController {
       select: { name: true, clearanceLevel: true },
     });
 
-    // Resolve all accessible schools for the user
-    const schools = await SchoolSelectionService.getAvailableSchools(
+    // Resolve all accessible schools for the user — one entry per profile
+    // (UserTenant row); a user can hold multiple profiles at the same
+    // school (e.g. parent + teacher), so group these into one entry per
+    // school with a nested `profiles` array rather than reporting the
+    // same school once per profile under a misleading "schools" label.
+    const profiles = await SchoolSelectionService.getAvailableSchools(
       prisma,
       userId,
     );
@@ -120,19 +170,7 @@ export class AuthController {
         .filter(([, v]) => v.granted)
         .map(([name]) => name),
       defaultSchoolId: tenantId,
-      schools: schools.map((s) => ({
-        id: s.tenantId,
-        name: s.tenantName,
-        initials: s.tenantName
-          .split(/\s+/)
-          .slice(0, 2)
-          .map((w: string) => w[0])
-          .join('')
-          .toUpperCase(),
-        caption: s.primaryRole ?? 'Staff',
-        color: '#4f6df5',
-        schoolType: (s.schoolType || 'secondary') as string,
-      })),
+      schools: groupProfilesBySchool(profiles),
     };
   }
 
