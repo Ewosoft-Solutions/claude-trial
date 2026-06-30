@@ -28,9 +28,17 @@ export class TenantQueriesService {
         roles: {
           where: { isActive: true },
           include: {
-            rolePermissions: {
+            rolePools: {
               include: {
-                permission: true,
+                pool: {
+                  include: {
+                    poolPermissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
+                  },
+                },
               },
             },
           },
@@ -110,18 +118,15 @@ export class TenantQueriesService {
           include: {
             role: {
               include: {
-                rolePermissions: {
-                  include: {
-                    permission: true,
-                  },
-                },
                 rolePools: {
                   include: {
                     pool: {
-                      select: {
-                        id: true,
-                        name: true,
-                        clearanceLevel: true,
+                      include: {
+                        poolPermissions: {
+                          include: {
+                            permission: true,
+                          },
+                        },
                       },
                     },
                   },
@@ -223,24 +228,33 @@ export class TenantQueriesService {
    * @param role - A Role loaded with `rolePools.pool.poolPermissions.permission`
    * @returns Deduplicated array of Permission records
    */
-  static resolveRolePoolPermissions(role: {
-    rolePools: Array<{
-      pool: {
-        poolPermissions: Array<{
-          permission: {
-            id: string;
-            name: string;
-            requiredClearanceLevel: number;
-            [key: string]: unknown;
-          };
-        }>;
-      };
-    }>;
-  }): Array<{ id: string; name: string; requiredClearanceLevel: number; [key: string]: unknown }> {
+  static resolveRolePoolPermissions(
+    role: {
+      clearanceLevel: number;
+      rolePools: Array<{
+        pool: {
+          poolPermissions: Array<{
+            permission: {
+              id: string;
+              name: string;
+              requiredClearanceLevel: number;
+              [key: string]: unknown;
+            };
+          }>;
+        };
+      }>;
+    },
+  ): Array<{ id: string; name: string; requiredClearanceLevel: number; [key: string]: unknown }> {
     const byId = new Map<string, { id: string; name: string; requiredClearanceLevel: number; [key: string]: unknown }>();
     for (const rolePool of role.rolePools) {
       for (const poolPermission of rolePool.pool.poolPermissions) {
-        byId.set(poolPermission.permission.id, poolPermission.permission);
+        // Clearance is a floor at resolution time: never issue a permission
+        // whose requiredClearanceLevel exceeds the role's own clearanceLevel,
+        // regardless of how the pool-role assignment got there. Guards against
+        // a pool's clearance level being raised after assignment.
+        if (poolPermission.permission.requiredClearanceLevel <= role.clearanceLevel) {
+          byId.set(poolPermission.permission.id, poolPermission.permission);
+        }
       }
     }
     return Array.from(byId.values());
@@ -317,9 +331,17 @@ export class TenantQueriesService {
         isActive: true,
       },
       include: {
-        rolePermissions: {
+        rolePools: {
           include: {
-            permission: true,
+            pool: {
+              include: {
+                poolPermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
