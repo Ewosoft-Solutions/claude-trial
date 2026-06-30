@@ -14,6 +14,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { AuthJWTService } from '../services/jwt.service';
+import { extractBearerToken } from '../../common';
 
 interface PreAuthRequestUser {
   userId: string;
@@ -45,7 +46,6 @@ export class PreAuthGuard implements CanActivate {
   }
 
   private extractTokenFromHeader(request: Request): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+    return extractBearerToken(request.headers.authorization);
   }
 }

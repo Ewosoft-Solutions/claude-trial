@@ -1,4 +1,5 @@
 export * from './common.module';
+export * from './auth/extract-bearer-token';
 export * from './database/database.module';
 export * from './database/database.service';
 export * from './database/prisma-transaction.service';

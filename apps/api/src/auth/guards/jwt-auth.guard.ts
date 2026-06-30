@@ -16,7 +16,7 @@ import { Request } from 'express';
 // import { JWTSecretService } from '@workspace/api';
 import { AuthJWTService } from '../services/jwt.service';
 import { RequestUser } from '../types/request-user';
-import { DatabaseService } from '../../common';
+import { DatabaseService, extractBearerToken } from '../../common';
 
 /**
  * JWT Auth Guard
@@ -44,6 +44,15 @@ export class JwtAuthGuard implements CanActivate {
     // Decode token to get tenant ID (without verification)
     const decoded = this.authJWTService.decodeToken(token);
     if (!decoded?.tenantId) {
+      // A pre-auth token (issued by POST /auth/login before school
+      // selection) decodes fine but never carries a tenantId — surface
+      // that distinctly instead of a generic "invalid format", since
+      // it's the #1 cause of this guard rejecting an otherwise-real token.
+      if (decoded?.type === 'pre_auth') {
+        throw new UnauthorizedException(
+          'This is a pre-auth token (no school selected yet). Exchange it via POST /auth/select-school for an access token first.',
+        );
+      }
       throw new UnauthorizedException('Invalid token format');
     }
 
@@ -71,8 +80,7 @@ export class JwtAuthGuard implements CanActivate {
     return true;
   }
 
-  private extractTokenFromHeader(request: any): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+  private extractTokenFromHeader(request: Request): string | undefined {
+    return extractBearerToken(request.headers.authorization);
   }
 }

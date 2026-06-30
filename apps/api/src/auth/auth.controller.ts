@@ -30,7 +30,7 @@ import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { PermissionService } from './services/permission.service';
 import { JwtAuthGuard, PreAuthGuard } from './guards';
-import { DatabaseService } from '../common';
+import { DatabaseService, extractBearerToken } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
 import { SchoolSelectionService } from '@workspace/api';
@@ -310,7 +310,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Logout current session (token blacklist)' })
   async logout(@AuthUser() user: RequestUser, @Req() req: Request) {
     const prisma = this.dbService.client;
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    const token = extractBearerToken(req.headers.authorization);
 
     if (!token) {
       throw new Error('Token not found');
