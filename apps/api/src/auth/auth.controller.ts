@@ -303,11 +303,20 @@ export class AuthController {
     const prisma = this.dbService.client;
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
 
-    return this.passwordResetService.requestPasswordReset(
+    // The service returns { token, expiresAt } so a caller (e.g. an email
+    // delivery job) can act on it, but the reset token must never be
+    // returned in the HTTP response — doing so would let anyone reset any
+    // account's password without ever touching the account's inbox.
+    await this.passwordResetService.requestPasswordReset(
       prisma,
       requestPasswordResetDto.email,
       ipAddress,
     );
+
+    return {
+      success: true,
+      message: 'If an account exists for this email, a reset link has been sent.',
+    };
   }
 
   /**
