@@ -1,0 +1,49 @@
+// ============================================
+// Admissions Models
+// ============================================
+//
+// AdmissionApplication: a prospective student's application through
+// the admissions pipeline, from initial submission to a final decision.
+//
+// Tenant-scoped (tenant_id NOT NULL) in the "admissions" schema and
+// covered by RLS (migration applies the policy explicitly so
+// db:rls:check passes from day one).
+//
+// stage: 'application' | 'interview' | 'decision'
+// decision: 'pending' | 'accepted' | 'waitlisted' | 'rejected'
+// ============================================
+
+model AdmissionApplication {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  applicantName String @map("applicant_name")
+  applyingFor   String @map("applying_for") // target class/grade
+
+  guardianName  String  @map("guardian_name")
+  guardianEmail String? @map("guardian_email")
+  guardianPhone String? @map("guardian_phone")
+
+  submittedDate DateTime @default(now()) @map("submitted_date") @db.Date
+
+  stage    String @default("application") // application | interview | decision
+  decision String @default("pending") // pending | accepted | waitlisted | rejected
+
+  notes String?
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, stage])
+  @@index([tenantId, decision])
+  @@index([tenantId, submittedDate])
+  @@schema("admissions")
+  @@map("admission_applications")
+}

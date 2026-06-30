@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas = ["academic-structure", "audit-logging", "communication", "finance", "jwt-secrets", "profile", "roles-permissions", "security-policy", "student-management", "tenant", "user-management"]
+  schemas = ["academic-structure", "admissions", "audit-logging", "communication", "finance", "jwt-secrets", "profile", "roles-permissions", "security-policy", "student-management", "tenant", "user-management"]
 }
 
 

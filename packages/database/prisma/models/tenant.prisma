@@ -45,6 +45,7 @@ model Tenant {
   attendanceRecords AttendanceRecord[]
   feeInvoices       FeeInvoice[]
   payments          Payment[]
+  admissionApplications AdmissionApplication[]
 
   @@index([status])
   @@index([emailDomain])
