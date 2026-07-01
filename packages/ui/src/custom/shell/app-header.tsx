@@ -10,6 +10,15 @@
    fixed position and width regardless of the current route's
    breadcrumb length. Consumes the --header-height layout token and
    the sidebar/elevation token roles. No embedded data.
+
+   Responsive: breadcrumbs and the full search pill both need real
+   estate (breadcrumb text + a ~440px search bar), which only fits
+   comfortably at xl (1280px)+ alongside the switcher and action icons
+   — below that the two used to fight for the same shrinking space.
+   Below xl, breadcrumbs hide (the sidebar's active nav item + each
+   page's own title already convey location) and search collapses to
+   an icon-only trigger (it opens a command palette, not a text field,
+   so an icon loses no functionality — same pattern as Linear/GitHub).
    ============================================================ */
 
 import * as React from 'react';
@@ -36,16 +45,18 @@ export function OmniSearch({
     <button
       type="button"
       onClick={onClick}
+      aria-label={placeholder}
       className={cn(
-        'mx-auto flex h-[38px] w-full max-w-[440px] items-center gap-2.5 rounded-[var(--radius)] border border-border bg-secondary px-3 text-[13px] text-muted-foreground outline-none',
+        'mx-auto flex h-[38px] w-9 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius)] border border-border bg-secondary text-[13px] text-muted-foreground outline-none',
+        'xl:w-full xl:max-w-[440px] xl:justify-start xl:px-3',
         'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         className,
       )}
     >
       <Search className="size-[15px] shrink-0" aria-hidden />
-      <span className="truncate">{placeholder}</span>
+      <span className="hidden truncate xl:inline">{placeholder}</span>
       {shortcut ? (
-        <kbd className="ml-auto rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground">
+        <kbd className="ml-auto hidden rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground xl:inline-block">
           {shortcut}
         </kbd>
       ) : null}
@@ -82,11 +93,11 @@ export function AppHeader({
       <div className="flex min-w-0 items-center gap-3.5 overflow-hidden">
         {schoolSwitcher}
         {breadcrumbs ? (
-          <div className="min-w-0 overflow-hidden max-md:hidden">{breadcrumbs}</div>
+          <div className="min-w-0 overflow-hidden max-xl:hidden">{breadcrumbs}</div>
         ) : null}
       </div>
       {search ? (
-        <div className="mx-auto flex w-full min-w-0 max-w-[440px] justify-self-center">
+        <div className="mx-auto flex w-9 min-w-0 justify-self-center xl:w-full xl:max-w-[440px]">
           {search}
         </div>
       ) : (
