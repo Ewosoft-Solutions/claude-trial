@@ -14,7 +14,37 @@ Finance area (invoices · payments · reports), the Settings area, and now the
 pattern is exercised in-app, and the `[...slug]` placeholder no longer backs any
 shipped section. See the Phase 2 session summaries in `AI_HANDOFF.md`.
 
-Latest session (2026-06-29 — backend tests + hygiene, Step 7):
+Latest session (2026-07-01 — Admissions domain, auth/RBAC audit, profile UX, parent-portal):
+Large session: built Admissions (Step 8's first operational module — model + migration + RLS +
+NestJS module + frontend wiring, following the attendance/finance pattern); added Swagger
+`example:` to all 74 request DTOs; then a deep auth/RBAC audit (triggered by live Swagger
+testing) that found and fixed several real issues — permission resolution had two paths and
+only one was ever seeded (`/auth/me` returned empty `permissions[]`), fixed by making pools
+canonical and **deleting the direct `RolePermission` model/table entirely** so there's exactly
+one path; that fix exposed a **severe pre-existing seed bug** (clearance-pool loop ran
+backwards, handing `users.delete` to Teacher/Parent/Guest) — fixed + re-seeded; login
+disclosed role detail before MFA/school-selection (now stripped); `schools[]` conflated
+schools and profiles (now nests `profiles[]`); **the password-reset endpoint leaked the reset
+token in its HTTP response** (account-takeover-by-email-guess — now returns a generic message
+only); post-login redirect moved off the URL into an httpOnly cookie. Then built two features
+on top: **mid-session profile switching** (`POST /auth/switch-profile`, reused
+`selectSchool`'s ownership check) + a **default sign-in profile** a user can pin from a new
+Settings → Profile page; and a **guardian-scoped parent-portal** (`GET
+/parent-portal/children`, strictly self-scoped, real attendance/grade/fee aggregates) replacing
+the old fully-hardcoded `ParentDashboard`. Closed with an app-shell UX pass (header no longer
+drifts with breadcrumb length + is responsive below 1440px, sidebar shows the active profile's
+role, profile-switch lands on `/overview` not `/unauthorized`, parent dashboard uses in-page
+Tabs). Three clearance-enforcement gates are now documented in
+`requirements/role-permissions-management.md`; a fourth (update-time consistency check) is
+specified but has no endpoint yet to attach to. Verification: 102 API + 30 web tests, full
+`pnpm build`, and `db:rls:check` all green throughout; several fixes also verified live via
+curl against a running API + real seeded personas. **Not pushed yet** — 16 commits ahead of
+`origin/claude` as of this hand-off; push + refresh PR #1 next session (or before, if asked).
+See the 2026-07-01 entry in `AI_HANDOFF.md` for full detail, including a caveat that
+browser-preview visual verification was unreliable this session (stale snapshot — see Known
+Issues) and layout/responsive changes should be eyeballed in a real dev server.
+
+Prior session (2026-06-29 — backend tests + hygiene, Step 7):
 Auth e2e un-skipped + fixed (per-test unique fixtures, real JWT config + role setup, real
 refresh-token test); `multi-tenant-isolation.e2e-spec.ts` rewritten with a real login-based
 flow (JwtAuthGuard + TenantContextGuard run for real, only PermissionGuard overridden;
@@ -114,12 +144,17 @@ UI now **72 tests** / 8 files.
 > under `nvm` v22; the resolver + web suites still pass on the default 20.18.
 
 **Git state:** branch `claude` is on `origin`
-(`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS). All accumulated
-Phase 2 work is **committed and pushed** to `origin/claude`. **PR #1 is OPEN**
-(`claude` → `main`, https://github.com/Ewosoft-Solutions/claude-trial/pull/1) and
-tracks the whole branch — its title/body were refreshed 2026-06-20 to cover the
-Reports area, chart wrappers, DonutChart consumers, and the test suite. Push new
-work to `claude` and it lands in PR #1 automatically; keep the PR body current.
+(`https://github.com/Ewosoft-Solutions/claude-trial.git`, HTTPS). **⚠ As of
+2026-07-01, `claude` is 16 commits ahead of `origin/claude` — NOT pushed
+yet** (the 2026-07-01 session's work: Admissions domain, the auth/RBAC audit
+and fixes, profile switching, default profile, parent-portal, app-shell UX).
+Push first thing next session (or sooner if asked), then refresh PR #1's
+body — it still describes the pre-2026-06-27 state (mock session, no auth
+backend wiring) and needs a full rewrite, not just an addendum, since so
+much has landed since it was last touched (2026-06-20). **PR #1 is OPEN**
+(`claude` → `main`, https://github.com/Ewosoft-Solutions/claude-trial/pull/1)
+and tracks the whole branch. Push new work to `claude` and it lands in PR #1
+automatically; keep the PR body current.
 
 Read first:
 
@@ -127,9 +162,14 @@ Read first:
 - implementation-roadmap.md + requirements/ docs for the target area
 - packages/ui/README.md (how to consume the foundation + Known Gaps)
 - **`apps/api`** — the real NestJS backend (auth / RBAC / MFA / maker-checker /
-  audit / tenant), DB-backed via `packages/database` (Prisma). The frontend does
-  not consume it yet. (`packages/api` is a separate service *library* — not the
-  HTTP app.)
+  audit / tenant), DB-backed via `packages/database` (Prisma). `apps/web` has
+  consumed it for its whole auth lifecycle since Step 3, and as of 2026-07-01
+  also for profile switching, default-profile, and the parent-portal endpoint —
+  it is not a "not wired yet" backend. (`packages/api` is a separate service
+  *library* — not the HTTP app; don't confuse the two.)
+- **`requirements/role-permissions-management.md`** — "Clearance Enforcement
+  Gates" section (added 2026-07-01) documents the 3 implemented + 1 specified
+  clearance gate; read before touching anything permission/pool/clearance-related.
 - **`docs/backend-remediation-plan.md`** — the ordered backend steps (START HERE).
 - **`ARCHITECTURE_DECISIONS.md` ADR-004** + `docs/tenant-isolation-plan.md` —
   tenant isolation design, the RLS standard, and the runtime-cutover runbook.
@@ -175,18 +215,26 @@ closed. It is a multi-session effort — do not stop after one step.
    (real JWT config + role setup, real refresh-token test, unique fixtures); multi-tenant
    isolation test rewritten with real JWT login flow; `packages/api/README.md` boundary
    docs added; 4 compiled JS artifacts removed from git.
-8. **Remaining operational modules (Step 8)** — transport/library/health/HR/
-   admissions/events, phased; each follows the RLS checklist.
+8. **Remaining operational modules (Step 8) — IN PROGRESS.** ✅ Admissions (first
+   module, 2026-07-01, see above) is complete. Still open: transport, library,
+   health, HR/payroll, events — each follows the RLS checklist (Prisma model +
+   migration + explicit RLS policy + NestJS module + `@TenantScoped` controller +
+   frontend server component/client island/Route Handler, per the
+   attendance/finance/admissions pattern).
 
-> ▶ **Next session: Step 8** — Remaining operational modules (phased): transport, library,
-> health, HR/payroll, admissions, events — each follows the RLS checklist. Steps 1–7 are
-> all complete; this is the last open item in the backend remediation plan.
+> ▶ **Next session: push the 16 pending commits + refresh PR #1**, then continue
+> **Step 8** with the next operational module (transport, library, health, or
+> HR/payroll — any order, each follows the RLS checklist and the Admissions
+> module as the template). Steps 1–7 are complete; Step 8 is the last open item
+> in the backend remediation plan and now has one module done, several to go.
 
-Definition of done for this backlog: Steps 1–7 complete (8 is phased), every gap
-in the scorecard closed or explicitly deferred, `db:rls:check` + CI green.
+Definition of done for this backlog: Steps 1–7 complete (8 is phased, 1/5 modules
+done), every gap in the scorecard closed or explicitly deferred, `db:rls:check` +
+CI green.
 
 Also ongoing: **keep PR #1 current** (`claude` → `main`, open, tracks the branch)
-and refresh its body when you push notable work.
+and refresh its body when you push notable work — it is currently well out of
+date (see Git state above) and needs more than an addendum next time.
 
 Parallel/independent UI option (not backend): more `packages/ui` coverage —
 page-level resolution in `apps/web` or shell/layout components (`PageHeader`,

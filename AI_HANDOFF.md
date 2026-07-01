@@ -1,11 +1,24 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-06-29
+Last Updated: 2026-07-01
 
 ---
 
 # Current Status
 
+> ⚠ **Superseded (2026-07-01) — frontend↔backend auth is fully wired, not
+> mock.** The "still mock" note below is from before Step 3
+> (2026-06-27). `apps/web` now runs against the real `apps/api` NestJS backend
+> for its whole auth lifecycle: login → MFA → school selection → session
+> (`getSession()` reads a real httpOnly cookie and calls `GET /auth/me`) →
+> mid-session **profile switching** (a user with multiple profiles, e.g.
+> Teacher + Parent at the same school, or profiles at different schools, can
+> switch context without re-entering credentials) → an optional **default
+> sign-in profile** a user can pin from Settings → Profile. The mock session
+> in `apps/web/lib/session.ts` still exists but only as a **dev fallback**
+> when `NEXT_PUBLIC_API_URL` is unset — see the 2026-07-01 session summary
+> below for the full auth/RBAC audit and fix list.
+>
 > ⚠ **Correction (2026-06-20) — the auth/RBAC backend DOES exist.** Earlier
 > hand-offs (and the pt.1 "task 4" note below) wrongly stated there is no auth
 > backend. That conclusion only inspected `packages/api` (a NestJS service
@@ -14,11 +27,7 @@ Last Updated: 2026-06-29
 > → `select-school` → `refresh` / `logout` + password reset
 > (`apps/api/src/auth/auth.controller.ts`), and 20 controllers covering
 > role/permission management, audit, MFA, tenant, security-policy and breach
-> response; 7 migrations incl. `maker_checker`. **What's missing is the
-> frontend↔backend wiring**: `apps/web` imports neither `@workspace/api` nor
-> `@workspace/database`, and `getSession()` is still a mock. So `getSession()`
-> real-auth wiring is **unblocked** — it's an HTTP-integration task, not a
-> "wait for the backend" task.
+> response; 7 migrations incl. `maker_checker`.
 >
 > ⚠ **Phase numbering is overloaded.** Internal docs (this file, `CURRENT_PHASE.md`,
 > `implementation-roadmap.md`): Phase 1 = design-system, Phase 2 = dashboard infra.
@@ -33,8 +42,9 @@ Completion:
 
 Phase 1 (Design System Foundation): 100% (Milestones 1–7 complete).
 Phase 2: nav model wired to a real `ViewerContext` driven by a server
-`getSession()` seam (`apps/web/lib/session.ts`, still mock — the real `apps/api`
-auth backend exists but is not yet wired; see the correction above) + the Next
+`getSession()` seam (`apps/web/lib/session.ts`, real auth against `apps/api`;
+mock retained only as a dev fallback when `NEXT_PUBLIC_API_URL` is unset — see
+the 2026-07-01 correction above) + the Next
 router; `/overview` dashboard live; real product surfaces built on the M6
 layouts + shared data-display (`StatusBadge` / `ScheduleGrid` / `Meter`) — the
 **Students** area (now complete: directory · enrollment · attendance history ·
@@ -62,6 +72,145 @@ internal links are now next/link `<Link>`.
 ---
 
 # Completed Work
+
+## Session Summary (2026-07-01) — Admissions domain, auth/RBAC audit, profile UX, parent-portal
+
+Large multi-part session covering Step 8's first module plus a deep,
+user-driven audit of the auth/RBAC surface that turned up and fixed several
+real security gaps, then two feature builds (profile switching + default
+profile, guardian-scoped multi-child parent dashboard) and a UX pass on the
+app shell. All work is on branch `claude`, **committed but not yet pushed**
+(16 commits ahead of `origin/claude` as of this summary — push + refresh PR
+#1 next).
+
+**Admissions domain (Step 8, first operational module)**
+`AdmissionApplication` Prisma model (new `admissions` schema) + migration
+(table + indexes + RLS policy); NestJS `AdmissionsModule` (DTOs with Swagger
+examples, pool-based `AdmissionsService`, `@TenantScoped` controller);
+`/students/enrollment` refactored to a server component + client island
+wired to the real API via a Route Handler. Follows the exact
+attendance/finance pattern from prior steps.
+
+**Swagger developer-experience**
+Added `example:` to every `@ApiProperty`/`@ApiPropertyOptional` across all 24
+DTO files (74 request DTOs, 0 gaps verified against the live `/api/docs-json`)
+so "Try it out" pre-fills request bodies instead of requiring the tester to
+hand-type field names.
+
+**Auth/RBAC audit — triggered by live Swagger testing, several real findings:**
+- **Bearer token parsing**: centralized `extractBearerToken()` tolerant of a
+  doubled `Bearer Bearer <token>` prefix (a Swagger UI copy-paste footgun);
+  `JwtAuthGuard` now gives a specific diagnostic when a pre-auth token is
+  used against an access-token-only route.
+- **Permission resolution had two paths, only one populated**: a direct
+  `RolePermission` join (never seeded) and a pool-based path
+  (`Role → RolePermissionPool → PermissionPool → PermissionPoolPermission →
+  Permission`, always seeded but never read) — meaning `/auth/me` returned
+  empty `permissions[]` for everyone. Made pools canonical everywhere, then
+  **removed the direct `RolePermission` model, table, and every caller
+  entirely** (migration `20260630010000_drop_role_permissions`) so there is
+  exactly one path to a role's permissions, with no ambiguity about which is
+  authoritative.
+- **🔴 Severe pre-existing seed bug, found while verifying the fix above**:
+  `getPermissionPoolsForPermission()`'s clearance loop ran backwards
+  (`0..requiredClearanceLevel` instead of `requiredClearanceLevel..10`),
+  assigning high-clearance permissions (`users.delete`,
+  `compliance.legal`) to every pool from clearance 0 up — Teacher, Parent,
+  even Guest. Had zero effect while the pool path was unread; became live
+  the moment the fix above shipped. Fixed the loop direction, re-seeded;
+  Teacher dropped from 274 → 48 sane permissions.
+- **Clearance enforcement is now three gates**, documented in
+  `requirements/role-permissions-management.md` ("Clearance Enforcement
+  Gates"): (1) role creation validates pool/permission clearance against the
+  role's own, (2) `POST /permissions/role/:roleId/assign` (rewritten to
+  assign whole pools, not raw permission IDs) rejects any pool exceeding the
+  target role's clearance, (3) `resolveRolePoolPermissions` filters out any
+  permission whose `requiredClearanceLevel` exceeds the role's own at
+  resolution time — a floor that holds even if 1–2 are ever bypassed. A
+  fourth gate is **specified but not built** (no update endpoint exists yet
+  for a role's/pool's clearance level; when one is added it must re-validate
+  every affected `RolePermissionPool` row — see the doc for the exact
+  check).
+- **Login disclosed too much, too early**: `POST /auth/login` returned every
+  school's role/org detail before MFA or school-selection completed.
+  `SchoolPickerOption` (`Omit<UserSchoolProfile, 'roles'|'primaryRole'>`)
+  strips that until after `/auth/select-school`.
+- **`schools[]` conflated schools and profiles**: a user with two profiles at
+  one school (e.g. Parent + Teacher) saw that school listed twice.
+  Restructured to `schools[]` with nested `profiles[]`
+  (`groupProfilesBySchool()`); `apps/web` session shape, `ViewerProvider`,
+  and the school switcher all updated to match.
+- **Password-reset token leaked in the API response**: `POST
+  /auth/request-password-reset` returned `{ token, expiresAt }` directly —
+  anyone who knew or guessed an email got a live reset token with no need to
+  touch the inbox. Now returns a generic success message only; the token
+  still flows internally for whenever email delivery is wired up.
+- **Post-login redirect** (`?from=/overview`) moved from a visible URL query
+  param to a short-lived httpOnly cookie (`swe_post_login_redirect`),
+  validated with `isSafeRedirectPath()` on both write (middleware) and read
+  (login route) to prevent open-redirect.
+
+**Profile switching + default sign-in profile**
+- `POST /auth/switch-profile` (new, `JwtAuthGuard`-protected) lets an
+  already-authenticated user switch into a different profile they hold —
+  reuses `AuthenticationService.selectSchool`'s existing ownership
+  validation. Distinct from `/auth/select-school`, which only works with the
+  one-shot pre-auth token from login.
+- The header school-switcher now lists one entry **per profile** (not per
+  school), and switching does a full navigation to `/overview` (not a
+  same-URL reload) — a page gated by `requirePermission()`/
+  `requireMinClearance()` under the old profile could otherwise reload into
+  `/unauthorized` under the new one, which is meant for a mistaken
+  navigation, not a deliberate context switch.
+- `User.defaultUserTenantId` (new nullable column, migration
+  `20260701000000_user_default_profile`) lets a user pin a preferred
+  sign-in profile from a new **Settings → Profile** page
+  (`PATCH /auth/default-profile`). Login now sorts `schools[]`
+  deterministically (school name, then profile id) and moves the stored
+  default to the front when set — previously `schools[0]` was arbitrary DB
+  insertion order.
+
+**Parent-portal: guardian-scoped multi-child dashboard**
+- New `GET /parent-portal/children` (`parent_portal.view` permission),
+  strictly self-scoped via the calling profile's `StudentGuardian` rows —
+  there is no parameter to query another guardian's children. Returns real
+  attendance-percent, average-grade-percent, and fee totals/balance per
+  child (from `AttendanceRecord`, `Grade` joined through `Enrollment`, and
+  `FeeInvoice` — not mock data).
+- `ParentDashboard` rewritten from fully hardcoded (`"Tunde Afolabi"` baked
+  into JSX) to real, guardian-scoped data. Selector iterated twice on user
+  feedback: first a clickable-card roster, then an in-page `Tabs` strip
+  ("All children" + one per child) sitting directly above the stats/fee
+  statement it drives.
+- Dev seed (`packages/database/prisma/scripts/seed-dev-personas.ts`) now
+  gives `multi@schoolwithease.test` **four profiles**: Teacher + Parent at
+  Greenfield, Teacher + Parent at Sunrise — with 3 children at Greenfield and
+  a 4th at Sunrise, each with real, deliberately varied
+  attendance/grade/fee data (`seedChildAcademicData`) so the dashboard's
+  aggregation is visibly meaningful, not just non-empty.
+
+**App-shell UX pass** (multi-round, based on live screenshots)
+- `AppHeader` rebuilt as a true 3-column grid so the center search no longer
+  drifts with breadcrumb length; the left column is capped and
+  `AppBreadcrumbs` collapses a long trail (first / … / last-two) instead of
+  overflowing.
+- Responsive: breadcrumbs hide below `xl` (1280px, was `md`/768px) and
+  `OmniSearch` collapses to an icon-only trigger below `xl` — it opens a
+  command palette, not a text field, so this loses no functionality.
+- `AppSidebar`'s previously-unused `navFooter` slot now shows a compact
+  identity card (avatar, name, active profile's role) — the top bar only
+  ever showed which *school* was active, not which *profile*.
+
+**Verification**: 102 API unit tests + 30 web tests pass throughout; full
+`pnpm build` (types/lint/build/test across all three packages) green;
+`db:rls:check` green after every migration. Several fixes verified live via
+curl against a running API + real seeded personas (not just unit tests) —
+notably the clearance-gate fixes, the profile-switch flow, and the
+parent-portal scoping. Browser-preview visual verification was **not**
+reliable this session — the preview tool serves a stale, disconnected
+snapshot from `/private/tmp/swe-web` (see Known Issues); layout/responsive
+changes should be eyeballed in a real dev server before considering them
+fully verified.
 
 ## Session Summary (2026-06-29, Step 7) — backend tests + hygiene
 
@@ -1665,6 +1814,13 @@ Low Priority (cleanups)
   5) restart via `preview_start web` (port 3013). NB: it serves a production
      *snapshot* — rebuild + re-copy after source changes — and `/tmp` clears on
      reboot.
+  Hit again 2026-07-01: `pnpm build`-ing after source edits does **not** by
+  itself refresh what `preview_start` serves — the snapshot step above (copy
+  into `/tmp` or `/private/tmp/swe-web`, whichever this environment uses) is a
+  separate, required step. Burned significant time this session assuming a
+  rebuild alone was sufficient before finding the stale-snapshot cause via
+  `ps -p <pid> -o cwd`. Confirm the snapshot dir is actually refreshed before
+  trusting any preview screenshot after a source change.
 - TD-002: notification service not implemented. Unbuilt feature (not cleanup);
   remains the only pending item in TECHNICAL_DEBT.md.
 - TD-001, TD-003, TD-004: resolved this session (branch
