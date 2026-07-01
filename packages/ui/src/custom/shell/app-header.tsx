@@ -3,11 +3,13 @@
 /* ============================================================
    AppHeader — Aurora Layout A top bar
 
-   Slot-based header: school switcher (left), breadcrumbs, a
-   command/omni search affordance (center), and an actions
-   cluster (right) that typically holds icon buttons + the
-   user menu. Consumes the --header-height layout token and the
-   sidebar/elevation token roles. No embedded data.
+   Three-column grid: [switcher + breadcrumbs] | [search] | [actions].
+   The left column has a capped max-width so a long breadcrumb trail
+   truncates (see AppBreadcrumbs' own collapsing) instead of growing
+   and shoving the center search column sideways — search stays at a
+   fixed position and width regardless of the current route's
+   breadcrumb length. Consumes the --header-height layout token and
+   the sidebar/elevation token roles. No embedded data.
    ============================================================ */
 
 import * as React from 'react';
@@ -73,21 +75,25 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        'flex h-[var(--header-height)] min-h-[50px] shrink-0 items-center gap-3.5 border-b border-border bg-sidebar px-4',
+        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,26rem)_1fr_auto] items-center gap-3.5 border-b border-border bg-sidebar px-4',
         className,
       )}
     >
-      {schoolSwitcher}
-      {breadcrumbs ? (
-        <div className="min-w-0 max-md:hidden">{breadcrumbs}</div>
-      ) : null}
+      <div className="flex min-w-0 items-center gap-3.5 overflow-hidden">
+        {schoolSwitcher}
+        {breadcrumbs ? (
+          <div className="min-w-0 overflow-hidden max-md:hidden">{breadcrumbs}</div>
+        ) : null}
+      </div>
       {search ? (
-        <div className="flex min-w-0 flex-1 justify-center">{search}</div>
+        <div className="mx-auto flex w-full min-w-0 max-w-[440px] justify-self-center">
+          {search}
+        </div>
       ) : (
-        <div className="flex-1" />
+        <div />
       )}
       {actions ? (
-        <div className="ml-auto flex shrink-0 items-center gap-2">
+        <div className="flex shrink-0 items-center justify-self-end gap-2">
           {actions}
         </div>
       ) : null}
