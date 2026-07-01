@@ -76,9 +76,17 @@ export function ViewerProvider({
   );
 
   // Swaps the access/refresh cookies for the chosen profile, then does a
-  // full reload — role, clearanceLevel and permissions all come from the
-  // fresh access token and must be re-derived server-side via getSession(),
-  // not patched in client state.
+  // full navigation to the shared landing page — role, clearanceLevel and
+  // permissions all come from the fresh access token and must be re-derived
+  // server-side via getSession(), not patched in client state.
+  //
+  // Deliberately navigates to /overview rather than reloading the current
+  // URL: a page gated by requirePermission()/requireMinClearance() (see
+  // lib/access.ts) that was valid for the old profile may not be valid for
+  // the new one, and reloading in place would land on /unauthorized — which
+  // is meant for a mistaken navigation, not a deliberate context switch.
+  // /overview renders a different dashboard per clearance level, so it's
+  // valid for every profile.
   const switchProfile = React.useCallback(async (tenantId: string, profileId: string) => {
     const res = await fetch('/api/auth/switch-profile', {
       method: 'POST',
@@ -89,7 +97,7 @@ export function ViewerProvider({
       const body = await res.json().catch(() => ({}));
       throw new Error(body.error ?? 'Failed to switch profile');
     }
-    window.location.reload();
+    window.location.href = '/overview';
   }, []);
 
   // Persists the sign-in default; unlike switchProfile this doesn't change
