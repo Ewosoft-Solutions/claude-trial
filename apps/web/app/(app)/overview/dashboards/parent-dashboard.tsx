@@ -9,19 +9,18 @@
    child with no recorded attendance/grades yet correctly shows an
    empty state rather than a fabricated figure.
 
-   A parent with more than one child gets a roster where each card is
-   itself the selector — clicking a child filters the stats/fee
-   statement to them, with an "All children" pill in the same row
-   aggregating averages/sums across the roster. No separate dropdown
-   floating above the list it duplicates: the thing you click is the
-   thing that changes. A parent with exactly one child skips the
-   selector row entirely (nothing to switch between).
+   A parent with more than one child gets an in-page tab strip — "All
+   children" plus one tab per child — sitting directly above the stats
+   and fee statement it controls, so the connection between the
+   control and what it affects is unambiguous (unlike a dropdown
+   floating in a sidebar next to a separately-listed roster). A parent
+   with exactly one child skips the tab strip entirely (nothing to
+   switch between).
    ============================================================ */
 
 import * as React from 'react';
-import { Banknote, BookOpen, CalendarDays, MessageSquare, Users } from 'lucide-react';
+import { Banknote, BookOpen, CalendarDays, MessageSquare } from 'lucide-react';
 
-import { cn } from '@workspace/ui/lib/utils';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -30,6 +29,7 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
+import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
@@ -170,114 +170,79 @@ export function ParentDashboard({ userName, schoolName }: Props) {
           />
         }
         stats={<StatGrid items={stats} />}
-        aside={
+      >
+        {error ? (
           <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Users className="size-4" /> Children
-              </CardTitle>
-              <CardDescription>{schoolName}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {error ? (
-                <p className="text-sm text-destructive">{error}</p>
-              ) : children === null ? (
-                <p className="text-sm text-muted-foreground">Loading…</p>
-              ) : children.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No children linked to this profile yet.</p>
-              ) : (
-                <>
-                  {children.length > 1 ? (
-                    <button
-                      type="button"
-                      onClick={() => setSelectedId('all')}
-                      aria-pressed={selectedId === 'all'}
-                      className={cn(
-                        'flex items-center gap-2.5 rounded-[var(--radius-sm)] border p-2.5 text-left outline-none transition-colors',
-                        'focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                        selectedId === 'all'
-                          ? 'border-primary bg-primary/5'
-                          : 'border-border bg-card hover:bg-accent',
-                      )}
-                    >
-                      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
-                        <Users className="size-3.5" />
-                      </span>
-                      <span className="text-sm font-medium text-foreground">All children</span>
-                    </button>
-                  ) : null}
-                  {children.map((c) => {
-                    const isActive = selectedId === c.studentId;
-                    return (
-                      <button
-                        key={c.studentId}
-                        type="button"
-                        onClick={() => setSelectedId(c.studentId)}
-                        aria-pressed={isActive}
-                        className={cn(
-                          'flex items-center gap-2.5 rounded-[var(--radius-sm)] border p-2.5 text-left outline-none transition-colors',
-                          'focus-visible:ring-[3px] focus-visible:ring-ring/50',
-                          isActive
-                            ? 'border-primary bg-primary/5'
-                            : 'border-border bg-card hover:bg-accent',
-                        )}
-                      >
-                        <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[11px] font-bold text-primary">
-                          {c.initials}
-                        </span>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="truncate text-sm font-medium text-foreground">
-                            {c.firstName} {c.lastName}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{c.gradeLevel ?? '—'}</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </>
-              )}
+            <CardContent className="pt-6">
+              <p className="text-sm text-destructive">{error}</p>
             </CardContent>
           </Card>
-        }
-      >
-        <Card className="flex-1 shadow-card">
-          <CardHeader>
-            <CardTitle className="text-base">Fee statement</CardTitle>
-            <CardDescription>{view?.label ?? 'No children'}</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-3">
-            {view ? (
-              <>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Total billed</span>
-                  <span className="font-medium">{formatNaira(view.feeTotalDue)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Paid</span>
-                  <span className="font-medium text-success">{formatNaira(view.feeTotalPaid)}</span>
-                </div>
-                <div className="h-px bg-border" />
-                <div className="flex justify-between text-sm">
-                  <span className="font-semibold">Balance</span>
-                  <span className="font-bold text-destructive">{formatNaira(view.feeBalance)}</span>
-                </div>
-                {view.feeTotalDue > 0 ? (
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-success"
-                      style={{ width: `${Math.min(100, Math.round((view.feeTotalPaid / view.feeTotalDue) * 100))}%` }}
-                    />
-                  </div>
-                ) : null}
-                {view.feeBalance > 0 ? (
-                  <Button className="mt-1 w-full" size="sm">Pay balance</Button>
-                ) : null}
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">No billing records yet.</p>
-            )}
-          </CardContent>
-        </Card>
+        ) : children === null ? (
+          <Card className="shadow-card">
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            </CardContent>
+          </Card>
+        ) : children.length === 0 ? (
+          <Card className="shadow-card">
+            <CardContent className="pt-6">
+              <p className="text-sm text-muted-foreground">No children linked to this profile yet.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            {children.length > 1 ? (
+              <Tabs value={selectedId} onValueChange={setSelectedId}>
+                <TabsList>
+                  <TabsTrigger value="all">All children</TabsTrigger>
+                  {children.map((c) => (
+                    <TabsTrigger key={c.studentId} value={c.studentId}>
+                      {c.firstName}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
+              </Tabs>
+            ) : null}
+            <Card className="flex-1 shadow-card">
+              <CardHeader>
+                <CardTitle className="text-base">Fee statement</CardTitle>
+                <CardDescription>{view?.label ?? schoolName}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {view ? (
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Total billed</span>
+                      <span className="font-medium">{formatNaira(view.feeTotalDue)}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Paid</span>
+                      <span className="font-medium text-success">{formatNaira(view.feeTotalPaid)}</span>
+                    </div>
+                    <div className="h-px bg-border" />
+                    <div className="flex justify-between text-sm">
+                      <span className="font-semibold">Balance</span>
+                      <span className="font-bold text-destructive">{formatNaira(view.feeBalance)}</span>
+                    </div>
+                    {view.feeTotalDue > 0 ? (
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-success"
+                          style={{ width: `${Math.min(100, Math.round((view.feeTotalPaid / view.feeTotalDue) * 100))}%` }}
+                        />
+                      </div>
+                    ) : null}
+                    {view.feeBalance > 0 ? (
+                      <Button className="mt-1 w-full" size="sm">Pay balance</Button>
+                    ) : null}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No billing records yet.</p>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </DashboardLayout>
     </ShellMain>
   );
