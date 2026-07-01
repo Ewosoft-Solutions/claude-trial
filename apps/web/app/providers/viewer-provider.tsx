@@ -18,9 +18,9 @@
 import * as React from 'react';
 
 import type { ViewerContext } from '@workspace/ui/types/access.types';
-import type { SchoolOption, UserProfile } from '@workspace/ui/types/shell.types';
+import type { UserProfile } from '@workspace/ui/types/shell.types';
 
-import type { Session } from '@/lib/session';
+import type { Session, SessionSchool } from '@/lib/session';
 
 /* ---- context ------------------------------------------------- */
 export interface ViewerContextValue {
@@ -28,12 +28,21 @@ export interface ViewerContextValue {
   viewer: ViewerContext;
   /** Profile for the shell user menu. */
   user: UserProfile;
-  /** Schools available in the school switcher. */
-  schools: SchoolOption[];
+  /** Schools available in the school switcher, each carrying its full
+   *  `profiles[]` so callers can build a per-profile switcher. */
+  schools: SessionSchool[];
   /** Active tenant id (school scope), or undefined for platform scope. */
   activeSchoolId?: string;
   /** Switch the active tenant. */
   setActiveSchool: (id: string) => void;
+  /** The profile (role) the current session is active as — distinguishes
+   *  which of a user's several profiles at the same school is live. */
+  activeProfileId?: string;
+  /** Switch to a different profile the signed-in user holds (a different
+   *  role at the same school, or a different school). Re-authenticates via
+   *  POST /api/auth/switch-profile and reloads, since the new role,
+   *  clearance level and permissions all come from a fresh access token. */
+  switchProfile: (tenantId: string, profileId: string) => Promise<void>;
 }
 
 const ViewerCtx = React.createContext<ViewerContextValue | null>(null);
@@ -56,6 +65,23 @@ export function ViewerProvider({
     [session.permissions],
   );
 
+  // Swaps the access/refresh cookies for the chosen profile, then does a
+  // full reload — role, clearanceLevel and permissions all come from the
+  // fresh access token and must be re-derived server-side via getSession(),
+  // not patched in client state.
+  const switchProfile = React.useCallback(async (tenantId: string, profileId: string) => {
+    const res = await fetch('/api/auth/switch-profile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ tenantId, profileId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? 'Failed to switch profile');
+    }
+    window.location.reload();
+  }, []);
+
   const value = React.useMemo<ViewerContextValue>(() => {
     const activeSchool = session.schools.find((s) => s.id === activeSchoolId);
 
@@ -76,6 +102,8 @@ export function ViewerProvider({
       schools: session.schools,
       activeSchoolId: viewer.tenantId,
       setActiveSchool: setActiveSchoolId,
+      activeProfileId: session.activeProfileId,
+      switchProfile,
     };
   }, [session, activeSchoolId, permissions]);
 

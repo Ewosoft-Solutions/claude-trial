@@ -29,6 +29,7 @@ const RAW_ME_RESPONSE = {
   roles: ['Principal'],
   permissions: ['students.view', 'attendance.view', 'grades.view'] as string[],
   defaultSchoolId: 'tenant-abc',
+  activeProfileId: 'profile-1',
   schools: [
     {
       id: 'tenant-abc',
@@ -48,6 +49,7 @@ const RAW_ME_RESPONSE = {
   roles: string[];
   permissions: string[];
   defaultSchoolId?: string;
+  activeProfileId?: string;
   schools: Array<{
     id: string;
     name: string;
@@ -68,11 +70,15 @@ function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
     roles: me.roles,
     permissions: me.permissions as PermissionKey[],
     defaultSchoolId: me.defaultSchoolId,
+    activeProfileId: me.activeProfileId,
     schools: me.schools.map((s) => ({
       id: s.id,
       name: s.name,
       initials: s.initials,
-      caption: s.profiles[0]?.caption ?? 'Staff',
+      caption:
+        s.profiles.find((p) => p.profileId === me.activeProfileId)?.caption ??
+        s.profiles[0]?.caption ??
+        'Staff',
       color: s.color,
       schoolType: ((s.schoolType || 'secondary') as SchoolType),
       profiles: s.profiles,
@@ -146,9 +152,10 @@ describe('Session contract — /auth/me ↔ Session shape', () => {
     ]);
   });
 
-  it('multiple profiles at the same school stay one school entry, caption from the first profile', () => {
+  it('multiple profiles at the same school stay one school entry, caption from the first profile when no active profile matches', () => {
     const dualProfile = mapMeResponseToSession({
       ...RAW_ME_RESPONSE,
+      activeProfileId: 'profile-unrelated',
       schools: [
         {
           ...RAW_ME_RESPONSE.schools[0]!,
@@ -163,5 +170,23 @@ describe('Session contract — /auth/me ↔ Session shape', () => {
     expect(dualProfile.schools).toHaveLength(1);
     expect(dualProfile.schools[0]!.caption).toBe('Parent');
     expect(dualProfile.schools[0]!.profiles).toHaveLength(2);
+  });
+
+  it('caption reflects the currently active profile, not just the first one', () => {
+    const dualProfile = mapMeResponseToSession({
+      ...RAW_ME_RESPONSE,
+      activeProfileId: 'profile-2',
+      schools: [
+        {
+          ...RAW_ME_RESPONSE.schools[0]!,
+          profiles: [
+            { profileId: 'profile-1', role: 'Parent', caption: 'Parent' },
+            { profileId: 'profile-2', role: 'Teacher', caption: 'Teacher' },
+          ],
+        },
+      ],
+    });
+
+    expect(dualProfile.schools[0]!.caption).toBe('Teacher');
   });
 });

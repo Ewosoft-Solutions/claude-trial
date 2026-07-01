@@ -32,6 +32,7 @@ import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
 import { UserMenu } from '@workspace/ui/custom/shell/user-menu';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
+import { ModeToggle } from '@workspace/ui/custom/mode-toggle';
 import { useResolvedNavigation } from '@workspace/ui/hooks/use-navigation';
 import { findActiveNavItem } from '@workspace/ui/lib/navigation';
 import type {
@@ -62,6 +63,7 @@ const USER_MENU: UserMenuItem[] = [
 function HeaderActions() {
   return (
     <>
+      <ModeToggle />
       <Button variant="ghost" size="icon-sm" aria-label="Quick add">
         <Plus />
       </Button>
@@ -89,10 +91,49 @@ function HeaderActions() {
 }
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
-  const { viewer, user, schools, activeSchoolId, setActiveSchool } =
-    useViewer();
+  const {
+    viewer,
+    user,
+    schools,
+    activeSchoolId,
+    activeProfileId,
+    switchProfile,
+  } = useViewer();
   const router = useRouter();
   const pathname = usePathname();
+
+  // One switcher entry per profile, not per school — a user can hold more
+  // than one profile at the same school (e.g. Teacher + Parent), and each
+  // is a distinct context to switch into, not a variant of the same one.
+  // Keyed by profileId so co-located profiles at one school render as
+  // separate rows instead of colliding on the school's tenant id.
+  const profileOptions = React.useMemo(
+    () =>
+      schools.flatMap((school) =>
+        (school.profiles ?? []).map((profile) => ({
+          id: profile.profileId,
+          tenantId: school.id,
+          name: school.name,
+          initials: school.initials,
+          logoUrl: school.logoUrl,
+          color: school.color,
+          caption: profile.role,
+        })),
+      ),
+    [schools],
+  );
+
+  const handleProfileChange = React.useCallback(
+    (selected: { id: string }) => {
+      if (selected.id === activeProfileId) return;
+      const option = profileOptions.find((p) => p.id === selected.id);
+      if (!option) return;
+      switchProfile(option.tenantId, option.id).catch((err) => {
+        console.error('[AppChrome] switchProfile failed', err);
+      });
+    },
+    [activeProfileId, profileOptions, switchProfile],
+  );
 
   const userMenu: UserMenuItem[] = React.useMemo(
     () =>
@@ -149,9 +190,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             schoolSwitcher={
               viewer.scope === 'school' ? (
                 <SchoolSwitcher
-                  schools={schools}
-                  activeSchoolId={activeSchoolId}
-                  onSchoolChange={(s) => setActiveSchool(s.id)}
+                  schools={profileOptions}
+                  activeSchoolId={activeProfileId}
+                  onSchoolChange={handleProfileChange}
+                  menuLabel="Switch profile"
                 />
               ) : undefined
             }

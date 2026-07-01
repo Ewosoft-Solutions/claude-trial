@@ -170,6 +170,10 @@ export class AuthController {
         .filter(([, v]) => v.granted)
         .map(([name]) => name),
       defaultSchoolId: tenantId,
+      /** The profile the current access token was issued for — lets the
+       *  frontend switcher highlight which of a user's several profiles
+       *  (e.g. Teacher vs Parent at the same school) is currently active. */
+      activeProfileId: profileId,
       schools: groupProfilesBySchool(profiles),
     };
   }
@@ -264,6 +268,44 @@ export class AuthController {
     return this.authenticationService.selectSchool(
       prisma,
       userId,
+      selectSchoolDto.tenantId,
+      selectSchoolDto.profileId,
+      ipAddress,
+      userAgent,
+    );
+  }
+
+  /**
+   * Switch active profile (mid-session context switch)
+   *
+   * POST /auth/switch-profile
+   *
+   * Distinct from /auth/select-school: this is called with a *current,
+   * already-authenticated* access token, for a signed-in user switching
+   * between profiles they hold (e.g. Teacher and Parent at the same
+   * school, or a different school entirely) — not the one-time post-login
+   * school picker, which runs off the short-lived pre-auth token instead.
+   * Reuses AuthenticationService.selectSchool, which validates the target
+   * profile belongs to the calling user before issuing new tokens, so a
+   * caller cannot switch into another user's profile.
+   */
+  @Post('switch-profile')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Switch to a different profile the signed-in user holds' })
+  async switchProfile(
+    @Body() selectSchoolDto: SelectSchoolDto,
+    @AuthUser() user: RequestUser,
+    @Req() req: Request,
+  ) {
+    const prisma = this.dbService.client;
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'];
+
+    return this.authenticationService.selectSchool(
+      prisma,
+      user.userId,
       selectSchoolDto.tenantId,
       selectSchoolDto.profileId,
       ipAddress,

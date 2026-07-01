@@ -62,6 +62,10 @@ export interface Session {
   schools: SessionSchool[];
   /** Initially active tenant id (school scope). */
   defaultSchoolId?: string;
+  /** The profile the current access token was issued for — used to
+   *  highlight which profile is active when a user holds more than one
+   *  (e.g. Teacher vs Parent at the same school). */
+  activeProfileId?: string;
 }
 
 /** Shape of GET /auth/me response from apps/api */
@@ -78,6 +82,7 @@ interface MeResponse {
   roles: string[];
   permissions: string[];
   defaultSchoolId?: string;
+  activeProfileId?: string;
   schools: Array<{
     id: string;
     name: string;
@@ -122,13 +127,17 @@ export async function getSession(): Promise<Session | null> {
       roles: me.roles,
       permissions: me.permissions as PermissionKey[],
       defaultSchoolId: me.defaultSchoolId,
+      activeProfileId: me.activeProfileId,
       schools: me.schools.map((s) => ({
         id: s.id,
         name: s.name,
         initials: s.initials,
-        // Today every viewer has exactly one profile per school; this
-        // takes the first until a profile-switcher UI consumes `profiles`.
-        caption: s.profiles[0]?.caption ?? 'Staff',
+        // Caption reflects the currently active profile at this school
+        // when known, falling back to the first profile otherwise.
+        caption:
+          s.profiles.find((p) => p.profileId === me.activeProfileId)?.caption ??
+          s.profiles[0]?.caption ??
+          'Staff',
         color: s.color,
         schoolType: ((s.schoolType || 'secondary') as SchoolType),
         profiles: s.profiles,
