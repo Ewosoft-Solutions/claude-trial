@@ -8,6 +8,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   HttpCode,
   HttpStatus,
@@ -22,6 +23,7 @@ import {
   LoginDto,
   VerifyMfaForLoginDto,
   SelectSchoolDto,
+  SetDefaultProfileDto,
   RefreshTokenDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
@@ -127,7 +129,7 @@ export class AuthController {
     // Resolve user profile
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, firstName: true, lastName: true },
+      select: { email: true, firstName: true, lastName: true, defaultUserTenantId: true },
     });
 
     if (!dbUser) {
@@ -174,8 +176,40 @@ export class AuthController {
        *  frontend switcher highlight which of a user's several profiles
        *  (e.g. Teacher vs Parent at the same school) is currently active. */
       activeProfileId: profileId,
+      /** The profile the user has pinned as their sign-in default (Account
+       *  settings › Profile), distinct from activeProfileId — this is the
+       *  stored preference, not necessarily the one live right now. */
+      defaultProfileId: dbUser.defaultUserTenantId ?? undefined,
       schools: groupProfilesBySchool(profiles),
     };
+  }
+
+  /**
+   * Set default sign-in profile (Account settings › Profile)
+   *
+   * PATCH /auth/default-profile
+   *
+   * Lets a user pin which profile they hold should be auto-selected at
+   * future logins, instead of login always picking the first profile in a
+   * deterministic-but-otherwise-arbitrary order. Validated against the
+   * calling user in AuthenticationService.setDefaultProfile — a caller can
+   * never point their default at a profile they don't hold.
+   */
+  @Patch('default-profile')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Set the profile to auto-select at future logins' })
+  async setDefaultProfile(
+    @Body() dto: SetDefaultProfileDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    const prisma = this.dbService.client;
+    return this.authenticationService.setDefaultProfile(
+      prisma,
+      user.userId,
+      dto.profileId,
+    );
   }
 
   /**

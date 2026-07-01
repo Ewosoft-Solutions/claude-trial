@@ -66,6 +66,10 @@ export interface Session {
    *  highlight which profile is active when a user holds more than one
    *  (e.g. Teacher vs Parent at the same school). */
   activeProfileId?: string;
+  /** The profile id the user has pinned as their sign-in default (Account
+   *  settings › Profile) — the stored preference, not necessarily active
+   *  right now. Undefined when the user hasn't set one. */
+  defaultProfileId?: string;
 }
 
 /** Shape of GET /auth/me response from apps/api */
@@ -83,6 +87,7 @@ interface MeResponse {
   permissions: string[];
   defaultSchoolId?: string;
   activeProfileId?: string;
+  defaultProfileId?: string;
   schools: Array<{
     id: string;
     name: string;
@@ -128,6 +133,7 @@ export async function getSession(): Promise<Session | null> {
       permissions: me.permissions as PermissionKey[],
       defaultSchoolId: me.defaultSchoolId,
       activeProfileId: me.activeProfileId,
+      defaultProfileId: me.defaultProfileId,
       schools: me.schools.map((s) => ({
         id: s.id,
         name: s.name,

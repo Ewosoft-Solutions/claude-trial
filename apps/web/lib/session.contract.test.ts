@@ -30,6 +30,7 @@ const RAW_ME_RESPONSE = {
   permissions: ['students.view', 'attendance.view', 'grades.view'] as string[],
   defaultSchoolId: 'tenant-abc',
   activeProfileId: 'profile-1',
+  defaultProfileId: 'profile-1',
   schools: [
     {
       id: 'tenant-abc',
@@ -50,6 +51,7 @@ const RAW_ME_RESPONSE = {
   permissions: string[];
   defaultSchoolId?: string;
   activeProfileId?: string;
+  defaultProfileId?: string;
   schools: Array<{
     id: string;
     name: string;
@@ -71,6 +73,7 @@ function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
     permissions: me.permissions as PermissionKey[],
     defaultSchoolId: me.defaultSchoolId,
     activeProfileId: me.activeProfileId,
+    defaultProfileId: me.defaultProfileId,
     schools: me.schools.map((s) => ({
       id: s.id,
       name: s.name,
@@ -188,5 +191,15 @@ describe('Session contract — /auth/me ↔ Session shape', () => {
     });
 
     expect(dualProfile.schools[0]!.caption).toBe('Teacher');
+  });
+
+  it('defaultProfileId passes through unchanged (the stored preference, not the active profile)', () => {
+    const withDefault = mapMeResponseToSession({
+      ...RAW_ME_RESPONSE,
+      activeProfileId: 'profile-2',
+      defaultProfileId: 'profile-1',
+    });
+    expect(withDefault.defaultProfileId).toBe('profile-1');
+    expect(withDefault.activeProfileId).toBe('profile-2');
   });
 });

@@ -42,6 +42,38 @@ function toSchoolPickerOptions(schools: UserSchoolProfile[]): SchoolPickerOption
 }
 
 /**
+ * Orders a user's profiles for the post-login auto-select step: the
+ * frontend always takes index 0 (see apps/web/app/api/auth/login/route.ts)
+ * as the default sign-in context. Without this, that index was whatever
+ * order the DB query happened to return (effectively insertion order) —
+ * arbitrary and meaningless to the user.
+ *
+ * Sorts deterministically by school name then profile id (so the default
+ * fallback is at least stable and predictable), then — if the user has set
+ * a preferred profile via PATCH /auth/default-profile and it's still in
+ * the list — moves that one to the front, overriding the deterministic
+ * order.
+ */
+function orderWithDefaultFirst(
+  schools: UserSchoolProfile[],
+  defaultUserTenantId: string | null | undefined,
+): UserSchoolProfile[] {
+  const sorted = [...schools].sort(
+    (a, b) =>
+      a.tenantName.localeCompare(b.tenantName) ||
+      a.profileId.localeCompare(b.profileId),
+  );
+
+  if (!defaultUserTenantId) return sorted;
+
+  const defaultIndex = sorted.findIndex((s) => s.profileId === defaultUserTenantId);
+  if (defaultIndex <= 0) return sorted;
+
+  const [preferred] = sorted.splice(defaultIndex, 1);
+  return [preferred!, ...sorted];
+}
+
+/**
  * Login Response
  */
 export interface LoginResponse {
@@ -146,6 +178,7 @@ export class AuthenticationService {
         isVerified: true,
         loginAttempts: true,
         lockedUntil: true,
+        defaultUserTenantId: true,
       },
     });
 
@@ -333,7 +366,9 @@ export class AuthenticationService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      schools: toSchoolPickerOptions(schools),
+      schools: toSchoolPickerOptions(
+        orderWithDefaultFirst(schools, user.defaultUserTenantId),
+      ),
       token: preAuthToken,
       requiresMfa: false,
     };
@@ -399,6 +434,7 @@ export class AuthenticationService {
         email: true,
         firstName: true,
         lastName: true,
+        defaultUserTenantId: true,
       },
     });
 
@@ -441,7 +477,9 @@ export class AuthenticationService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      schools: toSchoolPickerOptions(schools),
+      schools: toSchoolPickerOptions(
+        orderWithDefaultFirst(schools, user.defaultUserTenantId),
+      ),
       token: preAuthToken,
       requiresMfa: false,
     };
@@ -574,6 +612,38 @@ export class AuthenticationService {
         profileStatus: userTenant.status as ProfileStatus,
       },
     };
+  }
+
+  /**
+   * Set the profile to auto-select at future logins (Account settings ›
+   * Profile). Reuses the same ownership check as selectSchool: the target
+   * profile must belong to the calling user, so a caller can never point
+   * their default at someone else's profile.
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - Calling user's id
+   * @param profileId - UserTenant id to set as the sign-in default
+   */
+  async setDefaultProfile(
+    prisma: PrismaClient,
+    userId: string,
+    profileId: string,
+  ): Promise<{ success: true; defaultProfileId: string }> {
+    const userTenant = await prisma.userTenant.findUnique({
+      where: { id: profileId },
+      select: { userId: true },
+    });
+
+    if (userTenant?.userId !== userId) {
+      throw new UnauthorizedException('Invalid profile');
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { defaultUserTenantId: profileId },
+    });
+
+    return { success: true, defaultProfileId: profileId };
   }
 
   /**

@@ -53,4 +53,12 @@ export const apiClient = {
   get<T>(path: string, headers?: Record<string, string>) {
     return request<T>(path, { method: 'GET', headers });
   },
+
+  patch<T>(path: string, body: unknown, headers?: Record<string, string>) {
+    return request<T>(path, {
+      method: 'PATCH',
+      body: JSON.stringify(body),
+      headers,
+    });
+  },
 };

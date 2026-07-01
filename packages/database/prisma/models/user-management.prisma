@@ -44,6 +44,13 @@ model User {
   passwordResetToken     String?   @map("password_reset_token")
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
 
+  // Sign-in Preference
+  // The profile (UserTenant) to auto-select at login instead of falling back
+  // to insertion order — set via PATCH /auth/default-profile. Nullable: not
+  // every user bothers to set one. SetNull on delete so removing a profile
+  // never blocks deleting it, it just clears the preference.
+  defaultUserTenantId String? @map("default_user_tenant_id")
+
   // Audit Fields
   createdBy String?  @map("created_by")
   updatedBy String?  @map("updated_by")
@@ -51,10 +58,11 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  createdByUser User?  @relation("UserCreated", fields: [createdBy], references: [id])
-  updatedByUser User?  @relation("UserUpdated", fields: [updatedBy], references: [id])
-  createdUsers  User[] @relation("UserCreated")
-  updatedUsers  User[] @relation("UserUpdated")
+  createdByUser  User?       @relation("UserCreated", fields: [createdBy], references: [id])
+  updatedByUser  User?       @relation("UserUpdated", fields: [updatedBy], references: [id])
+  createdUsers   User[]      @relation("UserCreated")
+  updatedUsers   User[]      @relation("UserUpdated")
+  defaultProfile UserTenant? @relation("UserDefaultProfile", fields: [defaultUserTenantId], references: [id], onDelete: SetNull)
 
   passwordHistories PasswordHistory[]
   loginAttemptsList LoginAttempt[]
@@ -67,6 +75,7 @@ model User {
   @@index([email])
   @@index([isActive])
   @@index([isVerified])
+  @@index([defaultUserTenantId])
   @@schema("user-management")
   @@map("users")
 }

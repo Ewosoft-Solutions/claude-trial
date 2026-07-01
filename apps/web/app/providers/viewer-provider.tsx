@@ -43,6 +43,13 @@ export interface ViewerContextValue {
    *  POST /api/auth/switch-profile and reloads, since the new role,
    *  clearance level and permissions all come from a fresh access token. */
   switchProfile: (tenantId: string, profileId: string) => Promise<void>;
+  /** The profile id the user has pinned as their sign-in default — the
+   *  stored preference (Account settings › Profile), not necessarily the
+   *  one active right now. */
+  defaultProfileId?: string;
+  /** Persist a new sign-in default via PATCH /api/auth/default-profile.
+   *  Does not affect the current session — only future logins. */
+  setDefaultProfile: (profileId: string) => Promise<void>;
 }
 
 const ViewerCtx = React.createContext<ViewerContextValue | null>(null);
@@ -56,6 +63,9 @@ export function ViewerProvider({
 }) {
   const [activeSchoolId, setActiveSchoolId] = React.useState(
     session.defaultSchoolId,
+  );
+  const [defaultProfileId, setDefaultProfileIdState] = React.useState(
+    session.defaultProfileId,
   );
 
   // The wire payload carries permissions as an array; derive the lookup
@@ -82,6 +92,22 @@ export function ViewerProvider({
     window.location.reload();
   }, []);
 
+  // Persists the sign-in default; unlike switchProfile this doesn't change
+  // anything about the current session, so no reload is needed — just
+  // reflect the new default in local state for the settings UI.
+  const setDefaultProfile = React.useCallback(async (profileId: string) => {
+    const res = await fetch('/api/auth/default-profile', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ profileId }),
+    });
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}));
+      throw new Error(body.error ?? 'Failed to set default profile');
+    }
+    setDefaultProfileIdState(profileId);
+  }, []);
+
   const value = React.useMemo<ViewerContextValue>(() => {
     const activeSchool = session.schools.find((s) => s.id === activeSchoolId);
 
@@ -104,8 +130,10 @@ export function ViewerProvider({
       setActiveSchool: setActiveSchoolId,
       activeProfileId: session.activeProfileId,
       switchProfile,
+      defaultProfileId,
+      setDefaultProfile,
     };
-  }, [session, activeSchoolId, permissions]);
+  }, [session, activeSchoolId, permissions, defaultProfileId, switchProfile, setDefaultProfile]);
 
   return <ViewerCtx.Provider value={value}>{children}</ViewerCtx.Provider>;
 }

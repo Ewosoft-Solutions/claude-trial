@@ -23,6 +23,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   ToggleRight,
+  UserCircle,
   Users,
 } from 'lucide-react';
 
@@ -32,6 +33,7 @@ import { SettingsLayout } from '@workspace/ui/custom/layouts/settings-layout';
 import type { SettingsNavItem } from '@workspace/ui/types/layout.types';
 
 const SECTIONS: Omit<SettingsNavItem, 'active'>[] = [
+  { key: 'profile', label: 'Profile', description: 'Sign-in & default context', icon: <UserCircle />, href: '/settings/profile' },
   { key: 'general', label: 'General', description: 'Profile & locale', icon: <SettingsIcon />, href: '/settings/general' },
   { key: 'branding', label: 'Branding', description: 'Logo, colours, theme', icon: <Palette />, href: '/settings/branding' },
   { key: 'features', label: 'Features', description: 'Module toggles', icon: <ToggleRight />, href: '/settings/features' },
