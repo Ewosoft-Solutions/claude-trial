@@ -383,6 +383,75 @@ Permissions can come from multiple sources (checked in order):
 
 ---
 
+## Clearance Enforcement Gates
+
+Permission resolution is pools-only: a role's effective permissions come
+entirely from `Role → RolePermissionPool → PermissionPool →
+PermissionPoolPermission → Permission` (`TenantQueriesService.resolveRolePoolPermissions`).
+The direct `RolePermission` join table was removed (migration
+`20260630010000_drop_role_permissions`) so there is exactly one path to
+a role's permissions, with no ambiguity about which one is authoritative.
+
+Three gates keep a permission's `requiredClearanceLevel` from ever
+exceeding the role that holds it:
+
+### Gate 1 — Role creation (`RoleService.validateCustomRoleCreation`)
+
+At custom-role creation time: every selected permission pool's
+`clearanceLevel` must be `<= role.clearanceLevel`, and any explicit
+`permissionIds` must individually satisfy the same bound. Implemented.
+
+### Gate 2 — Pool assignment (`PermissionManagementController.assignPermissionPoolsToRole`)
+
+`POST /permissions/role/:roleId/assign` assigns whole permission pools
+(not individual permissions) to an existing role, and rejects any pool
+whose `clearanceLevel` exceeds the target role's `clearanceLevel`
+before writing the `RolePermissionPool` rows. Implemented.
+
+### Gate 3 — Resolution-time floor (`TenantQueriesService.resolveRolePoolPermissions`)
+
+The shared resolver filters out any permission whose
+`requiredClearanceLevel` exceeds `role.clearanceLevel`, regardless of
+how the pool-role assignment got there. This is the backstop: even if
+Gates 1/2 are bypassed or the underlying data drifts (e.g. a pool's
+clearance level changes after it was already assigned to a role), no
+permission above the role's own clearance can ever be issued to a
+caller. Implemented.
+
+### Gate 4 — Update-time consistency check (NOT YET IMPLEMENTED)
+
+There is currently no endpoint to change a `Role.clearanceLevel` or a
+`PermissionPool.clearanceLevel` after creation. When one is added
+(e.g. `PATCH /roles/:id`, `PATCH /permission-pools/:id`), it must
+re-validate the invariant Gates 1–2 establish at creation time, because
+Gate 3 will silently and correctly narrow the affected role's
+permissions rather than surface the conflict — which hides a
+misconfiguration instead of flagging it to the admin who caused it.
+
+Required behavior for that future endpoint:
+
+- **Role clearance lowered**: before committing, check all pools
+  currently in that role's `RolePermissionPool` rows via
+  `pool.clearanceLevel <= newClearanceLevel`. If any pool now exceeds
+  the new level, either reject the request (400, listing the
+  conflicting pools) or auto-detach those `RolePermissionPool` rows —
+  pick one policy and apply it consistently; reject-and-list is safer
+  for an admin-facing UI since it surfaces the conflict instead of
+  silently changing role capabilities.
+- **Pool clearance raised**: before committing, check all roles
+  currently referencing that pool via `RolePermissionPool` — for each,
+  `role.clearanceLevel >= newClearanceLevel`. If any role would fall
+  below the pool's new level, reject (400, listing the affected roles).
+  A pool's clearance should generally not be lowered either without
+  checking whether that changes what it grants to roles already at a
+  higher level — lowering is lower-risk (it can only shrink access) but
+  still worth a diff-and-confirm step in the UI.
+- Both checks are simple queries against `RolePermissionPool` joined to
+  `Role`/`PermissionPool` — no new tables needed, this is enforcement
+  logic on existing relations.
+
+---
+
 ## AI Mediator Integration
 
 ### Clearance Level Context

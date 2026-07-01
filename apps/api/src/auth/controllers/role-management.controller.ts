@@ -125,6 +125,15 @@ export class RoleManagementController {
    * Create custom role (12.4)
    *
    * POST /roles
+   *
+   * NOTE: There is intentionally no update endpoint for a role's
+   * clearanceLevel (or for a PermissionPool's clearanceLevel) yet. Before
+   * adding one, see "Clearance Enforcement Gates" (Gate 4) in
+   * requirements/role-permissions-management.md — it must re-validate
+   * every RolePermissionPool row the change would affect, or the
+   * resolution-time floor in TenantQueriesService.resolveRolePoolPermissions
+   * will silently narrow a role's permissions instead of surfacing the
+   * conflict to the admin who caused it.
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
