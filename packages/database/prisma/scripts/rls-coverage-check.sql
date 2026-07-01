@@ -17,9 +17,9 @@
 DO $guard$
 DECLARE
   app_schemas text[] := ARRAY[
-    'academic-structure','admissions','audit-logging','communication','finance','jwt-secrets',
-    'profile','roles-permissions','security-policy','student-management',
-    'tenant','user-management'
+    'academic-structure','admissions','audit-logging','communication','events','finance',
+    'health','hr','jwt-secrets','library','profile','roles-permissions','security-policy',
+    'student-management','tenant','transportation','user-management'
   ];
   offender record;
   offenders text := '';

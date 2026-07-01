@@ -61,6 +61,7 @@ model Student {
   enrollments        Enrollment[]
   guardians          StudentGuardian[]  @relation("StudentGuardianStudent")
   attendanceRecords  AttendanceRecord[]
+  transportAssignment TransportAssignment?
 
   @@unique([tenantId, studentNumber]) // Unique student number per tenant
   @@index([tenantId])

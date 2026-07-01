@@ -20,6 +20,7 @@ import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analyt
 import { AttendanceModule } from './attendance/attendance.module';
 import { FinanceModule } from './finance/finance.module';
 import { AdmissionsModule } from './admissions/admissions.module';
+import { TransportModule } from './transport/transport.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
@@ -88,6 +89,7 @@ import { AppController } from './app.controller';
     AttendanceModule,
     FinanceModule,
     AdmissionsModule,
+    TransportModule,
     ParentPortalModule,
   ],
   controllers: [AppController],

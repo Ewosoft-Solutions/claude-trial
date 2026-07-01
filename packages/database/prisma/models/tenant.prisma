@@ -46,6 +46,7 @@ model Tenant {
   feeInvoices       FeeInvoice[]
   payments          Payment[]
   admissionApplications AdmissionApplication[]
+  transportAssignments  TransportAssignment[]
 
   @@index([status])
   @@index([emailDomain])

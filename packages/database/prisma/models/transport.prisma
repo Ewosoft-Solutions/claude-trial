@@ -1,0 +1,44 @@
+// ============================================
+// Transport Models
+// ============================================
+//
+// TransportAssignment: a student's assignment to a bus route/vehicle,
+// mirroring the "who rides which bus" view used by /students/transport.
+//
+// Tenant-scoped (tenant_id NOT NULL) in the "transportation" schema and
+// covered by RLS (migration applies the policy explicitly so
+// db:rls:check passes from day one).
+//
+// status: 'assigned' | 'waitlist' | 'unassigned'
+// One assignment row per student per tenant (re-assigning updates it).
+// ============================================
+
+model TransportAssignment {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  studentId String @unique @map("student_id")
+
+  routeName    String? @map("route_name")
+  stop         String?
+  pickupTime   String? @map("pickup_time") // e.g. "06:45"
+  vehicleLabel String? @map("vehicle_label")
+
+  status String @default("unassigned") // assigned | waitlist | unassigned
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, routeName])
+  @@schema("transportation")
+  @@map("transport_assignments")
+}
