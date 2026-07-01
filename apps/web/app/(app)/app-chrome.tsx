@@ -25,6 +25,7 @@ import {
   User,
 } from 'lucide-react';
 
+import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
 import { AppShell } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
@@ -42,6 +43,7 @@ import type {
 
 import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
+import type { UserProfile } from '@workspace/ui/types/shell.types';
 
 const USER_MENU: UserMenuItem[] = [
   { key: 'profile', label: 'Profile', icon: <User />, href: '/settings/general' },
@@ -59,6 +61,42 @@ const USER_MENU: UserMenuItem[] = [
     separatorBefore: true,
   },
 ];
+
+/**
+ * Compact identity card pinned to the bottom of the secondary nav
+ * (AppSidebar's `navFooter` slot). The top bar only tells you which
+ * *school* is active — this is the only place a user can tell which
+ * *profile* (role) they're currently signed in as, which matters once
+ * a user holds more than one (Teacher vs Parent, etc.).
+ *
+ * No online/away/busy presence indicator: that's a real-time
+ * multi-user collaboration signal (Slack/Discord), and this app has no
+ * feature yet that consumes it (no live chat, no "who's viewing this
+ * record" — deliberately left out rather than adding inert state).
+ */
+function SidebarProfileFooter({ user }: { user: UserProfile }) {
+  return (
+    <div className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-border bg-card px-2.5 py-2">
+      <Avatar className="size-8 shrink-0 rounded-full">
+        {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
+        <AvatarFallback
+          className="text-[11px] font-bold text-white"
+          style={{ background: user.color ?? 'var(--muted-foreground)' }}
+        >
+          {user.initials}
+        </AvatarFallback>
+      </Avatar>
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-[13px] font-semibold text-foreground">
+          {user.name}
+        </span>
+        {user.caption ? (
+          <span className="truncate text-xs text-muted-foreground">{user.caption}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 function HeaderActions() {
   return (
@@ -225,6 +263,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                 : undefined
             }
             navGroups={nav.navGroups}
+            navFooter={<SidebarProfileFooter user={user} />}
           />
         }
       >
