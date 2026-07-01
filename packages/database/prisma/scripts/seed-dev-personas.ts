@@ -621,8 +621,10 @@ async function seedAttendanceData(tenantId: string) {
 
 // ---------------------------------------------------------------------------
 // Multi-school, multi-role persona — exercises the schools[].profiles[]
-// grouping: one user with two profiles at Greenfield (Teacher + Parent)
-// and a third profile at Sunrise (Teacher).
+// grouping: one user with two profiles at Greenfield (Teacher + Parent) and
+// TWO profiles at Sunrise (Teacher + Parent) — three schools-worth of
+// guardian context isn't testable with only one Parent profile, so this
+// user is a parent at both schools, each with its own child(ren).
 // ---------------------------------------------------------------------------
 
 async function seedMultiProfilePersona(
@@ -652,31 +654,80 @@ async function seedMultiProfilePersona(
   const sunriseTeacher = await findOrCreateUserTenant(user.id, sunrise.id);
   await assignRole(sunriseTeacher.id, roles['Teacher']!, sunrise.id);
 
-  console.log('  ✅ multi@schoolwithease.test → Greenfield: Teacher + Parent, Sunrise: Teacher');
+  // Sunrise: second profile, Parent — same user, second school, exercises a
+  // guardian with children spread across schools (not just co-located roles).
+  const sunriseParent = await createAdditionalProfile(user.id, sunrise.id, roles['Parent']!);
+  await assignRole(sunriseParent.id, roles['Parent']!, sunrise.id);
 
-  await seedParentChildren(greenfield.id, greenfieldParent.id, roles['Student']!, passwordHash);
+  console.log('  ✅ multi@schoolwithease.test → Greenfield: Teacher + Parent, Sunrise: Teacher + Parent');
+
+  await seedParentChildren(greenfield.id, greenfieldParent.id, roles['Student']!, passwordHash, [
+    {
+      emailPrefix: 'child1', firstName: 'Amara', lastName: 'Profile', gradeLevel: 'JSS1',
+      studentNumber: 'STU-DEV-101', admissionNumber: 'ADM-DEV-101',
+      attendanceStatuses: ['present', 'present', 'present', 'late', 'present'],
+      gradePercent: 78, feeAmountDue: 15000000, feeAmountPaid: 15000000, feeStatus: 'paid',
+    },
+    {
+      emailPrefix: 'child2', firstName: 'Chidi', lastName: 'Profile', gradeLevel: 'JSS2',
+      studentNumber: 'STU-DEV-102', admissionNumber: 'ADM-DEV-102',
+      attendanceStatuses: ['present', 'late', 'absent', 'present', 'present'],
+      gradePercent: 85, feeAmountDue: 15000000, feeAmountPaid: 9000000, feeStatus: 'partial',
+    },
+    {
+      emailPrefix: 'child3', firstName: 'Ngozi', lastName: 'Profile', gradeLevel: 'SSS1',
+      studentNumber: 'STU-DEV-103', admissionNumber: 'ADM-DEV-103',
+      attendanceStatuses: ['present', 'present', 'present', 'present', 'present'],
+      gradePercent: 68, feeAmountDue: 19500000, feeAmountPaid: 0, feeStatus: 'overdue',
+    },
+  ]);
+
+  await seedParentChildren(sunrise.id, sunriseParent.id, roles['Student']!, passwordHash, [
+    {
+      emailPrefix: 'child4', firstName: 'Tayo', lastName: 'Profile', gradeLevel: 'P3',
+      studentNumber: 'STU-DEV-104', admissionNumber: 'ADM-DEV-104',
+      attendanceStatuses: ['present', 'present', 'late', 'present', 'absent'],
+      gradePercent: 91, feeAmountDue: 12000000, feeAmountPaid: 6000000, feeStatus: 'partial',
+    },
+  ]);
+}
+
+interface ChildSeedConfig {
+  emailPrefix: string;
+  firstName: string;
+  lastName: string;
+  gradeLevel: string;
+  studentNumber: string;
+  admissionNumber: string;
+  /** 5 weekday statuses: 'present' | 'absent' | 'late' | 'excused'. */
+  attendanceStatuses: string[];
+  /** Single assessment score, 0-100, backing the "average grade" stat. */
+  gradePercent: number;
+  /** Minor units (kobo). */
+  feeAmountDue: number;
+  feeAmountPaid: number;
+  feeStatus: string;
 }
 
 /**
- * Three child Student records, each with its own login (Student role +
- * Student record), linked as children of the multi-profile persona's
- * Greenfield Parent profile via StudentGuardian — so the Parent context
- * shows a real multi-child roster rather than a single hardcoded student.
+ * Child Student records, each with its own login (Student role + Student
+ * record), linked as children of the given guardian profile via
+ * StudentGuardian, each with real attendance/grade/fee data seeded (see
+ * seedChildAcademicData) — so the parent dashboard aggregates and per-child
+ * views show real, varied numbers instead of empty state or mock data.
  */
 async function seedParentChildren(
   tenantId: string,
   parentProfileId: string,
   studentRoleId: string,
   passwordHash: string,
+  children: ChildSeedConfig[],
 ) {
-  const children = [
-    { emailPrefix: 'child1', firstName: 'Amara', lastName: 'Profile', gradeLevel: 'JSS1', studentNumber: 'STU-DEV-101', admissionNumber: 'ADM-DEV-101' },
-    { emailPrefix: 'child2', firstName: 'Chidi', lastName: 'Profile', gradeLevel: 'JSS2', studentNumber: 'STU-DEV-102', admissionNumber: 'ADM-DEV-102' },
-    { emailPrefix: 'child3', firstName: 'Ngozi', lastName: 'Profile', gradeLevel: 'SSS1', studentNumber: 'STU-DEV-103', admissionNumber: 'ADM-DEV-103' },
-  ];
-
   for (const c of children) {
-    const email = `${c.emailPrefix}@greenfield.test`;
+    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } });
+    const emailDomain = tenant?.slug === 'sunrise-primary' ? 'sunrise.test' : 'greenfield.test';
+    const email = `${c.emailPrefix}@${emailDomain}`;
+
     const user = await upsertUser(email, c.firstName, c.lastName, passwordHash);
     const profile = await findOrCreateUserTenant(user.id, tenantId);
     await assignRole(profile.id, studentRoleId, tenantId);
@@ -709,8 +760,130 @@ async function seedParentChildren(
       },
     });
 
-    console.log(`  ✅ ${email.padEnd(28)} → Student (${c.gradeLevel}), guardian: multi@schoolwithease.test`);
+    await seedChildAcademicData(tenantId, student.id, c);
+
+    console.log(`  ✅ ${email.padEnd(28)} → Student (${c.gradeLevel}), guardian's dashboard now has real data`);
   }
+}
+
+/**
+ * Real attendance, grade and fee data for one child — enrolls them in the
+ * tenant's first seeded class, marks a week of attendance, records one
+ * graded assessment, and issues a fee invoice. Backs the parent dashboard's
+ * per-child stats (GET /parent-portal/children) with genuine numbers
+ * instead of the empty state a child with no records correctly shows.
+ */
+async function seedChildAcademicData(
+  tenantId: string,
+  studentId: string,
+  c: ChildSeedConfig,
+) {
+  const academicYear = await prisma.academicYear.findFirst({ where: { tenantId, isDefault: true } });
+  const term = academicYear
+    ? await prisma.term.findFirst({ where: { academicYearId: academicYear.id } })
+    : null;
+  const cls = await prisma.class.findFirst({ where: { tenantId, section: 'A', status: 'active' } });
+
+  if (!academicYear || !term || !cls) return;
+
+  // Enrol the child in the class (Enrollment has no natural unique key, so
+  // find-or-create like seedClasses does for the single-persona student).
+  const existingEnrollment = await prisma.enrollment.findFirst({
+    where: { studentId, classId: cls.id, academicYearId: academicYear.id },
+  });
+  const enrollment = existingEnrollment ?? await prisma.enrollment.create({
+    data: {
+      tenantId,
+      studentId,
+      classId: cls.id,
+      termId: term.id,
+      academicYearId: academicYear.id,
+      status: 'active',
+      enrollmentDate: new Date('2025-01-13'),
+    },
+  });
+
+  // Attendance — one record per weekday, Mon 13 Jan through Fri 17 Jan.
+  const dates = [
+    new Date('2025-01-13'),
+    new Date('2025-01-14'),
+    new Date('2025-01-15'),
+    new Date('2025-01-16'),
+    new Date('2025-01-17'),
+  ];
+  for (let i = 0; i < dates.length; i++) {
+    await prisma.attendanceRecord.upsert({
+      where: {
+        tenantId_studentId_classId_date: {
+          tenantId,
+          studentId,
+          classId: cls.id,
+          date: dates[i]!,
+        },
+      },
+      update: { status: c.attendanceStatuses[i]! },
+      create: {
+        tenantId,
+        studentId,
+        classId: cls.id,
+        date: dates[i]!,
+        status: c.attendanceStatuses[i]!,
+      },
+    });
+  }
+
+  // One graded assessment per class, shared across children in that class,
+  // each getting their own Grade row against it.
+  const assessment = await prisma.assessment.findFirst({
+    where: { classId: cls.id, name: 'Term 1 Assessment' },
+  }) ?? await prisma.assessment.create({
+    data: {
+      classId: cls.id,
+      academicYearId: academicYear.id,
+      termId: term.id,
+      tenantId,
+      name: 'Term 1 Assessment',
+      type: 'exam',
+      maxPoints: 100,
+      status: 'graded',
+    },
+  });
+
+  const existingGrade = await prisma.grade.findUnique({
+    where: { enrollmentId_assessmentId: { enrollmentId: enrollment.id, assessmentId: assessment.id } },
+  });
+  if (!existingGrade) {
+    await prisma.grade.create({
+      data: {
+        enrollmentId: enrollment.id,
+        assessmentId: assessment.id,
+        tenantId,
+        pointsEarned: c.gradePercent,
+        percentage: c.gradePercent,
+        status: 'graded',
+        gradedAt: new Date('2025-01-20'),
+      },
+    });
+  }
+
+  // Fee invoice for the term.
+  await prisma.feeInvoice.upsert({
+    where: { tenantId_invoiceNumber: { tenantId, invoiceNumber: `INV-${c.studentNumber}` } },
+    update: { amountPaid: c.feeAmountPaid, status: c.feeStatus },
+    create: {
+      tenantId,
+      invoiceNumber: `INV-${c.studentNumber}`,
+      studentId,
+      termName: term.name,
+      termYear: 2025,
+      termCycle: 1,
+      issuedDate: new Date('2025-01-13'),
+      dueDate: new Date('2025-01-31'),
+      amountDue: c.feeAmountDue,
+      amountPaid: c.feeAmountPaid,
+      status: c.feeStatus,
+    },
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -773,11 +946,13 @@ async function main() {
     }
 
     console.log('Multi-school / multi-role test account');
-    console.log('  multi@schoolwithease.test          Greenfield: Teacher + Parent, Sunrise: Teacher');
+    console.log('  multi@schoolwithease.test          Greenfield: Teacher + Parent, Sunrise: Teacher + Parent');
     console.log('  Parent profile children (Greenfield):');
-    console.log('    child1@greenfield.test  Amara Profile  JSS1');
-    console.log('    child2@greenfield.test  Chidi Profile  JSS2');
-    console.log('    child3@greenfield.test  Ngozi Profile  SSS1');
+    console.log('    child1@greenfield.test  Amara Profile  JSS1  (91% attendance, 78% grade, fees paid)');
+    console.log('    child2@greenfield.test  Chidi Profile  JSS2  (60% attendance, 85% grade, fees partial)');
+    console.log('    child3@greenfield.test  Ngozi Profile  SSS1  (100% attendance, 68% grade, fees overdue)');
+    console.log('  Parent profile children (Sunrise):');
+    console.log('    child4@sunrise.test     Tayo Profile   P3    (60% attendance, 91% grade, fees partial)');
     console.log('');
     console.log('  Default password: DevPassword@2025!');
     console.log('─'.repeat(70));
