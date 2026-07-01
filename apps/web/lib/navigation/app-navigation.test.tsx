@@ -48,6 +48,7 @@ const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
   'transportation.view',
   'library.view',
   'hr.view',
+  'health.view',
   'reports.view',
   'reports.academic',
   'analytics.view',
@@ -165,6 +166,7 @@ describe('SCHOOL_NAV section visibility', () => {
       'transport',
       'library',
       'hr',
+      'health',
     ]);
     expect(railFooterItems.map((i) => i.key)).toEqual(['help', 'settings']);
   });

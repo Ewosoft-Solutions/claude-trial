@@ -63,6 +63,7 @@ model Student {
   attendanceRecords  AttendanceRecord[]
   transportAssignment TransportAssignment?
   libraryLoans        LibraryBook[]
+  healthRecord        HealthRecord?
 
   @@unique([tenantId, studentNumber]) // Unique student number per tenant
   @@index([tenantId])

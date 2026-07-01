@@ -1,0 +1,48 @@
+// ============================================
+// Health Models
+// ============================================
+//
+// HealthRecord: a student's medical profile — one row per student,
+// covering conditions/allergies/medications and an emergency contact
+// snapshot, plus a triage-friendly status for at-a-glance review.
+//
+// Tenant-scoped (tenant_id NOT NULL) in the "health" schema and
+// covered by RLS (migration applies the policy explicitly so
+// db:rls:check passes from day one).
+//
+// status: 'normal' | 'monitoring' | 'urgent'
+// ============================================
+
+model HealthRecord {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  studentId String @unique @map("student_id")
+
+  bloodType   String? @map("blood_type")
+  allergies   String?
+  conditions  String?
+  medications String?
+
+  emergencyContactName  String? @map("emergency_contact_name")
+  emergencyContactPhone String? @map("emergency_contact_phone")
+
+  lastCheckup DateTime? @map("last_checkup") @db.Date
+  status      String    @default("normal") // normal | monitoring | urgent
+  notes       String?
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@schema("health")
+  @@map("health_records")
+}

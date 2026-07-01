@@ -27,6 +27,7 @@ import {
   Contact,
   CreditCard,
   GraduationCap,
+  HeartPulse,
   LayoutGrid,
   LifeBuoy,
   ScrollText,
@@ -324,6 +325,29 @@ export const SCHOOL_NAV: NavigationConfig = {
               icon: <CalendarDays />,
               href: '/hr/leave',
               access: { anyPermission: ['hr.view'] },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'health',
+      label: 'Health',
+      icon: <HeartPulse />,
+      href: '/health',
+      access: { anyPermission: ['health.view'] },
+      panelHeader: { icon: <HeartPulse />, title: 'Health' },
+      groups: [
+        {
+          key: 'medical',
+          label: 'Medical',
+          items: [
+            {
+              key: 'health-records',
+              label: 'Records',
+              icon: <HeartPulse />,
+              href: '/health/records',
+              access: { anyPermission: ['health.view'] },
             },
           ],
         },

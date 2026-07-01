@@ -22,6 +22,7 @@ import { FinanceModule } from './finance/finance.module';
 import { AdmissionsModule } from './admissions/admissions.module';
 import { TransportModule } from './transport/transport.module';
 import { LibraryModule } from './library/library.module';
+import { HealthModule } from './health/health.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
@@ -92,6 +93,7 @@ import { AppController } from './app.controller';
     AdmissionsModule,
     TransportModule,
     LibraryModule,
+    HealthModule,
     ParentPortalModule,
   ],
   controllers: [AppController],
