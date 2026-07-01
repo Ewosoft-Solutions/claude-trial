@@ -30,6 +30,7 @@ import {
   HeartPulse,
   LayoutGrid,
   LifeBuoy,
+  PartyPopper,
   ScrollText,
   Settings,
   ShieldCheck,
@@ -355,6 +356,29 @@ export const SCHOOL_NAV: NavigationConfig = {
               icon: <HeartPulse />,
               href: '/health/records',
               access: { anyPermission: ['health.view'] },
+            },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'events',
+      label: 'Events',
+      icon: <PartyPopper />,
+      href: '/events',
+      access: { anyPermission: ['events.view'] },
+      panelHeader: { icon: <PartyPopper />, title: 'Events' },
+      groups: [
+        {
+          key: 'calendar',
+          label: 'Calendar',
+          items: [
+            {
+              key: 'events-upcoming',
+              label: 'Upcoming',
+              icon: <PartyPopper />,
+              href: '/events/upcoming',
+              access: { anyPermission: ['events.view'] },
             },
           ],
         },

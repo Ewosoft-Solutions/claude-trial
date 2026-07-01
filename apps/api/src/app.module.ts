@@ -24,6 +24,7 @@ import { TransportModule } from './transport/transport.module';
 import { LibraryModule } from './library/library.module';
 import { HealthModule } from './health/health.module';
 import { HrModule } from './hr/hr.module';
+import { EventsModule } from './events/events.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
@@ -96,6 +97,7 @@ import { AppController } from './app.controller';
     LibraryModule,
     HealthModule,
     HrModule,
+    EventsModule,
     ParentPortalModule,
   ],
   controllers: [AppController],

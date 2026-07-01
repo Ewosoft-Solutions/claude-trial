@@ -40,6 +40,7 @@ export const SwaggerTags = {
   library: { name: 'library', description: 'Library catalog & circulation endpoints' },
   studentHealth: { name: 'health', description: 'Student health record endpoints' },
   hr: { name: 'hr', description: 'HR & payroll endpoints' },
+  events: { name: 'events', description: 'School events endpoints' },
   parentPortal: { name: 'parent-portal', description: "Guardian-scoped endpoints for a parent's own children" },
   reports: { name: 'reports', description: 'Reporting & analytics endpoints' },
   auditLogs: { name: 'audit-logs', description: 'Audit log endpoints' },

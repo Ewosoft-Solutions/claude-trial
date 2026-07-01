@@ -50,6 +50,7 @@ model Tenant {
   libraryBooks          LibraryBook[]
   healthRecords         HealthRecord[]
   staffPayrollRecords   StaffPayrollRecord[]
+  schoolEvents          SchoolEvent[]
 
   @@index([status])
   @@index([emailDomain])
