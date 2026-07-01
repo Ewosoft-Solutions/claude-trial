@@ -1,10 +1,10 @@
-import { requirePermission } from '@/lib/access';
+import { requireAnyPermission } from '@/lib/access';
 
 export default async function HrLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  await requirePermission('hr.view');
+  await requireAnyPermission(['hr.view', 'payroll.view']);
   return <>{children}</>;
 }

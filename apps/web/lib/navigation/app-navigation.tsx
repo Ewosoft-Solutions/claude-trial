@@ -326,6 +326,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               href: '/hr/leave',
               access: { anyPermission: ['hr.view'] },
             },
+            {
+              key: 'staff-payroll',
+              label: 'Payroll',
+              icon: <Wallet />,
+              href: '/hr/payroll',
+              access: { anyPermission: ['payroll.view'] },
+            },
           ],
         },
       ],

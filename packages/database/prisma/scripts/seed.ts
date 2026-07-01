@@ -182,7 +182,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 274,
+  total: 277,
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 19,
@@ -209,6 +209,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     TIMETABLE_PERMISSIONS: 12,
     EXAMS_PERMISSIONS: 12,
     ADMISSIONS_PERMISSIONS: 15,
+    HR_PAYROLL_PERMISSIONS: 3,
   },
   clearanceLevels: { min: 0, max: 10 },
 };
@@ -366,7 +367,7 @@ function validatePermissionsCatalog(
   }
 }
 
-// All Permissions - Comprehensive List (274 permissions total)
+// All Permissions - Comprehensive List (277 permissions total)
 //
 // Permission Summary by Category:
 // - Student Management (15 permissions)
@@ -394,6 +395,7 @@ function validatePermissionsCatalog(
 // - Timetable (12 permissions)
 // - Exams (12 permissions)
 // - Admissions (15 permissions)
+// - HR & Payroll (3 permissions)
 
 // Student Management Permissions (15 permissions)
 const STUDENT_PERMISSIONS = [
@@ -2995,6 +2997,41 @@ const ADMISSIONS_PERMISSIONS = [
   },
 ];
 
+// HR & Payroll Permissions (3 permissions)
+//
+// hr.view backs the HR nav section + /hr/* layout gate added in Step 6
+// (schoolType-driven nav polymorphism); payroll.* backs the Step 8
+// HR/Payroll operational module.
+const HR_PAYROLL_PERMISSIONS = [
+  {
+    name: 'hr.view',
+    label: 'View HR',
+    description: 'View the HR section (staff directory, leave, payroll)',
+    resource: 'hr',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'payroll.view',
+    label: 'View Payroll',
+    description: 'View payroll records',
+    resource: 'payroll',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'payroll.process',
+    label: 'Process Payroll',
+    description: 'Create and approve payroll runs',
+    resource: 'payroll',
+    action: 'process',
+    category: 'administrative',
+    requiredClearanceLevel: 8,
+  },
+];
+
 // Role to Pool mapping
 const ROLE_TO_POOL_MAPPING: Record<string, string> = {
   Architect: 'Level10_PlatformArchitect',
@@ -3445,6 +3482,7 @@ async function main() {
       TIMETABLE_PERMISSIONS,
       EXAMS_PERMISSIONS,
       ADMISSIONS_PERMISSIONS,
+      HR_PAYROLL_PERMISSIONS,
     };
 
     const allPermissions = Object.values(permissionArrays).flat();
