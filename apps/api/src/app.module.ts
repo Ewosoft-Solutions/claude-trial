@@ -20,6 +20,7 @@ import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analyt
 import { AttendanceModule } from './attendance/attendance.module';
 import { FinanceModule } from './finance/finance.module';
 import { AdmissionsModule } from './admissions/admissions.module';
+import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { Prisma } from '@workspace/database';
@@ -87,6 +88,7 @@ import { AppController } from './app.controller';
     AttendanceModule,
     FinanceModule,
     AdmissionsModule,
+    ParentPortalModule,
   ],
   controllers: [AppController],
   providers: [
