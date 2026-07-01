@@ -9,15 +9,19 @@
    child with no recorded attendance/grades yet correctly shows an
    empty state rather than a fabricated figure.
 
-   A parent with more than one child gets a selector: "All children"
-   averages/sums across the roster, or pick one child to see their
-   own numbers. A parent with exactly one child skips straight to
-   that child's view (no pointless selector for a list of one).
+   A parent with more than one child gets a roster where each card is
+   itself the selector — clicking a child filters the stats/fee
+   statement to them, with an "All children" pill in the same row
+   aggregating averages/sums across the roster. No separate dropdown
+   floating above the list it duplicates: the thing you click is the
+   thing that changes. A parent with exactly one child skips the
+   selector row entirely (nothing to switch between).
    ============================================================ */
 
 import * as React from 'react';
 import { Banknote, BookOpen, CalendarDays, MessageSquare, Users } from 'lucide-react';
 
+import { cn } from '@workspace/ui/lib/utils';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -26,13 +30,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
@@ -191,26 +188,40 @@ export function ParentDashboard({ userName, schoolName }: Props) {
               ) : (
                 <>
                   {children.length > 1 ? (
-                    <Select value={selectedId} onValueChange={setSelectedId}>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All children</SelectItem>
-                        {children.map((c) => (
-                          <SelectItem key={c.studentId} value={c.studentId}>
-                            {c.firstName} {c.lastName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : null}
-                  {children.map((c) => (
-                    <div
-                      key={c.studentId}
-                      className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-2.5"
+                    <button
+                      type="button"
+                      onClick={() => setSelectedId('all')}
+                      aria-pressed={selectedId === 'all'}
+                      className={cn(
+                        'flex items-center gap-2.5 rounded-[var(--radius-sm)] border p-2.5 text-left outline-none transition-colors',
+                        'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                        selectedId === 'all'
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-card hover:bg-accent',
+                      )}
                     >
-                      <div className="flex min-w-0 items-center gap-2.5">
+                      <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-primary">
+                        <Users className="size-3.5" />
+                      </span>
+                      <span className="text-sm font-medium text-foreground">All children</span>
+                    </button>
+                  ) : null}
+                  {children.map((c) => {
+                    const isActive = selectedId === c.studentId;
+                    return (
+                      <button
+                        key={c.studentId}
+                        type="button"
+                        onClick={() => setSelectedId(c.studentId)}
+                        aria-pressed={isActive}
+                        className={cn(
+                          'flex items-center gap-2.5 rounded-[var(--radius-sm)] border p-2.5 text-left outline-none transition-colors',
+                          'focus-visible:ring-[3px] focus-visible:ring-ring/50',
+                          isActive
+                            ? 'border-primary bg-primary/5'
+                            : 'border-border bg-card hover:bg-accent',
+                        )}
+                      >
                         <span className="grid size-7 shrink-0 place-items-center rounded-md bg-primary/10 text-[11px] font-bold text-primary">
                           {c.initials}
                         </span>
@@ -220,9 +231,9 @@ export function ParentDashboard({ userName, schoolName }: Props) {
                           </span>
                           <span className="text-xs text-muted-foreground">{c.gradeLevel ?? '—'}</span>
                         </div>
-                      </div>
-                    </div>
-                  ))}
+                      </button>
+                    );
+                  })}
                 </>
               )}
             </CardContent>
