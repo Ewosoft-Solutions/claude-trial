@@ -1,0 +1,48 @@
+// ============================================
+// Library Models
+// ============================================
+//
+// LibraryBook: one physical copy in the catalog, carrying its own
+// circulation state (available / on loan / reserved / overdue) rather
+// than a separate loan ledger — matches the single-model-per-domain
+// shape used by Attendance/Admissions/Transport.
+//
+// Tenant-scoped (tenant_id NOT NULL) in the "library" schema and
+// covered by RLS (migration applies the policy explicitly so
+// db:rls:check passes from day one).
+//
+// status: 'available' | 'on_loan' | 'reserved' | 'overdue'
+// ============================================
+
+model LibraryBook {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  title    String
+  author   String
+  isbn     String?
+  category String?
+  copyLabel String? @map("copy_label") // e.g. "Copy 2 of 3"
+
+  status String @default("available") // available | on_loan | reserved | overdue
+
+  borrowerStudentId String?   @map("borrower_student_id")
+  dueDate           DateTime? @map("due_date") @db.Date
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student? @relation(fields: [borrowerStudentId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, category])
+  @@index([borrowerStudentId])
+  @@schema("library")
+  @@map("library_books")
+}

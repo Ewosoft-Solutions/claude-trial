@@ -37,6 +37,7 @@ export const SwaggerTags = {
   finance: { name: 'finance', description: 'Finance & billing endpoints' },
   admissions: { name: 'admissions', description: 'Admissions pipeline endpoints' },
   transport: { name: 'transport', description: 'Transport/route assignment endpoints' },
+  library: { name: 'library', description: 'Library catalog & circulation endpoints' },
   parentPortal: { name: 'parent-portal', description: "Guardian-scoped endpoints for a parent's own children" },
   reports: { name: 'reports', description: 'Reporting & analytics endpoints' },
   auditLogs: { name: 'audit-logs', description: 'Audit log endpoints' },
