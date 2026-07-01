@@ -653,6 +653,64 @@ async function seedMultiProfilePersona(
   await assignRole(sunriseTeacher.id, roles['Teacher']!, sunrise.id);
 
   console.log('  ✅ multi@schoolwithease.test → Greenfield: Teacher + Parent, Sunrise: Teacher');
+
+  await seedParentChildren(greenfield.id, greenfieldParent.id, roles['Student']!, passwordHash);
+}
+
+/**
+ * Three child Student records, each with its own login (Student role +
+ * Student record), linked as children of the multi-profile persona's
+ * Greenfield Parent profile via StudentGuardian — so the Parent context
+ * shows a real multi-child roster rather than a single hardcoded student.
+ */
+async function seedParentChildren(
+  tenantId: string,
+  parentProfileId: string,
+  studentRoleId: string,
+  passwordHash: string,
+) {
+  const children = [
+    { emailPrefix: 'child1', firstName: 'Amara', lastName: 'Profile', gradeLevel: 'JSS1', studentNumber: 'STU-DEV-101', admissionNumber: 'ADM-DEV-101' },
+    { emailPrefix: 'child2', firstName: 'Chidi', lastName: 'Profile', gradeLevel: 'JSS2', studentNumber: 'STU-DEV-102', admissionNumber: 'ADM-DEV-102' },
+    { emailPrefix: 'child3', firstName: 'Ngozi', lastName: 'Profile', gradeLevel: 'SSS1', studentNumber: 'STU-DEV-103', admissionNumber: 'ADM-DEV-103' },
+  ];
+
+  for (const c of children) {
+    const email = `${c.emailPrefix}@greenfield.test`;
+    const user = await upsertUser(email, c.firstName, c.lastName, passwordHash);
+    const profile = await findOrCreateUserTenant(user.id, tenantId);
+    await assignRole(profile.id, studentRoleId, tenantId);
+
+    const student = await prisma.student.upsert({
+      where: { tenantId_studentNumber: { tenantId, studentNumber: c.studentNumber } },
+      update: { userTenantId: profile.id, gradeLevel: c.gradeLevel },
+      create: {
+        tenantId,
+        userTenantId: profile.id,
+        studentNumber: c.studentNumber,
+        admissionNumber: c.admissionNumber,
+        gradeLevel: c.gradeLevel,
+        enrollmentStatus: 'active',
+        enrollmentDate: new Date('2023-09-01'),
+      },
+    });
+
+    await prisma.studentGuardian.upsert({
+      where: { studentId_userTenantId: { studentId: student.id, userTenantId: parentProfileId } },
+      update: { relationship: 'parent', isPrimary: true, legalGuardian: true },
+      create: {
+        tenantId,
+        studentId: student.id,
+        userTenantId: parentProfileId,
+        relationship: 'parent',
+        isPrimary: true,
+        legalGuardian: true,
+        contactPriority: 1,
+      },
+    });
+
+    console.log(`  ✅ ${email.padEnd(28)} → Student (${c.gradeLevel}), guardian: multi@schoolwithease.test`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -716,6 +774,10 @@ async function main() {
 
     console.log('Multi-school / multi-role test account');
     console.log('  multi@schoolwithease.test          Greenfield: Teacher + Parent, Sunrise: Teacher');
+    console.log('  Parent profile children (Greenfield):');
+    console.log('    child1@greenfield.test  Amara Profile  JSS1');
+    console.log('    child2@greenfield.test  Chidi Profile  JSS2');
+    console.log('    child3@greenfield.test  Ngozi Profile  SSS1');
     console.log('');
     console.log('  Default password: DevPassword@2025!');
     console.log('─'.repeat(70));
