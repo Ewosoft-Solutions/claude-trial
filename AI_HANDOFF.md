@@ -52,9 +52,12 @@ fees · transport · gradebook → report-cards + transcripts), **Attendance**
 (`/attendance/daily`), the **Classes** area (timetable · subjects · gradebook),
 the **Finance** area (invoices · payments · reports), the **Settings** area
 (general · branding · features · roles · users · audit, on the M6
-`SettingsLayout`), and the **Reports** area (`/reports/academic` ·
-`/reports/analytics`, on the new shared chart wrappers) — each replacing its
-`[...slug]` placeholder. Every M6 layout pattern is exercised in-app, and the
+`SettingsLayout`), the **Reports** area (`/reports/academic` ·
+`/reports/analytics`, on the new shared chart wrappers), and — as of the
+2026-07-01 pt. 2 session — **Admissions**, **Transport**, **Library**,
+**Health**, **HR/Payroll**, and **Events** (the full Step 8 operational-module
+set) — each replacing its `[...slug]` placeholder or filling a previously
+content-less nav stub. Every M6 layout pattern is exercised in-app, and the
 `chart` primitive now has reusable wrappers used in-app — including `DonutChart`,
 now **consumed twice**: the fee-status split on `/finance/reports` and the
 enrolment-by-level split on `/reports/analytics`. On the wired
@@ -73,15 +76,82 @@ internal links are now next/link `<Link>`.
 
 # Completed Work
 
+## Session Summary (2026-07-01, pt. 2) — Step 8 complete: transport, library, health, HR/payroll, events
+
+Closed out `docs/backend-remediation-plan.md` by building the five remaining
+Step 8 operational modules in one session, each following the Admissions
+module (pt. 1, below) as the template: Prisma model + migration + explicit
+RLS policy (in a new dedicated schema) + NestJS module (`@TenantScoped`
+controller, permission-gated) + a real frontend surface (server component +
+client island + Route Handler), committed one module at a time.
+
+- **Transport** — `TransportAssignment` (1:1 per student, `transportation`
+  schema). `/students/transport`'s existing mock rider table rewired to real
+  data (list/summary/assign/update endpoints).
+- **Library** — `LibraryBook` (one row per physical copy, carrying its own
+  circulation state rather than a separate loan ledger; `library` schema).
+  New `/library/books` page — the first real surface for the Library nav
+  section added back in Step 6.
+- **Health** — `HealthRecord` (1:1 per student, upsert-by-studentId like a
+  profile; `health` schema). Added a **new top-level Health nav section**
+  (was completely missing) + `/health/records`.
+- **HR/Payroll** — `StaffPayrollRecord` (`hr` schema, loose
+  `staffUserTenantId` reference matching the `AttendanceRecord.recordedBy`
+  convention). Along the way, discovered that **`hr.view` was referenced by
+  the Step 6 nav config and `/hr/layout.tsx` but never existed in the
+  permission seed catalog** — every school's HR section was effectively
+  ungrantable. Added `hr.view` / `payroll.view` / `payroll.process` (274 → 277
+  permissions), re-ran `db:seed` locally to confirm the (now-fixed,
+  forward-running) clearance-pool assignment loop picks them up correctly.
+  New `/hr/payroll` nav item + page; `/hr/layout.tsx` broadened to
+  `requireAnyPermission(['hr.view','payroll.view'])` matching the Finance
+  layout's pattern (top gate covers every sub-permission its children need).
+- **Events** — `SchoolEvent` (`events` schema; `registeredCount` is a running
+  total, not a per-attendee roster — MVP scope, matching the other domains).
+  Added a **new top-level Events nav section** (was completely missing) +
+  `/events/upcoming`.
+
+Nav test fixtures updated for the two new sections: `ALL_SCHOOL_PERMISSIONS`
+gained `hr.view` (already missing an entry despite being referenced — a
+second symptom of the same seed gap), `health.view`, `events.view`; the
+OWNER rail-items exact-match assertion extended to include `health` and
+`events`. `packages/database/prisma/scripts/rls-coverage-check.sql` and
+`schema.prisma`'s `datasource.schemas` array extended with all 5 new schema
+names in one shot (bundled into the Transport commit, since it's a single
+shared file each).
+
+**Verification**: `db:rls:check` green after each of the 5 migrations;
+`apps/api` build clean after each module; `apps/web` check-types/lint clean
+after each; full suites green throughout (102 API + 30 web tests unchanged —
+no new automated tests added for the new modules, consistent with the other
+Step 8 modules relying on manual/e2e verification). Additionally
+**live-verified all 5 new pages in a real browser** against a second, ad-hoc
+`apps/api` instance on port 3031 (the user's own dev server on 3030 was left
+untouched) pointed at the same local Postgres: logged in as the seeded
+`owner@greenfield.test` persona (secondary school → sees all 5 new nav
+sections), inserted one real row per new table directly via `psql`, and
+confirmed each page rendered the real record (not the dev-mode mock
+fallback) with no console errors, then deleted the verification rows and
+reverted the temporary `.env.local` / `launch.json` changes used to point at
+port 3031. `docs/backend-remediation-plan.md` marked Step 8 (and therefore
+the whole remediation plan) done.
+
+**Not yet done / explicitly deferred** (documented as follow-ups, not
+tracked as new backlog items): only one frontend surface was wired per
+domain (the highest-leverage one), matching Admissions' own precedent —
+`/transport/routes`+`/transport/pickups`, `/library/loans`, and
+`/hr/directory`+`/hr/leave` still fall through to the `[...slug]` catch-all.
+Events has no per-attendee roster (registration is a running count only).
+5 commits on `claude`, not yet pushed — see Git state below.
+
 ## Session Summary (2026-07-01) — Admissions domain, auth/RBAC audit, profile UX, parent-portal
 
 Large multi-part session covering Step 8's first module plus a deep,
 user-driven audit of the auth/RBAC surface that turned up and fixed several
 real security gaps, then two feature builds (profile switching + default
 profile, guardian-scoped multi-child parent dashboard) and a UX pass on the
-app shell. All work is on branch `claude`, **committed but not yet pushed**
-(16 commits ahead of `origin/claude` as of this summary — push + refresh PR
-#1 next).
+app shell. All work is on branch `claude`; since pushed to `origin/claude` and
+PR #1's body refreshed to match (see Known Issues for current git state).
 
 **Admissions domain (Step 8, first operational module)**
 `AdmissionApplication` Prisma model (new `admissions` schema) + migration
@@ -1777,14 +1847,12 @@ Low Priority (cleanups)
 
 # Known Issues
 
-- Git state: the project lives on branch **`claude`**, fully pushed. `origin` is
-  now the HTTPS remote `https://github.com/Ewosoft-Solutions/claude-trial.git`
-  (the earlier SSH-alias form is gone, so the old passphrase-key blocker no
-  longer applies). `origin/claude` is at the latest local commit; `main`,
-  `codex`, and `chore/technical-debt-cleanup` also exist on the remote. No PR
-  from `claude` → `main` is open yet (deferred by choice — open one when Phase 2
-  has more substance). NB: the Phase-2 *student-directory* work (this session)
-  is **uncommitted** in the working tree — commit + push it.
+- Git state (as of 2026-07-01 pt. 2): branch **`claude`** is 5 commits ahead of
+  `origin/claude` (the Step 8 completion work) — **not yet pushed**; push +
+  refresh PR #1's body next. `origin` is the HTTPS remote
+  `https://github.com/Ewosoft-Solutions/claude-trial.git`. PR #1 (`claude` →
+  `main`) is open and tracks the whole branch — see the note at the top of
+  `NEXT_RECOMMENDED_PROMPT.md` for its current state.
 - Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
   the Claude app's preview-launcher helper has **not been granted access to the
   `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:

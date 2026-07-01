@@ -2,8 +2,9 @@
 
 > **Goal: fix them ALL.** Work top to bottom, completing each step to its
 > acceptance criteria before starting the next; this is the committed backlog, not
-> a pick-one menu. Definition of done: Steps 1–7 complete (Step 8 is phased), every
-> scorecard gap closed or explicitly deferred, `db:rls:check` + CI green.
+> a pick-one menu. Definition of done: Steps 1–8 complete (✅ as of 2026-07-01 —
+> all 6 operational modules built), every scorecard gap closed or explicitly
+> deferred, `db:rls:check` + CI green.
 >
 > Created 2026-06-20. Captures the gaps from the deep backend assessment and
 > orders them into steps that can be picked up one at a time. Companion docs:
@@ -42,8 +43,8 @@ Resolved this session:
 7. **Thin backend tests + boundary debt** — no auth e2e, no in-app isolation
    tests; `packages/api` vs `apps/api` ownership is blurry; build artifacts
    (`apps/api/dist`, `coverage`, compiled `.js`) tracked in git.
-8. **Other operational modules** (transport, library, health, HR, admissions,
-   events) — unmodeled; intentionally phased, lowest priority.
+8. ✅ **Other operational modules** (transport, library, health, HR, admissions,
+   events) — RESOLVED 2026-07-01, see Step 8 below.
 
 ---
 
@@ -227,6 +228,14 @@ artifacts (`apps/api/dist`, `coverage`, compiled `.js`) — add to `.gitignore`.
 (real JWT + RLS, 5 tests), all e2e specs stabilised (unique slugs/emails, afterEach cleanup,
 `isVerified: true` on seeded users). CI green on PR #1.
 
-### ▶ Step 8+ — Remaining operational modules (phased) ← NEXT
-Transport, library, health, HR/payroll, admissions, events — model + API as the
-roadmap reaches them. Each follows the RLS checklist.
+### Step 8 — Remaining operational modules (phased) ✅ DONE (2026-07-01)
+Transport, library, health, HR/payroll, admissions, events — each got a Prisma
+model + migration + explicit RLS policy + NestJS module (`@TenantScoped`
+controller, permission-gated) + a real frontend surface (server component +
+client island + Route Handler), replacing mock data or filling a nav stub.
+Admissions landed first (2026-07-01 AM session); transport/library/health/
+hr-payroll/events landed together the same day. `hr.view`/`payroll.view`/
+`payroll.process` were added to the permission seed catalog (274 → 277) since
+the Step 6 nav/layout already referenced `hr.view` but it didn't exist. This
+closes the backend remediation plan — see `AI_HANDOFF.md`'s 2026-07-01 entries
+for full detail per module.
