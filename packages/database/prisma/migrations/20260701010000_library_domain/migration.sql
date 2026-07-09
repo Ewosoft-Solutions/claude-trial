@@ -55,7 +55,7 @@ ALTER TABLE "library"."library_books"
 
 CREATE POLICY "tenant_isolation"
   ON "library"."library_books"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

@@ -50,7 +50,7 @@ ALTER TABLE "events"."school_events"
 
 CREATE POLICY "tenant_isolation"
   ON "events"."school_events"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

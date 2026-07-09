@@ -124,7 +124,7 @@ ALTER TABLE "ai"."ai_settings"
 
 CREATE POLICY "tenant_isolation"
   ON "ai"."ai_settings"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -143,7 +143,7 @@ ALTER TABLE "ai"."ai_usage_monthly"
 
 CREATE POLICY "tenant_isolation"
   ON "ai"."ai_usage_monthly"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -162,7 +162,7 @@ ALTER TABLE "ai"."ai_concurrency_leases"
 
 CREATE POLICY "tenant_isolation"
   ON "ai"."ai_concurrency_leases"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

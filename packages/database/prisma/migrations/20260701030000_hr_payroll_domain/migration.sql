@@ -52,7 +52,7 @@ ALTER TABLE "hr"."staff_payroll_records"
 
 CREATE POLICY "tenant_isolation"
   ON "hr"."staff_payroll_records"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

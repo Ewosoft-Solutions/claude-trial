@@ -52,7 +52,7 @@ ALTER TABLE "admissions"."admission_applications"
 
 CREATE POLICY "tenant_isolation"
   ON "admissions"."admission_applications"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

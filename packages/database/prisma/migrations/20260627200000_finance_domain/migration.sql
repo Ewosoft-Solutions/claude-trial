@@ -105,7 +105,7 @@ ALTER TABLE "finance"."fee_invoices"
 
 CREATE POLICY "tenant_isolation"
   ON "finance"."fee_invoices"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -126,7 +126,7 @@ ALTER TABLE "finance"."payments"
 
 CREATE POLICY "tenant_isolation"
   ON "finance"."payments"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

@@ -171,7 +171,7 @@ ALTER TABLE "academic-structure"."questions"
 
 CREATE POLICY "tenant_isolation"
   ON "academic-structure"."questions"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -192,7 +192,7 @@ ALTER TABLE "academic-structure"."assessment_questions"
 
 CREATE POLICY "tenant_isolation"
   ON "academic-structure"."assessment_questions"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -213,7 +213,7 @@ ALTER TABLE "academic-structure"."assessment_submissions"
 
 CREATE POLICY "tenant_isolation"
   ON "academic-structure"."assessment_submissions"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

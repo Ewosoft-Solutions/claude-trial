@@ -53,7 +53,7 @@ ALTER TABLE "transportation"."transport_assignments"
 
 CREATE POLICY "tenant_isolation"
   ON "transportation"."transport_assignments"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

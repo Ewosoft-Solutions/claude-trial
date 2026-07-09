@@ -72,7 +72,7 @@ ALTER TABLE "ai"."chat_sessions"
 
 CREATE POLICY "tenant_isolation"
   ON "ai"."chat_sessions"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -93,7 +93,7 @@ ALTER TABLE "ai"."chat_messages"
 
 CREATE POLICY "tenant_isolation"
   ON "ai"."chat_messages"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

@@ -137,7 +137,7 @@ ALTER TABLE "learning"."lessons"
 
 CREATE POLICY "tenant_isolation"
   ON "learning"."lessons"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -158,7 +158,7 @@ ALTER TABLE "learning"."lesson_materials"
 
 CREATE POLICY "tenant_isolation"
   ON "learning"."lesson_materials"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
@@ -179,7 +179,7 @@ ALTER TABLE "learning"."material_chunks"
 
 CREATE POLICY "tenant_isolation"
   ON "learning"."material_chunks"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

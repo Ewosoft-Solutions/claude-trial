@@ -55,7 +55,7 @@ ALTER TABLE "health"."health_records"
 
 CREATE POLICY "tenant_isolation"
   ON "health"."health_records"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (

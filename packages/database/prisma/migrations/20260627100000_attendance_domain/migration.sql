@@ -61,7 +61,7 @@ ALTER TABLE "student-management"."attendance_records"
 
 CREATE POLICY "tenant_isolation"
   ON "student-management"."attendance_records"
-  AS RESTRICTIVE
+  AS PERMISSIVE
   FOR ALL
   TO PUBLIC
   USING (
