@@ -27,6 +27,7 @@ import { AIMediatorService } from './services/ai-mediator.service';
 import { AnthropicService } from './services/anthropic.service';
 import { AiThrottleService } from './services/ai-throttle.service';
 import { AiUsageService } from './services/ai-usage.service';
+import { AiSettingsService } from './services/ai-settings.service';
 import { AnalyticsChatService } from './services/analytics-chat.service';
 import { AnalyticsToolsService } from './tools/analytics-tools.service';
 import { LlmProviderFactory } from './llm/llm-provider.factory';
@@ -52,6 +53,7 @@ import { VoyageEmbeddingsService } from './embeddings/voyage-embeddings.service'
     AnthropicService,
     AiThrottleService,
     AiUsageService,
+    AiSettingsService,
     AnalyticsToolsService,
     AnalyticsChatService,
     LlmProviderFactory,

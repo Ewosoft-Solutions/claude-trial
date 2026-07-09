@@ -1,5 +1,10 @@
 import { serverApiGet } from '@/lib/server-api';
 import {
+  AiSettingsClient,
+  type AiSettings,
+  type PendingChange,
+} from './ai-settings-client';
+import {
   Card,
   CardContent,
   CardDescription,
@@ -87,7 +92,11 @@ function formatDate(value: string | null): string {
 }
 
 export default async function AiUsageSettingsPage() {
-  const summary = await serverApiGet<AiUsageSummary>('/ai/admin/usage');
+  const [summary, settings, pending] = await Promise.all([
+    serverApiGet<AiUsageSummary>('/ai/admin/usage'),
+    serverApiGet<AiSettings>('/ai/admin/settings'),
+    serverApiGet<PendingChange[]>('/ai/admin/settings/change-requests'),
+  ]);
 
   if (!summary) {
     return (
@@ -222,6 +231,10 @@ export default async function AiUsageSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      {settings ? (
+        <AiSettingsClient settings={settings} pending={pending ?? []} />
+      ) : null}
     </div>
   );
 }
