@@ -1,11 +1,14 @@
 /**
  * Thin fetch wrapper for the apps/api NestJS backend.
  *
- * Base URL is resolved from NEXT_PUBLIC_API_URL (required in production) with
- * a localhost fallback for local development.
+ * Base URL is resolved from NEXT_PUBLIC_API_URL. Local development falls back
+ * to the Nest API default port so dev seeds can be exercised through real
+ * backend requests.
  */
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+export const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL ??
+  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000');
 
 export class ApiError extends Error {
   constructor(
@@ -21,6 +24,10 @@ async function request<T>(
   path: string,
   init?: RequestInit,
 ): Promise<T> {
+  if (!API_BASE) {
+    throw new ApiError(503, 'API not configured');
+  }
+
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     headers: { 'Content-Type': 'application/json', ...init?.headers },

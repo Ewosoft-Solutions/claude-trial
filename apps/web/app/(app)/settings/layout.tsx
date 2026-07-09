@@ -13,7 +13,7 @@
    owns the settings section nav — the shell's main nav model no longer
    carries the settings sub-items (they would only duplicate this panel),
    so per-permission filtering of individual sections is a follow-up to add
-   here (reading the viewer's permissions). The mock Owner sees them all.
+   here by reading the viewer's permissions.
    ============================================================ */
 
 import { usePathname } from 'next/navigation';
@@ -22,6 +22,7 @@ import {
   ScrollText,
   Settings as SettingsIcon,
   ShieldCheck,
+  Sparkles,
   ToggleRight,
   UserCircle,
   Users,
@@ -37,6 +38,7 @@ const SECTIONS: Omit<SettingsNavItem, 'active'>[] = [
   { key: 'general', label: 'General', description: 'Profile & locale', icon: <SettingsIcon />, href: '/settings/general' },
   { key: 'branding', label: 'Branding', description: 'Logo, colours, theme', icon: <Palette />, href: '/settings/branding' },
   { key: 'features', label: 'Features', description: 'Module toggles', icon: <ToggleRight />, href: '/settings/features' },
+  { key: 'ai-usage', label: 'AI usage', description: 'Quota & model spend', icon: <Sparkles />, href: '/settings/ai-usage' },
   { key: 'roles', label: 'Roles & permissions', description: 'Access control', icon: <ShieldCheck />, href: '/settings/roles' },
   { key: 'users', label: 'Users', description: 'Staff accounts', icon: <Users />, href: '/settings/users' },
   { key: 'audit', label: 'Audit log', description: 'Activity history', icon: <ScrollText />, href: '/settings/audit' },

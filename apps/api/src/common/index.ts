@@ -14,5 +14,7 @@ export * from './repositories/base.repository';
 export * from './repositories/repositories.module';
 export * from './middleware';
 export * from './filters';
+export * from './storage';
+export * from './academics';
 export * from './dto';
 export * from './audit/audit.constants';

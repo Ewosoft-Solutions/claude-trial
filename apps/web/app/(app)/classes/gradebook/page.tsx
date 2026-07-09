@@ -1,27 +1,8 @@
-'use client';
-
-/* ============================================================
-   /classes/gradebook — class gradebook
-
-   A scores grid (students × assessments → total + grade) framed by
-   the M6 DataTableLayout, with class + subject selectors and the M5
-   SkeletonTable on load. The letter grade reads as a StatusBadge.
-   Mock scores + copy live here. Replaces the `[...slug]` placeholder.
-   ============================================================ */
-
-import * as React from 'react';
 import { Download } from 'lucide-react';
 
+import { serverApiGet } from '@/lib/server-api';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import {
   Table,
   TableBody,
@@ -33,75 +14,156 @@ import {
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
+import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
-interface Score {
+type Paginated<T> = { data?: T[] };
+
+interface ApiAssessment {
   id: string;
-  name: string;
-  ca1: number; // out of 20
-  ca2: number; // out of 20
-  exam: number; // out of 60
+  title?: string | null;
+  maxPoints?: number | string | null;
+  class?: { name?: string | null; section?: string | null } | null;
 }
 
-const CLASSES = ['JSS 1A', 'JSS 2B', 'SSS 1A'];
-const SUBJECTS = ['Mathematics', 'English', 'Basic Science'];
+interface ApiGrade {
+  id: string;
+  assessmentId?: string | null;
+  pointsEarned?: number | string | null;
+  percentage?: number | string | null;
+  letterGrade?: string | null;
+  status?: string | null;
+  enrollment?: {
+    student?: {
+      studentNumber?: string | null;
+      userTenant?: {
+        user?: {
+          firstName?: string | null;
+          lastName?: string | null;
+          email?: string | null;
+        } | null;
+      } | null;
+    } | null;
+  } | null;
+}
 
-const SCORES: Score[] = [
-  { id: 'SJ-1042', name: 'Adaeze Okafor', ca1: 18, ca2: 17, exam: 55 },
-  { id: 'SJ-1043', name: 'Tunde Bakare', ca1: 12, ca2: 14, exam: 38 },
-  { id: 'SJ-1071', name: 'Chiamaka Eze', ca1: 16, ca2: 15, exam: 48 },
-  { id: 'SJ-1088', name: 'Ibrahim Sani', ca1: 9, ca2: 11, exam: 28 },
-  { id: 'SJ-1102', name: 'Fatima Bello', ca1: 19, ca2: 18, exam: 58 },
-  { id: 'SJ-1119', name: 'Emeka Nwosu', ca1: 14, ca2: 13, exam: 41 },
-  { id: 'SJ-1203', name: 'Zainab Yusuf', ca1: 17, ca2: 16, exam: 52 },
-  { id: 'SJ-1221', name: 'David Adeyemi', ca1: 7, ca2: 8, exam: 22 },
-];
+interface GradeRow {
+  id: string;
+  student: string;
+  studentNumber: string;
+  assessment: string;
+  className: string;
+  points: number | null;
+  maxPoints: number | null;
+  percentage: number | null;
+  letter: string;
+  tone: StateTone;
+}
 
-function grade(total: number): { letter: string; tone: StateTone } {
-  if (total >= 70) return { letter: 'A', tone: 'success' };
-  if (total >= 60) return { letter: 'B', tone: 'success' };
-  if (total >= 50) return { letter: 'C', tone: 'info' };
-  if (total >= 40) return { letter: 'D', tone: 'warning' };
-  return { letter: 'F', tone: 'destructive' };
+function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
+  if (Array.isArray(payload)) return payload;
+  return payload?.data ?? [];
+}
+
+function numeric(value: number | string | null | undefined): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
 function initials(name: string): string {
   return name
     .split(' ')
     .slice(0, 2)
-    .map((p) => p[0])
+    .map((part) => part[0])
     .join('')
     .toUpperCase();
 }
 
-const META: PageHeaderMeta[] = [
-  { key: 'term', label: 'Spring Term 2025', emphasis: true },
-  { key: 'assess', label: 'CA1 · CA2 · Exam' },
-];
+function studentName(grade: ApiGrade): string {
+  const user = grade.enrollment?.student?.userTenant?.user;
+  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Unknown student';
+}
 
-export default function GradebookPage() {
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+function classLabel(assessment: ApiAssessment | undefined): string {
+  const cls = assessment?.class;
+  return [cls?.name, cls?.section].filter(Boolean).join(' ') || 'Unassigned';
+}
 
-  const [classroom, setClassroom] = React.useState(CLASSES[0]);
-  const [subject, setSubject] = React.useState(SUBJECTS[0]);
+function gradeTone(letter: string, percentage: number | null): StateTone {
+  const value = percentage ?? 0;
+  if (letter === 'A' || letter === 'B' || value >= 60) return 'success';
+  if (letter === 'C' || value >= 50) return 'info';
+  if (letter === 'D' || letter === 'E' || value >= 40) return 'warning';
+  return 'destructive';
+}
 
-  const classAverage = React.useMemo(() => {
-    const total = SCORES.reduce((sum, s) => sum + s.ca1 + s.ca2 + s.exam, 0);
-    return Math.round(total / SCORES.length);
-  }, []);
+function letterFor(grade: ApiGrade): string {
+  if (grade.letterGrade) return grade.letterGrade.slice(0, 1).toUpperCase();
+  const percentage = numeric(grade.percentage);
+  if (percentage === null) return 'Pending';
+  if (percentage >= 70) return 'A';
+  if (percentage >= 60) return 'B';
+  if (percentage >= 50) return 'C';
+  if (percentage >= 45) return 'D';
+  if (percentage >= 40) return 'E';
+  return 'F';
+}
+
+function average(values: number[]): number {
+  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+}
+
+export default async function GradebookPage() {
+  const assessmentData = await serverApiGet<ApiAssessment[] | Paginated<ApiAssessment>>(
+    '/assessments?limit=100',
+  );
+  const assessments = asArray(assessmentData);
+  const assessmentsById = new Map(assessments.map((assessment) => [assessment.id, assessment]));
+  const gradeGroups = await Promise.all(
+    assessments
+      .slice(0, 20)
+      .map(async (assessment) => ({
+        assessment,
+        grades: (await serverApiGet<ApiGrade[]>(`/grades/assessment/${assessment.id}`)) ?? [],
+      })),
+  );
+
+  const rows: GradeRow[] = gradeGroups.flatMap((group) =>
+    group.grades.map((grade) => {
+      const assessment = assessmentsById.get(grade.assessmentId ?? '') ?? group.assessment;
+      const percentage = numeric(grade.percentage);
+      const letter = letterFor(grade);
+      return {
+        id: grade.id,
+        student: studentName(grade),
+        studentNumber: grade.enrollment?.student?.studentNumber ?? 'Unassigned',
+        assessment: assessment.title ?? assessment.id,
+        className: classLabel(assessment),
+        points: numeric(grade.pointsEarned),
+        maxPoints: numeric(assessment.maxPoints),
+        percentage,
+        letter,
+        tone: gradeTone(letter, percentage),
+      };
+    }),
+  );
+
+  const percentages = rows
+    .map((row) => row.percentage)
+    .filter((value): value is number => value !== null);
+  const meta: PageHeaderMeta[] = [
+    { key: 'source', label: 'live grades', emphasis: true },
+    { key: 'average', label: `${average(percentages)}% average` },
+  ];
 
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Gradebook"
-          meta={META}
+          meta={meta}
           actions={
             <Button variant="outline" size="sm">
               <Download /> Export results
@@ -110,57 +172,21 @@ export default function GradebookPage() {
         />
 
         <DataTableLayout
-          title={`${classroom} · ${subject}`}
-          description={
-            loading
-              ? 'Loading scores…'
-              : `${SCORES.length} students · class average ${classAverage}%`
-          }
-          loading={loading}
+          title="Recorded grades"
+          description={`${rows.length} grades across ${assessments.length} assessments`}
+          empty={rows.length === 0}
           skeletonColumns={6}
-          skeletonRows={SCORES.length}
-          toolbar={
-            <>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="gradebook-class" className="sr-only">
-                  Class
-                </Label>
-                <Select value={classroom} onValueChange={setClassroom}>
-                  <SelectTrigger id="gradebook-class" className="w-[7.5rem]">
-                    <SelectValue placeholder="Class" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {CLASSES.map((c) => (
-                      <SelectItem key={c} value={c}>
-                        {c}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1">
-                <Label htmlFor="gradebook-subject" className="sr-only">
-                  Subject
-                </Label>
-                <Select value={subject} onValueChange={setSubject}>
-                  <SelectTrigger id="gradebook-subject" className="w-[9rem]">
-                    <SelectValue placeholder="Subject" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {SUBJECTS.map((s) => (
-                      <SelectItem key={s} value={s}>
-                        {s}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </>
+          emptyState={
+            <EmptyState
+              compact
+              title="No grades recorded yet"
+              description="Grades entered for assessments will appear here."
+            />
           }
           footer={
             <span>
-              <strong className="text-foreground">{SCORES.length}</strong> students ·
-              CA1/CA2 out of 20 · Exam out of 60
+              <strong className="text-foreground">{rows.length}</strong> grades ·{' '}
+              {assessments.length} assessments
             </span>
           }
         >
@@ -168,54 +194,50 @@ export default function GradebookPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
-                <TableHead className="text-right">CA1</TableHead>
-                <TableHead className="text-right">CA2</TableHead>
-                <TableHead className="text-right">Exam</TableHead>
-                <TableHead className="text-right">Total</TableHead>
+                <TableHead>Assessment</TableHead>
+                <TableHead className="max-md:hidden">Class</TableHead>
+                <TableHead className="text-right">Score</TableHead>
+                <TableHead className="text-right">Percent</TableHead>
                 <TableHead className="text-right">Grade</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {SCORES.map((s) => {
-                const total = s.ca1 + s.ca2 + s.exam;
-                const g = grade(total);
-                return (
-                  <TableRow key={s.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarFallback className="text-[11px] font-semibold">
-                            {initials(s.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">
-                            {s.name}
-                          </span>
-                          <span className="truncate text-xs text-muted-foreground">
-                            {s.id}
-                          </span>
-                        </div>
+              {rows.map((row) => (
+                <TableRow key={row.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar className="size-8">
+                        <AvatarFallback className="text-[11px] font-semibold">
+                          {initials(row.student)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="truncate font-medium text-foreground">
+                          {row.student}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {row.studentNumber}
+                        </span>
                       </div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {s.ca1}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {s.ca2}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {s.exam}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-foreground">
-                      {total}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <StatusBadge tone={g.tone}>{g.letter}</StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">{row.assessment}</TableCell>
+                  <TableCell className="text-muted-foreground max-md:hidden">
+                    {row.className}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {row.points !== null && row.maxPoints !== null
+                      ? `${row.points}/${row.maxPoints}`
+                      : 'Pending'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {row.percentage !== null ? `${Math.round(row.percentage)}%` : 'Pending'}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <StatusBadge tone={row.tone}>{row.letter}</StatusBadge>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </DataTableLayout>

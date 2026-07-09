@@ -13,7 +13,9 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16
+        # pgvector/pgvector is the official pgvector build of postgres:16 —
+        # needed since the learning_domain migration (CREATE EXTENSION vector).
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres

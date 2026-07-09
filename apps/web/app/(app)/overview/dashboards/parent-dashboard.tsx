@@ -5,7 +5,7 @@
 
    Fetches the signed-in parent's own children from
    GET /api/parent-portal/children (backed by real StudentGuardian +
-   AttendanceRecord + Grade + FeeInvoice data — no mock numbers). A
+   AttendanceRecord + Grade + FeeInvoice data). A
    child with no recorded attendance/grades yet correctly shows an
    empty state rather than a fabricated figure.
 

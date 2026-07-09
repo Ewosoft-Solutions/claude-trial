@@ -1,0 +1,140 @@
+// ============================================
+// Learning Content Models (lesson substrate for the AI tutor)
+// ============================================
+//
+// Schema Design Notes:
+//
+// 1. Lesson:
+//    - Teacher-authored unit of teaching content attached to a Class
+//      (a Course offering in a term) — the retrieval scope for the
+//      Academic AI tutor (docs/ai-integration-plan.md Step 4/5).
+//    - status: 'draft' | 'published' | 'archived'
+//
+// 2. LessonMaterial:
+//    - One uploaded file (PDF/DOCX/PPTX/TXT in v1). The binary lives
+//      behind StorageProvider (apps/api) — rows carry the storage key,
+//      mime type and the extraction pipeline status.
+//    - extractionStatus: 'pending' | 'processing' | 'completed' | 'failed'
+//
+// 3. MaterialChunk:
+//    - Retrieval unit: extracted text chunk + pgvector embedding.
+//    - embedding is Unsupported("vector(1024)") — prisma-client-js cannot
+//      read/write it; all embedding writes and similarity queries go
+//      through raw SQL (see LearningRetrievalService in apps/api).
+//    - tenantId AND lessonId are denormalized on every chunk so both RLS
+//      and the (tenantId, lessonId) retrieval scope are enforceable in a
+//      single predicate — this is the tutor's core privacy boundary.
+//
+// All three tables are tenant-scoped (tenant_id NOT NULL) in the
+// "learning" schema and covered by RLS (the migration applies the
+// tenant_isolation policy explicitly so db:rls:check passes).
+// ============================================
+
+model Lesson {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  classId  String @map("class_id")
+
+  title       String
+  description String?
+  content     String? // Rich-text lesson note body (teacher-authored)
+  order       Int     @default(0) // Display sequence within the class
+  status      String  @default("draft") // 'draft' | 'published' | 'archived'
+
+  // Review workflow — content is only visible to students once approved
+  // AND published. 'draft' | 'pending_review' | 'approved' | 'rejected'
+  reviewStatus         String    @default("draft") @map("review_status")
+  submittedForReviewAt DateTime? @map("submitted_for_review_at")
+  reviewedBy           String?   @map("reviewed_by") // UserTenant id of reviewer
+  reviewedAt           DateTime? @map("reviewed_at")
+  reviewNote           String?   @map("review_note")
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  materials LessonMaterial[]
+  chunks    MaterialChunk[]
+
+  @@index([tenantId])
+  @@index([tenantId, classId])
+  @@index([tenantId, status])
+  @@index([tenantId, reviewStatus])
+  @@map("lessons")
+  @@schema("learning")
+}
+
+model LessonMaterial {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  lessonId String @map("lesson_id")
+
+  title      String // Display name (defaults to the original file name)
+  fileName   String @map("file_name") // Original upload file name
+  mimeType   String @map("mime_type")
+  sizeBytes  Int    @map("size_bytes")
+  storageKey String @map("storage_key") // Key under StorageProvider
+
+  // 'document' | 'video' | 'image' | 'audio' — only documents run the
+  // extraction/embedding pipeline; media is stored and streamed as-is.
+  category String @default("document")
+
+  // Review workflow — uploads default to pending_review (invisible to
+  // students until approved). 'pending_review' | 'approved' | 'rejected'
+  reviewStatus String    @default("pending_review") @map("review_status")
+  reviewedBy   String?   @map("reviewed_by") // UserTenant id of reviewer
+  reviewedAt   DateTime? @map("reviewed_at")
+  reviewNote   String?   @map("review_note")
+
+  extractionStatus String  @default("pending") @map("extraction_status") // 'pending' | 'processing' | 'completed' | 'failed' | 'skipped'
+  extractionError  String? @map("extraction_error")
+  chunkCount       Int     @default(0) @map("chunk_count")
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lesson Lesson          @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  chunks MaterialChunk[]
+
+  @@index([tenantId])
+  @@index([tenantId, lessonId])
+  @@index([tenantId, extractionStatus])
+  @@index([tenantId, reviewStatus])
+  @@map("lesson_materials")
+  @@schema("learning")
+}
+
+model MaterialChunk {
+  id         String @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  lessonId   String @map("lesson_id") // Denormalized retrieval scope (with tenantId)
+  materialId String @map("material_id")
+
+  chunkIndex Int                          @map("chunk_index") // Position within the source material
+  content    String
+  embedding  Unsupported("vector(1024)")? // Written via raw SQL only; null until embedded
+  metadata   Json? // Source detail (e.g. character offsets, embedding model)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tenant   Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lesson   Lesson         @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+  material LessonMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, lessonId])
+  @@index([materialId, chunkIndex])
+  @@map("material_chunks")
+  @@schema("learning")
+}

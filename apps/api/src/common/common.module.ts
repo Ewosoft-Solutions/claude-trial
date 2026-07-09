@@ -3,6 +3,8 @@ import { DatabaseModule } from './database/database.module';
 import { LoggerModule } from './logger/logger.module';
 import { EncryptionModule } from './encryption/encryption.module';
 import { QueueService } from './queue/queue.service';
+import { StorageModule } from './storage/storage.module';
+import { AcademicsAccessService } from './academics/academics-access.service';
 
 /**
  * Common Module
@@ -13,8 +15,15 @@ import { QueueService } from './queue/queue.service';
  */
 @Global()
 @Module({
-  imports: [DatabaseModule, LoggerModule, EncryptionModule],
-  providers: [QueueService],
-  exports: [DatabaseModule, LoggerModule, EncryptionModule, QueueService],
+  imports: [DatabaseModule, LoggerModule, EncryptionModule, StorageModule],
+  providers: [QueueService, AcademicsAccessService],
+  exports: [
+    DatabaseModule,
+    LoggerModule,
+    EncryptionModule,
+    QueueService,
+    StorageModule,
+    AcademicsAccessService,
+  ],
 })
 export class CommonModule {}

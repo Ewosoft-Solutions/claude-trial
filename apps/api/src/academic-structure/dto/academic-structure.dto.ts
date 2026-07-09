@@ -390,6 +390,24 @@ export class AssignStudentToClassDto {
   studentId: string;
 }
 
+export const CLASS_TEACHER_ROLES = [
+  'teacher',
+  'assistant',
+  'co-teacher',
+  'substitute',
+] as const;
+
+export class AssignTeacherToClassDto {
+  @ApiProperty({ description: "Teacher's profile (UserTenant) ID", example: 'a1b2c3d4-e5f6-4789-9abc-def012345678' })
+  @IsString()
+  userTenantId: string;
+
+  @ApiPropertyOptional({ description: 'Assignment role', enum: CLASS_TEACHER_ROLES, example: 'teacher' })
+  @IsOptional()
+  @IsIn(CLASS_TEACHER_ROLES)
+  role?: (typeof CLASS_TEACHER_ROLES)[number];
+}
+
 export class ListClassesDto extends PaginationDto {
   @ApiPropertyOptional({ description: 'Filter by courseId', example: 'a1b2c3d4-e5f6-4789-9abc-def012345678' })
   @IsOptional()

@@ -26,6 +26,9 @@ import { HealthModule } from './health/health.module';
 import { HrModule } from './hr/hr.module';
 import { EventsModule } from './events/events.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
+import { AiModule } from './ai/ai.module';
+import { AiTutorModule } from './ai/ai-tutor.module';
+import { LearningModule } from './learning/learning.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { Prisma } from '@workspace/database';
@@ -99,6 +102,9 @@ import { AppController } from './app.controller';
     HrModule,
     EventsModule,
     ParentPortalModule,
+    AiModule,
+    AiTutorModule,
+    LearningModule,
   ],
   controllers: [AppController],
   providers: [

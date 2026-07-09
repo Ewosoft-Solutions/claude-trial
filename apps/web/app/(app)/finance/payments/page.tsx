@@ -3,8 +3,7 @@
 
    Fetches payments from the NestJS backend (server-side,
    cookie-authenticated) and passes them to PaymentsClient.
-   Falls back to built-in mock data when NEXT_PUBLIC_API_URL
-   is not set (dev mode).
+   Empty API responses render as empty states in the client.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';
@@ -22,6 +21,21 @@ interface ApiPayment {
   invoice?: { invoiceNumber?: string; studentId?: string };
 }
 
+interface ApiStudent {
+  id: string;
+  userTenant?: {
+    user?: {
+      firstName?: string | null;
+      lastName?: string | null;
+      email?: string | null;
+    } | null;
+  } | null;
+}
+
+interface StudentListResponse {
+  data?: ApiStudent[];
+}
+
 function formatDate(iso: string | null | undefined): string | undefined {
   if (!iso) return undefined;
   try {
@@ -31,18 +45,30 @@ function formatDate(iso: string | null | undefined): string | undefined {
   }
 }
 
+function studentName(student: ApiStudent | undefined): string | undefined {
+  const user = student?.userTenant?.user;
+  if (!user) return undefined;
+  return [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || undefined;
+}
+
 export default async function PaymentsPage() {
-  const data = await serverApiGet<ApiPayment[] | { data?: ApiPayment[] }>('/finance/payments?limit=200');
+  const [data, studentData] = await Promise.all([
+    serverApiGet<ApiPayment[] | { data?: ApiPayment[] }>('/finance/payments?limit=200'),
+    serverApiGet<StudentListResponse | ApiStudent[]>('/students?limit=500'),
+  ]);
 
   const raw: ApiPayment[] = Array.isArray(data)
     ? data
     : (data as { data?: ApiPayment[] } | null)?.data ?? [];
+  const students = Array.isArray(studentData) ? studentData : studentData?.data ?? [];
+  const studentsById = new Map(students.map((student) => [student.id, student]));
 
   const payments: Payment[] = raw.map((p) => ({
     id: p.id,
     receiptNumber: p.receiptNumber,
     invoiceId: p.invoiceId,
     studentId: p.studentId,
+    student: studentName(studentsById.get(p.studentId)),
     method: p.method as Payment['method'],
     date: formatDate(p.paidAt),
     amount: p.amount,

@@ -2,9 +2,8 @@
    /hr/payroll — staff payroll (server component)
 
    Fetches payroll records from the NestJS backend (server-side,
-   cookie-authenticated) and passes them to PayrollClient. Falls
-   back to built-in mock data when NEXT_PUBLIC_API_URL is not set
-   (dev mode).
+   cookie-authenticated) and passes them to PayrollClient.
+   Empty API responses render as empty states in the client.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';

@@ -1,11 +1,5 @@
-/* ============================================================
-   /settings/general — school profile & locale
-
-   The General settings panel: school profile + academic/locale
-   fields in Cards, with a save bar. Fields are uncontrolled mock
-   inputs (defaultValue); persistence lands with the API.
-   ============================================================ */
-
+import { getSession } from '@/lib/session';
+import { serverApiGet } from '@/lib/server-api';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -16,13 +10,12 @@ import {
 } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
+
+interface TenantConfiguration {
+  name?: string | null;
+  emailDomain?: string | null;
+  settings?: Record<string, unknown> | null;
+}
 
 function Field({
   id,
@@ -41,32 +34,52 @@ function Field({
   );
 }
 
-export default function GeneralSettingsPage() {
+function record(value: unknown): Record<string, unknown> {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function text(value: unknown): string {
+  return typeof value === 'string' ? value : '';
+}
+
+export default async function GeneralSettingsPage() {
+  const session = await getSession();
+  const tenantId = session?.defaultSchoolId;
+  const configuration = tenantId
+    ? await serverApiGet<TenantConfiguration>(`/tenant/${tenantId}/configuration`)
+    : null;
+  const settings = record(configuration?.settings);
+  const general = record(settings.general);
+  const locale = record(settings.locale);
+  const schoolName = configuration?.name ?? session?.schools[0]?.name ?? '';
+
   return (
     <div className="flex flex-col gap-5">
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">School profile</CardTitle>
           <CardDescription>
-            How your school appears across the platform and on documents.
+            Values loaded from the tenant configuration API.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <Field id="school-name" label="School name">
-            <Input id="school-name" defaultValue="St. Jude Academy" />
+            <Input id="school-name" defaultValue={schoolName} />
           </Field>
           <Field id="short-name" label="Short name">
-            <Input id="short-name" defaultValue="St. Jude" />
+            <Input id="short-name" defaultValue={text(general.shortName)} />
           </Field>
           <Field id="contact-email" label="Contact email">
-            <Input id="contact-email" type="email" defaultValue="admin@stjude.edu.ng" />
+            <Input id="contact-email" type="email" defaultValue={text(general.contactEmail)} />
           </Field>
           <Field id="phone" label="Phone">
-            <Input id="phone" type="tel" defaultValue="+234 801 234 5678" />
+            <Input id="phone" type="tel" defaultValue={text(general.phone)} />
           </Field>
           <div className="sm:col-span-2">
             <Field id="address" label="Address">
-              <Input id="address" defaultValue="12 Awolowo Road, Ikoyi, Lagos" />
+              <Input id="address" defaultValue={text(general.address)} />
             </Field>
           </div>
         </CardContent>
@@ -76,56 +89,27 @@ export default function GeneralSettingsPage() {
         <CardHeader>
           <CardTitle className="text-base">Academic & locale</CardTitle>
           <CardDescription>
-            Defaults for terms, scheduling and formatting.
+            Stored defaults for terms, scheduling and formatting.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <Field id="academic-year" label="Academic year">
-            <Select defaultValue="2024-2025">
-              <SelectTrigger id="academic-year">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="2024-2025">2024 / 2025</SelectItem>
-                <SelectItem value="2025-2026">2025 / 2026</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input id="academic-year" defaultValue={text(locale.academicYear)} />
           </Field>
           <Field id="current-term" label="Current term">
-            <Select defaultValue="spring">
-              <SelectTrigger id="current-term">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="autumn">First term</SelectItem>
-                <SelectItem value="spring">Second term</SelectItem>
-                <SelectItem value="summer">Third term</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input id="current-term" defaultValue={text(locale.currentTerm)} />
           </Field>
           <Field id="timezone" label="Timezone">
-            <Select defaultValue="lagos">
-              <SelectTrigger id="timezone">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="lagos">West Africa Time (UTC+1)</SelectItem>
-                <SelectItem value="accra">Greenwich Mean Time (UTC)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input id="timezone" defaultValue={text(locale.timezone)} />
           </Field>
           <Field id="currency" label="Currency">
-            <Select defaultValue="ngn">
-              <SelectTrigger id="currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ngn">Nigerian Naira (₦)</SelectItem>
-                <SelectItem value="usd">US Dollar ($)</SelectItem>
-                <SelectItem value="ghs">Ghanaian Cedi (₵)</SelectItem>
-              </SelectContent>
-            </Select>
+            <Input id="currency" defaultValue={text(locale.currency)} />
           </Field>
+          <div className="sm:col-span-2">
+            <Field id="email-domain" label="Email domain">
+              <Input id="email-domain" defaultValue={configuration?.emailDomain ?? ''} />
+            </Field>
+          </div>
         </CardContent>
       </Card>
 

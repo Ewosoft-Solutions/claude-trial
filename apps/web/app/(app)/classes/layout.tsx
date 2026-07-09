@@ -5,6 +5,11 @@ export default async function ClassesLayout({
 }: {
   children: React.ReactNode;
 }) {
-  await requireAnyPermission(['courses.view', 'schedules.view']);
+  await requireAnyPermission([
+    'courses.view',
+    'schedules.view',
+    'lessons.view.own',
+    'assessments.take',
+  ]);
   return <>{children}</>;
 }

@@ -3,8 +3,7 @@
 
    Fetches applications from the NestJS backend (server-side,
    cookie-authenticated) and passes them to EnrollmentClient.
-   Falls back to built-in mock data when NEXT_PUBLIC_API_URL
-   is not set (dev mode).
+   Empty API responses render as empty states in the client.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';

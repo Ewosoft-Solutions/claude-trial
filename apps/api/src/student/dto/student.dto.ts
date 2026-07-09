@@ -352,6 +352,14 @@ export class SearchStudentsDto extends PaginationDto {
   @IsOptional()
   @IsString()
   studentNumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by active enrollment in a class',
+    example: 'c2d3e4f5-a6b7-4890-9bcd-ef0123456789',
+  })
+  @IsOptional()
+  @IsString()
+  classId?: string;
 }
 
 export class EnrollStudentDto {

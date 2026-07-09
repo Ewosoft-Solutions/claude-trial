@@ -33,7 +33,7 @@ export class ParentPortalService {
 
   /**
    * Every child linked to the calling guardian profile, each with real
-   * attendance/grade/fee aggregates — not mock data. A child with no
+   * attendance/grade/fee aggregates. A child with no
    * recorded attendance or grades yet correctly shows null/empty rather
    * than a fabricated number.
    *

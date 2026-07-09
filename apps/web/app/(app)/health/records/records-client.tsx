@@ -3,10 +3,9 @@
 /* ============================================================
    RecordsClient — student health records interactive table
 
-   Receives server-fetched records as props (or falls back to
-   built-in mock data when no API is configured). M6 StatGrid
-   (triage summary) + DataTableLayout (toolbar + table + footer).
-   Triage status reads as a StatusBadge.
+   Receives server-fetched records as props. M6 StatGrid (triage summary) +
+   DataTableLayout (toolbar + table + footer). Triage status reads as a
+   StatusBadge.
    ============================================================ */
 
 import * as React from 'react';
@@ -52,13 +51,6 @@ export interface HealthRecordRow {
   lastCheckup: string | null;
 }
 
-const MOCK_RECORDS: HealthRecordRow[] = [
-  { id: 'HR-1', name: 'Adaeze Okafor', bloodType: 'O+', allergies: 'Peanuts', status: 'monitoring', lastCheckup: '02 May' },
-  { id: 'HR-2', name: 'Chiamaka Eze', bloodType: 'A+', allergies: null, status: 'normal', lastCheckup: '14 Apr' },
-  { id: 'HR-3', name: 'Fatima Bello', bloodType: 'B+', allergies: 'Penicillin', status: 'urgent', lastCheckup: '30 Jun' },
-  { id: 'HR-4', name: 'Emeka Nwosu', bloodType: 'O-', allergies: null, status: 'normal', lastCheckup: '10 Mar' },
-];
-
 const STATUS_META: Record<HealthStatus, { label: string; tone: StateTone }> = {
   normal: { label: 'Normal', tone: 'success' },
   monitoring: { label: 'Monitoring', tone: 'warning' },
@@ -76,13 +68,8 @@ interface Props {
 }
 
 export function RecordsClient({ records }: Props) {
-  const RECORDS = records.length > 0 ? records : MOCK_RECORDS;
-
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const RECORDS = records;
+  const loading = false;
 
   const [query, setQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('all');
@@ -170,9 +157,15 @@ export function RecordsClient({ records }: Props) {
           emptyState={
             <EmptyState
               compact
-              title="No records match your filters"
-              description="Try a different search term, or clear the filters."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title={hasFilters ? 'No records match your filters' : 'No health records yet'}
+              description={
+                hasFilters
+                  ? 'Try a different search term, or clear the filters.'
+                  : 'Run the dev operational seed or create a student health record.'
+              }
+              primaryAction={
+                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+              }
             />
           }
           footer={

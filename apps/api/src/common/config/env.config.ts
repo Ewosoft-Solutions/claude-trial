@@ -20,6 +20,18 @@ export interface EnvironmentConfig {
   APP_RUNTIME_DATABASE_URL?: string;
   NODE_ENV: 'development' | 'test' | 'production' | string;
   PORT: number;
+  /**
+   * Opt-in debug error payloads (details/stack/internal messages) on HTTP
+   * error responses. Unset principle: defaults to false and must be set to
+   * `true` explicitly — NODE_ENV=development alone never exposes internals.
+   * Read raw off process.env by HttpExceptionFilter.
+   */
+  API_DEBUG_ERRORS: boolean;
+  /**
+   * Root directory for the local-disk StorageProvider (lesson material
+   * binaries). Relative paths resolve against the API process cwd.
+   */
+  STORAGE_LOCAL_ROOT: string;
   JWT_SECRET?: string;
   ENCRYPTION_KEY?: string;
   WEBAUTHN_RP_NAME: string;
@@ -80,6 +92,11 @@ export const envValidationSchema = Joi.object({
     .valid('development', 'test', 'production')
     .default('development'),
   PORT: Joi.number().integer().min(1).max(65535).default(3000),
+  API_DEBUG_ERRORS: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  STORAGE_LOCAL_ROOT: Joi.string().default('./storage'),
   JWT_SECRET: Joi.string().optional(),
   ENCRYPTION_KEY: Joi.string().optional(),
   WEBAUTHN_RP_NAME: Joi.string().default('School With Ease'),

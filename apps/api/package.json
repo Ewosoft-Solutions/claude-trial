@@ -15,6 +15,7 @@
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\""
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.110.0",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.0",
@@ -29,8 +30,11 @@
     "class-validator": "^0.14.2",
     "dotenv": "^17.2.3",
     "joi": "^18.0.2",
+    "jszip": "^3.10.1",
+    "mammoth": "^1.12.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
+    "pdf-parse": "^2.4.5",
     "pg": "^8.13.1",
     "qrcode": "^1.5.3",
     "reflect-metadata": "^0.2.0",
@@ -45,6 +49,7 @@
     "@nestjs/testing": "^11.0.0",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^4.17.17",
+    "@types/multer": "^2.2.0",
     "@types/node": "^22.10.7",
     "@types/passport-jwt": "^4.0.1",
     "@types/pg": "^8.11.10",

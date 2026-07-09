@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -20,6 +21,10 @@ import {
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
+import {
+  buildAcademicsActor,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 import { AssessmentGradingService } from '../services/assessment-grading.service';
 import { CreateGradeDto, UpdateGradeDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
@@ -32,6 +37,17 @@ import type { AuthenticatedRequest } from 'src/auth';
 export class GradeController {
   constructor(private readonly gradingService: AssessmentGradingService) {}
 
+  private actorFrom(req: AuthenticatedRequest): AcademicsActor {
+    if (!req.userContext) {
+      throw new ForbiddenException('User context not found');
+    }
+    return buildAcademicsActor(
+      req.userContext,
+      'grades.view',
+      'assessments.manage.all',
+    );
+  }
+
   @Post()
   @RequirePermissions(['grades.create'])
   @ApiOperation({ summary: 'Create grade for a student assessment' })
@@ -39,8 +55,11 @@ export class GradeController {
     @Body() dto: CreateGradeDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
-    return this.gradingService.createGrade(user.tenantId, user.userId, dto);
+    return this.gradingService.createGrade(
+      req.user.tenantId,
+      this.actorFrom(req),
+      dto,
+    );
   }
 
   @Put(':id')
@@ -51,8 +70,12 @@ export class GradeController {
     @Body() dto: UpdateGradeDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
-    return this.gradingService.updateGrade(user.tenantId, user.userId, id, dto);
+    return this.gradingService.updateGrade(
+      req.user.tenantId,
+      this.actorFrom(req),
+      id,
+      dto,
+    );
   }
 
   @Get('assessment/:assessmentId')
@@ -62,9 +85,9 @@ export class GradeController {
     @Param('assessmentId') assessmentId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
     return this.gradingService.listGradesForAssessment(
-      user.tenantId,
+      req.user.tenantId,
+      this.actorFrom(req),
       assessmentId,
     );
   }
@@ -79,10 +102,10 @@ export class GradeController {
     @Query('bucketSize') bucketSize: string | undefined,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
     const bucket = bucketSize ? Number(bucketSize) : undefined;
     return this.gradingService.getAssessmentAnalytics(
-      user.tenantId,
+      req.user.tenantId,
+      this.actorFrom(req),
       assessmentId,
       bucket ?? 10,
     );
@@ -95,8 +118,11 @@ export class GradeController {
     @Param('studentId') studentId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
-    return this.gradingService.listGradesForStudent(user.tenantId, studentId);
+    return this.gradingService.listGradesForStudent(
+      req.user.tenantId,
+      this.actorFrom(req),
+      studentId,
+    );
   }
 
   @Post('student/:studentId/report-card')
@@ -108,9 +134,9 @@ export class GradeController {
     @Body() body: { academicYearId?: string },
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
     return this.gradingService.getStudentReportCard(
-      user.tenantId,
+      req.user.tenantId,
+      this.actorFrom(req),
       studentId,
       body.academicYearId,
     );

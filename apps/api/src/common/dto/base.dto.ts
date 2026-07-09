@@ -1,4 +1,14 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
+import {
+  IsIn,
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import type { PaginationSortOrder } from '@workspace/api';
 
 /**
@@ -29,6 +39,10 @@ export class PaginationDto {
     minimum: 1,
     example: 1,
   })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
   page?: number = 1;
 
   @ApiPropertyOptional({
@@ -38,9 +52,17 @@ export class PaginationDto {
     maximum: 100,
     example: 10,
   })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(100)
   limit?: number = 10;
 
   @ApiPropertyOptional({ description: 'Sort field', example: 'createdAt' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
   sortBy?: string;
 
   @ApiPropertyOptional({
@@ -49,6 +71,8 @@ export class PaginationDto {
     default: 'asc',
     example: 'asc',
   })
+  @IsOptional()
+  @IsIn(['asc', 'desc'])
   sortOrder?: PaginationSortOrder = 'asc';
 }
 

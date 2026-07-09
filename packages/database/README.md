@@ -86,11 +86,27 @@ pnpm db:push
 # Run migrations
 pnpm db:migrate
 
+# Seed production-safe catalog data only
+pnpm db:seed
+
+# Seed local/remote dev personas and workflows
+pnpm db:seed:dev:full
+
 # Open Prisma Studio
 pnpm db:studio
 ```
 
 All commands will automatically discover all `.prisma` files in the `prisma/` directory.
+
+## Dev Seeds
+
+Production-safe seed data lives in `prisma/scripts/seed.ts`. Dev-only seeds live
+under `prisma/scripts/dev/` and are guarded by `ENABLE_DEV_SEEDS=true`; they
+also refuse to run when `NODE_ENV`, `APP_ENV`, or `VERCEL_ENV` is production.
+
+Dev records use traceable identifiers such as `STU-DEV-*`, `ADM-DEV-*`,
+`DEV-INV-*`, `DEV-PMT-*`, and `DEV-SEED` labels/notes so accidental data can be
+found and cleaned deliberately.
 
 ## Benefits
 

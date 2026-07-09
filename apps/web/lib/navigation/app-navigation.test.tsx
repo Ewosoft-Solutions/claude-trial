@@ -31,6 +31,9 @@ function makeViewer(overrides: Partial<ViewerContext> = {}): ViewerContext {
 
 /** All permissions a school owner might hold (used to build typed fixtures). */
 const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
+  'ai.analytics.query',
+  'ai.chat.use',
+  'ai.configure',
   'students.view',
   'admissions.view',
   'attendance.view',
@@ -38,6 +41,19 @@ const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
   'courses.view',
   'schedules.view',
   'subjects.view',
+  'lessons.view',
+  'lessons.view.own',
+  'lessons.approve',
+  'classes.teachers.view',
+  'classes.teachers.assign',
+  'questions.view',
+  'questions.create',
+  'questions.edit',
+  'questions.delete',
+  'assessments.view',
+  'assessments.create',
+  'assessments.edit',
+  'assessments.take',
   'grades.view',
   'transcripts.view',
   'timetable.view',
@@ -102,6 +118,13 @@ const TEACHER = makeViewer({
     'courses.view',
     'schedules.view',
     'subjects.view',
+    'lessons.view',
+    'questions.view',
+    'questions.create',
+    'questions.edit',
+    'assessments.view',
+    'assessments.create',
+    'assessments.edit',
     'grades.view',
     'timetable.view',
   ]),
@@ -159,6 +182,7 @@ describe('SCHOOL_NAV section visibility', () => {
     );
     expect(railItems.map((i) => i.key)).toEqual([
       'overview',
+      'assistant',
       'students',
       'classes',
       'attendance',
@@ -211,6 +235,32 @@ describe('SCHOOL_NAV section visibility', () => {
       '/overview',
     );
     expect(railItems.map((i) => i.key)).not.toContain('finance');
+  });
+
+  it('offers the assistant to a clearance-1 viewer holding ai.analytics.query', () => {
+    // The AI assistant is deliberately visible to parents/students: the
+    // permission has a clearance floor of 1 and answers are scoped
+    // server-side by AIMediatorService.
+    const student = makeViewer({
+      permissions: new Set<PermissionKey>(['ai.analytics.query']),
+    });
+    const { railItems } = resolveNavigation(SCHOOL_NAV, student, '/overview');
+    expect(railItems.map((i) => i.key)).toEqual(['overview', 'assistant']);
+  });
+
+  it('offers Settings to an AI configuration admin', () => {
+    const aiAdmin = makeViewer({
+      clearanceLevel: 7,
+      roles: ['Management'],
+      permissions: new Set<PermissionKey>(['ai.configure']),
+    });
+    const { railItems, railFooterItems } = resolveNavigation(
+      SCHOOL_NAV,
+      aiAdmin,
+      '/settings/ai-usage',
+    );
+    expect(railItems.map((i) => i.key)).toEqual(['overview']);
+    expect(railFooterItems.map((i) => i.key)).toEqual(['help', 'settings']);
   });
 
   it('offers only the overview to a minimal student viewer', () => {
@@ -267,6 +317,87 @@ describe('SCHOOL_NAV panel resolution', () => {
     const academics = navGroups.find((g) => g.key === 'academics');
     const gradebook = academics?.items.find((i) => i.key === 'gradebook');
     expect(gradebook?.items?.map((i) => i.key)).toEqual(['reportcards']);
+  });
+
+  it('gates the classes Materials leaf on lessons.view', () => {
+    // Teacher fixture holds lessons.view → Materials appears.
+    const teacherResolved = resolveNavigation(SCHOOL_NAV, TEACHER, '/classes');
+    const teaching = teacherResolved.navGroups.find((g) => g.key === 'teaching');
+    expect(teaching?.items.map((i) => i.key)).toContain('materials');
+
+    // Same viewer without lessons.view → Materials filtered out.
+    const noLessons = makeViewer({
+      clearanceLevel: 3,
+      roles: ['Teacher'],
+      permissions: new Set<PermissionKey>(['courses.view', 'subjects.view']),
+    });
+    const resolved = resolveNavigation(SCHOOL_NAV, noLessons, '/classes');
+    const group = resolved.navGroups.find((g) => g.key === 'teaching');
+    expect(group?.items.map((i) => i.key)).not.toContain('materials');
+  });
+
+  it('gates the Study tutor leaf on ai.chat.use and Tutor usage on lessons.view', () => {
+    // A student holds ai.chat.use + lessons.view.own → sees the tutor, not usage.
+    const student = makeViewer({
+      clearanceLevel: 1,
+      roles: ['Student'],
+      permissions: new Set<PermissionKey>([
+        'ai.chat.use',
+        'lessons.view.own',
+      ]),
+    });
+    const studentGroup = resolveNavigation(
+      SCHOOL_NAV,
+      student,
+      '/classes',
+    ).navGroups.find((g) => g.key === 'teaching');
+    const studentKeys = studentGroup?.items.map((i) => i.key) ?? [];
+    expect(studentKeys).toContain('tutor');
+    expect(studentKeys).not.toContain('tutor-usage');
+
+    // A teacher holds lessons.view (not ai.chat.use) → sees usage, not the tutor.
+    const teacherGroup = resolveNavigation(
+      SCHOOL_NAV,
+      TEACHER,
+      '/classes',
+    ).navGroups.find((g) => g.key === 'teaching');
+    const teacherKeys = teacherGroup?.items.map((i) => i.key) ?? [];
+    expect(teacherKeys).toContain('tutor-usage');
+    expect(teacherKeys).not.toContain('tutor');
+  });
+
+  it('gates teacher allocation on assignment permission', () => {
+    const viewOnly = makeViewer({
+      clearanceLevel: 3,
+      roles: ['Teacher'],
+      permissions: new Set<PermissionKey>([
+        ...TEACHER.permissions,
+        'classes.teachers.view',
+      ]),
+    });
+    const viewOnlyResolved = resolveNavigation(SCHOOL_NAV, viewOnly, '/classes');
+    const viewOnlyTeaching = viewOnlyResolved.navGroups.find(
+      (g) => g.key === 'teaching',
+    );
+    expect(viewOnlyTeaching?.items.map((i) => i.key)).not.toContain(
+      'teacher-allocation',
+    );
+
+    const assigner = makeViewer({
+      clearanceLevel: 4,
+      roles: ['Operations'],
+      permissions: new Set<PermissionKey>([
+        ...TEACHER.permissions,
+        'classes.teachers.assign',
+      ]),
+    });
+    const assignerResolved = resolveNavigation(SCHOOL_NAV, assigner, '/classes');
+    const assignerTeaching = assignerResolved.navGroups.find(
+      (g) => g.key === 'teaching',
+    );
+    expect(assignerTeaching?.items.map((i) => i.key)).toContain(
+      'teacher-allocation',
+    );
   });
 
   it('activates the group-less settings footer with an empty panel', () => {

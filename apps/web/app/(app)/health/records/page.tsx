@@ -2,9 +2,8 @@
    /health/records — student health records (server component)
 
    Fetches records from the NestJS backend (server-side,
-   cookie-authenticated) and passes them to RecordsClient. Falls
-   back to built-in mock data when NEXT_PUBLIC_API_URL is not set
-   (dev mode).
+   cookie-authenticated) and passes them to RecordsClient.
+   Empty API responses render as empty states in the client.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';

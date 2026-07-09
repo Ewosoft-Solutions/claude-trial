@@ -17,4 +17,3 @@ export * from './maker-checker.service';
 export * from './platform-oversight.service';
 export * from './security-policy.service';
 export * from './breach-response.service';
-export * from './ai-mediator.service';

@@ -9,10 +9,9 @@
    (user profile, switchable schools) and the active-tenant switcher.
 
    The provider no longer owns the session data — it is injected as a
-   prop from the server layout, so the mock (and, later, real
-   tokens/secrets) never ship in the client bundle. Swapping the real
-   auth source happens entirely in `getSession()`; nothing here or
-   downstream changes.
+   prop from the server layout, so auth tokens/secrets never ship in the
+   client bundle. Swapping the auth source happens entirely in
+   `getSession()`; nothing here or downstream changes.
    ============================================================ */
 
 import * as React from 'react';

@@ -1,12 +1,13 @@
 import {
-  IsArray,
   IsBoolean,
   IsDateString,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
   MaxLength,
+  Min,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PaginationDto } from '../../common/dto';
@@ -187,6 +188,18 @@ export class CreateAssessmentDto {
   @IsOptional()
   @IsIn(ASSESSMENT_STATUSES)
   status?: (typeof ASSESSMENT_STATUSES)[number] = 'draft';
+
+  @ApiPropertyOptional({ description: 'Minutes allowed once started (online taking); omit for untimed', example: 45 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number;
+
+  @ApiPropertyOptional({ description: 'Attempts allowed per student', example: 1, default: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxAttempts?: number;
 }
 
 export class UpdateAssessmentDto {
@@ -242,6 +255,18 @@ export class UpdateAssessmentDto {
   @IsOptional()
   @IsIn(ASSESSMENT_STATUSES)
   status?: (typeof ASSESSMENT_STATUSES)[number];
+
+  @ApiPropertyOptional({ description: 'Minutes allowed once started (online taking); omit for untimed', example: 45 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationMinutes?: number;
+
+  @ApiPropertyOptional({ description: 'Attempts allowed per student', example: 2 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  maxAttempts?: number;
 }
 
 export class CreateGradeDto {

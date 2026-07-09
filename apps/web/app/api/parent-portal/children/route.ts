@@ -10,13 +10,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiError, apiClient } from '@/lib/api-client';
 import { getBearerFromCookies } from '@/lib/server-api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
-
 export async function GET(req: NextRequest) {
-  if (!API_BASE) {
-    return NextResponse.json({ children: [], mock: true });
-  }
-
   const token = getBearerFromCookies(req.headers.get('cookie'));
   if (!token) {
     return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });

@@ -81,7 +81,7 @@ async function verifySeedData() {
     // 3. Verify Permissions
     console.log('\n📋 Checking permissions...');
     const permissions = await prisma.permission.findMany();
-    const expectedPermissions = 277; // Base catalog + Admissions (15) + HR/Payroll (3)
+    const expectedPermissions = 297; // Base catalog + Admissions (15) + HR/Payroll (3) + AI (3) + Lessons (9) + Academics build-out (questions/taking/teacher-allocation)
     const actualPermissions = permissions.length;
 
     results.push({

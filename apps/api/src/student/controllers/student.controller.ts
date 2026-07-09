@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -33,6 +34,10 @@ import {
   UpdateEnrollmentStatusDto,
   BulkGuardianUpsertDto,
 } from '../dto';
+import {
+  buildAcademicsActor,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags(SwaggerTags.students.name)
@@ -42,6 +47,17 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiBearerAuth('JWT-auth')
 export class StudentController {
   constructor(private readonly studentService: StudentService) {}
+
+  private actorFrom(req: AuthenticatedRequest): AcademicsActor {
+    if (!req.userContext) {
+      throw new ForbiddenException('User context not found');
+    }
+    return buildAcademicsActor(
+      req.userContext,
+      'students.view',
+      'classes.teachers.assign',
+    );
+  }
 
   /**
    * Create student (13.1)
@@ -68,7 +84,11 @@ export class StudentController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.studentService.list(user!.tenantId, query);
+    return this.studentService.list(
+      user!.tenantId,
+      query,
+      this.actorFrom(req),
+    );
   }
 
   /**

@@ -3,10 +3,9 @@
 /* ============================================================
    PayrollClient — staff payroll interactive table
 
-   Receives server-fetched payroll records as props (or falls back
-   to built-in mock data when no API is configured). M6 StatGrid
-   (payroll totals) + DataTableLayout (toolbar + table + footer).
-   Run status reads as a StatusBadge.
+   Receives server-fetched payroll records as props. M6 StatGrid (payroll
+   totals) + DataTableLayout (toolbar + table + footer). Run status reads as
+   a StatusBadge.
    ============================================================ */
 
 import * as React from 'react';
@@ -53,12 +52,6 @@ export interface PayrollRow {
   status: PayrollStatus;
 }
 
-const MOCK_RECORDS: PayrollRow[] = [
-  { id: 'PR-1', staffName: 'Mrs. F. Johnson', role: 'Mathematics Teacher', payPeriod: '2026-06', grossPay: 350000, netPay: 325000, status: 'paid' },
-  { id: 'PR-2', staffName: 'Mr. T. Adewale', role: 'Vice Principal', payPeriod: '2026-06', grossPay: 520000, netPay: 480000, status: 'approved' },
-  { id: 'PR-3', staffName: 'Dr. U. Obi', role: 'School Nurse', payPeriod: '2026-06', grossPay: 300000, netPay: 280000, status: 'draft' },
-];
-
 const STATUS_META: Record<PayrollStatus, { label: string; tone: StateTone }> = {
   draft: { label: 'Draft', tone: 'neutral' },
   approved: { label: 'Approved', tone: 'info' },
@@ -80,13 +73,8 @@ interface Props {
 }
 
 export function PayrollClient({ records }: Props) {
-  const RECORDS = records.length > 0 ? records : MOCK_RECORDS;
-
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const RECORDS = records;
+  const loading = false;
 
   const [query, setQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('all');
@@ -175,9 +163,15 @@ export function PayrollClient({ records }: Props) {
           emptyState={
             <EmptyState
               compact
-              title="No payroll records match your filters"
-              description="Try a different search term, or clear the filters."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title={hasFilters ? 'No payroll records match your filters' : 'No payroll records yet'}
+              description={
+                hasFilters
+                  ? 'Try a different search term, or clear the filters.'
+                  : 'Run the dev operational seed or create a payroll run.'
+              }
+              primaryAction={
+                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+              }
             />
           }
           footer={

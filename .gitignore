@@ -21,6 +21,9 @@ playwright/.cache/
 playwright-report/
 
 
+# Local-disk StorageProvider root (uploaded lesson material binaries)
+apps/api/storage/
+
 # Turbo
 .turbo
 
@@ -61,6 +64,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.tmp/
 
 # Misc
 .DS_Store

@@ -2,9 +2,8 @@
    /library/books — catalog (server component)
 
    Fetches catalog copies from the NestJS backend (server-side,
-   cookie-authenticated) and passes them to BooksClient. Falls
-   back to built-in mock data when NEXT_PUBLIC_API_URL is not set
-   (dev mode).
+   cookie-authenticated) and passes them to BooksClient.
+   Empty API responses render as empty states in the client.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';

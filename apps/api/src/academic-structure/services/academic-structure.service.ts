@@ -17,12 +17,17 @@ import {
   UpdateClassDto,
   UpdateScheduleDto,
   AssignStudentToClassDto,
+  AssignTeacherToClassDto,
   ListClassesDto,
   ACADEMIC_YEAR_STATUSES,
   TERM_STATUSES,
   COURSE_STATUSES,
   CLASS_STATUSES,
 } from '../dto';
+import {
+  AcademicsAccessService,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 
 @Injectable()
 export class AcademicStructureService {
@@ -30,6 +35,7 @@ export class AcademicStructureService {
     private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
     private readonly prismaTx: PrismaTransactionService,
+    private readonly access: AcademicsAccessService,
   ) {}
 
   /** Scoped app_runtime client inside a @TenantScoped request; else privileged. */
@@ -41,6 +47,40 @@ export class AcademicStructureService {
     if (!allowed.includes(value)) {
       throw new BadRequestException(message);
     }
+  }
+
+  private addIdScope(where: any, ids: string[]) {
+    const existingAnd = where.AND
+      ? Array.isArray(where.AND)
+        ? where.AND
+        : [where.AND]
+      : [];
+
+    where.AND = [...existingAnd, { id: { in: ids } }];
+  }
+
+  private async scopeCoursesToActor(
+    tenantId: string,
+    where: any,
+    actor?: AcademicsActor,
+  ) {
+    if (!actor || actor.canManageAll) return;
+    this.addIdScope(
+      where,
+      await this.access.getTaughtCourseIds(tenantId, actor.profileId),
+    );
+  }
+
+  private async scopeClassesToActor(
+    tenantId: string,
+    where: any,
+    actor?: AcademicsActor,
+  ) {
+    if (!actor || actor.canManageAll) return;
+    this.addIdScope(
+      where,
+      await this.access.getTaughtClassIds(tenantId, actor.profileId),
+    );
   }
 
   // ---------- Academic Years ----------
@@ -285,7 +325,12 @@ export class AcademicStructureService {
     });
   }
 
-  async listCourses(tenantId: string, search?: string, status?: string) {
+  async listCourses(
+    tenantId: string,
+    search?: string,
+    status?: string,
+    actor?: AcademicsActor,
+  ) {
     const where: any = { tenantId };
     if (search) {
       where.OR = [
@@ -298,6 +343,7 @@ export class AcademicStructureService {
       this.assertStatus(status, COURSE_STATUSES, 'Invalid course status');
       where.status = status;
     }
+    await this.scopeCoursesToActor(tenantId, where, actor);
 
     return this.client.course.findMany({
       where,
@@ -305,9 +351,12 @@ export class AcademicStructureService {
     });
   }
 
-  async getCourse(tenantId: string, id: string) {
+  async getCourse(tenantId: string, id: string, actor?: AcademicsActor) {
+    const where: any = { id, tenantId };
+    await this.scopeCoursesToActor(tenantId, where, actor);
+
     const course = await this.client.course.findFirst({
-      where: { id, tenantId },
+      where,
     });
     if (!course) throw new NotFoundException('Course not found');
     return course;
@@ -402,7 +451,11 @@ export class AcademicStructureService {
     });
   }
 
-  async listClasses(tenantId: string, filters: ListClassesDto) {
+  async listClasses(
+    tenantId: string,
+    filters: ListClassesDto,
+    actor?: AcademicsActor,
+  ) {
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -418,6 +471,7 @@ export class AcademicStructureService {
       this.assertStatus(filters.status, CLASS_STATUSES, 'Invalid class status');
       where.status = filters.status;
     }
+    await this.scopeClassesToActor(tenantId, where, actor);
 
     const [data, total] = await Promise.all([
       this.client.class.findMany({
@@ -447,9 +501,12 @@ export class AcademicStructureService {
     };
   }
 
-  async getClass(tenantId: string, id: string) {
+  async getClass(tenantId: string, id: string, actor?: AcademicsActor) {
+    const where: any = { id, academicYear: { tenantId } };
+    await this.scopeClassesToActor(tenantId, where, actor);
+
     const cls = await this.client.class.findFirst({
-      where: { id, academicYear: { tenantId } },
+      where,
       include: {
         course: true,
         term: true,
@@ -626,9 +683,16 @@ export class AcademicStructureService {
     );
   }
 
-  async listClassStudents(tenantId: string, classId: string) {
+  async listClassStudents(
+    tenantId: string,
+    classId: string,
+    actor?: AcademicsActor,
+  ) {
+    const classWhere: any = { id: classId, academicYear: { tenantId } };
+    await this.scopeClassesToActor(tenantId, classWhere, actor);
+
     const cls = await this.client.class.findFirst({
-      where: { id: classId, academicYear: { tenantId } },
+      where: classWhere,
       select: { id: true },
     });
     if (!cls) throw new NotFoundException('Class not found');
@@ -655,5 +719,125 @@ export class AcademicStructureService {
       },
     });
   }
-}
 
+  // ---------- Class-teacher allocation (subject allocation to teachers) ----------
+
+  async assignTeacherToClass(
+    tenantId: string,
+    userId: string,
+    classId: string,
+    dto: AssignTeacherToClassDto,
+  ) {
+    const cls = await this.client.class.findFirst({
+      where: { id: classId, academicYear: { tenantId } },
+      select: { id: true },
+    });
+    if (!cls) throw new NotFoundException('Class not found');
+
+    const profile = await this.client.userTenant.findFirst({
+      where: { id: dto.userTenantId, tenantId, status: 'active' },
+      select: { id: true },
+    });
+    if (!profile) {
+      throw new NotFoundException('Active staff profile not found');
+    }
+
+    const existing = await this.client.classTeacher.findFirst({
+      where: { classId, userTenantId: dto.userTenantId },
+      select: { id: true, isActive: true },
+    });
+
+    if (existing?.isActive) {
+      throw new BadRequestException('Teacher is already assigned to this class');
+    }
+
+    if (existing) {
+      // Re-activate a previous assignment instead of duplicating it.
+      return this.client.classTeacher.update({
+        where: { id: existing.id },
+        data: {
+          role: dto.role ?? 'teacher',
+          isActive: true,
+          assignedAt: new Date(),
+          assignedBy: userId,
+          unassignedAt: null,
+          unassignedBy: null,
+        },
+      });
+    }
+
+    return this.client.classTeacher.create({
+      data: {
+        classId,
+        userTenantId: dto.userTenantId,
+        tenantId,
+        role: dto.role ?? 'teacher',
+        assignedBy: userId,
+      },
+    });
+  }
+
+  async removeTeacherFromClass(
+    tenantId: string,
+    userId: string,
+    classId: string,
+    userTenantId: string,
+  ) {
+    const assignment = await this.client.classTeacher.findFirst({
+      where: {
+        classId,
+        userTenantId,
+        isActive: true,
+        class: { academicYear: { tenantId } },
+      },
+      select: { id: true },
+    });
+    if (!assignment) {
+      throw new NotFoundException('Active teacher assignment not found');
+    }
+
+    // Soft-unassign: keeps the allocation history (who taught what, when).
+    return this.client.classTeacher.update({
+      where: { id: assignment.id },
+      data: {
+        isActive: false,
+        unassignedAt: new Date(),
+        unassignedBy: userId,
+      },
+    });
+  }
+
+  async listClassTeachers(
+    tenantId: string,
+    classId: string,
+    actor?: AcademicsActor,
+  ) {
+    const classWhere: any = { id: classId, academicYear: { tenantId } };
+    await this.scopeClassesToActor(tenantId, classWhere, actor);
+
+    const cls = await this.client.class.findFirst({
+      where: classWhere,
+      select: { id: true },
+    });
+    if (!cls) throw new NotFoundException('Class not found');
+
+    return this.client.classTeacher.findMany({
+      where: { classId },
+      include: {
+        userTenant: {
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ isActive: 'desc' }, { assignedAt: 'desc' }],
+    });
+  }
+}

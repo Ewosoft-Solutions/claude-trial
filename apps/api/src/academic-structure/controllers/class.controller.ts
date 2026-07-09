@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   HttpCode,
   HttpStatus,
@@ -28,8 +29,13 @@ import {
   UpdateClassDto,
   UpdateScheduleDto,
   AssignStudentToClassDto,
+  AssignTeacherToClassDto,
   ListClassesDto,
 } from '../dto';
+import {
+  buildAcademicsActor,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags(SwaggerTags.classes.name)
@@ -39,6 +45,17 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiBearerAuth('JWT-auth')
 export class ClassController {
   constructor(private readonly academicService: AcademicStructureService) {}
+
+  private actorFrom(req: AuthenticatedRequest): AcademicsActor {
+    if (!req.userContext) {
+      throw new ForbiddenException('User context not found');
+    }
+    return buildAcademicsActor(
+      req.userContext,
+      'schedules.view',
+      'classes.teachers.assign',
+    );
+  }
 
   @Post()
   @RequirePermissions(['schedules.create'])
@@ -59,7 +76,11 @@ export class ClassController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.academicService.listClasses(user.tenantId, query);
+    return this.academicService.listClasses(
+      user.tenantId,
+      query,
+      this.actorFrom(req),
+    );
   }
 
   @Get(':id')
@@ -70,7 +91,11 @@ export class ClassController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.academicService.getClass(user.tenantId, id);
+    return this.academicService.getClass(
+      user.tenantId,
+      id,
+      this.actorFrom(req),
+    );
   }
 
   @Put(':id')
@@ -145,7 +170,11 @@ export class ClassController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.academicService.listClassStudents(user.tenantId, id);
+    return this.academicService.listClassStudents(
+      user.tenantId,
+      id,
+      this.actorFrom(req),
+    );
   }
 
   @Delete(':id/students/:studentId')
@@ -163,6 +192,57 @@ export class ClassController {
       user.userId,
       id,
       studentId,
+    );
+  }
+
+  // Class-teacher allocation (subject allocation to teachers)
+  @Post(':id/teachers')
+  @RequirePermissions(['classes.teachers.assign'])
+  @ApiOperation({ summary: 'Assign a teacher to a class' })
+  async assignTeacher(
+    @Param('id') id: string,
+    @Body() dto: AssignTeacherToClassDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const user = req.user;
+    return this.academicService.assignTeacherToClass(
+      user.tenantId,
+      user.userId,
+      id,
+      dto,
+    );
+  }
+
+  @Get(':id/teachers')
+  @RequirePermissions(['classes.teachers.view'])
+  @ApiOperation({ summary: 'List teachers assigned to a class (incl. history)' })
+  async listTeachers(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const user = req.user;
+    return this.academicService.listClassTeachers(
+      user.tenantId,
+      id,
+      this.actorFrom(req),
+    );
+  }
+
+  @Delete(':id/teachers/:userTenantId')
+  @RequirePermissions(['classes.teachers.assign'])
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Unassign a teacher from a class (keeps history)' })
+  async removeTeacher(
+    @Param('id') id: string,
+    @Param('userTenantId') userTenantId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const user = req.user;
+    return this.academicService.removeTeacherFromClass(
+      user.tenantId,
+      user.userId,
+      id,
+      userTenantId,
     );
   }
 }

@@ -56,11 +56,11 @@ model Student {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant      Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userTenant  UserTenant   @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
-  enrollments        Enrollment[]
-  guardians          StudentGuardian[]  @relation("StudentGuardianStudent")
-  attendanceRecords  AttendanceRecord[]
+  tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userTenant          UserTenant           @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+  enrollments         Enrollment[]
+  guardians           StudentGuardian[]    @relation("StudentGuardianStudent")
+  attendanceRecords   AttendanceRecord[]
   transportAssignment TransportAssignment?
   libraryLoans        LibraryBook[]
   healthRecord        HealthRecord?
@@ -75,17 +75,17 @@ model Student {
   // only its tenant's slice — keeps lists fast as the table grows).
   @@index([tenantId, enrollmentStatus])
   @@index([tenantId, gradeLevel])
-  @@schema("student-management")
   @@map("students")
+  @@schema("student-management")
 }
 
 // Enrollment - Student enrollment in a class (course offering)
 model Enrollment {
-  id             String @id @default(uuid())
-  studentId      String @map("student_id")
-  classId        String @map("class_id")
-  academicYearId String @map("academic_year_id")
-  termId         String @map("term_id") // Denormalized for easier queries
+  id             String  @id @default(uuid())
+  studentId      String  @map("student_id")
+  classId        String  @map("class_id")
+  academicYearId String  @map("academic_year_id")
+  termId         String  @map("term_id") // Denormalized for easier queries
   tenantId       String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Enrollment Details
@@ -111,11 +111,12 @@ model Enrollment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  student      Student      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  class        Class        @relation(fields: [classId], references: [id], onDelete: Cascade)
-  academicYear AcademicYear @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  term         Term         @relation(fields: [termId], references: [id], onDelete: Cascade)
-  grades       Grade[] // Grades/assessments for this enrollment
+  student               Student                @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class                 Class                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYear          AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  term                  Term                   @relation(fields: [termId], references: [id], onDelete: Cascade)
+  grades                Grade[] // Grades/assessments for this enrollment
+  assessmentSubmissions AssessmentSubmission[] // Online assessment attempts
 
   @@unique([studentId, classId, academicYearId]) // Unique enrollment per student-class-year
   @@index([studentId])
@@ -127,16 +128,16 @@ model Enrollment {
   @@index([tenantId])
   @@index([tenantId, classId])
   @@index([tenantId, studentId])
-  @@schema("student-management")
   @@map("enrollments")
+  @@schema("student-management")
 }
 
 // StudentGuardian - Links guardians (UserTenant) to students
 model StudentGuardian {
-  id             String @id @default(uuid())
-  tenantId       String @map("tenant_id")
-  studentId      String @map("student_id")
-  userTenantId   String @map("user_tenant_id")
+  id                 String  @id @default(uuid())
+  tenantId           String  @map("tenant_id")
+  studentId          String  @map("student_id")
+  userTenantId       String  @map("user_tenant_id")
   guardianIdentifier String? @map("guardian_identifier")
 
   relationship    String  @default("parent")
@@ -152,9 +153,9 @@ model StudentGuardian {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  student    Student    @relation("StudentGuardianStudent", fields: [studentId], references: [id], onDelete: Cascade)
-  guardian   UserTenant @relation("StudentGuardianGuardian", fields: [userTenantId], references: [id], onDelete: Cascade)
-  tenant     Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student  Student    @relation("StudentGuardianStudent", fields: [studentId], references: [id], onDelete: Cascade)
+  guardian UserTenant @relation("StudentGuardianGuardian", fields: [userTenantId], references: [id], onDelete: Cascade)
+  tenant   Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@unique([studentId, userTenantId])
   @@unique([tenantId, guardianIdentifier])
@@ -162,6 +163,6 @@ model StudentGuardian {
   @@index([studentId])
   @@index([userTenantId])
   @@index([guardianIdentifier])
-  @@schema("student-management")
   @@map("student_guardians")
+  @@schema("student-management")
 }

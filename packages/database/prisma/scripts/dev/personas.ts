@@ -39,9 +39,10 @@
  * WARNING: never use these credentials outside of a local dev database.
  */
 
-import { prisma } from '../../src/client.js';
+import { prisma } from '../../../src/client.js';
 import bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
+import { assertDevSeedAllowed } from './guard.js';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -503,7 +504,7 @@ async function seedClasses(
 }
 
 // ---------------------------------------------------------------------------
-// Finance sample data — a few invoices so /finance/invoices is non-empty
+// Finance dev seed data — a few invoices so /finance/invoices is non-empty
 // ---------------------------------------------------------------------------
 
 async function seedFinanceData(tenantId: string) {
@@ -561,11 +562,11 @@ async function seedFinanceData(tenantId: string) {
     });
   }
 
-  console.log(`  ✅ Finance sample data: 3 invoices, 1 payment`);
+  console.log(`  ✅ Finance dev seed data: 3 invoices, 1 payment`);
 }
 
 // ---------------------------------------------------------------------------
-// Attendance sample data — a week of marks so /attendance/daily is non-empty
+// Attendance dev seed data — a week of marks so /attendance/daily is non-empty
 // ---------------------------------------------------------------------------
 
 async function seedAttendanceData(tenantId: string) {
@@ -616,7 +617,7 @@ async function seedAttendanceData(tenantId: string) {
     });
   }
 
-  console.log(`  ✅ Attendance sample data: 5 records (Mon–Fri, week 1)`);
+  console.log(`  ✅ Attendance dev seed data: 5 records (Mon–Fri, week 1)`);
 }
 
 // ---------------------------------------------------------------------------
@@ -714,7 +715,7 @@ interface ChildSeedConfig {
  * record), linked as children of the given guardian profile via
  * StudentGuardian, each with real attendance/grade/fee data seeded (see
  * seedChildAcademicData) — so the parent dashboard aggregates and per-child
- * views show real, varied numbers instead of empty state or mock data.
+ * views show real, varied numbers instead of empty states.
  */
 async function seedParentChildren(
   tenantId: string,
@@ -904,6 +905,8 @@ function clearanceOf(role: RoleName): number {
 // ---------------------------------------------------------------------------
 
 async function main() {
+  assertDevSeedAllowed('personas');
+
   console.log('🌱 Dev-persona seed starting...');
   console.log('   Password for all accounts: DevPassword@2025!');
   console.log('   ⚠️  For local development only — never run against production.\n');

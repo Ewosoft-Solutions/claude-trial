@@ -2,9 +2,7 @@
  * Edge middleware — coarse authentication gate.
  *
  * Redirects to /login when an (app) route is requested without an
- * access-token cookie AND the API is configured (real auth mode).
- * In dev without an API URL the mock session is used; middleware
- * must not redirect in that case.
+ * access-token cookie.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -25,11 +23,6 @@ export function middleware(req: NextRequest) {
     pathname.startsWith('/api/') ||
     pathname.includes('.')
   ) {
-    return NextResponse.next();
-  }
-
-  // In dev without a backend, the app layout mock handles the session
-  if (!process.env.NEXT_PUBLIC_API_URL) {
     return NextResponse.next();
   }
 

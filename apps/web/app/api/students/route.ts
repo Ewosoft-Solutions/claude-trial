@@ -1,18 +1,12 @@
 /**
  * Route Handler: GET /api/students
  * Proxies to NestJS GET /students, forwarding query params and the Bearer token.
- * Returns an empty list when no API URL is configured (dev fallback).
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { ApiError, apiClient } from '@/lib/api-client';
 import { getBearerFromCookies } from '@/lib/server-api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
-
 export async function GET(req: NextRequest) {
-  if (!API_BASE) {
-    return NextResponse.json({ students: [] });
-  }
   try {
     const token = getBearerFromCookies(req.headers.get('cookie'));
     const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};

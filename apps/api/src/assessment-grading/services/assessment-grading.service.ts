@@ -7,6 +7,10 @@ import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { PrismaTransactionService } from '../../common/database/prisma-transaction.service';
 import {
+  AcademicsAccessService,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
+import {
   CreateGradingSystemDto,
   UpdateGradingSystemDto,
   CreateAssessmentDto,
@@ -25,6 +29,7 @@ export class AssessmentGradingService {
     private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
     private readonly prismaTx: PrismaTransactionService,
+    private readonly access: AcademicsAccessService,
   ) {}
 
   /** Scoped app_runtime client inside a @TenantScoped request; else privileged. */
@@ -169,7 +174,7 @@ export class AssessmentGradingService {
   // ---------- Assessments ----------
   async createAssessment(
     tenantId: string,
-    userId: string,
+    actor: AcademicsActor,
     dto: CreateAssessmentDto,
   ) {
     this.assertValue(
@@ -183,6 +188,7 @@ export class AssessmentGradingService {
       include: { term: true, academicYear: true },
     });
     if (!cls) throw new BadRequestException('Class not found for tenant');
+    await this.access.assertCanManageClass(tenantId, actor, dto.classId);
 
     if (dto.gradingSystemId) {
       const gs = await this.client.gradingSystem.findFirst({
@@ -208,12 +214,18 @@ export class AssessmentGradingService {
         status: dto.status ?? 'draft',
         instructions: dto.instructions,
         rubric: dto.rubric,
-        createdBy: userId,
+        durationMinutes: dto.durationMinutes,
+        maxAttempts: dto.maxAttempts ?? 1,
+        createdBy: actor.userId,
       },
     });
   }
 
-  async listAssessments(tenantId: string, filters: ListAssessmentsDto) {
+  async listAssessments(
+    tenantId: string,
+    actor: AcademicsActor,
+    filters: ListAssessmentsDto,
+  ) {
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -222,7 +234,20 @@ export class AssessmentGradingService {
       academicYear: { tenantId },
     };
 
-    if (filters.classId) where.classId = filters.classId;
+    if (filters.classId) {
+      if (!actor.canManageAll) {
+        await this.access.assertCanManageClass(
+          tenantId,
+          actor,
+          filters.classId,
+        );
+      }
+      where.classId = filters.classId;
+    } else if (!actor.canManageAll) {
+      where.classId = {
+        in: await this.access.getTaughtClassIds(tenantId, actor.profileId),
+      };
+    }
     if (filters.status) {
       this.assertValue(
         filters.status,
@@ -264,7 +289,7 @@ export class AssessmentGradingService {
     };
   }
 
-  async getAssessment(tenantId: string, id: string) {
+  async getAssessment(tenantId: string, actor: AcademicsActor, id: string) {
     const assessment = await this.client.assessment.findFirst({
       where: { id, academicYear: { tenantId } },
       include: {
@@ -275,12 +300,19 @@ export class AssessmentGradingService {
       },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
+    if (!actor.canManageAll) {
+      await this.access.assertCanManageClass(
+        tenantId,
+        actor,
+        assessment.classId,
+      );
+    }
     return assessment;
   }
 
   async updateAssessment(
     tenantId: string,
-    userId: string,
+    actor: AcademicsActor,
     id: string,
     dto: UpdateAssessmentDto,
   ) {
@@ -296,6 +328,11 @@ export class AssessmentGradingService {
       where: { id, academicYear: { tenantId } },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
+    await this.access.assertCanManageClass(
+      tenantId,
+      actor,
+      assessment.classId,
+    );
 
     if (dto.gradingSystemId) {
       const gs = await this.client.gradingSystem.findFirst({
@@ -319,24 +356,32 @@ export class AssessmentGradingService {
         status: dto.status ?? undefined,
         instructions: dto.instructions ?? undefined,
         rubric: dto.rubric ?? undefined,
-        updatedBy: userId,
+        durationMinutes: dto.durationMinutes ?? undefined,
+        maxAttempts: dto.maxAttempts ?? undefined,
+        updatedBy: actor.userId,
       },
     });
   }
 
-  async deleteAssessment(tenantId: string, id: string) {
+  async deleteAssessment(tenantId: string, actor: AcademicsActor, id: string) {
     const assessment = await this.client.assessment.findFirst({
       where: { id, academicYear: { tenantId } },
-      select: { id: true },
+      select: { id: true, classId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
+    await this.access.assertCanManageClass(
+      tenantId,
+      actor,
+      assessment.classId,
+    );
 
     await this.client.assessment.delete({ where: { id } });
     return { success: true };
   }
 
   // ---------- Grades ----------
-  private computeGrade(
+  /** Points → percentage/letter/GPA via a grading-system scale. Shared with the taking flow. */
+  computeGrade(
     pointsEarned: number | undefined,
     maxPoints: number | undefined,
     gradeScale: any | undefined,
@@ -372,7 +417,11 @@ export class AssessmentGradingService {
     return { percentage, letterGrade, gpaPoints };
   }
 
-  async createGrade(tenantId: string, userId: string, dto: CreateGradeDto) {
+  async createGrade(
+    tenantId: string,
+    actor: AcademicsActor,
+    dto: CreateGradeDto,
+  ) {
     this.assertValue(
       dto.status ?? 'draft',
       GRADE_STATUSES,
@@ -386,6 +435,11 @@ export class AssessmentGradingService {
     });
     if (!assessment)
       throw new BadRequestException('Assessment not found for tenant');
+    await this.access.assertCanManageClass(
+      tenantId,
+      actor,
+      assessment.classId,
+    );
 
     // Validate enrollment belongs to same class/academic year
     const enrollment = await this.client.enrollment.findFirst({
@@ -414,6 +468,7 @@ export class AssessmentGradingService {
 
     return this.client.grade.create({
       data: {
+        tenantId,
         enrollmentId: dto.enrollmentId,
         assessmentId: dto.assessmentId,
         pointsEarned: dto.pointsEarned as any,
@@ -423,18 +478,18 @@ export class AssessmentGradingService {
         status: dto.status ?? 'draft',
         submittedAt: dto.submittedAt ? new Date(dto.submittedAt) : undefined,
         gradedAt: dto.gradedAt ? new Date(dto.gradedAt) : undefined,
-        gradedBy: userId,
+        gradedBy: actor.profileId,
         feedback: dto.feedback,
         rubricScore: dto.rubricScore,
         notes: dto.notes,
-        createdBy: userId,
+        createdBy: actor.userId,
       },
     });
   }
 
   async updateGrade(
     tenantId: string,
-    userId: string,
+    actor: AcademicsActor,
     id: string,
     dto: UpdateGradeDto,
   ) {
@@ -449,6 +504,11 @@ export class AssessmentGradingService {
       },
     });
     if (!grade) throw new NotFoundException('Grade not found');
+    await this.access.assertCanManageClass(
+      tenantId,
+      actor,
+      grade.assessment.classId,
+    );
 
     const currentPoints =
       dto.pointsEarned !== undefined && dto.pointsEarned !== null
@@ -479,17 +539,26 @@ export class AssessmentGradingService {
         feedback: dto.feedback ?? undefined,
         rubricScore: dto.rubricScore ?? undefined,
         notes: dto.notes ?? undefined,
-        updatedBy: userId,
+        updatedBy: actor.userId,
       },
     });
   }
 
-  async listGradesForAssessment(tenantId: string, assessmentId: string) {
+  async listGradesForAssessment(
+    tenantId: string,
+    actor: AcademicsActor,
+    assessmentId: string,
+  ) {
     const assessment = await this.client.assessment.findFirst({
       where: { id: assessmentId, academicYear: { tenantId } },
-      select: { id: true },
+      select: { id: true, classId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
+    await this.access.assertCanManageClass(
+      tenantId,
+      actor,
+      assessment.classId,
+    );
 
     return this.client.grade.findMany({
       where: { assessmentId },
@@ -518,7 +587,11 @@ export class AssessmentGradingService {
     });
   }
 
-  async listGradesForStudent(tenantId: string, studentId: string) {
+  async listGradesForStudent(
+    tenantId: string,
+    actor: AcademicsActor,
+    studentId: string,
+  ) {
     // Validate student belongs to tenant
     const student = await this.client.student.findFirst({
       where: { id: studentId, tenantId },
@@ -526,10 +599,15 @@ export class AssessmentGradingService {
     });
     if (!student) throw new NotFoundException('Student not found');
 
+    const taughtClassIds = actor.canManageAll
+      ? undefined
+      : await this.access.getTaughtClassIds(tenantId, actor.profileId);
+
     return this.client.grade.findMany({
       where: {
         enrollment: {
           studentId,
+          ...(taughtClassIds ? { classId: { in: taughtClassIds } } : {}),
         },
       },
       include: {
@@ -541,14 +619,20 @@ export class AssessmentGradingService {
 
   async getAssessmentAnalytics(
     tenantId: string,
+    actor: AcademicsActor,
     assessmentId: string,
     bucketSize = 10,
   ) {
     const assessment = await this.client.assessment.findFirst({
       where: { id: assessmentId, academicYear: { tenantId } },
-      select: { id: true },
+      select: { id: true, classId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
+    await this.access.assertCanManageClass(
+      tenantId,
+      actor,
+      assessment.classId,
+    );
 
     const grades = await this.client.grade.findMany({
       where: { assessmentId },
@@ -597,6 +681,7 @@ export class AssessmentGradingService {
   // ---------- Report cards / transcripts (simplified scaffolding) ----------
   async getStudentReportCard(
     tenantId: string,
+    actor: AcademicsActor,
     studentId: string,
     academicYearId?: string,
   ) {
@@ -606,10 +691,15 @@ export class AssessmentGradingService {
     });
     if (!student) throw new NotFoundException('Student not found');
 
+    const taughtClassIds = actor.canManageAll
+      ? undefined
+      : await this.access.getTaughtClassIds(tenantId, actor.profileId);
+
     const enrollments = await this.client.enrollment.findMany({
       where: {
         studentId,
         academicYearId: academicYearId ?? undefined,
+        ...(taughtClassIds ? { classId: { in: taughtClassIds } } : {}),
       },
       include: {
         class: {

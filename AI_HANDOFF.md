@@ -1,6 +1,234 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-07-01
+Last Updated: 2026-07-09
+
+---
+
+## Session Summary (2026-07-09, pt. 4) — Step 5 live acceptance closed
+
+Step 5 live acceptance is now complete with the real spend-capped
+`ANTHROPIC_API_KEY`, keeping paid calls minimal.
+
+**What changed:**
+- Restarted the user's dev API on `http://localhost:3030`; the route map now
+  includes `/ai/admin/usage`, `/ai/academic/chat`, academic sessions, and tutor
+  usage.
+- Fixed `apps/api/test/ai-academic-live.e2e-spec.ts` fixture drift after the
+  `Enrollment.termId` schema addition by carrying each seeded lesson's `termId`
+  into the enrollment rows.
+- Relaxed the cross-lesson non-leak assertion to allow the assistant to repeat
+  the student's own query term while still forbidding lesson-A facts/citations.
+- Refreshed PR #1's body with the Steps 1-6 AI summary and verification list.
+  Because `claude` currently matches `origin/claude` and the AI work is still in
+  the local dirty tree, the PR body includes an explicit note that the AI diff
+  must be committed/pushed before reviewer diff parity.
+
+**Live verification:**
+- `AI_LIVE=1` focused live e2e with `.env` preloaded:
+  - grounded/cited answer from uploaded lesson material ✅
+  - direct homework-answer request gets guided help/refusal ✅
+  - chat history survives logout/login ✅
+  - assessment-window block returns the 403 shape ✅
+  - cross-lesson non-leak initially produced the correct privacy behavior but
+    failed an over-strict assertion because the answer repeated the user's term;
+    after the assertion fix, reran only `--testNamePattern "does not leak"` ✅
+- Important command note: the documented `pnpm --filter api test:e2e -- ...`
+  form can leave Jest flags after a literal `--`. The reliable live invocation
+  used `pnpm --filter api exec jest --config ./test/jest-e2e.json ...` from a
+  small Node wrapper that loads `apps/api/.env` before Jest setup.
+
+**Still open:**
+- Step 3 polish remains: assistant markdown-lite rendering and chart y-axis
+  clipping for large currency values.
+- Step 2 term-context-in-system-prompt remains pending because there is still no
+  "current term" read service.
+- Parked non-AI items remain parked (PWA/offline/push, subdomain tenant
+  resolution, Step 8 sub-surfaces, runtime cutover to `app_runtime`, etc.).
+
+---
+
+## Session Summary (2026-07-09, pt. 3) — AI hardening & close-out (ai-integration-plan Step 6, DONE)
+
+Step 6 of `docs/ai-integration-plan.md` is implemented: tenant-level AI usage
+governance, hardening coverage, RLS coverage for new AI tables, and an admin
+usage view.
+
+**Backend / database:**
+- Migration `20260709000000_ai_governance` adds three RLS-protected tables in
+  the `ai` schema:
+  - `ai_settings`: one row per tenant, model tier, feature toggles
+    (`analytics_enabled`, `tutor_enabled`), monthly token budget, tenant
+    concurrency limit, alert threshold, and BYOK-ready nullable provider/key
+    columns.
+  - `ai_usage_monthly`: monthly per-feature aggregate of request counts and
+    token counts (`input`, `output`, `cache_read`, `cache_creation`, total),
+    last provider/model, and one-shot threshold alert timestamp.
+  - `ai_concurrency_leases`: short-lived active-request leases for the
+    per-tenant concurrency cap (TTL backstop, released in `finally`).
+  Existing tenants are backfilled with a default `ai_settings` row. RLS
+  policies + `app_runtime` grants are in the migration; `db:rls:check` passes.
+- `AiUsageService` (`apps/api/src/ai/services/ai-usage.service.ts`) owns the
+  Step 6 enforcement layer. It opens only short `runScoped` units: start
+  request (feature toggle + monthly quota + concurrency lease), record usage
+  after a completed assistant turn, release lease, and build the admin summary.
+  Defaults come from new env knobs:
+  `AI_MONTHLY_TOKEN_BUDGET` (1,000,000), `AI_TENANT_CONCURRENCY_LIMIT` (3),
+  `AI_SPEND_ALERT_THRESHOLD_PERCENT` (80). Threshold "alerts" are currently a
+  once-per-month logged warning + `alert_sent_at` marker because the product's
+  notification service is still TD-002/unbuilt.
+- Analytics and tutor chat now keep the old per-user `AiThrottleService` guard
+  **and** call `AiUsageService.startRequest` before model calls; quota/concurrency
+  denials stream a clean error event with `code` (`AI_QUOTA_EXHAUSTED`,
+  `AI_CONCURRENCY_LIMIT`, or `AI_FEATURE_DISABLED`) plus retry/details. Usage is
+  recorded from the normalized `LlmUsage` after a successful assistant turn even
+  if chat-history persistence later fails; leases are released in `finally`.
+- New `GET /ai/admin/usage` (`AiAdminController`) is gated on `ai.configure` and
+  returns the tenant's month, settings, aggregate usage, active concurrency, and
+  feature rows. No new permission was added; `ai.configure` already exists in
+  the seed catalog.
+
+**Frontend:**
+- New `/settings/ai-usage` server page shows monthly quota used/remaining,
+  request count, active concurrency, cost controls, and per-feature usage rows.
+- New Route Handler `app/api/ai/admin/usage/route.ts` proxies the admin usage
+  endpoint for client-side consumers. The page itself uses `serverApiGet` like
+  the other settings pages.
+- Settings nav includes "AI usage"; the rail-level Settings footer now admits
+  `ai.configure` so an AI admin can reach the page even without broader
+  `settings.*` permissions. Nav tests cover that access.
+
+**Hardening coverage:**
+- `ai-usage.service.spec.ts`: default settings, quota denial shape, concurrency
+  cleanup/cap, monthly usage increment, threshold alert marker, admin summary.
+- `analytics-tools.service.spec.ts`: the six-tool permission/clearance matrix
+  and closed input schemas.
+- Analytics prompt-injection smoke test pins the cacheable prompt's refusal of
+  "ignore your instructions / another school" requests.
+- Tutor prompt-injection smoke test pins lesson-only grounding and "never hand
+  over direct answers" instructions.
+- `test/ai-rls.e2e-spec.ts` plants rows in two tenants and proves scoped access
+  for `ai_settings`, `ai_usage_monthly`, `ai_concurrency_leases`,
+  `chat_sessions`, and `chat_messages`. It skips locally unless
+  `APP_RUNTIME_DATABASE_URL` is set to the real `app_runtime` role.
+
+**Verification:**
+- `corepack pnpm --filter @workspace/database db:generate` ✅
+- `corepack pnpm --filter @workspace/database db:deploy` ✅ applied
+  `20260709000000_ai_governance` locally
+- `corepack pnpm --filter @workspace/database db:rls:check` ✅
+- `corepack pnpm --filter @workspace/database build` ✅
+- `corepack pnpm --filter api build` ✅
+- `corepack pnpm --filter api test` ✅ **185/185**
+- `corepack pnpm --filter api lint` ✅ exits 0 (pre-existing warnings remain,
+  including old auth/service unused-var warnings and e2e env-var declarations)
+- `corepack pnpm --filter web check-types` ✅
+- `corepack pnpm --filter web test` ✅ **38/38**
+- `corepack pnpm --filter web lint` ✅ 0 warnings/errors
+- `corepack pnpm --filter web build` ✅
+- `corepack pnpm --filter api test:e2e -- --runTestsByPath test/ai-rls.e2e-spec.ts`
+  ✅ skipped locally as expected (no `APP_RUNTIME_DATABASE_URL`)
+
+**Previous-step leftovers intentionally NOT closed:**
+- Step 5 live browser acceptance was still pending here, but was closed in the
+  2026-07-09 pt. 4 session above.
+- Step 3 polish candidates remain: assistant markdown-lite rendering and chart
+  y-axis clipping for large currency values.
+- Step 2 term-context-in-system-prompt remains pending because there is still no
+  "current term" read service.
+- Parked non-AI items remain parked (PWA/offline/push, subdomain tenant
+  resolution, Step 8 sub-surfaces, runtime cutover to `app_runtime`, etc.).
+
+---
+
+## Session Summary (2026-07-09, pt. 2) — Academic AI tutor (ai-integration-plan Step 5, DONE — code complete + route-mapped; live browser acceptance pending a key)
+
+Step 5 of `docs/ai-integration-plan.md` implemented end-to-end: a lesson-scoped
+RAG tutor for students with source citations, academic-integrity guardrails,
+assessment-window blocking, persistent per-student sessions, and teacher
+usage visibility — plus the student + teacher frontend surfaces.
+
+**Model decision (Step 2 governance note resolved).** `AI_MODEL_TUTOR` defaults
+to **`claude-haiku-4-5`** — student-scale volume, answers grounded in retrieved
+chunks (the reasoning is constrained by the source text), so the cheapest/fastest
+tier is right. Configurable via env to tier up (e.g. `claude-opus-4-8`) with no
+code change. **NB the tutor sends NO thinking parameter** (`thinking: 'none'` on
+the LlmProvider port) — Haiku rejects adaptive thinking, and grounded RAG doesn't
+need it. Analytics still defaults to adaptive.
+
+**Backend** (`apps/api/src/ai/`):
+- `services/academic-chat.service.ts` — the tutor orchestration. `getLesson`
+  (student visibility rules: published + approved + enrolled, 404s otherwise)
+  gates access, then `LearningRetrievalService.searchLesson` (pinned to
+  `(tenantId, lessonId)`) retrieves chunks; retrieved chunks become numbered
+  citations grounded into the prompt with a strict integrity system prompt
+  (explain, never hand over homework/test answers, cite every claim, no
+  outside knowledge). Single streamed generation (no tool loop). Persists
+  both sides to a `type:'academic'` `ChatSession` (uses the existing
+  `lessonId` column); assistant `metadata` carries citations + usage + model.
+  Same RLS discipline as chat: retrieval + generation run OUTSIDE any scope;
+  only short row writes are in `runScoped`.
+- **Assessment-window block**: `getAssessmentBlock` returns the requirements'
+  403 refusal shape (`{allowed:false, message, alternatives}`) when the
+  student has a **live** in-progress `AssessmentSubmission` (within the timer
+  +30s grace for timed, or before dueDate for untimed). Abandoned/expired
+  attempts don't block (no permanent lockout). Checked in the controller
+  BEFORE the SSE stream opens → real 403 body, not an SSE event.
+- **Teacher visibility v1**: `listClassUsage` → `GET /ai/academic/usage` —
+  per-class tutor usage (sessions, per-student question counts, last activity)
+  scoped to the teacher's `getTaughtClassIds` (or all with
+  `lessons.manage.all`). Gated on `lessons.view` (excludes students, who hold
+  `lessons.view.own`).
+- `controllers/ai-academic.controller.ts` — `POST /ai/academic/chat` (SSE:
+  session, sources, delta, complete, error), `GET /ai/academic/sessions[/:id]`,
+  `GET /ai/academic/usage`. NOT `@TenantScoped` (AI-module discipline).
+- `dto/academic-chat.dto.ts` — message + lessonId (+ optional sessionId).
+- New **`AiTutorModule`** (`ai/ai-tutor.module.ts`) rather than folding into
+  `AiModule`: `LearningModule` already imports `AiModule` (embeddings port),
+  and the tutor needs `LearningModule` — a separate module avoids the cycle.
+  It re-registers `ConfigModule.forFeature(aiConfig)` (AiModule keeps its own
+  private); `AiModule` now also **exports `AiThrottleService`** so the tutor
+  shares the per-user budget. Registered in `app.module.ts`.
+- `ai.chat.use` (clearance 1) already existed in the seed catalog (Step 1) —
+  no schema/seed/RLS changes this step (reuses `learning` + `ai` tables).
+
+**Frontend** (`apps/web`):
+- Student `/classes/tutor` (`layout` guards `ai.chat.use`; server page fetches
+  student-visible lessons + own sessions; `tutor-client.tsx` island). Reuses
+  the Step 3 chat kit (`ChatThread`/`ChatMessageBubble`/`ChatComposer`), adds a
+  lesson `Select` (locks to the session's lesson once a conversation starts),
+  renders citations under the assistant bubble, and shows the assessment 403
+  block as a warning banner with alternatives. SSE state machine over
+  `readSseStream` folds session → sources → delta* → complete | error.
+- Teacher `/classes/tutor-usage` (guards `lessons.view`; server page → table
+  of student/lesson/class/questions/last-activity with honest empty state).
+- 4 route handlers under `app/api/ai/academic/` (chat pipes SSE + forwards the
+  403 block body verbatim; sessions/[id] + usage are JSON proxies).
+- Nav: `tutor` leaf (Sparkles, `ai.chat.use`) + `tutor-usage` leaf (ChartColumn,
+  `lessons.view`) under Classes → Teaching. Nav test fixtures updated
+  (`ai.chat.use` added to `ALL_SCHOOL_PERMISSIONS`; new gating test for both
+  leaves — student sees tutor not usage, teacher sees usage not tutor).
+
+**Verification:** api `nest build` green; **api unit 174/174** (new
+`academic-chat.service.spec.ts`, 7 cases: grounding→citations, empty-retrieval
+no-fabrication, lesson-access-denied errors instead of leaking, provider
+unavailable, and the assessment-block window logic). API booted on 3031 — all
+four `/ai/academic/*` routes mapped, DI resolves (the module cycle avoided).
+Web `check-types` / `next lint` / `next build` green; web **vitest 37/37**.
+**Live browser acceptance (grounded+cited answer, cross-lesson non-leak,
+direct-answer refusal, chat-survives-logout, assessment block) is the
+remaining manual step** — it needs a real `ANTHROPIC_API_KEY` (the $1/month
+capped workspace); prior AI steps were accepted the same way with the user
+pasting a key. Don't loop paid calls.
+
+**Fixes made in passing (pre-existing, uncommitted, unrelated to Step 5):**
+- `learning.service.spec.ts` "teachers/admins list" case was stale — mocked
+  only `getEnrolledClassIds`, asserted teachers get NO class filter. Current
+  code scopes teachers to `getTaughtClassIds` (documented record-level
+  enforcement). Aligned the test to the intended behaviour (added the mock,
+  assert `classId: { in: taughtClassIds }`). Was failing before this session.
+- Removed dead code failing `next lint --max-warnings 0` in two untracked
+  Step 8 files: unused `NoticeBanner` import + `live` destructure in
+  `take-list-client.tsx`, unused `DAY_LABEL` const in `timetable-client.tsx`.
 
 ---
 
@@ -35,6 +263,12 @@ Last Updated: 2026-07-01
 > AI. Different scales — disambiguate when it matters.
 
 Current Phase:
+
+> ⚠ **Superseded (2026-07-06) — internal phase numbering retired.** The
+> project now uses the PRD's phasing: Phase 1 (core platform) ✅, Phase 2
+> (operations modules) ✅ apart from parked PWA items, **Phase 3 (AI) — the
+> current phase**. Committed backlog: `docs/ai-integration-plan.md`. The
+> "Phase 2 IN PROGRESS" line below is historical.
 
 Phase 2 - Dashboard Infrastructure & Role/Tenant-Aware Navigation — **IN PROGRESS**
 
@@ -75,6 +309,588 @@ internal links are now next/link `<Link>`.
 ---
 
 # Completed Work
+
+## Session Summary (2026-07-08, pt. 2) — Academics frontend surfaces implemented
+
+**Why:** the academics backend from the prior 2026-07-08 session was complete,
+but the user called out that the frontend was still missing. This session built
+the operational UI layer on top of those endpoints, leaving Step 5 (Academic AI
+tutor) as the next AI-plan item.
+
+**Frontend surfaces added/updated (`apps/web`):**
+- Shared academic UI contract/helper file:
+  `apps/web/lib/academics.ts` (class/course labels, status metadata, academic
+  DTO-ish types, API path helper, fetch error helper).
+- Allow-listed cookie-auth proxy:
+  `app/api/academics/[...path]/route.ts` for `learning`, `classes`, `courses`,
+  `questions`, and `assessments` JSON requests/download streams.
+- `/classes/materials`: upgraded from upload-only into lesson authoring +
+  read-only student view. Teachers can create lessons, edit title/summary/note,
+  submit for review, publish/unpublish approved lessons, upload/reprocess/delete
+  materials, and download media/documents. Students with `lessons.view.own` can
+  reach the same page but see only the backend-filtered published/approved
+  content and no mutation controls.
+- `/classes/review`: approval queue for lesson and material review items,
+  with approve/reject (rejection note required), previous review notes, material
+  download preview, and publish-after-approval for lessons.
+- `/classes/teachers`: class teacher allocation UI with class selector, active
+  + historical roster, teacher profile selector (from tenant user profiles when
+  available), assign roles (`teacher`, `assistant`, `co-teacher`,
+  `substitute`), and soft-unassign.
+- `/classes/question-bank`: course-scoped question bank editor for `mcq`,
+  `true_false`, `short_answer`, and `essay` questions, including options,
+  correct answers/model answers, solutions, difficulty, create/edit/delete.
+- `/classes/assessments`: teacher assessment workflow: create draft
+  assessments, attach/detach bank questions into a weighted paper, publish,
+  view submissions, and manually grade essay/manual-review attempts.
+- `/classes/assessments/take` and `/classes/assessments/take/[id]`: student
+  taking surface with assessment-id entry/shareable link, start/resume timed
+  attempts, answer capture by question style, submit, timer display, and attempt
+  history.
+- Navigation + access refreshed: Classes rail now exposes Materials,
+  Assessments, Take assessments, Question bank, Review queue, and Teacher
+  allocation according to the backend permission keys. Mock personas now include
+  the new academic permissions (`lessons.view.own`, `assessments.take`,
+  `questions.*`, `classes.teachers.*`, etc.) so local demo mode matches the
+  seeded catalog.
+
+**Verification:**
+- `CI=true corepack pnpm --filter web check-types` ✅
+- `CI=true corepack pnpm --filter web test` ✅ (2 files, 32 tests)
+- `CI=true corepack pnpm --filter web lint` ✅ (Next warns `next lint` is
+  deprecated, but reports 0 warnings/errors)
+- `CI=true corepack pnpm --filter web build` ✅
+- `CI=true pnpm build` ✅ after forcing child Turbo scripts to use pnpm 10.4.1
+  via a temporary PATH wrapper (`pnpm` on the default Codex PATH is 11.7.0 and
+  triggers the lockfile override mismatch).
+
+**Known notes:** student assessment listing is necessarily link/ID-first when a
+student only has `assessments.take` because the backend list endpoint still
+requires `assessments.view`; teachers can share the `/classes/assessments/take/:id`
+link from the assessment id. A richer "my open assessments" endpoint would make
+that page fully discoverable for students.
+
+## Session Summary (2026-07-08) — Academics build-out: approval workflow, videos/notes, teacher allocation, question bank + online assessments
+
+**Why:** before the AI tutor (plan Step 5), the academic content layer was
+too thin — no lesson-note body, no video/media uploads, no approval gate
+before students see content, students couldn't see lessons at all
+(`lessons.view` floor was clearance 3), `ClassTeacher` had no endpoints or
+enforcement, and Assessments were gradebook-only (no questions, no taking).
+Two of the user's older production repos
+(`~/Documents/works/learn-lift/learn-lift-backend`,
+`~/Documents/works/GAU/gau-dashboard/gau-api`, both NestJS+Mongoose) were
+assessed as pattern donors; **`docs/academics-reuse-assessment.md`** (new)
+documents what transferred (content hierarchy, `isApproved` file gate →
+review-state machine, question bank shape, server-side answer marking,
+teacher-subject allocation) and what was deliberately not adopted.
+
+**Schema (migration `20260708000000_academics_content_domain`, applied +
+`db:rls:check` green, no drift):**
+- `learning.lessons`: + `content` (lesson-note body), + review workflow
+  (`review_status` draft/pending_review/approved/rejected, submitted/
+  reviewedBy/At/note). Students need `status='published' AND
+  review_status='approved'`.
+- `learning.lesson_materials`: + `category` (document/video/image/audio),
+  + same review fields (default `pending_review`; pre-existing rows
+  grandfathered to `approved` in the migration).
+- `academic-structure`: `assessments` + `duration_minutes`/`max_attempts`;
+  new tables `questions` (course-scoped bank; style mcq/true_false/
+  short_answer/essay, options JSONB, correct_answer, solution),
+  `assessment_questions` (ordered+weighted paper), `assessment_submissions`
+  (per-attempt answer sheet keyed to Enrollment). All three tenant_id NOT
+  NULL + RESTRICTIVE `tenant_isolation` RLS + app_runtime grants.
+
+**API:**
+- `common/academics/AcademicsAccessService` (new, exported from
+  CommonModule): `buildAcademicsActor` (from the guard's cached permission
+  context) + record-level rules — `assertCanManageClass` (ClassTeacher or
+  manage-all override), `assertCanManageCourseBank`, `findActiveEnrollment`,
+  `getEnrolledClassIds`.
+- Learning module: video/image/audio uploads (skip extraction,
+  `extractionStatus='skipped'`; per-category caps 20/20/50/250 MB),
+  `GET /learning/materials/:id/download` (streams via StorageProvider),
+  lesson `submit-review`/`approve`/`reject` + material `approve`/`reject`
+  (rejection requires a note), publishing requires approval, content edits
+  reset approval AND un-publish, student reads (`lessons.view.own` without
+  `lessons.view`) pinned to published+approved+enrolled and approved
+  materials only; teacher mutations require ClassTeacher on the class
+  (`lessons.manage.all` overrides).
+- Academic-structure: `GET/POST/DELETE /classes/:id/teachers`
+  (ClassTeacher allocation, soft-unassign keeps history).
+- Assessment-grading: `QuestionBankService` + `AssessmentTakingService`,
+  `QuestionController` (`/questions` CRUD; delete retires used questions)
+  and `AssessmentTakingController` (paper attach/detach/list with answers;
+  student `GET :id/take` (no answers), `POST :id/start` (timed attempt,
+  resume-not-burn), `POST :id/submissions` — objective styles marked
+  server-side from the bank key, fully-objective papers upsert the
+  gradebook `Grade` via the (now public) `computeGrade`, essays park as
+  `needsManualGrading`; `PATCH submissions/:id/grade` for manual totals).
+  Deadline enforced at submit; timer enforced with 30s grace via startedAt.
+- `AssessmentGradingService.createAssessment/updateAssessment` persist
+  `durationMinutes`/`maxAttempts`.
+
+**Permissions (seed 286 → 297, verify-seed updated, seeded + verified):**
+`lessons.view.own` (1), `lessons.approve` (4), `lessons.manage.all` (4),
+`classes.teachers.view` (3), `classes.teachers.assign` (4), `questions.view/
+create/edit/delete` (3), `assessments.take` (1), `assessments.manage.all` (4).
+
+**Verification:** api unit **163/163** (20 new: marking/attempts/timer/
+review-transitions/visibility/upload-categories), `nest build` green,
+`tsc --noEmit` green, lint 0 errors and 0 warnings in touched files, seed +
+`db:verify` + `db:rls:check` pass, app boots with all 23 new routes mapped.
+`test/learning-isolation.e2e-spec.ts` updated to the new
+`uploadMaterial(actor)` signature (admin-shaped actor; ownership rules are
+unit-tested). E2e DB-gated specs still skip locally (no
+`APP_RUNTIME_DATABASE_URL`); CI runs them.
+
+**Known deferrals (documented in the assessment doc):** course-progress
+tracking, S3 StorageProvider implementation, per-question manual grading UI,
+parent visibility of children's lessons, auto-submit job for expired timed
+attempts. No frontend surfaces yet for approval queue / question bank /
+taking — backend-first by design today.
+
+## Session Summary (2026-07-07, pt. 3) — Lesson content substrate (ai-integration-plan Step 4, DONE — live-verified with real Voyage embeddings)
+
+Step 4 implemented end-to-end: the `learning` schema + domain module, a
+storage/embeddings port pair, the extraction→chunk→embed pipeline, the
+tenant/lesson isolation test, and the teacher upload surface in `apps/web`.
+**Live acceptance PASSED** on a fresh API instance (3031) against the real
+DB and a real `VOYAGE_API_KEY` (the user pasted one into `apps/api/.env`
+mid-session): teacher persona created a lesson, uploaded a PDF, the pipeline
+extracted + embedded it (status `pending → completed`, 1 chunk, embedding
+NOT NULL, tenant/lesson-scoped), a live similarity query returned the chunk
+at 0.57 cosine, a sibling lesson's search returned `[]` (no leak), and a
+bogus lesson id got a 404 (probe-proof).
+
+**Database (`learning` schema — new)** — `packages/database/prisma/models/learning.prisma`:
+- `Lesson` (→ `Class`), `LessonMaterial` (storage key, mime, `extractionStatus`
+  pending|processing|completed|failed, `chunkCount`), `MaterialChunk`
+  (`content` + `embedding Unsupported("vector(1024)")` + denormalized
+  `tenantId` AND `lessonId` — both are the retrieval scope). All tenant-scoped,
+  RLS in the migration.
+- Migration `20260707000000_learning_domain`: `CREATE EXTENSION vector` (into
+  `public`), the three tables, HNSW cosine index on `embedding`, RLS policies,
+  `app_runtime` grants. **pgvector 0.8.2 confirmed available in the dev
+  Postgres.app; `.github/workflows/ci.yml` postgres service image swapped
+  `postgres:16 → pgvector/pgvector:pg16`** so CI can create the extension.
+- `rls-coverage-check.sql` + `schema.prisma` datasource: added `learning`.
+- Seed: 6 `lessons.*` permissions (view/create/edit/delete +
+  materials.upload/delete, all clearance 3, category academic);
+  `EXPECTED_PERMISSION_COUNTS.total 280 → 286`, new `LESSONS_PERMISSIONS: 6`,
+  `verify-seed.ts` bumped. Re-seeded (286 permissions, 1590 pool assignments).
+
+**Ports (mirroring the `src/ai/llm` provider-port pattern):**
+- `src/common/storage/` — `StorageProvider` port (`STORAGE_PROVIDER` token) +
+  `LocalDiskStorageService` (root `STORAGE_LOCAL_ROOT`, default `./storage`,
+  read raw off `process.env` so tests can point it at a temp dir; key-escape
+  guarded). Wired into the global `CommonModule`. `apps/api/storage/` gitignored.
+- `src/ai/embeddings/` — `EmbeddingsProvider` port (`EMBEDDINGS_PROVIDER`
+  token, `document`/`query` input types) + `VoyageEmbeddingsService` (plain
+  fetch, batches of 128, index-ordered, `voyage-3.5-lite`, 1024-dim). Provided
+  + exported by `AiModule`. Config in `ai.config.ts`: `VOYAGE_API_KEY`
+  (`.allow('')` so the placeholder line validates), `AI_EMBEDDINGS_MODEL`,
+  `AI_EMBEDDINGS_DIMENSIONS` (**must equal the `vector(1024)` column**).
+
+**Pipeline + module** (`src/learning/`):
+- `material-extraction.service.ts` — PDF (pdf-parse v2 `new PDFParse().getText()`),
+  DOCX (mammoth), PPTX (jszip + `<a:t>` regex, slide-ordered), TXT/MD. Video/OCR
+  deferred. `resolveMaterialKind()` falls back to extension for
+  octet-stream. `chunking.ts` — paragraph-preferring overlapping chunker (pure).
+- `material-ingestion.service.ts` — detached job (via `QueueService`):
+  storage.get → extract → chunk → embed → **raw-SQL** chunk inserts (embedding
+  column is Unsupported to prisma-client-js). **Same RLS discipline as chat:
+  extraction + the embeddings round-trip run OUTSIDE any tenant transaction;
+  only the short row writes are inside `runScoped`.**
+- `learning-retrieval.service.ts` — `searchLesson`/`searchLessonByVector`; raw
+  `<=>` cosine query with explicit `tenant_id`+`lesson_id` predicates, run
+  inside `runScoped` (RLS is the second layer).
+- `learning.service.ts` (lessons/materials CRUD, upload) + `learning.controller.ts`
+  (`/learning/*`, **NOT `@TenantScoped`** by design — own `runScoped` blocks;
+  `FileInterceptor`, 20 MB cap). Registered in `app.module.ts`; swagger tag added.
+
+**Tests:** api unit **143/143** (was 126) — new specs: chunking, extraction
+(incl. a built pptx), Voyage provider (fetch mocked), local-disk storage.
+`test/learning-isolation.e2e-spec.ts` (gated on `APP_RUNTIME_DATABASE_URL`,
+stub EmbeddingsProvider via `.overrideProvider`) plants identical-embedding
+decoys in a sibling lesson + another tenant and proves search returns only the
+target lesson, plus a full TXT ingestion path. **Ran green locally** against
+the owner DB URL (4/5; the "RLS backstop" case needs the real `app_runtime`
+role — passes in CI where that role logs in). Web: type-check/lint/build green,
+vitest **32** (added a nav Materials-leaf gating case).
+
+**Web** (`apps/web`): `/classes/materials` (server page + `materials-client.tsx`
+island + 4 route handlers under `app/api/learning/`): class picker → lesson
+list (create inline) → materials table with upload, live status polling while
+pending/processing, reprocess (on failed) + delete. Nav: new `materials` leaf
+under Classes (gated `lessons.view`, `FileText` icon). `session.ts` mock +
+`app-navigation.test.tsx` fixtures carry the `lessons.*` perms.
+
+**Gotchas surfaced this session:**
+- `GET /classes` rejects its own default query params (`page`/`limit`/`sortBy`/
+  `sortOrder` → 400 "property should not exist"). **Pre-existing DTO/whitelist
+  bug, unrelated to Step 4** — the materials page uses `/classes?limit=100`
+  server-side, which will 400 against the live API; it currently still renders
+  (serverApiGet swallows non-OK to null → demo classes). Worth a fix, filed
+  as a follow-up thought, not done here.
+- Dev seed data now includes a live "Photosynthesis" lesson (Mathematics class,
+  greenfield tenant) with an embedded PDF chunk, from the acceptance run —
+  visible in the UI; delete if it clutters a demo.
+
+## Session Summary (2026-07-07, pt. 2) — Error hygiene + AI personalization (user feedback)
+
+Two user-feedback fixes after the Step 3 demo:
+
+**Error hygiene (`apps/api`).** The user hit `GET /ai/health` as an
+unauthorised user and the 403 leaked `missing_permission: ai.configure` plus
+a stack trace. Three fixes:
+
+- `PermissionGuard` no longer puts the machine-readable reason in the HTTP
+  message — it logs it server-side (`Logger.warn` with method/path/profile)
+  and throws a toast-ready generic: *"You do not have permission to perform
+  this action"*. The reason codes still flow unchanged into the audit paths
+  and the AI mediator's in-chat refusal shape (requirements shape — not an
+  HTTP error).
+- `HttpExceptionFilter`: debug payloads (`details`, `stack`, and the new
+  `internalMessage`) are now **opt-in via `API_DEBUG_ERRORS=true`** — unset
+  principle: absent the flag nothing debug ships, regardless of `NODE_ENV`
+  (the old behaviour keyed off `NODE_ENV === 'development'`, which is why
+  the user saw stacks — the filter WAS handling the 403; it leaked by
+  design). Also fixed a worse pre-existing leak: unhandled (non-Http)
+  errors used to put their raw `exception.message` in the response in EVERY
+  environment — now the client gets "Internal server error" and the real
+  message is logged (+ `internalMessage` under the flag).
+- Flag documented: commented-out `API_DEBUG_ERRORS=true` block appended to
+  `apps/api/.env`, Joi schema + `EnvironmentConfig` entry in
+  `env.config.ts` (default false), `turbo.json` globalEnv. New unit spec
+  `http-exception.filter.spec.ts` (4 cases) pins the contract — note it
+  must `jest.mock('@workspace/database')` for the Prisma error classes.
+
+**AI personalization (`analytics-chat.service.ts`).** The volatile system
+block now carries the caller's display name (best-effort
+`lookupCallerName()` off `User.firstName/lastName`; degrades to null, never
+breaks chat) and the stable prompt gained a style rule: address the user by
+first name when natural, always name students/children from tool results —
+never "your child"/"the student". Verified live on a fresh instance on 3031:
+parent's reply led with the child's name. **NB the dev-persona child is
+literally named "Student Greenfield"** (`seed-dev-personas.ts` names
+personas after their roles), so demo replies still *look* generic — the
+model is using the real name. Rename the seed personas if demo polish
+matters.
+
+Verification: api unit suite 126/126 (13 suites — the new filter spec),
+`nest build` green, changed-file lint clean. Live on 3031: student → 403
+with only the generic message (no `details`/`stack`/permission key);
+unauthenticated → clean 401; parent chat reply personalized. **The user's
+own 3030 dev server needs a restart to pick up these changes.**
+
+## Session Summary (2026-07-07) — Analytics AI frontend `/assistant` (ai-integration-plan Step 3, DONE — live-verified in browser as owner + parent)
+
+Step 3 of `docs/ai-integration-plan.md` implemented end-to-end: shared chat UI
+in `packages/ui` first, then the `/assistant` page in `apps/web` on the
+established module pattern (server component + client island + Route Handlers),
+plus the permission-gated nav item.
+
+**Shared chat kit** (`packages/ui`):
+
+- `types/chat.types.ts` — `ChatSender`, `ChatChartSpec` (mirrors the API
+  envelope's `visualization` member; reuses `ChartSlice`/`ChartDatum`/
+  `ChartSeries` so a spec straight off the wire renders with the existing
+  wrappers).
+- `components/textarea.tsx` — new shadcn-style primitive (didn't exist).
+- `custom/chat/` — `ChatThread` (role="log", pinned auto-scroll that pauses
+  when the reader scrolls up), `ChatMessageBubble` (user right/primary,
+  assistant left/card; embedded chart; footer slot; pending → typing dots),
+  `ChatComposer` (Enter sends, Shift+Enter newline, busy/disabled states),
+  `ChatChart` (donut → DonutChart, bar → CategoryBarChart, trend →
+  TrendChart; empty/unknown specs render nothing per PRD A6),
+  `ChatTypingIndicator` (motion-reduce safe). All copy consumer-supplied.
+- `custom/chat/chat.test.tsx` — 10 vitest/jsdom cases (bubble, thread a11y,
+  composer send semantics, chart-from-wire-spec). UI suite now **82** across
+  9 files. NB `@testing-library/user-event` is NOT installed — use
+  `fireEvent` (the stat-grid convention).
+
+**`/assistant` module** (`apps/web`):
+
+- `app/(app)/assistant/layout.tsx` — `requirePermission('ai.analytics.query')`.
+- `app/(app)/assistant/page.tsx` — server component; fetches
+  `GET /ai/analytics/sessions` via `serverApiGet`.
+- `app/(app)/assistant/assistant-client.tsx` — the island: SSE state machine
+  folding `session → delta* → tool* → complete{envelope} | error → done`
+  into the message list; session list/resume (master pane via
+  `ListDetailLayout`, mobile History toggle); New chat; suggestion buttons in
+  the empty state; error NoticeBanner; tool activity as StatusBadges
+  (completed/denied/error tones).
+- `lib/sse.ts` — minimal SSE frame parser over a fetch body reader
+  (EventSource can't POST).
+- Route Handlers: `app/api/ai/analytics/chat/route.ts` (POST; pipes the
+  upstream SSE body through untouched; pre-stream failures → JSON error the
+  client checks via `res.ok`; **mock SSE stream** when `NEXT_PUBLIC_API_URL`
+  is unset, matching the other handlers' mock-fallback convention),
+  `sessions/route.ts` + `sessions/[id]/route.ts` (plain JSON proxies;
+  Next 15 async `params`).
+
+**Nav** (`apps/web/lib/navigation/app-navigation.tsx`): new top-level
+`assistant` section (Sparkles icon) right after Overview, gated
+`anyPermission: ['ai.analytics.query']` — clearance floor 1 by design
+(students/parents see it; AIMediatorService scopes answers server-side).
+Fixtures updated: test `ALL_SCHOOL_PERMISSIONS` + expected owner rail order +
+a new floor-1 visibility case (viewer holding only `ai.analytics.query` gets
+`['overview','assistant']`); `lib/session.ts` mock — `ai.analytics.query`
+added to the owner catalog AND every school persona (management → student).
+The permission already existed in the seed catalog (Step 1), auto-pooled at
+floor 1 — verified live that seeded owner/parent tokens carry it.
+
+**Verification:** `check-types`, `next lint`, `next build` all green (run
+under Node ≥20.19 — v22 via nvm; 20.18 trips ERR_REQUIRE_ESM in vitest too,
+not just turbo). Tests: web 31/31 (2 files), ui 82/82 (9 files).
+
+**Live acceptance (browser, real API):** standalone snapshot on port 3013
+(preview `web` config) → the user's running API on **3030** (its
+`ANTHROPIC_API_KEY` workspace is the $1/month-capped one; 4 paid calls ≈
+cents). Personas from `seed-dev-personas.ts` (password `DevPassword@2025!`;
+login is two-step — `/auth/login` returns a pre-auth token, then
+`/auth/select-school {tenantId, profileId}` yields the access token):
+
+- **owner@greenfield.test** — Assistant nav item present; school-wide answer
+  (4 students, all active) with `enrollment stats` tool badge; explicit chart
+  ask rendered a live **donut** in-message (title + legend); session appeared
+  in history, survived New chat → resume with all 6 messages AND the chart
+  restored from persisted `metadata.visualization`.
+- **parent@greenfield.test** — rail shows only Overview/Assistant/Events;
+  history empty (owner's session did NOT leak across profiles — sessions are
+  per `userTenantId`); child question returned ONLY their child (Student
+  Greenfield, JSS2: 60% attendance, ₦565k billed / ₦285k paid / ₦280k
+  outstanding — kobo→naira conversion correct) plus a live **bar** chart.
+- Zero browser console errors/warnings across both personas.
+
+**Notes / small gaps (deliberate):**
+
+- Assistant text renders as plain text — model markdown (`**bold**`, lists)
+  shows literally. Markdown-lite rendering is a candidate Step 6 polish.
+- Large ₦ values clip on chart y-axes (the wrappers' fixed 32px axis width —
+  pre-existing, also affects /reports). Cosmetic.
+- Term context in the system prompt still absent (backend note from Step 2).
+- The `web` preview config serves a production snapshot — after source edits:
+  `pnpm --filter web build`, re-copy `.next/standalone` + `.next/static` into
+  `/tmp/swe-web`, restart. `/tmp/swe-run.cjs` was recreated this session
+  (tmp had been cleared) — it must `import()` (not `require()`) the ESM
+  `server.js`.
+
+## Session Summary (2026-07-06, pt. 3) — Analytics AI backend (ai-integration-plan Step 2, code complete; live-verified 2026-07-07)
+
+Step 2 of `docs/ai-integration-plan.md` implemented end-to-end: the LlmProvider
+port, the six-tool set, the manual tool loop, and `POST /ai/analytics/chat`
+(SSE).
+
+> **Live acceptance PASSED (2026-07-07).** The user created a Claude Console
+> workspace with a **$1/month spend cap**, put the key in `apps/api/.env`
+> (`ANTHROPIC_API_KEY`, in the new commented AI section), and the gated e2e
+> spec `apps/api/test/ai-analytics-live.e2e-spec.ts` ran 4/4 green in 34s
+> against the real API + real dev DB (throwaway tenant, cleaned up in
+> afterAll): (1) `GET /ai/health` round-trip ok as owner; (2) owner persona
+> got school-wide enrollment (get_enrollment_stats, students=2, metadata
+> `provider: anthropic` on the persisted assistant message, audit rows
+> present); (3) parent persona got exactly their own child (Chidera) and the
+> other family's child (Zanther) appeared nowhere in insights or data;
+> (4) student persona's financial ask produced no successful finance read and
+> a refusal (denied trace carries "Insufficient clearance" when the model
+> tried the tool). Spec is CI-safe: skips unless `AI_LIVE=1`. Run:
+> `AI_LIVE=1 DATABASE_URL=<real db url> npx jest --config ./test/jest-e2e.json --testPathPattern ai-analytics-live --forceExit`
+> — two gotchas: pass the REAL `DATABASE_URL` explicitly (test/setup-env.ts
+> otherwise defaults it to a fake `testdb`), and use `--forceExit` (after the
+> suite passes, the Nest app leaves an open handle and jest never exits — a
+> 34s pass once sat invisible for 40 minutes behind a buffered `tail`).
+
+**LlmProvider port** (`apps/api/src/ai/llm/`):
+
+- `llm.types.ts` — hand-rolled port types (`LlmProvider`, `LlmChatRequest`,
+  `LlmMessage`/content parts, `LlmToolDefinition`, `LlmUsage`,
+  `LlmAssistantTurn`, stream events). Tool loop/persistence/controllers code
+  against these only; SDK types never leave `anthropic.service.ts`. An
+  `opaque` content-part variant carries provider-internal blocks (Anthropic
+  thinking blocks) so they replay verbatim within a tool loop without the
+  port knowing their shape.
+- `AnthropicService implements LlmProvider` — new `stream()` maps port ⇄ SDK:
+  adaptive thinking always on, cache breakpoint (`cache_control: ephemeral`)
+  on the system block flagged `cache: true`, stop-reason + usage
+  normalization. Existing `createMessage`/`ping` (health check) unchanged.
+- `llm-provider.factory.ts` — per-request resolution (`forFeature('analytics')`),
+  per-feature model config: **`AI_MODEL_ANALYTICS`** env (falls back to
+  `AI_MODEL`). BYOK later = swap what the factory returns; nothing else moves.
+
+**Tool set v1** (`apps/api/src/ai/tools/`): each tool declares
+`requiredPermission` + `minClearance` and delegates to an existing
+permission-gated read service — no raw SQL, no new query paths:
+
+| tool | delegates to | permission / floor |
+|---|---|---|
+| `get_enrollment_stats` | ReportingAnalyticsService.dashboard + StudentService.list (per-status `pagination.total`) | `reports.view` / 3 |
+| `get_attendance_summary` | AttendanceService.list (+ status aggregation) | `attendance.view` / 3 |
+| `get_academic_performance` | ReportingAnalyticsService.academicPerformance | `reports.academic` / 3 |
+| `get_finance_summary` | FinanceService.invoiceSummary | `financial_reports.view` / 5 |
+| `get_student_overview` | ParentPortalService.getMyChildren (caller's own children only) | `students.view.own` / 1 |
+| `get_upcoming_events` | EventsService.listEvents (+ upcoming filter) | `events.view` / 1 |
+
+All six permissions already exist in the seed catalog (checked — the
+`hr.view` lesson). All tools are always exposed to the model (stable tool
+list = stable prompt-cache prefix); enforcement happens at execution time so
+denials are auditable.
+
+**Manual tool loop** (`services/analytics-chat.service.ts`):
+
+- Before EVERY execution: `AIMediatorService.validateAIQueryAccessScope`
+  (clearance) + `PermissionService.checkPermission` (named permission).
+  Denial → tool_result with the requirements' shape (`error: "Insufficient
+  clearance level for this query"`, required/user clearance) + audit log; the
+  model is told, never the data. After every execution: `logAIMediatorQuery`
+  (success with timing, or error). One overall exchange audit row at the end.
+- Iteration cap `AI_TOOL_LOOP_MAX_ITERATIONS` (default 5): past the cap,
+  tool calls get cap-reached error results and the model gets one final turn
+  to answer from what it has.
+- **RLS discipline:** the loop is deliberately NOT one `@TenantScoped`
+  request — `runScoped` transactions are 15s-capped and must never span an
+  LLM round-trip. Session load/create+history, each tool execution, and
+  message persistence each open their own short `tenantDb.runScoped` scope.
+- Usage accounting from day one: every assistant `ChatMessage.metadata`
+  persists provider, model, summed input/output/cache-read/cache-write
+  tokens, iterations, latencyMs, stopReason, per-tool call traces, and the
+  chart spec.
+- Envelope `{ data, visualization, insights }`: `data` = tool-call traces
+  (input/result/allowed), `insights` = final model text, `visualization` = a
+  chart spec parsed from a trailing ```chart fenced block the system prompt
+  asks for (donut/bar/trend, matching the `packages/ui` wrapper contracts in
+  `chart.types.ts`); unparseable blocks are dropped, never fatal.
+- System prompt: frozen cacheable prefix (data rules, refusal policy, chart
+  convention — no timestamps), then a volatile block after the breakpoint
+  with today's DATE, tenant id, caller clearance/scope. Term context is NOT
+  included yet (no read service for "current term" — revisit in Step 3/6).
+
+**Endpoints** (`controllers/ai-analytics.controller.ts`, gated
+`ai.analytics.query`):
+
+- `POST /ai/analytics/chat` — SSE stream (`session` → `delta`* → `tool`* →
+  `complete{envelope}` | `error`, then `done`). Manual `res.write` SSE (Nest
+  `@Sse()` is GET-only). Loads or creates the owned ChatSession (foreign/
+  unknown sessionId silently gets a fresh session — no existence leak),
+  replays last `AI_HISTORY_MAX_MESSAGES` (default 20) as text history,
+  persists both sides.
+- `GET /ai/analytics/sessions` + `GET /ai/analytics/sessions/:id` (owned
+  sessions only) — the Step 3 session-list/resume backend, done early.
+- Throttling (`services/ai-throttle.service.ts`): per-user
+  `AI_RATE_LIMIT_PER_MINUTE` (default 10) + `AI_DAILY_MESSAGE_CAP` (default
+  200), in-memory (single instance today; DB-backed accounting lands Step 6).
+
+**Verification:** `nest build` green; lint 0 errors (src/ai clean); unit
+suite **122/122** (12 suites) — new: `ai-throttle.service.spec.ts` (5) and
+`analytics-chat.service.spec.ts` (5: mediation-before-execution, refusal
+shape, permission-missing denial, iteration cap, provider-unavailable), all
+with the provider/mediator/DB stubbed. API boots on **3031**: `/ai/health`
+and `/ai/analytics/chat` mapped, 401 unauthenticated as designed. **Pending:**
+the plan's live acceptance (owner school-wide vs parent child-scoped vs
+student finance-refusal personas on seeded data) — blocked only on an
+`ANTHROPIC_API_KEY` in `apps/api/.env`.
+
+## Session Summary (2026-07-06, pt. 2) — AI foundation shipped (ai-integration-plan Step 1)
+
+Step 1 of `docs/ai-integration-plan.md` is complete: the shared plumbing both
+AI systems need, no user-visible feature yet.
+
+**New `apps/api/src/ai/` module** (21st module, registered in `app.module.ts`):
+
+- `ai-mediator.service.ts` + `ai-mediator.dto.ts` **moved** out of `auth/`
+  (they never belonged there); auth barrels and `auth.module.ts`
+  providers/exports updated. The `AIQueryType`/`AIQueryStatus` enums stay in
+  `packages/api` — they are shared workspace types, not auth internals.
+  `AiModule` imports `AuthModule` for `PermissionService`/`PermissionPoolService`.
+- `config/ai.config.ts` — `registerAs('ai')` + Joi: `ANTHROPIC_API_KEY`
+  (optional — a missing key never blocks boot), `AI_MODEL` (default
+  `claude-opus-4-8`), `AI_MAX_TOKENS` (default 4096), `AI_ENABLED` (default
+  true — the tenant-independent kill switch). "AI available" =
+  enabled && key present.
+- `services/anthropic.service.ts` — the **only** file importing
+  `@anthropic-ai/sdk` (^0.110.0, added to `apps/api`): `createMessage`,
+  `streamMessage`, `ping`, typed errors (`AiUnavailableError`,
+  `AnthropicRequestError`). 10 unit tests with the SDK mocked
+  (`anthropic.service.spec.ts`).
+- `controllers/ai-health.controller.ts` — `GET /ai/health` reports
+  enabled/available/model and runs a live Anthropic round-trip when a key is
+  configured. Gated on `ai.configure` (it is a paid API call, so not public).
+
+**Persistence** — new `ai` Prisma schema (18th):
+
+- `ChatSession` (tenantId, userTenantId, type `analytics`|`academic`, optional
+  lessonId for Step 4+, title, status) and `ChatMessage` (sessionId, tenantId,
+  sender, content, metadata JSONB) in `packages/database/prisma/models/ai.prisma`;
+  Tenant back-relations added.
+- Migration `20260706000000_ai_foundation` (Step 8 pattern: explicit
+  ENABLE/FORCE RLS + `tenant_isolation` policy on both tables + `app_runtime`
+  grants). `datasource.schemas` and `rls-coverage-check.sql` updated; migration
+  applied and `db:rls:check` green.
+
+**Permissions** — `AI_PERMISSIONS` (3) added to the seed catalog:
+
+- ⚠ **Count correction:** the catalog held **277** permissions, not the "280"
+  several docs claimed (that figure was stale); it is now **280** (so "280 →
+  283" in the plan/prompt was based on the wrong baseline). `verify-seed.ts`
+  updated (277 → 280); seed + `db:verify` re-run green (7/7 checks).
+- ⚠ **Clearance-floor decision:** the plan's parenthetical said "analytics:
+  level 3+", but the requirements' "AI-Specific Access Implications" table and
+  the plan's own Step 2/3 acceptance criteria (parent persona gets
+  child-scoped answers; `/assistant` nav visible to parents) require every
+  authenticated level to hold `ai.analytics.query` — data scoping is enforced
+  at query time by AIMediatorService, not by withholding the permission. So:
+  `ai.analytics.query` floor **1**, `ai.chat.use` floor **1**, `ai.configure`
+  floor **7**. Verified in DB: analytics.query/chat.use land in pools
+  Level1–Level10, configure in Level7–Level10.
+
+**Verification:** API `nest build` green; lint 0 errors (fixed the one new
+warning); full unit suite 112/112; API boots on **3031** (`AiModule
+dependencies initialized`; `/ai/health` returns 401 unauthenticated, as
+designed); migration + RLS coverage + seed all green. **Not proven live:** the
+actual Anthropic round-trip — there is no `ANTHROPIC_API_KEY` in any local
+env. The mocked unit suite covers the wiring; once the user adds a key
+(`apps/api/.env`), `GET /ai/health` as a Management+/Owner persona is the
+one-call proof. Next: plan Step 2 (Analytics AI backend — tool-use chat).
+
+## Session Summary (2026-07-06) — Requirements re-assessment + pivot to AI integration (docs-only)
+
+No code changed this session. With the backend-remediation backlog closed and
+`CURRENT_PHASE.md` badly stale (it still described dashboard infra as current
+and academic/finance modules as future work), the user asked for a full
+requirements re-assessment and a realignment of the project docs toward AI
+integration (PRD Phase 3). Key findings:
+
+- **AI groundwork already exists and is real, not a stub**:
+  `apps/api/src/auth/services/ai-mediator.service.ts` (479 lines) implements
+  the clearance-scoped AI access-control front door (context + validation +
+  data filtering + audit) with `AIQueryType` enums in `packages/api` matching
+  the requirements' academic/analytics split. It calls no LLM.
+- **Nothing else exists**: no LLM SDK anywhere in the workspace, no
+  ChatSession/ChatMessage models, zero `ai.*` entries among the 280 seeded
+  permissions.
+- **The tutor's substrate is missing entirely** — no Lesson/LessonMaterial
+  model, no file upload, no extraction, no vector store. The lesson-aware RAG
+  tutor is therefore a two-stage build (substrate first). The Analytics AI,
+  by contrast, has every dependency already in place (real domain data behind
+  permission-gated services, clearance hierarchy, chart wrappers) → build
+  Analytics AI first.
+- Also corrected stale hand-off facts: the 5 Step 8 commits **are pushed**
+  (branch in sync with `origin/claude`); PR #1 remains open.
+
+Artifacts written: `docs/ai-integration-plan.md` (**new committed backlog** —
+6 steps: foundation → analytics backend → `/assistant` frontend → lesson
+substrate → tutor → hardening; tech decisions: `@anthropic-ai/sdk` +
+`claude-opus-4-8` streaming, tool-use over text-to-SQL with a manual loop
+gated by AIMediatorService, pgvector on the existing Postgres, Voyage AI
+embeddings behind an interface; a "Parked" section preserves the non-AI
+leftovers — Step 8 sub-surfaces, Step 8 test coverage, Gate 4, PWA
+offline/push, subdomain resolution, schoolType polymorphism, ADR-004 runtime
+cutover). `CURRENT_PHASE.md` rewritten (Phase 3 — AI; internal phase
+numbering retired in favor of the PRD's). `docs/requirement-pillar-scorecard.md`
+refreshed (frontend↔backend now ✅ wired, domain coverage row added, AI split
+into three rows). `CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md` rewritten to point at plan
+Step 1 (AI foundation module).
 
 ## Session Summary (2026-07-01, pt. 2) — Step 8 complete: transport, library, health, HR/payroll, events
 
@@ -1473,7 +2289,7 @@ Edited:
   footer entry; kept `panelHeader` for the breadcrumb)
 - apps/web/app/(app)/settings/layout.tsx (refreshed the stale section-filtering
   comment)
-- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+- AI_HANDOFF.md (this file) + CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md
 
 No Prisma schema or API changes. No shared component changed. `.claude/launch.json`
 was temporarily pointed at port 3013 for preview verification (a sibling project
@@ -1492,7 +2308,7 @@ Created:
 
 Edited:
 
-- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+- AI_HANDOFF.md (this file) + CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md
 
 No Prisma schema or API changes. No new shared component — reuse of
 `DataTableLayout` / `StatGrid` / `Meter` / `StatusBadge`. All resolve ahead of
@@ -1513,7 +2329,7 @@ Created:
 
 Edited:
 
-- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+- AI_HANDOFF.md (this file) + CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md
 
 No Prisma schema or API changes. No new shared component — Settings reuses
 `SettingsLayout` + existing primitives. Resolves ahead of the `[...slug]`
@@ -1532,7 +2348,7 @@ Created:
 Edited:
 
 - packages/ui/README.md (added the Meter catalog entry)
-- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+- AI_HANDOFF.md (this file) + CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md
 
 No Prisma schema or API changes. The Finance leaves resolve ahead of the
 `[...slug]` placeholder; `Meter` is the only new shared component.
@@ -1550,7 +2366,7 @@ Created:
 Edited:
 
 - packages/ui/README.md (added the ScheduleGrid catalog entry)
-- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+- AI_HANDOFF.md (this file) + CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md
 
 No Prisma schema or API changes. The Classes leaves resolve ahead of the
 `[...slug]` placeholder; `ScheduleGrid` is the only new shared component.
@@ -1564,7 +2380,7 @@ Created:
 
 Edited:
 
-- AI_HANDOFF.md (this file) + NEXT_RECOMMENDED_PROMPT.md
+- AI_HANDOFF.md (this file) + CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md
 
 No Prisma schema or API changes. No new shared component — both surfaces reuse
 existing `packages/ui` parts (`DataTableLayout`, `StatGrid`, `StatusBadge`,
@@ -1847,12 +2663,21 @@ Low Priority (cleanups)
 
 # Known Issues
 
+- ~~No `ANTHROPIC_API_KEY` anywhere~~ **RESOLVED 2026-07-07**: the user added
+  a key to `apps/api/.env` (created inside a Claude Console workspace with a
+  **$1/month spend cap** — mind that cap when running anything live). Step 2
+  live acceptance passed 4/4 (see the pt. 3 session entry). The live e2e spec
+  (`test/ai-analytics-live.e2e-spec.ts`) is PAID and gated on `AI_LIVE=1`;
+  run it with the real `DATABASE_URL` exported and `--forceExit`.
+- AI throttling (`AiThrottleService`) is **in-memory, per-process** — fine for
+  the single dev/API instance, resets on restart, not shared across replicas.
+  Step 6 replaces it with DB-backed per-tenant budgets/concurrency caps.
 - Git state (as of 2026-07-01 pt. 2): branch **`claude`** is 5 commits ahead of
   `origin/claude` (the Step 8 completion work) — **not yet pushed**; push +
   refresh PR #1's body next. `origin` is the HTTPS remote
   `https://github.com/Ewosoft-Solutions/claude-trial.git`. PR #1 (`claude` →
   `main`) is open and tracks the whole branch — see the note at the top of
-  `NEXT_RECOMMENDED_PROMPT.md` for its current state.
+  `CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md` for its current state.
 - Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
   the Claude app's preview-launcher helper has **not been granted access to the
   `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:
@@ -1872,10 +2697,12 @@ Low Priority (cleanups)
   is in place. Reproducible refresh after any source change —
   1) `output: 'standalone'` is set in `apps/web/next.config.ts`;
   2) `pnpm --filter web build`;
-  3) `rm -rf /tmp/swe-preview && cp -R apps/web/.next/standalone/. /tmp/swe-preview/`,
-     then `cp -R apps/web/.next/static /tmp/swe-preview/apps/web/.next/static`
-     (and `public` if present);
-  4) `/tmp/swe-run.cjs` chdir's to `/tmp/swe-preview/apps/web` and `import()`s
+  3) `rm -rf /tmp/swe-web && cp -R apps/web/.next/standalone/. /tmp/swe-web/`,
+     then `cp -R apps/web/.next/static /tmp/swe-web/apps/web/.next/static`
+     (and `public` if present) — as of 2026-07-07 the snapshot dir is
+     `/tmp/swe-web` (recreated after a tmp wipe; older notes say
+     `/tmp/swe-preview`);
+  4) `/tmp/swe-run.cjs` chdir's to `/tmp/swe-web/apps/web` and `import()`s
      `server.js` (ESM) with `PORT=3013` (3013, not 3001 — a sibling project,
      `codex_trial/apps/api`, permanently holds 3001; the `web` launch config's
      `port` is set to 3013 to match);
@@ -1946,6 +2773,6 @@ E2E:        ⚠ Not applicable yet
 
 # Next Recommended Prompt
 
-Moved to its own file: **[`NEXT_RECOMMENDED_PROMPT.md`](./NEXT_RECOMMENDED_PROMPT.md)** — start the next
-session with **"Read NEXT_RECOMMENDED_PROMPT.md"**. Keep it in sync at the end of each
+Moved to its own file: **[`CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md`](./CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md)** — start the next
+session with **"Read CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md"**. Keep it in sync at the end of each
 session (it summarizes the status/history captured in full above).

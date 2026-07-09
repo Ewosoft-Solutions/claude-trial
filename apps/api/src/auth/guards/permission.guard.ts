@@ -10,6 +10,7 @@ import {
   CanActivate,
   ExecutionContext,
   ForbiddenException,
+  Logger,
   SetMetadata,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
@@ -57,6 +58,8 @@ export const RequirePermissions = (
  */
 @Injectable()
 export class PermissionGuard implements CanActivate {
+  private readonly logger = new Logger(PermissionGuard.name);
+
   constructor(
     private readonly permissionService: PermissionService,
     private readonly reflector: Reflector,
@@ -129,7 +132,16 @@ export class PermissionGuard implements CanActivate {
     }
 
     if (!check.granted) {
-      throw new ForbiddenException(check.reason || 'Insufficient permissions');
+      // The machine-readable reason (e.g. `missing_permission: <key>`) is for
+      // operators only: log it server-side, never in the HTTP response —
+      // permission keys map the system's internals. The client gets a
+      // toast-ready generic message.
+      this.logger.warn(
+        `Denied ${request.method as string} ${request.url as string} for profile ${user.profileId}: ${check.reason ?? 'permission check failed'}`,
+      );
+      throw new ForbiddenException(
+        'You do not have permission to perform this action',
+      );
     }
 
     return true;

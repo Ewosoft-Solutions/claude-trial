@@ -45,7 +45,6 @@ import {
   PlatformOversightService,
   SecurityPolicyService,
   BreachResponseService,
-  AIMediatorService,
 } from './services';
 
 /**
@@ -96,7 +95,6 @@ import {
     PlatformOversightService,
     SecurityPolicyService,
     BreachResponseService,
-    AIMediatorService,
     // Guards
     JwtAuthGuard,
     PreAuthGuard,
@@ -122,7 +120,6 @@ import {
     PlatformOversightService,
     SecurityPolicyService,
     BreachResponseService,
-    AIMediatorService,
     // Guards
     JwtAuthGuard,
     PreAuthGuard,

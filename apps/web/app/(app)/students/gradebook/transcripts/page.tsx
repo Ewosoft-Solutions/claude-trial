@@ -1,27 +1,8 @@
-'use client';
+import { Download } from 'lucide-react';
 
-/* ============================================================
-   /students/gradebook/transcripts — cumulative transcripts
-
-   Per-student cumulative record (CGPA + standing + completeness).
-   DataTableLayout (search + standing filter, Skeleton/Empty). Mock
-   rows + copy live here. Replaces the `[...slug]` placeholder.
-   ============================================================ */
-
-import * as React from 'react';
-import { Download, Search } from 'lucide-react';
-
+import { serverApiGet } from '@/lib/server-api';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import {
   Table,
   TableBody,
@@ -38,75 +19,145 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
-type Standing = 'honors' | 'good' | 'probation';
+type Paginated<T> = { data?: T[] };
 
-interface Transcript {
+interface ApiAssessment {
+  id: string;
+  class?: { name?: string | null; section?: string | null } | null;
+}
+
+interface ApiGrade {
+  enrollmentId?: string | null;
+  percentage?: number | string | null;
+  enrollment?: {
+    student?: {
+      studentNumber?: string | null;
+      userTenant?: {
+        user?: {
+          firstName?: string | null;
+          lastName?: string | null;
+          email?: string | null;
+        } | null;
+      } | null;
+    } | null;
+  } | null;
+}
+
+type Standing = 'honors' | 'good' | 'watch';
+
+interface TranscriptRow {
+  key: string;
   id: string;
   name: string;
   className: string;
-  cgpa: number;
-  credits: number;
+  average: number;
+  gpa: number;
+  records: number;
   standing: Standing;
-  complete: boolean;
 }
-
-const TRANSCRIPTS: Transcript[] = [
-  { id: 'SJ-1203', name: 'Zainab Yusuf', className: 'SSS 1A', cgpa: 3.8, credits: 96, standing: 'honors', complete: true },
-  { id: 'SJ-1221', name: 'David Adeyemi', className: 'SSS 1A', cgpa: 2.4, credits: 92, standing: 'probation', complete: true },
-  { id: 'SJ-1244', name: 'Grace Obi', className: 'SSS 2B', cgpa: 3.2, credits: 88, standing: 'good', complete: true },
-  { id: 'SJ-1290', name: 'Samuel Etim', className: 'SSS 3A', cgpa: 3.9, credits: 120, standing: 'honors', complete: true },
-  { id: 'SJ-1291', name: 'Halima Musa', className: 'SSS 3A', cgpa: 3.4, credits: 120, standing: 'good', complete: true },
-  { id: 'SJ-1305', name: 'Peace Udo', className: 'SSS 3A', cgpa: 2.1, credits: 114, standing: 'probation', complete: false },
-];
 
 const STANDING_META: Record<Standing, { label: string; tone: StateTone }> = {
   honors: { label: 'Honors', tone: 'success' },
   good: { label: 'Good standing', tone: 'info' },
-  probation: { label: 'Probation', tone: 'warning' },
+  watch: { label: 'Needs review', tone: 'warning' },
 };
 
-const META: PageHeaderMeta[] = [
-  { key: 'year', label: '2024 / 2025', emphasis: true },
-  { key: 'scope', label: 'senior school' },
-];
-
-function initials(name: string): string {
-  return name.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
+  if (Array.isArray(payload)) return payload;
+  return payload?.data ?? [];
 }
 
-export default function TranscriptsPage() {
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+function numeric(value: number | string | null | undefined): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
 
-  const [query, setQuery] = React.useState('');
-  const [standingFilter, setStandingFilter] = React.useState('all');
+function average(values: number[]): number {
+  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+}
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return TRANSCRIPTS.filter((t) => {
-      const matchesQuery =
-        !q || t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q);
-      const matchesStanding =
-        standingFilter === 'all' || t.standing === standingFilter;
-      return matchesQuery && matchesStanding;
-    });
-  }, [query, standingFilter]);
+function standingFor(averageScore: number): Standing {
+  if (averageScore >= 70) return 'honors';
+  if (averageScore >= 50) return 'good';
+  return 'watch';
+}
 
-  const hasFilters = query.trim() !== '' || standingFilter !== 'all';
-  function resetFilters() {
-    setQuery('');
-    setStandingFilter('all');
+function initials(name: string): string {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase();
+}
+
+function studentName(grade: ApiGrade): string {
+  const user = grade.enrollment?.student?.userTenant?.user;
+  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Unknown student';
+}
+
+function classLabel(assessment: ApiAssessment): string {
+  const cls = assessment.class;
+  return [cls?.name, cls?.section].filter(Boolean).join(' ') || 'Unassigned';
+}
+
+export default async function TranscriptsPage() {
+  const assessmentData = await serverApiGet<ApiAssessment[] | Paginated<ApiAssessment>>(
+    '/assessments?limit=100',
+  );
+  const assessments = asArray(assessmentData);
+  const gradeGroups = await Promise.all(
+    assessments.slice(0, 20).map(async (assessment) => ({
+      assessment,
+      grades: (await serverApiGet<ApiGrade[]>(`/grades/assessment/${assessment.id}`)) ?? [],
+    })),
+  );
+
+  const grouped = new Map<
+    string,
+    { id: string; name: string; className: string; scores: number[] }
+  >();
+  for (const group of gradeGroups) {
+    for (const item of group.grades) {
+      const score = numeric(item.percentage);
+      if (score === null) continue;
+      const key = item.enrollmentId ?? item.enrollment?.student?.studentNumber ?? studentName(item);
+      const current = grouped.get(key) ?? {
+        id: item.enrollment?.student?.studentNumber ?? key,
+        name: studentName(item),
+        className: classLabel(group.assessment),
+        scores: [],
+      };
+      current.scores.push(score);
+      grouped.set(key, current);
+    }
   }
+
+  const rows: TranscriptRow[] = Array.from(grouped.entries()).map(([key, item]) => {
+    const avg = average(item.scores);
+    return {
+      key,
+      id: item.id,
+      name: item.name,
+      className: item.className,
+      average: avg,
+      gpa: Math.round((avg / 100) * 400) / 100,
+      records: item.scores.length,
+      standing: standingFor(avg),
+    };
+  });
+
+  const meta: PageHeaderMeta[] = [
+    { key: 'source', label: 'computed from grades', emphasis: true },
+    { key: 'scope', label: `${rows.length} students` },
+  ];
 
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Transcripts"
-          meta={META}
+          meta={meta}
           actions={
             <Button variant="outline" size="sm">
               <Download /> Export
@@ -115,67 +166,16 @@ export default function TranscriptsPage() {
         />
 
         <DataTableLayout
-          title="Cumulative transcripts"
-          description={
-            loading
-              ? 'Loading transcripts…'
-              : `${filtered.length} of ${TRANSCRIPTS.length} students`
-          }
-          loading={loading}
-          empty={!loading && filtered.length === 0}
+          title="Cumulative grade summaries"
+          description={`${rows.length} students with recorded grades`}
+          empty={rows.length === 0}
           skeletonColumns={5}
-          toolbar={
-            <>
-              <div className="relative w-full sm:w-56">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="tr-search" className="sr-only">
-                  Search students
-                </Label>
-                <Input
-                  id="tr-search"
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search name or ID…"
-                  className="pl-8"
-                />
-              </div>
-              <Select value={standingFilter} onValueChange={setStandingFilter}>
-                <SelectTrigger className="w-[10rem]" aria-label="Filter by standing">
-                  <SelectValue placeholder="Standing" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All standings</SelectItem>
-                  <SelectItem value="honors">Honors</SelectItem>
-                  <SelectItem value="good">Good standing</SelectItem>
-                  <SelectItem value="probation">Probation</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          }
           emptyState={
             <EmptyState
               compact
-              title="No transcripts match your filters"
-              description="Try a different search term, or clear the filters."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title="No transcript summaries yet"
+              description="Recorded grades are required before transcript summaries can be computed."
             />
-          }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of{' '}
-                {TRANSCRIPTS.length}
-              </span>
-              {hasFilters ? (
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
           }
         >
           <Table>
@@ -183,42 +183,41 @@ export default function TranscriptsPage() {
               <TableRow>
                 <TableHead>Student</TableHead>
                 <TableHead className="max-md:hidden">Class</TableHead>
-                <TableHead className="text-right">CGPA</TableHead>
-                <TableHead className="text-right max-sm:hidden">Credits</TableHead>
+                <TableHead className="text-right">Average</TableHead>
+                <TableHead className="text-right max-sm:hidden">GPA</TableHead>
                 <TableHead>Standing</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((t) => {
-                const standing = STANDING_META[t.standing];
+              {rows.map((row) => {
+                const standing = STANDING_META[row.standing];
                 return (
-                  <TableRow key={t.id}>
+                  <TableRow key={row.key}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
                           <AvatarFallback className="text-[11px] font-semibold">
-                            {initials(t.name)}
+                            {initials(row.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
                           <span className="truncate font-medium text-foreground">
-                            {t.name}
-                            {!t.complete ? (
-                              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                                (incomplete)
-                              </span>
-                            ) : null}
+                            {row.name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">{t.id}</span>
+                          <span className="truncate text-xs text-muted-foreground">
+                            {row.id} · {row.records} grades
+                          </span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">{t.className}</TableCell>
+                    <TableCell className="text-muted-foreground max-md:hidden">
+                      {row.className}
+                    </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums text-foreground">
-                      {t.cgpa.toFixed(1)}
+                      {row.average}%
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
-                      {t.credits}
+                      {row.gpa.toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <StatusBadge tone={standing.tone} dot>

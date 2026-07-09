@@ -182,11 +182,11 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 277,
+  total: 297,
   arrays: {
     STUDENT_PERMISSIONS: 15,
-    ACADEMIC_MANAGEMENT_PERMISSIONS: 19,
-    GRADE_ASSESSMENT_PERMISSIONS: 21,
+    ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
+    GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
     FINANCIAL_PERMISSIONS: 16,
     COMMUNICATION_PERMISSIONS: 13,
@@ -210,6 +210,8 @@ const EXPECTED_PERMISSION_COUNTS = {
     EXAMS_PERMISSIONS: 12,
     ADMISSIONS_PERMISSIONS: 15,
     HR_PAYROLL_PERMISSIONS: 3,
+    AI_PERMISSIONS: 3,
+    LESSONS_PERMISSIONS: 9,
   },
   clearanceLevels: { min: 0, max: 10 },
 };
@@ -367,7 +369,7 @@ function validatePermissionsCatalog(
   }
 }
 
-// All Permissions - Comprehensive List (277 permissions total)
+// All Permissions - Comprehensive List (280 permissions total)
 //
 // Permission Summary by Category:
 // - Student Management (15 permissions)
@@ -396,6 +398,7 @@ function validatePermissionsCatalog(
 // - Exams (12 permissions)
 // - Admissions (15 permissions)
 // - HR & Payroll (3 permissions)
+// - AI (3 permissions)
 
 // Student Management Permissions (15 permissions)
 const STUDENT_PERMISSIONS = [
@@ -720,6 +723,26 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     category: 'academic',
     requiredClearanceLevel: 7,
   },
+  {
+    name: 'classes.teachers.view',
+    label: 'View Class Teacher Assignments',
+    description: 'View which teachers are allocated to a class (incl. history)',
+    resource: 'classes',
+    action: 'teachers',
+    context: 'view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'classes.teachers.assign',
+    label: 'Assign Teachers to Classes',
+    description: 'Allocate teachers to classes and unassign them (keeps history)',
+    resource: 'classes',
+    action: 'teachers',
+    context: 'assign',
+    category: 'academic',
+    requiredClearanceLevel: 4,
+  },
 ];
 
 // Grade & Assessment Permissions (21 permissions)
@@ -916,6 +939,61 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     action: 'export',
     category: 'academic',
     requiredClearanceLevel: 7,
+  },
+  {
+    name: 'questions.view',
+    label: 'View Question Bank',
+    description: 'View course question bank entries (includes answers/solutions)',
+    resource: 'questions',
+    action: 'view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'questions.create',
+    label: 'Create Questions',
+    description: 'Add questions to the bank of a course they teach',
+    resource: 'questions',
+    action: 'create',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'questions.edit',
+    label: 'Edit Questions',
+    description: 'Edit question bank entries of a course they teach',
+    resource: 'questions',
+    action: 'edit',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'questions.delete',
+    label: 'Delete Questions',
+    description: 'Delete (or retire, when already used) question bank entries',
+    resource: 'questions',
+    action: 'delete',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'assessments.take',
+    label: 'Take Assessments',
+    description: 'Take published assessments of enrolled classes and view own submissions',
+    resource: 'assessments',
+    action: 'take',
+    category: 'academic',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'assessments.manage.all',
+    label: 'Manage All Assessments',
+    description: 'Override: manage assessments, papers and question banks for any class',
+    resource: 'assessments',
+    action: 'manage',
+    context: 'all',
+    category: 'academic',
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -3032,6 +3110,139 @@ const HR_PAYROLL_PERMISSIONS = [
   },
 ];
 
+// AI Permissions (3 permissions)
+//
+// Backs the AI integration (docs/ai-integration-plan.md, Step 1).
+// ai.analytics.query has a clearance FLOOR of 1, not 3+: per
+// requirements/ai-integration.md → "AI-Specific Access Implications",
+// every authenticated member gets analytics scoped to their level
+// (students: personal, parents: their children, staff: broader) — the
+// scoping is enforced by AIMediatorService at query time, not by
+// withholding the permission. ai.chat.use is the Academic AI tutor
+// (students, level 1+). ai.configure is Management+ (level 7+).
+const AI_PERMISSIONS = [
+  {
+    name: 'ai.analytics.query',
+    label: 'Query Analytics AI',
+    description:
+      'Ask the analytics AI assistant questions (answers scoped by clearance level and access scope)',
+    resource: 'ai',
+    action: 'analytics.query',
+    category: 'administrative',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'ai.chat.use',
+    label: 'Use AI Tutor',
+    description: 'Chat with the lesson-scoped academic AI tutor',
+    resource: 'ai',
+    action: 'chat.use',
+    category: 'academic',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'ai.configure',
+    label: 'Configure AI',
+    description: 'Configure AI settings and view AI usage/health',
+    resource: 'ai',
+    action: 'configure',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+];
+
+// Lesson Content Permissions (6 permissions) — learning schema (AI plan Step 4)
+const LESSONS_PERMISSIONS = [
+  {
+    name: 'lessons.view',
+    label: 'View Lessons',
+    description: 'View lesson content and materials',
+    resource: 'lessons',
+    action: 'view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.create',
+    label: 'Create Lessons',
+    description: 'Create lessons for a class',
+    resource: 'lessons',
+    action: 'create',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.edit',
+    label: 'Edit Lessons',
+    description: 'Edit lesson details',
+    resource: 'lessons',
+    action: 'edit',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.delete',
+    label: 'Delete Lessons',
+    description: 'Delete lessons and their materials',
+    resource: 'lessons',
+    action: 'delete',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.materials.upload',
+    label: 'Upload Lesson Materials',
+    description: 'Upload files as lesson materials',
+    resource: 'lessons',
+    action: 'materials',
+    context: 'upload',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.materials.delete',
+    label: 'Delete Lesson Materials',
+    description: 'Remove uploaded lesson materials',
+    resource: 'lessons',
+    action: 'materials',
+    context: 'delete',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.view.own',
+    label: 'View Own Class Lessons',
+    description:
+      'View published + approved lessons and approved materials of enrolled classes (students)',
+    resource: 'lessons',
+    action: 'view',
+    context: 'own',
+    category: 'academic',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'lessons.approve',
+    label: 'Approve Lesson Content',
+    description:
+      'Approve or reject lessons and uploaded materials before students can see them',
+    resource: 'lessons',
+    action: 'approve',
+    category: 'academic',
+    requiredClearanceLevel: 4,
+  },
+  {
+    name: 'lessons.manage.all',
+    label: 'Manage All Lessons',
+    description:
+      'Override: author and manage lesson content for classes they do not teach',
+    resource: 'lessons',
+    action: 'manage',
+    context: 'all',
+    category: 'academic',
+    requiredClearanceLevel: 4,
+  },
+];
+
 // Role to Pool mapping
 const ROLE_TO_POOL_MAPPING: Record<string, string> = {
   Architect: 'Level10_PlatformArchitect',
@@ -3483,6 +3694,8 @@ async function main() {
       EXAMS_PERMISSIONS,
       ADMISSIONS_PERMISSIONS,
       HR_PAYROLL_PERMISSIONS,
+      AI_PERMISSIONS,
+      LESSONS_PERMISSIONS,
     };
 
     const allPermissions = Object.values(permissionArrays).flat();

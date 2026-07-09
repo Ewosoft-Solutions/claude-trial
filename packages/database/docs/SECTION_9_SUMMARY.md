@@ -65,7 +65,7 @@
   - Troubleshooting guide
   - Production deployment checklist
 - Created `MIGRATION_REVIEW.md` with migration analysis
-- Created seed verification script (`scripts/verify-seed.ts`)
+- Created seed verification script (`prisma/scripts/verify-seed.ts`)
 - Added `db:verify` script to `package.json`
 
 ## 📋 Pending Tasks (Require DATABASE_URL)
@@ -150,7 +150,7 @@
    - Safety and performance considerations
    - Verification queries
 
-3. **`packages/database/scripts/verify-seed.ts`**
+3. **`packages/database/prisma/scripts/verify-seed.ts`**
    - Automated seed data verification script
    - Checks system roles, permission pools, permissions
    - Verifies assignments and clearance levels

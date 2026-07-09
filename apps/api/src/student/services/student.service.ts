@@ -24,6 +24,10 @@ import {
 import { Prisma } from '@workspace/database';
 import { UserInvitationService } from '../../tenant/services/user-invitation.service';
 import { QueueService } from '../../common/queue/queue.service';
+import {
+  AcademicsAccessService,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 
 @Injectable()
 export class StudentService {
@@ -33,6 +37,7 @@ export class StudentService {
     private readonly prismaTx: PrismaTransactionService,
     private readonly userInvitationService: UserInvitationService,
     private readonly queueService: QueueService,
+    private readonly academicAccess: AcademicsAccessService,
   ) {}
 
   /** Scoped app_runtime client inside a @TenantScoped request; else privileged. */
@@ -63,8 +68,35 @@ export class StudentService {
         },
       },
     },
-    enrollments: true,
-  };
+    enrollments: {
+      include: {
+        class: {
+          select: {
+            id: true,
+            name: true,
+            section: true,
+            course: { select: { name: true, code: true } },
+          },
+        },
+      },
+    },
+    guardians: {
+      include: {
+        guardian: {
+          include: {
+            user: {
+              select: {
+                firstName: true,
+                lastName: true,
+                email: true,
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ isPrimary: 'desc' }, { contactPriority: 'asc' }],
+    },
+  } satisfies Prisma.StudentInclude;
 
   private ensureValidStudentStatus(status: string) {
     if (
@@ -142,7 +174,11 @@ export class StudentService {
     });
   }
 
-  async list(tenantId: string, filters: SearchStudentsDto) {
+  async list(
+    tenantId: string,
+    filters: SearchStudentsDto,
+    actor?: AcademicsActor,
+  ) {
     const page = filters.page ?? 1;
     const limit = filters.limit ?? 10;
     const skip = (page - 1) * limit;
@@ -162,6 +198,23 @@ export class StudentService {
       where.studentNumber = {
         contains: filters.studentNumber,
         mode: 'insensitive',
+      };
+    }
+
+    if (filters.classId) {
+      if (actor && !actor.canManageAll) {
+        await this.academicAccess.assertCanManageClass(
+          tenantId,
+          actor,
+          filters.classId,
+        );
+      }
+      where.enrollments = {
+        some: {
+          classId: filters.classId,
+          status: 'active',
+          class: { academicYear: { tenantId } },
+        },
       };
     }
 

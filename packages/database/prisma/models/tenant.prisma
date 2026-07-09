@@ -51,6 +51,14 @@ model Tenant {
   healthRecords         HealthRecord[]
   staffPayrollRecords   StaffPayrollRecord[]
   schoolEvents          SchoolEvent[]
+  chatSessions          ChatSession[]
+  chatMessages          ChatMessage[]
+  aiSettings            AiSettings?
+  aiUsageMonthly        AiUsageMonthly[]
+  aiConcurrencyLeases   AiConcurrencyLease[]
+  lessons               Lesson[]
+  lessonMaterials       LessonMaterial[]
+  materialChunks        MaterialChunk[]
 
   @@index([status])
   @@index([emailDomain])

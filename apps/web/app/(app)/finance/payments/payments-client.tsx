@@ -3,8 +3,7 @@
 /* ============================================================
    PaymentsClient — interactive payments table island
 
-   Receives server-fetched payments as props (or falls back to
-   built-in mock data when no API is configured).
+   Receives server-fetched payments as props.
    ============================================================ */
 
 import * as React from 'react';
@@ -52,18 +51,6 @@ export interface Payment {
   status: PaymentStatus;
 }
 
-const MOCK_PAYMENTS: Payment[] = [
-  { id: 'PMT-9001', receiptNumber: 'PMT-9001', student: 'Adaeze Okafor', method: 'transfer', date: '12 Mar', amount: 18500000, status: 'completed' },
-  { id: 'PMT-9002', receiptNumber: 'PMT-9002', student: 'Fatima Bello', method: 'card', date: '12 Mar', amount: 21000000, status: 'completed' },
-  { id: 'PMT-9003', receiptNumber: 'PMT-9003', student: 'Chiamaka Eze', method: 'transfer', date: '13 Mar', amount: 10000000, status: 'completed' },
-  { id: 'PMT-9004', receiptNumber: 'PMT-9004', student: 'Zainab Yusuf', method: 'transfer', date: '13 Mar', amount: 24500000, status: 'completed' },
-  { id: 'PMT-9005', receiptNumber: 'PMT-9005', student: 'Emeka Nwosu', method: 'cash', date: '14 Mar', amount: 12000000, status: 'completed' },
-  { id: 'PMT-9006', receiptNumber: 'PMT-9006', student: 'David Adeyemi', method: 'card', date: '14 Mar', amount: 24500000, status: 'failed' },
-  { id: 'PMT-9007', receiptNumber: 'PMT-9007', student: 'Grace Obi', method: 'transfer', date: '15 Mar', amount: 26000000, status: 'completed' },
-  { id: 'PMT-9008', receiptNumber: 'PMT-9008', student: 'Tunde Bakare', method: 'card', date: '16 Mar', amount: 18500000, status: 'pending' },
-  { id: 'PMT-9009', receiptNumber: 'PMT-9009', student: 'Ibrahim Sani', method: 'transfer', date: '16 Mar', amount: 9500000, status: 'refunded' },
-];
-
 const METHOD_LABEL: Record<PaymentMethod, string> = {
   transfer: 'Bank transfer',
   card: 'Card',
@@ -95,7 +82,7 @@ interface Props {
 }
 
 export function PaymentsClient({ payments }: Props) {
-  const rows = payments.length > 0 ? payments : MOCK_PAYMENTS;
+  const rows = payments;
 
   const [query, setQuery] = React.useState('');
   const [methodFilter, setMethodFilter] = React.useState('all');
@@ -180,9 +167,15 @@ export function PaymentsClient({ payments }: Props) {
           emptyState={
             <EmptyState
               compact
-              title="No payments match your filters"
-              description="Try a different search term, or clear the filters to see every receipt."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title={hasFilters ? 'No payments match your filters' : 'No payments yet'}
+              description={
+                hasFilters
+                  ? 'Try a different search term, or clear the filters to see every receipt.'
+                  : 'Run the dev operational seed or record a payment.'
+              }
+              primaryAction={
+                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+              }
             />
           }
           footer={

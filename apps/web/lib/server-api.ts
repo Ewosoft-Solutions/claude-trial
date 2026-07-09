@@ -8,10 +8,9 @@
 import 'server-only';
 import { cookies } from 'next/headers';
 import { COOKIE_ACCESS_TOKEN } from './auth-cookies';
+import { API_BASE } from './api-client';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
-
-/** Returns null (not an error) when no API URL is configured (dev fallback). */
+/** Returns null when unauthenticated or when the upstream request is denied. */
 export async function serverApiGet<T>(path: string): Promise<T | null> {
   if (!API_BASE) return null;
 

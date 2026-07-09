@@ -1,17 +1,6 @@
-'use client';
-
-/* ============================================================
-   /reports/academic — academic performance report
-
-   The analytics-flavoured surface for teaching outcomes: an M6
-   StatGrid headline over the shared chart wrappers (CategoryBarChart
-   for grade distribution + subject pass rates, TrendChart for the
-   term-average trend). Mock figures + copy live here; the charts and
-   StatGrid stay data-driven. Replaces the `[...slug]` placeholder.
-   ============================================================ */
-
 import { Download } from 'lucide-react';
 
+import { serverApiGet } from '@/lib/server-api';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -29,79 +18,135 @@ import type { ChartDatum, ChartSeries } from '@workspace/ui/types/chart.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
-const STATS: StatItem[] = [
-  {
-    key: 'avg',
-    label: 'Average score',
-    value: '72%',
-    delta: { label: '+3 pts', direction: 'up', intent: 'positive' },
-  },
-  {
-    key: 'pass',
-    label: 'Pass rate',
-    value: '86%',
-    delta: { label: '+2%', direction: 'up', intent: 'positive' },
-  },
-  { key: 'assessed', label: 'Students assessed', value: '1,318' },
-  {
-    key: 'atrisk',
-    label: 'At-risk students',
-    value: '47',
-    delta: { label: '9 fewer', direction: 'down', intent: 'positive' },
-  },
-];
+type Paginated<T> = { data?: T[] };
 
-const META: PageHeaderMeta[] = [
-  { key: 'term', label: 'Spring Term 2025', emphasis: true },
-  { key: 'exam', label: 'Mid-term assessment' },
-  { key: 'updated', label: 'updated 1h ago' },
-];
+interface ApiAssessment {
+  id: string;
+  title?: string | null;
+  dueDate?: string | null;
+  createdAt?: string | null;
+  class?: { name?: string | null; section?: string | null } | null;
+}
 
-/** Grade distribution across all assessed students. */
-const GRADE_DATA: ChartDatum[] = [
-  { grade: 'A', students: 214 },
-  { grade: 'B', students: 392 },
-  { grade: 'C', students: 388 },
-  { grade: 'D', students: 201 },
-  { grade: 'E', students: 76 },
-  { grade: 'F', students: 47 },
-];
+interface ApiGrade {
+  enrollmentId?: string | null;
+  percentage?: number | string | null;
+  letterGrade?: string | null;
+}
+
 const GRADE_SERIES: ChartSeries[] = [{ key: 'students', label: 'Students' }];
-
-/** Average score by term (this cohort vs the school-wide mean). */
-const TREND_DATA: ChartDatum[] = [
-  { term: 'Term 1 ’23', cohort: 64, school: 61 },
-  { term: 'Term 2 ’23', cohort: 66, school: 63 },
-  { term: 'Term 3 ’23', cohort: 65, school: 64 },
-  { term: 'Term 1 ’24', cohort: 69, school: 66 },
-  { term: 'Term 2 ’24', cohort: 71, school: 68 },
-  { term: 'Term 1 ’25', cohort: 72, school: 69 },
-];
-const TREND_SERIES: ChartSeries[] = [
-  { key: 'cohort', label: 'This cohort' },
-  { key: 'school', label: 'School avg' },
-];
-
-/** Pass rate (%) by subject, lowest first. */
-const SUBJECT_DATA: ChartDatum[] = [
-  { subject: 'Further Maths', pass: 61 },
-  { subject: 'Physics', pass: 68 },
-  { subject: 'Chemistry', pass: 74 },
-  { subject: 'English', pass: 83 },
-  { subject: 'Biology', pass: 88 },
-  { subject: 'Mathematics', pass: 91 },
-];
-const SUBJECT_SERIES: ChartSeries[] = [
+const TREND_SERIES: ChartSeries[] = [{ key: 'average', label: 'Average score' }];
+const PASS_SERIES: ChartSeries[] = [
   { key: 'pass', label: 'Pass rate %', color: 'var(--chart-2)' },
 ];
 
-export default function AcademicReportPage() {
+function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
+  if (Array.isArray(payload)) return payload;
+  return payload?.data ?? [];
+}
+
+function percentageOf(grade: ApiGrade): number | null {
+  const value = Number(grade.percentage);
+  return Number.isFinite(value) ? value : null;
+}
+
+function letterFor(grade: ApiGrade): string {
+  if (grade.letterGrade) return grade.letterGrade.slice(0, 1).toUpperCase();
+  const percentage = percentageOf(grade);
+  if (percentage === null) return 'Ungraded';
+  if (percentage >= 70) return 'A';
+  if (percentage >= 60) return 'B';
+  if (percentage >= 50) return 'C';
+  if (percentage >= 45) return 'D';
+  if (percentage >= 40) return 'E';
+  return 'F';
+}
+
+function assessmentLabel(assessment: ApiAssessment): string {
+  return assessment.title ?? assessment.class?.name ?? assessment.id;
+}
+
+function dateLabel(value: string | null | undefined): string {
+  if (!value) return 'Unscheduled';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Unscheduled';
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
+}
+
+function average(values: number[]): number {
+  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+}
+
+function percent(numerator: number, denominator: number): number {
+  return denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+}
+
+export default async function AcademicReportPage() {
+  const assessmentData = await serverApiGet<ApiAssessment[] | Paginated<ApiAssessment>>(
+    '/assessments?limit=100',
+  );
+  const assessments = asArray(assessmentData);
+
+  const gradeGroups = await Promise.all(
+    assessments
+      .slice(0, 20)
+      .map(async (assessment) => ({
+        assessment,
+        grades: (await serverApiGet<ApiGrade[]>(`/grades/assessment/${assessment.id}`)) ?? [],
+      })),
+  );
+
+  const grades = gradeGroups.flatMap((group) => group.grades);
+  const scored = grades.map(percentageOf).filter((value): value is number => value !== null);
+  const passCount = scored.filter((value) => value >= 50).length;
+  const atRisk = scored.filter((value) => value < 50).length;
+  const assessedStudents = new Set(grades.map((grade) => grade.enrollmentId).filter(Boolean)).size;
+
+  const stats: StatItem[] = [
+    { key: 'avg', label: 'Average score', value: `${average(scored)}%` },
+    { key: 'pass', label: 'Pass rate', value: `${percent(passCount, scored.length)}%` },
+    { key: 'assessed', label: 'Students assessed', value: assessedStudents.toLocaleString() },
+    { key: 'atrisk', label: 'At-risk students', value: atRisk.toLocaleString() },
+  ];
+
+  const meta: PageHeaderMeta[] = [
+    { key: 'source', label: 'live grades', emphasis: true },
+    { key: 'assessments', label: `${assessments.length} assessments` },
+  ];
+
+  const distribution = ['A', 'B', 'C', 'D', 'E', 'F', 'Ungraded'].map((grade) => ({
+    grade,
+    students: grades.filter((item) => letterFor(item) === grade).length,
+  }));
+
+  const trend: ChartDatum[] = gradeGroups
+    .map((group) => {
+      const values = group.grades.map(percentageOf).filter((value): value is number => value !== null);
+      return {
+        term: dateLabel(group.assessment.dueDate ?? group.assessment.createdAt),
+        average: average(values),
+      };
+    })
+    .filter((row) => row.average > 0)
+    .slice(-8);
+
+  const passByAssessment: ChartDatum[] = gradeGroups
+    .map((group) => {
+      const values = group.grades.map(percentageOf).filter((value): value is number => value !== null);
+      return {
+        assessment: assessmentLabel(group.assessment),
+        pass: percent(values.filter((value) => value >= 50).length, values.length),
+      };
+    })
+    .filter((row) => row.pass > 0)
+    .slice(0, 8);
+
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Academic report"
-          meta={META}
+          meta={meta}
           actions={
             <Button variant="outline" size="sm">
               <Download /> Export report
@@ -109,17 +154,17 @@ export default function AcademicReportPage() {
           }
         />
 
-        <StatGrid items={STATS} />
+        <StatGrid items={stats} />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Grade distribution</CardTitle>
-              <CardDescription>1,318 students · mid-term grades</CardDescription>
+              <CardDescription>Grouped from recorded assessment grades</CardDescription>
             </CardHeader>
             <CardContent>
               <CategoryBarChart
-                data={GRADE_DATA}
+                data={distribution}
                 xKey="grade"
                 series={GRADE_SERIES}
                 height={240}
@@ -131,16 +176,16 @@ export default function AcademicReportPage() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Average score trend</CardTitle>
-              <CardDescription>This cohort vs school-wide mean</CardDescription>
+              <CardDescription>Average by assessment due date</CardDescription>
             </CardHeader>
             <CardContent>
               <TrendChart
-                data={TREND_DATA}
+                data={trend}
                 xKey="term"
                 series={TREND_SERIES}
                 variant="area"
                 height={240}
-                aria-label="Average score trend over the last six terms"
+                aria-label="Average score trend across assessments"
               />
             </CardContent>
           </Card>
@@ -148,19 +193,17 @@ export default function AcademicReportPage() {
 
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="text-base">Pass rate by subject</CardTitle>
-            <CardDescription>
-              Share of students at or above the pass mark · lowest first
-            </CardDescription>
+            <CardTitle className="text-base">Pass rate by assessment</CardTitle>
+            <CardDescription>Share of recorded grades at or above the pass mark</CardDescription>
           </CardHeader>
           <CardContent>
             <CategoryBarChart
-              data={SUBJECT_DATA}
-              xKey="subject"
-              series={SUBJECT_SERIES}
+              data={passByAssessment}
+              xKey="assessment"
+              series={PASS_SERIES}
               orientation="bar"
               height={260}
-              aria-label="Pass rate by subject"
+              aria-label="Pass rate by assessment"
             />
           </CardContent>
         </Card>

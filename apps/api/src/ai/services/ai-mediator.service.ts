@@ -12,8 +12,8 @@ import {
   PermissionService,
   AIMediatorContext,
   UserPermissionContext,
-} from './permission.service';
-import { PermissionPoolService } from './permission-pool.service';
+} from '../../auth/services/permission.service';
+import { PermissionPoolService } from '../../auth/services/permission-pool.service';
 import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
 import {
   AccessScope,

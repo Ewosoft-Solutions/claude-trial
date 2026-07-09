@@ -1,19 +1,6 @@
-'use client';
-
-/* ============================================================
-   /reports/analytics — operational analytics
-
-   A chart-led surface for school-wide trends: an M6 StatGrid
-   headline over the shared chart wrappers (TrendChart for the
-   enrollment + attendance trends, CategoryBarChart for the stacked
-   admissions funnel, DonutChart for the enrolment-by-level split)
-   plus a shared Meter breakdown of capacity by campus. Mock figures +
-   copy live here; the charts, StatGrid and Meter stay data-driven.
-   Replaces the `[...slug]` placeholder.
-   ============================================================ */
-
 import { Download } from 'lucide-react';
 
+import { serverApiGet } from '@/lib/server-api';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -37,98 +24,252 @@ import type {
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
-const STATS: StatItem[] = [
-  {
-    key: 'enrolled',
-    label: 'Enrolled',
-    value: '1,420',
-    delta: { label: '+42 (term)', direction: 'up', intent: 'positive' },
-  },
-  {
-    key: 'attendance',
-    label: 'Avg. attendance',
-    value: '94%',
-    delta: { label: '+1%', direction: 'up', intent: 'positive' },
-  },
-  {
-    key: 'retention',
-    label: 'Retention',
-    value: '96%',
-    delta: { label: '−1%', direction: 'down', intent: 'negative' },
-  },
-  { key: 'capacity', label: 'Capacity used', value: '89%' },
-];
+type Paginated<T> = { data?: T[]; pagination?: { total?: number } };
 
-const META: PageHeaderMeta[] = [
-  { key: 'range', label: '2024–25 session', emphasis: true },
-  { key: 'updated', label: 'updated 20m ago' },
-];
+interface ApiStudent {
+  id: string;
+  createdAt?: string | null;
+  withdrawalDate?: string | null;
+  enrollmentStatus?: string | null;
+  gradeLevel?: string | null;
+  enrollments?: Array<{
+    status?: string | null;
+    class?: {
+      name?: string | null;
+      section?: string | null;
+      course?: { name?: string | null; code?: string | null } | null;
+    } | null;
+  }>;
+}
 
-/** Enrollment headcount by month (new admissions vs withdrawals). */
-const ENROLL_DATA: ChartDatum[] = [
-  { month: 'Sep', joined: 64, left: 8 },
-  { month: 'Oct', joined: 31, left: 12 },
-  { month: 'Nov', joined: 22, left: 9 },
-  { month: 'Dec', joined: 14, left: 6 },
-  { month: 'Jan', joined: 48, left: 11 },
-  { month: 'Feb', joined: 27, left: 7 },
-  { month: 'Mar', joined: 19, left: 10 },
-];
+interface ApiAttendanceRecord {
+  date?: string | null;
+  status?: string | null;
+}
+
+interface ApiApplication {
+  submittedDate?: string | null;
+  createdAt?: string | null;
+  stage?: string | null;
+  decision?: string | null;
+}
+
+interface ApiClass {
+  id: string;
+  name?: string | null;
+  section?: string | null;
+  capacity?: number | null;
+  currentEnrollment?: number | null;
+}
+
 const ENROLL_SERIES: ChartSeries[] = [
   { key: 'joined', label: 'Joined' },
   { key: 'left', label: 'Withdrew', color: 'var(--chart-4)' },
 ];
 
-/** Weekly attendance rate (%) across the term. */
-const ATTENDANCE_DATA: ChartDatum[] = [
-  { week: 'W1', rate: 96 },
-  { week: 'W2', rate: 95 },
-  { week: 'W3', rate: 93 },
-  { week: 'W4', rate: 94 },
-  { week: 'W5', rate: 91 },
-  { week: 'W6', rate: 94 },
-  { week: 'W7', rate: 95 },
-  { week: 'W8', rate: 97 },
-];
 const ATTENDANCE_SERIES: ChartSeries[] = [
   { key: 'rate', label: 'Attendance %', color: 'var(--chart-2)' },
 ];
 
-/** Admissions funnel by month (stacked stages). */
-const FUNNEL_DATA: ChartDatum[] = [
-  { month: 'Jan', applied: 88, offered: 61, enrolled: 48 },
-  { month: 'Feb', applied: 64, offered: 44, enrolled: 27 },
-  { month: 'Mar', applied: 52, offered: 33, enrolled: 19 },
-  { month: 'Apr', applied: 71, offered: 49, enrolled: 35 },
-];
 const FUNNEL_SERIES: ChartSeries[] = [
   { key: 'applied', label: 'Applied' },
   { key: 'offered', label: 'Offered', color: 'var(--chart-3)' },
   { key: 'enrolled', label: 'Enrolled', color: 'var(--chart-2)' },
 ];
 
-/** Enrolment share by school level (part-to-whole). */
-const BY_LEVEL: ChartSlice[] = [
-  { key: 'primary', label: 'Primary', value: 612 },
-  { key: 'junior', label: 'Junior secondary', value: 498 },
-  { key: 'senior', label: 'Senior secondary', value: 310 },
-];
+function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
+  if (Array.isArray(payload)) return payload;
+  return payload?.data ?? [];
+}
 
-/** Seat utilisation by campus. */
-const CAPACITY: { label: string; value: number; tone: MeterTone }[] = [
-  { label: 'Main campus', value: 92, tone: 'warning' },
-  { label: 'Annex', value: 78, tone: 'info' },
-  { label: 'Junior wing', value: 85, tone: 'info' },
-  { label: 'Boarding', value: 64, tone: 'success' },
-];
+function monthLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('en-GB', { month: 'short', year: '2-digit' }).format(date);
+}
 
-export default function AnalyticsReportPage() {
+function dayLabel(value: string | null | undefined): string | null {
+  if (!value) return null;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
+}
+
+function percent(numerator: number, denominator: number): number {
+  return denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
+}
+
+function pctLabel(value: number): string {
+  return `${value}%`;
+}
+
+function activeEnrollment(student: ApiStudent) {
+  return (
+    student.enrollments?.find((enrollment) => enrollment.status === 'active') ??
+    student.enrollments?.[0]
+  );
+}
+
+function levelLabel(student: ApiStudent): string {
+  const enrollment = activeEnrollment(student);
+  return (
+    student.gradeLevel ??
+    enrollment?.class?.course?.name ??
+    enrollment?.class?.name ??
+    'Unassigned'
+  );
+}
+
+function buildEnrollmentTrend(students: ApiStudent[]): ChartDatum[] {
+  const buckets = new Map<string, { month: string; joined: number; left: number }>();
+
+  for (const student of students) {
+    const joined = monthLabel(student.createdAt);
+    if (joined) {
+      const bucket = buckets.get(joined) ?? { month: joined, joined: 0, left: 0 };
+      bucket.joined += 1;
+      buckets.set(joined, bucket);
+    }
+
+    const left = monthLabel(student.withdrawalDate);
+    if (left) {
+      const bucket = buckets.get(left) ?? { month: left, joined: 0, left: 0 };
+      bucket.left += 1;
+      buckets.set(left, bucket);
+    }
+  }
+
+  return Array.from(buckets.values()).slice(-8);
+}
+
+function buildAttendanceTrend(records: ApiAttendanceRecord[]): ChartDatum[] {
+  const buckets = new Map<string, { week: string; present: number; total: number }>();
+
+  for (const record of records) {
+    const label = dayLabel(record.date);
+    if (!label) continue;
+    const bucket = buckets.get(label) ?? { week: label, present: 0, total: 0 };
+    bucket.total += 1;
+    if (record.status === 'present' || record.status === 'late') bucket.present += 1;
+    buckets.set(label, bucket);
+  }
+
+  return Array.from(buckets.values())
+    .slice(-8)
+    .map((bucket) => ({
+      week: bucket.week,
+      rate: percent(bucket.present, bucket.total),
+    }));
+}
+
+function buildFunnel(applications: ApiApplication[]): ChartDatum[] {
+  const buckets = new Map<
+    string,
+    { month: string; applied: number; offered: number; enrolled: number }
+  >();
+
+  for (const application of applications) {
+    const label = monthLabel(application.submittedDate ?? application.createdAt);
+    if (!label) continue;
+    const bucket = buckets.get(label) ?? { month: label, applied: 0, offered: 0, enrolled: 0 };
+    const stage = application.stage ?? '';
+    const decision = application.decision ?? '';
+    bucket.applied += 1;
+    if (['offer', 'enrolment', 'enrollment'].includes(stage) || ['accepted', 'waitlisted'].includes(decision)) {
+      bucket.offered += 1;
+    }
+    if (stage === 'enrolled' || decision === 'accepted') {
+      bucket.enrolled += 1;
+    }
+    buckets.set(label, bucket);
+  }
+
+  return Array.from(buckets.values()).slice(-8);
+}
+
+function buildLevelSlices(students: ApiStudent[]): ChartSlice[] {
+  const counts = new Map<string, number>();
+  for (const student of students) {
+    counts.set(levelLabel(student), (counts.get(levelLabel(student)) ?? 0) + 1);
+  }
+  return Array.from(counts.entries()).map(([key, value]) => ({
+    key: key.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+    label: key,
+    value,
+  }));
+}
+
+function classLabel(cls: ApiClass): string {
+  return [cls.name, cls.section].filter(Boolean).join(' ') || cls.id;
+}
+
+function meterTone(value: number): MeterTone {
+  if (value >= 90) return 'warning';
+  if (value >= 75) return 'info';
+  return 'success';
+}
+
+function buildCapacity(classes: ApiClass[]): { label: string; value: number; tone: MeterTone }[] {
+  return classes
+    .filter((cls) => Number(cls.capacity) > 0)
+    .map((cls) => {
+      const value = percent(Number(cls.currentEnrollment ?? 0), Number(cls.capacity));
+      return { label: classLabel(cls), value, tone: meterTone(value) };
+    })
+    .slice(0, 6);
+}
+
+export default async function AnalyticsReportPage() {
+  const from = new Date();
+  from.setDate(from.getDate() - 60);
+
+  const [studentData, attendanceData, applicationData, classData] = await Promise.all([
+    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
+    serverApiGet<ApiAttendanceRecord[]>(`/attendance?from=${from.toISOString().slice(0, 10)}`),
+    serverApiGet<ApiApplication[]>('/admissions/applications'),
+    serverApiGet<Paginated<ApiClass>>('/classes?limit=200'),
+  ]);
+
+  const students = asArray(studentData);
+  const attendance = attendanceData ?? [];
+  const applications = applicationData ?? [];
+  const classes = asArray(classData);
+
+  const activeStudents = students.filter((student) => student.enrollmentStatus !== 'withdrawn');
+  const attendanceRate = percent(
+    attendance.filter((record) => record.status === 'present' || record.status === 'late').length,
+    attendance.length,
+  );
+  const retentionRate = percent(activeStudents.length, students.length);
+  const capacityRows = buildCapacity(classes);
+  const capacityRate = capacityRows.length
+    ? Math.round(capacityRows.reduce((sum, row) => sum + row.value, 0) / capacityRows.length)
+    : 0;
+
+  const stats: StatItem[] = [
+    { key: 'enrolled', label: 'Enrolled', value: activeStudents.length.toLocaleString() },
+    { key: 'attendance', label: 'Avg. attendance', value: pctLabel(attendanceRate) },
+    { key: 'retention', label: 'Retention', value: pctLabel(retentionRate) },
+    { key: 'capacity', label: 'Capacity used', value: pctLabel(capacityRate) },
+  ];
+
+  const meta: PageHeaderMeta[] = [
+    { key: 'source', label: 'live data', emphasis: true },
+    { key: 'students', label: `${students.length} students` },
+  ];
+
+  const enrollmentTrend = buildEnrollmentTrend(students);
+  const attendanceTrend = buildAttendanceTrend(attendance);
+  const funnel = buildFunnel(applications);
+  const byLevel = buildLevelSlices(activeStudents);
+
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Analytics"
-          meta={META}
+          meta={meta}
           actions={
             <Button variant="outline" size="sm">
               <Download /> Export data
@@ -136,17 +277,17 @@ export default function AnalyticsReportPage() {
           }
         />
 
-        <StatGrid items={STATS} />
+        <StatGrid items={stats} />
 
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Enrollment movement</CardTitle>
-              <CardDescription>Joined vs withdrew · by month</CardDescription>
+              <CardDescription>Joined vs withdrew from student records</CardDescription>
             </CardHeader>
             <CardContent>
               <TrendChart
-                data={ENROLL_DATA}
+                data={enrollmentTrend}
                 xKey="month"
                 series={ENROLL_SERIES}
                 variant="area"
@@ -159,16 +300,16 @@ export default function AnalyticsReportPage() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Attendance rate</CardTitle>
-              <CardDescription>Weekly average · Spring Term 2025</CardDescription>
+              <CardDescription>Daily average from recent attendance records</CardDescription>
             </CardHeader>
             <CardContent>
               <TrendChart
-                data={ATTENDANCE_DATA}
+                data={attendanceTrend}
                 xKey="week"
                 series={ATTENDANCE_SERIES}
                 variant="line"
                 height={240}
-                aria-label="Weekly attendance rate"
+                aria-label="Recent attendance rate"
               />
             </CardContent>
           </Card>
@@ -177,13 +318,11 @@ export default function AnalyticsReportPage() {
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-base">Admissions funnel</CardTitle>
-            <CardDescription>
-              Applied → offered → enrolled · by month
-            </CardDescription>
+            <CardDescription>Application stages grouped by submitted month</CardDescription>
           </CardHeader>
           <CardContent>
             <CategoryBarChart
-              data={FUNNEL_DATA}
+              data={funnel}
               xKey="month"
               series={FUNNEL_SERIES}
               height={260}
@@ -196,25 +335,25 @@ export default function AnalyticsReportPage() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Enrolment by level</CardTitle>
-              <CardDescription>Share of 1,420 enrolled · 2024–25</CardDescription>
+              <CardDescription>Active students grouped by grade or class</CardDescription>
             </CardHeader>
             <CardContent>
               <DonutChart
-                slices={BY_LEVEL}
+                slices={byLevel}
                 height={240}
-                aria-label="Enrolment share by school level"
+                aria-label="Enrolment share by level"
               />
             </CardContent>
           </Card>
 
           <Card className="shadow-card">
             <CardHeader>
-              <CardTitle className="text-base">Capacity by campus</CardTitle>
-              <CardDescription>Seats filled</CardDescription>
+              <CardTitle className="text-base">Capacity by class</CardTitle>
+              <CardDescription>Seats filled from class capacity records</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-3.5">
-              {CAPACITY.map((c) => (
-                <Meter key={c.label} label={c.label} value={c.value} tone={c.tone} />
+              {capacityRows.map((row) => (
+                <Meter key={row.label} label={row.label} value={row.value} tone={row.tone} />
               ))}
             </CardContent>
           </Card>

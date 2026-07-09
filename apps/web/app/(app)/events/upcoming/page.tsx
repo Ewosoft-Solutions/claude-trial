@@ -2,9 +2,8 @@
    /events/upcoming — events calendar (server component)
 
    Fetches events from the NestJS backend (server-side,
-   cookie-authenticated) and passes them to UpcomingClient. Falls
-   back to built-in mock data when NEXT_PUBLIC_API_URL is not set
-   (dev mode).
+   cookie-authenticated) and passes them to UpcomingClient.
+   Empty API responses render as empty states in the client.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';

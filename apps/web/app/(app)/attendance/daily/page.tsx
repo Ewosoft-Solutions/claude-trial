@@ -5,8 +5,7 @@
    NestJS backend (server-side, cookie-authenticated). Passes the
    hydrated data to DailyRegisterClient for interactive state.
 
-   Falls back to empty lists when NEXT_PUBLIC_API_URL is not set;
-   the client component shows the mock roster in that case.
+   Empty API responses render as an empty register in the client.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';

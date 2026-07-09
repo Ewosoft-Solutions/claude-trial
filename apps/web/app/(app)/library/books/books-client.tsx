@@ -3,10 +3,9 @@
 /* ============================================================
    BooksClient — library catalog interactive table
 
-   Receives server-fetched catalog copies as props (or falls back
-   to built-in mock data when no API is configured). M6 StatGrid
-   (catalog summary) + DataTableLayout (toolbar + table + footer).
-   Circulation status reads as a StatusBadge.
+   Receives server-fetched catalog copies as props. M6 StatGrid (catalog
+   summary) + DataTableLayout (toolbar + table + footer). Circulation status
+   reads as a StatusBadge.
    ============================================================ */
 
 import * as React from 'react';
@@ -52,15 +51,6 @@ export interface Book {
   dueDate: string | null;
 }
 
-const MOCK_BOOKS: Book[] = [
-  { id: 'BK-001', title: 'Things Fall Apart', author: 'Chinua Achebe', category: 'Fiction', status: 'on_loan', borrower: 'Adaeze Okafor', dueDate: '15 Jul' },
-  { id: 'BK-002', title: 'Half of a Yellow Sun', author: 'Chimamanda Ngozi Adichie', category: 'Fiction', status: 'available', borrower: null, dueDate: null },
-  { id: 'BK-003', title: 'A Short History of Nigeria', author: 'Michael Crowder', category: 'History', status: 'overdue', borrower: 'Emeka Nwosu', dueDate: '02 Jul' },
-  { id: 'BK-004', title: 'Basic Chemistry', author: 'T. Nwachukwu', category: 'Science', status: 'available', borrower: null, dueDate: null },
-  { id: 'BK-005', title: 'The Joys of Motherhood', author: 'Buchi Emecheta', category: 'Fiction', status: 'reserved', borrower: null, dueDate: null },
-  { id: 'BK-006', title: 'Introduction to Algebra', author: 'K. Adeyemi', category: 'Mathematics', status: 'available', borrower: null, dueDate: null },
-];
-
 const STATUS_META: Record<BookStatus, { label: string; tone: StateTone }> = {
   available: { label: 'Available', tone: 'success' },
   on_loan: { label: 'On loan', tone: 'info' },
@@ -75,13 +65,8 @@ interface Props {
 }
 
 export function BooksClient({ books }: Props) {
-  const BOOKS = books.length > 0 ? books : MOCK_BOOKS;
-
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const BOOKS = books;
+  const loading = false;
 
   const [query, setQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('all');
@@ -171,9 +156,15 @@ export function BooksClient({ books }: Props) {
           emptyState={
             <EmptyState
               compact
-              title="No books match your filters"
-              description="Try a different search term, or clear the filters."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title={hasFilters ? 'No books match your filters' : 'No library books yet'}
+              description={
+                hasFilters
+                  ? 'Try a different search term, or clear the filters.'
+                  : 'Run the dev operational seed or add a catalog copy.'
+              }
+              primaryAction={
+                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+              }
             />
           }
           footer={

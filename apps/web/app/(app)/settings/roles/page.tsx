@@ -1,13 +1,7 @@
-/* ============================================================
-   /settings/roles — roles & permissions
-
-   A read-through of the school's roles (members, scope, clearance).
-   Mirrors the RBAC vocabulary the nav model authorises against
-   (clearance levels, scope). Mock rows; editing lands with the API.
-   ============================================================ */
-
 import { Plus } from 'lucide-react';
 
+import { getSession } from '@/lib/session';
+import { serverApiGet } from '@/lib/server-api';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -25,25 +19,24 @@ import {
   TableRow,
 } from '@workspace/ui/components/table';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
-interface Role {
-  key: string;
-  name: string;
-  description: string;
-  members: number;
-  clearance: number;
-  custom: boolean;
+interface ApiRole {
+  id: string;
+  name?: string | null;
+  description?: string | null;
+  clearanceLevel?: number | null;
+  roleType?: string | null;
 }
 
-const ROLES: Role[] = [
-  { key: 'owner', name: 'Owner', description: 'Full control of the school', members: 2, clearance: 8, custom: false },
-  { key: 'principal', name: 'Principal', description: 'School-wide management', members: 1, clearance: 7, custom: false },
-  { key: 'bursar', name: 'Bursar', description: 'Finance & billing', members: 2, clearance: 5, custom: false },
-  { key: 'registrar', name: 'Registrar', description: 'Admissions & records', members: 3, clearance: 4, custom: false },
-  { key: 'teacher', name: 'Teacher', description: 'Classes, attendance & grades', members: 48, clearance: 3, custom: false },
-  { key: 'form-tutor', name: 'Form tutor', description: 'Custom: class teacher + pastoral', members: 12, clearance: 3, custom: true },
-];
+interface UserProfile {
+  userTenantRole?: Array<{ role?: { id?: string | null; name?: string | null } | null }>;
+}
+
+interface ProfileResponse {
+  data?: UserProfile[];
+}
 
 function clearanceTone(level: number): StateTone {
   if (level >= 7) return 'destructive';
@@ -52,57 +45,85 @@ function clearanceTone(level: number): StateTone {
   return 'neutral';
 }
 
-export default function RolesSettingsPage() {
+export default async function RolesSettingsPage() {
+  const session = await getSession();
+  const tenantId = session?.defaultSchoolId;
+  const [roles, profiles] = await Promise.all([
+    serverApiGet<ApiRole[]>('/roles'),
+    tenantId ? serverApiGet<ProfileResponse>(`/tenant/${tenantId}/users?limit=500`) : null,
+  ]);
+  const memberCounts = new Map<string, number>();
+  for (const profile of profiles?.data ?? []) {
+    for (const assignment of profile.userTenantRole ?? []) {
+      const key = assignment.role?.id ?? assignment.role?.name;
+      if (key) memberCounts.set(key, (memberCounts.get(key) ?? 0) + 1);
+    }
+  }
+  const rows = roles ?? [];
+
   return (
     <Card className="shadow-card">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <div className="flex flex-col gap-1.5">
           <CardTitle className="text-base">Roles</CardTitle>
           <CardDescription>
-            {ROLES.length} roles · clearance governs what each can reach.
+            {rows.length} roles returned by the tenant role API.
           </CardDescription>
         </div>
         <Button size="sm">
           <Plus /> Add role
         </Button>
       </CardHeader>
-      <CardContent className="px-0">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="pl-6">Role</TableHead>
-              <TableHead className="text-right">Members</TableHead>
-              <TableHead className="pr-6 text-right">Clearance</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {ROLES.map((r) => (
-              <TableRow key={r.key}>
-                <TableCell className="pl-6">
-                  <div className="flex min-w-0 flex-col">
-                    <span className="flex items-center gap-2 font-medium text-foreground">
-                      {r.name}
-                      {r.custom ? (
-                        <StatusBadge tone="info">Custom</StatusBadge>
-                      ) : null}
-                    </span>
-                    <span className="truncate text-xs text-muted-foreground">
-                      {r.description}
-                    </span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-right tabular-nums text-muted-foreground">
-                  {r.members}
-                </TableCell>
-                <TableCell className="pr-6 text-right">
-                  <StatusBadge tone={clearanceTone(r.clearance)} dot>
-                    Level {r.clearance}
-                  </StatusBadge>
-                </TableCell>
+      <CardContent className={rows.length ? 'px-0' : undefined}>
+        {rows.length === 0 ? (
+          <EmptyState
+            compact
+            title="No roles found"
+            description="Tenant roles returned by the API will appear here."
+          />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="pl-6">Role</TableHead>
+                <TableHead className="text-right">Members</TableHead>
+                <TableHead className="pr-6 text-right">Clearance</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHeader>
+            <TableBody>
+              {rows.map((role) => {
+                const level = Number(role.clearanceLevel ?? 0);
+                const members =
+                  memberCounts.get(role.id) ?? memberCounts.get(role.name ?? '') ?? 0;
+                return (
+                  <TableRow key={role.id}>
+                    <TableCell className="pl-6">
+                      <div className="flex min-w-0 flex-col">
+                        <span className="flex items-center gap-2 font-medium text-foreground">
+                          {role.name ?? role.id}
+                          {role.roleType ? (
+                            <StatusBadge tone="info">{role.roleType}</StatusBadge>
+                          ) : null}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {role.description ?? 'No description'}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
+                      {members}
+                    </TableCell>
+                    <TableCell className="pr-6 text-right">
+                      <StatusBadge tone={clearanceTone(level)} dot>
+                        Level {level}
+                      </StatusBadge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );

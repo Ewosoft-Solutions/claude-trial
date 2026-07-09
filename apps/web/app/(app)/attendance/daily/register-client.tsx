@@ -6,7 +6,6 @@
    Receives initial classes + students from the server component.
    All state (class/date selection, per-student marks) lives here.
    Saves via POST /api/attendance (Route Handler → NestJS).
-   Falls back to hardcoded mock data when no API is configured.
    ================================================================ */
 
 import * as React from 'react';
@@ -38,6 +37,7 @@ import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
 export type Mark = 'present' | 'absent' | 'late' | 'excused';
@@ -58,33 +58,18 @@ export interface AttendanceRecord {
   status: Mark;
 }
 
+interface ApiStudent {
+  id: string;
+  studentNumber: string;
+  userTenant?: { user?: { firstName?: string | null; lastName?: string | null } | null };
+}
+
 interface Props {
   classes: ClassOption[];
   initialClassId: string;
   initialStudents: Pupil[];
   initialRecords: AttendanceRecord[];
 }
-
-/* ---- fallback mock data (used when classes/students are empty) ----------- */
-const MOCK_CLASSES: ClassOption[] = [
-  { id: 'JSS1A', label: 'JSS 1A' },
-  { id: 'JSS2B', label: 'JSS 2B' },
-  { id: 'JSS3A', label: 'JSS 3A' },
-  { id: 'SSS1A', label: 'SSS 1A' },
-];
-
-const MOCK_STUDENTS: Pupil[] = [
-  { id: 'SJ-1042', studentNumber: 'SJ-1042', name: 'Adaeze Okafor' },
-  { id: 'SJ-1043', studentNumber: 'SJ-1043', name: 'Tunde Bakare' },
-  { id: 'SJ-1071', studentNumber: 'SJ-1071', name: 'Chiamaka Eze' },
-  { id: 'SJ-1088', studentNumber: 'SJ-1088', name: 'Ibrahim Sani' },
-  { id: 'SJ-1102', studentNumber: 'SJ-1102', name: 'Fatima Bello' },
-  { id: 'SJ-1119', studentNumber: 'SJ-1119', name: 'Emeka Nwosu' },
-  { id: 'SJ-1203', studentNumber: 'SJ-1203', name: 'Zainab Yusuf' },
-  { id: 'SJ-1221', studentNumber: 'SJ-1221', name: 'David Adeyemi' },
-  { id: 'SJ-1244', studentNumber: 'SJ-1244', name: 'Grace Obi' },
-  { id: 'SJ-1290', studentNumber: 'SJ-1290', name: 'Samuel Etim' },
-];
 
 const META: PageHeaderMeta[] = [
   { key: 'term', label: 'Spring Term 2025', emphasis: true },
@@ -112,21 +97,32 @@ function seedMarks(pupils: Pupil[], existing: AttendanceRecord[]): Record<string
   return base;
 }
 
+function studentName(student: ApiStudent): string {
+  const user = student.userTenant?.user;
+  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || student.studentNumber;
+}
+
+function toPupil(student: ApiStudent): Pupil {
+  return {
+    id: student.id,
+    studentNumber: student.studentNumber,
+    name: studentName(student),
+  };
+}
+
 export function DailyRegisterClient({
   classes: propClasses,
   initialClassId,
   initialStudents,
   initialRecords,
 }: Props) {
-  const classes = propClasses.length ? propClasses : MOCK_CLASSES;
+  const classes = propClasses;
   const [classId, setClassId] = React.useState(initialClassId || classes[0]?.id || '');
   const [date, setDate] = React.useState(todayISO);
 
-  const [students, setStudents] = React.useState<Pupil[]>(
-    initialStudents.length ? initialStudents : MOCK_STUDENTS,
-  );
+  const [students, setStudents] = React.useState<Pupil[]>(initialStudents);
   const [marks, setMarks] = React.useState<Record<string, Mark>>(() =>
-    seedMarks(initialStudents.length ? initialStudents : MOCK_STUDENTS, initialRecords),
+    seedMarks(initialStudents, initialRecords),
   );
 
   const [loading, setLoading] = React.useState(false);
@@ -162,21 +158,28 @@ export function DailyRegisterClient({
         const qs = new URLSearchParams({ classId: cId }).toString();
         const res = await fetch(`/api/students?${qs}`);
         if (res.ok) {
-          const data = (await res.json()) as { students?: Pupil[]; data?: Pupil[] } | Pupil[];
-          const list: Pupil[] = Array.isArray(data) ? data : ((data as { students?: Pupil[] }).students ?? []);
+          const data = (await res.json()) as
+            | { students?: ApiStudent[]; data?: ApiStudent[] }
+            | ApiStudent[];
+          const raw = Array.isArray(data)
+            ? data
+            : ((data as { students?: ApiStudent[] }).students ??
+              (data as { data?: ApiStudent[] }).data ??
+              []);
+          const list = raw.map(toPupil);
           if (list.length) {
             setStudents(list);
             await fetchAttendance(cId, d, list);
             return;
           }
         }
-        // Fallback: keep current students, just refresh attendance
-        await fetchAttendance(cId, d, students);
+        setStudents([]);
+        setMarks({});
       } finally {
         setLoading(false);
       }
     },
-    [fetchAttendance, students],
+    [fetchAttendance],
   );
 
   function handleClassChange(newId: string) {
@@ -245,13 +248,18 @@ export function DailyRegisterClient({
           meta={META}
           actions={
             <>
-              <Button variant="outline" size="sm" onClick={markAllPresent}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={markAllPresent}
+                disabled={students.length === 0}
+              >
                 <CircleCheck /> Mark all present
               </Button>
               <Button
                 size="sm"
                 onClick={() => void save()}
-                disabled={saving}
+                disabled={saving || !classId || students.length === 0}
               >
                 <Check />
                 {saving ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'Save register'}
@@ -280,6 +288,7 @@ export function DailyRegisterClient({
             )
           }
           loading={loading}
+          empty={!loading && students.length === 0}
           skeletonColumns={3}
           skeletonRows={students.length || 10}
           toolbar={
@@ -315,6 +324,17 @@ export function DailyRegisterClient({
               <strong className="text-foreground">{students.length}</strong> pupils ·
               register for {date}
             </span>
+          }
+          emptyState={
+            <EmptyState
+              compact
+              title={classes.length === 0 ? 'No classes available' : 'No pupils enrolled'}
+              description={
+                classes.length === 0
+                  ? 'Run the dev academic seed or create an active class.'
+                  : 'Enroll students in this class before taking attendance.'
+              }
+            />
           }
         >
           <Table>

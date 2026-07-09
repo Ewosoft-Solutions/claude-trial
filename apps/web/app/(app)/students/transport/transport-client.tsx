@@ -3,10 +3,9 @@
 /* ============================================================
    TransportClient — route assignments interactive table
 
-   Receives server-fetched assignments as props (or falls back to
-   built-in mock data when no API is configured). DataTableLayout
-   (search + route filter, Skeleton/Empty). Assignment status reads
-   as a StatusBadge.
+   Receives server-fetched assignments as props. DataTableLayout
+   (search + route filter, Skeleton/Empty). Assignment status reads as a
+   StatusBadge.
    ============================================================ */
 
 import * as React from 'react';
@@ -50,17 +49,6 @@ export interface Rider {
   status: Status;
 }
 
-const MOCK_RIDERS: Rider[] = [
-  { id: 'SJ-1042', name: 'Adaeze Okafor', route: 'Route A — Ikoyi', stop: 'Awolowo Rd', pickup: '06:45', status: 'assigned' },
-  { id: 'SJ-1071', name: 'Chiamaka Eze', route: 'Route A — Ikoyi', stop: 'Bourdillon', pickup: '06:55', status: 'assigned' },
-  { id: 'SJ-1102', name: 'Fatima Bello', route: 'Route B — Lekki', stop: 'Phase 1 Gate', pickup: '06:30', status: 'assigned' },
-  { id: 'SJ-1119', name: 'Emeka Nwosu', route: 'Route B — Lekki', stop: 'Admiralty Way', pickup: '06:40', status: 'assigned' },
-  { id: 'SJ-1203', name: 'Zainab Yusuf', route: 'Route C — Yaba', stop: 'Herbert Macaulay', pickup: '06:20', status: 'assigned' },
-  { id: 'SJ-1221', name: 'David Adeyemi', route: null, stop: null, pickup: null, status: 'waitlist' },
-  { id: 'SJ-1244', name: 'Grace Obi', route: 'Route C — Yaba', stop: 'Tejuosho', pickup: '06:25', status: 'assigned' },
-  { id: 'SJ-1290', name: 'Samuel Etim', route: null, stop: null, pickup: null, status: 'unassigned' },
-];
-
 const STATUS_META: Record<Status, { label: string; tone: StateTone }> = {
   assigned: { label: 'Assigned', tone: 'success' },
   waitlist: { label: 'Waitlist', tone: 'warning' },
@@ -76,13 +64,8 @@ interface Props {
 }
 
 export function TransportClient({ riders }: Props) {
-  const RIDERS = riders.length > 0 ? riders : MOCK_RIDERS;
-
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const RIDERS = riders;
+  const loading = false;
 
   const [query, setQuery] = React.useState('');
   const [routeFilter, setRouteFilter] = React.useState('all');
@@ -173,9 +156,15 @@ export function TransportClient({ riders }: Props) {
           emptyState={
             <EmptyState
               compact
-              title="No students match your filters"
-              description="Try a different search term, or clear the filters."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title={hasFilters ? 'No students match your filters' : 'No transport assignments yet'}
+              description={
+                hasFilters
+                  ? 'Try a different search term, or clear the filters.'
+                  : 'Run the dev operational seed or assign a student to a route.'
+              }
+              primaryAction={
+                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+              }
             />
           }
           footer={

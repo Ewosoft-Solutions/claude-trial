@@ -8,17 +8,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ApiError, apiClient } from '@/lib/api-client';
 import { getBearerFromCookies } from '@/lib/server-api';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? '';
-
 function authHeader(req: NextRequest): Record<string, string> {
   const token = getBearerFromCookies(req.headers.get('cookie'));
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
 export async function GET(req: NextRequest) {
-  if (!API_BASE) {
-    return NextResponse.json({ invoices: [], mock: true });
-  }
   try {
     const qs = req.nextUrl.searchParams.toString();
     const data = await apiClient.get(`/finance/invoices${qs ? `?${qs}` : ''}`, authHeader(req));
@@ -32,9 +27,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  if (!API_BASE) {
-    return NextResponse.json({ mock: true }, { status: 201 });
-  }
   try {
     const body: unknown = await req.json();
     const data = await apiClient.post('/finance/invoices', body, authHeader(req));

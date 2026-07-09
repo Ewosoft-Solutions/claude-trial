@@ -26,14 +26,17 @@ import {
   CircleQuestionMark,
   Contact,
   CreditCard,
+  FileText,
   GraduationCap,
   HeartPulse,
   LayoutGrid,
   LifeBuoy,
+  MessageCircleMore,
   PartyPopper,
   ScrollText,
   Settings,
   ShieldCheck,
+  Sparkles,
   UserPlus,
   Users,
   Wallet,
@@ -59,6 +62,30 @@ export const SCHOOL_NAV: NavigationConfig = {
           items: [
             { key: 'dashboard', label: 'Dashboard', icon: <LayoutGrid />, href: '/overview' },
             { key: 'tasks', label: 'My tasks', icon: <ScrollText />, href: '/overview/tasks' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'assistant',
+      label: 'Assistant',
+      icon: <Sparkles />,
+      href: '/assistant',
+      // ai.analytics.query has a clearance floor of 1 by design: every
+      // authenticated member may ask, and AIMediatorService scopes the
+      // answers (students: personal, parents: their children, staff: wider).
+      access: { anyPermission: ['ai.analytics.query'] },
+      panelHeader: { icon: <Sparkles />, title: 'AI Assistant' },
+      groups: [
+        {
+          key: 'assistant-chat',
+          items: [
+            {
+              key: 'assistant-analytics',
+              label: 'Analytics chat',
+              icon: <MessageCircleMore />,
+              href: '/assistant',
+            },
           ],
         },
       ],
@@ -161,7 +188,14 @@ export const SCHOOL_NAV: NavigationConfig = {
       label: 'Classes',
       icon: <BookOpen />,
       href: '/classes',
-      access: { anyPermission: ['courses.view', 'schedules.view'] },
+      access: {
+        anyPermission: [
+          'courses.view',
+          'schedules.view',
+          'lessons.view.own',
+          'assessments.take',
+        ],
+      },
       panelHeader: { icon: <BookOpen />, title: 'Classes' },
       groups: [
         {
@@ -171,6 +205,14 @@ export const SCHOOL_NAV: NavigationConfig = {
             { key: 'timetable', label: 'Timetable', icon: <CalendarDays />, href: '/classes/timetable', access: { anyPermission: ['timetable.view'] } },
             { key: 'gradebook', label: 'Gradebook', icon: <BookOpen />, href: '/classes/gradebook', access: { anyPermission: ['grades.view'] } },
             { key: 'subjects', label: 'Subjects', icon: <GraduationCap />, href: '/classes/subjects', access: { anyPermission: ['subjects.view', 'courses.view'] } },
+            { key: 'materials', label: 'Materials', icon: <FileText />, href: '/classes/materials', access: { anyPermission: ['lessons.view', 'lessons.view.own'] } },
+            { key: 'tutor', label: 'Study tutor', icon: <Sparkles />, href: '/classes/tutor', access: { anyPermission: ['ai.chat.use'] } },
+            { key: 'assessments', label: 'Assessments', icon: <ScrollText />, href: '/classes/assessments', access: { anyPermission: ['assessments.view'] } },
+            { key: 'take-assessments', label: 'Take assessments', icon: <ScrollText />, href: '/classes/assessments/take', access: { anyPermission: ['assessments.take'] } },
+            { key: 'question-bank', label: 'Question bank', icon: <FileText />, href: '/classes/question-bank', access: { anyPermission: ['questions.view'] } },
+            { key: 'tutor-usage', label: 'Tutor usage', icon: <ChartColumn />, href: '/classes/tutor-usage', access: { anyPermission: ['lessons.view'] } },
+            { key: 'academic-review', label: 'Review queue', icon: <ShieldCheck />, href: '/classes/review', access: { anyPermission: ['lessons.approve'] } },
+            { key: 'teacher-allocation', label: 'Teacher allocation', icon: <Users />, href: '/classes/teachers', access: { anyPermission: ['classes.teachers.assign'] } },
           ],
         },
       ],
@@ -397,7 +439,7 @@ export const SCHOOL_NAV: NavigationConfig = {
       label: 'Settings',
       icon: <Settings />,
       href: '/settings',
-      access: { anyPermission: ['settings.view', 'settings.school'] },
+      access: { anyPermission: ['settings.view', 'settings.school', 'ai.configure'] },
       // No `groups`: the dedicated settings route group
       // (app/(app)/settings/layout.tsx) renders its own in-panel SettingsNav,
       // so listing the sub-sections here would only duplicate that panel in the

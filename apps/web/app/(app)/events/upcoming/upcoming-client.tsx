@@ -3,10 +3,9 @@
 /* ============================================================
    UpcomingClient — upcoming school events interactive table
 
-   Receives server-fetched events as props (or falls back to
-   built-in mock data when no API is configured). M6 StatGrid
-   (event summary) + DataTableLayout (toolbar + table + footer).
-   Event status reads as a StatusBadge.
+   Receives server-fetched events as props. M6 StatGrid (event summary) +
+   DataTableLayout (toolbar + table + footer). Event status reads as a
+   StatusBadge.
    ============================================================ */
 
 import * as React from 'react';
@@ -53,12 +52,6 @@ export interface EventRow {
   capacity: number | null;
 }
 
-const MOCK_EVENTS: EventRow[] = [
-  { id: 'EV-1', title: 'Inter-house Sports Day', eventType: 'sports', location: 'School field', startDate: '14 Aug', status: 'scheduled', registeredCount: 320, capacity: 500 },
-  { id: 'EV-2', title: 'Founders Day Assembly', eventType: 'ceremony', location: 'Main hall', startDate: '02 Sep', status: 'scheduled', registeredCount: 40, capacity: null },
-  { id: 'EV-3', title: 'PTA Fundraiser', eventType: 'fundraiser', location: 'School canteen', startDate: '20 Jul', status: 'completed', registeredCount: 210, capacity: 250 },
-];
-
 const STATUS_META: Record<EventStatus, { label: string; tone: StateTone }> = {
   scheduled: { label: 'Scheduled', tone: 'info' },
   ongoing: { label: 'Ongoing', tone: 'warning' },
@@ -73,13 +66,8 @@ interface Props {
 }
 
 export function UpcomingClient({ events }: Props) {
-  const EVENTS = events.length > 0 ? events : MOCK_EVENTS;
-
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const EVENTS = events;
+  const loading = false;
 
   const [query, setQuery] = React.useState('');
   const [statusFilter, setStatusFilter] = React.useState('all');
@@ -168,9 +156,15 @@ export function UpcomingClient({ events }: Props) {
           emptyState={
             <EmptyState
               compact
-              title="No events match your filters"
-              description="Try a different search term, or clear the filters."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title={hasFilters ? 'No events match your filters' : 'No events yet'}
+              description={
+                hasFilters
+                  ? 'Try a different search term, or clear the filters.'
+                  : 'Run the dev operational seed or create an event.'
+              }
+              primaryAction={
+                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+              }
             />
           }
           footer={

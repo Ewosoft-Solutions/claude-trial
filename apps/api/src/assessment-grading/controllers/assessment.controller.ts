@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -19,6 +20,10 @@ import {
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
+import {
+  buildAcademicsActor,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 import { AssessmentGradingService } from '../services/assessment-grading.service';
 import {
   CreateAssessmentDto,
@@ -35,6 +40,17 @@ import type { AuthenticatedRequest } from 'src/auth';
 export class AssessmentController {
   constructor(private readonly gradingService: AssessmentGradingService) {}
 
+  private actorFrom(req: AuthenticatedRequest): AcademicsActor {
+    if (!req.userContext) {
+      throw new ForbiddenException('User context not found');
+    }
+    return buildAcademicsActor(
+      req.userContext,
+      'assessments.view',
+      'assessments.manage.all',
+    );
+  }
+
   @Post()
   @RequirePermissions(['assessments.create'])
   @ApiOperation({ summary: 'Create assessment' })
@@ -42,10 +58,9 @@ export class AssessmentController {
     @Body() dto: CreateAssessmentDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
     return this.gradingService.createAssessment(
-      user.tenantId,
-      user.userId,
+      req.user.tenantId,
+      this.actorFrom(req),
       dto,
     );
   }
@@ -57,16 +72,22 @@ export class AssessmentController {
     @Query() query: ListAssessmentsDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
-    return this.gradingService.listAssessments(user.tenantId, query);
+    return this.gradingService.listAssessments(
+      req.user.tenantId,
+      this.actorFrom(req),
+      query,
+    );
   }
 
   @Get(':id')
   @RequirePermissions(['assessments.view'])
   @ApiOperation({ summary: 'Get assessment by ID' })
   async get(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    const user = req.user;
-    return this.gradingService.getAssessment(user.tenantId, id);
+    return this.gradingService.getAssessment(
+      req.user.tenantId,
+      this.actorFrom(req),
+      id,
+    );
   }
 
   @Put(':id')
@@ -77,20 +98,22 @@ export class AssessmentController {
     @Body() dto: UpdateAssessmentDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
     return this.gradingService.updateAssessment(
-      user.tenantId,
-      user.userId,
+      req.user.tenantId,
+      this.actorFrom(req),
       id,
       dto,
     );
   }
 
   @Delete(':id')
-  @RequirePermissions(['assessments.edit'])
+  @RequirePermissions(['assessments.delete'])
   @ApiOperation({ summary: 'Delete assessment' })
   async delete(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    const user = req.user;
-    return this.gradingService.deleteAssessment(user.tenantId, id);
+    return this.gradingService.deleteAssessment(
+      req.user.tenantId,
+      this.actorFrom(req),
+      id,
+    );
   }
 }

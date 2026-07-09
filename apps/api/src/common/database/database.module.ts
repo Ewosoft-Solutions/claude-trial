@@ -73,7 +73,7 @@ export class DatabaseModule {
    *
    * This pattern allows:
    * - Dependency injection of config
-   * - Test-friendly mock configurations
+   * - Test-friendly substitute configurations
    * - Environment-specific settings
    * - Better separation of concerns
    */

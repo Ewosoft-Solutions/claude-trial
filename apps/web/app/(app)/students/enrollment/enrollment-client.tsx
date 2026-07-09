@@ -3,8 +3,7 @@
 /* ============================================================
    EnrollmentClient — admissions pipeline interactive table
 
-   Receives server-fetched applicants as props (or falls back to
-   built-in mock data when no API is configured). Built from the
+   Receives server-fetched applicants as props. Built from the
    same recipe as the directory: M6 StatGrid (pipeline summary) +
    DataTableLayout (toolbar + table + footer) wired to the M5
    states (SkeletonTable on a brief mount-time load, EmptyState
@@ -57,21 +56,6 @@ export interface Applicant {
   decision: Decision;
 }
 
-const MOCK_APPLICANTS: Applicant[] = [
-  { id: 'AP-2051', name: 'Ngozi Achebe', applyingFor: 'JSS 1', submitted: '12 Mar', guardian: 'Mrs. E. Achebe', stage: 'decision', decision: 'accepted' },
-  { id: 'AP-2052', name: 'Bola Adewale', applyingFor: 'JSS 1', submitted: '12 Mar', guardian: 'Mr. T. Adewale', stage: 'interview', decision: 'pending' },
-  { id: 'AP-2058', name: 'Kelechi Obi', applyingFor: 'JSS 1', submitted: '13 Mar', guardian: 'Dr. U. Obi', stage: 'application', decision: 'pending' },
-  { id: 'AP-2061', name: 'Aisha Lawal', applyingFor: 'SSS 1', submitted: '14 Mar', guardian: 'Alhaja R. Lawal', stage: 'decision', decision: 'waitlisted' },
-  { id: 'AP-2064', name: 'Daniel Okon', applyingFor: 'SSS 1', submitted: '15 Mar', guardian: 'Mr. G. Okon', stage: 'decision', decision: 'accepted' },
-  { id: 'AP-2070', name: 'Mary Johnson', applyingFor: 'JSS 1', submitted: '16 Mar', guardian: 'Mrs. F. Johnson', stage: 'interview', decision: 'pending' },
-  { id: 'AP-2073', name: 'Yusuf Garba', applyingFor: 'JSS 2', submitted: '17 Mar', guardian: 'Mr. I. Garba', stage: 'decision', decision: 'rejected' },
-  { id: 'AP-2080', name: 'Esther Bassey', applyingFor: 'SSS 1', submitted: '18 Mar', guardian: 'Mrs. V. Bassey', stage: 'application', decision: 'pending' },
-  { id: 'AP-2085', name: 'Tobi Williams', applyingFor: 'JSS 1', submitted: '18 Mar', guardian: 'Mr. A. Williams', stage: 'interview', decision: 'pending' },
-  { id: 'AP-2090', name: 'Hauwa Abdullahi', applyingFor: 'SSS 2', submitted: '19 Mar', guardian: 'Mr. S. Abdullahi', stage: 'decision', decision: 'accepted' },
-  { id: 'AP-2093', name: 'Chinedu Nnamdi', applyingFor: 'JSS 1', submitted: '20 Mar', guardian: 'Mrs. O. Nnamdi', stage: 'decision', decision: 'waitlisted' },
-  { id: 'AP-2097', name: 'Blessing Eze', applyingFor: 'JSS 2', submitted: '21 Mar', guardian: 'Pastor C. Eze', stage: 'application', decision: 'pending' },
-];
-
 const STAGE_META: Record<Stage, { label: string; tone: StateTone }> = {
   application: { label: 'Application', tone: 'neutral' },
   interview: { label: 'Interview', tone: 'info' },
@@ -111,13 +95,8 @@ interface Props {
 }
 
 export function EnrollmentClient({ applicants }: Props) {
-  const APPLICANTS = applicants.length > 0 ? applicants : MOCK_APPLICANTS;
-
-  const [loading, setLoading] = React.useState(true);
-  React.useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500);
-    return () => clearTimeout(t);
-  }, []);
+  const APPLICANTS = applicants;
+  const loading = false;
 
   const [query, setQuery] = React.useState('');
   const [stageFilter, setStageFilter] = React.useState('all');
@@ -251,9 +230,15 @@ export function EnrollmentClient({ applicants }: Props) {
           emptyState={
             <EmptyState
               compact
-              title="No applications match your filters"
-              description="Try a different search term, or clear the filters to see the full pipeline."
-              primaryAction={{ label: 'Clear filters', onClick: resetFilters }}
+              title={hasFilters ? 'No applications match your filters' : 'No applications yet'}
+              description={
+                hasFilters
+                  ? 'Try a different search term, or clear the filters to see the full pipeline.'
+                  : 'Run the dev operational seed or create an admission application.'
+              }
+              primaryAction={
+                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+              }
             />
           }
           footer={
