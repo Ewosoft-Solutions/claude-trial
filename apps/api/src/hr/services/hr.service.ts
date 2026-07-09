@@ -49,6 +49,59 @@ export class HrService {
     return { totalRecords: records.length, statusCounts, totalGross, totalNet };
   }
 
+  /**
+   * Staff directory: one row per distinct staff member seen in payroll, with
+   * their latest role snapshot and most recent pay period. Derived from
+   * StaffPayrollRecord — there is no dedicated employee table, so payroll is
+   * the authoritative roster of paid staff.
+   */
+  async directory(tenantId: string) {
+    const records = await this.client.staffPayrollRecord.findMany({
+      where: { tenantId },
+      select: {
+        staffUserTenantId: true,
+        staffName: true,
+        role: true,
+        payPeriod: true,
+        status: true,
+      },
+      orderBy: { payPeriod: 'desc' },
+    });
+
+    const byStaff = new Map<
+      string,
+      {
+        staffUserTenantId: string;
+        staffName: string;
+        role: string | null;
+        latestPayPeriod: string;
+        latestStatus: string;
+        recordCount: number;
+      }
+    >();
+
+    for (const r of records) {
+      const existing = byStaff.get(r.staffUserTenantId);
+      if (!existing) {
+        // First (most recent, since ordered desc) wins for the snapshot fields.
+        byStaff.set(r.staffUserTenantId, {
+          staffUserTenantId: r.staffUserTenantId,
+          staffName: r.staffName,
+          role: r.role ?? null,
+          latestPayPeriod: r.payPeriod,
+          latestStatus: r.status,
+          recordCount: 1,
+        });
+      } else {
+        existing.recordCount += 1;
+      }
+    }
+
+    return Array.from(byStaff.values()).sort((a, b) =>
+      a.staffName.localeCompare(b.staffName),
+    );
+  }
+
   async createRecord(tenantId: string, dto: CreatePayrollRecordDto, userId: string) {
     const deductions = dto.deductions ?? 0;
     return this.client.staffPayrollRecord.create({

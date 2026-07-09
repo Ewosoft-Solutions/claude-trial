@@ -58,6 +58,36 @@ export class LibraryService {
     return { totalBooks: books.length, statusCounts, categoryCounts };
   }
 
+  /**
+   * Loans view: books currently on loan, with borrower + due date and an
+   * overdue flag. Derived from LibraryBook (status 'on_loan') — there is no
+   * separate loan table; a checkout stamps the book row.
+   */
+  async loans(tenantId: string) {
+    const books = await this.client.libraryBook.findMany({
+      where: { tenantId, status: 'on_loan' },
+      include: { student: { select: STUDENT_SELECT } },
+      orderBy: [{ dueDate: 'asc' }],
+    });
+
+    const now = Date.now();
+    return books.map((b) => ({
+      id: b.id,
+      title: b.title,
+      author: b.author,
+      category: b.category ?? null,
+      copyLabel: b.copyLabel ?? null,
+      dueDate: b.dueDate ? b.dueDate.toISOString() : null,
+      overdue: b.dueDate ? b.dueDate.getTime() < now : false,
+      borrower: b.student
+        ? {
+            name: `${b.student.userTenant.user.firstName} ${b.student.userTenant.user.lastName}`,
+            studentNumber: b.student.studentNumber,
+          }
+        : null,
+    }));
+  }
+
   async createBook(tenantId: string, dto: CreateBookDto, userId: string) {
     return this.client.libraryBook.create({
       data: {

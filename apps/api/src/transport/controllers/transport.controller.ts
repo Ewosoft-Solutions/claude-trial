@@ -31,6 +31,20 @@ export class TransportController {
     return this.transportService.routeSummary(req.user.tenantId);
   }
 
+  @Get('routes')
+  @RequirePermissions(['transportation.view'])
+  @ApiOperation({ summary: 'Routes view (one row per route with riders/vehicles/stops)' })
+  async routes(@Request() req: AuthenticatedRequest) {
+    return this.transportService.routes(req.user.tenantId);
+  }
+
+  @Get('pickups')
+  @RequirePermissions(['transportation.view'])
+  @ApiOperation({ summary: 'Pickup schedule (assignments with a pickup time or stop)' })
+  async pickups(@Request() req: AuthenticatedRequest) {
+    return this.transportService.pickups(req.user.tenantId);
+  }
+
   @Post('assignments')
   @RequirePermissions(['transportation.students'])
   @ApiOperation({ summary: 'Assign a student to a route (creates or replaces their assignment)' })

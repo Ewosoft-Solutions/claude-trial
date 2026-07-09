@@ -34,6 +34,13 @@ export class HrController {
     return this.hrService.payrollSummary(req.user.tenantId, payPeriod);
   }
 
+  @Get('directory')
+  @RequirePermissions(['staff.view'])
+  @ApiOperation({ summary: 'Staff directory (distinct staff seen in payroll)' })
+  async directory(@Request() req: AuthenticatedRequest) {
+    return this.hrService.directory(req.user.tenantId);
+  }
+
   @Post('payroll')
   @RequirePermissions(['payroll.process'])
   @ApiOperation({ summary: 'Create a payroll record for a staff member' })

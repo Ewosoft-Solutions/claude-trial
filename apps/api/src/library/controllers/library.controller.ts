@@ -31,6 +31,13 @@ export class LibraryController {
     return this.libraryService.catalogSummary(req.user.tenantId);
   }
 
+  @Get('loans')
+  @RequirePermissions(['library.view'])
+  @ApiOperation({ summary: 'Books currently on loan (borrower, due date, overdue)' })
+  async loans(@Request() req: AuthenticatedRequest) {
+    return this.libraryService.loans(req.user.tenantId);
+  }
+
   @Post('books')
   @RequirePermissions(['library.books.create'])
   @ApiOperation({ summary: 'Add a book copy to the catalog' })
