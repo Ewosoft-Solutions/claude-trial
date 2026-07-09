@@ -59,7 +59,8 @@ Both remaining AI follow-ups are done (details in `AI_HANDOFF.md` pt. 5):
 Verification (Node 22.21.1 — the active shell defaults to v20.18.0, below the
 ≥20.19 floor, so `nvm use` first): api build ✅, api unit **192/192** ✅, api
 lint 0 errors ✅; web check-types/lint/build ✅, web vitest **38/38** ✅; ui
-vitest **85/85** ✅. Not committed yet — the working tree holds these changes.
+vitest **85/85** ✅. Committed and pushed to `origin/claude` as
+`6515df5 feat(ai): close Step 3 polish + Step 2 term context`; PR #1 updated.
 
 ## Not Closed From Previous Steps
 
@@ -68,9 +69,9 @@ vitest **85/85** ✅. Not committed yet — the working tree holds these changes
 
 ## Do Next
 
-1. Commit/push this session's Step 3 + Step 2 work if not already done.
-2. Otherwise continue only with explicit follow-up work — the parked non-AI
-   items above, at the user's direction.
+1. All AI-integration follow-ups are closed and pushed. Continue only with
+   explicit follow-up work — the parked non-AI items above, at the user's
+   direction.
 
 ## Read First
 
