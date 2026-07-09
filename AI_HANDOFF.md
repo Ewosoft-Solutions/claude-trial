@@ -4,6 +4,63 @@ Last Updated: 2026-07-09
 
 ---
 
+## Session Summary (2026-07-09, pt. 5) — Step 3 polish + Step 2 term context closed
+
+The two remaining "not closed" AI items are done: the Step 3 assistant
+markdown/chart polish and the Step 2 current-term system-prompt context.
+
+**Step 3 polish (frontend, `packages/ui`):**
+- New `MarkdownLite` renderer (`custom/chat/markdown-lite.tsx`): a tiny,
+  dependency-free, `dangerouslySetInnerHTML`-free markdown subset —
+  paragraphs, soft breaks, unordered/ordered lists, ATX headings, and inline
+  bold/italic/`code`/links (links behind an http(s)/mailto allowlist; anything
+  else renders as plain label text). `ChatMessageBubble` now routes assistant
+  **string** content through it; user text and consumer-supplied nodes stay
+  verbatim, so only model replies get formatted.
+- Chart y-axis clipping fix: new shared `formatCompactNumber`
+  (`lib/format.ts`) is the default numeric-axis `tickFormatter` on
+  `CategoryBarChart` + `TrendChart` (565000 → "565K", 1.2M, etc.), and the
+  numeric axis widened 32 → 44px. Both wrappers gained an optional
+  `valueFormatter` override. Large ₦ figures no longer clip (also fixes
+  `/reports`). Note: the `*/` in a doc-comment example first broke the oxc
+  parser — comments in this file avoid the literal token.
+- Tests: +3 chat tests (markdown renders as elements; user text stays
+  verbatim; non-http links dropped but labels kept). ui vitest **85/85**.
+
+**Step 2 term context (backend, `apps/api`):**
+- New `CurrentTermService`
+  (`academic-structure/services/current-term.service.ts`, exported from
+  `AcademicStructureModule`): read-only, side-effect-free, explicitly
+  tenant-filtered so it runs safely outside a tenant transaction (e.g. while
+  building a system prompt). `getCurrentTerm` resolves the current academic
+  year (default → active → most recently started) then the current term
+  (spans today → active → next upcoming → most recent). `describeForPrompt`
+  returns a one-line string and never throws (degrades to `null`).
+- `AiModule` now imports `AcademicStructureModule`; `AnalyticsChatService`
+  injects `CurrentTermService` and prepends the term line to the **volatile**
+  (post-cache-breakpoint) system block, so the frozen cacheable prefix stays
+  warm. When there's no term/year, the line is simply omitted.
+- Tests: new `current-term.service.spec.ts` (6 cases) + 1 analytics-chat case
+  asserting the term line lands in the volatile block and not the cacheable
+  prefix. api unit **192/192**.
+
+**Verification (all green, Node 22.21.1 — active shell was v20.18.0, below the
+≥20.19 floor; had to `nvm use`):**
+- api build ✅, api unit **192/192** ✅, api lint 0 errors (pre-existing
+  warnings) ✅
+- web check-types ✅, web lint ✅, web vitest **38/38** ✅, web build ✅
+- ui vitest **85/85** ✅
+- No live browser acceptance: `/assistant` needs the authenticated app + AI
+  backend (paid), and `preview_start` is TCC-blocked under `~/Documents`
+  anyway (see Known Issues). The changes are cosmetic/deterministic and unit
+  covered.
+
+**Still open:** only parked non-AI items (PWA/offline/push, subdomain tenant
+resolution, Step 8 sub-surfaces, `app_runtime` runtime cutover). Not committed
+yet — working tree holds this session's changes.
+
+---
+
 ## Session Summary (2026-07-09, pt. 4) — Step 5 live acceptance closed
 
 Step 5 live acceptance is now complete with the real spend-capped
@@ -36,11 +93,11 @@ Step 5 live acceptance is now complete with the real spend-capped
   used `pnpm --filter api exec jest --config ./test/jest-e2e.json ...` from a
   small Node wrapper that loads `apps/api/.env` before Jest setup.
 
-**Still open:**
-- Step 3 polish remains: assistant markdown-lite rendering and chart y-axis
-  clipping for large currency values.
-- Step 2 term-context-in-system-prompt remains pending because there is still no
-  "current term" read service.
+**Still open:** *(as of pt. 4 — the first two were closed in pt. 5 above)*
+- ~~Step 3 polish: assistant markdown-lite rendering and chart y-axis
+  clipping.~~ **DONE (pt. 5).**
+- ~~Step 2 term-context-in-system-prompt (no "current term" read service).~~
+  **DONE (pt. 5) — `CurrentTermService`.**
 - Parked non-AI items remain parked (PWA/offline/push, subdomain tenant
   resolution, Step 8 sub-surfaces, runtime cutover to `app_runtime`, etc.).
 
@@ -131,9 +188,9 @@ usage view.
 - Step 5 live browser acceptance was still pending here, but was closed in the
   2026-07-09 pt. 4 session above.
 - Step 3 polish candidates remain: assistant markdown-lite rendering and chart
-  y-axis clipping for large currency values.
+  y-axis clipping for large currency values. *(Closed 2026-07-09 pt. 5.)*
 - Step 2 term-context-in-system-prompt remains pending because there is still no
-  "current term" read service.
+  "current term" read service. *(Closed 2026-07-09 pt. 5 — `CurrentTermService`.)*
 - Parked non-AI items remain parked (PWA/offline/push, subdomain tenant
   resolution, Step 8 sub-surfaces, runtime cutover to `app_runtime`, etc.).
 
@@ -667,9 +724,12 @@ login is two-step — `/auth/login` returns a pre-auth token, then
 
 - Assistant text renders as plain text — model markdown (`**bold**`, lists)
   shows literally. Markdown-lite rendering is a candidate Step 6 polish.
+  *(RESOLVED 2026-07-09 pt. 5 — `MarkdownLite`.)*
 - Large ₦ values clip on chart y-axes (the wrappers' fixed 32px axis width —
   pre-existing, also affects /reports). Cosmetic.
+  *(RESOLVED 2026-07-09 pt. 5 — compact-number tick formatter + 44px width.)*
 - Term context in the system prompt still absent (backend note from Step 2).
+  *(RESOLVED 2026-07-09 pt. 5 — `CurrentTermService`.)*
 - The `web` preview config serves a production snapshot — after source edits:
   `pnpm --filter web build`, re-copy `.next/standalone` + `.next/static` into
   `/tmp/swe-web`, restart. `/tmp/swe-run.cjs` was recreated this session

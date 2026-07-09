@@ -15,6 +15,7 @@ import * as React from 'react';
 
 import { ChatChart } from '@workspace/ui/custom/chat/chat-chart';
 import { ChatTypingIndicator } from '@workspace/ui/custom/chat/chat-typing-indicator';
+import { MarkdownLite } from '@workspace/ui/custom/chat/markdown-lite';
 import { cn } from '@workspace/ui/lib/utils';
 import type { ChatChartSpec, ChatSender } from '@workspace/ui/types/chat.types';
 
@@ -44,6 +45,9 @@ export function ChatMessageBubble({
 }: ChatMessageBubbleProps) {
   const isUser = sender === 'user';
   const empty = children === undefined || children === null || children === '';
+  // Assistant replies arrive as a markdown string; render the small subset
+  // that shows up in chat. User text and consumer-supplied nodes stay verbatim.
+  const asMarkdown = !isUser && typeof children === 'string';
 
   return (
     <div
@@ -64,6 +68,8 @@ export function ChatMessageBubble({
       >
         {pending && empty ? (
           <ChatTypingIndicator label={pendingLabel} className="py-1" />
+        ) : asMarkdown ? (
+          <MarkdownLite text={children as string} />
         ) : (
           <div className="whitespace-pre-wrap break-words leading-relaxed">
             {children}

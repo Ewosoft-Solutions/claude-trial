@@ -12,6 +12,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { CommonModule } from '../common';
 import { AuthModule } from '../auth/auth.module';
+import { AcademicStructureModule } from '../academic-structure/academic-structure.module';
 import { AttendanceModule } from '../attendance/attendance.module';
 import { EventsModule } from '../events/events.module';
 import { FinanceModule } from '../finance/finance.module';
@@ -37,6 +38,7 @@ import { VoyageEmbeddingsService } from './embeddings/voyage-embeddings.service'
     CommonModule,
     AuthModule,
     ConfigModule.forFeature(aiConfig),
+    AcademicStructureModule,
     AttendanceModule,
     EventsModule,
     FinanceModule,

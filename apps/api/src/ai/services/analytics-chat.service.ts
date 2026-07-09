@@ -23,6 +23,7 @@ import type { AIQueryRequest } from './ai-mediator.service';
 import { AiThrottleService } from './ai-throttle.service';
 import { AiUsageService } from './ai-usage.service';
 import type { AiUsageLease } from './ai-usage.service';
+import { CurrentTermService } from '../../academic-structure/services/current-term.service';
 import { AnalyticsToolsService } from '../tools/analytics-tools.service';
 import type { AnalyticsTool } from '../tools/analytics-tool.types';
 import { LlmProviderFactory } from '../llm/llm-provider.factory';
@@ -137,6 +138,7 @@ export class AnalyticsChatService {
     private readonly throttleService: AiThrottleService,
     private readonly aiUsageService: AiUsageService,
     private readonly toolsService: AnalyticsToolsService,
+    private readonly currentTermService: CurrentTermService,
     private readonly llmFactory: LlmProviderFactory,
   ) {}
 
@@ -238,6 +240,9 @@ export class AnalyticsChatService {
     );
     const aiContext = this.permissionService.getAIMediatorContext(userContext);
     const callerName = await this.lookupCallerName(params.userId);
+    const termLine = await this.currentTermService.describeForPrompt(
+      params.tenantId,
+    );
 
     const auditRequest: AIQueryRequest = {
       query: params.message,
@@ -251,10 +256,12 @@ export class AnalyticsChatService {
     const system: LlmSystemPart[] = [
       { text: STABLE_SYSTEM_PROMPT, cache: true },
       {
-        // Volatile context AFTER the cache breakpoint. Date only — never a
-        // timestamp — so the block is stable within a day per user.
+        // Volatile context AFTER the cache breakpoint. Date (never a
+        // timestamp) + current term + caller identity — all stable within a
+        // day per user, so the cacheable prefix above stays warm.
         text:
           `Today's date: ${new Date().toISOString().slice(0, 10)}.\n` +
+          (termLine ? `${termLine}\n` : '') +
           `School (tenant) id: ${params.tenantId}.\n` +
           `Calling user: ${callerName ?? 'name unknown'} — ` +
           `clearance level ${userContext.clearanceLevel}, ` +

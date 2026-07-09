@@ -27,6 +27,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@workspace/ui/components/chart';
+import { formatCompactNumber } from '@workspace/ui/lib/format';
 import { cn } from '@workspace/ui/lib/utils';
 import type { ChartDatum, ChartSeries } from '@workspace/ui/types/chart.types';
 
@@ -66,6 +67,8 @@ export interface CategoryBarChartProps {
   height?: number;
   /** Format a category-axis tick value for display. */
   categoryFormatter?: (value: string) => string;
+  /** Format a numeric-axis tick. Defaults to compact notation (565K, 1.2M). */
+  valueFormatter?: (value: number) => string;
   className?: string;
   /** Accessible name for the chart region. */
   'aria-label'?: string;
@@ -80,6 +83,7 @@ export function CategoryBarChart({
   showLegend,
   height = 240,
   categoryFormatter,
+  valueFormatter = formatCompactNumber,
   className,
   'aria-label': ariaLabel,
 }: CategoryBarChartProps) {
@@ -114,7 +118,7 @@ export function CategoryBarChart({
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          tickFormatter={horizontal ? undefined : categoryFormatter}
+          tickFormatter={horizontal ? valueFormatter : categoryFormatter}
         />
         <YAxis
           type={horizontal ? 'category' : 'number'}
@@ -122,8 +126,8 @@ export function CategoryBarChart({
           tickLine={false}
           axisLine={false}
           tickMargin={8}
-          width={horizontal ? 72 : 32}
-          tickFormatter={horizontal ? categoryFormatter : undefined}
+          width={horizontal ? 72 : 44}
+          tickFormatter={horizontal ? categoryFormatter : valueFormatter}
         />
         <ChartTooltip
           cursor={{ fill: 'var(--muted)', opacity: 0.5 }}

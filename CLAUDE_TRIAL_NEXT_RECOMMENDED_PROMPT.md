@@ -43,19 +43,34 @@ Step 5 live acceptance from 2026-07-09 pt. 4:
 - PR #1 body was refreshed with the Steps 1–6 summary and verification list.
   The AI rollout was committed and pushed to `origin/claude` as `aaa63db`.
 
+## 2026-07-09 pt. 5 — Step 3 polish + Step 2 term context CLOSED
+
+Both remaining AI follow-ups are done (details in `AI_HANDOFF.md` pt. 5):
+- **Step 3 polish** — new dependency-free `MarkdownLite`
+  (`packages/ui/src/custom/chat/markdown-lite.tsx`) renders assistant markdown
+  (bold/italic/`code`/lists/headings + allow-listed links); large ₦ chart
+  values no longer clip via a shared `formatCompactNumber` default tick
+  formatter + wider numeric axis on `CategoryBarChart`/`TrendChart`.
+- **Step 2 term context** — new `CurrentTermService`
+  (`apps/api/src/academic-structure/services/current-term.service.ts`), and
+  `AnalyticsChatService` prepends the current-term line to the volatile system
+  block.
+
+Verification (Node 22.21.1 — the active shell defaults to v20.18.0, below the
+≥20.19 floor, so `nvm use` first): api build ✅, api unit **192/192** ✅, api
+lint 0 errors ✅; web check-types/lint/build ✅, web vitest **38/38** ✅; ui
+vitest **85/85** ✅. Not committed yet — the working tree holds these changes.
+
 ## Not Closed From Previous Steps
 
-- Step 3 polish remains: assistant markdown-lite rendering and chart y-axis
-  clipping for large currency values.
-- Step 2 term context is still absent from the analytics system prompt because
-  no "current term" read service exists yet.
 - Non-AI parked items remain parked: PWA/offline/push, subdomain tenant
   resolution, Step 8 sub-surfaces, `app_runtime` full runtime cutover, etc.
 
 ## Do Next
 
-1. Continue only with explicit follow-up work: Step 3 polish, Step 2 term
-   context once a current-term read service exists, or parked non-AI items.
+1. Commit/push this session's Step 3 + Step 2 work if not already done.
+2. Otherwise continue only with explicit follow-up work — the parked non-AI
+   items above, at the user's direction.
 
 ## Read First
 

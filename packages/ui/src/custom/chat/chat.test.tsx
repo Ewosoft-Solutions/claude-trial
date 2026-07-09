@@ -64,6 +64,37 @@ describe('ChatMessageBubble', () => {
     );
     expect(screen.getByText('2 tools used')).toBeInTheDocument();
   });
+
+  it('renders assistant markdown (bold, code, lists) as elements', () => {
+    const { container } = render(
+      <ChatMessageBubble sender="assistant">
+        {'Enrollment is **420** students.\n\n- JSS1: 200\n- JSS2: `220`'}
+      </ChatMessageBubble>,
+    );
+    expect(container.querySelector('strong')?.textContent).toBe('420');
+    expect(container.querySelector('code')?.textContent).toBe('220');
+    expect(container.querySelectorAll('ul li')).toHaveLength(2);
+  });
+
+  it('leaves user text verbatim (no markdown parsing)', () => {
+    const { container } = render(
+      <ChatMessageBubble sender="user">Show me **fees**</ChatMessageBubble>,
+    );
+    expect(container.querySelector('strong')).toBeNull();
+    expect(screen.getByText('Show me **fees**')).toBeInTheDocument();
+  });
+
+  it('drops non-http links but keeps their label text', () => {
+    const { container } = render(
+      <ChatMessageBubble sender="assistant">
+        {'See [the report](https://ex.com) not [evil](javascript:alert(1))'}
+      </ChatMessageBubble>,
+    );
+    const links = container.querySelectorAll('a');
+    expect(links).toHaveLength(1);
+    expect(links[0]?.getAttribute('href')).toBe('https://ex.com');
+    expect(screen.getByText(/evil/)).toBeInTheDocument();
+  });
 });
 
 describe('ChatThread', () => {

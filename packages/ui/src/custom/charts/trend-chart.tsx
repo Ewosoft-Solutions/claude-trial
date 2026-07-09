@@ -29,6 +29,7 @@ import {
   ChartTooltip,
   ChartTooltipContent,
 } from '@workspace/ui/components/chart';
+import { formatCompactNumber } from '@workspace/ui/lib/format';
 import { cn } from '@workspace/ui/lib/utils';
 import type { ChartDatum, ChartSeries } from '@workspace/ui/types/chart.types';
 
@@ -68,6 +69,8 @@ export interface TrendChartProps {
   height?: number;
   /** Format an x-axis tick value for display. */
   xTickFormatter?: (value: string) => string;
+  /** Format a numeric y-axis tick. Defaults to compact notation (565K, 1.2M). */
+  valueFormatter?: (value: number) => string;
   className?: string;
   /** Accessible name for the chart region. */
   'aria-label'?: string;
@@ -82,6 +85,7 @@ export function TrendChart({
   showLegend,
   height = 240,
   xTickFormatter,
+  valueFormatter = formatCompactNumber,
   className,
   'aria-label': ariaLabel,
 }: TrendChartProps) {
@@ -131,7 +135,13 @@ export function TrendChart({
             minTickGap={24}
             tickFormatter={xTickFormatter}
           />
-          <YAxis tickLine={false} axisLine={false} tickMargin={8} width={32} />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={44}
+            tickFormatter={valueFormatter}
+          />
           <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
           {series.map((s) => (
             <Area
@@ -158,7 +168,13 @@ export function TrendChart({
             minTickGap={24}
             tickFormatter={xTickFormatter}
           />
-          <YAxis tickLine={false} axisLine={false} tickMargin={8} width={32} />
+          <YAxis
+            tickLine={false}
+            axisLine={false}
+            tickMargin={8}
+            width={44}
+            tickFormatter={valueFormatter}
+          />
           <ChartTooltip cursor={false} content={<ChartTooltipContent />} />
           {series.map((s) => (
             <Line

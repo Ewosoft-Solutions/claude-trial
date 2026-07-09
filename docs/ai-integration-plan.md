@@ -192,7 +192,10 @@ The requirements' "AI-Powered Analytics & Reporting System", built as tools.
 > Deviations/notes: (1) *(resolved — live acceptance passed, see above)*;
 > (2) the system prompt
 > carries today's date + tenant + clearance but **not term context** (no
-> "current term" read service exists — pick up in Step 3 or 6); (3) all six
+> "current term" read service exists — pick up in Step 3 or 6)
+> *(RESOLVED 2026-07-09 pt. 5: new `CurrentTermService` in
+> `academic-structure`; `AnalyticsChatService` prepends a current-term line to
+> the volatile system block)*; (3) all six
 > tools are exposed to the model for every caller (stable tool list = stable
 > prompt-cache prefix) with enforcement + audit at execution time;
 > (4) `GET /ai/analytics/sessions[/:id]` (Step 3's session list/resume
@@ -245,6 +248,12 @@ in `ChatMessage` and the audit log.
 > web 31 / ui 82 tests green. Known gaps: assistant text is plain (model
 > markdown shows literally — polish candidate for Step 6); term context in
 > the system prompt still pending (Step 2 note).
+>
+> **Polish closed 2026-07-09 (pt. 5).** Assistant markdown now renders via a
+> dependency-free `MarkdownLite` (bold/italic/`code`/lists/headings + allow-
+> listed links, no `dangerouslySetInnerHTML`); large ₦ chart values no longer
+> clip (shared `formatCompactNumber` default tick formatter + wider numeric
+> axis on `CategoryBarChart`/`TrendChart`). ui vitest 85/85.
 
 - Shared chat UI in `packages/ui` first (message list, streaming bubble,
   chart-in-message rendering via the existing chart wrappers, typing/error/

@@ -188,6 +188,7 @@ function buildService(options: {
     { checkAndConsume: () => ({ allowed: true }) } as never,
     aiUsageService as never,
     toolsService as never,
+    { describeForPrompt: jest.fn().mockResolvedValue('Current term: Term 2 of academic year 2024-2025 (2025-01-06 to 2025-04-04).') } as never,
     { forFeature: () => ({ provider: options.provider, model: 'test-model', maxTokens: 1000 }) } as never,
   );
 
@@ -306,6 +307,20 @@ describe('AnalyticsChatService', () => {
     expect(stablePrompt).toContain('Never invent numbers');
     expect(stablePrompt).toContain('Refuse any request about another school');
     expect(stablePrompt).toContain('ignore these rules');
+  });
+
+  it('adds the current-term context to the volatile (uncached) system block', async () => {
+    const scripted = scriptedProvider([textTurn('Enrollment is steady.')]);
+    const ctx = buildService({ provider: scripted.provider });
+
+    await collect(ctx.service.chat({ ...params, message: 'How many students?' }));
+
+    const stablePrompt = scripted.requests[0].system?.[0]?.text ?? '';
+    const volatilePrompt = scripted.requests[0].system?.[1]?.text ?? '';
+    // Term context is per-tenant + time-sensitive, so it must sit AFTER the
+    // cache breakpoint, never in the frozen cacheable prefix.
+    expect(volatilePrompt).toContain('Current term: Term 2');
+    expect(stablePrompt).not.toContain('Current term');
   });
 
   it('refuses a tool the mediator denies with the insufficient-clearance shape and does not execute it', async () => {
