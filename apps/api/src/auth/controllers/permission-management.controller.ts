@@ -8,6 +8,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -30,6 +31,7 @@ import {
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { DatabaseService } from '../../common/database/database.service';
+import { PermissionPoolService } from '../services/permission-pool.service';
 import { RoleType } from '@workspace/api';
 import type { AuthenticatedRequest } from '../middleware';
 
@@ -43,6 +45,11 @@ export class AssignPermissionPoolsToRoleDto {
   poolIds: string[];
 }
 
+/** Gate 4: change a tenant permission pool's clearance level. */
+export class UpdatePoolClearanceDto {
+  clearanceLevel: number;
+}
+
 /**
  * Permission Management Controller
  *
@@ -53,7 +60,10 @@ export class AssignPermissionPoolsToRoleDto {
 @UseGuards(JwtAuthGuard, TenantContextGuard)
 @ApiBearerAuth('JWT-auth')
 export class PermissionManagementController {
-  constructor(private readonly dbService: DatabaseService) {}
+  constructor(
+    private readonly dbService: DatabaseService,
+    private readonly permissionPoolService: PermissionPoolService,
+  ) {}
 
   /**
    * Get all permissions (12.5)
@@ -274,5 +284,35 @@ export class PermissionManagementController {
         },
       },
     });
+  }
+
+  /**
+   * Update a tenant permission pool's clearance level (Gate 4).
+   *
+   * PATCH /permissions/pool/:poolId/clearance
+   *
+   * Re-validates that every role currently referencing the pool still
+   * out-ranks (or equals) the pool's new level (reject-and-list), so raising
+   * a pool's clearance surfaces the conflict instead of silently dropping the
+   * pool's permissions from under-clearance roles.
+   */
+  @Patch('pool/:poolId/clearance')
+  @HttpCode(HttpStatus.OK)
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: "Update a permission pool's clearance level (Gate 4)" })
+  @ApiResponse({ status: 200, description: 'Pool clearance updated' })
+  async updatePoolClearance(
+    @Param('poolId') poolId: string,
+    @Body() data: UpdatePoolClearanceDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const tenantId = req.userContext?.tenantId;
+    if (!tenantId) {
+      throw new Error('Tenant context required');
+    }
+    return this.permissionPoolService.updatePoolClearance(
+      this.dbService.client,
+      { poolId, tenantId, newClearanceLevel: data.clearanceLevel },
+    );
   }
 }

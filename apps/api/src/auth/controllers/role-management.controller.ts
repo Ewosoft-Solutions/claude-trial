@@ -8,6 +8,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -42,6 +43,11 @@ export class CreateCustomRoleDto {
   clearanceLevel: number;
   permissionPoolIds: string[];
   permissionIds?: string[];
+}
+
+/** Gate 4: change a custom role's clearance level. */
+export class UpdateRoleClearanceDto {
+  clearanceLevel: number;
 }
 
 /**
@@ -126,14 +132,10 @@ export class RoleManagementController {
    *
    * POST /roles
    *
-   * NOTE: There is intentionally no update endpoint for a role's
-   * clearanceLevel (or for a PermissionPool's clearanceLevel) yet. Before
-   * adding one, see "Clearance Enforcement Gates" (Gate 4) in
-   * requirements/role-permissions-management.md — it must re-validate
-   * every RolePermissionPool row the change would affect, or the
-   * resolution-time floor in TenantQueriesService.resolveRolePoolPermissions
-   * will silently narrow a role's permissions instead of surfacing the
-   * conflict to the admin who caused it.
+   * A role's clearanceLevel is changed through PATCH /roles/:id/clearance
+   * below, which applies Gate 4 (update-time consistency) from
+   * requirements/role-permissions-management.md — a pool's clearanceLevel
+   * likewise through PATCH /permissions/pool/:id/clearance.
    */
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -186,5 +188,38 @@ export class RoleManagementController {
     };
 
     return this.roleService.createCustomRole(prisma, input);
+  }
+
+  /**
+   * Update a custom role's clearance level (Gate 4).
+   *
+   * PATCH /roles/:id/clearance
+   *
+   * Re-validates that no pool already assigned to the role exceeds the new
+   * level (reject-and-list), so lowering a role's clearance surfaces the
+   * conflict instead of silently narrowing its permissions.
+   */
+  @Patch(':id/clearance')
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: "Update a custom role's clearance level (Gate 4)" })
+  @ApiResponse({ status: 200, description: 'Role clearance updated' })
+  async updateRoleClearance(
+    @Param('id') id: string,
+    @Body() data: UpdateRoleClearanceDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    const prisma = this.dbService.client;
+    const context = await this.permissionService.getUserPermissionContext(
+      prisma,
+      user.userId,
+      user.tenantId,
+      user.profileId,
+    );
+    return this.roleService.updateRoleClearance(prisma, {
+      roleId: id,
+      tenantId: user.tenantId,
+      newClearanceLevel: data.clearanceLevel,
+      actorClearanceLevel: context?.clearanceLevel ?? 0,
+    });
   }
 }

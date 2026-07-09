@@ -5,7 +5,12 @@
  * Implements item 4.12.
  */
 
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
 import { AuditAction } from 'src/common';
 
@@ -217,5 +222,66 @@ export class PermissionPoolService {
         action: pp.permission.action as AuditAction,
       })),
     }));
+  }
+
+  /**
+   * Gate 4 (pool side) — change a permission pool's clearance level with the
+   * update-time consistency check from
+   * requirements/role-permissions-management.md.
+   *
+   * Raising a pool's clearance can strand roles that reference it but now sit
+   * below the pool's new level; rather than let Gate 3 silently drop the
+   * pool's permissions from those roles, reject-and-list the affected roles.
+   * Only tenant-owned pools are mutable — system pools are shared and immutable.
+   */
+  async updatePoolClearance(
+    prisma: PrismaClient,
+    input: { poolId: string; tenantId: string; newClearanceLevel: number },
+  ) {
+    const { poolId, tenantId, newClearanceLevel } = input;
+
+    if (
+      !Number.isInteger(newClearanceLevel) ||
+      newClearanceLevel < 0 ||
+      newClearanceLevel > 10
+    ) {
+      throw new BadRequestException(
+        'Permission pool clearance must be an integer between 0 and 10',
+      );
+    }
+
+    const pool = await prisma.permissionPool.findUnique({
+      where: { id: poolId },
+      include: { rolePools: { include: { role: true } } },
+    });
+    if (!pool) {
+      throw new NotFoundException('Permission pool not found');
+    }
+    if (pool.isSystemPool || pool.tenantId !== tenantId) {
+      throw new ForbiddenException(
+        'System permission pools cannot be modified',
+      );
+    }
+
+    const conflictingRoles = pool.rolePools
+      .map((rp) => rp.role)
+      .filter((role) => role.clearanceLevel < newClearanceLevel)
+      .map((role) => ({
+        id: role.id,
+        name: role.name,
+        clearanceLevel: role.clearanceLevel,
+      }));
+
+    if (conflictingRoles.length > 0) {
+      throw new BadRequestException({
+        message: `Cannot raise pool clearance to ${newClearanceLevel}: ${conflictingRoles.length} assigned role(s) fall below it. Detach the pool from them first.`,
+        conflictingRoles,
+      });
+    }
+
+    return prisma.permissionPool.update({
+      where: { id: poolId },
+      data: { clearanceLevel: newClearanceLevel },
+    });
   }
 }
