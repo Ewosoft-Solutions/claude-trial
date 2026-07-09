@@ -41,7 +41,7 @@ Step 5 live acceptance from 2026-07-09 pt. 4:
 - `apps/api/test/ai-academic-live.e2e-spec.ts` was updated for current
   `Enrollment.termId` fixture shape and a less brittle non-leak assertion.
 - PR #1 body was refreshed with the Steps 1–6 summary and verification list.
-  Note: the AI work is still in the local dirty tree until committed/pushed.
+  The AI rollout was committed and pushed to `origin/claude` as `aaa63db`.
 
 ## Not Closed From Previous Steps
 
@@ -54,9 +54,7 @@ Step 5 live acceptance from 2026-07-09 pt. 4:
 
 ## Do Next
 
-1. Commit/push the local AI Steps 1–6 work when the user wants the remote PR
-   diff to match the refreshed body.
-2. Continue only with explicit follow-up work: Step 3 polish, Step 2 term
+1. Continue only with explicit follow-up work: Step 3 polish, Step 2 term
    context once a current-term read service exists, or parked non-AI items.
 
 ## Read First

@@ -19,9 +19,8 @@ Step 5 live acceptance is now complete with the real spend-capped
 - Relaxed the cross-lesson non-leak assertion to allow the assistant to repeat
   the student's own query term while still forbidding lesson-A facts/citations.
 - Refreshed PR #1's body with the Steps 1-6 AI summary and verification list.
-  Because `claude` currently matches `origin/claude` and the AI work is still in
-  the local dirty tree, the PR body includes an explicit note that the AI diff
-  must be committed/pushed before reviewer diff parity.
+  The AI rollout was committed and pushed to `origin/claude` as
+  `aaa63db feat(ai): complete AI integration rollout`.
 
 **Live verification:**
 - `AI_LIVE=1` focused live e2e with `.env` preloaded:
