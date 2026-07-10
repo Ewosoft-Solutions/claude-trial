@@ -450,6 +450,37 @@ describe('SCHOOL_NAV schoolType visibility', () => {
   });
 });
 
+/* ---- SCHOOL_NAV — feature toggles ------------------------------ */
+
+describe('SCHOOL_NAV feature toggles', () => {
+  it('hides the transport section when the module is toggled off', () => {
+    const viewer = makeViewer({
+      ...PRIMARY_OWNER,
+      // library + health enabled, transport OFF
+      enabledFeatures: new Set(['library', 'health', 'messaging', 'cafeteria']),
+    });
+    const { railItems } = resolveNavigation(SCHOOL_NAV, viewer, '/overview');
+    const keys = railItems.map((i) => i.key);
+    expect(keys).not.toContain('transport');
+    expect(keys).toContain('library');
+  });
+
+  it('shows the transport section when the module is enabled', () => {
+    const viewer = makeViewer({
+      ...PRIMARY_OWNER,
+      enabledFeatures: new Set(['transport', 'library', 'health']),
+    });
+    const { railItems } = resolveNavigation(SCHOOL_NAV, viewer, '/overview');
+    expect(railItems.map((i) => i.key)).toContain('transport');
+  });
+
+  it('leaves feature-gated sections visible when enabledFeatures is absent', () => {
+    // Back-compat: no enabledFeatures on the viewer → no feature gating.
+    const { railItems } = resolveNavigation(SCHOOL_NAV, PRIMARY_OWNER, '/overview');
+    expect(railItems.map((i) => i.key)).toContain('transport');
+  });
+});
+
 /* ---- PLATFORM_NAV ---------------------------------------------- */
 
 describe('PLATFORM_NAV', () => {

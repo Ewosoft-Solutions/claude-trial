@@ -47,6 +47,28 @@ export type SchoolType =
   | 'training_institute'
   | 'organization';
 
+/**
+ * A toggleable product module. A tenant can turn these on/off (Settings ›
+ * Modules); the toggle gates navigation and UI on top of role/clearance/
+ * schoolType. The list is the operational modules that are optional per
+ * institution — core academic surfaces are never toggled off.
+ */
+export type FeatureKey =
+  | 'messaging'
+  | 'transport'
+  | 'cafeteria'
+  | 'library'
+  | 'health';
+
+/** The canonical feature catalog, in display order. */
+export const FEATURE_KEYS: readonly FeatureKey[] = [
+  'messaging',
+  'transport',
+  'cafeteria',
+  'library',
+  'health',
+];
+
 /** Which navigation surface a config or node targets. */
 export type NavScope = 'platform' | 'school';
 
@@ -76,6 +98,13 @@ export interface ViewerContext {
   tenantId?: string;
   /** Active tenant's institution type, for polymorphic navigation. */
   schoolType?: SchoolType;
+  /**
+   * Modules the active tenant has enabled. When omitted, feature gating is
+   * skipped entirely (every feature-gated node is visible) — so existing
+   * callers that don't supply it are unaffected. When present, a node's
+   * `features` guard must be satisfied by this set.
+   */
+  enabledFeatures?: ReadonlySet<FeatureKey>;
 }
 
 /**
@@ -92,6 +121,11 @@ export interface NavAccess {
   roles?: readonly RoleKey[];
   /** Visible only for these institution types (any match). */
   schoolTypes?: readonly SchoolType[];
+  /**
+   * Requires ALL of these modules to be enabled for the active tenant. Only
+   * enforced when the viewer carries an `enabledFeatures` set.
+   */
+  features?: readonly FeatureKey[];
   /** Requires AT LEAST ONE of these permission keys. */
   anyPermission?: readonly PermissionKey[];
   /** Requires ALL of these permission keys. */

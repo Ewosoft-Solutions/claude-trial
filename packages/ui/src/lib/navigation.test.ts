@@ -130,6 +130,24 @@ describe('canAccess', () => {
     expect(canAccess(access, makeViewer())).toBe(false);
   });
 
+  it('enforces feature toggles only when the viewer supplies enabledFeatures', () => {
+    const access: NavAccess = { features: ['transport'] };
+    // No enabledFeatures on the viewer → gate is skipped (back-compat).
+    expect(canAccess(access, makeViewer())).toBe(true);
+    // Feature enabled → visible.
+    expect(
+      canAccess(access, makeViewer({ enabledFeatures: new Set(['transport']) })),
+    ).toBe(true);
+    // Feature disabled (present set, not included) → hidden.
+    expect(
+      canAccess(access, makeViewer({ enabledFeatures: new Set(['library']) })),
+    ).toBe(false);
+    // Empty set → every feature-gated node hidden.
+    expect(
+      canAccess(access, makeViewer({ enabledFeatures: new Set() })),
+    ).toBe(false);
+  });
+
   it('requires any one of anyPermission', () => {
     const access: NavAccess = { anyPermission: ['students.view', 'students.edit'] };
     expect(

@@ -125,6 +125,9 @@ export function ViewerProvider({
       scope: session.scope,
       tenantId: session.scope === 'school' ? activeSchoolId : undefined,
       schoolType: activeSchool?.schoolType,
+      enabledFeatures: activeSchool
+        ? new Set(activeSchool.enabledFeatures)
+        : undefined,
     };
 
     // SessionSchool extends SchoolOption, so the list is assignable as-is;

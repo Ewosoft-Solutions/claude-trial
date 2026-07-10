@@ -280,6 +280,7 @@ export const SCHOOL_NAV: NavigationConfig = {
       access: {
         anyPermission: ['transportation.view'],
         schoolTypes: ['nursery', 'primary', 'secondary'],
+        features: ['transport'],
       },
       panelHeader: { icon: <Bus />, title: 'Transport' },
       groups: [
@@ -314,6 +315,7 @@ export const SCHOOL_NAV: NavigationConfig = {
       access: {
         anyPermission: ['library.view'],
         schoolTypes: ['primary', 'secondary', 'university', 'college'],
+        features: ['library'],
       },
       panelHeader: { icon: <BookMarked />, title: 'Library' },
       groups: [
@@ -385,7 +387,7 @@ export const SCHOOL_NAV: NavigationConfig = {
       label: 'Health',
       icon: <HeartPulse />,
       href: '/health',
-      access: { anyPermission: ['health.view'] },
+      access: { anyPermission: ['health.view'], features: ['health'] },
       panelHeader: { icon: <HeartPulse />, title: 'Health' },
       groups: [
         {

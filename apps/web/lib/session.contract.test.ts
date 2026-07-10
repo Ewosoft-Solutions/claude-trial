@@ -12,7 +12,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Session, SessionSchool } from './session';
 import type { UserProfile } from '@workspace/ui/types/shell.types';
-import type { PermissionKey, SchoolType } from '@workspace/ui/types/access.types';
+import type { FeatureKey, PermissionKey, SchoolType } from '@workspace/ui/types/access.types';
 
 // ── Simulate the raw /auth/me API response ──────────────────────────────────
 
@@ -38,6 +38,7 @@ const RAW_ME_RESPONSE = {
       initials: 'SJ',
       color: '#4f6df5',
       schoolType: 'secondary',
+      enabledFeatures: ['transport', 'library', 'health', 'messaging', 'cafeteria'],
       profiles: [
         { profileId: 'profile-1', role: 'Principal', caption: 'Principal' },
       ],
@@ -58,6 +59,7 @@ const RAW_ME_RESPONSE = {
     initials: string;
     color: string;
     schoolType: string;
+    enabledFeatures?: string[];
     profiles: Array<{ profileId: string; role: string; caption: string }>;
   }>;
 };
@@ -84,6 +86,7 @@ function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
         'Staff',
       color: s.color,
       schoolType: ((s.schoolType || 'secondary') as SchoolType),
+      enabledFeatures: (s.enabledFeatures ?? []) as FeatureKey[],
       profiles: s.profiles,
     })),
   };

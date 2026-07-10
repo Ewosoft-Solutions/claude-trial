@@ -36,6 +36,7 @@ import { DatabaseService, extractBearerToken } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
 import { SchoolSelectionService, type UserSchoolProfile } from '@workspace/api';
+import { resolveEnabledFeatures } from '../tenant/tenant-features';
 
 /**
  * Groups one-entry-per-profile UserSchoolProfile rows into one entry per
@@ -152,6 +153,23 @@ export class AuthController {
       userId,
     );
 
+    // Per-school enabled feature modules, for polymorphic navigation gating.
+    const schools = groupProfilesBySchool(profiles);
+    const settingsRows =
+      schools.length > 0
+        ? await prisma.tenant.findMany({
+            where: { id: { in: schools.map((s) => s.id) } },
+            select: { id: true, settings: true },
+          })
+        : [];
+    const settingsById = new Map(
+      settingsRows.map((r) => [r.id, r.settings] as const),
+    );
+    const schoolsWithFeatures = schools.map((s) => ({
+      ...s,
+      enabledFeatures: resolveEnabledFeatures(settingsById.get(s.id)),
+    }));
+
     const firstName = dbUser.firstName ?? '';
     const lastName = dbUser.lastName ?? '';
     const fullName = [firstName, lastName].filter(Boolean).join(' ') || dbUser.email;
@@ -180,7 +198,7 @@ export class AuthController {
        *  settings › Profile), distinct from activeProfileId — this is the
        *  stored preference, not necessarily the one live right now. */
       defaultProfileId: dbUser.defaultUserTenantId ?? undefined,
-      schools: groupProfilesBySchool(profiles),
+      schools: schoolsWithFeatures,
     };
   }
 

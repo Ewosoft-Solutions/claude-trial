@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TenantController } from './controllers/tenant.controller';
+import { TenantFeaturesController } from './controllers/tenant-features.controller';
 import { TenantService } from './services/tenant.service';
 import { TenantRegistrationService } from './services/tenant-registration.service';
 import { TenantStatusService } from './services/tenant-status.service';
@@ -34,7 +35,7 @@ import { AuthModule } from '../auth/auth.module';
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  controllers: [TenantController],
+  controllers: [TenantController, TenantFeaturesController],
   providers: [
     TenantService,
     TenantRegistrationService,

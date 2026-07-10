@@ -21,6 +21,7 @@
 
 import { cookies } from 'next/headers';
 import type {
+  FeatureKey,
   PermissionKey,
   SchoolType,
   ViewerContext,
@@ -43,6 +44,8 @@ export interface SessionSchoolProfile {
 export interface SessionSchool extends SchoolOption {
   schoolType: SchoolType;
   profiles?: SessionSchoolProfile[];
+  /** Modules enabled for this school (feature toggles). */
+  enabledFeatures: FeatureKey[];
 }
 
 /**
@@ -93,6 +96,7 @@ interface MeResponse {
     initials: string;
     color: string;
     schoolType: string;
+    enabledFeatures?: string[];
     profiles: Array<{ profileId: string; role: string; caption: string }>;
   }>;
 }
@@ -138,6 +142,7 @@ export async function getSession(): Promise<Session | null> {
           'Staff',
         color: s.color,
         schoolType: ((s.schoolType || 'secondary') as SchoolType),
+        enabledFeatures: (s.enabledFeatures ?? []) as FeatureKey[],
         profiles: s.profiles,
       })),
     };

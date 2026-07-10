@@ -75,6 +75,15 @@ export function canAccess(
     }
   }
 
+  // Feature gating only applies when the viewer supplies its enabled set;
+  // otherwise (undefined) feature-gated nodes stay visible for back-compat.
+  if (access.features && viewer.enabledFeatures) {
+    const enabled = viewer.enabledFeatures;
+    if (!access.features.every((feature) => enabled.has(feature))) {
+      return false;
+    }
+  }
+
   if (
     access.anyPermission &&
     !access.anyPermission.some((key) => viewer.permissions.has(key))
