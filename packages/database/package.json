@@ -30,6 +30,7 @@
     "db:rls:check": "prisma db execute --file prisma/scripts/rls-coverage-check.sql",
     "db:rls:enforce": "prisma db execute --file prisma/scripts/rls-enforce.sql",
     "db:rls:proof": "tsx prisma/scripts/rls-prisma-proof.ts",
+    "db:rls:verify": "tsx prisma/scripts/verify-app-runtime.ts",
     "db:studio": "prisma studio",
     "dev": "tsup src/* --watch",
     "prebuild": "npm run db:generate",

@@ -132,9 +132,20 @@ If you ever suspect drift, `app_runtime` should have **0** tables missing DML an
 
 ## 6. Prove isolation as `app_runtime`
 
-With `APP_RUNTIME_DATABASE_URL` set, run the isolation proof — it connects **as
-the restricted role** and asserts cross-tenant read/insert/update/delete are all
-blocked and the audited platform bypass works:
+With `APP_RUNTIME_DATABASE_URL` set, run the **activation smoke check** — it
+auto-reads the URL from `apps/api/.env` (no exports needed), connects **as the
+restricted role**, auto-discovers two tenants, and asserts it connects, the role
+is non-superuser/non-`BYPASSRLS`, the tenant GUC applies, own-tenant rows are
+visible, cross-tenant rows are not, and the audited platform bypass works. It
+never prints the secret; exit 0 = verified, non-zero = misconfigured:
+
+```bash
+corepack pnpm --filter @workspace/database run db:rls:verify
+```
+
+For the deeper proof (explicit tenants, write-path WITH CHECK, updateMany),
+`db:rls:proof` seeds its own rows and takes `APP_RUNTIME_DATABASE_URL` +
+`OWNER_DATABASE_URL` + `TA`/`TB`:
 
 ```bash
 corepack pnpm --filter @workspace/database run db:rls:proof
@@ -192,5 +203,5 @@ undo — it's a pure connection switch.
 - [ ] `db:seed` (+ `db:seed:dev:full` for local only).
 - [ ] `db:rls:check` passes.
 - [ ] `app_runtime` password set (5a); `APP_RUNTIME_DATABASE_URL` set (5b).
-- [ ] `db:rls:proof` passes; live smoke test clean.
+- [ ] `db:rls:verify` passes (activation smoke check); live smoke test clean.
 - [ ] CI has `APP_RUNTIME_DATABASE_URL`.
