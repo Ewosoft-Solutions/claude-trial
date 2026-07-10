@@ -94,6 +94,12 @@ run the app:
   audited `app.is_platform='on'` branch sees all — so RLS bites at runtime.
 Remaining to fully flip a given environment: set the env var above and confirm
 `app.is_platform='on'` is asserted only on authorized platform endpoints.
+- (5) Boot-time guard (`RlsEnforcementService`): the API self-tests RLS at
+  startup — probes the live runtime connection for a non-superuser,
+  non-`BYPASSRLS` role and a working tenant GUC. Fail-closed in production (or
+  `DB_RLS_ENFORCED=true`), loud-warn in dev. This catches the silent failure of
+  pointing `APP_RUNTIME_DATABASE_URL` at a privileged role. See
+  `docs/database-setup.md` §6.
 
 Made durable (so new tables adhere automatically):
 - CI guard `db:rls:check` (`rls-coverage-check.sql`) FAILS the build if any table

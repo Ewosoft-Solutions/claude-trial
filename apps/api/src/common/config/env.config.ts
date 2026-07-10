@@ -18,6 +18,14 @@ export interface EnvironmentConfig {
    * then bypassed (pre-cutover behaviour, no regression). See ADR-004.
    */
   APP_RUNTIME_DATABASE_URL?: string;
+  /**
+   * Force the boot-time RLS enforcement self-test to fail-closed (throw) instead
+   * of warn. When unset it defaults to ON in production and OFF elsewhere, so
+   * prod cannot silently boot without runtime tenant isolation. Set explicitly
+   * to override (e.g. `true` to enforce in staging, `false` to opt a prod-like
+   * box out deliberately). See RlsEnforcementService + ADR-004.
+   */
+  DB_RLS_ENFORCED?: boolean;
   NODE_ENV: 'development' | 'test' | 'production' | string;
   PORT: number;
   /**
@@ -88,6 +96,7 @@ export const envValidationSchema = Joi.object({
   APP_RUNTIME_DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgres', 'postgresql'] })
     .optional(),
+  DB_RLS_ENFORCED: Joi.boolean().truthy('true').falsy('false').optional(),
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production')
     .default('development'),

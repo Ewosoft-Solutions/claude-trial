@@ -9,6 +9,7 @@ import {
 } from './database.service';
 import { PrismaTransactionService } from './prisma-transaction.service';
 import { TenantDbService } from './tenant-db.service';
+import { RlsEnforcementService } from './rls-enforcement.service';
 
 /**
  * Database Module Options
@@ -115,6 +116,7 @@ export class DatabaseModule {
         DatabaseService,
         PrismaTransactionService,
         TenantDbService,
+        RlsEnforcementService,
       ],
       exports: [
         PRISMA_CLIENT_TOKEN,

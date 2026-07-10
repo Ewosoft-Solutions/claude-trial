@@ -32,6 +32,7 @@ staging/prod — never commit secrets). Full list + validation lives in
 |-----|----------|---------|
 | `DATABASE_URL` | **yes** | Owner connection. Used by migrations, seed, and platform/cross-tenant reads. `postgres(ql)://…`. |
 | `APP_RUNTIME_DATABASE_URL` | recommended | Restricted `app_runtime` connection for tenant-scoped requests, so **RLS enforces at runtime** (§5). When unset, tenant queries fall back to the owner connection and RLS is **bypassed** (works, but not enforced). See ADR-004. |
+| `DB_RLS_ENFORCED` | no | Forces the boot-time RLS self-test (§6) to **fail-closed** (refuse to boot) instead of warn. Defaults to **on in production**, off elsewhere. Set `true` to enforce in staging; `false` to opt a prod-like box out deliberately. |
 | `ENCRYPTION_KEY` | prod | AES-256-GCM key for encrypted columns (JWT/MFA secrets, BYOK AI keys). Base64 32 bytes preferred. A dev default is used if unset (NOT for prod). |
 | `JWT_SECRET` | prod | Signing secret (per-tenant JWT config may override). |
 | `DB_POOL_MIN` / `DB_POOL_MAX` | no | Pool sizing (defaults are Kubernetes/serverless-aware). |
@@ -144,6 +145,24 @@ two failure signatures:
 - `permission denied for table/sequence …` → a missing `app_runtime` grant (§5c).
 - `new row violates row-level security policy …` → a write path that didn't set
   the tenant GUC (`app.current_tenant_id`).
+
+### Boot-time enforcement (automatic)
+
+The API self-tests RLS at startup (`RlsEnforcementService`). When
+`APP_RUNTIME_DATABASE_URL` is configured it probes the live connection and
+confirms the role is **not** a superuser / `BYPASSRLS` role and that the tenant
+GUC takes effect. Outcomes:
+
+- **Production (or `DB_RLS_ENFORCED=true`)** — fail-closed: if `app_runtime`
+  isn't configured, or the probe shows a role that bypasses RLS, or the GUC
+  doesn't apply, **the app refuses to boot** with a clear error. This is the
+  "must-have" gate — prod cannot silently run without runtime isolation.
+- **Dev/test (default)** — logs a loud `⚠` warning and continues, so a fresh
+  clone or CI that hasn't provisioned `app_runtime` still runs.
+
+So the most dangerous misconfiguration — `APP_RUNTIME_DATABASE_URL` pointed at a
+privileged role, where you *think* RLS is on but it isn't — is caught at boot in
+enforcing environments rather than in production traffic.
 
 ---
 
