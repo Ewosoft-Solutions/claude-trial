@@ -6,7 +6,13 @@ import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import { PermissionGuard, RequirePermissions } from '../../auth/guards/permission.guard';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { EventsService } from '../services/events.service';
-import { CreateEventDto, ListEventsDto, UpdateEventDto } from '../dto/events.dto';
+import {
+  AddAttendeeDto,
+  CreateEventDto,
+  ListEventsDto,
+  UpdateAttendeeDto,
+  UpdateEventDto,
+} from '../dto/events.dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags(SwaggerTags.events.name)
@@ -36,6 +42,42 @@ export class EventsController {
   @ApiOperation({ summary: 'Create a school event' })
   async createEvent(@Body() dto: CreateEventDto, @Request() req: AuthenticatedRequest) {
     return this.eventsService.createEvent(req.user.tenantId, dto, req.user.profileId!);
+  }
+
+  @Get(':id/attendees')
+  @RequirePermissions(['events.view'])
+  @ApiOperation({ summary: 'Event roster (attendees for an event)' })
+  async listRoster(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.eventsService.listRoster(req.user.tenantId, id);
+  }
+
+  @Post(':id/attendees')
+  @RequirePermissions(['events.registration'])
+  @ApiOperation({ summary: 'Add an attendee to an event roster' })
+  async addAttendee(
+    @Param('id') id: string,
+    @Body() dto: AddAttendeeDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.eventsService.addAttendee(req.user.tenantId, id, dto, req.user.profileId!);
+  }
+
+  @Patch(':id/attendees/:attendeeId')
+  @RequirePermissions(['events.registration'])
+  @ApiOperation({ summary: 'Update an attendee (status, details)' })
+  async updateAttendee(
+    @Param('id') id: string,
+    @Param('attendeeId') attendeeId: string,
+    @Body() dto: UpdateAttendeeDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.eventsService.updateAttendee(
+      req.user.tenantId,
+      id,
+      attendeeId,
+      dto,
+      req.user.profileId!,
+    );
   }
 
   @Patch(':id')

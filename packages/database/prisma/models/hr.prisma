@@ -46,3 +46,41 @@ model StaffPayrollRecord {
   @@schema("hr")
   @@map("staff_payroll_records")
 }
+
+// StaffLeaveRequest - a staff member's leave request and its approval state.
+// Tenant-scoped (tenant_id NOT NULL) in the "hr" schema, RLS applied
+// explicitly so db:rls:check passes from day one.
+// leaveType: 'annual' | 'sick' | 'unpaid' | 'other'
+// status:    'pending' | 'approved' | 'rejected' | 'cancelled'
+model StaffLeaveRequest {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  staffUserTenantId String @map("staff_user_tenant_id") // loose reference to UserTenant
+  staffName         String @map("staff_name") // denormalized snapshot
+
+  leaveType String   @map("leave_type")
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  days      Int
+  reason    String?
+
+  status     String  @default("pending")
+  reviewedBy String? @map("reviewed_by")
+  reviewNote String? @map("review_note")
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([staffUserTenantId])
+  @@schema("hr")
+  @@map("staff_leave_requests")
+}

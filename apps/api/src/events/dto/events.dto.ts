@@ -66,3 +66,36 @@ export class ListEventsDto {
   @ApiPropertyOptional({ example: 'Sports Day', description: 'Free-text search across title' })
   @IsOptional() @IsString() query?: string;
 }
+
+export const ATTENDEE_TYPES = ['student', 'staff', 'parent', 'guest'] as const;
+export type AttendeeType = (typeof ATTENDEE_TYPES)[number];
+export const ATTENDEE_STATUSES = ['registered', 'attended', 'cancelled', 'waitlist'] as const;
+export type AttendeeStatus = (typeof ATTENDEE_STATUSES)[number];
+
+export class AddAttendeeDto {
+  @ApiProperty({ example: 'Chidera Okafor' })
+  @IsString() @IsNotEmpty() attendeeName!: string;
+
+  @ApiProperty({ enum: ATTENDEE_TYPES, example: 'student' })
+  @IsIn(ATTENDEE_TYPES) attendeeType!: AttendeeType;
+
+  @ApiPropertyOptional({ example: 'guardian@example.com' })
+  @IsOptional() @IsString() email?: string;
+
+  @ApiPropertyOptional({ enum: ATTENDEE_STATUSES, example: 'registered' })
+  @IsOptional() @IsIn(ATTENDEE_STATUSES) status?: AttendeeStatus;
+}
+
+export class UpdateAttendeeDto {
+  @ApiPropertyOptional({ example: 'Chidera Okafor' })
+  @IsOptional() @IsString() attendeeName?: string;
+
+  @ApiPropertyOptional({ enum: ATTENDEE_TYPES, example: 'guest' })
+  @IsOptional() @IsIn(ATTENDEE_TYPES) attendeeType?: AttendeeType;
+
+  @ApiPropertyOptional({ example: 'guardian@example.com' })
+  @IsOptional() @IsString() email?: string;
+
+  @ApiPropertyOptional({ enum: ATTENDEE_STATUSES, example: 'attended' })
+  @IsOptional() @IsIn(ATTENDEE_STATUSES) status?: AttendeeStatus;
+}

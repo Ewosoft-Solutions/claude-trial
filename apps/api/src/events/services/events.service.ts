@@ -1,7 +1,25 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
-import { CreateEventDto, ListEventsDto, UpdateEventDto } from '../dto/events.dto';
+import {
+  AddAttendeeDto,
+  CreateEventDto,
+  ListEventsDto,
+  UpdateAttendeeDto,
+  UpdateEventDto,
+} from '../dto/events.dto';
+
+const EVENT_ROSTER_SELECT = {
+  id: true,
+  title: true,
+  startDate: true,
+  capacity: true,
+  registeredCount: true,
+  status: true,
+} as const;
+
+/** Attendee statuses that count against an event's registered total. */
+const REGISTERED_STATUSES = ['registered', 'attended'];
 
 @Injectable()
 export class EventsService {
@@ -81,6 +99,87 @@ export class EventsService {
         ...(dto.registeredCount !== undefined && { registeredCount: dto.registeredCount }),
         updatedBy: userId,
       },
+    });
+  }
+
+  // ---- Roster (per-attendee) ------------------------------------------
+
+  /** An event with its attendee roster (registered/attended/waitlist/cancelled). */
+  async listRoster(tenantId: string, eventId: string) {
+    const event = await this.client.schoolEvent.findFirst({
+      where: { id: eventId, tenantId },
+      select: EVENT_ROSTER_SELECT,
+    });
+    if (!event) throw new NotFoundException('Event not found');
+
+    const attendees = await this.client.eventAttendee.findMany({
+      where: { tenantId, eventId },
+      orderBy: [{ attendeeName: 'asc' }],
+    });
+    return { event, attendees };
+  }
+
+  async addAttendee(
+    tenantId: string,
+    eventId: string,
+    dto: AddAttendeeDto,
+    userId: string,
+  ) {
+    const event = await this.client.schoolEvent.findFirst({
+      where: { id: eventId, tenantId },
+    });
+    if (!event) throw new NotFoundException('Event not found');
+
+    const attendee = await this.client.eventAttendee.create({
+      data: {
+        tenantId,
+        eventId,
+        attendeeName: dto.attendeeName,
+        attendeeType: dto.attendeeType,
+        email: dto.email ?? null,
+        status: dto.status ?? 'registered',
+        createdBy: userId,
+        updatedBy: userId,
+      },
+    });
+    await this.syncRegisteredCount(tenantId, eventId);
+    return attendee;
+  }
+
+  async updateAttendee(
+    tenantId: string,
+    eventId: string,
+    attendeeId: string,
+    dto: UpdateAttendeeDto,
+    userId: string,
+  ) {
+    const attendee = await this.client.eventAttendee.findFirst({
+      where: { id: attendeeId, tenantId, eventId },
+    });
+    if (!attendee) throw new NotFoundException('Attendee not found');
+
+    const updated = await this.client.eventAttendee.update({
+      where: { id: attendeeId },
+      data: {
+        ...(dto.attendeeName !== undefined && { attendeeName: dto.attendeeName }),
+        ...(dto.attendeeType !== undefined && { attendeeType: dto.attendeeType }),
+        ...(dto.email !== undefined && { email: dto.email }),
+        ...(dto.status !== undefined && { status: dto.status }),
+        updatedBy: userId,
+      },
+    });
+    await this.syncRegisteredCount(tenantId, eventId);
+    return updated;
+  }
+
+  /** Keep SchoolEvent.registeredCount consistent with live roster rows. */
+  private async syncRegisteredCount(tenantId: string, eventId: string) {
+    const count = await this.client.eventAttendee.count({
+      where: { tenantId, eventId, status: { in: REGISTERED_STATUSES } },
+    });
+    await this.client.schoolEvent.update({
+      where: { id: eventId },
+      data: { registeredCount: count },
     });
   }
 }

@@ -37,11 +37,44 @@ model SchoolEvent {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant    Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  attendees EventAttendee[]
 
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, startDate])
   @@schema("events")
   @@map("school_events")
+}
+
+// EventAttendee - one person on an event's roster.
+// Tenant-scoped (tenant_id NOT NULL) in the "events" schema, RLS applied
+// explicitly so db:rls:check passes from day one.
+// attendeeType: 'student' | 'staff' | 'parent' | 'guest'
+// status:       'registered' | 'attended' | 'cancelled' | 'waitlist'
+model EventAttendee {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  eventId  String @map("event_id")
+
+  attendeeName String  @map("attendee_name")
+  attendeeType String  @map("attendee_type")
+  email        String?
+  status       String  @default("registered")
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  event  SchoolEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, eventId])
+  @@index([eventId, status])
+  @@schema("events")
+  @@map("event_attendees")
 }

@@ -1,7 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
-import { CreatePayrollRecordDto, ListPayrollRecordsDto, UpdatePayrollRecordDto } from '../dto/hr.dto';
+import {
+  CreateLeaveRequestDto,
+  CreatePayrollRecordDto,
+  ListLeaveRequestsDto,
+  ListPayrollRecordsDto,
+  ReviewLeaveRequestDto,
+  UpdatePayrollRecordDto,
+} from '../dto/hr.dto';
 
 @Injectable()
 export class HrService {
@@ -130,6 +137,61 @@ export class HrService {
       data: {
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.paidDate !== undefined && { paidDate: new Date(dto.paidDate) }),
+        updatedBy: userId,
+      },
+    });
+  }
+
+  // ---- Leave ----------------------------------------------------------
+
+  async listLeaveRequests(tenantId: string, query: ListLeaveRequestsDto) {
+    const where: Record<string, unknown> = { tenantId };
+    if (query.status) where['status'] = query.status;
+    if (query.query) {
+      where['staffName'] = { contains: query.query, mode: 'insensitive' };
+    }
+
+    return this.client.staffLeaveRequest.findMany({
+      where,
+      orderBy: [{ startDate: 'desc' }, { staffName: 'asc' }],
+    });
+  }
+
+  async createLeaveRequest(tenantId: string, dto: CreateLeaveRequestDto, userId: string) {
+    return this.client.staffLeaveRequest.create({
+      data: {
+        tenantId,
+        staffUserTenantId: dto.staffUserTenantId,
+        staffName: dto.staffName,
+        leaveType: dto.leaveType,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        days: dto.days,
+        reason: dto.reason ?? null,
+        status: 'pending',
+        createdBy: userId,
+        updatedBy: userId,
+      },
+    });
+  }
+
+  async reviewLeaveRequest(
+    tenantId: string,
+    id: string,
+    dto: ReviewLeaveRequestDto,
+    userId: string,
+  ) {
+    const request = await this.client.staffLeaveRequest.findFirst({
+      where: { id, tenantId },
+    });
+    if (!request) throw new NotFoundException('Leave request not found');
+
+    return this.client.staffLeaveRequest.update({
+      where: { id },
+      data: {
+        status: dto.status,
+        reviewNote: dto.reviewNote ?? null,
+        reviewedBy: userId,
         updatedBy: userId,
       },
     });

@@ -9,6 +9,7 @@
    ============================================================ */
 
 import * as React from 'react';
+import Link from 'next/link';
 import { CalendarPlus, Search } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
@@ -189,6 +190,7 @@ export function UpcomingClient({ events }: Props) {
                 <TableHead className="max-sm:hidden">Date</TableHead>
                 <TableHead className="text-right max-sm:hidden">Registered</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Roster</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -216,6 +218,14 @@ export function UpcomingClient({ events }: Props) {
                       <StatusBadge tone={status.tone} dot>
                         {status.label}
                       </StatusBadge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Link
+                        href={`/events/${e.id}/roster`}
+                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                      >
+                        View
+                      </Link>
                     </TableCell>
                   </TableRow>
                 );

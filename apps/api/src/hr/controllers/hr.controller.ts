@@ -6,7 +6,14 @@ import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import { PermissionGuard, RequirePermissions } from '../../auth/guards/permission.guard';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { HrService } from '../services/hr.service';
-import { CreatePayrollRecordDto, ListPayrollRecordsDto, UpdatePayrollRecordDto } from '../dto/hr.dto';
+import {
+  CreateLeaveRequestDto,
+  CreatePayrollRecordDto,
+  ListLeaveRequestsDto,
+  ListPayrollRecordsDto,
+  ReviewLeaveRequestDto,
+  UpdatePayrollRecordDto,
+} from '../dto/hr.dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags(SwaggerTags.hr.name)
@@ -57,5 +64,30 @@ export class HrController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.hrService.updateRecord(req.user.tenantId, id, dto, req.user.profileId!);
+  }
+
+  @Get('leave')
+  @RequirePermissions(['hr.view'])
+  @ApiOperation({ summary: 'List staff leave requests' })
+  async listLeave(@Query() query: ListLeaveRequestsDto, @Request() req: AuthenticatedRequest) {
+    return this.hrService.listLeaveRequests(req.user.tenantId, query);
+  }
+
+  @Post('leave')
+  @RequirePermissions(['staff.edit'])
+  @ApiOperation({ summary: 'Create a staff leave request' })
+  async createLeave(@Body() dto: CreateLeaveRequestDto, @Request() req: AuthenticatedRequest) {
+    return this.hrService.createLeaveRequest(req.user.tenantId, dto, req.user.profileId!);
+  }
+
+  @Patch('leave/:id')
+  @RequirePermissions(['staff.edit'])
+  @ApiOperation({ summary: 'Review a leave request (approve/reject/cancel)' })
+  async reviewLeave(
+    @Param('id') id: string,
+    @Body() dto: ReviewLeaveRequestDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.hrService.reviewLeaveRequest(req.user.tenantId, id, dto, req.user.profileId!);
   }
 }

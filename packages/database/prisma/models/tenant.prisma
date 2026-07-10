@@ -50,7 +50,9 @@ model Tenant {
   libraryBooks          LibraryBook[]
   healthRecords         HealthRecord[]
   staffPayrollRecords   StaffPayrollRecord[]
+  staffLeaveRequests    StaffLeaveRequest[]
   schoolEvents          SchoolEvent[]
+  eventAttendees        EventAttendee[]
   chatSessions          ChatSession[]
   chatMessages          ChatMessage[]
   aiSettings            AiSettings?
