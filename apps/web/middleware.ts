@@ -1,8 +1,9 @@
 /**
- * Edge middleware — coarse authentication gate.
+ * Edge middleware — coarse authentication gate + subdomain tenant tagging.
  *
  * Redirects to /login when an (app) route is requested without an
- * access-token cookie.
+ * access-token cookie, and forwards the resolved `{slug}.domain` tenant slug
+ * to the app as a request header for server-side use.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -10,20 +11,36 @@ import {
   COOKIE_POST_LOGIN_REDIRECT,
   isSafeRedirectPath,
 } from './lib/auth-cookies';
+import { extractTenantSlug, TENANT_SLUG_HEADER } from './lib/tenant-host';
 
 const PUBLIC_PATHS = new Set(['/login', '/forgot-password', '/reset-password']);
+
+/**
+ * Resolve the subdomain tenant slug and forward it to the app as a request
+ * header, so server components (login branding, tenant preference) can read it
+ * without a per-request DB lookup at the edge. Returns a response whose
+ * downstream request carries the header; `null` slug (apex/reserved host)
+ * passes through untouched.
+ */
+function tenantAwareNext(req: NextRequest): NextResponse {
+  const slug = extractTenantSlug(req.headers.get('host'));
+  if (!slug) return NextResponse.next();
+  const headers = new Headers(req.headers);
+  headers.set(TENANT_SLUG_HEADER, slug);
+  return NextResponse.next({ request: { headers } });
+}
 
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Let public paths and Next.js internals through
+  // Let public paths and Next.js internals through (still tenant-tagged).
   if (
     PUBLIC_PATHS.has(pathname) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/') ||
     pathname.includes('.')
   ) {
-    return NextResponse.next();
+    return tenantAwareNext(req);
   }
 
   const hasToken = req.cookies.has(COOKIE_ACCESS_TOKEN);
@@ -49,7 +66,7 @@ export function middleware(req: NextRequest) {
     return res;
   }
 
-  return NextResponse.next();
+  return tenantAwareNext(req);
 }
 
 export const config = {

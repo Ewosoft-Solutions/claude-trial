@@ -1,192 +1,41 @@
-'use client';
+/* ============================================================
+   /login — server shell that resolves the subdomain tenant
 
-import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import { Card } from '@workspace/ui/components/card';
-import { OtpInput } from '@workspace/ui/components/otp-input';
+   When reached at `{slug}.domain`, the middleware forwards the slug
+   as the x-tenant-slug header; here we resolve it to public school
+   branding (GET /public/tenants/:slug) and brand the sign-in form.
+   Falls back to a plain, un-branded form on the apex domain.
+   ============================================================ */
 
-type MfaState = {
-  challengeId: string;
-  mfaMethodType: string;
-};
+import { headers } from 'next/headers';
+import { apiClient, ApiError } from '@/lib/api-client';
+import { TENANT_SLUG_HEADER } from '@/lib/tenant-host';
+import { LoginForm } from './login-form';
 
-export default function LoginPage() {
-  const router = useRouter();
-  const [isPending, startTransition] = useTransition();
-  const [error, setError] = useState<string | null>(null);
-  const [mfa, setMfa] = useState<MfaState | null>(null);
-  const [otpCode, setOtpCode] = useState('');
+interface PublicTenant {
+  id: string;
+  name: string;
+  slug: string;
+  schoolType: string | null;
+  status: string;
+}
 
-  function handleCredentials(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setError(null);
-
-    const form = new FormData(e.currentTarget);
-    const email = form.get('email') as string;
-    const password = form.get('password') as string;
-
-    startTransition(async () => {
-      try {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          setError(data.error ?? 'Sign in failed. Check your credentials.');
-          return;
-        }
-
-        if (data.requiresMfa) {
-          setOtpCode('');
-          setMfa({ challengeId: data.mfaChallengeId, mfaMethodType: data.mfaMethodType ?? 'email' });
-          return;
-        }
-
-        router.push(data.redirectTo ?? '/overview');
-        router.refresh();
-      } catch {
-        setError('Unable to connect to the server. Please try again.');
-      }
-    });
-  }
-
-  function submitMfa(code: string) {
-    if (code.length !== 6) return;
-    setError(null);
-
-    startTransition(async () => {
-      try {
-        const res = await fetch('/api/auth/verify-mfa', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ challengeId: mfa!.challengeId, code }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok) {
-          setError(data.error ?? 'Invalid code. Please try again.');
-          setOtpCode('');
-          return;
-        }
-
-        router.push(data.redirectTo ?? '/overview');
-        router.refresh();
-      } catch {
-        setError('Unable to connect to the server. Please try again.');
-      }
-    });
-  }
-
-  function handleMfa(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    submitMfa(otpCode);
-  }
-
-  if (mfa) {
-    const hint = mfa.mfaMethodType === 'email'
-      ? 'Check your email for a 6-digit code.'
-      : 'Enter the 6-digit code from your authenticator app.';
-
-    return (
-      <div className="grid h-svh w-full place-items-center px-4">
-        <Card className="w-full max-w-sm p-8 space-y-6">
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">Verify your identity</h1>
-            <p className="text-sm text-muted-foreground">{hint}</p>
-          </div>
-
-          <form onSubmit={handleMfa} className="space-y-6">
-            <div className="space-y-3">
-              <Label>Verification code</Label>
-              <OtpInput
-                value={otpCode}
-                onChange={setOtpCode}
-                onComplete={submitMfa}
-                disabled={isPending}
-                className="justify-center"
-              />
-            </div>
-
-            {error && (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            )}
-
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={isPending || otpCode.length < 6}
-            >
-              {isPending ? 'Verifying…' : 'Verify'}
-            </Button>
-            <button
-              type="button"
-              className="w-full text-sm text-muted-foreground underline underline-offset-4"
-              onClick={() => { setMfa(null); setOtpCode(''); setError(null); }}
-            >
-              Back to sign in
-            </button>
-          </form>
-        </Card>
-      </div>
+async function resolveSchoolName(): Promise<string | undefined> {
+  const slug = (await headers()).get(TENANT_SLUG_HEADER);
+  if (!slug) return undefined;
+  try {
+    const tenant = await apiClient.get<PublicTenant>(
+      `/public/tenants/${encodeURIComponent(slug)}`,
     );
+    return tenant.name;
+  } catch (err) {
+    // Unknown/suspended subdomain → fall back to the generic form.
+    if (err instanceof ApiError && err.status === 404) return undefined;
+    return undefined;
   }
+}
 
-  return (
-    <div className="grid h-svh w-full place-items-center px-4">
-      <Card className="w-full max-w-sm p-8 space-y-6">
-        <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
-          <p className="text-sm text-muted-foreground">
-            Enter your email and password to access your school.
-          </p>
-        </div>
-
-        <form onSubmit={handleCredentials} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              autoComplete="email"
-              required
-              placeholder="you@school.edu"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-              placeholder="••••••••"
-            />
-          </div>
-
-          {error && (
-            <p role="alert" className="text-sm text-destructive">
-              {error}
-            </p>
-          )}
-
-          <Button type="submit" className="w-full" disabled={isPending}>
-            {isPending ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
-      </Card>
-    </div>
-  );
+export default async function LoginPage() {
+  const schoolName = await resolveSchoolName();
+  return <LoginForm schoolName={schoolName} />;
 }
