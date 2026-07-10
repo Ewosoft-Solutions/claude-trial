@@ -1,5 +1,11 @@
 # Prisma Schema Organization
 
+> **Setting up a database (local/dev/staging/prod)?** Follow
+> [`docs/database-setup.md`](../../docs/database-setup.md) — the end-to-end
+> checklist (env vars → migrate → seed → RLS check → `app_runtime` provisioning
+> → isolation proof). This file documents the *schema*; that guide documents the
+> *setup*.
+
 The Prisma schema is organized into multiple files by context for better maintainability and clarity.
 
 ## ✅ Schema Status
