@@ -6,10 +6,41 @@
 
 ## Status
 
-**2026-07-09: AI integration plan Steps 1–6 are code-complete through
-hardening/governance, and Step 5 live acceptance is closed** (see
-`AI_HANDOFF.md` 2026-07-09 pt. 4 / pt. 3 and
-`docs/ai-integration-plan.md` Step 6 close-out).
+**2026-07-10: the 8 remaining roadmap chunks are all done (autonomous
+full-swing sprint, one commit per slice, all pushed to `origin/claude`).**
+The AI integration plan (Steps 1–6 + polish) was already complete; this sprint
+cleared the rest of the parked/product backlog. Details in `AI_HANDOFF.md`
+2026-07-10; each slice is its own commit:
+
+1. **AI settings maker-checker** (`81329b6`) — gated mutate path for
+   `ai_settings` (BYOK encrypted at submit, dual-control approve) + admin UI.
+2. **Clearance Enforcement Gate 4** (`e46dfdc`) — update-time consistency on
+   role/pool clearance (reject-and-list), `PATCH /roles/:id/clearance` +
+   `PATCH /permissions/pool/:id/clearance`.
+3. **Step 8 sub-surfaces** (`ff044b7`, `07fb115`) — all six promoted off
+   `[...slug]`: transport routes/pickups, library loans, hr directory (derived)
+   + hr leave and events roster (new RLS-backed tables).
+4. **Step 8 test coverage** (`e1b87e6`) — service specs for the four domains.
+5. **schoolType polymorphism + feature toggles** (`6063dc3`) — real per-tenant
+   feature-toggle system gating nav; `/settings/features` now persists.
+6. **Subdomain tenant resolution** (`94ddd47`) — `{slug}.domain` → tenant via
+   middleware + public lookup; branded login.
+7. **PWA Phase 2** (`4815b42`) — manifest, service worker (offline + push),
+   installable.
+8. **app_runtime cutover** (`81294df`, ADR-004) — grants completed/audited
+   (fixed the ungranted `attendance_records`), RLS isolation proven AS
+   `app_runtime`; activation is now a per-env `APP_RUNTIME_DATABASE_URL` flip.
+
+Final verification (Node 22.21.1): api build + unit **234/234** + lint 0
+errors; web types/lint/build + vitest **55/55**; ui vitest **86/86**;
+db `db:rls:check` + migrate status clean. Two additive migrations
+(`20260710000000`, `…10000`) + the grants migration (`…20000`) applied to the
+dev DB.
+
+---
+### Prior status (2026-07-09): AI integration plan Steps 1–6 code-complete
+See `AI_HANDOFF.md` 2026-07-09 pt. 5/4/3 and
+`docs/ai-integration-plan.md` Step 6 close-out.
 
 Step 6 added DB-backed tenant AI governance:
 - `ai_settings`, `ai_usage_monthly`, and `ai_concurrency_leases` in the `ai`
@@ -62,16 +93,26 @@ lint 0 errors ✅; web check-types/lint/build ✅, web vitest **38/38** ✅; ui
 vitest **85/85** ✅. Committed and pushed to `origin/claude` as
 `6515df5 feat(ai): close Step 3 polish + Step 2 term context`; PR #1 updated.
 
-## Not Closed From Previous Steps
+## Not Closed / Follow-ups
 
-- Non-AI parked items remain parked: PWA/offline/push, subdomain tenant
-  resolution, Step 8 sub-surfaces, `app_runtime` full runtime cutover, etc.
+The former parked backlog is cleared. Remaining thin edges (none blocking):
+
+- **app_runtime activation per environment** — grants + role are ready and
+  isolation is proven; each env still needs `APP_RUNTIME_DATABASE_URL` set to
+  the `app_runtime` connection (password is a secret) to actually flip runtime
+  enforcement on. See ADR-004.
+- **Web push delivery backend** — the SW push handler + client `subscribeToPush`
+  ship in slice 7; VAPID signing + subscription persistence + fan-out is a
+  follow-on if push is prioritized.
+- **PWA icons** — a single `/icon.svg` covers install; add raster PNG sizes
+  (192/512, maskable) for best OS integration.
+- Live browser acceptance for the new surfaces was not run (preview is
+  TCC-blocked under `~/Documents`; changes are unit-tested + build-verified).
 
 ## Do Next
 
-1. All AI-integration follow-ups are closed and pushed. Continue only with
-   explicit follow-up work — the parked non-AI items above, at the user's
-   direction.
+1. Nothing is queued. Pick up new work at the user's direction, or activate the
+   `app_runtime` cutover in a target environment (ADR-004).
 
 ## Read First
 

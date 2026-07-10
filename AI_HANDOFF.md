@@ -1,6 +1,52 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-07-09
+Last Updated: 2026-07-10
+
+---
+
+## Session Summary (2026-07-10) — Full-swing sprint: 8 roadmap chunks closed
+
+Autonomous run through the entire remaining backlog (user directive: "pick all
+of 1–8 and implement in full swing"), one committed+pushed slice each. All on
+`origin/claude`. Final verification: api build + unit **234/234** + lint 0
+errors; web types/lint/build + vitest **55/55**; ui vitest **86/86**; db
+`db:rls:check` + migrate status clean. Node 22.21.1 (shell defaults to v20.18.0,
+below the ≥20.19 floor — `nvm use` first).
+
+1. **AI settings maker-checker** (`81329b6`) — `AiSettingsService` +
+   `/ai/admin/settings*`: propose→approve/reject with dual control; BYOK key
+   encrypted at submit (never in the request row); `/settings/ai-usage` admin UI.
+   Registered `ai.settings.update` as a sensitive maker-checker op.
+2. **Clearance Enforcement Gate 4** (`e46dfdc`) — the spec'd-but-unbuilt
+   update-time consistency check: `RoleService.updateRoleClearance` +
+   `PermissionPoolService.updatePoolClearance` (reject-and-list conflicts);
+   `PATCH /roles/:id/clearance`, `PATCH /permissions/pool/:id/clearance`.
+3. **Step 8 sub-surfaces** (`ff044b7`, `07fb115`) — transport routes/pickups,
+   library loans, hr directory (derived from existing data); hr leave +
+   events roster (new `hr.staff_leave_requests`, `events.event_attendees`
+   tables, RLS from day one). Migrations `20260710000000`, `…10000`.
+4. **Step 8 test coverage** (`e1b87e6`) — transport/library/hr/events service
+   specs (+15).
+5. **schoolType polymorphism + feature toggles** (`6063dc3`) — `FeatureKey` +
+   `NavAccess.features` + `canAccess` gate; `tenant-features` resolver +
+   `/tenant/features` (get/patch); `/auth/me` returns per-school
+   `enabledFeatures`; `/settings/features` now persists real toggles.
+6. **Subdomain tenant resolution** (`94ddd47`) — `lib/tenant-host.ts`
+   `extractTenantSlug` + middleware `x-tenant-slug`; public
+   `GET /public/tenants/:slug`; `/login` brands per subdomain.
+7. **PWA Phase 2** (`4815b42`) — `manifest.ts`, `public/sw.js` (network-first
+   nav, SWR static, offline fallback, push/notificationclick), `lib/push.ts`,
+   `PwaRegister` (prod-only).
+8. **app_runtime cutover** (`81294df`, ADR-004) — migration `…20000` re-grants
+   all tenant schemas/tables to `app_runtime` (fixed the ungranted
+   `student-management.attendance_records`) + `ALTER DEFAULT PRIVILEGES`.
+   Audited: 0 tables missing DML. Proven AS `app_runtime` via `SET ROLE`: own
+   tenant sees only its rows (0 leak), `app.is_platform='on'` sees all.
+   Activation per env = set `APP_RUNTIME_DATABASE_URL`.
+
+**Follow-ups (non-blocking):** per-env app_runtime activation; web-push
+delivery backend (VAPID + subscription store); raster PWA icons. No live
+browser acceptance (preview TCC-blocked under `~/Documents`).
 
 ---
 
