@@ -24,9 +24,11 @@ later runs only repeat the steps that changed.
 
 ## 1. Environment variables
 
-Set these for the API process (`apps/api/.env` locally; the secret manager in
-staging/prod — never commit secrets). Full list + validation lives in
-`apps/api/src/common/config/env.config.ts`.
+Copy the templates and fill them in (they carry inline comments for every var):
+`apps/api/.env.example` → `apps/api/.env`, `apps/web/.env.example` →
+`apps/web/.env.local`, `packages/database/.env.example` →
+`packages/database/.env`. `.env*` files are gitignored — never commit secrets.
+Full validation + defaults live in `apps/api/src/common/config/env.config.ts`.
 
 | Var | Required | Purpose |
 |-----|----------|---------|
