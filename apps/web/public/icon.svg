@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="School With Ease">
+  <rect width="512" height="512" rx="96" fill="#4f6df5"/>
+  <path d="M256 112 96 192l160 80 128-64v96h32v-112L256 112Z" fill="#ffffff"/>
+  <path d="M160 260v72c0 26 43 48 96 48s96-22 96-48v-72l-96 48-96-48Z" fill="#ffffff"/>
+</svg>

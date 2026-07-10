@@ -1,8 +1,9 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 
 import '@workspace/ui/globals.css';
 import { ThemeProvider } from './providers/theme-provider';
+import { PwaRegister } from './providers/pwa-register';
 import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
 
 const geistSans = Geist({
@@ -18,6 +19,12 @@ export const metadata: Metadata = {
   title: 'School With Ease',
   description:
     'School With Ease — multi-tenant school management with auth, students, classes, assessments, communications, and reporting.',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'School With Ease', statusBarStyle: 'default' },
+};
+
+export const viewport: Viewport = {
+  themeColor: '#4f6df5',
 };
 
 export default function RootLayout({
@@ -36,6 +43,7 @@ export default function RootLayout({
         >
           {children}
           <ColorScheme />
+          <PwaRegister />
         </ThemeProvider>
       </body>
     </html>
