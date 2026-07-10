@@ -72,16 +72,28 @@ Technical summary:
   `packages/database/prisma/scripts/rls-isolation-check.sql` (cross-tenant
   read/insert/update/delete all blocked; platform bypass works).
 
-Runtime cutover (remaining follow-up — see AI_HANDOFF):
-The DB layer is enforced and proven, but the app still connects as `postgres`
-(superuser → bypasses RLS), so runtime enforcement is not yet active. To activate:
-(1) give `app_runtime` LOGIN + a password (secret); (2) point the runtime
-`DATABASE_URL` at `app_runtime` while migrations keep using the owner via
-`directUrl`; (3) ensure every tenant-scoped query runs through
-`runInTransaction` (which sets the GUC) — adopt across services with e2e tests;
-(4) set `app.is_platform='on'` only on authorized platform endpoints. Until then
-isolation is enforced for any client using `app_runtime` (e.g. the test suite)
-but not for the app, which still relies on app-level scoping.
+Runtime cutover (2026-07-10 — provisioning + grants COMPLETE, activation is a
+per-environment env flip):
+The DB layer is enforced and proven, and `app_runtime` is now fully prepared to
+run the app:
+- (1) `app_runtime` has LOGIN (`rolcanlogin=true`, `rolbypassrls=false`); the
+  password is set out-of-band per environment (a secret — never committed).
+- (2) The two-connection plumbing already exists: `DatabaseModule` builds a
+  separate Prisma client from `APP_RUNTIME_DATABASE_URL` for `TenantDbService`
+  (falls back to the owner `DATABASE_URL` when unset); migrations/seed keep
+  using the owner. Activation = set `APP_RUNTIME_DATABASE_URL` to the
+  `app_runtime` connection string.
+- (3) Grants are comprehensive and drift-proof: migration
+  `20260710020000_app_runtime_grants_cutover` re-grants USAGE + DML on every
+  tenant schema/table (this caught `student-management.attendance_records`,
+  which had no `app_runtime` DML and would have broken attendance under the
+  cutover) and sets `ALTER DEFAULT PRIVILEGES` so future tables auto-grant.
+  Audited: 0 tenant tables missing full DML, 0 schemas missing USAGE.
+- (4) Isolation verified end-to-end AS `app_runtime` (via `SET ROLE`): a
+  tenant-scoped session sees only its own rows (0 cross-tenant leak), and the
+  audited `app.is_platform='on'` branch sees all — so RLS bites at runtime.
+Remaining to fully flip a given environment: set the env var above and confirm
+`app.is_platform='on'` is asserted only on authorized platform endpoints.
 
 Made durable (so new tables adhere automatically):
 - CI guard `db:rls:check` (`rls-coverage-check.sql`) FAILS the build if any table
