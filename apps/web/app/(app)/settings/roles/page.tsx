@@ -31,7 +31,11 @@ interface ApiRole {
 }
 
 interface UserProfile {
-  userTenantRole?: Array<{ role?: { id?: string | null; name?: string | null } | null }>;
+  // `userTenantRole` is a to-one relation (UserTenantRole?) — one role per
+  // profile — so the API returns a single object (or null), not an array.
+  userTenantRole?: {
+    role?: { id?: string | null; name?: string | null } | null;
+  } | null;
 }
 
 interface ProfileResponse {
@@ -54,10 +58,9 @@ export default async function RolesSettingsPage() {
   ]);
   const memberCounts = new Map<string, number>();
   for (const profile of profiles?.data ?? []) {
-    for (const assignment of profile.userTenantRole ?? []) {
-      const key = assignment.role?.id ?? assignment.role?.name;
-      if (key) memberCounts.set(key, (memberCounts.get(key) ?? 0) + 1);
-    }
+    const role = profile.userTenantRole?.role;
+    const key = role?.id ?? role?.name;
+    if (key) memberCounts.set(key, (memberCounts.get(key) ?? 0) + 1);
   }
   const rows = roles ?? [];
 
