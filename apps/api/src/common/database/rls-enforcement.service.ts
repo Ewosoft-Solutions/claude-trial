@@ -113,8 +113,16 @@ export class RlsEnforcementService implements OnApplicationBootstrap {
     const verdict = evaluateRlsEnforcement({ configured, enforced, probe });
 
     if (verdict.action === 'fail') {
+      // Intentional, expected outcome — not a crash. Present it as a clear
+      // fatal and stop the process cleanly, without an alarming stack trace.
       this.logger.error(verdict.message);
-      throw new Error(`RLS enforcement check failed: ${verdict.message}`);
+      this.logger.error(
+        'Refusing to start: runtime RLS enforcement is required ' +
+          '(DB_RLS_ENFORCED=true or NODE_ENV=production) but not satisfied. ' +
+          'Set APP_RUNTIME_DATABASE_URL (docs/database-setup.md §5), or unset ' +
+          'DB_RLS_ENFORCED to run without runtime RLS in this environment.',
+      );
+      process.exit(1);
     }
     if (verdict.action === 'warn') {
       this.logger.warn(`⚠ ${verdict.message}`);
