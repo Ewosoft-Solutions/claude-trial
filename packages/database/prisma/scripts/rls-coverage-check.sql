@@ -3,7 +3,10 @@
 -- ============================================================
 -- The invariant that makes tenant isolation a STANDARD rather than a one-off:
 --   every table that carries a tenant column (tenant_id or school_id) MUST have
---   ROW LEVEL SECURITY enabled + forced AND a `tenant_isolation` policy.
+--   ROW LEVEL SECURITY enabled + forced AND a PERMISSIVE `tenant_isolation`
+--   policy. Permissive matters: a table with ONLY a RESTRICTIVE policy denies
+--   EVERY row (restrictive policies only subtract from what permissive ones
+--   allow), silently blanking the table under the app_runtime role.
 --
 -- Run in CI against a migrated DB:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 \
@@ -32,7 +35,13 @@ BEGIN
              SELECT 1 FROM pg_policies p
              WHERE p.schemaname = n.nspname AND p.tablename = c.relname
                AND p.policyname = 'tenant_isolation'
-           ) AS has_policy
+           ) AS has_policy,
+           EXISTS (
+             SELECT 1 FROM pg_policies p
+             WHERE p.schemaname = n.nspname AND p.tablename = c.relname
+               AND p.policyname = 'tenant_isolation'
+               AND p.permissive = 'PERMISSIVE'
+           ) AS has_permissive
     FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE c.relkind = 'r'
@@ -45,19 +54,22 @@ BEGIN
       )
       AND NOT (
         c.relrowsecurity AND c.relforcerowsecurity
+        -- Must have a PERMISSIVE tenant_isolation policy. A restrictive-only
+        -- policy denies all rows, so `has_policy` alone is not enough.
         AND EXISTS (
           SELECT 1 FROM pg_policies p
           WHERE p.schemaname = n.nspname AND p.tablename = c.relname
             AND p.policyname = 'tenant_isolation'
+            AND p.permissive = 'PERMISSIVE'
         )
       )
     ORDER BY 1, 2
   LOOP
     n := n + 1;
     offenders := offenders || format(
-      E'\n  - %I.%I (rls_enabled=%s, forced=%s, policy=%s)',
+      E'\n  - %I.%I (rls_enabled=%s, forced=%s, policy=%s, permissive=%s)',
       offender.sch, offender.tbl, offender.rls_on, offender.rls_forced,
-      offender.has_policy);
+      offender.has_policy, offender.has_permissive);
   END LOOP;
 
   IF n > 0 THEN
