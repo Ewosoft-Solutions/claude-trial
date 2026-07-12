@@ -4,11 +4,11 @@
    AppSidebar — Aurora Layout A navigation
 
    Three coordinated regions driven by typed props:
-     • NavRail      — icon rail of primary destinations (md+).
+     • NavRail      — icon rail of primary destinations (lg+).
      • NavPanel     — secondary nav: groups, items, sub-items,
                       badges, and an optional footer slot (lg+).
      • MobileSideNav — labelled compact rail + adjacent secondary
-                       panel, expandable into an inline menu (<md).
+                       panel, expandable into an inline menu (<lg).
 
    Consumes the --rail-width / --nav-width layout tokens and the
    sidebar/colour roles. No embedded navigation data — TD-001.
@@ -32,12 +32,18 @@ type NavElementProps = {
   onPrefetch?: () => void;
   active?: boolean;
   className?: string;
+  style?: React.CSSProperties;
   title?: string;
   'aria-controls'?: string;
   'aria-expanded'?: boolean;
   children: React.ReactNode;
   /** Composed with onSelect when a parent injects its own click handler. */
   onClick?: React.MouseEventHandler<HTMLElement>;
+};
+
+const MOBILE_NAV_ROW_STYLE: React.CSSProperties = {
+  minHeight: '2.375rem',
+  lineHeight: '1.25rem',
 };
 
 const NavElement = React.forwardRef<HTMLElement, NavElementProps>(
@@ -86,8 +92,18 @@ function RailBadge({ badge }: { badge: string | number }) {
   );
 }
 
+function NestedItemBullet() {
+  return (
+    <span
+      data-slot="nav-nested-bullet"
+      className="mr-2 size-1.5 shrink-0 rounded-full border border-muted-foreground/70 bg-transparent group-aria-[current=page]:border-primary"
+      aria-hidden
+    />
+  );
+}
+
 /* ============================================================
-   NavRail — vertical icon rail (md+)
+   NavRail — vertical icon rail (lg+)
    ============================================================ */
 function NavRail({
   brand,
@@ -131,7 +147,7 @@ function NavRail({
   return (
     <nav
       aria-label="Primary"
-      className="hidden w-[var(--rail-width)] shrink-0 flex-col items-center gap-1 border-r border-border bg-sidebar py-3 md:flex"
+      className="hidden w-[var(--rail-width)] shrink-0 flex-col items-center gap-1 border-r border-border bg-sidebar py-3 lg:flex"
     >
       {brand ? <div className="mb-2">{brand}</div> : null}
       {items.map(railItem)}
@@ -164,10 +180,11 @@ function NavItemRow({ item, depth = 0 }: { item: NavItem; depth?: number }) {
           'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
           'aria-[current=page]:bg-primary/10 aria-[current=page]:font-semibold aria-[current=page]:text-primary',
           isSub
-            ? 'ml-3 py-1 pl-3 pr-2.5 text-[13px] font-medium'
-            : 'px-2.5 py-1 text-[13.5px] font-medium',
+            ? 'px-2.5 py-0.5 text-[13px] font-medium'
+            : 'px-2.5 py-0.5 text-[13.5px] font-medium',
         )}
       >
+        {isSub ? <NestedItemBullet /> : null}
         <span className="truncate">{item.label}</span>
         {item.badge != null ? (
           <span
@@ -218,11 +235,15 @@ function NavPanel({
         </div>
       ) : null}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto">
-        {groups.map((group) => (
-          <React.Fragment key={group.key}>
+      <div className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto">
+        {groups.map((group, groupIndex) => (
+          <div
+            key={group.key}
+            data-slot="nav-group"
+            className={cn('flex flex-col gap-px', groupIndex > 0 && 'mt-2')}
+          >
             {group.label ? (
-              <div className="flex items-center px-2 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <div className="flex items-center px-2 pb-1 pt-2 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 <span className="truncate">{group.label}</span>
                 {group.collapsible ? (
                   <ChevronDown
@@ -235,7 +256,7 @@ function NavPanel({
             {group.items.map((item) => (
               <NavItemRow key={item.key} item={item} />
             ))}
-          </React.Fragment>
+          </div>
         ))}
       </div>
 
@@ -269,14 +290,16 @@ function MobileNavItemRow({
         onSelect={handleSelect}
         onPrefetch={item.onPrefetch}
         active={item.active}
+        style={MOBILE_NAV_ROW_STYLE}
         className={cn(
-          'group flex min-h-[2.375rem] items-center rounded-[var(--radius-sm)] px-1.5 text-[13px] font-medium text-muted-foreground outline-none',
+          'group flex items-center rounded-[var(--radius-sm)] px-1.5 text-[13px] font-medium text-muted-foreground outline-none',
           'transition-colors hover:bg-accent hover:text-foreground',
           'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
           'aria-[current=page]:bg-primary/10 aria-[current=page]:font-semibold aria-[current=page]:text-primary',
-          isSub && 'ml-2 pl-2 text-[12.5px]',
+          isSub && 'text-[12.5px]',
         )}
       >
+        {isSub ? <NestedItemBullet /> : null}
         <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
         {item.badge != null ? (
           <span
@@ -311,9 +334,13 @@ function MobileNavGroups({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-px">
-      {groups.map((group) => (
-        <React.Fragment key={group.key}>
+    <div className="flex flex-col gap-0">
+      {groups.map((group, groupIndex) => (
+        <div
+          key={group.key}
+          data-slot="nav-group"
+          className={cn('flex flex-col', groupIndex > 0 && 'mt-2')}
+        >
           {group.label ? (
             <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground/80">
               {group.label}
@@ -326,7 +353,7 @@ function MobileNavGroups({
               onNavigate={onNavigate}
             />
           ))}
-        </React.Fragment>
+        </div>
       ))}
     </div>
   );
@@ -430,6 +457,21 @@ function MobileSideNav({
     return () => observer.disconnect();
   }, [flyoutOpen, selectedFlyoutItem?.key]);
 
+  React.useEffect(() => {
+    if (!flyoutOpen) return;
+
+    const dismissOnOutsidePointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (mobileNavRef.current?.contains(target)) return;
+      setFlyoutSectionKey(null);
+    };
+
+    document.addEventListener('pointerdown', dismissOnOutsidePointer);
+    return () =>
+      document.removeEventListener('pointerdown', dismissOnOutsidePointer);
+  }, [flyoutOpen]);
+
   const toggleExpanded = () => {
     setExpanded((current) => !current);
     setFlyoutSectionKey(null);
@@ -530,10 +572,11 @@ function MobileSideNav({
           onSelect={() => selectExpandedItem(item)}
           onPrefetch={item.hasPanel ? item.onPanelPrefetch : item.onPrefetch}
           active={showParentActive}
+          style={MOBILE_NAV_ROW_STYLE}
           aria-controls={controls}
           aria-expanded={item.hasPanel ? panelOpen : undefined}
           className={cn(
-            'group flex min-h-[2.375rem] w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5 text-[13px] font-medium text-muted-foreground outline-none',
+            'group flex w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5 text-[13px] font-medium text-muted-foreground outline-none',
             'transition-colors hover:bg-accent hover:text-foreground',
             'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
             'aria-[current=page]:bg-primary/10 aria-[current=page]:font-semibold aria-[current=page]:text-primary',
@@ -574,7 +617,7 @@ function MobileSideNav({
       ref={mobileNavRef}
       data-slot="mobile-side-nav"
       className={cn(
-        'relative z-30 flex h-full shrink-0 flex-col border-r border-border bg-sidebar transition-[width] duration-200 md:hidden',
+        'relative z-30 flex h-full shrink-0 flex-col border-r border-border bg-sidebar transition-[width] duration-200 lg:hidden',
         expanded ? 'w-[clamp(9.75rem,42vw,10.75rem)]' : 'w-[var(--rail-width)]',
       )}
     >
@@ -672,7 +715,7 @@ function MobileSideNav({
             data-slot="mobile-flyout-content"
             className="relative z-10 my-7 flex min-h-0 flex-col overflow-hidden rounded-r-[var(--radius)] bg-transparent"
           >
-            <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-2.5">
+            <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-2.5 py-2">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-foreground">
                   {selectedFlyoutPanel?.header?.title ??
@@ -723,7 +766,7 @@ export interface NavPanelHeader {
 export interface AppSidebarProps {
   /** Brand mark shown at the top of the icon rail. */
   brand?: React.ReactNode;
-  /** Primary destinations: icon rail (md+) and mobile side navigation (<md). */
+  /** Primary destinations: icon rail (lg+) and mobile side navigation (<lg). */
   railItems: RailItem[];
   /** Utility rail items pinned to the bottom (e.g. Help, Settings). */
   railFooterItems?: RailItem[];
