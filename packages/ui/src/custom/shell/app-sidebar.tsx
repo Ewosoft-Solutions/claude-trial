@@ -164,8 +164,8 @@ function NavItemRow({ item, depth = 0 }: { item: NavItem; depth?: number }) {
           'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
           'aria-[current=page]:bg-primary/10 aria-[current=page]:font-semibold aria-[current=page]:text-primary',
           isSub
-            ? 'ml-3 py-1.5 pl-3 pr-2.5 text-[13px] font-medium'
-            : 'px-2.5 py-1.5 text-[13.5px] font-medium',
+            ? 'ml-3 py-1 pl-3 pr-2.5 text-[13px] font-medium'
+            : 'px-2.5 py-1 text-[13.5px] font-medium',
         )}
       >
         <span className="truncate">{item.label}</span>
@@ -201,10 +201,10 @@ function NavPanel({
   return (
     <nav
       aria-label="Secondary"
-      className="hidden w-[var(--nav-width)] shrink-0 flex-col gap-0.5 overflow-hidden border-r border-border bg-sidebar px-3 py-3.5 lg:flex"
+      className="hidden w-[var(--nav-width)] shrink-0 flex-col gap-0.5 overflow-hidden border-r border-border bg-sidebar px-3 py-3 lg:flex"
     >
       {header ? (
-        <div className="flex items-center gap-2.5 px-1.5 pb-3 pt-0.5">
+        <div className="flex items-center gap-2.5 px-1.5 pb-2 pt-0.5">
           <div className="min-w-0">
             <h2 className="truncate text-base font-bold leading-tight text-foreground">
               {header.title}
@@ -222,7 +222,7 @@ function NavPanel({
         {groups.map((group) => (
           <React.Fragment key={group.key}>
             {group.label ? (
-              <div className="flex items-center px-2 pb-1.5 pt-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+              <div className="flex items-center px-2 pb-1 pt-2.5 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
                 <span className="truncate">{group.label}</span>
                 {group.collapsible ? (
                   <ChevronDown
@@ -270,11 +270,11 @@ function MobileNavItemRow({
         onPrefetch={item.onPrefetch}
         active={item.active}
         className={cn(
-          'group flex min-h-11 items-center rounded-[var(--radius-sm)] px-2.5 text-sm font-medium text-muted-foreground outline-none',
+          'group flex min-h-[2.375rem] items-center rounded-[var(--radius-sm)] px-1.5 text-[13px] font-medium text-muted-foreground outline-none',
           'transition-colors hover:bg-accent hover:text-foreground',
           'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
           'aria-[current=page]:bg-primary/10 aria-[current=page]:font-semibold aria-[current=page]:text-primary',
-          isSub && 'ml-3 pl-3 text-[13px]',
+          isSub && 'ml-2 pl-2 text-[12.5px]',
         )}
       >
         <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
@@ -311,11 +311,11 @@ function MobileNavGroups({
   onNavigate?: () => void;
 }) {
   return (
-    <div className="flex flex-col gap-0.5">
+    <div className="flex flex-col gap-px">
       {groups.map((group) => (
         <React.Fragment key={group.key}>
           {group.label ? (
-            <div className="px-2.5 pb-1 pt-3 text-[10px] font-bold uppercase tracking-wide text-muted-foreground/80">
+            <div className="px-2 pb-0.5 pt-1.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground/80">
               {group.label}
             </div>
           ) : null}
@@ -533,13 +533,13 @@ function MobileSideNav({
           aria-controls={controls}
           aria-expanded={item.hasPanel ? panelOpen : undefined}
           className={cn(
-            'group flex min-h-11 w-full items-center gap-3 rounded-[var(--radius-sm)] px-3 text-sm font-medium text-muted-foreground outline-none',
+            'group flex min-h-[2.375rem] w-full items-center gap-1.5 rounded-[var(--radius-sm)] px-1.5 text-[13px] font-medium text-muted-foreground outline-none',
             'transition-colors hover:bg-accent hover:text-foreground',
             'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
             'aria-[current=page]:bg-primary/10 aria-[current=page]:font-semibold aria-[current=page]:text-primary',
           )}
         >
-          <span className="relative grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[19px]">
+          <span className="relative grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[18px]">
             {item.icon}
           </span>
           <span className="min-w-0 flex-1 truncate text-left">
@@ -553,7 +553,7 @@ function MobileSideNav({
           {item.hasPanel ? (
             <ChevronDown
               className={cn(
-                'size-4 shrink-0 transition-transform',
+                'size-3.5 shrink-0 transition-transform',
                 panelOpen && 'rotate-180',
               )}
               aria-hidden
@@ -561,7 +561,7 @@ function MobileSideNav({
           ) : null}
         </NavElement>
         {panelOpen ? (
-          <div id={controls} className="relative mb-1 ml-5 pl-2.5">
+          <div id={controls} className="relative mb-px ml-3 pl-1">
             <MobileNavGroups groups={panel?.groups ?? []} />
           </div>
         ) : null}
@@ -575,13 +575,13 @@ function MobileSideNav({
       data-slot="mobile-side-nav"
       className={cn(
         'relative z-30 flex h-full shrink-0 flex-col border-r border-border bg-sidebar transition-[width] duration-200 md:hidden',
-        expanded ? 'w-[min(13rem,68vw)]' : 'w-[var(--rail-width)]',
+        expanded ? 'w-[clamp(9.75rem,42vw,10.75rem)]' : 'w-[var(--rail-width)]',
       )}
     >
       <div
         className={cn(
-          'flex h-12 shrink-0 items-center border-b border-border',
-          expanded ? 'justify-between px-3' : 'justify-center',
+          'flex shrink-0 items-center border-b border-border',
+          expanded ? 'h-11 justify-between px-2.5' : 'h-12 justify-center',
         )}
       >
         {expanded ? (
@@ -592,7 +592,7 @@ function MobileSideNav({
         <button
           type="button"
           onClick={toggleExpanded}
-          className="grid size-9 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
+          className="grid size-8 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
           aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'}
         >
           {expanded ? (
@@ -607,18 +607,20 @@ function MobileSideNav({
         <>
           <nav
             aria-label="Mobile primary"
-            className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto overscroll-contain px-2 py-2"
+            className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto overscroll-contain px-1 py-1"
           >
             {items.map(expandedItem)}
             {footerItems?.length ? (
               <>
-                <div className="my-1 h-px shrink-0 bg-border" />
+                <div className="my-0.5 h-px shrink-0 bg-border" />
                 {footerItems.map(expandedItem)}
               </>
             ) : null}
           </nav>
           {footer ? (
-            <div className="shrink-0 border-t border-border p-2">{footer}</div>
+            <div className="shrink-0 border-t border-border p-1.5">
+              {footer}
+            </div>
           ) : null}
         </>
       ) : (
@@ -642,7 +644,7 @@ function MobileSideNav({
           ref={flyoutSurfaceRef}
           id={`mobile-panel-${selectedFlyoutItem?.key ?? 'section'}`}
           aria-label="Mobile secondary"
-          className="absolute z-40 flex w-[min(13rem,calc(100vw-var(--rail-width)-0.5rem))] flex-col"
+          className="absolute z-40 flex w-[clamp(9rem,42vw,10.75rem)] max-w-[calc(100vw-var(--rail-width)-0.5rem)] flex-col"
           style={{
             left: 'calc(100% + 0.5px)',
             top: flyoutTop,
@@ -670,7 +672,7 @@ function MobileSideNav({
             data-slot="mobile-flyout-content"
             className="relative z-10 my-7 flex min-h-0 flex-col overflow-hidden rounded-r-[var(--radius)] bg-transparent"
           >
-            <div className="flex min-h-14 shrink-0 items-center gap-2 border-b border-border px-3">
+            <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-2.5">
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-semibold text-foreground">
                   {selectedFlyoutPanel?.header?.title ??
@@ -691,7 +693,7 @@ function MobileSideNav({
                 <X className="size-4" aria-hidden />
               </button>
             </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-2">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
               <MobileNavGroups
                 groups={selectedFlyoutPanel?.groups ?? []}
                 onNavigate={() => setFlyoutSectionKey(null)}
