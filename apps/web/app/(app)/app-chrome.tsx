@@ -14,6 +14,7 @@
    ============================================================ */
 
 import * as React from 'react';
+import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Bell,
@@ -21,11 +22,14 @@ import {
   LogOut,
   Plus,
   Settings,
-  Sparkles,
   User,
 } from 'lucide-react';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@workspace/ui/components/avatar';
+import {
+  Avatar,
+  AvatarFallback,
+  AvatarImage,
+} from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
 import { AppShell } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
@@ -45,8 +49,18 @@ import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
 import type { UserProfile } from '@workspace/ui/types/shell.types';
 
+const AiWorkspaceLauncher = dynamic(
+  () => import('./_shared/ai-workspace').then((mod) => mod.AiWorkspaceLauncher),
+  { ssr: false },
+);
+
 const USER_MENU: UserMenuItem[] = [
-  { key: 'profile', label: 'Profile', icon: <User />, href: '/settings/general' },
+  {
+    key: 'profile',
+    label: 'Profile',
+    icon: <User />,
+    href: '/settings/general',
+  },
   {
     key: 'settings',
     label: 'Account settings',
@@ -78,7 +92,9 @@ function SidebarProfileFooter({ user }: { user: UserProfile }) {
   return (
     <div className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-border bg-card px-2.5 py-2">
       <Avatar className="size-8 shrink-0 rounded-full">
-        {user.avatarUrl ? <AvatarImage src={user.avatarUrl} alt={user.name} /> : null}
+        {user.avatarUrl ? (
+          <AvatarImage src={user.avatarUrl} alt={user.name} />
+        ) : null}
         <AvatarFallback
           className="text-[11px] font-bold text-white"
           style={{ background: user.color ?? 'var(--muted-foreground)' }}
@@ -91,7 +107,9 @@ function SidebarProfileFooter({ user }: { user: UserProfile }) {
           {user.name}
         </span>
         {user.caption ? (
-          <span className="truncate text-xs text-muted-foreground">{user.caption}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {user.caption}
+          </span>
         ) : null}
       </div>
     </div>
@@ -194,11 +212,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     (href: string) => router.push(href),
     [router],
   );
-
-  const config = configForViewer(viewer);
-  const nav = useResolvedNavigation(config, viewer, pathname, {
-    onNavigate: navigate,
-  });
+  const prefetch = React.useCallback(
+    (href: string) => router.prefetch(href),
+    [router],
+  );
 
   const activeSchool = schools.find((s) => s.id === activeSchoolId);
   const tenantName =
@@ -206,7 +223,31 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       ? 'Platform'
       : (activeSchool?.name ?? 'All schools');
 
-  const sectionTitle = nav.navHeader?.title;
+  const config = configForViewer(viewer);
+  const nav = useResolvedNavigation(config, viewer, pathname, {
+    onNavigate: navigate,
+    onPrefetch: prefetch,
+  });
+  const sidebarPanels = React.useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(nav.navPanels).map(([key, panel]) => [
+          key,
+          {
+            ...panel,
+            header: panel.header
+              ? { ...panel.header, subtitle: tenantName }
+              : undefined,
+          },
+        ]),
+      ),
+    [nav.navPanels, tenantName],
+  );
+
+  const sectionTitle =
+    nav.navHeader?.title ??
+    [...nav.railItems, ...nav.railFooterItems].find((item) => item.active)
+      ?.label;
   const activeItem = findActiveNavItem(nav.navGroups.flatMap((g) => g.items));
 
   // The school switcher already shows the tenant beside the breadcrumb, so the
@@ -250,11 +291,6 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         }
         sidebar={
           <AppSidebar
-            brand={
-              <span className="grid size-[30px] place-items-center rounded-[9px] bg-primary text-primary-foreground shadow-accent">
-                <Sparkles className="size-4" />
-              </span>
-            }
             railItems={nav.railItems}
             railFooterItems={nav.railFooterItems}
             navHeader={
@@ -263,11 +299,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                 : undefined
             }
             navGroups={nav.navGroups}
+            navPanels={sidebarPanels}
             navFooter={<SidebarProfileFooter user={user} />}
           />
         }
       >
         {children}
+        <AiWorkspaceLauncher />
       </AppShell>
     </div>
   );

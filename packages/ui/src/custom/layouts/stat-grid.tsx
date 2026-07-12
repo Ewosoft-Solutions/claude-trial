@@ -51,7 +51,7 @@ export function StatCard({ item, className }: StatCardProps) {
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <span className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground sm:text-[11.5px]">
           {item.label}
         </span>
         {item.icon ? (
@@ -60,11 +60,11 @@ export function StatCard({ item, className }: StatCardProps) {
           </span>
         ) : null}
       </div>
-      <div className="mt-2 text-[26px] font-extrabold leading-none tracking-[-0.01em] text-foreground tabular-nums">
+      <div className="mt-2 text-[22px] font-extrabold leading-none tracking-[-0.01em] text-foreground tabular-nums sm:text-[26px]">
         {item.value}
       </div>
       {item.delta || item.hint ? (
-        <div className="mt-2 flex items-center gap-1.5 text-[12px]">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] sm:text-[12px]">
           {item.delta ? (
             <span
               className={cn(
@@ -85,7 +85,7 @@ export function StatCard({ item, className }: StatCardProps) {
   );
 
   const base = cn(
-    'rounded-[var(--radius)] border border-border bg-card p-4 text-left shadow-xs',
+    'min-w-0 min-h-[7.5rem] rounded-[var(--radius)] border border-border bg-card p-3 text-left shadow-xs sm:min-h-0 sm:p-4',
     interactive &&
       'outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50',
     className,
@@ -118,14 +118,20 @@ export interface StatGridProps {
   className?: string;
 }
 
-export function StatGrid({ items, minTileWidth = 200, className }: StatGridProps) {
+export function StatGrid({
+  items,
+  minTileWidth = 200,
+  className,
+}: StatGridProps) {
   return (
     <div
       data-slot="stat-grid"
-      className={cn('grid gap-3.5', className)}
-      style={{
-        gridTemplateColumns: `repeat(auto-fit, minmax(min(${minTileWidth}px, 100%), 1fr))`,
-      }}
+      className={cn('grid gap-3 sm:gap-3.5', className)}
+      style={
+        {
+          gridTemplateColumns: `repeat(auto-fit, minmax(min(${minTileWidth}px, 100%), 1fr))`,
+        } as React.CSSProperties
+      }
     >
       {items.map((item) => (
         <StatCard key={item.key} item={item} />

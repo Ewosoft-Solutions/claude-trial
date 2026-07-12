@@ -156,7 +156,7 @@ export default async function AcademicReportPage() {
 
         <StatGrid items={stats} />
 
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 @4xl/main:grid-cols-2">
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Grade distribution</CardTitle>

@@ -182,7 +182,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 297,
+  total: 298,
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -210,7 +210,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     EXAMS_PERMISSIONS: 12,
     ADMISSIONS_PERMISSIONS: 15,
     HR_PAYROLL_PERMISSIONS: 3,
-    AI_PERMISSIONS: 3,
+    AI_PERMISSIONS: 4,
     LESSONS_PERMISSIONS: 9,
   },
   clearanceLevels: { min: 0, max: 10 },
@@ -736,7 +736,8 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
   {
     name: 'classes.teachers.assign',
     label: 'Assign Teachers to Classes',
-    description: 'Allocate teachers to classes and unassign them (keeps history)',
+    description:
+      'Allocate teachers to classes and unassign them (keeps history)',
     resource: 'classes',
     action: 'teachers',
     context: 'assign',
@@ -943,7 +944,8 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
   {
     name: 'questions.view',
     label: 'View Question Bank',
-    description: 'View course question bank entries (includes answers/solutions)',
+    description:
+      'View course question bank entries (includes answers/solutions)',
     resource: 'questions',
     action: 'view',
     category: 'academic',
@@ -979,7 +981,8 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
   {
     name: 'assessments.take',
     label: 'Take Assessments',
-    description: 'Take published assessments of enrolled classes and view own submissions',
+    description:
+      'Take published assessments of enrolled classes and view own submissions',
     resource: 'assessments',
     action: 'take',
     category: 'academic',
@@ -988,7 +991,8 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
   {
     name: 'assessments.manage.all',
     label: 'Manage All Assessments',
-    description: 'Override: manage assessments, papers and question banks for any class',
+    description:
+      'Override: manage assessments, papers and question banks for any class',
     resource: 'assessments',
     action: 'manage',
     context: 'all',
@@ -3110,7 +3114,7 @@ const HR_PAYROLL_PERMISSIONS = [
   },
 ];
 
-// AI Permissions (3 permissions)
+// AI Permissions (4 permissions)
 //
 // Backs the AI integration (docs/ai-integration-plan.md, Step 1).
 // ai.analytics.query has a clearance FLOOR of 1, not 3+: per
@@ -3119,7 +3123,10 @@ const HR_PAYROLL_PERMISSIONS = [
 // (students: personal, parents: their children, staff: broader) — the
 // scoping is enforced by AIMediatorService at query time, not by
 // withholding the permission. ai.chat.use is the Academic AI tutor
-// (students, level 1+). ai.configure is Management+ (level 7+).
+// (students, level 1+). ai.integrity.monitor is the staff-facing exam
+// integrity monitor, with UI/backend callers expected to pair it with
+// academic or assessment permissions. ai.configure is Management+
+// (level 7+).
 const AI_PERMISSIONS = [
   {
     name: 'ai.analytics.query',
@@ -3139,6 +3146,16 @@ const AI_PERMISSIONS = [
     action: 'chat.use',
     category: 'academic',
     requiredClearanceLevel: 1,
+  },
+  {
+    name: 'ai.integrity.monitor',
+    label: 'Monitor AI Integrity',
+    description:
+      'View assessment integrity signals such as blocked tutor attempts and exam-window anomalies',
+    resource: 'ai',
+    action: 'integrity.monitor',
+    category: 'academic',
+    requiredClearanceLevel: 3,
   },
   {
     name: 'ai.configure',
@@ -3279,9 +3296,7 @@ async function seedPlatformBootstrap(
   const architectRoleId = createdRoles['Architect'];
 
   if (!architectRoleId) {
-    console.warn(
-      '⚠️  Skipping platform bootstrap: Architect role not found.',
-    );
+    console.warn('⚠️  Skipping platform bootstrap: Architect role not found.');
     return;
   }
 
@@ -3297,12 +3312,15 @@ async function seedPlatformBootstrap(
       status: PLATFORM_BOOTSTRAP.tenant.status,
       settings: {
         isPlatformTenant: true,
-        description: 'System tenant for platform administration. Do not delete.',
+        description:
+          'System tenant for platform administration. Do not delete.',
       },
     },
   });
 
-  console.log(`  ✅ Platform tenant: ${platformTenant.name} (${platformTenant.slug})`);
+  console.log(
+    `  ✅ Platform tenant: ${platformTenant.name} (${platformTenant.slug})`,
+  );
 
   const jwtSecret = crypto.randomBytes(32).toString('base64');
   const encryptedSecret = Buffer.from(jwtSecret).toString('base64');
@@ -3378,11 +3396,15 @@ async function seedPlatformBootstrap(
     },
   });
 
-  console.log(`  ✅ Architect profile linked to platform tenant with Architect role`);
+  console.log(
+    `  ✅ Architect profile linked to platform tenant with Architect role`,
+  );
   console.log(`\n  🔑 Platform bootstrap credentials:`);
   console.log(`     Email:    ${PLATFORM_BOOTSTRAP.architect.email}`);
   console.log(`     Password: ${PLATFORM_BOOTSTRAP.architect.defaultPassword}`);
-  console.log(`     ⚠️  Change this password immediately after first login in production!`);
+  console.log(
+    `     ⚠️  Change this password immediately after first login in production!`,
+  );
 }
 
 // Permission to Pool mapping based on clearance level
@@ -3402,7 +3424,11 @@ function getPermissionPoolsForPermission(
 
   // Platform permissions only go to platform pools (levels 9-10)
   if (category === 'platform') {
-    for (let level = Math.max(9, requiredClearanceLevel); level <= 10; level++) {
+    for (
+      let level = Math.max(9, requiredClearanceLevel);
+      level <= 10;
+      level++
+    ) {
       const pool = PERMISSION_POOLS.find((p) => p.clearanceLevel === level);
       if (pool) {
         poolNames.push(pool.name);
@@ -3719,7 +3745,9 @@ async function main() {
     console.log(`  - All Permissions: ${allPermissions.length}`);
     console.log(`  - Permission-Pool Assignments: ${poolPermissionCount}`);
     console.log(`  - Role-Pool Assignments: ${rolePoolCount}`);
-    console.log(`  - Platform Architect: ${PLATFORM_BOOTSTRAP.architect.email}`);
+    console.log(
+      `  - Platform Architect: ${PLATFORM_BOOTSTRAP.architect.email}`,
+    );
   } catch (error) {
     console.error('❌ Error seeding database:', error);
     process.exit(1);

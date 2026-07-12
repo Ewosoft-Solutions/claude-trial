@@ -42,9 +42,9 @@
 
   /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
   /* base surfaces */
-  --background: #eceefc;          /* aurora --bg (light) */
-  --foreground: #191b38;          /* aurora --ink */
-  --card: #ffffff;                /* aurora --surface (flattened) */
+  --background: #eceefc; /* aurora --bg (light) */
+  --foreground: #191b38; /* aurora --ink */
+  --card: #ffffff; /* aurora --surface (flattened) */
   --card-foreground: #191b38;
   --popover: #ffffff;
   --popover-foreground: #191b38;
@@ -57,7 +57,7 @@
   --secondary: #e6e8fa;
   --secondary-foreground: #2a2d55;
   --muted: #e6e8fa;
-  --muted-foreground: #565b8c;    /* between aurora --ink-2 and --ink-3 */
+  --muted-foreground: #565b8c; /* between aurora --ink-2 and --ink-3 */
 
   /* subtle hover / active surface (aurora --accent-tint flattened) */
   --accent: #e4e8fc;
@@ -77,7 +77,7 @@
   --success-foreground: #ffffff;
   --warning: #d98a25;
   --warning-foreground: #ffffff;
-  --info: #ff5fa8;                /* aurora --accent-2 (light) */
+  --info: #ff5fa8; /* aurora --accent-2 (light) */
   --info-foreground: #ffffff;
 
   /* chart palette — aurora neon blend (blue · green · blurple · pink · amber) */
@@ -124,20 +124,22 @@
   --tracking-wide: 0.05em;
 
   /* layout dimensions (aurora shell measurements) */
-  --header-height: 4rem;          /* top bar */
-  --rail-width: 3.875rem;         /* 62px icon rail */
-  --nav-width: 15.25rem;          /* 244px secondary nav */
-  --inspector-width: 19rem;       /* 304px inspector */
-  --content-padding: 1.375rem;    /* 22px main padding */
+  --header-height: 4rem; /* top bar */
+  --rail-width: 4.5rem; /* labelled primary rail */
+  --nav-width: 15.25rem; /* 244px secondary nav */
+  --inspector-width: 19rem; /* 304px inspector */
+  --content-padding: 1.375rem; /* 22px main padding */
 
   /* elevation (aurora --shadow-* light) */
   --shadow-xs: 0 1px 1.5px rgba(40, 40, 90, 0.06);
   --shadow-sm: 0 1px 2px rgba(40, 40, 90, 0.08);
   --shadow-md: 0 6px 18px -6px rgba(40, 40, 100, 0.22);
   --shadow-lg: 0 18px 38px -18px rgba(40, 40, 100, 0.34);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.7) inset,
+  --shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
     0 18px 38px -24px rgba(40, 40, 100, 0.4);
-  --shadow-accent: 0 6px 22px -6px color-mix(in oklab, var(--primary) 55%, transparent);
+  --shadow-accent: 0 6px 22px -6px
+    color-mix(in oklab, var(--primary) 55%, transparent);
 
   /* focus / interaction */
   --ring-width: 3px;
@@ -150,25 +152,25 @@
 .dark {
   color-scheme: dark;
 
-  --background: #07060f;          /* aurora --bg (dark) */
-  --foreground: #eef0ff;          /* aurora --ink */
-  --card: #14122a;                /* aurora glass card (flattened) */
+  --background: #07060f; /* aurora --bg (dark) */
+  --foreground: #eef0ff; /* aurora --ink */
+  --card: #14122a; /* aurora glass card (flattened) */
   --card-foreground: #eef0ff;
   --popover: #14122a;
   --popover-foreground: #eef0ff;
 
-  --primary: #5b8cff;             /* aurora --accent (dark) */
-  --primary-foreground: #06081f;  /* aurora --accent-ink */
+  --primary: #5b8cff; /* aurora --accent (dark) */
+  --primary-foreground: #06081f; /* aurora --accent-ink */
 
   --secondary: #1e1c3a;
   --secondary-foreground: #eef0ff;
   --muted: #1a1832;
-  --muted-foreground: #8b8fc4;    /* between aurora --ink-2 and --ink-3 */
+  --muted-foreground: #8b8fc4; /* between aurora --ink-2 and --ink-3 */
 
   --accent: #232145;
   --accent-foreground: #eef0ff;
 
-  --destructive: #ff6b81;         /* aurora --neg (dark) */
+  --destructive: #ff6b81; /* aurora --neg (dark) */
   --destructive-foreground: #2a0710;
 
   --border: #211f3a;
@@ -179,7 +181,7 @@
   --success-foreground: #06281f;
   --warning: #ffce5c;
   --warning-foreground: #2a1f00;
-  --info: #ff6fae;                /* aurora --accent-2 (dark) */
+  --info: #ff6fae; /* aurora --accent-2 (dark) */
   --info-foreground: #2a0716;
 
   --chart-1: #5b8cff;
@@ -200,9 +202,11 @@
   /* elevation (aurora --shadow-* dark) */
   --shadow-md: 0 10px 26px -12px rgba(0, 0, 0, 0.7);
   --shadow-lg: 0 18px 48px -24px rgba(0, 0, 0, 0.85);
-  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.05) inset,
+  --shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
     0 18px 40px -24px rgba(0, 0, 0, 0.85);
-  --shadow-accent: 0 6px 22px -6px color-mix(in oklab, var(--primary) 60%, transparent);
+  --shadow-accent: 0 6px 22px -6px
+    color-mix(in oklab, var(--primary) 60%, transparent);
 }
 
 /* ------------------------------------------------------------
@@ -259,12 +263,13 @@
 
   /* typography — point Tailwind's font utilities at the app's next/font
      variables, with the aurora design families as fallback */
-  --font-sans: var(--font-geist-sans), 'Plus Jakarta Sans', system-ui,
-    -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: var(--font-geist-mono), ui-monospace, 'SFMono-Regular',
-    'Menlo', monospace;
-  --font-display: var(--font-geist-sans), 'Plus Jakarta Sans', system-ui,
-    sans-serif;
+  --font-sans:
+    var(--font-geist-sans), 'Plus Jakarta Sans', system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+  --font-display:
+    var(--font-geist-sans), 'Plus Jakarta Sans', system-ui, sans-serif;
 
   /* elevation */
   --shadow-xs: var(--shadow-xs);

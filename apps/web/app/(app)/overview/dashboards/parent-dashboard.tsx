@@ -19,7 +19,13 @@
    ============================================================ */
 
 import * as React from 'react';
-import { Banknote, BookOpen, CalendarDays, MessageSquare } from 'lucide-react';
+import {
+  Banknote,
+  BookOpen,
+  CalendarClock,
+  CalendarDays,
+  MessageSquare,
+} from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -35,6 +41,35 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+
+import { DashboardQuickActions } from './dashboard-quick-actions';
+
+const QUICK_ACTIONS = [
+  {
+    key: 'fees',
+    label: 'Fee statement',
+    href: '/finance/invoices',
+    icon: <Banknote />,
+  },
+  {
+    key: 'attendance',
+    label: 'Child attendance',
+    href: '/attendance',
+    icon: <CalendarDays />,
+  },
+  {
+    key: 'grades',
+    label: 'View grades',
+    href: '/classes/gradebook',
+    icon: <BookOpen />,
+  },
+  {
+    key: 'events',
+    label: 'School events',
+    href: '/events/upcoming',
+    icon: <CalendarClock />,
+  },
+];
 
 interface ChildSummary {
   studentId: string;
@@ -67,7 +102,10 @@ function averagePercent(values: Array<number | null>): number | null {
   return Math.round(present.reduce((sum, v) => sum + v, 0) / present.length);
 }
 
-interface Props { userName: string; schoolName: string }
+interface Props {
+  userName: string;
+  schoolName: string;
+}
 
 export function ParentDashboard({ userName, schoolName }: Props) {
   const [children, setChildren] = React.useState<ChildSummary[] | null>(null);
@@ -95,7 +133,9 @@ export function ParentDashboard({ userName, schoolName }: Props) {
   }, []);
 
   const selected =
-    selectedId !== 'all' ? children?.find((c) => c.studentId === selectedId) : undefined;
+    selectedId !== 'all'
+      ? children?.find((c) => c.studentId === selectedId)
+      : undefined;
 
   const view = React.useMemo(() => {
     if (!children || children.length === 0) return null;
@@ -114,10 +154,20 @@ export function ParentDashboard({ userName, schoolName }: Props) {
 
     // Aggregate across all children
     return {
-      label: children.length === 1 ? `${children[0]!.firstName} ${children[0]!.lastName}` : 'All children',
-      subLabel: children.length > 1 ? `${children.length} children` : (children[0]?.gradeLevel ?? undefined),
-      attendancePercent: averagePercent(children.map((c) => c.attendancePercent)),
-      averageGradePercent: averagePercent(children.map((c) => c.averageGradePercent)),
+      label:
+        children.length === 1
+          ? `${children[0]!.firstName} ${children[0]!.lastName}`
+          : 'All children',
+      subLabel:
+        children.length > 1
+          ? `${children.length} children`
+          : (children[0]?.gradeLevel ?? undefined),
+      attendancePercent: averagePercent(
+        children.map((c) => c.attendancePercent),
+      ),
+      averageGradePercent: averagePercent(
+        children.map((c) => c.averageGradePercent),
+      ),
       feeTotalDue: children.reduce((sum, c) => sum + c.feeTotalDue, 0),
       feeTotalPaid: children.reduce((sum, c) => sum + c.feeTotalPaid, 0),
       feeBalance: children.reduce((sum, c) => sum + c.feeBalance, 0),
@@ -128,14 +178,20 @@ export function ParentDashboard({ userName, schoolName }: Props) {
     ? [
         {
           key: 'attendance',
-          label: "Attendance",
-          value: view.attendancePercent !== null ? `${view.attendancePercent}%` : '—',
+          label: 'Attendance',
+          value:
+            view.attendancePercent !== null
+              ? `${view.attendancePercent}%`
+              : '—',
           icon: <CalendarDays />,
         },
         {
           key: 'average',
           label: 'Average grade',
-          value: view.averageGradePercent !== null ? `${view.averageGradePercent}%` : '—',
+          value:
+            view.averageGradePercent !== null
+              ? `${view.averageGradePercent}%`
+              : '—',
           icon: <BookOpen />,
         },
         {
@@ -143,7 +199,15 @@ export function ParentDashboard({ userName, schoolName }: Props) {
           label: 'Fee balance',
           value: formatNaira(view.feeBalance),
           icon: <Banknote />,
-          ...(view.feeBalance > 0 ? { delta: { label: 'Outstanding', direction: 'up' as const, intent: 'negative' as const } } : {}),
+          ...(view.feeBalance > 0
+            ? {
+                delta: {
+                  label: 'Outstanding',
+                  direction: 'up' as const,
+                  intent: 'negative' as const,
+                },
+              }
+            : {}),
         },
       ]
     : [];
@@ -158,7 +222,9 @@ export function ParentDashboard({ userName, schoolName }: Props) {
               view
                 ? [
                     { key: 'child', label: view.label, emphasis: true },
-                    ...(view.subLabel ? [{ key: 'sub', label: view.subLabel }] : []),
+                    ...(view.subLabel
+                      ? [{ key: 'sub', label: view.subLabel }]
+                      : []),
                   ]
                 : []
             }
@@ -169,7 +235,13 @@ export function ParentDashboard({ userName, schoolName }: Props) {
             }
           />
         }
-        stats={<StatGrid items={stats} />}
+        stats={<StatGrid items={stats} minTileWidth={150} />}
+        aside={
+          <DashboardQuickActions
+            actions={QUICK_ACTIONS}
+            description="Parent portal tasks"
+          />
+        }
       >
         {error ? (
           <Card className="shadow-card">
@@ -186,7 +258,9 @@ export function ParentDashboard({ userName, schoolName }: Props) {
         ) : children.length === 0 ? (
           <Card className="shadow-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">No children linked to this profile yet.</p>
+              <p className="text-sm text-muted-foreground">
+                No children linked to this profile yet.
+              </p>
             </CardContent>
           </Card>
         ) : (
@@ -212,32 +286,46 @@ export function ParentDashboard({ userName, schoolName }: Props) {
                 {view ? (
                   <>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Total billed</span>
-                      <span className="font-medium">{formatNaira(view.feeTotalDue)}</span>
+                      <span className="text-muted-foreground">
+                        Total billed
+                      </span>
+                      <span className="font-medium">
+                        {formatNaira(view.feeTotalDue)}
+                      </span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">Paid</span>
-                      <span className="font-medium text-success">{formatNaira(view.feeTotalPaid)}</span>
+                      <span className="font-medium text-success">
+                        {formatNaira(view.feeTotalPaid)}
+                      </span>
                     </div>
                     <div className="h-px bg-border" />
                     <div className="flex justify-between text-sm">
                       <span className="font-semibold">Balance</span>
-                      <span className="font-bold text-destructive">{formatNaira(view.feeBalance)}</span>
+                      <span className="font-bold text-destructive">
+                        {formatNaira(view.feeBalance)}
+                      </span>
                     </div>
                     {view.feeTotalDue > 0 ? (
                       <div className="h-2 overflow-hidden rounded-full bg-muted">
                         <div
                           className="h-full rounded-full bg-success"
-                          style={{ width: `${Math.min(100, Math.round((view.feeTotalPaid / view.feeTotalDue) * 100))}%` }}
+                          style={{
+                            width: `${Math.min(100, Math.round((view.feeTotalPaid / view.feeTotalDue) * 100))}%`,
+                          }}
                         />
                       </div>
                     ) : null}
                     {view.feeBalance > 0 ? (
-                      <Button className="mt-1 w-full" size="sm">Pay balance</Button>
+                      <Button className="mt-1 w-full" size="sm">
+                        Pay balance
+                      </Button>
                     ) : null}
                   </>
                 ) : (
-                  <p className="text-sm text-muted-foreground">No billing records yet.</p>
+                  <p className="text-sm text-muted-foreground">
+                    No billing records yet.
+                  </p>
                 )}
               </CardContent>
             </Card>

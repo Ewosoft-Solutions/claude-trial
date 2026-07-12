@@ -24,13 +24,23 @@ export interface SchoolOption {
   color?: string;
 }
 
-/** Primary-level destination shown in the icon rail / mobile tab bar. */
+/** Primary-level destination shown in the desktop rail / mobile side nav. */
 export interface RailItem {
   key: string;
   label: string;
   icon: React.ReactNode;
   href?: string;
   active?: boolean;
+  /** Whether this destination exposes a secondary navigation panel. */
+  hasPanel?: boolean;
+  /** First accessible destination inside the secondary panel. */
+  panelHref?: string;
+  /** Controlled-navigation equivalent of `panelHref`. */
+  onPanelSelect?: () => void;
+  /** Preload the section's direct route when interaction is likely. */
+  onPrefetch?: () => void;
+  /** Preload the first destination in a secondary panel. */
+  onPanelPrefetch?: () => void;
   /** Optional count badge. */
   badge?: string | number;
   /** Optional click handler (alternative to `href`). */
@@ -49,6 +59,8 @@ export interface NavItem {
   badge?: string | number;
   badgeTone?: NavBadgeTone;
   onSelect?: () => void;
+  /** Preload this destination on hover, focus, or pointer intent. */
+  onPrefetch?: () => void;
   /** Nested sub-items, rendered indented beneath the parent. */
   items?: NavItem[];
 }
@@ -61,6 +73,16 @@ export interface NavGroup {
   /** Render a chevron affordance on the group heading. */
   collapsible?: boolean;
   items: NavItem[];
+}
+
+/** A resolved secondary panel, available before its section becomes active. */
+export interface NavPanelData {
+  header?: {
+    icon?: React.ReactNode;
+    title: string;
+    subtitle?: string;
+  };
+  groups: NavGroup[];
 }
 
 /** The signed-in user. */

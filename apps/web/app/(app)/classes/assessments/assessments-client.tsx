@@ -443,7 +443,7 @@ export function AssessmentsClient({
           <div className="grid gap-4 p-4">
             {!selected ? (
               <div className="grid gap-4">
-                <div className="grid gap-3 md:grid-cols-2">
+                <div className="grid gap-3 @3xl/main:grid-cols-2">
                   <div className="grid gap-2">
                     <Label htmlFor="new-assessment-name">Name</Label>
                     <Input
@@ -585,7 +585,7 @@ export function AssessmentsClient({
                       </p>
                     </div>
                     {canEdit ? (
-                      <div className="grid gap-2 md:grid-cols-[minmax(14rem,1fr)_6rem_auto] md:items-end">
+                      <div className="grid gap-2 @3xl/main:grid-cols-[minmax(14rem,1fr)_6rem_auto] @3xl/main:items-end">
                         <div className="grid gap-1.5">
                           <Label htmlFor="bank-question">Question</Label>
                           <Select value={questionId} onValueChange={setQuestionId}>

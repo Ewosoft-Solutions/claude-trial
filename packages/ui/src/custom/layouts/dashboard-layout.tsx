@@ -7,7 +7,7 @@
    stat row, then a responsive content region with a primary column
    and an optional aside column (quick actions / activity). Pure
    composition — slots only, no embedded copy. On < lg the aside
-   stacks beneath the main column; layout is otherwise stable.
+   leads the main column so role actions remain visible at a glance.
    ============================================================ */
 
 import * as React from 'react';
@@ -41,9 +41,13 @@ export function DashboardLayout({
       {header}
       {stats}
       {aside ? (
-        <div className="grid grid-cols-1 gap-5 lg:grid-cols-3">
-          <div className="flex flex-col gap-5 lg:col-span-2">{children}</div>
-          <aside className="flex flex-col gap-5 lg:col-span-1">{aside}</aside>
+        <div className="grid grid-cols-1 gap-5 @5xl/main:grid-cols-3">
+          <div className="order-2 flex flex-col gap-5 @5xl/main:order-1 @5xl/main:col-span-2">
+            {children}
+          </div>
+          <aside className="order-1 flex flex-col gap-5 @5xl/main:order-2 @5xl/main:col-span-1">
+            {aside}
+          </aside>
         </div>
       ) : (
         <div className="flex flex-col gap-5">{children}</div>

@@ -89,12 +89,12 @@ export function PageHeader({
       className={cn(
         'flex shrink-0 flex-wrap items-center gap-x-3.5 gap-y-2.5',
         padded &&
-          'px-[var(--content-padding)] pb-2.5 pt-[var(--content-padding)]',
+          'px-[var(--content-padding)] pb-2.5 pt-[var(--content-padding)] @max-sm/main:px-0',
         className,
       )}
     >
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <h1 className="truncate text-[21px] font-extrabold leading-[1.05] tracking-[-0.02em] text-foreground">
+      <div className="flex min-w-[min(100%,12rem)] flex-1 flex-col gap-0.5">
+        <h1 className="break-words text-[21px] font-extrabold leading-[1.05] tracking-[-0.02em] text-foreground">
           {title}
         </h1>
         {description ? (
@@ -103,7 +103,7 @@ export function PageHeader({
         {meta?.length ? (
           <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
             {meta.map((fact, index) => (
-              <React.Fragment key={fact.key}>
+              <span key={fact.key} className="inline-flex items-center gap-2">
                 {index > 0 ? (
                   <span aria-hidden className="opacity-60">
                     ·
@@ -117,14 +117,17 @@ export function PageHeader({
                 >
                   {fact.label}
                 </span>
-              </React.Fragment>
+              </span>
             ))}
           </div>
         ) : null}
       </div>
 
       {actions ? (
-        <div className="ml-auto flex shrink-0 flex-wrap items-center gap-2.5">
+        <div
+          data-slot="page-header-actions"
+          className="flex w-full min-w-0 flex-wrap items-center gap-2.5 [&>*]:max-w-full @max-sm/main:[&>*]:h-auto @max-sm/main:[&>*]:min-h-8 @max-sm/main:[&>*]:gap-1 @max-sm/main:[&>*]:px-2 @max-sm/main:[&>*]:py-1 @max-sm/main:[&>*]:whitespace-normal @md/main:ml-auto @md/main:w-auto @md/main:shrink-0"
+        >
           {actions}
         </div>
       ) : null}

@@ -64,7 +64,7 @@ export default async function GeneralSettingsPage() {
             Values loaded from the tenant configuration API.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 @xl/main:grid-cols-2">
           <Field id="school-name" label="School name">
             <Input id="school-name" defaultValue={schoolName} />
           </Field>
@@ -77,7 +77,7 @@ export default async function GeneralSettingsPage() {
           <Field id="phone" label="Phone">
             <Input id="phone" type="tel" defaultValue={text(general.phone)} />
           </Field>
-          <div className="sm:col-span-2">
+          <div className="@xl/main:col-span-2">
             <Field id="address" label="Address">
               <Input id="address" defaultValue={text(general.address)} />
             </Field>
@@ -92,7 +92,7 @@ export default async function GeneralSettingsPage() {
             Stored defaults for terms, scheduling and formatting.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-4 sm:grid-cols-2">
+        <CardContent className="grid gap-4 @xl/main:grid-cols-2">
           <Field id="academic-year" label="Academic year">
             <Input id="academic-year" defaultValue={text(locale.academicYear)} />
           </Field>
@@ -105,7 +105,7 @@ export default async function GeneralSettingsPage() {
           <Field id="currency" label="Currency">
             <Input id="currency" defaultValue={text(locale.currency)} />
           </Field>
-          <div className="sm:col-span-2">
+          <div className="@xl/main:col-span-2">
             <Field id="email-domain" label="Email domain">
               <Input id="email-domain" defaultValue={configuration?.emailDomain ?? ''} />
             </Field>

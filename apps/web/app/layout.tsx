@@ -20,12 +20,19 @@ export const metadata: Metadata = {
   description:
     'School With Ease — multi-tenant school management with auth, students, classes, assessments, communications, and reporting.',
   manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, title: 'School With Ease', statusBarStyle: 'default' },
+  appleWebApp: {
+    capable: true,
+    title: 'School With Ease',
+    statusBarStyle: 'default',
+  },
 };
 
 export const viewport: Viewport = {
   themeColor: '#4f6df5',
 };
+
+const showColorSchemePreview =
+  process.env.NEXT_PUBLIC_SHOW_COLOR_SCHEME_PREVIEW === 'true';
 
 export default function RootLayout({
   children,
@@ -42,7 +49,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <ColorScheme />
+          {showColorSchemePreview ? <ColorScheme /> : null}
           <PwaRegister />
         </ThemeProvider>
       </body>

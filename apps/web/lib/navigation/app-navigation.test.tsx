@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { resolveNavigation } from '@workspace/ui/lib/navigation';
 import type {
@@ -33,6 +33,7 @@ function makeViewer(overrides: Partial<ViewerContext> = {}): ViewerContext {
 const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
   'ai.analytics.query',
   'ai.chat.use',
+  'ai.integrity.monitor',
   'ai.configure',
   'students.view',
   'admissions.view',
@@ -182,7 +183,6 @@ describe('SCHOOL_NAV section visibility', () => {
     );
     expect(railItems.map((i) => i.key)).toEqual([
       'overview',
-      'assistant',
       'students',
       'classes',
       'attendance',
@@ -237,15 +237,14 @@ describe('SCHOOL_NAV section visibility', () => {
     expect(railItems.map((i) => i.key)).not.toContain('finance');
   });
 
-  it('offers the assistant to a clearance-1 viewer holding ai.analytics.query', () => {
-    // The AI assistant is deliberately visible to parents/students: the
-    // permission has a clearance floor of 1 and answers are scoped
-    // server-side by AIMediatorService.
+  it('keeps AI access out of the main navigation rail', () => {
+    // AI now opens from the shell FAB/workspace, so permissions must not add
+    // an editable-path destination to the rail.
     const student = makeViewer({
       permissions: new Set<PermissionKey>(['ai.analytics.query']),
     });
     const { railItems } = resolveNavigation(SCHOOL_NAV, student, '/overview');
-    expect(railItems.map((i) => i.key)).toEqual(['overview', 'assistant']);
+    expect(railItems.map((i) => i.key)).toEqual(['overview']);
   });
 
   it('offers Settings to an AI configuration admin', () => {
@@ -277,6 +276,30 @@ describe('SCHOOL_NAV section visibility', () => {
 /* ---- SCHOOL_NAV — panel groups, leaf filtering & active state -- */
 
 describe('SCHOOL_NAV panel resolution', () => {
+  it('keeps Overview as a direct role-home destination without a child panel', () => {
+    const resolved = resolveNavigation(SCHOOL_NAV, TEACHER, '/overview');
+    expect(resolved.activeSectionKey).toBe('overview');
+    expect(resolved.railItems.find((i) => i.key === 'overview')?.hasPanel).toBe(
+      false,
+    );
+    expect(resolved.navHeader).toBeUndefined();
+    expect(resolved.navGroups).toEqual([]);
+  });
+
+  it('navigates a one-child section directly to its accessible destination', () => {
+    const onNavigate = vi.fn();
+    const resolved = resolveNavigation(SCHOOL_NAV, TEACHER, '/overview', {
+      onNavigate,
+    });
+    const attendance = resolved.railItems.find(
+      (item) => item.key === 'attendance',
+    );
+
+    expect(attendance?.hasPanel).toBe(false);
+    attendance?.onSelect?.();
+    expect(onNavigate).toHaveBeenCalledWith('/attendance/daily');
+  });
+
   it('marks the active section + leaf and exposes the owning panel', () => {
     const resolved = resolveNavigation(
       SCHOOL_NAV,
@@ -286,12 +309,12 @@ describe('SCHOOL_NAV panel resolution', () => {
     expect(resolved.activeSectionKey).toBe('students');
     expect(resolved.activeHref).toBe('/students/enrollment');
     expect(resolved.navHeader?.title).toBe('Students');
-    expect(
-      resolved.railItems.find((i) => i.key === 'students')?.active,
-    ).toBe(true);
-    expect(
-      resolved.railItems.find((i) => i.key === 'overview')?.active,
-    ).toBe(false);
+    expect(resolved.railItems.find((i) => i.key === 'students')?.active).toBe(
+      true,
+    );
+    expect(resolved.railItems.find((i) => i.key === 'overview')?.active).toBe(
+      false,
+    );
 
     const records = resolved.navGroups.find((g) => g.key === 'records');
     expect(records?.items.find((i) => i.key === 'enrollment')?.active).toBe(
@@ -310,7 +333,10 @@ describe('SCHOOL_NAV panel resolution', () => {
 
     const records = navGroups.find((g) => g.key === 'records');
     // enrollment needs admissions.view (teacher lacks it)
-    expect(records?.items.map((i) => i.key)).toEqual(['directory', 'attendance']);
+    expect(records?.items.map((i) => i.key)).toEqual([
+      'directory',
+      'attendance',
+    ]);
 
     // nested: gradebook is shown (grades.view) but its transcripts child
     // (transcripts.view) is filtered out, leaving only report cards
@@ -322,7 +348,9 @@ describe('SCHOOL_NAV panel resolution', () => {
   it('gates the classes Materials leaf on lessons.view', () => {
     // Teacher fixture holds lessons.view → Materials appears.
     const teacherResolved = resolveNavigation(SCHOOL_NAV, TEACHER, '/classes');
-    const teaching = teacherResolved.navGroups.find((g) => g.key === 'teaching');
+    const teaching = teacherResolved.navGroups.find(
+      (g) => g.key === 'teaching',
+    );
     expect(teaching?.items.map((i) => i.key)).toContain('materials');
 
     // Same viewer without lessons.view → Materials filtered out.
@@ -332,38 +360,31 @@ describe('SCHOOL_NAV panel resolution', () => {
       permissions: new Set<PermissionKey>(['courses.view', 'subjects.view']),
     });
     const resolved = resolveNavigation(SCHOOL_NAV, noLessons, '/classes');
-    const group = resolved.navGroups.find((g) => g.key === 'teaching');
-    expect(group?.items.map((i) => i.key)).not.toContain('materials');
+    const classes = resolved.railItems.find((item) => item.key === 'classes');
+    expect(classes?.hasPanel).toBe(false);
+    expect(classes?.href).toBe('/classes/subjects');
+    expect(resolved.navGroups).toEqual([]);
   });
 
-  it('gates the Study tutor leaf on ai.chat.use and Tutor usage on lessons.view', () => {
-    // A student holds ai.chat.use + lessons.view.own → sees the tutor, not usage.
-    const student = makeViewer({
-      clearanceLevel: 1,
-      roles: ['Student'],
+  it('keeps Study tutor and Tutor usage out of the Classes panel', () => {
+    const aiEnabledTeacher = makeViewer({
+      clearanceLevel: 3,
+      roles: ['Teacher'],
       permissions: new Set<PermissionKey>([
+        ...TEACHER.permissions,
         'ai.chat.use',
+        'ai.integrity.monitor',
         'lessons.view.own',
       ]),
     });
-    const studentGroup = resolveNavigation(
-      SCHOOL_NAV,
-      student,
-      '/classes',
-    ).navGroups.find((g) => g.key === 'teaching');
-    const studentKeys = studentGroup?.items.map((i) => i.key) ?? [];
-    expect(studentKeys).toContain('tutor');
-    expect(studentKeys).not.toContain('tutor-usage');
-
-    // A teacher holds lessons.view (not ai.chat.use) → sees usage, not the tutor.
     const teacherGroup = resolveNavigation(
       SCHOOL_NAV,
-      TEACHER,
+      aiEnabledTeacher,
       '/classes',
     ).navGroups.find((g) => g.key === 'teaching');
     const teacherKeys = teacherGroup?.items.map((i) => i.key) ?? [];
-    expect(teacherKeys).toContain('tutor-usage');
     expect(teacherKeys).not.toContain('tutor');
+    expect(teacherKeys).not.toContain('tutor-usage');
   });
 
   it('gates teacher allocation on assignment permission', () => {
@@ -375,7 +396,11 @@ describe('SCHOOL_NAV panel resolution', () => {
         'classes.teachers.view',
       ]),
     });
-    const viewOnlyResolved = resolveNavigation(SCHOOL_NAV, viewOnly, '/classes');
+    const viewOnlyResolved = resolveNavigation(
+      SCHOOL_NAV,
+      viewOnly,
+      '/classes',
+    );
     const viewOnlyTeaching = viewOnlyResolved.navGroups.find(
       (g) => g.key === 'teaching',
     );
@@ -391,7 +416,11 @@ describe('SCHOOL_NAV panel resolution', () => {
         'classes.teachers.assign',
       ]),
     });
-    const assignerResolved = resolveNavigation(SCHOOL_NAV, assigner, '/classes');
+    const assignerResolved = resolveNavigation(
+      SCHOOL_NAV,
+      assigner,
+      '/classes',
+    );
     const assignerTeaching = assignerResolved.navGroups.find(
       (g) => g.key === 'teaching',
     );
@@ -414,7 +443,11 @@ describe('SCHOOL_NAV panel resolution', () => {
 
 describe('SCHOOL_NAV schoolType visibility', () => {
   it('shows transport + library but not HR for a primary school', () => {
-    const { railItems } = resolveNavigation(SCHOOL_NAV, PRIMARY_OWNER, '/overview');
+    const { railItems } = resolveNavigation(
+      SCHOOL_NAV,
+      PRIMARY_OWNER,
+      '/overview',
+    );
     const keys = railItems.map((i) => i.key);
     expect(keys).toContain('transport');
     expect(keys).toContain('library');
@@ -422,7 +455,11 @@ describe('SCHOOL_NAV schoolType visibility', () => {
   });
 
   it('shows library + HR but not transport for a university', () => {
-    const { railItems } = resolveNavigation(SCHOOL_NAV, UNIVERSITY_OWNER, '/overview');
+    const { railItems } = resolveNavigation(
+      SCHOOL_NAV,
+      UNIVERSITY_OWNER,
+      '/overview',
+    );
     const keys = railItems.map((i) => i.key);
     expect(keys).not.toContain('transport');
     expect(keys).toContain('library');
@@ -430,7 +467,11 @@ describe('SCHOOL_NAV schoolType visibility', () => {
   });
 
   it('hides all schoolType-gated sections when schoolType is absent', () => {
-    const { railItems } = resolveNavigation(SCHOOL_NAV, UNTYPED_OWNER, '/overview');
+    const { railItems } = resolveNavigation(
+      SCHOOL_NAV,
+      UNTYPED_OWNER,
+      '/overview',
+    );
     const keys = railItems.map((i) => i.key);
     expect(keys).not.toContain('transport');
     expect(keys).not.toContain('library');
@@ -438,13 +479,21 @@ describe('SCHOOL_NAV schoolType visibility', () => {
   });
 
   it('hides the students/transport sub-item for a university viewer', () => {
-    const { navGroups } = resolveNavigation(SCHOOL_NAV, UNIVERSITY_OWNER, '/students');
+    const { navGroups } = resolveNavigation(
+      SCHOOL_NAV,
+      UNIVERSITY_OWNER,
+      '/students',
+    );
     const ops = navGroups.find((g) => g.key === 'student-ops');
     expect(ops?.items.map((i) => i.key)).not.toContain('transport');
   });
 
   it('shows the students/transport sub-item for a primary school viewer', () => {
-    const { navGroups } = resolveNavigation(SCHOOL_NAV, PRIMARY_OWNER, '/students');
+    const { navGroups } = resolveNavigation(
+      SCHOOL_NAV,
+      PRIMARY_OWNER,
+      '/students',
+    );
     const ops = navGroups.find((g) => g.key === 'student-ops');
     expect(ops?.items.map((i) => i.key)).toContain('transport');
   });
@@ -476,7 +525,11 @@ describe('SCHOOL_NAV feature toggles', () => {
 
   it('leaves feature-gated sections visible when enabledFeatures is absent', () => {
     // Back-compat: no enabledFeatures on the viewer → no feature gating.
-    const { railItems } = resolveNavigation(SCHOOL_NAV, PRIMARY_OWNER, '/overview');
+    const { railItems } = resolveNavigation(
+      SCHOOL_NAV,
+      PRIMARY_OWNER,
+      '/overview',
+    );
     expect(railItems.map((i) => i.key)).toContain('transport');
   });
 });

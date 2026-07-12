@@ -83,7 +83,7 @@ export function DataTableLayout({
             </div>
           ) : null}
           {toolbar ? (
-            <div className="ml-auto flex flex-wrap items-center gap-2">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 @md/main:ml-auto @md/main:w-auto">
               {toolbar}
             </div>
           ) : null}

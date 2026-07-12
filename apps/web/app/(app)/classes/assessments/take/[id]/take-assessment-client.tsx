@@ -60,7 +60,7 @@ function QuestionAnswer({
 
   if (question.style === 'mcq') {
     return (
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid gap-2 @xl/main:grid-cols-2">
         {(question.options ?? []).map((option) => (
           <button
             key={option.label}
@@ -292,7 +292,7 @@ export function TakeAssessmentClient({
             description="Check the link or ask your teacher for the assessment ID."
           />
         ) : (
-          <div className="grid gap-5 lg:grid-cols-[1fr_18rem]">
+          <div className="grid gap-5 @5xl/main:grid-cols-[1fr_18rem]">
             <div className="grid gap-4">
               {paper.assessment.instructions ? (
                 <section className="rounded-lg border bg-card p-4">

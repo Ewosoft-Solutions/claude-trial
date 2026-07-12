@@ -394,7 +394,7 @@ export function MaterialsClient({
           </Select>
         </div>
 
-        <div className="grid min-h-[38rem] gap-5 lg:grid-cols-[minmax(17rem,23rem)_1fr]">
+        <div className="grid min-h-[38rem] gap-5 @5xl/main:grid-cols-[minmax(17rem,23rem)_1fr]">
           <section
             aria-label="Lessons"
             className="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-4"

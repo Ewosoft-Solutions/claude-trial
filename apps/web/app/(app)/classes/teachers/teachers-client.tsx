@@ -172,7 +172,7 @@ export function ClassTeachersClient({
           />
         ) : null}
 
-        <div className="grid gap-4 rounded-lg border bg-card p-4 lg:grid-cols-[minmax(18rem,24rem)_1fr]">
+        <div className="grid gap-4 rounded-lg border bg-card p-4 @5xl/main:grid-cols-[minmax(18rem,24rem)_1fr]">
           <div className="grid gap-2">
             <Label htmlFor="allocation-class">Class</Label>
             <Select value={classId} onValueChange={setClassId}>
@@ -190,7 +190,7 @@ export function ClassTeachersClient({
           </div>
 
           {canAssign ? (
-            <div className="grid gap-3 md:grid-cols-[minmax(12rem,1fr)_10rem_auto] md:items-end">
+            <div className="grid gap-3 @3xl/main:grid-cols-[minmax(12rem,1fr)_10rem_auto] @3xl/main:items-end">
               <div className="grid gap-2">
                 <Label htmlFor="teacher-profile">Teacher</Label>
                 <Select value={staffId} onValueChange={setStaffId}>
@@ -239,7 +239,7 @@ export function ClassTeachersClient({
           description={`${filteredAssignments.length} allocation records`}
           empty={filteredAssignments.length === 0}
           toolbar={
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full @md/main:w-64">
               <Search
                 className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden

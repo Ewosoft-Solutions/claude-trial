@@ -26,13 +26,40 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
+import { DashboardQuickActions } from './dashboard-quick-actions';
+
 const STATS: StatItem[] = [
-  { key: 'students', label: 'Total students', value: '1,420', icon: <Users />, delta: { label: '+3%', direction: 'up', intent: 'positive' }, href: '/students/directory' },
+  {
+    key: 'students',
+    label: 'Total students',
+    value: '1,420',
+    icon: <Users />,
+    delta: { label: '+3%', direction: 'up', intent: 'positive' },
+    href: '/students/directory',
+  },
   { key: 'staff', label: 'Total staff', value: '96', icon: <GraduationCap /> },
-  { key: 'revenue', label: 'Revenue (mo)', value: '₦12.4M', icon: <Banknote />, delta: { label: '+9%', direction: 'up', intent: 'positive' }, href: '/finance/reports' },
-  { key: 'outstanding', label: 'Outstanding fees', value: '₦3.1M', delta: { label: '142 students', direction: 'up', intent: 'negative' }, href: '/finance/invoices' },
+  {
+    key: 'revenue',
+    label: 'Revenue (mo)',
+    value: '₦12.4M',
+    icon: <Banknote />,
+    delta: { label: '+9%', direction: 'up', intent: 'positive' },
+    href: '/finance/reports',
+  },
+  {
+    key: 'outstanding',
+    label: 'Outstanding fees',
+    value: '₦3.1M',
+    delta: { label: '142 students', direction: 'up', intent: 'negative' },
+    href: '/finance/invoices',
+  },
   { key: 'attendance', label: 'Attendance rate', value: '94%' },
-  { key: 'events', label: 'Upcoming events', value: '5', icon: <CalendarClock /> },
+  {
+    key: 'events',
+    label: 'Upcoming events',
+    value: '5',
+    icon: <CalendarClock />,
+  },
 ];
 
 const META: PageHeaderMeta[] = [
@@ -42,9 +69,30 @@ const META: PageHeaderMeta[] = [
 ];
 
 const ATTENTION = [
-  { key: 'admissions', title: '38 admission applications', meta: 'Pending review', tone: 'warning' as const, icon: <UserPlus className="size-4" />, href: '/students/enrollment' },
-  { key: 'fees', title: '₦3.1M outstanding fees', meta: '142 students · reminders due', tone: 'warning' as const, icon: <Banknote className="size-4" />, href: '/finance/invoices' },
-  { key: 'term-end', title: 'Term ends in 3 weeks', meta: 'Plan results & report cards', tone: 'neutral' as const, icon: <CalendarClock className="size-4" />, href: '/students/gradebook/report-cards' },
+  {
+    key: 'admissions',
+    title: '38 admission applications',
+    meta: 'Pending review',
+    tone: 'warning' as const,
+    icon: <UserPlus className="size-4" />,
+    href: '/students/enrollment',
+  },
+  {
+    key: 'fees',
+    title: '₦3.1M outstanding fees',
+    meta: '142 students · reminders due',
+    tone: 'warning' as const,
+    icon: <Banknote className="size-4" />,
+    href: '/finance/invoices',
+  },
+  {
+    key: 'term-end',
+    title: 'Term ends in 3 weeks',
+    meta: 'Plan results & report cards',
+    tone: 'neutral' as const,
+    icon: <CalendarClock className="size-4" />,
+    href: '/students/gradebook/report-cards',
+  },
 ];
 
 const ACTIVITY = [
@@ -52,6 +100,33 @@ const ACTIVITY = [
   { key: 'a2', text: 'New admission: J. Okoro', when: '1h ago' },
   { key: 'a3', text: 'Announcement sent to all parents', when: '3h ago' },
   { key: 'a4', text: '2 lesson notes uploaded', when: '5h ago' },
+];
+
+const QUICK_ACTIONS = [
+  {
+    key: 'student',
+    label: 'Add student',
+    href: '/students/enrollment',
+    icon: <UserPlus />,
+  },
+  {
+    key: 'reports',
+    label: 'View reports',
+    href: '/reports/academic',
+    icon: <GraduationCap />,
+  },
+  {
+    key: 'fees',
+    label: 'Review fees',
+    href: '/finance/invoices',
+    icon: <Banknote />,
+  },
+  {
+    key: 'schedule',
+    label: 'View timetable',
+    href: '/classes/timetable',
+    icon: <CalendarClock />,
+  },
 ];
 
 function greeting() {
@@ -76,11 +151,18 @@ export function AdminDashboard({ userName, schoolName }: Props) {
             meta={META}
             actions={
               <>
-                <Button variant="outline" size="sm" className="max-md:hidden" asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="max-md:hidden"
+                  asChild
+                >
                   <Link href="/reports/academic">View reports</Link>
                 </Button>
                 <Button size="sm" asChild>
-                  <Link href="/students/enrollment"><UserPlus /> Add student</Link>
+                  <Link href="/students/enrollment">
+                    <UserPlus /> Add student
+                  </Link>
                 </Button>
               </>
             }
@@ -88,20 +170,31 @@ export function AdminDashboard({ userName, schoolName }: Props) {
         }
         stats={<StatGrid items={STATS} />}
         aside={
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-base">Recent activity</CardTitle>
-              <CardDescription>Across {schoolName}</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3">
-              {ACTIVITY.map((a) => (
-                <div key={a.key} className="flex items-start justify-between gap-3">
-                  <span className="text-sm text-foreground">{a.text}</span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{a.when}</span>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
+          <>
+            <DashboardQuickActions
+              actions={QUICK_ACTIONS}
+              description="School management tasks"
+            />
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="text-base">Recent activity</CardTitle>
+                <CardDescription>Across {schoolName}</CardDescription>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-3">
+                {ACTIVITY.map((a) => (
+                  <div
+                    key={a.key}
+                    className="flex items-start justify-between gap-3"
+                  >
+                    <span className="text-sm text-foreground">{a.text}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {a.when}
+                    </span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </>
         }
       >
         <Card className="shadow-card">
@@ -110,7 +203,9 @@ export function AdminDashboard({ userName, schoolName }: Props) {
               <TriangleAlert className="size-4 text-warning" aria-hidden />
               Needs attention
             </CardTitle>
-            <CardDescription>Items waiting on you before term-end</CardDescription>
+            <CardDescription>
+              Items waiting on you before term-end
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {ATTENTION.map((item) => (
@@ -130,11 +225,17 @@ export function AdminDashboard({ userName, schoolName }: Props) {
                   {item.icon}
                 </span>
                 <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold text-foreground">{item.title}</span>
-                  <span className="truncate text-xs text-muted-foreground">{item.meta}</span>
+                  <span className="truncate text-sm font-semibold text-foreground">
+                    {item.title}
+                  </span>
+                  <span className="truncate text-xs text-muted-foreground">
+                    {item.meta}
+                  </span>
                 </span>
                 {item.tone === 'warning' ? (
-                  <Badge variant="outline" className="ml-auto shrink-0">Action</Badge>
+                  <Badge variant="outline" className="ml-auto shrink-0">
+                    Action
+                  </Badge>
                 ) : null}
               </a>
             ))}
@@ -144,13 +245,20 @@ export function AdminDashboard({ userName, schoolName }: Props) {
         <Card className="flex-1 shadow-card">
           <CardHeader>
             <CardTitle className="text-base">Enrollment overview</CardTitle>
-            <CardDescription>446 of 480 seats confirmed for the Spring intake · 34 open</CardDescription>
+            <CardDescription>
+              446 of 480 seats confirmed for the Spring intake · 34 open
+            </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             <div className="h-2 overflow-hidden rounded bg-muted">
-              <div className="h-full rounded bg-primary" style={{ width: '93%' }} />
+              <div
+                className="h-full rounded bg-primary"
+                style={{ width: '93%' }}
+              />
             </div>
-            <div className="text-xs text-muted-foreground">93% of capacity confirmed</div>
+            <div className="text-xs text-muted-foreground">
+              93% of capacity confirmed
+            </div>
           </CardContent>
         </Card>
       </DashboardLayout>

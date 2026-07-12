@@ -63,7 +63,7 @@ export function AssessmentTakeListClient({
           ]}
         />
 
-        <section className="grid gap-3 rounded-lg border bg-card p-4 md:grid-cols-[1fr_auto] md:items-end">
+        <section className="grid gap-3 rounded-lg border bg-card p-4 @3xl/main:grid-cols-[1fr_auto] @3xl/main:items-end">
           <div className="grid gap-2">
             <Label htmlFor="assessment-id">Assessment ID</Label>
             <Input
@@ -86,7 +86,7 @@ export function AssessmentTakeListClient({
           description={`${filtered.length} visible assessments`}
           empty={filtered.length === 0}
           toolbar={
-            <div className="relative w-full sm:w-64">
+            <div className="relative w-full @md/main:w-64">
               <Search
                 className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden

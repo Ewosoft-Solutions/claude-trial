@@ -243,7 +243,7 @@ export function AiSettingsClient({ settings, pending }: Props) {
             <NoticeBanner tone="success" title={notice} onDismiss={() => setNotice(null)} />
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid gap-4 @xl/main:grid-cols-2">
             <Field label="Model tier">
               <Select value={modelTier} onValueChange={setModelTier}>
                 <SelectTrigger aria-label="Model tier">

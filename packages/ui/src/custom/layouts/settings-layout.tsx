@@ -113,9 +113,9 @@ export function SettingsLayout({
       className={cn('flex w-full flex-col gap-5', className)}
     >
       {header}
-      <div className="flex flex-col gap-5 md:flex-row md:gap-8">
-        <div className="md:w-[var(--settings-nav-width)] md:shrink-0">
-          <div className="md:sticky md:top-4">{navNode}</div>
+      <div className="flex flex-col gap-5 @3xl/main:flex-row @3xl/main:gap-8">
+        <div className="@3xl/main:w-[var(--settings-nav-width)] @3xl/main:shrink-0">
+          <div className="@3xl/main:sticky @3xl/main:top-4">{navNode}</div>
         </div>
         <div className="min-w-0 flex-1">{children}</div>
       </div>

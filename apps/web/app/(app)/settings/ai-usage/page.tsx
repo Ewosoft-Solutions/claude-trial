@@ -144,7 +144,7 @@ export default async function AiUsageSettingsPage() {
             </div>
           </div>
         </CardHeader>
-        <CardContent className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.6fr)]">
+        <CardContent className="grid gap-4 @5xl/main:grid-cols-[minmax(0,1.4fr)_minmax(260px,0.6fr)]">
           <div className="flex flex-col gap-3">
             <Meter
               label="Monthly token quota"
@@ -153,7 +153,7 @@ export default async function AiUsageSettingsPage() {
               tone={tone}
               valueLabel={`${number.format(summary.usage.totalTokens)} / ${number.format(summary.settings.monthlyTokenBudget)} tokens`}
             />
-            <div className="grid gap-3 sm:grid-cols-3">
+            <div className="grid gap-3 @3xl/main:grid-cols-3">
               <Metric label="Remaining" value={number.format(summary.usage.remainingTokens)} />
               <Metric label="Requests" value={number.format(summary.usage.requestCount)} />
               <Metric

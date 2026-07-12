@@ -81,7 +81,7 @@ async function verifySeedData() {
     // 3. Verify Permissions
     console.log('\n📋 Checking permissions...');
     const permissions = await prisma.permission.findMany();
-    const expectedPermissions = 297; // Base catalog + Admissions (15) + HR/Payroll (3) + AI (3) + Lessons (9) + Academics build-out (questions/taking/teacher-allocation)
+    const expectedPermissions = 298; // Base catalog + Admissions (15) + HR/Payroll (3) + AI (4) + Lessons (9) + Academics build-out (questions/taking/teacher-allocation)
     const actualPermissions = permissions.length;
 
     results.push({
@@ -183,9 +183,9 @@ async function verifySeedData() {
       (a, b) => b.clearanceLevel - a.clearanceLevel,
     );
     sortedRoleAssignments.forEach((role) => {
-        const count = role.rolePools.length;
-        console.log(`     - ${role.name}: ${count} pools`);
-      });
+      const count = role.rolePools.length;
+      console.log(`     - ${role.name}: ${count} pools`);
+    });
 
     // 6. Verify Clearance Levels
     console.log('\n📋 Checking clearance level coverage...');
@@ -242,8 +242,7 @@ async function verifySeedData() {
     }
 
     const bootstrapPass =
-      platformTenant !== null &&
-      architectUser?.passwordHash !== null
+      platformTenant !== null && architectUser?.passwordHash !== null;
 
     results.push({
       name: 'Platform Bootstrap',

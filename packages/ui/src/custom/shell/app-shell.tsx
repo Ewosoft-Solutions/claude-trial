@@ -15,9 +15,8 @@
    Milestone 2 token layer — no hardcoded dimensions or colours.
 
    Responsive behaviour (CSS-only, SSR-safe — no layout shift):
-     • <md   : rail collapses to a bottom tab bar (rendered by
-               AppSidebar); secondary nav, inspector and status
-               bar are hidden; main reserves bottom space.
+     • <md   : rail becomes a collapsible side navigation (rendered
+               by AppSidebar); inspector and status bar are hidden.
      • md–lg : icon rail visible, secondary nav hidden.
      • lg+   : icon rail + secondary nav visible.
      • xl+   : inspector visible (when provided).
@@ -30,7 +29,7 @@ import { cn } from '@workspace/ui/lib/utils';
 export interface AppShellProps {
   /** Top bar — typically <AppHeader/>. */
   header?: React.ReactNode;
-  /** Rail + secondary nav (and its mobile tab bar) — <AppSidebar/>. */
+  /** Desktop rail/panel and mobile side navigation — <AppSidebar/>. */
   sidebar?: React.ReactNode;
   /** Optional right-hand contextual panel (inspector). Shown at xl+. */
   inspector?: React.ReactNode;
@@ -39,8 +38,8 @@ export interface AppShellProps {
   /** Main content region. */
   children: React.ReactNode;
   className?: string;
-  /** Reserved bottom space on mobile for the tab bar. */
-  mobileTabBarHeight?: string;
+  /** Optional bottom inset reserved by mobile shell overlays. */
+  mobileBottomInset?: string;
 }
 
 export function AppShell({
@@ -50,13 +49,15 @@ export function AppShell({
   statusBar,
   children,
   className,
-  mobileTabBarHeight = '3.75rem',
+  mobileBottomInset = '0rem',
 }: AppShellProps) {
   return (
     <div
       data-slot="app-shell"
       style={
-        { '--shell-tabbar-h': mobileTabBarHeight } as React.CSSProperties
+        {
+          '--shell-mobile-bottom-inset': mobileBottomInset,
+        } as React.CSSProperties
       }
       className={cn(
         'relative flex h-full w-full flex-col overflow-hidden bg-background font-sans text-foreground',
@@ -68,7 +69,7 @@ export function AppShell({
       <div className="flex min-h-0 flex-1">
         {sidebar}
 
-        <main className="flex min-w-0 flex-1 flex-col bg-background pb-[var(--shell-tabbar-h)] md:pb-0">
+        <main className="@container/main flex min-w-0 flex-1 flex-col bg-background pb-[var(--shell-mobile-bottom-inset)] md:pb-0">
           {children}
         </main>
 
@@ -82,9 +83,7 @@ export function AppShell({
         ) : null}
       </div>
 
-      {statusBar ? (
-        <div className="max-md:hidden">{statusBar}</div>
-      ) : null}
+      {statusBar ? <div className="max-md:hidden">{statusBar}</div> : null}
     </div>
   );
 }
@@ -94,8 +93,7 @@ export function AppShell({
    Consumes the --content-padding token. Pages can use this or
    supply their own layout pattern (Milestone 6).
    ------------------------------------------------------------ */
-export interface ShellMainProps
-  extends React.ComponentProps<'div'> {
+export interface ShellMainProps extends React.ComponentProps<'div'> {
   /** Apply the standard --content-padding inset. */
   padded?: boolean;
 }

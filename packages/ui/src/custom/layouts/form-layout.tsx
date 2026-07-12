@@ -58,11 +58,11 @@ export function FormLayout({
 
   return (
     <div
-      className={cn('grid grid-cols-1 gap-6 lg:grid-cols-3', className)}
+      className={cn('grid grid-cols-1 gap-6 @5xl/main:grid-cols-3', className)}
     >
-      <div className="lg:col-span-2">{form}</div>
-      <aside className="lg:col-span-1">
-        <div className="lg:sticky lg:top-4">{aside}</div>
+      <div className="@5xl/main:col-span-2">{form}</div>
+      <aside className="@5xl/main:col-span-1">
+        <div className="@5xl/main:sticky @5xl/main:top-4">{aside}</div>
       </aside>
     </div>
   );
@@ -91,11 +91,11 @@ export function FormSection({
     <section
       data-slot="form-section"
       className={cn(
-        'grid grid-cols-1 gap-x-8 gap-y-4 py-6 first:pt-0 lg:grid-cols-3',
+        'grid grid-cols-1 gap-x-8 gap-y-4 py-6 first:pt-0 @5xl/main:grid-cols-3',
         className,
       )}
     >
-      <div className="lg:col-span-1">
+      <div className="@5xl/main:col-span-1">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         {description ? (
           <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
@@ -105,8 +105,8 @@ export function FormSection({
       </div>
       <div
         className={cn(
-          'grid gap-4 lg:col-span-2',
-          columns === 2 ? 'sm:grid-cols-2' : 'grid-cols-1',
+          'grid gap-4 @5xl/main:col-span-2',
+          columns === 2 ? '@xl/main:grid-cols-2' : 'grid-cols-1',
         )}
       >
         {children}

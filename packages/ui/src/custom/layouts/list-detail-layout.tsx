@@ -42,16 +42,16 @@ export function ListDetailLayout({
       data-slot="list-detail-layout"
       style={{ ['--list-width' as string]: `${listWidth}px` }}
       className={cn(
-        'flex min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card md:flex-row',
+        'flex min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card @3xl/main:flex-row',
         className,
       )}
     >
       <div
         data-slot="list-detail-master"
         className={cn(
-          'min-w-0 md:w-[var(--list-width)] md:shrink-0 md:border-r md:border-border',
+          'min-w-0 @3xl/main:w-[var(--list-width)] @3xl/main:shrink-0 @3xl/main:border-r @3xl/main:border-border',
           'overflow-y-auto',
-          showDetail ? 'hidden md:block' : 'block',
+          showDetail ? 'hidden @3xl/main:block' : 'block',
         )}
       >
         {list}
@@ -60,7 +60,7 @@ export function ListDetailLayout({
         data-slot="list-detail-detail"
         className={cn(
           'min-w-0 flex-1 overflow-y-auto',
-          showDetail ? 'block' : 'hidden md:block',
+          showDetail ? 'block' : 'hidden @3xl/main:block',
         )}
       >
         {detail}

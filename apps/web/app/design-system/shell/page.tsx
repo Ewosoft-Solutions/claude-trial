@@ -22,7 +22,6 @@ import {
   LogOut,
   Plus,
   Settings,
-  Sparkles,
   User,
   UserPlus,
 } from 'lucide-react';
@@ -322,11 +321,6 @@ export default function ShellPreviewPage() {
         }
         sidebar={
           <AppSidebar
-            brand={
-              <span className="grid size-[30px] place-items-center rounded-[9px] bg-primary text-primary-foreground shadow-accent">
-                <Sparkles className="size-4" />
-              </span>
-            }
             railItems={nav.railItems}
             railFooterItems={nav.railFooterItems}
             navHeader={

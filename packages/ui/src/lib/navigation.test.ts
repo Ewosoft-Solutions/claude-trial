@@ -7,9 +7,7 @@ import type {
   SchoolType,
   ViewerContext,
 } from '@workspace/ui/types/access.types';
-import type {
-  NavigationConfig,
-} from '@workspace/ui/types/navigation.types';
+import type { NavigationConfig } from '@workspace/ui/types/navigation.types';
 import type { NavItem } from '@workspace/ui/types/shell.types';
 
 import {
@@ -136,22 +134,30 @@ describe('canAccess', () => {
     expect(canAccess(access, makeViewer())).toBe(true);
     // Feature enabled → visible.
     expect(
-      canAccess(access, makeViewer({ enabledFeatures: new Set(['transport']) })),
+      canAccess(
+        access,
+        makeViewer({ enabledFeatures: new Set(['transport']) }),
+      ),
     ).toBe(true);
     // Feature disabled (present set, not included) → hidden.
     expect(
       canAccess(access, makeViewer({ enabledFeatures: new Set(['library']) })),
     ).toBe(false);
     // Empty set → every feature-gated node hidden.
-    expect(
-      canAccess(access, makeViewer({ enabledFeatures: new Set() })),
-    ).toBe(false);
+    expect(canAccess(access, makeViewer({ enabledFeatures: new Set() }))).toBe(
+      false,
+    );
   });
 
   it('requires any one of anyPermission', () => {
-    const access: NavAccess = { anyPermission: ['students.view', 'students.edit'] };
+    const access: NavAccess = {
+      anyPermission: ['students.view', 'students.edit'],
+    };
     expect(
-      canAccess(access, makeViewer({ permissions: new Set(['students.edit']) })),
+      canAccess(
+        access,
+        makeViewer({ permissions: new Set(['students.edit']) }),
+      ),
     ).toBe(true);
     expect(
       canAccess(access, makeViewer({ permissions: new Set(['grades.view']) })),
@@ -159,15 +165,22 @@ describe('canAccess', () => {
   });
 
   it('requires all of allPermissions', () => {
-    const access: NavAccess = { allPermissions: ['students.view', 'students.edit'] };
+    const access: NavAccess = {
+      allPermissions: ['students.view', 'students.edit'],
+    };
     expect(
       canAccess(
         access,
-        makeViewer({ permissions: new Set(['students.view', 'students.edit']) }),
+        makeViewer({
+          permissions: new Set(['students.view', 'students.edit']),
+        }),
       ),
     ).toBe(true);
     expect(
-      canAccess(access, makeViewer({ permissions: new Set(['students.view']) })),
+      canAccess(
+        access,
+        makeViewer({ permissions: new Set(['students.view']) }),
+      ),
     ).toBe(false);
   });
 
@@ -224,6 +237,17 @@ describe('resolveNavigation', () => {
     expect(resolved.railFooterItems.map((i) => i.key)).toEqual(['help']);
   });
 
+  it('marks only sections with accessible secondary destinations as panels', () => {
+    const resolved = resolveNavigation(makeConfig(), makeViewer(), '/overview');
+    expect(resolved.railItems.find((i) => i.key === 'overview')?.hasPanel).toBe(
+      false,
+    );
+    expect(resolved.railItems.find((i) => i.key === 'students')?.hasPanel).toBe(
+      true,
+    );
+    expect(resolved.railFooterItems[0]?.hasPanel).toBe(false);
+  });
+
   it('keeps an access-gated section for an authorized viewer', () => {
     const owner = makeViewer({ clearanceLevel: 8, roles: ['Owner'] });
     const resolved = resolveNavigation(makeConfig(), owner, '/overview');
@@ -238,8 +262,12 @@ describe('resolveNavigation', () => {
     );
     expect(resolved.activeSectionKey).toBe('students');
     expect(resolved.activeHref).toBe('/students/enrollment');
-    expect(resolved.railItems.find((i) => i.key === 'students')?.active).toBe(true);
-    expect(resolved.railItems.find((i) => i.key === 'overview')?.active).toBe(false);
+    expect(resolved.railItems.find((i) => i.key === 'students')?.active).toBe(
+      true,
+    );
+    expect(resolved.railItems.find((i) => i.key === 'overview')?.active).toBe(
+      false,
+    );
 
     const directory = resolved.navGroups.find((g) => g.key === 'directory');
     expect(directory?.items.find((i) => i.key === 'enroll')?.active).toBe(true);
@@ -253,10 +281,55 @@ describe('resolveNavigation', () => {
     expect(resolved.navGroups.map((g) => g.key)).toEqual(['directory']);
   });
 
+  it('resolves inactive section panels so disclosure does not wait for routing', () => {
+    const resolved = resolveNavigation(makeConfig(), makeViewer(), '/overview');
+
+    expect(resolved.navPanels.students?.header?.title).toBe('Students');
+    expect(resolved.navPanels.students?.groups.map((group) => group.key)).toEqual([
+      'directory',
+    ]);
+  });
+
+  it('flattens a section with one accessible destination into a direct link', () => {
+    const config: NavigationConfig = {
+      scope: 'school',
+      sections: [
+        {
+          key: 'health',
+          label: 'Health',
+          icon: null,
+          href: '/health',
+          groups: [
+            {
+              key: 'medical',
+              items: [
+                {
+                  key: 'records',
+                  label: 'Records',
+                  href: '/health/records',
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    const resolved = resolveNavigation(config, makeViewer(), '/health/records');
+    const health = resolved.railItems[0];
+
+    expect(health?.hasPanel).toBe(false);
+    expect(health?.href).toBe('/health/records');
+    expect(resolved.navPanels.health).toBeUndefined();
+  });
+
   it('keeps access-gated groups for an authorized viewer', () => {
     const finance = makeViewer({ clearanceLevel: 5, roles: ['Finance'] });
     const resolved = resolveNavigation(makeConfig(), finance, '/students');
-    expect(resolved.navGroups.map((g) => g.key)).toEqual(['directory', 'finance']);
+    expect(resolved.navGroups.map((g) => g.key)).toEqual([
+      'directory',
+      'finance',
+    ]);
   });
 
   it('returns no active section for an unmatched route', () => {
@@ -298,6 +371,28 @@ describe('resolveNavigation', () => {
 
     overview?.onSelect?.();
     expect(onNavigate).toHaveBeenCalledWith('/overview');
+  });
+
+  it('exposes route prefetch handlers without navigating', () => {
+    const onNavigate = vi.fn();
+    const onPrefetch = vi.fn();
+    const resolved = resolveNavigation(
+      makeConfig(),
+      makeViewer(),
+      '/overview',
+      { onNavigate, onPrefetch },
+    );
+    const students = resolved.railItems.find((item) => item.key === 'students');
+    const enrollment = resolved.navPanels.students?.groups[0]?.items.find(
+      (item) => item.key === 'enroll',
+    );
+
+    students?.onPanelPrefetch?.();
+    enrollment?.onPrefetch?.();
+
+    expect(onPrefetch).toHaveBeenCalledWith('/students');
+    expect(onPrefetch).toHaveBeenCalledWith('/students/enrollment');
+    expect(onNavigate).not.toHaveBeenCalled();
   });
 });
 

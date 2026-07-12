@@ -15,6 +15,7 @@ import type { NavAccess, NavScope } from '@workspace/ui/types/access.types';
 import type {
   NavBadgeTone,
   NavGroup,
+  NavPanelData,
   RailItem,
 } from '@workspace/ui/types/shell.types';
 
@@ -54,7 +55,7 @@ export interface NavPanelHeaderNode {
 }
 
 /**
- * A primary destination (icon rail / mobile tab bar) and the secondary nav
+ * A primary destination (desktop rail / mobile side nav) and the secondary nav
  * it reveals when active. Sections with no `groups` are rail-only links
  * (e.g. Help).
  */
@@ -75,7 +76,7 @@ export interface NavSectionNode {
 /** A full navigation surface (platform or school). */
 export interface NavigationConfig {
   scope: NavScope;
-  /** Primary sections shown in the icon rail / mobile tab bar. */
+  /** Primary sections shown in the desktop rail / mobile side nav. */
   sections: NavSectionNode[];
   /** Utility sections pinned to the bottom of the rail (Help, Settings…). */
   footer?: NavSectionNode[];
@@ -90,6 +91,8 @@ export interface ResolvedNavigation {
   railFooterItems: RailItem[];
   navHeader?: NavPanelHeaderNode;
   navGroups: NavGroup[];
+  /** Every accessible multi-destination panel, keyed by section. */
+  navPanels: Record<string, NavPanelData>;
   /** Key of the section currently active (by route), if any. */
   activeSectionKey?: string;
   /** Href of the single most-specific active route, if any. */

@@ -29,14 +29,12 @@ import {
   FileText,
   GraduationCap,
   HeartPulse,
-  LayoutGrid,
+  House,
   LifeBuoy,
-  MessageCircleMore,
   PartyPopper,
   ScrollText,
   Settings,
   ShieldCheck,
-  Sparkles,
   UserPlus,
   Users,
   Wallet,
@@ -52,43 +50,9 @@ export const SCHOOL_NAV: NavigationConfig = {
     {
       key: 'overview',
       label: 'Overview',
-      icon: <LayoutGrid />,
+      icon: <House />,
       href: '/overview',
       access: { minClearance: 1 },
-      panelHeader: { icon: <LayoutGrid />, title: 'Overview' },
-      groups: [
-        {
-          key: 'home',
-          items: [
-            { key: 'dashboard', label: 'Dashboard', icon: <LayoutGrid />, href: '/overview' },
-            { key: 'tasks', label: 'My tasks', icon: <ScrollText />, href: '/overview/tasks' },
-          ],
-        },
-      ],
-    },
-    {
-      key: 'assistant',
-      label: 'Assistant',
-      icon: <Sparkles />,
-      href: '/assistant',
-      // ai.analytics.query has a clearance floor of 1 by design: every
-      // authenticated member may ask, and AIMediatorService scopes the
-      // answers (students: personal, parents: their children, staff: wider).
-      access: { anyPermission: ['ai.analytics.query'] },
-      panelHeader: { icon: <Sparkles />, title: 'AI Assistant' },
-      groups: [
-        {
-          key: 'assistant-chat',
-          items: [
-            {
-              key: 'assistant-analytics',
-              label: 'Analytics chat',
-              icon: <MessageCircleMore />,
-              href: '/assistant',
-            },
-          ],
-        },
-      ],
     },
     {
       key: 'students',
@@ -202,17 +166,69 @@ export const SCHOOL_NAV: NavigationConfig = {
           key: 'teaching',
           label: 'Teaching',
           items: [
-            { key: 'timetable', label: 'Timetable', icon: <CalendarDays />, href: '/classes/timetable', access: { anyPermission: ['timetable.view'] } },
-            { key: 'gradebook', label: 'Gradebook', icon: <BookOpen />, href: '/classes/gradebook', access: { anyPermission: ['grades.view'] } },
-            { key: 'subjects', label: 'Subjects', icon: <GraduationCap />, href: '/classes/subjects', access: { anyPermission: ['subjects.view', 'courses.view'] } },
-            { key: 'materials', label: 'Materials', icon: <FileText />, href: '/classes/materials', access: { anyPermission: ['lessons.view', 'lessons.view.own'] } },
-            { key: 'tutor', label: 'Study tutor', icon: <Sparkles />, href: '/classes/tutor', access: { anyPermission: ['ai.chat.use'] } },
-            { key: 'assessments', label: 'Assessments', icon: <ScrollText />, href: '/classes/assessments', access: { anyPermission: ['assessments.view'] } },
-            { key: 'take-assessments', label: 'Take assessments', icon: <ScrollText />, href: '/classes/assessments/take', access: { anyPermission: ['assessments.take'] } },
-            { key: 'question-bank', label: 'Question bank', icon: <FileText />, href: '/classes/question-bank', access: { anyPermission: ['questions.view'] } },
-            { key: 'tutor-usage', label: 'Tutor usage', icon: <ChartColumn />, href: '/classes/tutor-usage', access: { anyPermission: ['lessons.view'] } },
-            { key: 'academic-review', label: 'Review queue', icon: <ShieldCheck />, href: '/classes/review', access: { anyPermission: ['lessons.approve'] } },
-            { key: 'teacher-allocation', label: 'Teacher allocation', icon: <Users />, href: '/classes/teachers', access: { anyPermission: ['classes.teachers.assign'] } },
+            {
+              key: 'timetable',
+              label: 'Timetable',
+              icon: <CalendarDays />,
+              href: '/classes/timetable',
+              access: { anyPermission: ['timetable.view'] },
+            },
+            {
+              key: 'gradebook',
+              label: 'Gradebook',
+              icon: <BookOpen />,
+              href: '/classes/gradebook',
+              access: { anyPermission: ['grades.view'] },
+            },
+            {
+              key: 'subjects',
+              label: 'Subjects',
+              icon: <GraduationCap />,
+              href: '/classes/subjects',
+              access: { anyPermission: ['subjects.view', 'courses.view'] },
+            },
+            {
+              key: 'materials',
+              label: 'Materials',
+              icon: <FileText />,
+              href: '/classes/materials',
+              access: { anyPermission: ['lessons.view', 'lessons.view.own'] },
+            },
+            {
+              key: 'assessments',
+              label: 'Assessments',
+              icon: <ScrollText />,
+              href: '/classes/assessments',
+              access: { anyPermission: ['assessments.view'] },
+            },
+            {
+              key: 'take-assessments',
+              label: 'Take assessments',
+              icon: <ScrollText />,
+              href: '/classes/assessments/take',
+              access: { anyPermission: ['assessments.take'] },
+            },
+            {
+              key: 'question-bank',
+              label: 'Question bank',
+              icon: <FileText />,
+              href: '/classes/question-bank',
+              access: { anyPermission: ['questions.view'] },
+            },
+            {
+              key: 'academic-review',
+              label: 'Review queue',
+              icon: <ShieldCheck />,
+              href: '/classes/review',
+              access: { anyPermission: ['lessons.approve'] },
+            },
+            {
+              key: 'teacher-allocation',
+              label: 'Teacher allocation',
+              icon: <Users />,
+              href: '/classes/teachers',
+              access: { anyPermission: ['classes.teachers.assign'] },
+            },
           ],
         },
       ],
@@ -228,8 +244,22 @@ export const SCHOOL_NAV: NavigationConfig = {
         {
           key: 'attendance-views',
           items: [
-            { key: 'daily', label: 'Daily register', icon: <CalendarDays />, href: '/attendance/daily', access: { anyPermission: ['attendance.view'] } },
-            { key: 'reports', label: 'Reports', icon: <ChartColumn />, href: '/attendance/reports', access: { anyPermission: ['attendance.export', 'reports.attendance'] } },
+            {
+              key: 'daily',
+              label: 'Daily register',
+              icon: <CalendarDays />,
+              href: '/attendance/daily',
+              access: { anyPermission: ['attendance.view'] },
+            },
+            {
+              key: 'reports',
+              label: 'Reports',
+              icon: <ChartColumn />,
+              href: '/attendance/reports',
+              access: {
+                anyPermission: ['attendance.export', 'reports.attendance'],
+              },
+            },
           ],
         },
       ],
@@ -240,16 +270,37 @@ export const SCHOOL_NAV: NavigationConfig = {
       icon: <Wallet />,
       href: '/finance',
       // Financial & Legal access starts at clearance 5 (access-control.md).
-      access: { minClearance: 5, anyPermission: ['fees.view', 'financial_reports.view'] },
+      access: {
+        minClearance: 5,
+        anyPermission: ['fees.view', 'financial_reports.view'],
+      },
       panelHeader: { icon: <Wallet />, title: 'Finance' },
       groups: [
         {
           key: 'money',
           label: 'Billing',
           items: [
-            { key: 'invoices', label: 'Invoices', icon: <CreditCard />, href: '/finance/invoices', access: { anyPermission: ['billing.view', 'payments.view'] } },
-            { key: 'payments', label: 'Payments', icon: <Banknote />, href: '/finance/payments', access: { anyPermission: ['payments.view'] } },
-            { key: 'fin-reports', label: 'Reports', icon: <ChartColumn />, href: '/finance/reports', access: { anyPermission: ['financial_reports.view'] } },
+            {
+              key: 'invoices',
+              label: 'Invoices',
+              icon: <CreditCard />,
+              href: '/finance/invoices',
+              access: { anyPermission: ['billing.view', 'payments.view'] },
+            },
+            {
+              key: 'payments',
+              label: 'Payments',
+              icon: <Banknote />,
+              href: '/finance/payments',
+              access: { anyPermission: ['payments.view'] },
+            },
+            {
+              key: 'fin-reports',
+              label: 'Reports',
+              icon: <ChartColumn />,
+              href: '/finance/reports',
+              access: { anyPermission: ['financial_reports.view'] },
+            },
           ],
         },
       ],
@@ -265,8 +316,20 @@ export const SCHOOL_NAV: NavigationConfig = {
         {
           key: 'insights',
           items: [
-            { key: 'academic', label: 'Academic', icon: <GraduationCap />, href: '/reports/academic', access: { anyPermission: ['reports.academic', 'reports.view'] } },
-            { key: 'analytics', label: 'Analytics', icon: <ChartColumn />, href: '/reports/analytics', access: { anyPermission: ['analytics.view'] } },
+            {
+              key: 'academic',
+              label: 'Academic',
+              icon: <GraduationCap />,
+              href: '/reports/academic',
+              access: { anyPermission: ['reports.academic', 'reports.view'] },
+            },
+            {
+              key: 'analytics',
+              label: 'Analytics',
+              icon: <ChartColumn />,
+              href: '/reports/analytics',
+              access: { anyPermission: ['analytics.view'] },
+            },
           ],
         },
       ],
@@ -349,7 +412,13 @@ export const SCHOOL_NAV: NavigationConfig = {
       // HR/staff management is relevant for secondary schools and above.
       access: {
         anyPermission: ['hr.view'],
-        schoolTypes: ['secondary', 'university', 'college', 'training_institute', 'organization'],
+        schoolTypes: [
+          'secondary',
+          'university',
+          'college',
+          'training_institute',
+          'organization',
+        ],
       },
       panelHeader: { icon: <Briefcase />, title: 'Human Resources' },
       groups: [
@@ -441,7 +510,9 @@ export const SCHOOL_NAV: NavigationConfig = {
       label: 'Settings',
       icon: <Settings />,
       href: '/settings',
-      access: { anyPermission: ['settings.view', 'settings.school', 'ai.configure'] },
+      access: {
+        anyPermission: ['settings.view', 'settings.school', 'ai.configure'],
+      },
       // No `groups`: the dedicated settings route group
       // (app/(app)/settings/layout.tsx) renders its own in-panel SettingsNav,
       // so listing the sub-sections here would only duplicate that panel in the
@@ -468,8 +539,20 @@ export const PLATFORM_NAV: NavigationConfig = {
           key: 'schools',
           label: 'Schools',
           items: [
-            { key: 'all-schools', label: 'All schools', icon: <Building2 />, href: '/platform/tenants/all', access: { anyPermission: ['platform.tenants'] } },
-            { key: 'onboarding', label: 'Onboarding', icon: <UserPlus />, href: '/platform/tenants/onboarding', access: { anyPermission: ['platform.tenants'] } },
+            {
+              key: 'all-schools',
+              label: 'All schools',
+              icon: <Building2 />,
+              href: '/platform/tenants/all',
+              access: { anyPermission: ['platform.tenants'] },
+            },
+            {
+              key: 'onboarding',
+              label: 'Onboarding',
+              icon: <UserPlus />,
+              href: '/platform/tenants/onboarding',
+              access: { anyPermission: ['platform.tenants'] },
+            },
           ],
         },
       ],
@@ -479,14 +562,31 @@ export const PLATFORM_NAV: NavigationConfig = {
       label: 'Analytics',
       icon: <ChartColumn />,
       href: '/platform/analytics',
-      access: { scope: 'platform', anyPermission: ['platform.monitoring', 'analytics.advanced'] },
+      access: {
+        scope: 'platform',
+        anyPermission: ['platform.monitoring', 'analytics.advanced'],
+      },
       panelHeader: { icon: <ChartColumn />, title: 'Platform analytics' },
       groups: [
         {
           key: 'health',
           items: [
-            { key: 'usage', label: 'Usage', icon: <ChartColumn />, href: '/platform/analytics/usage', access: { anyPermission: ['platform.monitoring', 'analytics.advanced'] } },
-            { key: 'performance', label: 'Performance', icon: <ChartColumn />, href: '/platform/analytics/performance', access: { anyPermission: ['platform.monitoring'] } },
+            {
+              key: 'usage',
+              label: 'Usage',
+              icon: <ChartColumn />,
+              href: '/platform/analytics/usage',
+              access: {
+                anyPermission: ['platform.monitoring', 'analytics.advanced'],
+              },
+            },
+            {
+              key: 'performance',
+              label: 'Performance',
+              icon: <ChartColumn />,
+              href: '/platform/analytics/performance',
+              access: { anyPermission: ['platform.monitoring'] },
+            },
           ],
         },
       ],
@@ -496,14 +596,31 @@ export const PLATFORM_NAV: NavigationConfig = {
       label: 'Audit',
       icon: <ShieldCheck />,
       href: '/platform/audit',
-      access: { scope: 'platform', anyPermission: ['platform.audit', 'platform.audit.limited'] },
+      access: {
+        scope: 'platform',
+        anyPermission: ['platform.audit', 'platform.audit.limited'],
+      },
       panelHeader: { icon: <ShieldCheck />, title: 'Audit & security' },
       groups: [
         {
           key: 'trail',
           items: [
-            { key: 'audit-log', label: 'Audit log', icon: <ScrollText />, href: '/platform/audit/log', access: { anyPermission: ['platform.audit', 'platform.audit.limited'] } },
-            { key: 'security', label: 'Security', icon: <ShieldCheck />, href: '/platform/audit/security', access: { anyPermission: ['platform.security'] } },
+            {
+              key: 'audit-log',
+              label: 'Audit log',
+              icon: <ScrollText />,
+              href: '/platform/audit/log',
+              access: {
+                anyPermission: ['platform.audit', 'platform.audit.limited'],
+              },
+            },
+            {
+              key: 'security',
+              label: 'Security',
+              icon: <ShieldCheck />,
+              href: '/platform/audit/security',
+              access: { anyPermission: ['platform.security'] },
+            },
           ],
         },
       ],
@@ -513,13 +630,24 @@ export const PLATFORM_NAV: NavigationConfig = {
       label: 'Support',
       icon: <LifeBuoy />,
       href: '/platform/support',
-      access: { scope: 'platform', anyPermission: ['platform.support', 'platform.support.access'] },
+      access: {
+        scope: 'platform',
+        anyPermission: ['platform.support', 'platform.support.access'],
+      },
       panelHeader: { icon: <LifeBuoy />, title: 'Support' },
       groups: [
         {
           key: 'tickets',
           items: [
-            { key: 'queue', label: 'Ticket queue', icon: <LifeBuoy />, href: '/platform/support/queue', access: { anyPermission: ['platform.support', 'platform.support.access'] } },
+            {
+              key: 'queue',
+              label: 'Ticket queue',
+              icon: <LifeBuoy />,
+              href: '/platform/support/queue',
+              access: {
+                anyPermission: ['platform.support', 'platform.support.access'],
+              },
+            },
           ],
         },
       ],
@@ -535,8 +663,20 @@ export const PLATFORM_NAV: NavigationConfig = {
         {
           key: 'subscriptions',
           items: [
-            { key: 'plans', label: 'Plans', icon: <CreditCard />, href: '/platform/billing/plans', access: { anyPermission: ['platform.billing'] } },
-            { key: 'invoices', label: 'Invoices', icon: <Banknote />, href: '/platform/billing/invoices', access: { anyPermission: ['platform.billing'] } },
+            {
+              key: 'plans',
+              label: 'Plans',
+              icon: <CreditCard />,
+              href: '/platform/billing/plans',
+              access: { anyPermission: ['platform.billing'] },
+            },
+            {
+              key: 'invoices',
+              label: 'Invoices',
+              icon: <Banknote />,
+              href: '/platform/billing/invoices',
+              access: { anyPermission: ['platform.billing'] },
+            },
           ],
         },
       ],
@@ -554,14 +694,29 @@ export const PLATFORM_NAV: NavigationConfig = {
       label: 'Settings',
       icon: <Settings />,
       href: '/platform/settings',
-      access: { scope: 'platform', anyPermission: ['platform.security', 'platform.maintenance'] },
+      access: {
+        scope: 'platform',
+        anyPermission: ['platform.security', 'platform.maintenance'],
+      },
       panelHeader: { icon: <Settings />, title: 'Platform settings' },
       groups: [
         {
           key: 'platform-config',
           items: [
-            { key: 'maintenance', label: 'Maintenance', icon: <Settings />, href: '/platform/settings/maintenance', access: { anyPermission: ['platform.maintenance'] } },
-            { key: 'security-settings', label: 'Security', icon: <ShieldCheck />, href: '/platform/settings/security', access: { anyPermission: ['platform.security'] } },
+            {
+              key: 'maintenance',
+              label: 'Maintenance',
+              icon: <Settings />,
+              href: '/platform/settings/maintenance',
+              access: { anyPermission: ['platform.maintenance'] },
+            },
+            {
+              key: 'security-settings',
+              label: 'Security',
+              icon: <ShieldCheck />,
+              href: '/platform/settings/security',
+              access: { anyPermission: ['platform.security'] },
+            },
           ],
         },
       ],

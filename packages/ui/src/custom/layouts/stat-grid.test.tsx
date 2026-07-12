@@ -36,7 +36,9 @@ describe('StatGrid', () => {
     const grid = document.querySelector(
       '[data-slot="stat-grid"]',
     ) as HTMLElement;
-    expect(grid.style.gridTemplateColumns).toContain('260px');
+    expect(grid.style.gridTemplateColumns).toBe(
+      'repeat(auto-fit, minmax(min(260px, 100%), 1fr))',
+    );
   });
 });
 
@@ -48,9 +50,7 @@ describe('StatCard', () => {
   });
 
   it('renders a link tile when given an href', () => {
-    render(
-      <StatCard item={{ ...ITEMS[0]!, href: '/students/directory' }} />,
-    );
+    render(<StatCard item={{ ...ITEMS[0]!, href: '/students/directory' }} />);
     expect(screen.getByRole('link')).toHaveAttribute(
       'href',
       '/students/directory',

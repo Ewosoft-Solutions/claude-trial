@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
 
-export default async function TutorPage() {
+export default function OverviewTasksPage() {
   redirect('/overview');
 }

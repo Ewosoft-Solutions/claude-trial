@@ -421,7 +421,7 @@ export function QuestionBankClient({
               </div>
             </div>
 
-            <div className="grid gap-4 lg:grid-cols-[14rem_1fr]">
+            <div className="grid gap-4 @4xl/main:grid-cols-[14rem_1fr]">
               <div className="grid content-start gap-3">
                 <div className="grid gap-2">
                   <Label htmlFor="question-style">Style</Label>
@@ -506,7 +506,7 @@ export function QuestionBankClient({
                 {form.style === 'mcq' ? (
                   <div className="grid gap-2">
                     <Label>Options</Label>
-                    <div className="grid gap-2 sm:grid-cols-2">
+                    <div className="grid gap-2 @xl/main:grid-cols-2">
                       {form.options.map((option, index) => (
                         <div key={option.label} className="flex items-center gap-2">
                           <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-sm font-semibold">

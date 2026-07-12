@@ -187,7 +187,7 @@ export default async function FinanceReportsPage() {
 
         <StatGrid items={stats} />
 
-        <div className="grid gap-4 lg:grid-cols-3">
+        <div className="grid gap-4 @3xl/main:grid-cols-2 @6xl/main:grid-cols-3">
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Fee status</CardTitle>
