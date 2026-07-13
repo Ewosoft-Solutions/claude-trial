@@ -11,11 +11,13 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 // import { JwtService } from '@nestjs/jwt';
 // import { JWTSecretService } from '@workspace/api';
 import { AuthJWTService } from '../services/jwt.service';
 import { RequestUser } from '../types/request-user';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 import { DatabaseService, extractBearerToken } from '../../common';
 
 /**
@@ -29,9 +31,20 @@ export class JwtAuthGuard implements CanActivate {
     // private readonly jwtService: JwtService,
     private readonly authJWTService: AuthJWTService,
     private readonly dbService: DatabaseService,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Public routes (e.g. invitation acceptance) skip authentication so a
+    // caller without an account/token can reach them.
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: RequestUser }>();

@@ -18,69 +18,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
-
-const STATS: StatItem[] = [
-  {
-    key: 'attendance',
-    label: 'My attendance',
-    value: '91%',
-    icon: <CalendarDays />,
-  },
-  {
-    key: 'average',
-    label: 'Current average',
-    value: '74%',
-    icon: <BookOpen />,
-  },
-  { key: 'upcoming', label: 'Upcoming tests', value: '2', icon: <Clock /> },
-  {
-    key: 'days',
-    label: 'Days to term end',
-    value: '21',
-    icon: <CheckCircle2 />,
-  },
-];
-
-const SCHEDULE = [
-  {
-    key: 's1',
-    subject: 'Mathematics',
-    teacher: 'Mr Okafor',
-    time: '8:00 AM',
-    room: 'Room 14',
-    done: true,
-  },
-  {
-    key: 's2',
-    subject: 'English Language',
-    teacher: 'Mrs Aluko',
-    time: '9:00 AM',
-    room: 'Room 14',
-    done: true,
-  },
-  {
-    key: 's3',
-    subject: 'Basic Science',
-    teacher: 'Mr Dike',
-    time: '11:00 AM',
-    room: 'Lab 2',
-    done: false,
-  },
-  {
-    key: 's4',
-    subject: 'Social Studies',
-    teacher: 'Mrs Nwosu',
-    time: '2:00 PM',
-    room: 'Room 14',
-    done: false,
-  },
-];
-
-const RECENT_GRADES = [
-  { key: 'g1', subject: 'Mathematics', score: '82/100', grade: 'B' },
-  { key: 'g2', subject: 'English Language', score: '76/100', grade: 'B' },
-  { key: 'g3', subject: 'Basic Science', score: '90/100', grade: 'A' },
-];
+import { formatCount, useOverviewStats } from '../use-overview-stats';
 
 const QUICK_ACTIONS = [
   {
@@ -101,12 +39,6 @@ const QUICK_ACTIONS = [
     href: '/classes/assessments',
     icon: <CheckCircle2 />,
   },
-  {
-    key: 'attendance',
-    label: 'My attendance',
-    href: '/attendance',
-    icon: <CalendarDays />,
-  },
 ];
 
 function greeting() {
@@ -116,104 +48,74 @@ function greeting() {
   return 'Good evening';
 }
 
-interface Props {
-  userName: string;
-}
+export function StudentDashboard({ userName }: { userName: string }) {
+  const { stats, loading } = useOverviewStats();
 
-export function StudentDashboard({ userName }: Props) {
+  const STATS: StatItem[] = [
+    {
+      key: 'classes',
+      label: 'My classes',
+      value: loading ? '—' : formatCount(stats?.personal.myEnrollments ?? 0),
+      icon: <BookOpen />,
+      href: '/classes/timetable',
+    },
+    {
+      key: 'events',
+      label: 'Upcoming events',
+      value: loading ? '—' : formatCount(stats?.school.upcomingEvents ?? 0),
+      icon: <Clock />,
+      href: '/events/upcoming',
+    },
+    {
+      key: 'attendance',
+      label: 'School attendance',
+      value: loading
+        ? '—'
+        : stats?.school.attendanceRate == null
+          ? 'n/a'
+          : `${stats.school.attendanceRate}%`,
+      icon: <CalendarDays />,
+    },
+  ];
+
+  const noClasses = !loading && (stats?.personal.myEnrollments ?? 0) === 0;
+
   return (
     <ShellMain>
       <DashboardLayout
-        header={
-          <PageHeader
-            title={`${greeting()}, ${userName}`}
-            meta={[
-              { key: 'class', label: 'JSS 2A', emphasis: true },
-              { key: 'term', label: 'Spring Term 2025 · Week 6' },
-            ]}
-          />
-        }
+        header={<PageHeader title={`${greeting()}, ${userName}`} />}
         stats={<StatGrid items={STATS} minTileWidth={140} />}
         aside={
-          <>
-            <DashboardQuickActions
-              actions={QUICK_ACTIONS}
-              description="Learning tasks"
-            />
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="text-base">Recent grades</CardTitle>
-                <CardDescription>Last week</CardDescription>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-2">
-                {RECENT_GRADES.map((g) => (
-                  <div
-                    key={g.key}
-                    className="flex items-center justify-between gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3"
-                  >
-                    <span className="truncate text-sm font-medium text-foreground">
-                      {g.subject}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-muted-foreground">
-                        {g.score}
-                      </span>
-                      <span className="rounded bg-primary/10 px-1.5 py-0.5 text-xs font-bold text-primary">
-                        {g.grade}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="mt-1 w-full text-xs"
-                  asChild
-                >
-                  <Link href="/classes/gradebook">View all grades</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          </>
+          <DashboardQuickActions
+            actions={QUICK_ACTIONS}
+            description="Learning tasks"
+          />
         }
       >
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="text-base">Today&apos;s schedule</CardTitle>
-            <CardDescription>Wednesday · JSS 2A</CardDescription>
+            <CardTitle className="text-base">My classes</CardTitle>
+            <CardDescription>Your current enrolments</CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {SCHEDULE.map((cls) => (
-              <div
-                key={cls.key}
-                className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3"
-              >
-                <span
-                  className={
-                    cls.done
-                      ? 'grid size-7 shrink-0 place-items-center rounded-full bg-success/15 text-success'
-                      : 'grid size-7 shrink-0 place-items-center rounded-full bg-primary/10 text-primary'
-                  }
-                >
-                  {cls.done ? (
-                    <CheckCircle2 className="size-4" />
-                  ) : (
-                    <Clock className="size-4" />
-                  )}
-                </span>
-                <div className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold text-foreground">
-                    {cls.subject}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {cls.time} · {cls.room} · {cls.teacher}
-                  </span>
-                </div>
-              </div>
-            ))}
-            <Button variant="outline" size="sm" className="mt-1" asChild>
-              <Link href="/classes/timetable">Full timetable</Link>
-            </Button>
+          <CardContent>
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : noClasses ? (
+              <p className="rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-sm text-muted-foreground">
+                You aren&apos;t enrolled in any classes yet. Once you&apos;re
+                enrolled, your timetable and grades will appear here.
+              </p>
+            ) : (
+              <p className="text-sm text-foreground">
+                You&apos;re enrolled in{' '}
+                {formatCount(stats?.personal.myEnrollments ?? 0)} class
+                {(stats?.personal.myEnrollments ?? 0) === 1 ? '' : 'es'}.{' '}
+                <Link className="underline" href="/classes/timetable">
+                  View timetable
+                </Link>
+                .
+              </p>
+            )}
           </CardContent>
         </Card>
       </DashboardLayout>

@@ -1,9 +1,6 @@
-import { UserPlus } from 'lucide-react';
-
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
-import { Button } from '@workspace/ui/components/button';
 import {
   Card,
   CardContent,
@@ -22,6 +19,7 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { UsersInvitePanel } from './users-invite-panel';
 
 type ProfileStatus = 'active' | 'invited' | 'suspended' | 'pending' | 'inactive';
 
@@ -35,9 +33,10 @@ interface UserProfile {
     isActive?: boolean | null;
     isVerified?: boolean | null;
   } | null;
-  userTenantRole?: Array<{
+  // To-one relation (one role per profile), not an array.
+  userTenantRole?: {
     role?: { name?: string | null; clearanceLevel?: number | null } | null;
-  }>;
+  } | null;
 }
 
 interface ProfileResponse {
@@ -73,11 +72,7 @@ function initials(name: string): string {
 }
 
 function roles(profile: UserProfile): string {
-  const names =
-    profile.userTenantRole
-      ?.map((item) => item.role?.name)
-      .filter((name): name is string => Boolean(name)) ?? [];
-  return names.length ? names.join(', ') : 'No role';
+  return profile.userTenantRole?.role?.name ?? 'No role';
 }
 
 export default async function UsersSettingsPage() {
@@ -89,15 +84,14 @@ export default async function UsersSettingsPage() {
   const users = response?.data ?? [];
 
   return (
-    <Card className="shadow-card">
+    <div className="flex flex-col gap-4">
+      {tenantId ? <UsersInvitePanel tenantId={tenantId} /> : null}
+      <Card className="shadow-card">
       <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
         <div className="flex flex-col gap-1.5">
           <CardTitle className="text-base">Users</CardTitle>
           <CardDescription>{users.length} tenant profiles</CardDescription>
         </div>
-        <Button size="sm">
-          <UserPlus /> Invite user
-        </Button>
       </CardHeader>
       <CardContent className={users.length ? 'px-0' : undefined}>
         {users.length === 0 ? (
@@ -157,6 +151,7 @@ export default async function UsersSettingsPage() {
           </Table>
         )}
       </CardContent>
-    </Card>
+      </Card>
+    </div>
   );
 }

@@ -68,4 +68,16 @@ export const apiClient = {
       headers,
     });
   },
+
+  put<T>(path: string, body: unknown, headers?: Record<string, string>) {
+    return request<T>(path, {
+      method: 'PUT',
+      body: JSON.stringify(body),
+      headers,
+    });
+  },
+
+  delete<T>(path: string, headers?: Record<string, string>) {
+    return request<T>(path, { method: 'DELETE', headers });
+  },
 };

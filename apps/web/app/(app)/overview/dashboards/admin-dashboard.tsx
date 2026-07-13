@@ -4,6 +4,7 @@ import {
   Banknote,
   CalendarClock,
   GraduationCap,
+  Mail,
   TriangleAlert,
   UserPlus,
   Users,
@@ -24,83 +25,14 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
-import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
-
-const STATS: StatItem[] = [
-  {
-    key: 'students',
-    label: 'Total students',
-    value: '1,420',
-    icon: <Users />,
-    delta: { label: '+3%', direction: 'up', intent: 'positive' },
-    href: '/students/directory',
-  },
-  { key: 'staff', label: 'Total staff', value: '96', icon: <GraduationCap /> },
-  {
-    key: 'revenue',
-    label: 'Revenue (mo)',
-    value: '₦12.4M',
-    icon: <Banknote />,
-    delta: { label: '+9%', direction: 'up', intent: 'positive' },
-    href: '/finance/reports',
-  },
-  {
-    key: 'outstanding',
-    label: 'Outstanding fees',
-    value: '₦3.1M',
-    delta: { label: '142 students', direction: 'up', intent: 'negative' },
-    href: '/finance/invoices',
-  },
-  { key: 'attendance', label: 'Attendance rate', value: '94%' },
-  {
-    key: 'events',
-    label: 'Upcoming events',
-    value: '5',
-    icon: <CalendarClock />,
-  },
-];
-
-const META: PageHeaderMeta[] = [
-  { key: 'term', label: 'Spring Term 2025', emphasis: true },
-  { key: 'week', label: 'Week 6 of 13' },
-  { key: 'updated', label: 'updated 2m ago' },
-];
-
-const ATTENTION = [
-  {
-    key: 'admissions',
-    title: '38 admission applications',
-    meta: 'Pending review',
-    tone: 'warning' as const,
-    icon: <UserPlus className="size-4" />,
-    href: '/students/enrollment',
-  },
-  {
-    key: 'fees',
-    title: '₦3.1M outstanding fees',
-    meta: '142 students · reminders due',
-    tone: 'warning' as const,
-    icon: <Banknote className="size-4" />,
-    href: '/finance/invoices',
-  },
-  {
-    key: 'term-end',
-    title: 'Term ends in 3 weeks',
-    meta: 'Plan results & report cards',
-    tone: 'neutral' as const,
-    icon: <CalendarClock className="size-4" />,
-    href: '/students/gradebook/report-cards',
-  },
-];
-
-const ACTIVITY = [
-  { key: 'a1', text: '₦240k fees collected', when: '12 min ago' },
-  { key: 'a2', text: 'New admission: J. Okoro', when: '1h ago' },
-  { key: 'a3', text: 'Announcement sent to all parents', when: '3h ago' },
-  { key: 'a4', text: '2 lesson notes uploaded', when: '5h ago' },
-];
+import { OnboardingChecklist } from '../onboarding-checklist';
+import {
+  formatCount,
+  formatNaira,
+  useOverviewStats,
+} from '../use-overview-stats';
 
 const QUICK_ACTIONS = [
   {
@@ -108,6 +40,12 @@ const QUICK_ACTIONS = [
     label: 'Add student',
     href: '/students/enrollment',
     icon: <UserPlus />,
+  },
+  {
+    key: 'invite',
+    label: 'Invite staff',
+    href: '/settings/users',
+    icon: <Users />,
   },
   {
     key: 'reports',
@@ -121,12 +59,6 @@ const QUICK_ACTIONS = [
     href: '/finance/invoices',
     icon: <Banknote />,
   },
-  {
-    key: 'schedule',
-    label: 'View timetable',
-    href: '/classes/timetable',
-    icon: <CalendarClock />,
-  },
 ];
 
 function greeting() {
@@ -136,19 +68,106 @@ function greeting() {
   return 'Good evening';
 }
 
+interface AttentionItem {
+  key: string;
+  title: string;
+  meta: string;
+  icon: React.ReactNode;
+  href: string;
+}
+
 interface Props {
   userName: string;
   schoolName: string;
 }
 
 export function AdminDashboard({ userName, schoolName }: Props) {
+  const { stats, loading } = useOverviewStats();
+  const s = stats?.school;
+
+  const STATS: StatItem[] = [
+    {
+      key: 'students',
+      label: 'Total students',
+      value: loading ? '—' : formatCount(s?.students ?? 0),
+      icon: <Users />,
+      href: '/students/directory',
+    },
+    {
+      key: 'staff',
+      label: 'Total staff',
+      value: loading ? '—' : formatCount(s?.staff ?? 0),
+      icon: <GraduationCap />,
+      href: '/settings/users',
+    },
+    {
+      key: 'revenue',
+      label: 'Revenue (mo)',
+      value: loading ? '—' : formatNaira(s?.finance.revenueThisMonth ?? 0),
+      icon: <Banknote />,
+      href: '/finance/reports',
+    },
+    {
+      key: 'outstanding',
+      label: 'Outstanding fees',
+      value: loading ? '—' : formatNaira(s?.finance.outstandingAmount ?? 0),
+      href: '/finance/invoices',
+    },
+    {
+      key: 'attendance',
+      label: 'Attendance rate',
+      value: loading
+        ? '—'
+        : s?.attendanceRate == null
+          ? 'n/a'
+          : `${s.attendanceRate}%`,
+    },
+    {
+      key: 'events',
+      label: 'Upcoming events',
+      value: loading ? '—' : formatCount(s?.upcomingEvents ?? 0),
+      icon: <CalendarClock />,
+      href: '/events/upcoming',
+    },
+  ];
+
+  const attention: AttentionItem[] = [];
+  if (s) {
+    if (s.admissionsPending > 0) {
+      attention.push({
+        key: 'admissions',
+        title: `${s.admissionsPending} admission application${s.admissionsPending === 1 ? '' : 's'}`,
+        meta: 'Pending review',
+        icon: <UserPlus className="size-4" />,
+        href: '/students/enrollment',
+      });
+    }
+    if (s.finance.outstandingInvoices > 0) {
+      attention.push({
+        key: 'fees',
+        title: `${formatNaira(s.finance.outstandingAmount)} outstanding fees`,
+        meta: `${s.finance.outstandingInvoices} invoice${s.finance.outstandingInvoices === 1 ? '' : 's'}`,
+        icon: <Banknote className="size-4" />,
+        href: '/finance/invoices',
+      });
+    }
+    if (s.pendingInvitations > 0) {
+      attention.push({
+        key: 'invites',
+        title: `${s.pendingInvitations} pending invitation${s.pendingInvitations === 1 ? '' : 's'}`,
+        meta: 'Awaiting acceptance',
+        icon: <Mail className="size-4" />,
+        href: '/settings/users',
+      });
+    }
+  }
+
   return (
     <ShellMain>
       <DashboardLayout
         header={
           <PageHeader
             title={`${greeting()}, ${userName}`}
-            meta={META}
             actions={
               <>
                 <Button
@@ -177,91 +196,80 @@ export function AdminDashboard({ userName, schoolName }: Props) {
             />
             <Card className="shadow-card">
               <CardHeader>
-                <CardTitle className="text-base">Recent activity</CardTitle>
-                <CardDescription>Across {schoolName}</CardDescription>
+                <CardTitle className="text-base">School at a glance</CardTitle>
+                <CardDescription>{schoolName}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                {ACTIVITY.map((a) => (
-                  <div
-                    key={a.key}
-                    className="flex items-start justify-between gap-3"
-                  >
-                    <span className="text-sm text-foreground">{a.text}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">
-                      {a.when}
-                    </span>
-                  </div>
-                ))}
+              <CardContent className="flex flex-col gap-3 text-sm">
+                <Row label="Classes" value={loading ? '—' : formatCount(s?.classes ?? 0)} />
+                <Row label="Staff" value={loading ? '—' : formatCount(s?.staff ?? 0)} />
+                <Row
+                  label="Announcements"
+                  value={loading ? '—' : formatCount(s?.announcements ?? 0)}
+                />
+                <Row
+                  label="Pending invites"
+                  value={loading ? '—' : formatCount(s?.pendingInvitations ?? 0)}
+                />
               </CardContent>
             </Card>
           </>
         }
       >
+        {stats ? <OnboardingChecklist stats={stats} /> : null}
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <TriangleAlert className="size-4 text-warning" aria-hidden />
               Needs attention
             </CardTitle>
-            <CardDescription>
-              Items waiting on you before term-end
-            </CardDescription>
+            <CardDescription>Items waiting on you</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            {ATTENTION.map((item) => (
-              <a
-                key={item.key}
-                href={item.href}
-                className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3 outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
-              >
-                <span
-                  className={
-                    item.tone === 'warning'
-                      ? 'grid size-8 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning'
-                      : 'grid size-8 shrink-0 place-items-center rounded-lg bg-muted text-muted-foreground'
-                  }
-                  aria-hidden
+            {loading ? (
+              <p className="text-sm text-muted-foreground">Loading…</p>
+            ) : attention.length === 0 ? (
+              <p className="rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-sm text-muted-foreground">
+                You&apos;re all caught up — nothing needs attention right now.
+              </p>
+            ) : (
+              attention.map((item) => (
+                <Link
+                  key={item.key}
+                  href={item.href}
+                  className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3 outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
-                  {item.icon}
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  <span className="truncate text-sm font-semibold text-foreground">
-                    {item.title}
+                  <span
+                    className="grid size-8 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning"
+                    aria-hidden
+                  >
+                    {item.icon}
                   </span>
-                  <span className="truncate text-xs text-muted-foreground">
-                    {item.meta}
+                  <span className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-semibold text-foreground">
+                      {item.title}
+                    </span>
+                    <span className="truncate text-xs text-muted-foreground">
+                      {item.meta}
+                    </span>
                   </span>
-                </span>
-                {item.tone === 'warning' ? (
                   <Badge variant="outline" className="ml-auto shrink-0">
                     Action
                   </Badge>
-                ) : null}
-              </a>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="flex-1 shadow-card">
-          <CardHeader>
-            <CardTitle className="text-base">Enrollment overview</CardTitle>
-            <CardDescription>
-              446 of 480 seats confirmed for the Spring intake · 34 open
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <div className="h-2 overflow-hidden rounded bg-muted">
-              <div
-                className="h-full rounded bg-primary"
-                style={{ width: '93%' }}
-              />
-            </div>
-            <div className="text-xs text-muted-foreground">
-              93% of capacity confirmed
-            </div>
+                </Link>
+              ))
+            )}
           </CardContent>
         </Card>
       </DashboardLayout>
     </ShellMain>
+  );
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground">{value}</span>
+    </div>
   );
 }

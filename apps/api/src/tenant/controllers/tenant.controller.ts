@@ -22,7 +22,11 @@ import {
 import { SwaggerTags } from '../../common/swagger-tags';
 import { JWTSecretRotationReason } from '@workspace/api';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
-import { RequireClearanceLevel } from '../../auth/guards/clearance-level.guard';
+import {
+  RequireClearanceLevel,
+  ClearanceLevelGuard,
+} from '../../auth/guards/clearance-level.guard';
+import { Public } from '../../auth/decorators/public.decorator';
 import { TenantService } from '../services/tenant.service';
 import { TenantRegistrationService } from '../services/tenant-registration.service';
 import { TenantStatusService } from '../services/tenant-status.service';
@@ -55,7 +59,7 @@ import { type AuthenticatedRequest } from '../../auth/middleware/multi-layer-sec
  */
 @ApiTags(SwaggerTags.tenant.name)
 @Controller('tenant')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, ClearanceLevelGuard)
 @ApiBearerAuth('JWT-auth')
 export class TenantController {
   constructor(
@@ -251,10 +255,59 @@ export class TenantController {
   }
 
   /**
+   * List invitations for a tenant
+   * 6.5: Implement user invitation system (management surface)
+   */
+  @Get(':id/invitations')
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: 'List invitations for a tenant' })
+  async listInvitations(
+    @Param('id') tenantId: string,
+    @Query('status') status?: string,
+  ) {
+    return this.invitationService.listInvitations(tenantId, status);
+  }
+
+  /**
+   * Revoke a pending invitation
+   * 6.5: Implement user invitation system (management surface)
+   */
+  @Delete(':id/invitations/:invitationId')
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: 'Revoke a pending invitation' })
+  async revokeInvitation(
+    @Param('id') tenantId: string,
+    @Param('invitationId') invitationId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const user = req.user;
+    return this.invitationService.revokeInvitation(
+      tenantId,
+      invitationId,
+      user.userId,
+    );
+  }
+
+  /**
+   * Preview an invitation by token (public)
+   *
+   * Lets the accept-invitation page show who/what the invite is for before
+   * the (accountless) invitee sets a password. Returns only non-sensitive
+   * fields and never the token itself.
+   */
+  @Get('invitations/:token')
+  @Public()
+  @ApiOperation({ summary: 'Preview an invitation by token (public)' })
+  async previewInvitation(@Param('token') token: string) {
+    return this.invitationService.getInvitationByToken(token);
+  }
+
+  /**
    * Accept invitation (public endpoint)
    * 6.5: Implement user invitation system
    */
   @Post('invitations/accept')
+  @Public()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Accept user invitation' })
   async acceptInvitation(@Body() data: AcceptInvitationDto) {

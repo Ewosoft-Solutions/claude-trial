@@ -13,7 +13,12 @@ import {
 } from './lib/auth-cookies';
 import { extractTenantSlug, TENANT_SLUG_HEADER } from './lib/tenant-host';
 
-const PUBLIC_PATHS = new Set(['/login', '/forgot-password', '/reset-password']);
+const PUBLIC_PATHS = new Set([
+  '/login',
+  '/forgot-password',
+  '/reset-password',
+  '/accept-invite',
+]);
 
 /**
  * Resolve the subdomain tenant slug and forward it to the app as a request

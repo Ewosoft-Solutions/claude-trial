@@ -1,6 +1,6 @@
 'use client';
 
-import { Bus, CalendarDays, Hammer, MapPin } from 'lucide-react';
+import { Bus, CalendarDays, MapPin, Users } from 'lucide-react';
 import Link from 'next/link';
 
 import { Button } from '@workspace/ui/components/button';
@@ -18,46 +18,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
-
-const STATS: StatItem[] = [
-  { key: 'routes', label: 'Transport routes', value: '8', icon: <Bus /> },
-  { key: 'students', label: 'Students on bus', value: '340', icon: <MapPin /> },
-  {
-    key: 'events',
-    label: 'Upcoming events',
-    value: '3',
-    icon: <CalendarDays />,
-    href: '/classes/timetable',
-  },
-  {
-    key: 'maintenance',
-    label: 'Open work orders',
-    value: '2',
-    icon: <Hammer />,
-    delta: { label: 'Pending action', direction: 'up', intent: 'negative' },
-  },
-];
-
-const UPCOMING_EVENTS = [
-  {
-    key: 'e1',
-    title: 'Cultural day setup',
-    date: '12 July',
-    status: 'Planning',
-  },
-  {
-    key: 'e2',
-    title: 'Bus route 3 maintenance',
-    date: '15 July',
-    status: 'Scheduled',
-  },
-  {
-    key: 'e3',
-    title: 'Term-end logistics',
-    date: '25 July',
-    status: 'Planning',
-  },
-];
+import { formatCount, useOverviewStats } from '../use-overview-stats';
 
 const QUICK_ACTIONS = [
   {
@@ -78,12 +39,6 @@ const QUICK_ACTIONS = [
     href: '/events/upcoming',
     icon: <CalendarDays />,
   },
-  {
-    key: 'schedule',
-    label: 'Class schedules',
-    href: '/classes/timetable',
-    icon: <Hammer />,
-  },
 ];
 
 function greeting() {
@@ -93,133 +48,68 @@ function greeting() {
   return 'Good evening';
 }
 
-interface Props {
-  userName: string;
-}
+export function OperationsDashboard({ userName }: { userName: string }) {
+  const { stats, loading } = useOverviewStats();
+  const s = stats?.school;
 
-export function OperationsDashboard({ userName }: Props) {
+  const STATS: StatItem[] = [
+    {
+      key: 'events',
+      label: 'Upcoming events',
+      value: loading ? '—' : formatCount(s?.upcomingEvents ?? 0),
+      icon: <CalendarDays />,
+      href: '/events/upcoming',
+    },
+    {
+      key: 'students',
+      label: 'Students',
+      value: loading ? '—' : formatCount(s?.students ?? 0),
+      icon: <MapPin />,
+      href: '/students/directory',
+    },
+    {
+      key: 'classes',
+      label: 'Classes',
+      value: loading ? '—' : formatCount(s?.classes ?? 0),
+      icon: <Users />,
+      href: '/classes/timetable',
+    },
+  ];
+
   return (
     <ShellMain>
       <DashboardLayout
         header={
           <PageHeader
             title={`${greeting()}, ${userName}`}
-            meta={[
-              { key: 'role', label: 'Operations', emphasis: true },
-              { key: 'term', label: 'Spring Term 2025' },
-            ]}
+            meta={[{ key: 'role', label: 'Operations', emphasis: true }]}
           />
         }
         stats={<StatGrid items={STATS} minTileWidth={170} />}
         aside={
-          <>
-            <DashboardQuickActions
-              actions={QUICK_ACTIONS}
-              description="Operations tasks"
-            />
-            <Card className="shadow-card">
-              <CardHeader>
-                <CardTitle className="text-base">Upcoming events</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-col gap-3">
-                {UPCOMING_EVENTS.map((e) => (
-                  <div
-                    key={e.key}
-                    className="flex items-start justify-between gap-3"
-                  >
-                    <div className="flex min-w-0 flex-col">
-                      <span className="truncate text-sm font-medium text-foreground">
-                        {e.title}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {e.date}
-                      </span>
-                    </div>
-                    <span className="shrink-0 rounded bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-                      {e.status}
-                    </span>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          </>
+          <DashboardQuickActions
+            actions={QUICK_ACTIONS}
+            description="Operations tasks"
+          />
         }
       >
         <Card className="shadow-card">
           <CardHeader>
-            <CardTitle className="text-base">Transport routes</CardTitle>
-            <CardDescription>8 active routes · 340 students</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            {[
-              {
-                key: 'r1',
-                route: 'Route 1 — Ikorodu',
-                students: 48,
-                status: 'On time',
-              },
-              {
-                key: 'r2',
-                route: 'Route 2 — Yaba',
-                students: 52,
-                status: 'On time',
-              },
-              {
-                key: 'r3',
-                route: 'Route 3 — Surulere',
-                students: 41,
-                status: 'Delayed 10 min',
-              },
-              {
-                key: 'r4',
-                route: 'Route 4 — Oshodi',
-                students: 38,
-                status: 'On time',
-              },
-            ].map((r) => (
-              <div
-                key={r.key}
-                className="flex items-center justify-between rounded-[var(--radius-sm)] border border-border p-3"
-              >
-                <div className="flex min-w-0 flex-col">
-                  <span className="text-sm font-medium text-foreground">
-                    {r.route}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {r.students} students
-                  </span>
-                </div>
-                <span
-                  className={
-                    r.status === 'On time'
-                      ? 'text-xs font-medium text-success'
-                      : 'text-xs font-medium text-warning'
-                  }
-                >
-                  {r.status}
-                </span>
-              </div>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card className="flex-1 shadow-card">
-          <CardHeader>
-            <CardTitle className="text-base">
-              More modules coming soon
-            </CardTitle>
-            <CardDescription>
-              Facilities, HR, inventory, and safety management
-            </CardDescription>
+            <CardTitle className="text-base">Transport</CardTitle>
+            <CardDescription>Routes and pickups for this school</CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Transport tracking, facilities scheduling, inventory management,
-              and HR modules are on the product roadmap. Check back soon.
+            <p className="rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-sm text-muted-foreground">
+              Manage transport routes and the daily pickup register.
             </p>
-            <Button variant="outline" size="sm" className="mt-4" asChild>
-              <Link href="/classes/timetable">View class schedules</Link>
-            </Button>
+            <div className="mt-3 flex gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/transport/routes">Routes</Link>
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/events/upcoming">Events</Link>
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </DashboardLayout>

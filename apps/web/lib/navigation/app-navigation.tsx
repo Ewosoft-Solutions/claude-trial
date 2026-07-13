@@ -71,8 +71,6 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Enrollment',
               icon: <UserPlus />,
               href: '/students/enrollment',
-              badge: '42',
-              badgeTone: 'hot',
               access: { anyPermission: ['admissions.view'] },
             },
             {
@@ -80,7 +78,6 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Directory',
               icon: <Contact />,
               href: '/students/directory',
-              badge: '1.2k',
               access: { anyPermission: ['students.view'] },
             },
             {
@@ -130,7 +127,6 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Fees & billing',
               icon: <CreditCard />,
               href: '/students/fees',
-              badge: '7',
               access: { anyPermission: ['fees.view'] },
             },
             {

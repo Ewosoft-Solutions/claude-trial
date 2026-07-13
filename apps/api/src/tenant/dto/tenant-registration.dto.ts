@@ -2,11 +2,26 @@ import {
   IsString,
   IsEmail,
   IsOptional,
+  IsIn,
   MinLength,
   MaxLength,
   Matches,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+
+/**
+ * Allowed school types (mirrors the SchoolType union in @workspace/ui).
+ */
+export const SCHOOL_TYPES = [
+  'nursery',
+  'primary',
+  'secondary',
+  'university',
+  'college',
+  'training_institute',
+  'organization',
+] as const;
+export type SchoolTypeValue = (typeof SCHOOL_TYPES)[number];
 
 /**
  * Register Tenant DTO
@@ -36,6 +51,15 @@ export class RegisterTenantDto {
   @IsString()
   @MaxLength(255)
   emailDomain?: string;
+
+  @ApiPropertyOptional({
+    description: 'School type',
+    enum: SCHOOL_TYPES,
+    example: 'secondary',
+  })
+  @IsOptional()
+  @IsIn(SCHOOL_TYPES)
+  schoolType?: SchoolTypeValue;
 
   @ApiPropertyOptional({
     description: 'Initial settings (JSON object)',

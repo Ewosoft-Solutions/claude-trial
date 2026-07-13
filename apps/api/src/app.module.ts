@@ -17,6 +17,7 @@ import { AcademicStructureModule } from './academic-structure/academic-structure
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
 import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
+import { OverviewModule } from './overview/overview.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { FinanceModule } from './finance/finance.module';
 import { AdmissionsModule } from './admissions/admissions.module';
@@ -93,6 +94,7 @@ import { AppController } from './app.controller';
     AssessmentGradingModule,
     CommunicationModule,
     ReportingAnalyticsModule,
+    OverviewModule,
     AttendanceModule,
     FinanceModule,
     AdmissionsModule,

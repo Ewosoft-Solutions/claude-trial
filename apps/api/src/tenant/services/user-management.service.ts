@@ -107,6 +107,7 @@ export class UserManagementService {
           this.dbService.client.userTenantRole.create({
             data: {
               userTenantId: userTenant.id,
+              tenantId, // denormalized for RLS scoping (policy has no NULL escape)
               roleId,
               isPrimary: index === 0, // First role is primary
               assignedBy: createdBy,
@@ -244,6 +245,7 @@ export class UserManagementService {
     await this.dbService.client.userTenantRole.create({
       data: {
         userTenantId: userTenant.id,
+        tenantId, // denormalized for RLS scoping (policy has no NULL escape)
         roleId: data.roleIds[0],
         isPrimary: true,
         assignedBy: createdBy,
@@ -541,6 +543,7 @@ export class UserManagementService {
           this.dbService.client.userTenantRole.create({
             data: {
               userTenantId: profileId,
+              tenantId, // denormalized for RLS scoping (policy has no NULL escape)
               roleId,
               isPrimary: index === 0,
               assignedBy: updatedBy,
