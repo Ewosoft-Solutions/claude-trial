@@ -45,6 +45,12 @@ export interface EnvironmentConfig {
   WEBAUTHN_RP_NAME: string;
   WEBAUTHN_RP_ID: string;
   WEBAUTHN_ORIGIN: string;
+  /**
+   * Public origin of the web app, used to build user-facing links in outbound
+   * email (e.g. the invitation accept link `${APP_WEB_URL}/accept-invite?...`).
+   * No trailing slash.
+   */
+  APP_WEB_URL: string;
   DB_POOL_MIN: number;
   DB_POOL_MAX: number;
   DB_CONNECTION_TIMEOUT: number;
@@ -111,6 +117,10 @@ export const envValidationSchema = Joi.object({
   WEBAUTHN_RP_NAME: Joi.string().default('School With Ease'),
   WEBAUTHN_RP_ID: Joi.string().default('localhost'),
   WEBAUTHN_ORIGIN: Joi.string().default('http://localhost:3001'),
+  APP_WEB_URL: Joi.string()
+    .uri()
+    .default('http://localhost:3001')
+    .custom((value: string) => value.replace(/\/+$/, '')),
   DB_POOL_MIN: Joi.number().integer().min(1).max(100).default(2),
   DB_POOL_MAX: Joi.number().integer().min(1).max(100).default(10),
   DB_CONNECTION_TIMEOUT: Joi.number().integer().min(1000).default(5000),

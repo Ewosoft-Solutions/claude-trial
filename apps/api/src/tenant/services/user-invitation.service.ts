@@ -17,6 +17,10 @@ import * as crypto from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { AUDIT_ACTION } from '../../common/audit/audit.constants';
 import { QueueService } from '../../common/queue/queue.service';
+import {
+  INVITATION_EMAIL_JOB,
+  type InvitationEmailPayload,
+} from '../../common/email';
 
 /**
  * User Invitation Service
@@ -127,13 +131,27 @@ export class UserInvitationService {
       },
     });
 
-    // Enqueue invitation email dispatch (stub for async processing)
-    this.queueService.enqueue('invitation-email', {
-      tenantId,
-      userId: user.id,
-      userTenantId: userTenant.id,
+    // Enqueue invitation email dispatch. The handler (EmailQueueRegistrar)
+    // composes the accept link and sends via the configured EmailService.
+    const [tenant, role] = await Promise.all([
+      this.dbService.client.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+      this.dbService.client.role.findUnique({
+        where: { id: data.roleId },
+        select: { name: true },
+      }),
+    ]);
+    const recipientName =
+      [data.firstName, data.lastName].filter(Boolean).join(' ') || null;
+    this.queueService.enqueue<InvitationEmailPayload>(INVITATION_EMAIL_JOB, {
       email: data.email.toLowerCase(),
-      roleId: data.roleId,
+      invitationToken,
+      tenantName: tenant?.name ?? 'your school',
+      roleName: role?.name ?? null,
+      recipientName,
+      expiresAt: invitationExpiresAt,
     });
 
     // Audit log

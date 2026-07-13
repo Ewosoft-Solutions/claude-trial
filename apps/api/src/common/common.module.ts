@@ -5,6 +5,8 @@ import { EncryptionModule } from './encryption/encryption.module';
 import { QueueService } from './queue/queue.service';
 import { StorageModule } from './storage/storage.module';
 import { AcademicsAccessService } from './academics/academics-access.service';
+import { EmailService } from './email/email.service';
+import { EmailQueueRegistrar } from './email/email-queue.registrar';
 
 /**
  * Common Module
@@ -16,7 +18,12 @@ import { AcademicsAccessService } from './academics/academics-access.service';
 @Global()
 @Module({
   imports: [DatabaseModule, LoggerModule, EncryptionModule, StorageModule],
-  providers: [QueueService, AcademicsAccessService],
+  providers: [
+    QueueService,
+    AcademicsAccessService,
+    EmailService,
+    EmailQueueRegistrar,
+  ],
   exports: [
     DatabaseModule,
     LoggerModule,
@@ -24,6 +31,7 @@ import { AcademicsAccessService } from './academics/academics-access.service';
     QueueService,
     StorageModule,
     AcademicsAccessService,
+    EmailService,
   ],
 })
 export class CommonModule {}
