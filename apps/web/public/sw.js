@@ -14,7 +14,7 @@
  * them in sync.
  */
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const STATIC_CACHE = `swe-static-${VERSION}`;
 const OFFLINE_URL = '/offline.html';
 const PRECACHE = [OFFLINE_URL, '/icon.svg'];
@@ -23,7 +23,15 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => cache.addAll(PRECACHE)),
   );
-  self.skipWaiting();
+  // NB: no unconditional self.skipWaiting(). A new worker stays in `waiting`
+  // so the client can surface an "update available" prompt; it activates only
+  // when the user accepts (see the SKIP_WAITING message handler below). This
+  // is what lets an installed PWA update without a manual close-and-reopen.
+});
+
+// Activate immediately when the client tells us the user accepted the update.
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
