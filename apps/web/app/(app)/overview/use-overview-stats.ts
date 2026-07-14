@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import useSWR from 'swr';
 
 /** Shape returned by GET /api/overview (-> NestJS /overview/stats). */
 export interface OverviewStats {
@@ -26,44 +26,38 @@ export interface OverviewStats {
   };
 }
 
-interface State {
+interface OverviewStatsResult {
   stats: OverviewStats | null;
   loading: boolean;
   error: string | null;
+  /** True while a (re)fetch is in flight — drives a Refresh control's spinner. */
+  refreshing: boolean;
+  /** Re-fetch on demand (e.g. a "Refresh" control). */
+  refresh: () => void;
 }
 
-/** Fetch the signed-in viewer's real, tenant-scoped dashboard stats. */
-export function useOverviewStats(): State {
-  const [state, setState] = useState<State>({
-    stats: null,
-    loading: true,
-    error: null,
-  });
+/**
+ * Fetch the signed-in viewer's real, tenant-scoped dashboard stats.
+ *
+ * Backed by SWR (see SwrProvider): the data revalidates automatically when the
+ * user refocuses the app or reconnects, so a long-lived PWA session doesn't
+ * show stale KPIs. `loading` is the first-load state only — background
+ * revalidations keep the previous data on screen rather than flashing a
+ * skeleton.
+ */
+export function useOverviewStats(): OverviewStatsResult {
+  const { data, error, isLoading, isValidating, mutate } =
+    useSWR<OverviewStats>('/api/overview');
 
-  useEffect(() => {
-    let active = true;
-    fetch('/api/overview')
-      .then(async (r) => {
-        const body = await r.json();
-        if (!r.ok) throw new Error(body?.error || 'Failed to load stats');
-        return body as OverviewStats;
-      })
-      .then((stats) => active && setState({ stats, loading: false, error: null }))
-      .catch(
-        (err) =>
-          active &&
-          setState({
-            stats: null,
-            loading: false,
-            error: err instanceof Error ? err.message : 'Error',
-          }),
-      );
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  return state;
+  return {
+    stats: data ?? null,
+    loading: isLoading,
+    error: error instanceof Error ? error.message : error ? 'Error' : null,
+    refreshing: isValidating,
+    refresh: () => {
+      void mutate();
+    },
+  };
 }
 
 /** Format kobo (minor units) as a compact Naira amount, e.g. ₦12.4M, ₦3.1k. */

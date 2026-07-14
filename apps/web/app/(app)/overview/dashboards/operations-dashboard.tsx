@@ -18,6 +18,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
+import { RefreshButton } from '../../_shared/refresh-button';
 import { formatCount, useOverviewStats } from '../use-overview-stats';
 
 const QUICK_ACTIONS = [
@@ -49,7 +50,7 @@ function greeting() {
 }
 
 export function OperationsDashboard({ userName }: { userName: string }) {
-  const { stats, loading } = useOverviewStats();
+  const { stats, loading, refreshing, refresh } = useOverviewStats();
   const s = stats?.school;
 
   const STATS: StatItem[] = [
@@ -83,6 +84,9 @@ export function OperationsDashboard({ userName }: { userName: string }) {
           <PageHeader
             title={`${greeting()}, ${userName}`}
             meta={[{ key: 'role', label: 'Operations', emphasis: true }]}
+            actions={
+              <RefreshButton onRefresh={refresh} refreshing={refreshing} />
+            }
           />
         }
         stats={<StatGrid items={STATS} minTileWidth={170} />}

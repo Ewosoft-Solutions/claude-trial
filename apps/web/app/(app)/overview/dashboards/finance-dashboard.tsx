@@ -18,6 +18,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
+import { RefreshButton } from '../../_shared/refresh-button';
 import {
   formatCount,
   formatNaira,
@@ -58,7 +59,7 @@ interface Props {
 }
 
 export function FinanceDashboard({ userName, schoolName }: Props) {
-  const { stats, loading } = useOverviewStats();
+  const { stats, loading, refreshing, refresh } = useOverviewStats();
   const f = stats?.school.finance;
 
   const STATS: StatItem[] = [
@@ -100,11 +101,14 @@ export function FinanceDashboard({ userName, schoolName }: Props) {
             title={`${greeting()}, ${userName}`}
             meta={[{ key: 'role', label: 'Finance & Billing' }]}
             actions={
-              <Button size="sm" asChild>
-                <Link href="/finance/payments">
-                  <Banknote className="size-4" /> Record payment
-                </Link>
-              </Button>
+              <>
+                <RefreshButton onRefresh={refresh} refreshing={refreshing} />
+                <Button size="sm" asChild>
+                  <Link href="/finance/payments">
+                    <Banknote className="size-4" /> Record payment
+                  </Link>
+                </Button>
+              </>
             }
           />
         }

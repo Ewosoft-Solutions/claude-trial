@@ -19,6 +19,7 @@
    ============================================================ */
 
 import * as React from 'react';
+import useSWR from 'swr';
 import {
   Banknote,
   BookOpen,
@@ -43,6 +44,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
+import { RefreshButton } from '../../_shared/refresh-button';
 
 const QUICK_ACTIONS = [
   {
@@ -108,29 +110,19 @@ interface Props {
 }
 
 export function ParentDashboard({ userName, schoolName }: Props) {
-  const [children, setChildren] = React.useState<ChildSummary[] | null>(null);
-  const [error, setError] = React.useState<string | null>(null);
+  const {
+    data,
+    error: loadError,
+    isValidating: refreshing,
+    mutate,
+  } = useSWR<{ children: ChildSummary[] }>('/api/parent-portal/children');
+  const children = data?.children ?? null;
+  const error = loadError
+    ? loadError instanceof Error
+      ? loadError.message
+      : 'Failed to load children'
+    : null;
   const [selectedId, setSelectedId] = React.useState<string>('all');
-
-  React.useEffect(() => {
-    let cancelled = false;
-    fetch('/api/parent-portal/children')
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        if (data.error) {
-          setError(data.error);
-          return;
-        }
-        setChildren(data.children ?? []);
-      })
-      .catch(() => {
-        if (!cancelled) setError('Failed to load children');
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const selected =
     selectedId !== 'all'
@@ -229,9 +221,15 @@ export function ParentDashboard({ userName, schoolName }: Props) {
                 : []
             }
             actions={
-              <Button size="sm">
-                <MessageSquare className="size-4" /> Send message
-              </Button>
+              <>
+                <RefreshButton
+                  onRefresh={() => void mutate()}
+                  refreshing={refreshing}
+                />
+                <Button size="sm">
+                  <MessageSquare className="size-4" /> Send message
+                </Button>
+              </>
             }
           />
         }

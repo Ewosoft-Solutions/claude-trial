@@ -18,6 +18,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
+import { RefreshButton } from '../../_shared/refresh-button';
 import { formatCount, useOverviewStats } from '../use-overview-stats';
 
 const QUICK_ACTIONS = [
@@ -49,7 +50,7 @@ function greeting() {
 }
 
 export function TeacherDashboard({ userName }: { userName: string }) {
-  const { stats, loading } = useOverviewStats();
+  const { stats, loading, refreshing, refresh } = useOverviewStats();
 
   const STATS: StatItem[] = [
     {
@@ -95,11 +96,14 @@ export function TeacherDashboard({ userName }: { userName: string }) {
             title={`${greeting()}, ${userName}`}
             meta={[{ key: 'role', label: 'Teaching' }]}
             actions={
-              <Button size="sm" asChild>
-                <Link href="/attendance/daily">
-                  <ClipboardList className="size-4" /> Take attendance
-                </Link>
-              </Button>
+              <>
+                <RefreshButton onRefresh={refresh} refreshing={refreshing} />
+                <Button size="sm" asChild>
+                  <Link href="/attendance/daily">
+                    <ClipboardList className="size-4" /> Take attendance
+                  </Link>
+                </Button>
+              </>
             }
           />
         }

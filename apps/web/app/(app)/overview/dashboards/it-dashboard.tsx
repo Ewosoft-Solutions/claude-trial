@@ -18,6 +18,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
+import { RefreshButton } from '../../_shared/refresh-button';
 import { formatCount, useOverviewStats } from '../use-overview-stats';
 
 const QUICK_LINKS = [
@@ -55,7 +56,7 @@ function greeting() {
 }
 
 export function ITDashboard({ userName }: { userName: string }) {
-  const { stats, loading } = useOverviewStats();
+  const { stats, loading, refreshing, refresh } = useOverviewStats();
   const s = stats?.school;
   const accounts = (s?.students ?? 0) + (s?.staff ?? 0);
 
@@ -97,11 +98,14 @@ export function ITDashboard({ userName }: { userName: string }) {
             title={`${greeting()}, ${userName}`}
             meta={[{ key: 'role', label: 'IT Support', emphasis: true }]}
             actions={
-              <Button size="sm" asChild>
-                <Link href="/settings/users">
-                  <Users className="size-4" /> Manage users
-                </Link>
-              </Button>
+              <>
+                <RefreshButton onRefresh={refresh} refreshing={refreshing} />
+                <Button size="sm" asChild>
+                  <Link href="/settings/users">
+                    <Users className="size-4" /> Manage users
+                  </Link>
+                </Button>
+              </>
             }
           />
         }

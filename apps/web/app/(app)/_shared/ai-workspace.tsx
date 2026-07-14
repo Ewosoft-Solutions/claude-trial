@@ -13,6 +13,7 @@
    ============================================================ */
 
 import * as React from 'react';
+import useSWR from 'swr';
 import {
   AlertTriangle,
   BookOpenCheck,
@@ -390,9 +391,16 @@ function toolLabel(name: string): string {
 }
 
 function AssistantPane({ active }: { active: boolean }) {
-  const [loaded, setLoaded] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [sessions, setSessions] = React.useState<AssistantSessionSummary[]>([]);
+  // Lazy: only fetch once the pane is active. SWR revalidates the history on
+  // refocus; new sessions are inserted optimistically via `mutateSessions`.
+  const {
+    data: sessions = [],
+    isLoading: loading,
+    error: sessionsError,
+    mutate: mutateSessions,
+  } = useSWR<AssistantSessionSummary[]>(
+    active ? '/api/ai/analytics/sessions' : null,
+  );
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null,
   );
@@ -403,33 +411,13 @@ function AssistantPane({ active }: { active: boolean }) {
   const [error, setError] = React.useState<string | null>(null);
   const [showHistory, setShowHistory] = React.useState(false);
 
-  React.useEffect(() => {
-    if (!active || loaded || loading) return;
-    let cancelled = false;
-    setLoading(true);
-    fetchJson<AssistantSessionSummary[]>(
-      '/api/ai/analytics/sessions',
-      'Could not load assistant history.',
-    )
-      .then((rows) => {
-        if (cancelled) return;
-        setSessions(rows);
-        setLoaded(true);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : 'Could not load history.',
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [active, loaded, loading]);
+  const displayError =
+    error ??
+    (sessionsError instanceof Error
+      ? sessionsError.message
+      : sessionsError
+        ? 'Could not load assistant history.'
+        : null);
 
   const patchLast = React.useCallback(
     (patch: (m: AssistantMessage) => AssistantMessage) => {
@@ -481,18 +469,20 @@ function AssistantPane({ active }: { active: boolean }) {
           if (event === 'session') {
             const { sessionId } = JSON.parse(data) as { sessionId: string };
             setActiveSessionId(sessionId);
-            setSessions((prev) =>
-              prev.some((s) => s.id === sessionId)
-                ? prev
-                : [
-                    {
-                      id: sessionId,
-                      title: message.slice(0, 80),
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    },
-                    ...prev,
-                  ],
+            void mutateSessions(
+              (prev = []) =>
+                prev.some((s) => s.id === sessionId)
+                  ? prev
+                  : [
+                      {
+                        id: sessionId,
+                        title: message.slice(0, 80),
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                      },
+                      ...prev,
+                    ],
+              { revalidate: false },
             );
           } else if (event === 'delta') {
             const { text } = JSON.parse(data) as { text: string };
@@ -547,7 +537,7 @@ function AssistantPane({ active }: { active: boolean }) {
         setBusy(false);
       }
     },
-    [activeSessionId, busy, patchLast],
+    [activeSessionId, busy, mutateSessions, patchLast],
   );
 
   const openSession = React.useCallback(
@@ -686,11 +676,11 @@ function AssistantPane({ active }: { active: boolean }) {
             </ChatThread>
 
             <ComposerFrame mode="assistant">
-              {error ? (
+              {displayError ? (
                 <NoticeBanner
                   tone="destructive"
                   role="alert"
-                  title={error}
+                  title={displayError}
                   onDismiss={() => setError(null)}
                 />
               ) : null}
@@ -778,10 +768,19 @@ function lessonLabel(lesson: LessonSummary): string {
 }
 
 function TutorPane({ active }: { active: boolean }) {
-  const [loaded, setLoaded] = React.useState(false);
-  const [loading, setLoading] = React.useState(false);
-  const [lessons, setLessons] = React.useState<LessonSummary[]>([]);
-  const [sessions, setSessions] = React.useState<TutorSessionSummary[]>([]);
+  // Lazy: fetch lessons + history only when the pane is active. SWR revalidates
+  // on refocus; new sessions are inserted optimistically via `mutateSessions`.
+  const { data: lessons = [], error: lessonsError } = useSWR<LessonSummary[]>(
+    active ? '/api/learning/lessons' : null,
+  );
+  const {
+    data: sessions = [],
+    isLoading: loading,
+    error: sessionsError,
+    mutate: mutateSessions,
+  } = useSWR<TutorSessionSummary[]>(
+    active ? '/api/ai/academic/sessions' : null,
+  );
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null,
   );
@@ -794,41 +793,22 @@ function TutorPane({ active }: { active: boolean }) {
   const [block, setBlock] = React.useState<AssessmentBlock | null>(null);
   const [showHistory, setShowHistory] = React.useState(false);
 
+  // Default the lesson picker to the first lesson once lessons load.
   React.useEffect(() => {
-    if (!active || loaded || loading) return;
-    let cancelled = false;
-    setLoading(true);
-    Promise.all([
-      fetchJson<LessonSummary[]>(
-        '/api/learning/lessons',
-        'Could not load lessons.',
-      ),
-      fetchJson<TutorSessionSummary[]>(
-        '/api/ai/academic/sessions',
-        'Could not load tutor history.',
-      ),
-    ])
-      .then(([lessonRows, sessionRows]) => {
-        if (cancelled) return;
-        setLessons(lessonRows);
-        setSessions(sessionRows);
-        setLessonId((current) => current ?? lessonRows[0]?.id ?? null);
-        setLoaded(true);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          setError(
-            err instanceof Error ? err.message : 'Could not load tutor data.',
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [active, loaded, loading]);
+    if (lessonId == null && lessons.length > 0) {
+      setLessonId(lessons[0]!.id);
+    }
+  }, [lessonId, lessons]);
+
+  const displayError =
+    error ??
+    (lessonsError instanceof Error
+      ? lessonsError.message
+      : sessionsError instanceof Error
+        ? sessionsError.message
+        : lessonsError || sessionsError
+          ? 'Could not load tutor data.'
+          : null);
 
   const lessonLocked = activeSessionId !== null && messages.length > 0;
   const lessonById = React.useMemo(
@@ -902,21 +882,23 @@ function TutorPane({ active }: { active: boolean }) {
             };
             setActiveSessionId(parsed.sessionId);
             setLessonId(parsed.lessonId);
-            setSessions((prev) =>
-              prev.some((s) => s.id === parsed.sessionId)
-                ? prev
-                : [
-                    {
-                      id: parsed.sessionId,
-                      title: message.slice(0, 80),
-                      lessonId: parsed.lessonId,
-                      lessonTitle:
-                        lessonById.get(parsed.lessonId)?.title ?? null,
-                      createdAt: new Date().toISOString(),
-                      updatedAt: new Date().toISOString(),
-                    },
-                    ...prev,
-                  ],
+            void mutateSessions(
+              (prev = []) =>
+                prev.some((s) => s.id === parsed.sessionId)
+                  ? prev
+                  : [
+                      {
+                        id: parsed.sessionId,
+                        title: message.slice(0, 80),
+                        lessonId: parsed.lessonId,
+                        lessonTitle:
+                          lessonById.get(parsed.lessonId)?.title ?? null,
+                        createdAt: new Date().toISOString(),
+                        updatedAt: new Date().toISOString(),
+                      },
+                      ...prev,
+                    ],
+              { revalidate: false },
             );
           } else if (event === 'sources') {
             const { citations } = JSON.parse(data) as { citations: Citation[] };
@@ -957,7 +939,7 @@ function TutorPane({ active }: { active: boolean }) {
         setBusy(false);
       }
     },
-    [activeSessionId, busy, lessonById, lessonId, patchLast],
+    [activeSessionId, busy, lessonById, lessonId, mutateSessions, patchLast],
   );
 
   const openSession = React.useCallback(
@@ -1146,11 +1128,11 @@ function TutorPane({ active }: { active: boolean }) {
                   onDismiss={() => setBlock(null)}
                 />
               ) : null}
-              {error ? (
+              {displayError ? (
                 <NoticeBanner
                   tone="destructive"
                   role="alert"
-                  title={error}
+                  title={displayError}
                   onDismiss={() => setError(null)}
                 />
               ) : null}

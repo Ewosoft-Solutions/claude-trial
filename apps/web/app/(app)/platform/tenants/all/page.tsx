@@ -8,7 +8,8 @@
    ============================================================ */
 
 import Link from 'next/link';
-import { Fragment, useCallback, useEffect, useState } from 'react';
+import { Fragment, useState } from 'react';
+import useSWR from 'swr';
 import { Building2, Plus, UserPlus } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -30,6 +31,7 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import { InviteUser } from '../../../_shared/invite-user';
+import { RefreshButton } from '../../../_shared/refresh-button';
 
 interface School {
   id: string;
@@ -48,32 +50,31 @@ const STATUS_TONE: Record<string, StateTone> = {
 };
 
 export default function AllSchoolsPage() {
-  const [schools, setSchools] = useState<School[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data,
+    error: loadError,
+    isLoading: loading,
+    isValidating: refreshing,
+    mutate,
+  } = useSWR<{ data: School[] }>('/api/platform/schools?limit=100');
+  const schools = data?.data ?? [];
+
+  // Load failures come from SWR; action failures (activate/suspend) are local.
+  const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [inviteFor, setInviteFor] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setError(null);
-    try {
-      const res = await fetch('/api/platform/schools?limit=100');
-      const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || 'Failed to load schools');
-      setSchools(body?.data ?? []);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const error =
+    actionError ??
+    (loadError instanceof Error
+      ? loadError.message
+      : loadError
+        ? 'Failed to load schools'
+        : null);
 
   async function setStatus(id: string, status: 'active' | 'suspended') {
     setBusyId(id);
+    setActionError(null);
     try {
       const res = await fetch(`/api/platform/schools/${id}/status`, {
         method: 'PATCH',
@@ -84,9 +85,9 @@ export default function AllSchoolsPage() {
         const body = await res.json().catch(() => ({}));
         throw new Error(body?.error || 'Failed to update status');
       }
-      await load();
+      await mutate();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setActionError(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setBusyId(null);
     }
@@ -104,11 +105,17 @@ export default function AllSchoolsPage() {
             platform
           </p>
         </div>
-        <Button asChild>
-          <Link href="/platform/tenants/onboarding">
-            <Plus className="size-4" /> Onboard school
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <RefreshButton
+            onRefresh={() => void mutate()}
+            refreshing={refreshing}
+          />
+          <Button asChild>
+            <Link href="/platform/tenants/onboarding">
+              <Plus className="size-4" /> Onboard school
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <Card className="shadow-card">
@@ -118,7 +125,13 @@ export default function AllSchoolsPage() {
             Activate a pending school, then invite its owner.
           </CardDescription>
         </CardHeader>
-        <CardContent className={schools.length ? 'px-0' : undefined}>
+        <CardContent
+          className={
+            schools.length
+              ? 'px-0 [&_:is(th,td):first-child]:pl-6 [&_:is(th,td):last-child]:pr-6'
+              : undefined
+          }
+        >
           {error ? (
             <p className="px-6 pb-3 text-sm text-destructive" role="alert">
               {error}

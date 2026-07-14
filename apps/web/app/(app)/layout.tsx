@@ -17,6 +17,7 @@
 import { redirect } from 'next/navigation';
 
 import { ViewerProvider } from '@/app/providers/viewer-provider';
+import { SwrProvider } from '@/app/providers/swr-provider';
 import { getSession } from '@/lib/session';
 import { AppChrome } from './app-chrome';
 
@@ -32,8 +33,10 @@ export default async function AppLayout({
   }
 
   return (
-    <ViewerProvider session={session}>
-      <AppChrome>{children}</AppChrome>
-    </ViewerProvider>
+    <SwrProvider>
+      <ViewerProvider session={session}>
+        <AppChrome>{children}</AppChrome>
+      </ViewerProvider>
+    </SwrProvider>
   );
 }

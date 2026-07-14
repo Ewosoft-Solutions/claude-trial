@@ -27,6 +27,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
+import { RefreshButton } from '../../_shared/refresh-button';
 import { OnboardingChecklist } from '../onboarding-checklist';
 import {
   formatCount,
@@ -82,7 +83,7 @@ interface Props {
 }
 
 export function AdminDashboard({ userName, schoolName }: Props) {
-  const { stats, loading } = useOverviewStats();
+  const { stats, loading, refreshing, refresh } = useOverviewStats();
   const s = stats?.school;
 
   const STATS: StatItem[] = [
@@ -170,6 +171,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
             title={`${greeting()}, ${userName}`}
             actions={
               <>
+                <RefreshButton onRefresh={refresh} refreshing={refreshing} />
                 <Button
                   variant="outline"
                   size="sm"

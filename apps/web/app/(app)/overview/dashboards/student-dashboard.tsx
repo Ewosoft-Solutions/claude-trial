@@ -3,7 +3,6 @@
 import { BookOpen, CalendarDays, CheckCircle2, Clock } from 'lucide-react';
 import Link from 'next/link';
 
-import { Button } from '@workspace/ui/components/button';
 import {
   Card,
   CardContent,
@@ -18,6 +17,7 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
+import { RefreshButton } from '../../_shared/refresh-button';
 import { formatCount, useOverviewStats } from '../use-overview-stats';
 
 const QUICK_ACTIONS = [
@@ -49,7 +49,7 @@ function greeting() {
 }
 
 export function StudentDashboard({ userName }: { userName: string }) {
-  const { stats, loading } = useOverviewStats();
+  const { stats, loading, refreshing, refresh } = useOverviewStats();
 
   const STATS: StatItem[] = [
     {
@@ -83,7 +83,14 @@ export function StudentDashboard({ userName }: { userName: string }) {
   return (
     <ShellMain>
       <DashboardLayout
-        header={<PageHeader title={`${greeting()}, ${userName}`} />}
+        header={
+          <PageHeader
+            title={`${greeting()}, ${userName}`}
+            actions={
+              <RefreshButton onRefresh={refresh} refreshing={refreshing} />
+            }
+          />
+        }
         stats={<StatGrid items={STATS} minTileWidth={140} />}
         aside={
           <DashboardQuickActions
