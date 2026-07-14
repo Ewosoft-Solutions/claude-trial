@@ -84,8 +84,8 @@ export default async function EventRosterPage({
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-6">Name</TableHead>
-                  <TableHead className="max-sm:hidden">Type</TableHead>
-                  <TableHead className="max-md:hidden">Email</TableHead>
+                  <TableHead>Type</TableHead>
+                  <TableHead>Email</TableHead>
                   <TableHead className="pr-6">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -93,10 +93,10 @@ export default async function EventRosterPage({
                 {attendees.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="pl-6 font-medium">{a.attendeeName}</TableCell>
-                    <TableCell className="capitalize text-muted-foreground max-sm:hidden">
+                    <TableCell className="capitalize text-muted-foreground">
                       {a.attendeeType}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {a.email ?? '—'}
                     </TableCell>
                     <TableCell className="pr-6">

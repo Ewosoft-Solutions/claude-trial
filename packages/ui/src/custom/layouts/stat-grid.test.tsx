@@ -31,14 +31,34 @@ describe('StatGrid', () => {
     }
   });
 
-  it('drives the auto-fit column width from minTileWidth', () => {
+  it('balances common stat counts instead of leaving an awkward final row', () => {
+    const sixItems = [
+      ...ITEMS,
+      { key: 'staff', label: 'Staff', value: '42' },
+      { key: 'events', label: 'Events', value: '6' },
+      { key: 'revenue', label: 'Revenue', value: '₦2M' },
+    ];
+    const { rerender } = render(<StatGrid items={sixItems} />);
+    const grid = document.querySelector(
+      '[data-slot="stat-grid"]',
+    ) as HTMLElement;
+
+    expect(grid).toHaveAttribute('data-preferred-columns', '3');
+
+    rerender(<StatGrid items={sixItems.slice(0, 5)} />);
+    expect(grid).toHaveAttribute('data-preferred-columns', '3');
+
+    rerender(<StatGrid items={sixItems.slice(0, 4)} />);
+    expect(grid).toHaveAttribute('data-preferred-columns', '4');
+  });
+
+  it('keeps the requested minimum tile width as a responsive grid token', () => {
     render(<StatGrid items={ITEMS} minTileWidth={260} />);
     const grid = document.querySelector(
       '[data-slot="stat-grid"]',
     ) as HTMLElement;
-    expect(grid.style.gridTemplateColumns).toBe(
-      'repeat(auto-fit, minmax(min(260px, 100%), 1fr))',
-    );
+
+    expect(grid.style.getPropertyValue('--stat-min-tile-width')).toBe('260px');
   });
 });
 
@@ -47,6 +67,13 @@ describe('StatCard', () => {
     render(<StatCard item={ITEMS[0]!} />);
     expect(screen.queryByRole('link')).toBeNull();
     expect(screen.queryByRole('button')).toBeNull();
+  });
+
+  it('lets short mobile tiles size to their content', () => {
+    render(<StatCard item={ITEMS[0]!} />);
+    const card = screen.getByText('Enrolled').parentElement?.parentElement;
+
+    expect(card).not.toHaveClass('min-h-[7.5rem]');
   });
 
   it('renders a link tile when given an href', () => {

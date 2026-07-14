@@ -195,7 +195,7 @@ export default async function GradebookPage() {
               <TableRow>
                 <TableHead>Student</TableHead>
                 <TableHead>Assessment</TableHead>
-                <TableHead className="max-md:hidden">Class</TableHead>
+                <TableHead>Class</TableHead>
                 <TableHead className="text-right">Score</TableHead>
                 <TableHead className="text-right">Percent</TableHead>
                 <TableHead className="text-right">Grade</TableHead>
@@ -212,17 +212,17 @@ export default async function GradebookPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">
+                        <span className="break-words font-medium text-foreground">
                           {row.student}
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="break-words text-xs text-muted-foreground">
                           {row.studentNumber}
                         </span>
                       </div>
                     </div>
                   </TableCell>
                   <TableCell className="text-muted-foreground">{row.assessment}</TableCell>
-                  <TableCell className="text-muted-foreground max-md:hidden">
+                  <TableCell className="text-muted-foreground">
                     {row.className}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">

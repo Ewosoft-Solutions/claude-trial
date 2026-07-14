@@ -182,9 +182,9 @@ export default async function TranscriptsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
-                <TableHead className="max-md:hidden">Class</TableHead>
+                <TableHead>Class</TableHead>
                 <TableHead className="text-right">Average</TableHead>
-                <TableHead className="text-right max-sm:hidden">GPA</TableHead>
+                <TableHead className="text-right">GPA</TableHead>
                 <TableHead>Standing</TableHead>
               </TableRow>
             </TableHeader>
@@ -201,22 +201,22 @@ export default async function TranscriptsPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">
+                          <span className="break-words font-medium text-foreground">
                             {row.name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="break-words text-xs text-muted-foreground">
                             {row.id} · {row.records} grades
                           </span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {row.className}
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums text-foreground">
                       {row.average}%
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {row.gpa.toFixed(2)}
                     </TableCell>
                     <TableCell>

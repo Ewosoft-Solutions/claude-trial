@@ -100,7 +100,7 @@ export default async function RolesSettingsPage() {
                           <StatusBadge tone="info">{role.roleType}</StatusBadge>
                         ) : null}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
+                      <span className="break-words text-xs text-muted-foreground">
                         {role.description ?? 'No description'}
                       </span>
                     </div>

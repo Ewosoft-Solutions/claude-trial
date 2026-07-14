@@ -116,7 +116,7 @@ export function AssessmentTakeListClient({
             <TableHeader>
               <TableRow>
                 <TableHead>Assessment</TableHead>
-                <TableHead className="max-md:hidden">Class</TableHead>
+                <TableHead>Class</TableHead>
                 <TableHead>Due</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="sr-only">Open</TableHead>
@@ -132,7 +132,7 @@ export function AssessmentTakeListClient({
                     <TableCell className="font-medium">
                       {assessment.name}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {classLabel(assessment.class)}
                     </TableCell>
                     <TableCell>{formatDate(assessment.dueDate)}</TableCell>

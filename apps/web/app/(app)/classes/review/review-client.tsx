@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { CheckCircle2, Download, Eye, Rocket, XCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  CheckCircle2,
+  Download,
+  Eye,
+  Rocket,
+  XCircle,
+} from 'lucide-react';
 
 import {
   academicsApi,
@@ -66,6 +73,7 @@ export function AcademicReviewClient({
   const [items, setItems] = React.useState(initialItems);
   const [filter, setFilter] = React.useState<ReviewFilter>('pending_review');
   const [selectedKey, setSelectedKey] = React.useState(initialItems[0]?.key ?? '');
+  const [mobileDetailOpen, setMobileDetailOpen] = React.useState(false);
   const [note, setNote] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
@@ -192,7 +200,7 @@ export function AcademicReviewClient({
       <ListDetailLayout
         className="mb-[var(--content-padding)] mt-4 flex-1"
         listWidth={360}
-        showDetail={Boolean(selected)}
+        showDetail={mobileDetailOpen}
         list={
           <nav aria-label="Review queue" className="flex flex-col gap-1 p-2">
             {filtered.length === 0 ? (
@@ -212,7 +220,10 @@ export function AcademicReviewClient({
                   <button
                     key={item.key}
                     type="button"
-                    onClick={() => setSelectedKey(item.key)}
+                    onClick={() => {
+                      setSelectedKey(item.key);
+                      setMobileDetailOpen(true);
+                    }}
                     className={cn(
                       'rounded-md px-3 py-2 text-left transition-colors hover:bg-accent',
                       selectedKey === item.key && 'bg-accent',
@@ -220,10 +231,10 @@ export function AcademicReviewClient({
                   >
                     <span className="flex items-start justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">
+                        <span className="block break-words text-sm font-medium">
                           {title}
                         </span>
-                        <span className="mt-0.5 block truncate text-xs text-muted-foreground">
+                        <span className="mt-0.5 block break-words text-xs text-muted-foreground">
                           {item.type === 'lesson'
                             ? classLabel(item.lesson.class)
                             : item.material?.fileName}
@@ -239,6 +250,14 @@ export function AcademicReviewClient({
         }
         detail={
           <div className="flex min-h-full flex-col gap-4 p-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 w-fit @3xl/main:hidden"
+              onClick={() => setMobileDetailOpen(false)}
+            >
+              <ArrowLeft /> Review queue
+            </Button>
             {!selected ? (
               <EmptyState
                 compact
@@ -252,7 +271,7 @@ export function AcademicReviewClient({
                     <p className="text-xs font-semibold uppercase text-muted-foreground">
                       {selected.type === 'lesson' ? 'Lesson' : 'Material'}
                     </p>
-                    <h2 className="mt-1 truncate text-lg font-semibold">
+                    <h2 className="mt-1 break-words text-lg font-semibold">
                       {selected.type === 'lesson'
                         ? selected.lesson.title
                         : selected.material?.title}

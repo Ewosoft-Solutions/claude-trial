@@ -171,9 +171,9 @@ export function SubjectsClient({ subjects }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Subject</TableHead>
-                <TableHead className="max-md:hidden">Category</TableHead>
+                <TableHead>Category</TableHead>
                 <TableHead className="text-right">Classes</TableHead>
-                <TableHead className="text-right max-sm:hidden">Periods/wk</TableHead>
+                <TableHead className="text-right">Periods/wk</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -184,21 +184,21 @@ export function SubjectsClient({ subjects }: Props) {
                   <TableRow key={subject.id}>
                     <TableCell>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">
+                        <span className="break-words font-medium text-foreground">
                           {subject.name}
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="break-words text-xs text-muted-foreground">
                           {subject.code}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {subject.category}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
                       {subject.classes}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {subject.periods}
                     </TableCell>
                     <TableCell>

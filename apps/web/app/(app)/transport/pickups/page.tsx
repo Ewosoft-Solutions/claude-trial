@@ -61,9 +61,9 @@ export default async function TransportPickupsPage() {
                 <TableRow>
                   <TableHead className="pl-6">Time</TableHead>
                   <TableHead>Student</TableHead>
-                  <TableHead className="max-md:hidden">Route</TableHead>
-                  <TableHead className="max-sm:hidden">Stop</TableHead>
-                  <TableHead className="max-lg:hidden">Vehicle</TableHead>
+                  <TableHead>Route</TableHead>
+                  <TableHead>Stop</TableHead>
+                  <TableHead>Vehicle</TableHead>
                   <TableHead className="pr-6">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -75,21 +75,21 @@ export default async function TransportPickupsPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">
+                        <span className="break-words font-medium text-foreground">
                           {p.studentName}
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="break-words text-xs text-muted-foreground">
                           {p.studentNumber}
                         </span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {p.routeName ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {p.stop ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-lg:hidden">
+                    <TableCell className="text-muted-foreground">
                       {p.vehicleLabel ?? '—'}
                     </TableCell>
                     <TableCell className="pr-6">

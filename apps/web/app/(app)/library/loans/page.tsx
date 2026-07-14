@@ -72,7 +72,7 @@ export default async function LibraryLoansPage() {
                 <TableRow>
                   <TableHead className="pl-6">Title</TableHead>
                   <TableHead>Borrower</TableHead>
-                  <TableHead className="max-md:hidden">Copy</TableHead>
+                  <TableHead>Copy</TableHead>
                   <TableHead className="text-right">Due</TableHead>
                   <TableHead className="pr-6">Status</TableHead>
                 </TableRow>
@@ -82,10 +82,10 @@ export default async function LibraryLoansPage() {
                   <TableRow key={l.id}>
                     <TableCell className="pl-6">
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">
+                        <span className="break-words font-medium text-foreground">
                           {l.title}
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="break-words text-xs text-muted-foreground">
                           {l.author}
                         </span>
                       </div>
@@ -93,10 +93,10 @@ export default async function LibraryLoansPage() {
                     <TableCell>
                       {l.borrower ? (
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate text-foreground">
+                          <span className="break-words text-foreground">
                             {l.borrower.name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="break-words text-xs text-muted-foreground">
                             {l.borrower.studentNumber}
                           </span>
                         </div>
@@ -104,7 +104,7 @@ export default async function LibraryLoansPage() {
                         '—'
                       )}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {l.copyLabel ?? '—'}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">

@@ -192,9 +192,9 @@ export function PayrollClient({ records }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Staff</TableHead>
-                <TableHead className="max-md:hidden">Pay period</TableHead>
-                <TableHead className="text-right max-sm:hidden">Gross</TableHead>
-                <TableHead className="text-right max-sm:hidden">Net</TableHead>
+                <TableHead>Pay period</TableHead>
+                <TableHead className="text-right">Gross</TableHead>
+                <TableHead className="text-right">Net</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -211,18 +211,18 @@ export function PayrollClient({ records }: Props) {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">{r.staffName}</span>
-                          <span className="truncate text-xs text-muted-foreground">{r.role ?? '—'}</span>
+                          <span className="break-words font-medium text-foreground">{r.staffName}</span>
+                          <span className="break-words text-xs text-muted-foreground">{r.role ?? '—'}</span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {r.payPeriod}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {currency(r.grossPay)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {currency(r.netPay)}
                     </TableCell>
                     <TableCell>

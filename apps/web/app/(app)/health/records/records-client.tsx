@@ -186,9 +186,9 @@ export function RecordsClient({ records }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
-                <TableHead className="max-md:hidden">Blood type</TableHead>
-                <TableHead className="max-sm:hidden">Allergies</TableHead>
-                <TableHead className="text-right max-sm:hidden">Last checkup</TableHead>
+                <TableHead>Blood type</TableHead>
+                <TableHead>Allergies</TableHead>
+                <TableHead className="text-right">Last checkup</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -204,16 +204,16 @@ export function RecordsClient({ records }: Props) {
                             {initials(r.name)}
                           </AvatarFallback>
                         </Avatar>
-                        <span className="truncate font-medium text-foreground">{r.name}</span>
+                        <span className="break-words font-medium text-foreground">{r.name}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {r.bloodType ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {r.allergies ?? '—'}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {r.lastCheckup ?? '—'}
                     </TableCell>
                     <TableCell>

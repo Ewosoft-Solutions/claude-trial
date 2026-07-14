@@ -78,9 +78,9 @@ export default async function HrLeavePage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-6">Staff</TableHead>
-                  <TableHead className="max-sm:hidden">Type</TableHead>
+                  <TableHead>Type</TableHead>
                   <TableHead>Dates</TableHead>
-                  <TableHead className="text-right max-md:hidden">Days</TableHead>
+                  <TableHead className="text-right">Days</TableHead>
                   <TableHead className="pr-6">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -88,13 +88,13 @@ export default async function HrLeavePage() {
                 {leave.map((l) => (
                   <TableRow key={l.id}>
                     <TableCell className="pl-6 font-medium">{l.staffName}</TableCell>
-                    <TableCell className="capitalize text-muted-foreground max-sm:hidden">
+                    <TableCell className="capitalize text-muted-foreground">
                       {l.leaveType}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
                       {formatDate(l.startDate)} – {formatDate(l.endDate)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-md:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {l.days}
                     </TableCell>
                     <TableCell className="pr-6">

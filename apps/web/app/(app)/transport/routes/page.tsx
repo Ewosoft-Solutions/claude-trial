@@ -62,9 +62,9 @@ export default async function TransportRoutesPage() {
                 <TableRow>
                   <TableHead className="pl-6">Route</TableHead>
                   <TableHead className="text-right">Riders</TableHead>
-                  <TableHead className="max-md:hidden">Vehicles</TableHead>
-                  <TableHead className="max-lg:hidden">Stops</TableHead>
-                  <TableHead className="max-sm:hidden">Pickup window</TableHead>
+                  <TableHead>Vehicles</TableHead>
+                  <TableHead>Stops</TableHead>
+                  <TableHead>Pickup window</TableHead>
                   <TableHead className="pr-6">Status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -75,13 +75,13 @@ export default async function TransportRoutesPage() {
                     <TableCell className="text-right tabular-nums">
                       {r.studentCount}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {r.vehicles.length ? r.vehicles.join(', ') : '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-lg:hidden">
+                    <TableCell className="text-muted-foreground">
                       {r.stops.length}
                     </TableCell>
-                    <TableCell className="tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="tabular-nums text-muted-foreground">
                       {window(r.firstPickup, r.lastPickup)}
                     </TableCell>
                     <TableCell className="pr-6">

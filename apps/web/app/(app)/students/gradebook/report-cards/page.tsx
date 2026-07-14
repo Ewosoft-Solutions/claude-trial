@@ -177,7 +177,7 @@ export default async function ReportCardsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
-                <TableHead className="max-md:hidden">Class</TableHead>
+                <TableHead>Class</TableHead>
                 <TableHead className="text-right">Average</TableHead>
                 <TableHead className="text-right">Grade</TableHead>
                 <TableHead>Status</TableHead>
@@ -194,16 +194,16 @@ export default async function ReportCardsPage() {
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">
+                        <span className="break-words font-medium text-foreground">
                           {row.name}
                         </span>
-                        <span className="truncate text-xs text-muted-foreground">
+                        <span className="break-words text-xs text-muted-foreground">
                           {row.id}
                         </span>
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground max-md:hidden">
+                  <TableCell className="text-muted-foreground">
                     {row.className}
                   </TableCell>
                   <TableCell className="text-right font-semibold tabular-nums text-foreground">

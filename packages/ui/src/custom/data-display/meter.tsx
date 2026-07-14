@@ -57,14 +57,14 @@ export function Meter({
   return (
     <div data-slot="meter" className={cn('flex flex-col gap-1.5', className)}>
       {label || shownValue !== null ? (
-        <div className="flex items-baseline justify-between gap-3 text-sm">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
           {label ? (
-            <span className="min-w-0 truncate text-foreground">{label}</span>
+            <span className="min-w-0 break-words text-foreground">{label}</span>
           ) : (
             <span />
           )}
           {shownValue !== null ? (
-            <span className="shrink-0 font-semibold tabular-nums text-foreground">
+            <span className="ml-auto shrink-0 font-semibold tabular-nums text-foreground">
               {shownValue}
             </span>
           ) : null}

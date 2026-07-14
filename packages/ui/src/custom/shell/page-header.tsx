@@ -109,7 +109,10 @@ export function PageHeader({
         {meta?.length ? (
           <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
             {meta.map((fact, index) => (
-              <span key={fact.key} className="inline-flex items-center gap-2">
+              <span
+                key={fact.key}
+                className="inline-flex min-w-0 items-start gap-2"
+              >
                 {index > 0 ? (
                   <span aria-hidden className="opacity-60">
                     ·
@@ -117,7 +120,7 @@ export function PageHeader({
                 ) : null}
                 <span
                   className={cn(
-                    'whitespace-nowrap',
+                    'min-w-0 break-words',
                     fact.emphasis && 'font-bold text-primary',
                   )}
                 >

@@ -19,6 +19,19 @@ describe('Meter', () => {
     expect(fill()).toHaveStyle({ width: '25%' });
   });
 
+  it('wraps important labels instead of replacing them with an ellipsis', () => {
+    render(
+      <Meter
+        label="Monthly token quota"
+        value={0}
+        valueLabel="0 / 1,000,000 tokens"
+      />,
+    );
+
+    expect(screen.getByText('Monthly token quota')).toHaveClass('break-words');
+    expect(screen.getByText('Monthly token quota')).not.toHaveClass('truncate');
+  });
+
   it('exposes accessible progressbar semantics from the raw value/max', () => {
     render(<Meter value={42} max={50} />);
     const bar = screen.getByRole('progressbar');

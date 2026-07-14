@@ -188,9 +188,9 @@ export function StudentFeesClient({ rows }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
-                <TableHead className="max-md:hidden">Class</TableHead>
+                <TableHead>Class</TableHead>
                 <TableHead className="text-right">Billed</TableHead>
-                <TableHead className="text-right max-sm:hidden">Paid</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
                 <TableHead className="text-right">Balance</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -209,22 +209,22 @@ export function StudentFeesClient({ rows }: Props) {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">
+                          <span className="break-words font-medium text-foreground">
                             {row.name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="break-words text-xs text-muted-foreground">
                             {row.id}
                           </span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {row.className}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">
                       {nairaFromKobo(row.billed)}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {nairaFromKobo(row.paid)}
                     </TableCell>
                     <TableCell className="text-right font-semibold tabular-nums text-foreground">

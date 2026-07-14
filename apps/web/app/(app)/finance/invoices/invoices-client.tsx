@@ -138,7 +138,7 @@ export function InvoicesClient({ invoices }: Props) {
           meta={META}
           actions={
             <>
-              <Button variant="outline" size="sm" className="max-md:hidden">
+              <Button variant="outline" size="sm">
                 <Download /> Export
               </Button>
               <Button size="sm">
@@ -219,10 +219,10 @@ export function InvoicesClient({ invoices }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Invoice</TableHead>
-                <TableHead className="max-md:hidden">Class</TableHead>
-                <TableHead className="max-sm:hidden">Due</TableHead>
+                <TableHead>Class</TableHead>
+                <TableHead>Due</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right max-md:hidden">Paid</TableHead>
+                <TableHead className="text-right">Paid</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -237,20 +237,20 @@ export function InvoicesClient({ invoices }: Props) {
                   <TableRow key={inv.id}>
                     <TableCell>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">{displayName}</span>
-                        <span className="truncate text-xs text-muted-foreground">{displayId}</span>
+                        <span className="break-words font-medium text-foreground">{displayName}</span>
+                        <span className="break-words text-xs text-muted-foreground">{displayId}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {inv.className ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {inv.due ?? '—'}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-foreground">
                       {amountDue ? nairaFromKobo(amountDue) : '—'}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-md:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {amountDue ? nairaFromKobo(amountPaid) : '—'}
                     </TableCell>
                     <TableCell>

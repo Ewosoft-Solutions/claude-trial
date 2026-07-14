@@ -5,7 +5,7 @@
 
    The compact Aurora stat tile (`.ins-stat` / dashboard KPIs):
    label · big value · optional trend delta. StatGrid lays the tiles
-   out in a responsive auto-fitting grid that never shifts the
+   out in a responsive, row-balanced grid that never shifts the
    surrounding layout. Used by DashboardLayout but reusable anywhere.
    Data-driven (StatItem[]); no embedded copy.
    ============================================================ */
@@ -85,7 +85,7 @@ export function StatCard({ item, className }: StatCardProps) {
   );
 
   const base = cn(
-    'min-w-0 min-h-[7.5rem] rounded-[var(--radius)] border border-border bg-card p-3 text-left shadow-xs sm:min-h-0 sm:p-4',
+    'min-w-0 rounded-[var(--radius)] border border-border bg-card p-3 text-left shadow-xs sm:p-4',
     interactive &&
       'outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50',
     className,
@@ -111,11 +111,42 @@ export function StatCard({ item, className }: StatCardProps) {
 export interface StatGridProps {
   items: StatItem[];
   /**
-   * Minimum tile width before wrapping (auto-fit grid). Smaller values
-   * pack more per row. Defaults to 200px.
+   * Preferred minimum tile width. Smaller values opt into the denser
+   * responsive breakpoints sooner. Defaults to 200px.
    */
   minTileWidth?: number;
   className?: string;
+}
+
+/**
+ * Pick a desktop column count that keeps the final row visually balanced.
+ * In particular, five and six tiles use three columns instead of producing
+ * 4 + 1 or 4 + 2 arrangements. Larger sets favour four columns unless three
+ * produces a completely even grid.
+ */
+function preferredColumnCount(itemCount: number): 1 | 2 | 3 | 4 {
+  if (itemCount <= 1) return 1;
+  if (itemCount === 2) return 2;
+  if (itemCount === 3) return 3;
+  if (itemCount === 4) return 4;
+  if (itemCount === 5 || itemCount === 6 || itemCount === 9) return 3;
+  return 4;
+}
+
+function responsiveColumnClass(
+  columns: 1 | 2 | 3 | 4,
+  compact: boolean,
+): string {
+  if (columns === 1) return 'grid-cols-1';
+  if (columns === 2) return 'grid-cols-1 @md/main:grid-cols-2';
+  if (columns === 3) {
+    return compact
+      ? 'grid-cols-1 @md/main:grid-cols-2 @xl/main:grid-cols-3'
+      : 'grid-cols-1 @md/main:grid-cols-2 @2xl/main:grid-cols-3';
+  }
+  return compact
+    ? 'grid-cols-1 @md/main:grid-cols-2 @3xl/main:grid-cols-4'
+    : 'grid-cols-1 @md/main:grid-cols-2 @4xl/main:grid-cols-4';
 }
 
 export function StatGrid({
@@ -123,13 +154,21 @@ export function StatGrid({
   minTileWidth = 200,
   className,
 }: StatGridProps) {
+  const preferredColumns = preferredColumnCount(items.length);
+  const compact = minTileWidth <= 170;
+
   return (
     <div
       data-slot="stat-grid"
-      className={cn('grid gap-3 sm:gap-3.5', className)}
+      data-preferred-columns={preferredColumns}
+      className={cn(
+        'grid gap-3 sm:gap-3.5',
+        responsiveColumnClass(preferredColumns, compact),
+        className,
+      )}
       style={
         {
-          gridTemplateColumns: `repeat(auto-fit, minmax(min(${minTileWidth}px, 100%), 1fr))`,
+          '--stat-min-tile-width': `${minTileWidth}px`,
         } as React.CSSProperties
       }
     >

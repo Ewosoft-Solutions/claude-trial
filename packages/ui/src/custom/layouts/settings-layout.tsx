@@ -25,13 +25,13 @@ export function SettingsNav({ items, className }: SettingsNavProps) {
     <nav
       data-slot="settings-nav"
       className={cn(
-        'flex gap-1 overflow-x-auto pb-1 md:flex-col md:overflow-visible md:pb-0',
+        'flex gap-1 overflow-x-auto pb-1 @3xl/main:flex-col @3xl/main:overflow-visible @3xl/main:pb-0',
         className,
       )}
     >
       {items.map((item) => {
         const itemClass = cn(
-          'group flex shrink-0 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] outline-none transition-colors md:shrink',
+          'group flex shrink-0 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] outline-none transition-colors @3xl/main:shrink',
           'focus-visible:ring-[3px] focus-visible:ring-ring/50',
           item.active
             ? 'bg-secondary font-semibold text-foreground'
@@ -45,9 +45,9 @@ export function SettingsNav({ items, className }: SettingsNavProps) {
               </span>
             ) : null}
             <span className="min-w-0">
-              <span className="block truncate">{item.label}</span>
+              <span className="block break-words">{item.label}</span>
               {item.description ? (
-                <span className="hidden truncate text-[11.5px] font-normal text-muted-foreground md:block">
+                <span className="hidden break-words text-[11.5px] font-normal text-muted-foreground @3xl/main:block">
                   {item.description}
                 </span>
               ) : null}
@@ -75,7 +75,7 @@ export function SettingsNav({ items, className }: SettingsNavProps) {
             type="button"
             onClick={item.onSelect}
             aria-current={current}
-            className={className}
+            className={itemClass}
           >
             {inner}
           </button>

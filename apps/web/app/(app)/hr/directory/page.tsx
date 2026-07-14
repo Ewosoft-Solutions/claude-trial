@@ -60,9 +60,9 @@ export default async function HrDirectoryPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="pl-6">Name</TableHead>
-                  <TableHead className="max-sm:hidden">Role</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Latest period</TableHead>
-                  <TableHead className="text-right max-md:hidden">Records</TableHead>
+                  <TableHead className="text-right">Records</TableHead>
                   <TableHead className="pr-6">Latest status</TableHead>
                 </TableRow>
               </TableHeader>
@@ -70,13 +70,13 @@ export default async function HrDirectoryPage() {
                 {staff.map((s) => (
                   <TableRow key={s.staffUserTenantId}>
                     <TableCell className="pl-6 font-medium">{s.staffName}</TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {s.role ?? '—'}
                     </TableCell>
                     <TableCell className="tabular-nums text-muted-foreground">
                       {s.latestPayPeriod}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-md:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {s.recordCount}
                     </TableCell>
                     <TableCell className="pr-6">

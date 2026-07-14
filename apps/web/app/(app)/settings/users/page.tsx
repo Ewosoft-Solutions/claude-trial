@@ -92,8 +92,8 @@ export default async function UsersSettingsPage() {
             <TableHeader>
               <TableRow>
                 <TableHead>User</TableHead>
-                <TableHead className="max-md:hidden">Role</TableHead>
-                <TableHead className="max-sm:hidden">Verified</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Verified</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -111,19 +111,19 @@ export default async function UsersSettingsPage() {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">
+                          <span className="break-words font-medium text-foreground">
                             {name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="break-words text-xs text-muted-foreground">
                             {profile.user?.email ?? 'No email'}
                           </span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {roles(profile)}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {profile.user?.isVerified ? 'Verified' : 'Unverified'}
                     </TableCell>
                     <TableCell>

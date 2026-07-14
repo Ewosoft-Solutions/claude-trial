@@ -201,7 +201,7 @@ export default async function AiUsageSettingsPage() {
                 <TableHead>Feature</TableHead>
                 <TableHead className="text-right">Requests</TableHead>
                 <TableHead className="text-right">Tokens</TableHead>
-                <TableHead className="max-md:hidden">Model</TableHead>
+                <TableHead>Model</TableHead>
                 <TableHead>Last used</TableHead>
               </TableRow>
             </TableHeader>
@@ -217,7 +217,7 @@ export default async function AiUsageSettingsPage() {
                   <TableCell className="text-right tabular-nums">
                     {number.format(row.totalTokens)}
                   </TableCell>
-                  <TableCell className="max-md:hidden text-muted-foreground">
+                  <TableCell className="text-muted-foreground">
                     {row.lastModel ?? 'Unknown'}
                   </TableCell>
                   <TableCell className="text-muted-foreground">

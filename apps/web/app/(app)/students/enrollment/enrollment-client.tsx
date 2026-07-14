@@ -157,7 +157,7 @@ export function EnrollmentClient({ applicants }: Props) {
           meta={META}
           actions={
             <>
-              <Button variant="outline" size="sm" className="max-md:hidden">
+              <Button variant="outline" size="sm">
                 <Download /> Export
               </Button>
               <Button size="sm">
@@ -265,7 +265,7 @@ export function EnrollmentClient({ applicants }: Props) {
               <TableRow>
                 <TableHead>Applicant</TableHead>
                 <TableHead>Applying for</TableHead>
-                <TableHead className="max-md:hidden">Submitted</TableHead>
+                <TableHead>Submitted</TableHead>
                 <TableHead>Stage</TableHead>
                 <TableHead>Decision</TableHead>
               </TableRow>
@@ -284,10 +284,10 @@ export function EnrollmentClient({ applicants }: Props) {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">
+                          <span className="break-words font-medium text-foreground">
                             {a.name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="break-words text-xs text-muted-foreground">
                             {a.id}
                           </span>
                         </div>
@@ -296,7 +296,7 @@ export function EnrollmentClient({ applicants }: Props) {
                     <TableCell className="text-muted-foreground">
                       {a.applyingFor}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {a.submitted}
                     </TableCell>
                     <TableCell>

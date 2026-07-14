@@ -129,7 +129,7 @@ export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
           meta={meta}
           actions={
             <>
-              <Button variant="outline" size="sm" className="max-md:hidden">
+              <Button variant="outline" size="sm">
                 <Download /> Export
               </Button>
               <Button size="sm">
@@ -233,7 +233,7 @@ export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
               <TableRow>
                 <TableHead>Student</TableHead>
                 <TableHead>Class</TableHead>
-                <TableHead className="max-md:hidden">Guardian</TableHead>
+                <TableHead>Guardian</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Fees</TableHead>
               </TableRow>
@@ -252,10 +252,10 @@ export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">
+                          <span className="break-words font-medium text-foreground">
                             {student.name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="break-words text-xs text-muted-foreground">
                             {student.id}
                           </span>
                         </div>
@@ -264,7 +264,7 @@ export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
                     <TableCell className="text-muted-foreground">
                       {student.className}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {student.guardian}
                     </TableCell>
                     <TableCell>

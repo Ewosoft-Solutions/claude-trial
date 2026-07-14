@@ -175,7 +175,6 @@ export function AdminDashboard({ userName, schoolName }: Props) {
                 <Button
                   variant="outline"
                   size="sm"
-                  className="max-md:hidden"
                   asChild
                 >
                   <Link href="/reports/academic">View reports</Link>
@@ -238,7 +237,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
                 <Link
                   key={item.key}
                   href={item.href}
-                  className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3 outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                  className="grid grid-cols-[auto_minmax(0,1fr)] items-start gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3 outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50 sm:grid-cols-[auto_minmax(0,1fr)_auto]"
                 >
                   <span
                     className="grid size-8 shrink-0 place-items-center rounded-lg bg-warning/15 text-warning"
@@ -247,14 +246,17 @@ export function AdminDashboard({ userName, schoolName }: Props) {
                     {item.icon}
                   </span>
                   <span className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-semibold text-foreground">
+                    <span className="break-words text-sm font-semibold text-foreground">
                       {item.title}
                     </span>
-                    <span className="truncate text-xs text-muted-foreground">
+                    <span className="break-words text-xs text-muted-foreground">
                       {item.meta}
                     </span>
                   </span>
-                  <Badge variant="outline" className="ml-auto shrink-0">
+                  <Badge
+                    variant="outline"
+                    className="col-start-2 shrink-0 justify-self-start sm:col-start-3 sm:row-start-1 sm:ml-auto sm:self-center"
+                  >
                     Action
                   </Badge>
                 </Link>

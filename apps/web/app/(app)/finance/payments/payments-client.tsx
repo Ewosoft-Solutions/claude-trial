@@ -195,8 +195,8 @@ export function PaymentsClient({ payments }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Receipt</TableHead>
-                <TableHead className="max-md:hidden">Method</TableHead>
-                <TableHead className="max-sm:hidden">Date</TableHead>
+                <TableHead>Method</TableHead>
+                <TableHead>Date</TableHead>
                 <TableHead className="text-right">Amount</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -210,14 +210,14 @@ export function PaymentsClient({ payments }: Props) {
                   <TableRow key={p.id}>
                     <TableCell>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">{displayName}</span>
-                        <span className="truncate text-xs text-muted-foreground">{displayId}</span>
+                        <span className="break-words font-medium text-foreground">{displayName}</span>
+                        <span className="break-words text-xs text-muted-foreground">{displayId}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {METHOD_LABEL[p.method] ?? p.method}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {p.date ?? '—'}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-foreground">

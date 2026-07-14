@@ -36,21 +36,21 @@ export function DataCard({
   const label =
     description ?? `${count} ${unit}${count === 1 ? '' : 's'}`;
   return (
-    <Card className="shadow-card">
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+    <Card className="@container/data-card shadow-card">
+      <CardHeader className="flex-col items-start justify-between gap-3 space-y-0 @xs/data-card:flex-row @xs/data-card:items-center">
         <div className="flex min-w-0 flex-col gap-1.5">
           <CardTitle className="text-base">{title}</CardTitle>
           <CardDescription>{label}</CardDescription>
         </div>
-        {action ? <div className="shrink-0">{action}</div> : null}
+        {action ? <div className="shrink-0 self-start">{action}</div> : null}
       </CardHeader>
       {/* Table goes edge-to-edge (px-0) and its outer cells re-inset to the
-          card gutter (px-6 = 24px, the shared Card padding), so the table
-          aligns with the header and matches every DataTableLayout table. */}
+          responsive Card gutter, so the table aligns with the header and
+          matches every DataTableLayout table. */}
       <CardContent
         className={
           count > 0
-            ? 'px-0 [&_:is(th,td):first-child]:pl-6 [&_:is(th,td):last-child]:pr-6'
+            ? 'px-0 [&_:is(th,td):first-child]:pl-4 [&_:is(th,td):last-child]:pr-4 sm:[&_:is(th,td):first-child]:pl-6 sm:[&_:is(th,td):last-child]:pr-6'
             : undefined
         }
       >

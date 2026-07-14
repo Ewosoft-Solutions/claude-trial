@@ -185,9 +185,9 @@ export function TransportClient({ riders }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Student</TableHead>
-                <TableHead className="max-md:hidden">Route</TableHead>
-                <TableHead className="max-sm:hidden">Stop</TableHead>
-                <TableHead className="text-right max-sm:hidden">Pickup</TableHead>
+                <TableHead>Route</TableHead>
+                <TableHead>Stop</TableHead>
+                <TableHead className="text-right">Pickup</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -204,18 +204,18 @@ export function TransportClient({ riders }: Props) {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">{r.name}</span>
-                          <span className="truncate text-xs text-muted-foreground">{r.id}</span>
+                          <span className="break-words font-medium text-foreground">{r.name}</span>
+                          <span className="break-words text-xs text-muted-foreground">{r.id}</span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {r.route ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {r.stop ?? '—'}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {r.pickup ?? '—'}
                     </TableCell>
                     <TableCell>

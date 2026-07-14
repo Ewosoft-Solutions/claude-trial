@@ -16,6 +16,20 @@ export interface DashboardQuickAction {
   icon: React.ReactNode;
 }
 
+export function preferredQuickActionColumns(actionCount: number): 1 | 2 | 3 {
+  if (actionCount <= 1) return 1;
+  if (actionCount === 2 || actionCount === 4) return 2;
+  return 3;
+}
+
+function quickActionGridClass(columns: 1 | 2 | 3): string {
+  if (columns === 1) return 'grid-cols-1';
+  if (columns === 2) {
+    return 'grid-cols-1 @xs/quick-actions:grid-cols-2';
+  }
+  return 'grid-cols-1 @xs/quick-actions:grid-cols-2 @md/quick-actions:grid-cols-3';
+}
+
 export function DashboardQuickActions({
   actions,
   description = 'Common tasks for your role',
@@ -23,13 +37,19 @@ export function DashboardQuickActions({
   actions: DashboardQuickAction[];
   description?: string;
 }) {
+  const preferredColumns = preferredQuickActionColumns(actions.length);
+
   return (
-    <Card className="shadow-card">
+    <Card className="@container/quick-actions shadow-card">
       <CardHeader>
         <CardTitle className="text-base">Quick actions</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="grid grid-cols-[repeat(auto-fit,minmax(min(9rem,100%),1fr))] gap-2">
+      <CardContent
+        data-slot="dashboard-quick-actions-grid"
+        data-preferred-columns={preferredColumns}
+        className={`grid gap-2 ${quickActionGridClass(preferredColumns)}`}
+      >
         {actions.map((action) => (
           <Link
             key={action.key}
@@ -42,7 +62,7 @@ export function DashboardQuickActions({
             >
               {action.icon}
             </span>
-            <span className="min-w-0">{action.label}</span>
+            <span className="min-w-0 break-words">{action.label}</span>
           </Link>
         ))}
       </CardContent>

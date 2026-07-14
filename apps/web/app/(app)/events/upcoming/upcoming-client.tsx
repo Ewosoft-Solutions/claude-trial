@@ -186,9 +186,9 @@ export function UpcomingClient({ events }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Event</TableHead>
-                <TableHead className="max-md:hidden">Location</TableHead>
-                <TableHead className="max-sm:hidden">Date</TableHead>
-                <TableHead className="text-right max-sm:hidden">Registered</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead className="text-right">Registered</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">Roster</TableHead>
               </TableRow>
@@ -200,17 +200,17 @@ export function UpcomingClient({ events }: Props) {
                   <TableRow key={e.id}>
                     <TableCell>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">{e.title}</span>
-                        <span className="truncate text-xs text-muted-foreground">{e.eventType ?? '—'}</span>
+                        <span className="break-words font-medium text-foreground">{e.title}</span>
+                        <span className="break-words text-xs text-muted-foreground">{e.eventType ?? '—'}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {e.location ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {e.startDate}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {e.registeredCount}
                       {e.capacity ? ` / ${e.capacity}` : ''}
                     </TableCell>

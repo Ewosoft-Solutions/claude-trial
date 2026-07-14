@@ -270,7 +270,7 @@ export function ClassTeachersClient({
               <TableRow>
                 <TableHead>Teacher</TableHead>
                 <TableHead>Allocation</TableHead>
-                <TableHead className="max-md:hidden">Assigned</TableHead>
+                <TableHead>Assigned</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="sr-only">Actions</TableHead>
               </TableRow>
@@ -288,8 +288,8 @@ export function ClassTeachersClient({
                           </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
-                          <p className="truncate font-medium">{name}</p>
-                          <p className="truncate text-xs text-muted-foreground">
+                          <p className="break-words font-medium">{name}</p>
+                          <p className="break-words text-xs text-muted-foreground">
                             {assignment.userTenant.user.email}
                           </p>
                         </div>
@@ -298,7 +298,7 @@ export function ClassTeachersClient({
                     <TableCell className="capitalize">
                       {assignment.role.replace('-', ' ')}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {formatDate(assignment.assignedAt)}
                     </TableCell>
                     <TableCell>

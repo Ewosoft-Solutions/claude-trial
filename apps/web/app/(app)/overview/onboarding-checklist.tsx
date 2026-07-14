@@ -80,7 +80,7 @@ export function OnboardingChecklist({ stats }: { stats: OverviewStats }) {
           <Link
             key={st.key}
             href={st.href}
-            className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3 outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+            className="flex items-start gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3 outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             {st.done ? (
               <CheckCircle2 className="size-5 shrink-0 text-success" aria-hidden />
@@ -97,7 +97,7 @@ export function OnboardingChecklist({ stats }: { stats: OverviewStats }) {
               >
                 {st.label}
               </span>
-              <span className="truncate text-xs text-muted-foreground">
+              <span className="break-words text-xs text-muted-foreground">
                 {st.hint}
               </span>
             </span>

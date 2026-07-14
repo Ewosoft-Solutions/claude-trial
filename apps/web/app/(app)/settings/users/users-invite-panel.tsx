@@ -105,7 +105,7 @@ export function UsersInvitePanel({ tenantId }: { tenantId: string }) {
                 className="flex items-center justify-between gap-3 p-3"
               >
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-medium">{inv.email}</div>
+                  <div className="break-all text-sm font-medium">{inv.email}</div>
                   <div className="text-xs text-muted-foreground">
                     {inv.role ?? 'No role'}
                   </div>

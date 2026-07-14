@@ -169,8 +169,8 @@ export function StudentAttendanceClient({ rows }: Props) {
               <TableRow>
                 <TableHead>Student</TableHead>
                 <TableHead className="w-[12rem]">Present rate</TableHead>
-                <TableHead className="text-right max-sm:hidden">Absences</TableHead>
-                <TableHead className="text-right max-sm:hidden">Lates</TableHead>
+                <TableHead className="text-right">Absences</TableHead>
+                <TableHead className="text-right">Lates</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -187,10 +187,10 @@ export function StudentAttendanceClient({ rows }: Props) {
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">
+                          <span className="break-words font-medium text-foreground">
                             {row.name}
                           </span>
-                          <span className="truncate text-xs text-muted-foreground">
+                          <span className="break-words text-xs text-muted-foreground">
                             {row.id} · {row.className}
                           </span>
                         </div>
@@ -204,10 +204,10 @@ export function StudentAttendanceClient({ rows }: Props) {
                         className="min-w-[8rem]"
                       />
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {row.absences}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {row.lates}
                     </TableCell>
                     <TableCell>

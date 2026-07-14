@@ -94,7 +94,7 @@ export default function ProfileSettingsPage() {
               return (
                 <div
                   key={row.profileId}
-                  className="flex items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3"
+                  className="flex flex-wrap items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3"
                 >
                   <span
                     className="grid size-8 shrink-0 place-items-center rounded-md text-xs font-extrabold text-white"
@@ -104,12 +104,12 @@ export default function ProfileSettingsPage() {
                     {row.schoolInitials}
                   </span>
                   <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-semibold text-foreground">
+                    <span className="break-words text-sm font-semibold text-foreground">
                       {row.schoolName}
                     </span>
                     <span className="text-xs text-muted-foreground">{row.role}</span>
                   </div>
-                  <div className="ml-auto flex shrink-0 items-center gap-2">
+                  <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
                     {isActive ? (
                       <Badge variant="outline" className="gap-1 text-xs">
                         <Check className="size-3" /> Active now

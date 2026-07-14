@@ -185,9 +185,9 @@ export function BooksClient({ books }: Props) {
             <TableHeader>
               <TableRow>
                 <TableHead>Title</TableHead>
-                <TableHead className="max-md:hidden">Category</TableHead>
-                <TableHead className="max-sm:hidden">Borrower</TableHead>
-                <TableHead className="text-right max-sm:hidden">Due</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Borrower</TableHead>
+                <TableHead className="text-right">Due</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
@@ -198,17 +198,17 @@ export function BooksClient({ books }: Props) {
                   <TableRow key={b.id}>
                     <TableCell>
                       <div className="flex min-w-0 flex-col">
-                        <span className="truncate font-medium text-foreground">{b.title}</span>
-                        <span className="truncate text-xs text-muted-foreground">{b.author}</span>
+                        <span className="break-words font-medium text-foreground">{b.title}</span>
+                        <span className="break-words text-xs text-muted-foreground">{b.author}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-md:hidden">
+                    <TableCell className="text-muted-foreground">
                       {b.category ?? '—'}
                     </TableCell>
-                    <TableCell className="text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-muted-foreground">
                       {b.borrower ?? '—'}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                    <TableCell className="text-right tabular-nums text-muted-foreground">
                       {b.dueDate ?? '—'}
                     </TableCell>
                     <TableCell>
