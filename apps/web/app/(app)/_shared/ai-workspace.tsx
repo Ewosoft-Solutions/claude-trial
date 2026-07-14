@@ -212,10 +212,10 @@ export function AiWorkspaceLauncher() {
                 <ModeIcon mode={active.key} className="size-5" />
               </span>
               <div className="min-w-0">
-                <h1 className="truncate text-base font-bold md:text-lg">
+                <h1 className="break-words text-base font-bold md:text-lg">
                   AI workspace
                 </h1>
-                <p className="truncate text-xs text-muted-foreground md:text-sm">
+                <p className="break-words text-xs text-muted-foreground md:text-sm">
                   {active.label} - {active.description}
                 </p>
               </div>
@@ -394,13 +394,16 @@ function AssistantPane({ active }: { active: boolean }) {
   // Lazy: only fetch once the pane is active. SWR revalidates the history on
   // refocus; new sessions are inserted optimistically via `mutateSessions`.
   const {
-    data: sessions = [],
+    data: sessionsData,
     isLoading: loading,
     error: sessionsError,
     mutate: mutateSessions,
   } = useSWR<AssistantSessionSummary[]>(
     active ? '/api/ai/analytics/sessions' : null,
   );
+  // Coalesce: a destructuring default only covers `undefined`; the fetched
+  // value can be null (empty/invalid body), so guard against null too.
+  const sessions = sessionsData ?? [];
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null,
   );
@@ -470,9 +473,10 @@ function AssistantPane({ active }: { active: boolean }) {
             const { sessionId } = JSON.parse(data) as { sessionId: string };
             setActiveSessionId(sessionId);
             void mutateSessions(
-              (prev = []) =>
-                prev.some((s) => s.id === sessionId)
-                  ? prev
+              (prev) => {
+                const list = prev ?? [];
+                return list.some((s) => s.id === sessionId)
+                  ? list
                   : [
                       {
                         id: sessionId,
@@ -480,8 +484,9 @@ function AssistantPane({ active }: { active: boolean }) {
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString(),
                       },
-                      ...prev,
-                    ],
+                      ...list,
+                    ];
+              },
               { revalidate: false },
             );
           } else if (event === 'delta') {
@@ -555,7 +560,7 @@ function AssistantPane({ active }: { active: boolean }) {
         );
         setActiveSessionId(detail.id);
         setMessages(
-          detail.messages.map((m) => ({
+          (detail.messages ?? []).map((m) => ({
             id: m.id,
             sender: m.sender === 'assistant' ? 'assistant' : 'user',
             text: m.content,
@@ -593,7 +598,7 @@ function AssistantPane({ active }: { active: boolean }) {
         <Button
           variant="outline"
           size="sm"
-          className="md:hidden"
+          className="@3xl/main:hidden"
           onClick={() => setShowHistory((v) => !v)}
           aria-pressed={showHistory}
         >
@@ -770,17 +775,21 @@ function lessonLabel(lesson: LessonSummary): string {
 function TutorPane({ active }: { active: boolean }) {
   // Lazy: fetch lessons + history only when the pane is active. SWR revalidates
   // on refocus; new sessions are inserted optimistically via `mutateSessions`.
-  const { data: lessons = [], error: lessonsError } = useSWR<LessonSummary[]>(
+  const { data: lessonsData, error: lessonsError } = useSWR<LessonSummary[]>(
     active ? '/api/learning/lessons' : null,
   );
   const {
-    data: sessions = [],
+    data: sessionsData,
     isLoading: loading,
     error: sessionsError,
     mutate: mutateSessions,
   } = useSWR<TutorSessionSummary[]>(
     active ? '/api/ai/academic/sessions' : null,
   );
+  // Coalesce: the fetched value can be null (empty/invalid body), and a
+  // destructuring default only covers `undefined` — so guard against null.
+  const lessons = lessonsData ?? [];
+  const sessions = sessionsData ?? [];
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null,
   );
@@ -883,9 +892,10 @@ function TutorPane({ active }: { active: boolean }) {
             setActiveSessionId(parsed.sessionId);
             setLessonId(parsed.lessonId);
             void mutateSessions(
-              (prev = []) =>
-                prev.some((s) => s.id === parsed.sessionId)
-                  ? prev
+              (prev) => {
+                const list = prev ?? [];
+                return list.some((s) => s.id === parsed.sessionId)
+                  ? list
                   : [
                       {
                         id: parsed.sessionId,
@@ -896,8 +906,9 @@ function TutorPane({ active }: { active: boolean }) {
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString(),
                       },
-                      ...prev,
-                    ],
+                      ...list,
+                    ];
+              },
               { revalidate: false },
             );
           } else if (event === 'sources') {
@@ -959,7 +970,7 @@ function TutorPane({ active }: { active: boolean }) {
         setActiveSessionId(detail.id);
         if (detail.lessonId) setLessonId(detail.lessonId);
         setMessages(
-          detail.messages.map((m) => ({
+          (detail.messages ?? []).map((m) => ({
             id: m.id,
             sender: m.sender === 'assistant' ? 'assistant' : 'user',
             text: m.content,
@@ -998,7 +1009,7 @@ function TutorPane({ active }: { active: boolean }) {
         <Button
           variant="outline"
           size="sm"
-          className="md:hidden"
+          className="@3xl/main:hidden"
           onClick={() => setShowHistory((v) => !v)}
           aria-pressed={showHistory}
         >
@@ -1251,10 +1262,10 @@ function IntegrityMonitorPane() {
                   <ShieldAlert className="size-4" />
                 </span>
                 <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold">
+                  <div className="break-words text-sm font-semibold">
                     Student Tutor locked for 28 students
                   </div>
-                  <div className="truncate text-xs text-muted-foreground">
+                  <div className="break-words text-xs text-muted-foreground">
                     Biology 11B mid-term
                   </div>
                 </div>
@@ -1290,10 +1301,10 @@ function IntegrityMonitorPane() {
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-semibold">
+                    <span className="block break-words text-sm font-semibold">
                       {flag.title}
                     </span>
-                    <span className="block truncate text-xs text-muted-foreground">
+                    <span className="block break-words text-xs text-muted-foreground">
                       {flag.sub}
                     </span>
                   </span>
@@ -1423,7 +1434,7 @@ function ModePaneShell({
             <span className="grid size-8 place-items-center rounded-[var(--radius-sm)] bg-[var(--ai-accent)] text-white">
               <ModeIcon mode={mode} className="size-4" />
             </span>
-            <h2 className="truncate text-xl font-bold">{title}</h2>
+            <h2 className="break-words text-xl font-bold">{title}</h2>
           </div>
           <p className="mt-1 text-sm text-muted-foreground">{description}</p>
         </div>
