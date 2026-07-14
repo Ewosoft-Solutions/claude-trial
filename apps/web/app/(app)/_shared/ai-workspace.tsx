@@ -788,7 +788,7 @@ function TutorPane({ active }: { active: boolean }) {
   );
   // Coalesce: the fetched value can be null (empty/invalid body), and a
   // destructuring default only covers `undefined` — so guard against null.
-  const lessons = lessonsData ?? [];
+  const lessons = React.useMemo(() => lessonsData ?? [], [lessonsData]);
   const sessions = sessionsData ?? [];
   const [activeSessionId, setActiveSessionId] = React.useState<string | null>(
     null,
