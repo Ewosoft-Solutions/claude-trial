@@ -136,7 +136,7 @@ export function MaterialsClient({
           `/api/learning/lessons/${encodeURIComponent(lessonId)}/materials`,
         );
         if (!res.ok) throw new Error(await readError(res));
-        setMaterials((await res.json()) as MaterialSummary[]);
+        setMaterials(((await res.json()) as MaterialSummary[] | null) ?? []);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load materials');
       } finally {
@@ -394,7 +394,7 @@ export function MaterialsClient({
           </Select>
         </div>
 
-        <div className="grid min-h-[38rem] gap-5 @5xl/main:grid-cols-[minmax(17rem,23rem)_1fr]">
+        <div className="grid min-h-0 gap-5 @5xl/main:min-h-[38rem] @5xl/main:grid-cols-[minmax(17rem,23rem)_1fr]">
           <section
             aria-label="Lessons"
             className="flex min-h-0 flex-col gap-3 rounded-lg border bg-card p-4"
@@ -463,7 +463,7 @@ export function MaterialsClient({
                       >
                         <span className="flex items-start justify-between gap-2">
                           <span className="min-w-0">
-                            <span className="block truncate font-medium">
+                            <span className="block break-words font-medium">
                               {lesson.title}
                             </span>
                             <span className="mt-1 flex flex-wrap gap-1">
@@ -501,7 +501,7 @@ export function MaterialsClient({
               <>
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <h2 className="truncate text-base font-semibold">
+                    <h2 className="break-words text-base font-semibold">
                       {selectedLesson.title}
                     </h2>
                     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -677,10 +677,10 @@ export function MaterialsClient({
                       <TableHeader>
                         <TableRow>
                           <TableHead>File</TableHead>
-                          <TableHead className="max-lg:hidden">Type</TableHead>
+                          <TableHead>Type</TableHead>
                           <TableHead>Review</TableHead>
                           <TableHead>Processing</TableHead>
-                          <TableHead className="text-right max-sm:hidden">
+                          <TableHead className="text-right">
                             Chunks
                           </TableHead>
                           <TableHead className="sr-only">Actions</TableHead>
@@ -702,16 +702,16 @@ export function MaterialsClient({
                                     aria-hidden
                                   />
                                   <div className="flex min-w-0 flex-col">
-                                    <span className="truncate font-medium">
+                                    <span className="break-words font-medium">
                                       {material.title}
                                     </span>
-                                    <span className="truncate text-xs text-muted-foreground">
+                                    <span className="break-words text-xs text-muted-foreground">
                                       {material.fileName} · {formatSize(material.sizeBytes)}
                                     </span>
                                   </div>
                                 </div>
                               </TableCell>
-                              <TableCell className="capitalize text-muted-foreground max-lg:hidden">
+                              <TableCell className="capitalize text-muted-foreground">
                                 {material.category}
                               </TableCell>
                               <TableCell>
@@ -728,12 +728,12 @@ export function MaterialsClient({
                                 </StatusBadge>
                                 {material.extractionStatus === 'failed' &&
                                 material.extractionError ? (
-                                  <span className="mt-0.5 block max-w-52 truncate text-xs text-destructive">
+                                  <span className="mt-0.5 block max-w-52 break-words text-xs text-destructive">
                                     {material.extractionError}
                                   </span>
                                 ) : null}
                               </TableCell>
-                              <TableCell className="text-right tabular-nums text-muted-foreground max-sm:hidden">
+                              <TableCell className="text-right tabular-nums text-muted-foreground">
                                 {material.chunkCount}
                               </TableCell>
                               <TableCell className="text-right">

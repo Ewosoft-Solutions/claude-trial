@@ -138,8 +138,13 @@ export function DailyRegisterClient({
         const qs = new URLSearchParams({ classId: cId, date: d }).toString();
         const res = await fetch(`/api/attendance?${qs}`);
         if (!res.ok) return;
-        const data = (await res.json()) as AttendanceRecord[] | { records: AttendanceRecord[] };
-        const records = Array.isArray(data) ? data : (data as { records: AttendanceRecord[] }).records ?? [];
+        const data = (await res.json()) as
+          | AttendanceRecord[]
+          | { records?: AttendanceRecord[] }
+          | null;
+        const records = Array.isArray(data)
+          ? data
+          : ((data as { records?: AttendanceRecord[] } | null)?.records ?? []);
         setMarks(seedMarks(sList, records));
       } finally {
         setLoading(false);
@@ -160,11 +165,12 @@ export function DailyRegisterClient({
         if (res.ok) {
           const data = (await res.json()) as
             | { students?: ApiStudent[]; data?: ApiStudent[] }
-            | ApiStudent[];
+            | ApiStudent[]
+            | null;
           const raw = Array.isArray(data)
             ? data
-            : ((data as { students?: ApiStudent[] }).students ??
-              (data as { data?: ApiStudent[] }).data ??
+            : ((data as { students?: ApiStudent[] } | null)?.students ??
+              (data as { data?: ApiStudent[] } | null)?.data ??
               []);
           const list = raw.map(toPupil);
           if (list.length) {
@@ -341,7 +347,7 @@ export function DailyRegisterClient({
             <TableHeader>
               <TableRow>
                 <TableHead>Pupil</TableHead>
-                <TableHead className="max-sm:hidden">Status</TableHead>
+                <TableHead>Status</TableHead>
                 <TableHead className="text-right">Attendance</TableHead>
               </TableRow>
             </TableHeader>
@@ -370,12 +376,12 @@ export function DailyRegisterClient({
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="truncate font-medium text-foreground">{p.name}</span>
-                          <span className="truncate text-xs text-muted-foreground">{p.studentNumber}</span>
+                          <span className="break-words font-medium text-foreground">{p.name}</span>
+                          <span className="break-words text-xs text-muted-foreground">{p.studentNumber}</span>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell className="max-sm:hidden">
+                    <TableCell>
                       <StatusBadge tone={tone[mark]} dot>{label[mark]}</StatusBadge>
                     </TableCell>
                     <TableCell>

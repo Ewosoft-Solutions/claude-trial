@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import {
+  ArrowLeft,
   CheckCircle2,
   ClipboardList,
   FilePlus2,
@@ -105,6 +106,7 @@ export function AssessmentsClient({
   const [classId, setClassId] = React.useState(initialClasses[0]?.id ?? '');
   const [assessments, setAssessments] = React.useState(initialAssessments);
   const [selectedId, setSelectedId] = React.useState(initialAssessments[0]?.id ?? '');
+  const [mobileDetailOpen, setMobileDetailOpen] = React.useState(false);
   const [draft, setDraft] = React.useState(EMPTY_DRAFT);
   const [query, setQuery] = React.useState('');
   const [paper, setPaper] = React.useState<PaperQuestion[]>([]);
@@ -156,10 +158,13 @@ export function AssessmentsClient({
         ]);
         if (!paperRes.ok) throw new Error(await readError(paperRes));
         if (!submissionsRes.ok) throw new Error(await readError(submissionsRes));
-        setPaper((await paperRes.json()) as PaperQuestion[]);
-        setSubmissions((await submissionsRes.json()) as AssessmentSubmission[]);
+        setPaper(((await paperRes.json()) as PaperQuestion[] | null) ?? []);
+        setSubmissions(
+          ((await submissionsRes.json()) as AssessmentSubmission[] | null) ?? [],
+        );
         if (bankRes && bankRes.ok) {
-          const nextBank = (await bankRes.json()) as QuestionSummary[];
+          const nextBank =
+            ((await bankRes.json()) as QuestionSummary[] | null) ?? [];
           setBank(nextBank);
           setQuestionId(nextBank[0]?.id ?? '');
         }
@@ -179,6 +184,7 @@ export function AssessmentsClient({
   function newAssessment() {
     setSelectedId('');
     setDraft(EMPTY_DRAFT);
+    setMobileDetailOpen(true);
   }
 
   async function createAssessment() {
@@ -252,7 +258,7 @@ export function AssessmentsClient({
         }),
       });
       if (!res.ok) throw new Error(await readError(res));
-      setPaper((await res.json()) as PaperQuestion[]);
+      setPaper(((await res.json()) as PaperQuestion[] | null) ?? []);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Attach failed');
     } finally {
@@ -350,7 +356,7 @@ export function AssessmentsClient({
       ) : null}
 
       <div className="mb-4 mt-4 flex flex-wrap gap-3">
-        <div className="grid min-w-64 gap-2">
+        <div className="grid min-w-0 basis-64 flex-1 gap-2">
           <Label htmlFor="assessment-class">Class</Label>
           <Select
             value={classId}
@@ -375,7 +381,7 @@ export function AssessmentsClient({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid min-w-56 flex-1 gap-2">
+        <div className="grid min-w-0 basis-56 flex-1 gap-2">
           <Label htmlFor="assessment-search">Search</Label>
           <div className="relative">
             <Search
@@ -396,7 +402,7 @@ export function AssessmentsClient({
       <ListDetailLayout
         className="mb-[var(--content-padding)] flex-1"
         listWidth={340}
-        showDetail={Boolean(selectedId) || !selected}
+        showDetail={mobileDetailOpen}
         list={
           <nav aria-label="Assessments" className="flex flex-col gap-1 p-2">
             {visibleAssessments.length === 0 ? (
@@ -416,7 +422,10 @@ export function AssessmentsClient({
                   <button
                     key={assessment.id}
                     type="button"
-                    onClick={() => setSelectedId(assessment.id)}
+                    onClick={() => {
+                      setSelectedId(assessment.id);
+                      setMobileDetailOpen(true);
+                    }}
                     className={cn(
                       'rounded-md px-3 py-2 text-left transition-colors hover:bg-accent',
                       assessment.id === selectedId && 'bg-accent',
@@ -424,7 +433,7 @@ export function AssessmentsClient({
                   >
                     <span className="flex items-start justify-between gap-2">
                       <span className="min-w-0">
-                        <span className="block truncate text-sm font-medium">
+                        <span className="block break-words text-sm font-medium">
                           {assessment.name}
                         </span>
                         <span className="mt-0.5 block text-xs text-muted-foreground">
@@ -441,6 +450,14 @@ export function AssessmentsClient({
         }
         detail={
           <div className="grid gap-4 p-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 w-fit @3xl/main:hidden"
+              onClick={() => setMobileDetailOpen(false)}
+            >
+              <ArrowLeft /> All assessments
+            </Button>
             {!selected ? (
               <div className="grid gap-4">
                 <div className="grid gap-3 @3xl/main:grid-cols-2">
@@ -646,8 +663,8 @@ export function AssessmentsClient({
                       <TableBody>
                         {paper.map((row) => (
                           <TableRow key={row.questionId}>
-                            <TableCell className="max-w-xl">
-                              <span className="line-clamp-2">{row.question.text}</span>
+                            <TableCell className="max-w-xl whitespace-normal">
+                              <span className="break-words">{row.question.text}</span>
                             </TableCell>
                             <TableCell className="capitalize text-muted-foreground">
                               {row.question.style.replace('_', ' ')}

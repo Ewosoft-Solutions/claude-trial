@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { Archive, CheckCircle2, Plus, Search, Trash2 } from 'lucide-react';
+import {
+  Archive,
+  ArrowLeft,
+  CheckCircle2,
+  Plus,
+  Search,
+  Trash2,
+} from 'lucide-react';
 
 import { useViewer } from '@/app/providers/viewer-provider';
 import {
@@ -134,6 +141,7 @@ export function QuestionBankClient({
   const [courseId, setCourseId] = React.useState(initialCourses[0]?.id ?? '');
   const [questions, setQuestions] = React.useState(initialQuestions);
   const [selectedId, setSelectedId] = React.useState(initialQuestions[0]?.id ?? '');
+  const [mobileDetailOpen, setMobileDetailOpen] = React.useState(false);
   const [form, setForm] = React.useState<QuestionForm>(() =>
     formFromQuestion(initialQuestions[0] ?? null),
   );
@@ -174,7 +182,7 @@ export function QuestionBankClient({
       const params = new URLSearchParams({ courseId: nextCourseId, limit: '50' });
       const res = await fetch(academicsApi(`questions?${params}`));
       if (!res.ok) throw new Error(await readError(res));
-      const list = (await res.json()) as QuestionSummary[];
+      const list = ((await res.json()) as QuestionSummary[] | null) ?? [];
       setQuestions(list);
       setSelectedId(list[0]?.id ?? '');
     } catch (err) {
@@ -187,6 +195,7 @@ export function QuestionBankClient({
   function newQuestion() {
     setSelectedId('');
     setForm(EMPTY_FORM);
+    setMobileDetailOpen(true);
   }
 
   function updateOption(index: number, text: string) {
@@ -284,7 +293,7 @@ export function QuestionBankClient({
       ) : null}
 
       <div className="mb-4 mt-4 flex flex-wrap gap-3">
-        <div className="grid min-w-64 gap-2">
+        <div className="grid min-w-0 basis-64 flex-1 gap-2">
           <Label htmlFor="question-course">Course</Label>
           <Select
             value={courseId}
@@ -322,7 +331,7 @@ export function QuestionBankClient({
             </SelectContent>
           </Select>
         </div>
-        <div className="grid min-w-56 flex-1 gap-2">
+        <div className="grid min-w-0 basis-56 flex-1 gap-2">
           <Label htmlFor="question-search">Search</Label>
           <div className="relative">
             <Search
@@ -343,7 +352,7 @@ export function QuestionBankClient({
       <ListDetailLayout
         className="mb-[var(--content-padding)] flex-1"
         listWidth={360}
-        showDetail={Boolean(selectedId) || !selected}
+        showDetail={mobileDetailOpen}
         list={
           <nav aria-label="Questions" className="flex flex-col gap-1 p-2">
             {loading ? (
@@ -365,13 +374,16 @@ export function QuestionBankClient({
                 <button
                   key={question.id}
                   type="button"
-                  onClick={() => setSelectedId(question.id)}
+                  onClick={() => {
+                    setSelectedId(question.id);
+                    setMobileDetailOpen(true);
+                  }}
                   className={cn(
                     'rounded-md px-3 py-2 text-left transition-colors hover:bg-accent',
                     question.id === selectedId && 'bg-accent',
                   )}
                 >
-                  <span className="line-clamp-2 text-sm font-medium">
+                  <span className="break-words text-sm font-medium">
                     {question.text}
                   </span>
                   <span className="mt-2 flex flex-wrap gap-1">
@@ -389,6 +401,14 @@ export function QuestionBankClient({
         }
         detail={
           <div className="grid gap-4 p-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="-ml-2 w-fit @3xl/main:hidden"
+              onClick={() => setMobileDetailOpen(false)}
+            >
+              <ArrowLeft /> All questions
+            </Button>
             <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
               <div>
                 <h2 className="text-base font-semibold">
