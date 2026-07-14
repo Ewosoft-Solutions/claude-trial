@@ -2,13 +2,6 @@ import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@workspace/ui/components/card';
-import {
   Table,
   TableBody,
   TableCell,
@@ -19,6 +12,7 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { DataCard } from '../../_shared/data-card';
 import { UsersInvitePanel } from './users-invite-panel';
 
 type ProfileStatus = 'active' | 'invited' | 'suspended' | 'pending' | 'inactive';
@@ -86,14 +80,7 @@ export default async function UsersSettingsPage() {
   return (
     <div className="flex flex-col gap-4">
       {tenantId ? <UsersInvitePanel tenantId={tenantId} /> : null}
-      <Card className="shadow-card">
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle className="text-base">Users</CardTitle>
-          <CardDescription>{users.length} tenant profiles</CardDescription>
-        </div>
-      </CardHeader>
-      <CardContent className={users.length ? 'px-0' : undefined}>
+      <DataCard title="Users" count={users.length} unit="tenant profile">
         {users.length === 0 ? (
           <EmptyState
             compact
@@ -104,10 +91,10 @@ export default async function UsersSettingsPage() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6">User</TableHead>
+                <TableHead>User</TableHead>
                 <TableHead className="max-md:hidden">Role</TableHead>
                 <TableHead className="max-sm:hidden">Verified</TableHead>
-                <TableHead className="pr-6">Status</TableHead>
+                <TableHead>Status</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -116,7 +103,7 @@ export default async function UsersSettingsPage() {
                 const status = STATUS_META[statusKey(profile)];
                 return (
                   <TableRow key={profile.id}>
-                    <TableCell className="pl-6">
+                    <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
                           <AvatarFallback className="text-[11px] font-semibold">
@@ -139,7 +126,7 @@ export default async function UsersSettingsPage() {
                     <TableCell className="text-muted-foreground max-sm:hidden">
                       {profile.user?.isVerified ? 'Verified' : 'Unverified'}
                     </TableCell>
-                    <TableCell className="pr-6">
+                    <TableCell>
                       <StatusBadge tone={status.tone} dot>
                         {status.label}
                       </StatusBadge>
@@ -150,8 +137,7 @@ export default async function UsersSettingsPage() {
             </TableBody>
           </Table>
         )}
-      </CardContent>
-      </Card>
+      </DataCard>
     </div>
   );
 }

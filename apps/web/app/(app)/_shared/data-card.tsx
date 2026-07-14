@@ -20,6 +20,8 @@ interface DataCardProps {
   count: number;
   unit: string;
   description?: string;
+  /** Optional header-right slot (e.g. a primary action button). */
+  action?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -28,17 +30,30 @@ export function DataCard({
   count,
   unit,
   description,
+  action,
   children,
 }: DataCardProps) {
   const label =
     description ?? `${count} ${unit}${count === 1 ? '' : 's'}`;
   return (
     <Card className="shadow-card">
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-        <CardDescription>{label}</CardDescription>
+      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+        <div className="flex min-w-0 flex-col gap-1.5">
+          <CardTitle className="text-base">{title}</CardTitle>
+          <CardDescription>{label}</CardDescription>
+        </div>
+        {action ? <div className="shrink-0">{action}</div> : null}
       </CardHeader>
-      <CardContent className={count > 0 ? 'px-0' : undefined}>
+      {/* Table goes edge-to-edge (px-0) and its outer cells re-inset to the
+          card gutter (px-6 = 24px, the shared Card padding), so the table
+          aligns with the header and matches every DataTableLayout table. */}
+      <CardContent
+        className={
+          count > 0
+            ? 'px-0 [&_:is(th,td):first-child]:pl-6 [&_:is(th,td):last-child]:pr-6'
+            : undefined
+        }
+      >
         {children}
       </CardContent>
     </Card>

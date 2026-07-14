@@ -239,7 +239,7 @@ export function ClassTeachersClient({
           description={`${filteredAssignments.length} allocation records`}
           empty={filteredAssignments.length === 0}
           toolbar={
-            <div className="relative w-full @md/main:w-64">
+            <div className="relative flex-1 min-w-0 @md/main:w-64 @md/main:flex-none">
               <Search
                 className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
@@ -268,7 +268,7 @@ export function ClassTeachersClient({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Teacher</TableHead>
+                <TableHead>Teacher</TableHead>
                 <TableHead>Allocation</TableHead>
                 <TableHead className="max-md:hidden">Assigned</TableHead>
                 <TableHead>Status</TableHead>
@@ -280,7 +280,7 @@ export function ClassTeachersClient({
                 const name = personName(assignment.userTenant);
                 return (
                   <TableRow key={assignment.id}>
-                    <TableCell className="pl-4">
+                    <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
                           <AvatarFallback className="text-[11px] font-semibold">

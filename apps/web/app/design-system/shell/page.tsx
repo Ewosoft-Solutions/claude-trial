@@ -340,6 +340,7 @@ export default function ShellPreviewPage() {
         <PageHeader
           title={pageTitle}
           meta={PAGE_META}
+          padded
           actions={
             <>
               <PersonaSwitcher value={personaKey} onChange={onPersona} />

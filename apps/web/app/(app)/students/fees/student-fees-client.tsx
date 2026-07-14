@@ -126,7 +126,7 @@ export function StudentFeesClient({ rows }: Props) {
           skeletonColumns={5}
           toolbar={
             <>
-              <div className="relative w-full @md/main:w-56">
+              <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
                 <Search
                   className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden

@@ -23,6 +23,7 @@ import { Meter } from '@workspace/ui/custom/data-display/meter';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { DataCard } from '../../_shared/data-card';
 
 interface AiUsageSummary {
   month: string;
@@ -181,56 +182,53 @@ export default async function AiUsageSettingsPage() {
         </CardContent>
       </Card>
 
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-base">Feature usage</CardTitle>
-          <CardDescription>
-            Token totals are recorded after each completed assistant response.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className={summary.features.length ? 'px-0' : undefined}>
-          {summary.features.length === 0 ? (
-            <EmptyState
-              compact
-              title="No AI usage this month"
-              description="Analytics chat and study tutor activity will appear here as members use AI."
-            />
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="pl-6">Feature</TableHead>
-                  <TableHead className="text-right">Requests</TableHead>
-                  <TableHead className="text-right">Tokens</TableHead>
-                  <TableHead className="max-md:hidden">Model</TableHead>
-                  <TableHead className="pr-6">Last used</TableHead>
+      <DataCard
+        title="Feature usage"
+        count={summary.features.length}
+        unit="feature"
+        description="Token totals are recorded after each completed assistant response."
+      >
+        {summary.features.length === 0 ? (
+          <EmptyState
+            compact
+            title="No AI usage this month"
+            description="Analytics chat and study tutor activity will appear here as members use AI."
+          />
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Feature</TableHead>
+                <TableHead className="text-right">Requests</TableHead>
+                <TableHead className="text-right">Tokens</TableHead>
+                <TableHead className="max-md:hidden">Model</TableHead>
+                <TableHead>Last used</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {summary.features.map((row) => (
+                <TableRow key={row.feature}>
+                  <TableCell className="font-medium">
+                    {featureLabel(row.feature)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {number.format(row.requestCount)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {number.format(row.totalTokens)}
+                  </TableCell>
+                  <TableCell className="max-md:hidden text-muted-foreground">
+                    {row.lastModel ?? 'Unknown'}
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {formatDate(row.lastUsedAt)}
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {summary.features.map((row) => (
-                  <TableRow key={row.feature}>
-                    <TableCell className="pl-6 font-medium">
-                      {featureLabel(row.feature)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {number.format(row.requestCount)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {number.format(row.totalTokens)}
-                    </TableCell>
-                    <TableCell className="max-md:hidden text-muted-foreground">
-                      {row.lastModel ?? 'Unknown'}
-                    </TableCell>
-                    <TableCell className="pr-6 text-muted-foreground">
-                      {formatDate(row.lastUsedAt)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </DataCard>
 
       {settings ? (
         <AiSettingsClient settings={settings} pending={pending ?? []} />

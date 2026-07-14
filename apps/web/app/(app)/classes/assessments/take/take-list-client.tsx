@@ -86,7 +86,7 @@ export function AssessmentTakeListClient({
           description={`${filtered.length} visible assessments`}
           empty={filtered.length === 0}
           toolbar={
-            <div className="relative w-full @md/main:w-64">
+            <div className="relative flex-1 min-w-0 @md/main:w-64 @md/main:flex-none">
               <Search
                 className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                 aria-hidden
@@ -115,7 +115,7 @@ export function AssessmentTakeListClient({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-4">Assessment</TableHead>
+                <TableHead>Assessment</TableHead>
                 <TableHead className="max-md:hidden">Class</TableHead>
                 <TableHead>Due</TableHead>
                 <TableHead>Status</TableHead>
@@ -129,7 +129,7 @@ export function AssessmentTakeListClient({
                   ({ label: 'Published', tone: 'success' } as const);
                 return (
                   <TableRow key={assessment.id}>
-                    <TableCell className="pl-4 font-medium">
+                    <TableCell className="font-medium">
                       {assessment.name}
                     </TableCell>
                     <TableCell className="text-muted-foreground max-md:hidden">

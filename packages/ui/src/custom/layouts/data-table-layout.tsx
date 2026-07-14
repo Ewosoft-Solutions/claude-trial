@@ -67,7 +67,7 @@ export function DataTableLayout({
       )}
     >
       {hasHeader ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b border-border px-4 py-3">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b border-border px-6 py-3.5">
           {title || description ? (
             <div className="min-w-0 flex flex-col gap-0.5">
               {title ? (
@@ -92,7 +92,7 @@ export function DataTableLayout({
 
       <div className="min-w-0">
         {loading ? (
-          <div className="p-4">
+          <div className="p-6">
             {loadingState ?? (
               <SkeletonTable
                 rows={skeletonRows}
@@ -102,14 +102,20 @@ export function DataTableLayout({
             )}
           </div>
         ) : empty ? (
-          <div className="px-4">{emptyState}</div>
+          <div className="px-6">{emptyState}</div>
         ) : (
-          <div className="overflow-x-auto">{children}</div>
+          // Align the table's outer edges with the toolbar/footer/card gutter
+          // (px-6 = 24px, the shared Card padding) while leaving the base px-2
+          // inter-column rhythm intact, so every table framed by this layout —
+          // and every DataCard table — shares one gutter across the app.
+          <div className="overflow-x-auto [&_:is(th,td):first-child]:pl-6 [&_:is(th,td):last-child]:pr-6">
+            {children}
+          </div>
         )}
       </div>
 
       {footer && !loading && !empty ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-4 py-3 text-[12.5px] text-muted-foreground">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-6 py-3.5 text-[12.5px] text-muted-foreground">
           {footer}
         </div>
       ) : null}

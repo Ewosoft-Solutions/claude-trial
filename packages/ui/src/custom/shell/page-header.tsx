@@ -70,7 +70,13 @@ export interface PageHeaderProps {
   meta?: PageHeaderMeta[];
   /** Right-aligned actions (segmented control, buttons, etc.). */
   actions?: React.ReactNode;
-  /** Apply the standard --content-padding inset. */
+  /**
+   * Apply the standard --content-padding inset. Defaults to `false`:
+   * the header is almost always rendered inside a padded ShellMain (or
+   * DashboardLayout inside one), so adding the inset again would double
+   * it and push the title out of alignment with the page body. Set
+   * `padded` only when the header sits in an unpadded scroll region.
+   */
   padded?: boolean;
   className?: string;
 }
@@ -80,7 +86,7 @@ export function PageHeader({
   description,
   meta,
   actions,
-  padded = true,
+  padded = false,
   className,
 }: PageHeaderProps) {
   return (

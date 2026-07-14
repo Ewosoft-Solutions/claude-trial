@@ -108,7 +108,11 @@ export function ShellMain({
       data-slot="shell-main"
       className={cn(
         'flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto',
-        padded && 'p-[var(--content-padding)]',
+        // Reserve extra bottom space on mobile so the last row/card clears the
+        // fixed AI launcher FAB (bottom-right) instead of scrolling under it.
+        // On md+ the FAB sits in the corner clear of content, so the standard
+        // inset is enough.
+        padded && 'p-[var(--content-padding)] max-md:pb-24',
         className,
       )}
       {...props}

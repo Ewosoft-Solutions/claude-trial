@@ -4,13 +4,6 @@ import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { Button } from '@workspace/ui/components/button';
 import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@workspace/ui/components/card';
-import {
   Table,
   TableBody,
   TableCell,
@@ -21,6 +14,7 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { DataCard } from '../../_shared/data-card';
 
 interface ApiRole {
   id: string;
@@ -65,69 +59,66 @@ export default async function RolesSettingsPage() {
   const rows = roles ?? [];
 
   return (
-    <Card className="shadow-card">
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle className="text-base">Roles</CardTitle>
-          <CardDescription>
-            {rows.length} roles returned by the tenant role API.
-          </CardDescription>
-        </div>
+    <DataCard
+      title="Roles"
+      count={rows.length}
+      unit="role"
+      description={`${rows.length} roles returned by the tenant role API.`}
+      action={
         <Button size="sm">
           <Plus /> Add role
         </Button>
-      </CardHeader>
-      <CardContent className={rows.length ? 'px-0' : undefined}>
-        {rows.length === 0 ? (
-          <EmptyState
-            compact
-            title="No roles found"
-            description="Tenant roles returned by the API will appear here."
-          />
-        ) : (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="pl-6">Role</TableHead>
-                <TableHead className="text-right">Members</TableHead>
-                <TableHead className="pr-6 text-right">Clearance</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((role) => {
-                const level = Number(role.clearanceLevel ?? 0);
-                const members =
-                  memberCounts.get(role.id) ?? memberCounts.get(role.name ?? '') ?? 0;
-                return (
-                  <TableRow key={role.id}>
-                    <TableCell className="pl-6">
-                      <div className="flex min-w-0 flex-col">
-                        <span className="flex items-center gap-2 font-medium text-foreground">
-                          {role.name ?? role.id}
-                          {role.roleType ? (
-                            <StatusBadge tone="info">{role.roleType}</StatusBadge>
-                          ) : null}
-                        </span>
-                        <span className="truncate text-xs text-muted-foreground">
-                          {role.description ?? 'No description'}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {members}
-                    </TableCell>
-                    <TableCell className="pr-6 text-right">
-                      <StatusBadge tone={clearanceTone(level)} dot>
-                        Level {level}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        )}
-      </CardContent>
-    </Card>
+      }
+    >
+      {rows.length === 0 ? (
+        <EmptyState
+          compact
+          title="No roles found"
+          description="Tenant roles returned by the API will appear here."
+        />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Role</TableHead>
+              <TableHead className="text-right">Members</TableHead>
+              <TableHead className="text-right">Clearance</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((role) => {
+              const level = Number(role.clearanceLevel ?? 0);
+              const members =
+                memberCounts.get(role.id) ?? memberCounts.get(role.name ?? '') ?? 0;
+              return (
+                <TableRow key={role.id}>
+                  <TableCell>
+                    <div className="flex min-w-0 flex-col">
+                      <span className="flex items-center gap-2 font-medium text-foreground">
+                        {role.name ?? role.id}
+                        {role.roleType ? (
+                          <StatusBadge tone="info">{role.roleType}</StatusBadge>
+                        ) : null}
+                      </span>
+                      <span className="truncate text-xs text-muted-foreground">
+                        {role.description ?? 'No description'}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums text-muted-foreground">
+                    {members}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <StatusBadge tone={clearanceTone(level)} dot>
+                      Level {level}
+                    </StatusBadge>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+    </DataCard>
   );
 }
