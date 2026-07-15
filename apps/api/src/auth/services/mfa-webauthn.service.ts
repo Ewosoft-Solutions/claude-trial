@@ -17,6 +17,7 @@ import {
   type AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
 import { PrismaClient } from '@workspace/database';
+import { EncryptionService } from '../../common/encryption';
 
 // Define transport types locally since they're not directly exported
 type AuthenticatorTransportFuture =
@@ -57,7 +58,7 @@ interface WebAuthnConfig {
 export class MfaWebAuthnService {
   private config: WebAuthnConfig;
 
-  constructor() {
+  constructor(private readonly encryption: EncryptionService) {
     const primaryOrigin =
       process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
     // WEBAUTHN_ALLOWED_ORIGINS is a comma-separated allow-list of origins the
@@ -184,6 +185,7 @@ export class MfaWebAuthnService {
     challengeId: string,
     registrationResponse: any,
     name?: string,
+    attachment: AuthenticatorAttachment = 'cross-platform',
   ): Promise<string> {
     // Find challenge
     const challenge = await prisma.mfaChallenge.findUnique({
@@ -226,25 +228,36 @@ export class MfaWebAuthnService {
       id: credentialID,
       publicKey: credentialPublicKey,
       counter,
+      transports,
     } = verification.registrationInfo.credential;
 
-    // TODO: Encrypt credentialPublicKey before storing
-    // For now, storing as base64 (NOT RECOMMENDED FOR PRODUCTION)
-    const encryptedPublicKey =
-      Buffer.from(credentialPublicKey).toString('base64');
+    // Device metadata for the management UI: whether the passkey is synced
+    // across devices (iCloud/Google) and the authenticator model id.
+    const { credentialBackedUp, aaguid } = verification.registrationInfo;
+
+    // Encrypt the public key at rest (AES-256-GCM), matching the convention for
+    // other sensitive columns (TOTP/JWT secrets). Stored as base64(iv+tag+ct).
+    // The raw key bytes are base64-encoded first, then encrypted.
+    const encryptedPublicKey = this.encryption.encrypt(
+      Buffer.from(credentialPublicKey).toString('base64'),
+    );
 
     // Create MFA method
     const method = await prisma.mfaMethod.create({
       data: {
         userId: challenge.userId,
         type: 'webauthn',
-        name: name || 'Hardware Key',
+        name: name || (attachment === 'platform' ? 'Passkey' : 'Hardware Key'),
         // `credentialID` is already a base64url string from SimpleWebAuthn v13.
         // Store it verbatim — the previous Buffer→base64 round-trip mangled it
         // (base64 ≠ base64url), so authentication lookups never matched.
         webauthnId: credentialID,
         webauthnPublicKey: encryptedPublicKey,
         webauthnCounter: counter,
+        webauthnAttachment: attachment,
+        webauthnBackedUp: credentialBackedUp ?? null,
+        webauthnTransports: transports ?? [],
+        webauthnAaguid: aaguid ?? null,
         isActive: true,
         verifiedAt: new Date(),
       },
@@ -377,9 +390,12 @@ export class MfaWebAuthnService {
       return false;
     }
 
-    // TODO: Decrypt webauthnPublicKey before verification
-    // For now, assuming it's stored as base64
-    const publicKey = Buffer.from(method.webauthnPublicKey, 'base64');
+    // Decrypt the stored public key (reverse of registration): decrypt to the
+    // base64 string, then back to raw bytes for verification.
+    const publicKey = Buffer.from(
+      this.encryption.decrypt(method.webauthnPublicKey),
+      'base64',
+    );
 
     // Verify authentication response
     const opts: VerifyAuthenticationResponseOpts = {

@@ -18,6 +18,7 @@
 
 import { usePathname } from 'next/navigation';
 import {
+  Fingerprint,
   Palette,
   ScrollText,
   Settings as SettingsIcon,
@@ -34,14 +35,69 @@ import { SettingsLayout } from '@workspace/ui/custom/layouts/settings-layout';
 import type { SettingsNavItem } from '@workspace/ui/types/layout.types';
 
 const SECTIONS: Omit<SettingsNavItem, 'active'>[] = [
-  { key: 'profile', label: 'Profile', description: 'Sign-in & default context', icon: <UserCircle />, href: '/settings/profile' },
-  { key: 'general', label: 'General', description: 'Profile & locale', icon: <SettingsIcon />, href: '/settings/general' },
-  { key: 'branding', label: 'Branding', description: 'Logo, colours, theme', icon: <Palette />, href: '/settings/branding' },
-  { key: 'features', label: 'Features', description: 'Module toggles', icon: <ToggleRight />, href: '/settings/features' },
-  { key: 'ai-usage', label: 'AI usage', description: 'Quota & model spend', icon: <Sparkles />, href: '/settings/ai-usage' },
-  { key: 'roles', label: 'Roles & permissions', description: 'Access control', icon: <ShieldCheck />, href: '/settings/roles' },
-  { key: 'users', label: 'Users', description: 'Staff accounts', icon: <Users />, href: '/settings/users' },
-  { key: 'audit', label: 'Audit log', description: 'Activity history', icon: <ScrollText />, href: '/settings/audit' },
+  {
+    key: 'profile',
+    label: 'Profile',
+    description: 'Sign-in & default context',
+    icon: <UserCircle />,
+    href: '/settings/profile',
+  },
+  {
+    key: 'security',
+    label: 'Security',
+    description: 'Biometric sign-in',
+    icon: <Fingerprint />,
+    href: '/settings/security',
+  },
+  {
+    key: 'general',
+    label: 'General',
+    description: 'Profile & locale',
+    icon: <SettingsIcon />,
+    href: '/settings/general',
+  },
+  {
+    key: 'branding',
+    label: 'Branding',
+    description: 'Logo, colours, theme',
+    icon: <Palette />,
+    href: '/settings/branding',
+  },
+  {
+    key: 'features',
+    label: 'Features',
+    description: 'Module toggles',
+    icon: <ToggleRight />,
+    href: '/settings/features',
+  },
+  {
+    key: 'ai-usage',
+    label: 'AI usage',
+    description: 'Quota & model spend',
+    icon: <Sparkles />,
+    href: '/settings/ai-usage',
+  },
+  {
+    key: 'roles',
+    label: 'Roles & permissions',
+    description: 'Access control',
+    icon: <ShieldCheck />,
+    href: '/settings/roles',
+  },
+  {
+    key: 'users',
+    label: 'Users',
+    description: 'Staff accounts',
+    icon: <Users />,
+    href: '/settings/users',
+  },
+  {
+    key: 'audit',
+    label: 'Audit log',
+    description: 'Activity history',
+    icon: <ScrollText />,
+    href: '/settings/audit',
+  },
 ];
 
 export default function SettingsSectionLayout({
@@ -62,7 +118,9 @@ export default function SettingsSectionLayout({
         header={
           <PageHeader
             title="Settings"
-            meta={[{ key: 'tenant', label: 'St. Jude Academy', emphasis: true }]}
+            meta={[
+              { key: 'tenant', label: 'St. Jude Academy', emphasis: true },
+            ]}
           />
         }
         nav={nav}

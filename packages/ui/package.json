@@ -59,7 +59,7 @@
     "@workspace/vitest-config": "workspace:*",
     "tailwindcss": "^4.1.11",
     "typescript": "5.9.3",
-    "vitest": "^4.0.14"
+    "vitest": "^4.1.10"
   },
   "exports": {
     "./globals.css": "./src/styles/globals.css",

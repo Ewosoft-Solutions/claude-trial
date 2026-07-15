@@ -10,3 +10,4 @@ export * from './verify-mfa.dto';
 export * from './recovery-mfa.dto';
 export * from './security-policy.dto';
 export * from './breach-response.dto';
+export * from './biometrics.dto';

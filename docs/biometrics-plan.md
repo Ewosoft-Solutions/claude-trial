@@ -16,19 +16,19 @@ stop re-typing a password. Biometrics is used for **both**:
 
 ## Confirmed decisions
 
-| # | Decision | Choice |
-|---|---|---|
-| 1 | Login scope | **True one-tap passwordless** (discoverable/resident credentials). Built in phases, but the end state is no email/password at the login screen. |
-| 2 | Biometrics vs MFA | A user-verified platform passkey **counts as MFA** (it is device-possession + biometric/PIN, and phishing-resistant). No extra OTP stacked on top. Password+TOTP path is unchanged for non-passkey users. |
-| 3 | Which actions need step-up | The **catalog of protected actions is platform-owned** (see §4). Tenants **cannot edit** it; they get a **read-only summary** and can **submit a change request** that platform reviews, with feedback surfaced back. |
-| 4 | Enrollment policy | **Require / Allow / Forbid per school**, set by the tenant admin (distinct plane from #3). |
+| #   | Decision                   | Choice                                                                                                                                                                                                                |
+| --- | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Login scope                | **True one-tap passwordless** (discoverable/resident credentials). Built in phases, but the end state is no email/password at the login screen.                                                                       |
+| 2   | Biometrics vs MFA          | A user-verified platform passkey **counts as MFA** (it is device-possession + biometric/PIN, and phishing-resistant). No extra OTP stacked on top. Password+TOTP path is unchanged for non-passkey users.             |
+| 3   | Which actions need step-up | The **catalog of protected actions is platform-owned** (see §4). Tenants **cannot edit** it; they get a **read-only summary** and can **submit a change request** that platform reviews, with feedback surfaced back. |
+| 4   | Enrollment policy          | **Require / Allow / Forbid per school**, set by the tenant admin (distinct plane from #3).                                                                                                                            |
 
 Two governance planes fall out of #3 and #4 — keep them separate:
 
-- **Plane A — Step-up catalog (platform-owned).** *Which* operations demand a
+- **Plane A — Step-up catalog (platform-owned).** _Which_ operations demand a
   fresh step-up, and at what assurance. Editable only by platform users
   (clearance 9 / platform-oversight). Tenants view a summary + request changes.
-- **Plane B — Enrollment policy (tenant-owned).** Whether *this school's users*
+- **Plane B — Enrollment policy (tenant-owned).** Whether _this school's users_
   may/must/can't enrol biometrics for login. Editable by the tenant admin role.
 
 ---
@@ -121,32 +121,37 @@ category; each entry gets an assurance level: **step-up** (fresh biometric/MFA
 within N min) and/or **maker-checker** (second approver). Platform can toggle
 per operation; tenants see this as a read-only summary.
 
-**A. Governance & access control** *(step-up + existing maker-checker)*
+**A. Governance & access control** _(step-up + existing maker-checker)_
+
 - `roles.create` / `roles.update` / `roles.delete` / `roles.custom.level7.create`
 - `permissions.modify` (permission-pool changes)
 - `users.role.assign` / staff `users.create`
 - `security-policy.update` (`security-policy.controller.ts`)
 
-**B. Financial** *(step-up + maker-checker)*
+**B. Financial** _(step-up + maker-checker)_
+
 - `financial.transactions` (payments, refunds, adjustments)
 - fee-structure changes, any payout/withdrawal
 
-**C. Account & security** *(step-up; self-service, no maker-checker)*
+**C. Account & security** _(step-up; self-service, no maker-checker)_
+
 - change own password · add/remove MFA method · **add/remove a biometric device**
 - change email · generate recovery codes
 - (admin acting on others) force-logout, reset another user's password
 
-**D. Bulk / destructive data** *(step-up + maker-checker)*
+**D. Bulk / destructive data** _(step-up + maker-checker)_
+
 - `students.delete` / `users.delete`
 - bulk grade change / grade override (`assessment-grading`)
 - bulk import/delete · `data.export` (student PII)
 - `backup.restore` · `system.configuration`
 
-**E. Platform-level** *(step-up; platform users only)*
+**E. Platform-level** _(step-up; platform users only)_
+
 - `ai.settings.update` · breach-response actions · tenant provisioning/suspension
 
 > **Note the reflexive rule in C:** removing a biometric device or disabling MFA
-> must *itself* require step-up — otherwise a hijacked live session could strip
+> must _itself_ require step-up — otherwise a hijacked live session could strip
 > the account's protections.
 
 ---
@@ -154,17 +159,20 @@ per operation; tenants see this as a read-only summary.
 ## 5. Endpoints
 
 **Enrollment (platform passkey; requires a fresh password login):**
+
 - `POST /auth/biometrics/register/options` → platform-attachment,
   `residentKey: 'required'`, `userVerification: 'required'`.
 - `POST /auth/biometrics/register/verify` → store credential, label the device.
 
 **Passwordless login (discoverable credentials — no email submitted):**
+
 - `POST /auth/passwordless/options` → challenge with empty `allowCredentials`.
 - `POST /auth/passwordless/verify` → resolve user from the credential, issue the
   existing **pre-auth token** → reuse `POST /auth/select-school`. Because the
   passkey satisfies MFA (decision #2), skip the OTP branch entirely.
 
 **Step-up:**
+
 - `POST /auth/step-up/options` `{ operation }` → per-user challenge.
 - `POST /auth/step-up/verify` → mark challenge verified; the `StepUpGuard` on the
   target endpoint validates + consumes it server-side.
@@ -173,6 +181,7 @@ per operation; tenants see this as a read-only summary.
 `DELETE /auth/biometrics/devices/:id` (step-up protected — see §4C).
 
 **Governance:**
+
 - Plane B (tenant admin): `GET/PUT /settings/security/biometric-policy`.
 - Plane A (platform): `GET/PUT /platform/step-up-policy`; tenant-facing
   `GET /settings/security/step-up-summary` (read-only) +
@@ -183,6 +192,7 @@ per operation; tenants see this as a read-only summary.
 ## 6. UX & presentation
 
 **Enrollment** — new **Settings → Security** page (build it):
+
 - "Sign in faster with Face ID / fingerprint" opt-in, gated behind a fresh
   password re-auth.
 - Enrolled-device list: label, type icon, created, last-used, per-device remove.
@@ -191,6 +201,7 @@ per operation; tenants see this as a read-only summary.
   **requires**, prompt on next login until enrolled.
 
 **Login** (`login-form.tsx` today only knows OTP):
+
 - Show a "Sign in with Face ID / fingerprint" button **only** when
   `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()` and
   (phase 2) `isConditionalMediationAvailable()` resolve true.
@@ -213,7 +224,7 @@ mobile story and should be tested explicitly.
 - **Lost-only-device:** because the target is passwordless, a user may lack
   password muscle-memory — make "Sign in another way" prominent and route to
   password/recovery-code re-auth, then force re-enrolment. **[decide]** whether
-  losing the last passkey while policy = *require* triggers an admin-assisted
+  losing the last passkey while policy = _require_ triggers an admin-assisted
   reset.
 - Enrolment always needs a prior strong auth (password login), so a stolen live
   session alone can't silently add an attacker's device (and §4C step-up guards
@@ -249,7 +260,7 @@ device-remove, policy-change) via the existing audit log.
 - Roaming security keys: keep the existing cross-platform path alongside, or
   platform-only? (User's ask centres on device biometrics; recommend keeping the
   existing hardware-key path as-is and adding platform as a sibling.)
-- Lost-last-device behaviour when policy = *require*.
+- Lost-last-device behaviour when policy = _require_.
 - Default freshness window for step-up (recommend 5 min, matching pre-auth TTL).
 - Per-role enrolment policy granularity under Plane B, or school-wide only.
 
@@ -257,11 +268,27 @@ device-remove, policy-change) via the existing audit log.
 
 ## Appendix A — Phase 0 task breakdown (concrete)
 
-> **Progress (2026-07-15, branch `claude`, uncommitted):** P0-1 ✅ P0-2 ✅
-> P0-3 ✅ P0-4 ✅ P0-5 ✅ done & tested. P0-6 (stretch) and P0-7 (final gate)
-> remain. `[decide]` still open: prod apex `WEBAUTHN_RP_ID` and the exact
-> subdomain origin list (SimpleWebAuthn's allow-list is exact-match, **no
-> wildcards** — enumerate each tenant subdomain).
+> **Progress (2026-07-15, branch `claude`):** Phase 0 committed (`42194e8`):
+> P0-1..P0-5. P0-6 ✅ (public key AES-256-GCM encrypted at rest via
+> EncryptionService) and **Phase 1 backend + frontend** ✅ — see below. Full API
+> suite green (260 tests). `[decide]` still open: prod
+> apex `WEBAUTHN_RP_ID` and the exact subdomain origin list (SimpleWebAuthn's
+> allow-list is exact-match, **no wildcards** — enumerate each tenant subdomain).
+>
+> **Phase 1 delivered:**
+>
+> - API: `BiometricsController` + `BiometricsService` (`/auth/biometrics/*`):
+>   register options/verify (platform attachment), device list, device delete.
+>   `verifyRegistration` now persists attachment/backedUp/transports/aaguid.
+> - Web: `lib/webauthn.ts` (native base64url ceremony, no lib dep), four proxy
+>   routes under `app/api/auth/biometrics/*`, and **Settings → Security** page +
+>   nav entry. Verified in-browser: page renders, device list loads (200),
+>   enrolment options returns 200, client reaches the WebAuthn ceremony.
+> - Fixed a real 401 found via browser test: registration must resolve
+>   email/display-name from the DB, not the JWT (token carries no email).
+> - **Follow-ups:** device delete must gain `@RequireStepUp()` in Phase 3
+>   (§4C); the same JWT-email bug affects `mfa.controller.ts` MFA setup
+>   endpoints (flagged as a separate task).
 
 **Goal of Phase 0:** land the security fixes + data/config foundation with **no
 user-visible change** and **no behavioural regression**. Governance tables
@@ -274,6 +301,7 @@ migrations via `pnpm --filter @workspace/database db:migrate` (`prisma migrate
 dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
 
 ### P0-1 — Migration: platform-authenticator fields on `MfaMethod`
+
 - **File:** `packages/database/prisma/models/user-management.prisma` (`MfaMethod`).
 - **Add (all nullable, back-compat):** `authenticatorAttachment String?`
   (`'platform' | 'cross-platform'`), `aaguid String?`, `backedUp Boolean?`,
@@ -283,12 +311,14 @@ dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
   unaffected (all new cols null); typecheck green.
 
 ### P0-2 — Migration: single-use step-up on `MfaChallenge`
+
 - **File:** same model file (`MfaChallenge`).
 - **Add:** `consumedAt DateTime?`; index `@@index([userId, operation, verified])`
   for the guard lookup. `operation` / `verified` / `expiresAt` already exist.
 - **Accept:** migration applies; index present.
 
 ### P0-3 — Rewrite step-up as server-authoritative (`StepUpGuard`)
+
 - **Replace** `apps/api/src/auth/guards/mfa-required.guard.ts` (inverted-logic
   bypass) with `guards/step-up.guard.ts` + a `@RequireStepUp('<operation>')`
   decorator (real metadata, not the current no-op stub).
@@ -304,10 +334,11 @@ dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
 - **Accept (unit tests):** forged `x-mfa-verified` header → rejected;
   valid challenge accepted **once**, second use rejected (single-use); expired
   → rejected; wrong operation → rejected; other user's challenge → rejected.
-- **Dep:** P0-2. *(Guard is applied to no endpoint yet — wiring onto real
-  endpoints is Phase 3, so this is a safe internal replacement.)*
+- **Dep:** P0-2. _(Guard is applied to no endpoint yet — wiring onto real
+  endpoints is Phase 3, so this is a safe internal replacement.)_
 
 ### P0-4 — Fix credential-ID encoding in the WebAuthn service
+
 - **File:** `apps/api/src/auth/services/mfa-webauthn.service.ts:330` (and the
   `:209` store site).
 - **Change:** stop the `base64 → base64url` round-trip; use SimpleWebAuthn v13
@@ -317,6 +348,7 @@ dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
   credential; regression test with a base64url id containing `-` and `_`.
 
 ### P0-5 — Multi-tenant RP / origin config
+
 - **`env.config.ts`:** add `WEBAUTHN_ALLOWED_ORIGINS` (comma-separated) to the
   interface (`:45`) + Joi schema (`:117`), defaulting to `[WEBAUTHN_ORIGIN]`.
   Keep `WEBAUTHN_RP_ID` as the **apex** registrable domain. Group beside the
@@ -335,11 +367,13 @@ dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
   passes with and without the new key. **[decide]** the prod apex value.
 
 ### P0-6 — (Stretch / optional) Encrypt `webauthnPublicKey` at rest
+
 - Align with the existing `ENCRYPTION_KEY` AES-256-GCM column convention
   (`.env.example:28`). **Low priority** — public keys aren't secret; may be
   folded into Phase 1 or skipped. Not a blocker.
 
 ### P0-7 — Verification gate
+
 - Run auth Jest suite + the new guard/service tests; lint + typecheck;
   `db:generate`. Confirm no endpoint relied on the old `MfaRequiredGuard`
   (already verified: referenced only in `auth.module.ts`, applied nowhere).
@@ -347,4 +381,7 @@ dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
 **Order:** P0-1 + P0-2 (one migration) → P0-3 (needs P0-2). P0-4 and P0-5 are
 independent and can run in parallel. P0-6 optional. P0-7 gates the phase.
 **Rough effort:** P0-1/P0-2 S · P0-3 M · P0-4 S · P0-5 M · P0-6 S · P0-7 S.
+
+```
+
 ```

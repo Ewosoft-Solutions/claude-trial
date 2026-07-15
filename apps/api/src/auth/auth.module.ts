@@ -10,6 +10,7 @@ import { PassportModule } from '@nestjs/passport';
 import { CommonModule } from '../common';
 import { AuthController } from './auth.controller';
 import { MfaController } from './mfa.controller';
+import { BiometricsController } from './biometrics.controller';
 import {
   SecurityPolicyController,
   PlatformSecurityPolicyController,
@@ -27,6 +28,7 @@ import { MfaEmailService } from './services/mfa-email.service';
 import { MfaTotpService } from './services/mfa-totp.service';
 import { MfaWebAuthnService } from './services/mfa-webauthn.service';
 import { MfaAuditService } from './services/mfa-audit.service';
+import { BiometricsService } from './services/biometrics.service';
 import {
   JwtAuthGuard,
   PreAuthGuard,
@@ -70,6 +72,7 @@ import {
   controllers: [
     AuthController,
     MfaController,
+    BiometricsController,
     SecurityPolicyController,
     PlatformSecurityPolicyController,
     BreachResponseController,
@@ -88,6 +91,7 @@ import {
     MfaTotpService,
     MfaWebAuthnService,
     MfaAuditService,
+    BiometricsService,
     // Authorization services
     PermissionService,
     RoleService,

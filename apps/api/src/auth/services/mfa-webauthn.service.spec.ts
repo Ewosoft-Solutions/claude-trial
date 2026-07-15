@@ -24,8 +24,19 @@ const CRED_ID = 'aB-_cd12EF-_gh';
 
 const OLD_ENV = process.env;
 
+// Reversible stand-in for AES-256-GCM so tests can assert what gets encrypted.
+let encryption: { encrypt: jest.Mock; decrypt: jest.Mock };
+
+function makeService() {
+  return new MfaWebAuthnService(encryption as never);
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
+  encryption = {
+    encrypt: jest.fn((s: string) => `enc(${s})`),
+    decrypt: jest.fn((s: string) => s.replace(/^enc\(/, '').replace(/\)$/, '')),
+  };
   process.env = {
     ...OLD_ENV,
     WEBAUTHN_RP_ID: 'schoolwithease.com',
@@ -41,7 +52,7 @@ afterAll(() => {
 
 describe('MfaWebAuthnService — credential-id encoding (P0-4)', () => {
   it('stores the credential id verbatim (no base64/base64url mangling)', async () => {
-    const service = new MfaWebAuthnService();
+    const service = makeService();
 
     const create = jest.fn().mockResolvedValue({ id: 'method-1' });
     const prisma = {
@@ -90,7 +101,7 @@ describe('MfaWebAuthnService — credential-id encoding (P0-4)', () => {
   });
 
   it('looks up the credential by the raw base64url id and verifies against it', async () => {
-    const service = new MfaWebAuthnService();
+    const service = makeService();
 
     const findFirst = jest.fn().mockResolvedValue({
       id: 'method-1',
@@ -138,7 +149,7 @@ describe('MfaWebAuthnService — origin config (P0-5)', () => {
   it('falls back to a single WEBAUTHN_ORIGIN when the allow-list is unset', async () => {
     delete process.env.WEBAUTHN_ALLOWED_ORIGINS;
     process.env.WEBAUTHN_ORIGIN = 'http://localhost:3030';
-    const service = new MfaWebAuthnService();
+    const service = makeService();
 
     const prisma = {
       mfaChallenge: {
@@ -173,5 +184,91 @@ describe('MfaWebAuthnService — origin config (P0-5)', () => {
       (verifyAuthenticationResponse as jest.Mock).mock.calls[0][0]
         .expectedOrigin,
     ).toEqual(['http://localhost:3030']);
+  });
+});
+
+describe('MfaWebAuthnService — public-key encryption at rest (P0-6)', () => {
+  // base64 of the raw public-key bytes [1,2,3] used below.
+  const PUBKEY_B64 = Buffer.from([1, 2, 3]).toString('base64');
+
+  it('encrypts the public key before storing it', async () => {
+    const service = makeService();
+    const create = jest.fn().mockResolvedValue({ id: 'method-1' });
+    const prisma = {
+      mfaChallenge: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'chal-1',
+          userId: 'user-1',
+          webauthnChallenge: 'challenge-str',
+          expiresAt: new Date(Date.now() + 60_000),
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      user: { findUnique: jest.fn().mockResolvedValue({ id: 'user-1' }) },
+      mfaMethod: { create },
+    };
+    (verifyRegistrationResponse as jest.Mock).mockResolvedValue({
+      verified: true,
+      registrationInfo: {
+        credential: {
+          id: CRED_ID,
+          publicKey: new Uint8Array([1, 2, 3]),
+          counter: 0,
+        },
+      },
+    });
+
+    await service.verifyRegistration(prisma as never, 'chal-1', {
+      id: CRED_ID,
+    });
+
+    // The base64 of the raw key is what gets encrypted, and the ciphertext is
+    // what lands in the column — never the plaintext key.
+    expect(encryption.encrypt).toHaveBeenCalledWith(PUBKEY_B64);
+    expect(create.mock.calls[0][0].data.webauthnPublicKey).toBe(
+      `enc(${PUBKEY_B64})`,
+    );
+  });
+
+  it('decrypts the stored public key before verification', async () => {
+    const service = makeService();
+    const prisma = {
+      mfaChallenge: {
+        findUnique: jest.fn().mockResolvedValue({
+          id: 'chal-1',
+          userId: 'user-1',
+          webauthnChallenge: 'challenge-str',
+          expiresAt: new Date(Date.now() + 60_000),
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      mfaMethod: {
+        findFirst: jest.fn().mockResolvedValue({
+          id: 'method-1',
+          webauthnId: CRED_ID,
+          webauthnPublicKey: `enc(${PUBKEY_B64})`,
+          webauthnCounter: 0,
+        }),
+        update: jest.fn().mockResolvedValue({}),
+      },
+    };
+    (verifyAuthenticationResponse as jest.Mock).mockResolvedValue({
+      verified: true,
+      authenticationInfo: { newCounter: 1 },
+    });
+
+    await service.verifyAuthentication(prisma as never, 'chal-1', {
+      id: CRED_ID,
+    } as never);
+
+    expect(encryption.decrypt).toHaveBeenCalledWith(`enc(${PUBKEY_B64})`);
+    // The decrypted base64 is turned back into the original raw key bytes.
+    const verifyArg = (verifyAuthenticationResponse as jest.Mock).mock
+      .calls[0][0];
+    expect(
+      Buffer.from(verifyArg.credential.publicKey).equals(
+        Buffer.from([1, 2, 3]),
+      ),
+    ).toBe(true);
   });
 });

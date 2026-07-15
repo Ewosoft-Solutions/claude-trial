@@ -18,15 +18,15 @@
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.0.2",
-    "vitest": "^4.0.14"
+    "vitest": "^4.1.10"
   },
   "devDependencies": {
     "@workspace/typescript-config": "workspace:*",
-    "@vitest/coverage-istanbul": "4.0.14",
-    "@vitest/ui": "4.0.14",
+    "@vitest/coverage-istanbul": "4.1.10",
+    "@vitest/ui": "4.1.10",
     "glob": "^11.0.3",
     "jsdom": "^27.0.1",
-    "nyc": "^17.1.0",
+    "nyc": "^18.0.0",
     "typescript": "^5.9.3"
   }
 }
