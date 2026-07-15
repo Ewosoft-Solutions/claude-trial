@@ -17,7 +17,6 @@ import {
   type AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
 import { PrismaClient } from '@workspace/database';
-import { MfaBaseService } from './mfa-base.service';
 
 // Define transport types locally since they're not directly exported
 type AuthenticatorTransportFuture =
@@ -30,12 +29,23 @@ type AuthenticatorTransportFuture =
   | 'usb';
 
 /**
+ * Authenticator kind: `platform` = built-in device biometrics (Face ID /
+ * Touch ID / Windows Hello / Android), `cross-platform` = roaming security key.
+ */
+type AuthenticatorAttachment = 'platform' | 'cross-platform';
+
+/**
  * WebAuthn Configuration
  */
 interface WebAuthnConfig {
   rpName: string;
   rpID: string;
-  origin: string;
+  /**
+   * Allowed assertion origins. A passkey is scoped to a single RP ID (the apex
+   * registrable domain) but may be presented from several tenant subdomain
+   * origins, so origin verification is against this allow-list.
+   */
+  origins: string[];
 }
 
 /**
@@ -48,11 +58,22 @@ export class MfaWebAuthnService {
   private config: WebAuthnConfig;
 
   constructor() {
-    // TODO: Load from environment variables
+    const primaryOrigin =
+      process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
+    // WEBAUTHN_ALLOWED_ORIGINS is a comma-separated allow-list of origins the
+    // app is served from (e.g. tenant subdomains). Falls back to the single
+    // WEBAUTHN_ORIGIN when unset, so existing single-origin setups are unchanged.
+    const origins = (process.env.WEBAUTHN_ALLOWED_ORIGINS || primaryOrigin)
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+
     this.config = {
       rpName: process.env.WEBAUTHN_RP_NAME || 'School With Ease',
+      // RP ID must be the apex registrable domain so one passkey works across
+      // every tenant subdomain of it.
       rpID: process.env.WEBAUTHN_RP_ID || 'localhost',
-      origin: process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000',
+      origins,
     };
   }
 
@@ -70,6 +91,7 @@ export class MfaWebAuthnService {
     userId: string,
     userName: string,
     userDisplayName: string,
+    attachment: AuthenticatorAttachment = 'cross-platform',
   ): Promise<
     Awaited<ReturnType<typeof generateRegOptions>> & { challengeId: string }
   > {
@@ -110,11 +132,22 @@ export class MfaWebAuthnService {
       timeout: 60000,
       attestationType: 'none',
       excludeCredentials,
-      authenticatorSelection: {
-        authenticatorAttachment: 'cross-platform',
-        userVerification: 'preferred',
-        requireResidentKey: false,
-      },
+      // Platform (biometric) credentials must be discoverable and
+      // user-verified so they can drive one-tap passwordless login and count
+      // as MFA. Cross-platform hardware keys keep their existing, looser policy.
+      authenticatorSelection:
+        attachment === 'platform'
+          ? {
+              authenticatorAttachment: 'platform',
+              residentKey: 'required',
+              requireResidentKey: true,
+              userVerification: 'required',
+            }
+          : {
+              authenticatorAttachment: 'cross-platform',
+              userVerification: 'preferred',
+              requireResidentKey: false,
+            },
       supportedAlgorithmIDs: [-7, -257], // ES256, RS256
     };
 
@@ -178,7 +211,7 @@ export class MfaWebAuthnService {
     const opts: VerifyRegistrationResponseOpts = {
       response: registrationResponse,
       expectedChallenge: challenge.webauthnChallenge,
-      expectedOrigin: this.config.origin,
+      expectedOrigin: this.config.origins,
       expectedRPID: this.config.rpID,
       requireUserVerification: true,
     };
@@ -206,7 +239,10 @@ export class MfaWebAuthnService {
         userId: challenge.userId,
         type: 'webauthn',
         name: name || 'Hardware Key',
-        webauthnId: Buffer.from(credentialID).toString('base64'),
+        // `credentialID` is already a base64url string from SimpleWebAuthn v13.
+        // Store it verbatim — the previous Buffer→base64 round-trip mangled it
+        // (base64 ≠ base64url), so authentication lookups never matched.
+        webauthnId: credentialID,
         webauthnPublicKey: encryptedPublicKey,
         webauthnCounter: counter,
         isActive: true,
@@ -326,17 +362,13 @@ export class MfaWebAuthnService {
       return false;
     }
 
-    // Find credential by ID
-    const credentialId = Buffer.from(
-      authenticationResponse.id,
-      'base64',
-    ).toString('base64');
-
+    // The client sends the credential id as a base64url string; it was stored
+    // verbatim at registration, so match on it directly (no re-encoding).
     const method = await prisma.mfaMethod.findFirst({
       where: {
         userId: challenge.userId,
         type: 'webauthn',
-        webauthnId: credentialId,
+        webauthnId: authenticationResponse.id,
         isActive: true,
       },
     });
@@ -353,7 +385,7 @@ export class MfaWebAuthnService {
     const opts: VerifyAuthenticationResponseOpts = {
       response: authenticationResponse,
       expectedChallenge: challenge.webauthnChallenge,
-      expectedOrigin: this.config.origin,
+      expectedOrigin: this.config.origins,
       expectedRPID: this.config.rpID,
       credential: {
         id: method.webauthnId!,

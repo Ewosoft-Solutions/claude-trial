@@ -43,6 +43,6 @@ model HealthRecord {
 
   @@index([tenantId])
   @@index([tenantId, status])
-  @@schema("health")
   @@map("health_records")
+  @@schema("health")
 }

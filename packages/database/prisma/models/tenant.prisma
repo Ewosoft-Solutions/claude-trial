@@ -29,22 +29,22 @@ model Tenant {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  roles           Role[]
-  userTenants     UserTenant[]
-  permissionPools PermissionPool[]
-  academicYears   AcademicYear[]
-  courses         Course[]
-  students        Student[]
-  gradingSystems  GradingSystem[]
-  announcements   Announcement[]
-  messages        Message[]
-  auditLogs       AuditLog[]
-  jwtConfig       TenantJWTConfig?
-  securityPolicy  SchoolSecurityPolicy?
-  studentGuardians  StudentGuardian[]
-  attendanceRecords AttendanceRecord[]
-  feeInvoices       FeeInvoice[]
-  payments          Payment[]
+  roles                 Role[]
+  userTenants           UserTenant[]
+  permissionPools       PermissionPool[]
+  academicYears         AcademicYear[]
+  courses               Course[]
+  students              Student[]
+  gradingSystems        GradingSystem[]
+  announcements         Announcement[]
+  messages              Message[]
+  auditLogs             AuditLog[]
+  jwtConfig             TenantJWTConfig?
+  securityPolicy        SchoolSecurityPolicy?
+  studentGuardians      StudentGuardian[]
+  attendanceRecords     AttendanceRecord[]
+  feeInvoices           FeeInvoice[]
+  payments              Payment[]
   admissionApplications AdmissionApplication[]
   transportAssignments  TransportAssignment[]
   libraryBooks          LibraryBook[]
@@ -64,6 +64,6 @@ model Tenant {
 
   @@index([status])
   @@index([emailDomain])
-  @@schema("tenant")
   @@map("tenants")
+  @@schema("tenant")
 }

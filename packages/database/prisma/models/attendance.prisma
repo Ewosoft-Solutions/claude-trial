@@ -19,7 +19,7 @@ model AttendanceRecord {
   classId   String   @map("class_id")
   date      DateTime @db.Date
 
-  status String @default("present") // 'present' | 'absent' | 'late' | 'excused'
+  status String  @default("present") // 'present' | 'absent' | 'late' | 'excused'
   notes  String?
 
   // Who took attendance
@@ -43,6 +43,6 @@ model AttendanceRecord {
   @@index([studentId])
   @@index([classId])
   @@index([date])
-  @@schema("student-management")
   @@map("attendance_records")
+  @@schema("student-management")
 }

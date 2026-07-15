@@ -10,6 +10,7 @@ export * from './mfa-email.service';
 export * from './mfa-totp.service';
 export * from './mfa-webauthn.service';
 export * from './mfa.service';
+export * from './step-up.service';
 export * from './permission.service';
 export * from './role.service';
 export * from './permission-pool.service';

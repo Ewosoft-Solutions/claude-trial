@@ -23,7 +23,7 @@ model SchoolEvent {
   eventType   String? @map("event_type") // assembly | sports | ceremony | fundraiser | other
   location    String?
 
-  startDate DateTime @map("start_date")
+  startDate DateTime  @map("start_date")
   endDate   DateTime? @map("end_date")
 
   status          String @default("scheduled") // scheduled | ongoing | completed | cancelled
@@ -43,8 +43,8 @@ model SchoolEvent {
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, startDate])
-  @@schema("events")
   @@map("school_events")
+  @@schema("events")
 }
 
 // EventAttendee - one person on an event's roster.
@@ -75,6 +75,6 @@ model EventAttendee {
   @@index([tenantId])
   @@index([tenantId, eventId])
   @@index([eventId, status])
-  @@schema("events")
   @@map("event_attendees")
+  @@schema("events")
 }

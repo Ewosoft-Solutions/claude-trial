@@ -31,7 +31,7 @@ import {
   JwtAuthGuard,
   PreAuthGuard,
   TenantContextGuard,
-  MfaRequiredGuard,
+  StepUpGuard,
   ClearanceLevelGuard,
   PermissionGuard,
   ContextValidationGuard,
@@ -45,6 +45,7 @@ import {
   PlatformOversightService,
   SecurityPolicyService,
   BreachResponseService,
+  StepUpService,
 } from './services';
 
 /**
@@ -95,11 +96,12 @@ import {
     PlatformOversightService,
     SecurityPolicyService,
     BreachResponseService,
+    StepUpService,
     // Guards
     JwtAuthGuard,
     PreAuthGuard,
     TenantContextGuard,
-    MfaRequiredGuard,
+    StepUpGuard,
     ClearanceLevelGuard,
     PermissionGuard,
     ContextValidationGuard,
@@ -120,11 +122,12 @@ import {
     PlatformOversightService,
     SecurityPolicyService,
     BreachResponseService,
+    StepUpService,
     // Guards
     JwtAuthGuard,
     PreAuthGuard,
     TenantContextGuard,
-    MfaRequiredGuard,
+    StepUpGuard,
     ClearanceLevelGuard,
     PermissionGuard,
     ContextValidationGuard,

@@ -35,18 +35,18 @@ model SchoolSecurityPolicy {
   policyTier String @map("policy_tier") // 'basic' | 'enhanced' | 'maximum'
 
   // MFA Configuration
-  requireMFA                        Boolean @default(true) @map("require_mfa")
+  requireMFA                       Boolean @default(true) @map("require_mfa")
   requireMFAForSensitiveOperations Boolean @default(true) @map("require_mfa_for_sensitive_operations")
-  sensitiveOperations               Json    @default("[]") @map("sensitive_operations") // Array of operation names
+  sensitiveOperations              Json    @default("[]") @map("sensitive_operations") // Array of operation names
 
   // Password Policy
-  passwordMinLength        Int     @default(8) @map("password_min_length")
-  passwordRequireUppercase Boolean @default(true) @map("password_require_uppercase")
-  passwordRequireLowercase Boolean @default(true) @map("password_require_lowercase")
-  passwordRequireNumbers   Boolean @default(true) @map("password_require_numbers")
+  passwordMinLength           Int     @default(8) @map("password_min_length")
+  passwordRequireUppercase    Boolean @default(true) @map("password_require_uppercase")
+  passwordRequireLowercase    Boolean @default(true) @map("password_require_lowercase")
+  passwordRequireNumbers      Boolean @default(true) @map("password_require_numbers")
   passwordRequireSpecialChars Boolean @default(false) @map("password_require_special_chars")
-  passwordMaxAge           Int     @default(90) @map("password_max_age") // days
-  passwordPreventReuse     Int     @default(5) @map("password_prevent_reuse") // last N passwords
+  passwordMaxAge              Int     @default(90) @map("password_max_age") // days
+  passwordPreventReuse        Int     @default(5) @map("password_prevent_reuse") // last N passwords
 
   // Session Management
   sessionTimeout                Int     @default(30) @map("session_timeout") // minutes
@@ -55,12 +55,12 @@ model SchoolSecurityPolicy {
 
   // Access Control
   deviceManagement  String @default("basic") @map("device_management") // 'none' | 'basic' | 'strict'
-  loginAttemptLimit Int     @default(5) @map("login_attempt_limit")
-  lockoutDuration   Int     @default(15) @map("lockout_duration") // minutes
+  loginAttemptLimit Int    @default(5) @map("login_attempt_limit")
+  lockoutDuration   Int    @default(15) @map("lockout_duration") // minutes
 
   // Conditional Access
-  timeRestrictions Json? @map("time_restrictions") // { allowedHours: [{ start: number, end: number }], allowedDays: string[] }
-  ipWhitelist      Json? @map("ip_whitelist") // string[] of IP addresses
+  timeRestrictions Json?   @map("time_restrictions") // { allowedHours: [{ start: number, end: number }], allowedDays: string[] }
+  ipWhitelist      Json?   @map("ip_whitelist") // string[] of IP addresses
   requireVPN       Boolean @default(false) @map("require_vpn")
 
   // Audit
@@ -83,8 +83,6 @@ model SchoolSecurityPolicy {
   @@unique([schoolId])
   @@index([policyTier])
   @@index([isEmergency])
-  @@schema("security-policy")
   @@map("school_security_policies")
+  @@schema("security-policy")
 }
-
-

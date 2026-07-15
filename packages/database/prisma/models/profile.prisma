@@ -43,14 +43,14 @@ model UserTenant {
   // Relations
   user                  User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
   tenant                Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  userTenantRole        UserTenantRole? @relation("ProfileRole") // One role per profile
+  userTenantRole        UserTenantRole?        @relation("ProfileRole") // One role per profile
   userTenantPermissions UserTenantPermission[] // Profile-specific permissions (override role permissions)
   sessions              Session[]
   classTeachers         ClassTeacher[] // Teacher assignments to classes
   students              Student[] // Student profiles (for students)
   sentMessages          Message[]              @relation("MessageSender") // Messages sent by this profile
   messageReadReceipts   MessageReadReceipt[] // Read receipts for messages
-  guardianForStudents   StudentGuardian[] @relation("StudentGuardianGuardian")
+  guardianForStudents   StudentGuardian[]      @relation("StudentGuardianGuardian")
   defaultForUsers       User[]                 @relation("UserDefaultProfile") // Users that have set this as their sign-in default
 
   // Multiple profiles per user+tenant (one per role) are allowed; keep an index for lookups
@@ -60,8 +60,8 @@ model UserTenant {
   @@index([status])
   @@index([suspended])
   @@index([invitationToken])
-  @@schema("profile")
   @@map("user_tenants")
+  @@schema("profile")
 }
 
 // User Tenant Role - One role per profile
@@ -83,8 +83,8 @@ model UserTenantRole {
   @@index([roleId])
   @@index([isPrimary])
   @@index([tenantId])
-  @@schema("profile")
   @@map("user_tenant_roles")
+  @@schema("profile")
 }
 
 // User Tenant Permissions - Profile-specific permissions (override role permissions)
@@ -104,6 +104,6 @@ model UserTenantPermission {
   @@index([userTenantId])
   @@index([permissionId])
   @@index([tenantId])
-  @@schema("profile")
   @@map("user_tenant_permissions")
+  @@schema("profile")
 }

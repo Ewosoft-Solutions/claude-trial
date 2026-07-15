@@ -46,6 +46,11 @@ export interface EnvironmentConfig {
   WEBAUTHN_RP_ID: string;
   WEBAUTHN_ORIGIN: string;
   /**
+   * Comma-separated allow-list of origins a passkey assertion may come from
+   * (e.g. tenant subdomains). Optional — falls back to `[WEBAUTHN_ORIGIN]`.
+   */
+  WEBAUTHN_ALLOWED_ORIGINS?: string;
+  /**
    * Public origin of the web app, used to build user-facing links in outbound
    * email (e.g. the invitation accept link `${APP_WEB_URL}/accept-invite?...`).
    * No trailing slash.
@@ -117,6 +122,7 @@ export const envValidationSchema = Joi.object({
   WEBAUTHN_RP_NAME: Joi.string().default('School With Ease'),
   WEBAUTHN_RP_ID: Joi.string().default('localhost'),
   WEBAUTHN_ORIGIN: Joi.string().default('http://localhost:3001'),
+  WEBAUTHN_ALLOWED_ORIGINS: Joi.string().optional(),
   APP_WEB_URL: Joi.string()
     .uri()
     .default('http://localhost:3001')

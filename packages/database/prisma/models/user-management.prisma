@@ -76,8 +76,8 @@ model User {
   @@index([isActive])
   @@index([isVerified])
   @@index([defaultUserTenantId])
-  @@schema("user-management")
   @@map("users")
+  @@schema("user-management")
 }
 
 // Password History - For password reuse prevention
@@ -90,8 +90,8 @@ model PasswordHistory {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
-  @@schema("user-management")
   @@map("password_histories")
+  @@schema("user-management")
 }
 
 // Login Attempts - For rate limiting and security monitoring
@@ -111,8 +111,8 @@ model LoginAttempt {
   @@index([userId, createdAt])
   @@index([ipAddress, createdAt])
   @@index([success])
-  @@schema("user-management")
   @@map("login_attempts")
+  @@schema("user-management")
 }
 
 // Sessions - Active user sessions for session management
@@ -136,93 +136,105 @@ model Session {
   @@index([token])
   @@index([expiresAt])
   @@index([revokedAt])
-  @@schema("user-management")
   @@map("sessions")
+  @@schema("user-management")
 }
 
 // MFA Methods - User's configured MFA methods
 model MfaMethod {
-  id        String   @id @default(uuid())
-  userId    String   @map("user_id")
-  type      String   // 'sms' | 'email' | 'totp' | 'webauthn'
-  name      String?  // User-friendly name (e.g., "iPhone", "Work Email")
-  isPrimary Boolean  @default(false) @map("is_primary")
-  isActive  Boolean  @default(true) @map("is_active")
-  
+  id        String  @id @default(uuid())
+  userId    String  @map("user_id")
+  type      String // 'sms' | 'email' | 'totp' | 'webauthn'
+  name      String? // User-friendly name (e.g., "iPhone", "Work Email")
+  isPrimary Boolean @default(false) @map("is_primary")
+  isActive  Boolean @default(true) @map("is_active")
+
   // Method-specific data (encrypted)
-  secret        String?  // For TOTP: encrypted secret key
-  phoneNumber   String?  @map("phone_number") // For SMS
-  emailAddress  String?  @map("email_address") // For Email (if different from user email)
-  webauthnId    String?  @map("webauthn_id") // For WebAuthn: credential ID
-  webauthnPublicKey String? @map("webauthn_public_key") // For WebAuthn: encrypted public key
-  webauthnCounter Int? @default(0) @map("webauthn_counter") // For WebAuthn: signature counter
-  
+  secret             String? // For TOTP: encrypted secret key
+  phoneNumber        String?  @map("phone_number") // For SMS
+  emailAddress       String?  @map("email_address") // For Email (if different from user email)
+  webauthnId         String?  @map("webauthn_id") // For WebAuthn: credential ID
+  webauthnPublicKey  String?  @map("webauthn_public_key") // For WebAuthn: encrypted public key
+  webauthnCounter    Int?     @default(0) @map("webauthn_counter") // For WebAuthn: signature counter
+  // Platform-authenticator (passkey/biometric) metadata — distinguishes a
+  // Face ID/Touch ID/Hello credential from a cross-platform hardware key and
+  // drives device-management UI. All nullable: pre-existing rows stay valid.
+  webauthnAttachment String?  @map("webauthn_attachment") // 'platform' | 'cross-platform'
+  webauthnAaguid     String?  @map("webauthn_aaguid") // Authenticator model id
+  webauthnBackedUp   Boolean? @map("webauthn_backed_up") // Synced/multi-device passkey
+  webauthnTransports String[] @map("webauthn_transports") // e.g. ['internal','hybrid']
+
   // Setup status
-  verifiedAt    DateTime? @map("verified_at")
-  lastUsedAt    DateTime? @map("last_used_at")
-  
+  verifiedAt DateTime? @map("verified_at")
+  lastUsedAt DateTime? @map("last_used_at")
+
   // Audit Fields
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
   challenges MfaChallenge[]
 
   @@index([userId])
   @@index([userId, type])
   @@index([userId, isActive])
   @@index([userId, isPrimary])
-  @@schema("user-management")
   @@map("mfa_methods")
+  @@schema("user-management")
 }
 
 // MFA Challenges - Active MFA verification challenges
 model MfaChallenge {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  mfaMethodId String?  @map("mfa_method_id") // Nullable for recovery codes
-  type        String   // 'sms' | 'email' | 'totp' | 'webauthn' | 'recovery'
-  
-  // Challenge data
-  code        String?  // For SMS/Email: verification code (hashed)
-  codeExpiresAt DateTime? @map("code_expires_at") // For SMS/Email: code expiration
-  webauthnChallenge String? @map("webauthn_challenge") // For WebAuthn: challenge string
-  
-  // Context
-  operation   String?  // 'login' | 'sensitive_operation' | 'password_reset' | etc.
-  ipAddress   String?  @map("ip_address")
-  userAgent   String?  @map("user_agent")
-  
-  // Status
-  verified    Boolean  @default(false)
-  verifiedAt  DateTime? @map("verified_at")
-  expiresAt   DateTime  @map("expires_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
+  id          String  @id @default(uuid())
+  userId      String  @map("user_id")
+  mfaMethodId String? @map("mfa_method_id") // Nullable for recovery codes
+  type        String // 'sms' | 'email' | 'totp' | 'webauthn' | 'recovery'
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // Challenge data
+  code              String? // For SMS/Email: verification code (hashed)
+  codeExpiresAt     DateTime? @map("code_expires_at") // For SMS/Email: code expiration
+  webauthnChallenge String?   @map("webauthn_challenge") // For WebAuthn: challenge string
+
+  // Context
+  operation String? // 'login' | 'sensitive_operation' | 'password_reset' | etc.
+  ipAddress String? @map("ip_address")
+  userAgent String? @map("user_agent")
+
+  // Status
+  verified   Boolean   @default(false)
+  verifiedAt DateTime? @map("verified_at")
+  // Single-use marker for step-up: a verified challenge is consumed atomically
+  // the first time StepUpGuard accepts it, so it can't be replayed (P0-3).
+  consumedAt DateTime? @map("consumed_at")
+  expiresAt  DateTime  @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   mfaMethod MfaMethod? @relation(fields: [mfaMethodId], references: [id], onDelete: SetNull)
 
   @@index([userId])
   @@index([userId, verified])
   @@index([userId, expiresAt])
+  // Step-up lookup: challenges bound to a user + operation, filtered by verified.
+  @@index([userId, operation, verified])
   @@index([code])
-  @@schema("user-management")
   @@map("mfa_challenges")
+  @@schema("user-management")
 }
 
 // MFA Recovery Codes - Backup codes for account recovery
 model MfaRecoveryCode {
-  id          String   @id @default(uuid())
-  userId      String   @map("user_id")
-  code        String   // Hashed recovery code
-  used        Boolean  @default(false)
-  usedAt      DateTime? @map("used_at")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id        String    @id @default(uuid())
+  userId    String    @map("user_id")
+  code      String // Hashed recovery code
+  used      Boolean   @default(false)
+  usedAt    DateTime? @map("used_at")
+  createdAt DateTime  @default(now()) @map("created_at")
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([userId, used])
-  @@schema("user-management")
   @@map("mfa_recovery_codes")
+  @@schema("user-management")
 }

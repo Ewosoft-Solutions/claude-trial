@@ -39,6 +39,6 @@ model TransportAssignment {
   @@index([tenantId])
   @@index([tenantId, status])
   @@index([tenantId, routeName])
-  @@schema("transportation")
   @@map("transport_assignments")
+  @@schema("transportation")
 }

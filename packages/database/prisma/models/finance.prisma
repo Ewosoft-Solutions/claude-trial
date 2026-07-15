@@ -54,8 +54,8 @@ model FeeInvoice {
   @@index([tenantId, studentId])
   @@index([tenantId, status])
   @@index([studentId])
-  @@schema("finance")
   @@map("fee_invoices")
+  @@schema("finance")
 }
 
 model Payment {
@@ -93,6 +93,6 @@ model Payment {
   @@index([tenantId, status])
   @@index([invoiceId])
   @@index([studentId])
-  @@schema("finance")
   @@map("payments")
+  @@schema("finance")
 }

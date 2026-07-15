@@ -56,22 +56,22 @@ model Role {
   @@index([tenantId])
   @@index([isSystemRole])
   @@index([roleType, name]) // For platform/system role name uniqueness checks
-  @@schema("roles-permissions")
   @@map("roles")
+  @@schema("roles-permissions")
 }
 
 // Permissions - The 300+ granular permissions
 // Structured metadata for UI rendering: key (name), label (display), description (details)
 model Permission {
-  id          String  @id @default(uuid())
-  name        String  @unique // Key/identifier (e.g., 'students.view', 'grades.edit', 'platform.override')
-  label       String // Human-readable display name (e.g., 'View Students', 'Edit Grades')
-  description String? // Detailed description for UI rendering and tooltips
-  resource    String // e.g., 'students', 'grades', 'platform'
-  action      String // e.g., 'view', 'edit', 'create', 'delete'
-  context     String? // e.g., 'own_classes', 'children', 'department'
-  category    String // e.g., 'academic', 'administrative', 'platform', 'financial'
-  requiredClearanceLevel Int @default(0) @map("required_clearance_level") // Minimum clearance level required
+  id                     String  @id @default(uuid())
+  name                   String  @unique // Key/identifier (e.g., 'students.view', 'grades.edit', 'platform.override')
+  label                  String // Human-readable display name (e.g., 'View Students', 'Edit Grades')
+  description            String? // Detailed description for UI rendering and tooltips
+  resource               String // e.g., 'students', 'grades', 'platform'
+  action                 String // e.g., 'view', 'edit', 'create', 'delete'
+  context                String? // e.g., 'own_classes', 'children', 'department'
+  category               String // e.g., 'academic', 'administrative', 'platform', 'financial'
+  requiredClearanceLevel Int     @default(0) @map("required_clearance_level") // Minimum clearance level required
 
   createdAt DateTime @default(now()) @map("created_at")
 
@@ -84,8 +84,8 @@ model Permission {
   @@index([category])
   @@index([requiredClearanceLevel])
   @@index([resource, action]) // For fast permission lookups
-  @@schema("roles-permissions")
   @@map("permissions")
+  @@schema("roles-permissions")
 }
 
 // Permission Pools - Predefined sets of permissions grouped by clearance level
@@ -111,8 +111,8 @@ model PermissionPool {
   @@index([clearanceLevel])
   @@index([isSystemPool])
   @@index([tenantId])
-  @@schema("roles-permissions")
   @@map("permission_pools")
+  @@schema("roles-permissions")
 }
 
 // Permission Pool Permissions - Many-to-many: Permission pools contain permissions
@@ -129,8 +129,8 @@ model PermissionPoolPermission {
   @@unique([poolId, permissionId])
   @@index([poolId])
   @@index([permissionId])
-  @@schema("roles-permissions")
   @@map("permission_pool_permissions")
+  @@schema("roles-permissions")
 }
 
 // Role Permission Pools - Many-to-many: Roles inherit from permission pools
@@ -147,33 +147,33 @@ model RolePermissionPool {
   @@unique([roleId, poolId])
   @@index([roleId])
   @@index([poolId])
-  @@schema("roles-permissions")
   @@map("role_permission_pools")
+  @@schema("roles-permissions")
 }
 
 // Maker-Checker Requests - Persistent approvals for sensitive operations
 model MakerCheckerRequest {
-  id                     String   @id @default(uuid())
-  tenantId               String?  @map("tenant_id")
-  operation              String
-  level                  String   @map("level") // ApprovalLevel
-  status                 String   @map("status") // ApprovalStatus
-  makerId                String   @map("maker_id")
-  makerClearanceLevel    Int      @map("maker_clearance_level")
-  checkerId              String?  @map("checker_id")
-  checkerClearanceLevel  Int?     @map("checker_clearance_level")
-  requestData            Json     @map("request_data")
-  approvalReason         String?  @map("approval_reason")
-  rejectionReason        String?  @map("rejection_reason")
-  expiresAt              DateTime? @map("expires_at")
-  approvedAt             DateTime? @map("approved_at")
-  rejectedAt             DateTime? @map("rejected_at")
-  createdAt              DateTime @default(now()) @map("created_at")
-  updatedAt              DateTime @updatedAt @map("updated_at")
+  id                    String    @id @default(uuid())
+  tenantId              String?   @map("tenant_id")
+  operation             String
+  level                 String    @map("level") // ApprovalLevel
+  status                String    @map("status") // ApprovalStatus
+  makerId               String    @map("maker_id")
+  makerClearanceLevel   Int       @map("maker_clearance_level")
+  checkerId             String?   @map("checker_id")
+  checkerClearanceLevel Int?      @map("checker_clearance_level")
+  requestData           Json      @map("request_data")
+  approvalReason        String?   @map("approval_reason")
+  rejectionReason       String?   @map("rejection_reason")
+  expiresAt             DateTime? @map("expires_at")
+  approvedAt            DateTime? @map("approved_at")
+  rejectedAt            DateTime? @map("rejected_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   @@index([tenantId])
   @@index([operation])
   @@index([status])
-  @@schema("roles-permissions")
   @@map("maker_checker_requests")
+  @@schema("roles-permissions")
 }

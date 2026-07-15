@@ -18,10 +18,10 @@ model LibraryBook {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
-  title    String
-  author   String
-  isbn     String?
-  category String?
+  title     String
+  author    String
+  isbn      String?
+  category  String?
   copyLabel String? @map("copy_label") // e.g. "Copy 2 of 3"
 
   status String @default("available") // available | on_loan | reserved | overdue
@@ -43,6 +43,6 @@ model LibraryBook {
   @@index([tenantId, status])
   @@index([tenantId, category])
   @@index([borrowerStudentId])
-  @@schema("library")
   @@map("library_books")
+  @@schema("library")
 }

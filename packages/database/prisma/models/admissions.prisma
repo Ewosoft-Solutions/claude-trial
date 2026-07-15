@@ -44,6 +44,6 @@ model AdmissionApplication {
   @@index([tenantId, stage])
   @@index([tenantId, decision])
   @@index([tenantId, submittedDate])
-  @@schema("admissions")
   @@map("admission_applications")
+  @@schema("admissions")
 }

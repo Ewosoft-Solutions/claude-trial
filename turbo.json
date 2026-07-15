@@ -14,7 +14,8 @@
     "STORAGE_LOCAL_ROOT",
     "WEBAUTHN_RP_NAME",
     "WEBAUTHN_RP_ID",
-    "WEBAUTHN_ORIGIN"
+    "WEBAUTHN_ORIGIN",
+    "WEBAUTHN_ALLOWED_ORIGINS"
   ],
   "tasks": {
     "dev": {
