@@ -24,6 +24,7 @@ import {
   VerifyMfaForLoginDto,
   SelectSchoolDto,
   SetDefaultProfileDto,
+  UpdateAccountDto,
   RefreshTokenDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
@@ -130,7 +131,13 @@ export class AuthController {
     // Resolve user profile
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { email: true, firstName: true, lastName: true, defaultUserTenantId: true },
+      select: {
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+        defaultUserTenantId: true,
+      },
     });
 
     if (!dbUser) {
@@ -172,8 +179,11 @@ export class AuthController {
 
     const firstName = dbUser.firstName ?? '';
     const lastName = dbUser.lastName ?? '';
-    const fullName = [firstName, lastName].filter(Boolean).join(' ') || dbUser.email;
-    const initials = [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() || dbUser.email[0].toUpperCase();
+    const fullName =
+      [firstName, lastName].filter(Boolean).join(' ') || dbUser.email;
+    const initials =
+      [firstName[0], lastName[0]].filter(Boolean).join('').toUpperCase() ||
+      dbUser.email[0].toUpperCase();
 
     return {
       user: {
@@ -182,6 +192,9 @@ export class AuthController {
         initials,
         caption: role?.name ?? 'Staff',
         color: '#334155',
+        firstName: dbUser.firstName ?? undefined,
+        lastName: dbUser.lastName ?? undefined,
+        phone: dbUser.phone ?? undefined,
       },
       scope: 'school' as const,
       clearanceLevel: ctx.clearanceLevel,
@@ -194,16 +207,49 @@ export class AuthController {
        *  frontend switcher highlight which of a user's several profiles
        *  (e.g. Teacher vs Parent at the same school) is currently active. */
       activeProfileId: profileId,
-      /** The profile the user has pinned as their sign-in default (Account
-       *  settings › Profile), distinct from activeProfileId — this is the
+      /** The profile the user has pinned as their sign-in default (Account &
+       *  preferences › Schools & roles), distinct from activeProfileId — this is the
        *  stored preference, not necessarily the one live right now. */
       defaultProfileId: dbUser.defaultUserTenantId ?? undefined,
       schools: schoolsWithFeatures,
     };
   }
 
+  /** Update personal, account-level profile fields. Email changes use a
+   * separate verified flow and are intentionally not accepted here. */
+  @Patch('account')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update the current user account profile' })
+  async updateAccount(
+    @Body() dto: UpdateAccountDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    const updated = await this.dbService.client.user.update({
+      where: { id: user.userId },
+      data: {
+        ...(dto.firstName !== undefined
+          ? { firstName: dto.firstName || null }
+          : {}),
+        ...(dto.lastName !== undefined
+          ? { lastName: dto.lastName || null }
+          : {}),
+        ...(dto.phone !== undefined ? { phone: dto.phone || null } : {}),
+        updatedBy: user.userId,
+      },
+      select: {
+        email: true,
+        firstName: true,
+        lastName: true,
+        phone: true,
+      },
+    });
+    return { success: true, user: updated };
+  }
+
   /**
-   * Set default sign-in profile (Account settings › Profile)
+   * Set default sign-in profile (Account & preferences › Schools & roles)
    *
    * PATCH /auth/default-profile
    *
@@ -345,7 +391,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Switch to a different profile the signed-in user holds' })
+  @ApiOperation({
+    summary: 'Switch to a different profile the signed-in user holds',
+  })
   async switchProfile(
     @Body() selectSchoolDto: SelectSchoolDto,
     @AuthUser() user: RequestUser,
@@ -409,7 +457,8 @@ export class AuthController {
 
     return {
       success: true,
-      message: 'If an account exists for this email, a reset link has been sent.',
+      message:
+        'If an account exists for this email, a reset link has been sent.',
     };
   }
 

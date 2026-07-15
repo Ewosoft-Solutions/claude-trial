@@ -1,7 +1,7 @@
 'use client';
 
 /* ============================================================
-   /settings/profile — sign-in profile & default context
+   /account/roles — schools, roles, and default context
 
    Lists every profile the signed-in user holds (flattened across
    schools, same data as the header profile switcher) and lets them
@@ -40,7 +40,8 @@ interface ProfileRow {
 }
 
 export default function ProfileSettingsPage() {
-  const { schools, activeProfileId, defaultProfileId, setDefaultProfile } = useViewer();
+  const { schools, activeProfileId, defaultProfileId, setDefaultProfile } =
+    useViewer();
   const [pendingId, setPendingId] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
 
@@ -65,7 +66,9 @@ export default function ProfileSettingsPage() {
     try {
       await setDefaultProfile(profileId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to set default profile');
+      setError(
+        err instanceof Error ? err.message : 'Failed to set default profile',
+      );
     } finally {
       setPendingId(null);
     }
@@ -73,13 +76,20 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-xl font-bold text-foreground">Schools & roles</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose the profile used when you sign in. Your active role is shown
+          separately in the top bar.
+        </p>
+      </div>
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Default sign-in profile</CardTitle>
           <CardDescription>
-            Choose which profile you land in automatically when you log in. Useful if
-            you hold more than one role — e.g. Teacher at one school and Parent at
-            another, or two roles at the same school.
+            Choose which profile you land in automatically when you log in.
+            Useful if you hold more than one role — e.g. Teacher at one school
+            and Parent at another, or two roles at the same school.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-2">
@@ -107,7 +117,9 @@ export default function ProfileSettingsPage() {
                     <span className="break-words text-sm font-semibold text-foreground">
                       {row.schoolName}
                     </span>
-                    <span className="text-xs text-muted-foreground">{row.role}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {row.role}
+                    </span>
                   </div>
                   <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
                     {isActive ? (

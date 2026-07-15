@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { TenantController } from './controllers/tenant.controller';
+import { TenantConfigurationController } from './controllers/tenant-configuration.controller';
 import { TenantFeaturesController } from './controllers/tenant-features.controller';
 import { PublicTenantController } from './controllers/public-tenant.controller';
 import { TenantService } from './services/tenant.service';
@@ -37,8 +38,9 @@ import { AuthModule } from '../auth/auth.module';
     }),
   ],
   controllers: [
-    TenantController,
+    TenantConfigurationController,
     TenantFeaturesController,
+    TenantController,
     PublicTenantController,
   ],
   providers: [

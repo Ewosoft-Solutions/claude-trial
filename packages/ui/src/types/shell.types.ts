@@ -89,6 +89,9 @@ export interface NavPanelData {
 export interface UserProfile {
   name: string;
   email?: string;
+  firstName?: string;
+  lastName?: string;
+  phone?: string;
   initials: string;
   avatarUrl?: string;
   /** Optional role/clearance label, e.g. "Registrar". */

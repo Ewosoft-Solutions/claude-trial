@@ -31,10 +31,13 @@ import {
   HeartPulse,
   House,
   LifeBuoy,
+  Palette,
   PartyPopper,
   ScrollText,
   Settings,
   ShieldCheck,
+  Sparkles,
+  ToggleRight,
   UserPlus,
   Users,
   Wallet,
@@ -493,6 +496,92 @@ export const SCHOOL_NAV: NavigationConfig = {
         },
       ],
     },
+    {
+      key: 'settings',
+      label: 'School settings',
+      icon: <Settings />,
+      href: '/settings/general',
+      access: {
+        anyPermission: [
+          'settings.view',
+          'settings.school',
+          'ai.configure',
+          'roles.view',
+          'users.view',
+          'settings.audit',
+        ],
+      },
+      panelHeader: { icon: <Settings />, title: 'School settings' },
+      groups: [
+        {
+          key: 'school-configuration',
+          label: 'School',
+          items: [
+            {
+              key: 'settings-general',
+              label: 'General',
+              icon: <Settings />,
+              href: '/settings/general',
+              access: {
+                anyPermission: ['settings.view', 'settings.school'],
+              },
+            },
+            {
+              key: 'settings-branding',
+              label: 'Branding',
+              icon: <Palette />,
+              href: '/settings/branding',
+              access: {
+                anyPermission: ['settings.view', 'settings.school'],
+              },
+            },
+            {
+              key: 'settings-features',
+              label: 'Features',
+              icon: <ToggleRight />,
+              href: '/settings/features',
+              access: {
+                anyPermission: ['settings.view', 'settings.school'],
+              },
+            },
+          ],
+        },
+        {
+          key: 'school-administration',
+          label: 'Administration',
+          items: [
+            {
+              key: 'settings-ai',
+              label: 'AI usage',
+              icon: <Sparkles />,
+              href: '/settings/ai-usage',
+              access: { anyPermission: ['ai.configure'] },
+            },
+            {
+              key: 'settings-roles',
+              label: 'Roles & permissions',
+              icon: <ShieldCheck />,
+              href: '/settings/roles',
+              access: { anyPermission: ['roles.view'] },
+            },
+            {
+              key: 'settings-users',
+              label: 'Users',
+              icon: <Users />,
+              href: '/settings/users',
+              access: { anyPermission: ['users.view'] },
+            },
+            {
+              key: 'settings-audit',
+              label: 'Audit log',
+              icon: <ScrollText />,
+              href: '/settings/audit',
+              access: { anyPermission: ['settings.audit'] },
+            },
+          ],
+        },
+      ],
+    },
   ],
   footer: [
     {
@@ -500,21 +589,6 @@ export const SCHOOL_NAV: NavigationConfig = {
       label: 'Help',
       icon: <CircleQuestionMark />,
       href: '/help',
-    },
-    {
-      key: 'settings',
-      label: 'Settings',
-      icon: <Settings />,
-      href: '/settings',
-      access: {
-        anyPermission: ['settings.view', 'settings.school', 'ai.configure'],
-      },
-      // No `groups`: the dedicated settings route group
-      // (app/(app)/settings/layout.tsx) renders its own in-panel SettingsNav,
-      // so listing the sub-sections here would only duplicate that panel in the
-      // shell. Settings is a rail-only footer link (like Help). `panelHeader` is
-      // kept because the breadcrumb still derives its section title from it.
-      panelHeader: { icon: <Settings />, title: 'Settings' },
     },
   ],
 };

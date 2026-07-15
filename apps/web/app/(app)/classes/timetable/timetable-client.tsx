@@ -42,12 +42,22 @@ export interface TimetableClass {
 
 interface Props {
   classes: TimetableClass[];
+  initialClassId?: string;
 }
 
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
-const TONES: ScheduleTone[] = ['accent', 'info', 'success', 'warning', 'default'];
-const BADGE_TONE: Record<ScheduleTone, Parameters<typeof StatusBadge>[0]['tone']> = {
+const TONES: ScheduleTone[] = [
+  'accent',
+  'info',
+  'success',
+  'warning',
+  'default',
+];
+const BADGE_TONE: Record<
+  ScheduleTone,
+  Parameters<typeof StatusBadge>[0]['tone']
+> = {
   default: 'neutral',
   info: 'info',
   success: 'success',
@@ -56,7 +66,10 @@ const BADGE_TONE: Record<ScheduleTone, Parameters<typeof StatusBadge>[0]['tone']
 };
 
 function toneFor(value: string): ScheduleTone {
-  const total = Array.from(value).reduce((sum, char) => sum + char.charCodeAt(0), 0);
+  const total = Array.from(value).reduce(
+    (sum, char) => sum + char.charCodeAt(0),
+    0,
+  );
   return TONES[total % TONES.length] ?? 'default';
 }
 
@@ -67,7 +80,11 @@ function periodKey(slot: TimetableSlot): string {
 function periodLabel(slot: TimetableSlot, index: number): SchedulePeriod {
   const start = slot.startTime ?? 'Time';
   const end = slot.endTime ? `-${slot.endTime}` : '';
-  return { key: periodKey(slot), label: `Period ${index + 1}`, time: `${start}${end}` };
+  return {
+    key: periodKey(slot),
+    label: `Period ${index + 1}`,
+    time: `${start}${end}`,
+  };
 }
 
 function buildPeriods(schedule: TimetableSlot[]): SchedulePeriod[] {
@@ -81,7 +98,9 @@ function buildPeriods(schedule: TimetableSlot[]): SchedulePeriod[] {
 }
 
 function buildDays(schedule: TimetableSlot[]): string[] {
-  const days = new Set(schedule.map((slot) => slot.day).filter(Boolean) as string[]);
+  const days = new Set(
+    schedule.map((slot) => slot.day).filter(Boolean) as string[],
+  );
   return DAY_ORDER.filter((day) => days.has(day));
 }
 
@@ -97,13 +116,19 @@ function buildEntries(cls: TimetableClass): ScheduleEntry[] {
   }));
 }
 
-export function TimetableClient({ classes }: Props) {
+export function TimetableClient({ classes, initialClassId }: Props) {
   const scheduledClasses = React.useMemo(
     () => classes.filter((cls) => cls.schedule.length > 0),
     [classes],
   );
-  const [classId, setClassId] = React.useState(scheduledClasses[0]?.id ?? '');
-  const selected = scheduledClasses.find((cls) => cls.id === classId) ?? scheduledClasses[0];
+  const [classId, setClassId] = React.useState(
+    initialClassId &&
+      scheduledClasses.some((item) => item.id === initialClassId)
+      ? initialClassId
+      : (scheduledClasses[0]?.id ?? ''),
+  );
+  const selected =
+    scheduledClasses.find((cls) => cls.id === classId) ?? scheduledClasses[0];
   const periods = selected ? buildPeriods(selected.schedule) : [];
   const days = selected ? buildDays(selected.schedule) : [];
   const entries = selected ? buildEntries(selected) : [];
@@ -154,7 +179,9 @@ export function TimetableClient({ classes }: Props) {
                   <StatusBadge tone={BADGE_TONE[toneFor(selected.subject)]} dot>
                     {selected.subject}
                   </StatusBadge>
-                  {selected.term ? <StatusBadge tone="neutral">{selected.term}</StatusBadge> : null}
+                  {selected.term ? (
+                    <StatusBadge tone="neutral">{selected.term}</StatusBadge>
+                  ) : null}
                 </div>
               ) : null}
             </div>

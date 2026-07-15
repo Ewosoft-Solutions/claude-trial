@@ -15,7 +15,12 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 import { DataCard } from '../../_shared/data-card';
 import { UsersInvitePanel } from './users-invite-panel';
 
-type ProfileStatus = 'active' | 'invited' | 'suspended' | 'pending' | 'inactive';
+type ProfileStatus =
+  | 'active'
+  | 'invited'
+  | 'suspended'
+  | 'pending'
+  | 'inactive';
 
 interface UserProfile {
   id: string;
@@ -46,14 +51,20 @@ const STATUS_META: Record<ProfileStatus, { label: string; tone: StateTone }> = {
 };
 
 function statusKey(profile: UserProfile): ProfileStatus {
-  const raw = String(profile.status ?? (profile.user?.isActive ? 'active' : 'inactive')).toLowerCase();
+  const raw = String(
+    profile.status ?? (profile.user?.isActive ? 'active' : 'inactive'),
+  ).toLowerCase();
   if (raw in STATUS_META) return raw as ProfileStatus;
   return profile.user?.isActive === false ? 'inactive' : 'active';
 }
 
 function displayName(profile: UserProfile): string {
   const user = profile.user;
-  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Unknown user';
+  return (
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    user?.email ||
+    'Unknown user'
+  );
 }
 
 function initials(name: string): string {
@@ -102,7 +113,7 @@ export default async function UsersSettingsPage() {
                 const name = displayName(profile);
                 const status = STATUS_META[statusKey(profile)];
                 return (
-                  <TableRow key={profile.id}>
+                  <TableRow key={profile.id} id={`user-${profile.id}`}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">

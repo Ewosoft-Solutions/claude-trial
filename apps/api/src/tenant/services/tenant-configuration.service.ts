@@ -1,4 +1,8 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { UpdateTenantConfigurationDto } from '../dto';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
@@ -67,7 +71,7 @@ export class TenantConfigurationService {
     // Check if tenant exists
     const tenant = await this.dbService.client.tenant.findUnique({
       where: { id: tenantId },
-      select: { id: true, settings: true },
+      select: { id: true, name: true, emailDomain: true, settings: true },
     });
 
     if (!tenant) {
@@ -85,6 +89,10 @@ export class TenantConfigurationService {
     const updated = await this.dbService.client.tenant.update({
       where: { id: tenantId },
       data: {
+        ...(data.name !== undefined ? { name: data.name } : {}),
+        ...(data.emailDomain !== undefined
+          ? { emailDomain: data.emailDomain || null }
+          : {}),
         settings: newSettings,
       },
     });
@@ -97,6 +105,10 @@ export class TenantConfigurationService {
       metadata: {
         oldSettings: currentSettings,
         newSettings: data.settings,
+        oldName: tenant.name,
+        newName: data.name,
+        oldEmailDomain: tenant.emailDomain,
+        newEmailDomain: data.emailDomain,
       },
     });
 

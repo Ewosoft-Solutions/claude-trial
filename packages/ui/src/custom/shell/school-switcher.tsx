@@ -40,11 +40,7 @@ function SchoolChip({
     >
       {school.logoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={school.logoUrl}
-          alt=""
-          className="size-full object-cover"
-        />
+        <img src={school.logoUrl} alt="" className="size-full object-cover" />
       ) : (
         school.initials
       )}
@@ -73,22 +69,26 @@ export function SchoolSwitcher({
   menuLabel = 'Switch school',
   className,
 }: SchoolSwitcherProps) {
-  const active =
-    schools.find((s) => s.id === activeSchoolId) ?? schools[0];
+  const active = schools.find((s) => s.id === activeSchoolId) ?? schools[0];
 
   if (!active) return null;
 
-  const canSwitch = schools.length > 1 || Boolean(onAddSchool);
+  const canOpenMenu = schools.length > 1 || Boolean(onAddSchool);
 
   const chip = (
     <>
       <SchoolChip school={active} />
-      <span className="truncate font-semibold max-md:hidden">
-        {active.name}
+      <span className="flex min-w-0 max-w-[9rem] items-center gap-1 sm:max-w-[16rem]">
+        <span className="min-w-0 truncate font-semibold">{active.name}</span>
+        {active.caption ? (
+          <span className="shrink-0 font-medium text-muted-foreground">
+            · {active.caption}
+          </span>
+        ) : null}
       </span>
-      {canSwitch ? (
+      {canOpenMenu ? (
         <ChevronDown
-          className="size-3.5 shrink-0 text-muted-foreground max-md:hidden"
+          className="size-3.5 shrink-0 text-muted-foreground"
           aria-hidden
         />
       ) : null}
@@ -96,16 +96,14 @@ export function SchoolSwitcher({
   );
 
   const triggerClass = cn(
-    'flex shrink-0 items-center gap-2 rounded-[var(--radius-sm)] border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none',
-    'max-md:gap-0 max-md:px-1.5',
+    'flex min-w-0 shrink items-center gap-2 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none',
+    'max-sm:w-full max-sm:gap-1.5 max-sm:px-1.5',
     'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
     className,
   );
 
-  if (!canSwitch) {
-    return (
-      <div className={cn(triggerClass, 'cursor-default')}>{chip}</div>
-    );
+  if (!canOpenMenu) {
+    return <div className={cn(triggerClass, 'cursor-default')}>{chip}</div>;
   }
 
   return (
@@ -145,7 +143,10 @@ export function SchoolSwitcher({
         {onAddSchool ? (
           <>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => onAddSchool()} className="gap-2.5">
+            <DropdownMenuItem
+              onSelect={() => onAddSchool()}
+              className="gap-2.5"
+            >
               <span className="grid size-[22px] place-items-center rounded-md border border-dashed border-border text-muted-foreground">
                 <Plus className="size-3.5" aria-hidden />
               </span>

@@ -72,6 +72,9 @@ const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
   'analytics.view',
   'settings.view',
   'settings.school',
+  'roles.view',
+  'users.view',
+  'settings.audit',
 ]);
 
 /** Proprietor of a secondary school — all permissions + schoolType that unlocks all sections. */
@@ -193,8 +196,9 @@ describe('SCHOOL_NAV section visibility', () => {
       'hr',
       'health',
       'events',
+      'settings',
     ]);
-    expect(railFooterItems.map((i) => i.key)).toEqual(['help', 'settings']);
+    expect(railFooterItems.map((i) => i.key)).toEqual(['help']);
   });
 
   it('hides finance/reports/settings from a teacher', () => {
@@ -212,7 +216,7 @@ describe('SCHOOL_NAV section visibility', () => {
     // finance (minClearance 5) and reports (no reports/analytics perm) gone
     expect(railItems.map((i) => i.key)).not.toContain('finance');
     expect(railItems.map((i) => i.key)).not.toContain('reports');
-    // settings footer needs settings.* — only help remains
+    // school settings needs an administration permission — only help remains
     expect(railFooterItems.map((i) => i.key)).toEqual(['help']);
   });
 
@@ -258,8 +262,8 @@ describe('SCHOOL_NAV section visibility', () => {
       aiAdmin,
       '/settings/ai-usage',
     );
-    expect(railItems.map((i) => i.key)).toEqual(['overview']);
-    expect(railFooterItems.map((i) => i.key)).toEqual(['help', 'settings']);
+    expect(railItems.map((i) => i.key)).toEqual(['overview', 'settings']);
+    expect(railFooterItems.map((i) => i.key)).toEqual(['help']);
   });
 
   it('offers only the overview to a minimal student viewer', () => {
@@ -429,13 +433,16 @@ describe('SCHOOL_NAV panel resolution', () => {
     );
   });
 
-  it('activates the group-less settings footer with an empty panel', () => {
-    const resolved = resolveNavigation(SCHOOL_NAV, OWNER, '/settings');
+  it('activates school settings as a regular section with its submenu', () => {
+    const resolved = resolveNavigation(SCHOOL_NAV, OWNER, '/settings/general');
     expect(resolved.activeSectionKey).toBe('settings');
-    expect(resolved.navGroups).toEqual([]); // settings renders its own in-panel nav
-    expect(
-      resolved.railFooterItems.find((i) => i.key === 'settings')?.active,
-    ).toBe(true);
+    expect(resolved.navGroups.map((group) => group.key)).toEqual([
+      'school-configuration',
+      'school-administration',
+    ]);
+    expect(resolved.railItems.find((i) => i.key === 'settings')?.active).toBe(
+      true,
+    );
   });
 });
 

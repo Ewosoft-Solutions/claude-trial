@@ -35,11 +35,22 @@ function scheduleSlots(schedule: unknown): ScheduleSlot[] {
 }
 
 function classLabel(cls: ApiClass): string {
-  return [cls.name, cls.section].filter(Boolean).join(' ') || cls.course?.name || cls.id;
+  return (
+    [cls.name, cls.section].filter(Boolean).join(' ') ||
+    cls.course?.name ||
+    cls.id
+  );
 }
 
-export default async function TimetablePage() {
-  const data = await serverApiGet<ApiClass[] | Paginated<ApiClass>>('/classes?limit=200');
+export default async function TimetablePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ class?: string }>;
+}) {
+  const { class: initialClassId } = await searchParams;
+  const data = await serverApiGet<ApiClass[] | Paginated<ApiClass>>(
+    '/classes?limit=200',
+  );
   const classes: TimetableClass[] = asArray(data).map((cls) => ({
     id: cls.id,
     label: classLabel(cls),
@@ -49,5 +60,5 @@ export default async function TimetablePage() {
     schedule: scheduleSlots(cls.schedule),
   }));
 
-  return <TimetableClient classes={classes} />;
+  return <TimetableClient classes={classes} initialClassId={initialClassId} />;
 }

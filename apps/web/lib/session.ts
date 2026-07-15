@@ -26,7 +26,10 @@ import type {
   SchoolType,
   ViewerContext,
 } from '@workspace/ui/types/access.types';
-import type { SchoolOption, UserProfile } from '@workspace/ui/types/shell.types';
+import type {
+  SchoolOption,
+  UserProfile,
+} from '@workspace/ui/types/shell.types';
 import { apiClient, ApiError } from './api-client';
 import { COOKIE_ACCESS_TOKEN } from './auth-cookies';
 
@@ -69,7 +72,7 @@ export interface Session {
    *  (e.g. Teacher vs Parent at the same school). */
   activeProfileId?: string;
   /** The profile id the user has pinned as their sign-in default (Account
-   *  settings › Profile) — the stored preference, not necessarily active
+   *  preferences › Schools & roles) — the stored preference, not necessarily active
    *  right now. Undefined when the user hasn't set one. */
   defaultProfileId?: string;
 }
@@ -82,6 +85,9 @@ interface MeResponse {
     initials: string;
     caption: string;
     color: string;
+    firstName?: string;
+    lastName?: string;
+    phone?: string;
   };
   scope: 'school' | 'platform';
   clearanceLevel: number;
@@ -141,7 +147,7 @@ export async function getSession(): Promise<Session | null> {
           s.profiles[0]?.caption ??
           'Staff',
         color: s.color,
-        schoolType: ((s.schoolType || 'secondary') as SchoolType),
+        schoolType: (s.schoolType || 'secondary') as SchoolType,
         enabledFeatures: (s.enabledFeatures ?? []) as FeatureKey[],
         profiles: s.profiles,
       })),

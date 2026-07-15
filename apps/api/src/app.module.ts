@@ -30,6 +30,7 @@ import { ParentPortalModule } from './parent-portal/parent-portal.module';
 import { AiModule } from './ai/ai.module';
 import { AiTutorModule } from './ai/ai-tutor.module';
 import { LearningModule } from './learning/learning.module';
+import { SearchModule } from './search/search.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { Prisma } from '@workspace/database';
@@ -52,9 +53,12 @@ import { AppController } from './app.controller';
     // Database module with async configuration
     DatabaseModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
-        const envConfig: EnvConfig = configService.getOrThrow<EnvConfig>('env', {
-          infer: true,
-        });
+        const envConfig: EnvConfig = configService.getOrThrow<EnvConfig>(
+          'env',
+          {
+            infer: true,
+          },
+        );
 
         const logLevels: Prisma.LogLevel[] = [];
         if (envConfig.DB_LOG_QUERIES && envConfig.NODE_ENV === 'development') {
@@ -107,6 +111,7 @@ import { AppController } from './app.controller';
     AiModule,
     AiTutorModule,
     LearningModule,
+    SearchModule,
   ],
   controllers: [AppController],
   providers: [

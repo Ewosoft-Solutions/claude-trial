@@ -1,132 +1,36 @@
 'use client';
 
-/* ============================================================
-   (app)/settings/layout — settings shell
-
-   Renders the M6 SettingsLayout once (PageHeader + section nav)
-   and slots each section page in as the content panel. The active
-   section derives from the route (usePathname); nav items are plain
-   links so navigation is real client-side routing. Section pages
-   under this group render only their own panel content.
-
-   Note: every section is listed here unconditionally. This layout now
-   owns the settings section nav — the shell's main nav model no longer
-   carries the settings sub-items (they would only duplicate this panel),
-   so per-permission filtering of individual sections is a follow-up to add
-   here by reading the viewer's permissions.
-   ============================================================ */
-
-import { usePathname } from 'next/navigation';
-import {
-  Fingerprint,
-  Palette,
-  ScrollText,
-  Settings as SettingsIcon,
-  ShieldCheck,
-  Sparkles,
-  ToggleRight,
-  UserCircle,
-  Users,
-} from 'lucide-react';
-
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { SettingsLayout } from '@workspace/ui/custom/layouts/settings-layout';
-import type { SettingsNavItem } from '@workspace/ui/types/layout.types';
 
-const SECTIONS: Omit<SettingsNavItem, 'active'>[] = [
-  {
-    key: 'profile',
-    label: 'Profile',
-    description: 'Sign-in & default context',
-    icon: <UserCircle />,
-    href: '/settings/profile',
-  },
-  {
-    key: 'security',
-    label: 'Security',
-    description: 'Biometric sign-in',
-    icon: <Fingerprint />,
-    href: '/settings/security',
-  },
-  {
-    key: 'general',
-    label: 'General',
-    description: 'Profile & locale',
-    icon: <SettingsIcon />,
-    href: '/settings/general',
-  },
-  {
-    key: 'branding',
-    label: 'Branding',
-    description: 'Logo, colours, theme',
-    icon: <Palette />,
-    href: '/settings/branding',
-  },
-  {
-    key: 'features',
-    label: 'Features',
-    description: 'Module toggles',
-    icon: <ToggleRight />,
-    href: '/settings/features',
-  },
-  {
-    key: 'ai-usage',
-    label: 'AI usage',
-    description: 'Quota & model spend',
-    icon: <Sparkles />,
-    href: '/settings/ai-usage',
-  },
-  {
-    key: 'roles',
-    label: 'Roles & permissions',
-    description: 'Access control',
-    icon: <ShieldCheck />,
-    href: '/settings/roles',
-  },
-  {
-    key: 'users',
-    label: 'Users',
-    description: 'Staff accounts',
-    icon: <Users />,
-    href: '/settings/users',
-  },
-  {
-    key: 'audit',
-    label: 'Audit log',
-    description: 'Activity history',
-    icon: <ScrollText />,
-    href: '/settings/audit',
-  },
-];
+import { useViewer } from '@/app/providers/viewer-provider';
 
+/** School Settings behaves like every other primary navigation section: its
+ * section list lives in the shell's secondary panel (and curved mobile
+ * flyout), so the page content does not repeat that navigation. */
 export default function SettingsSectionLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const pathname = usePathname();
-
-  const nav: SettingsNavItem[] = SECTIONS.map((s) => ({
-    ...s,
-    active: pathname === s.href || pathname.startsWith(`${s.href}/`),
-  }));
+  const { schools, activeSchoolId } = useViewer();
+  const activeSchool = schools.find((school) => school.id === activeSchoolId);
 
   return (
     <ShellMain>
-      <SettingsLayout
-        header={
-          <PageHeader
-            title="Settings"
-            meta={[
-              { key: 'tenant', label: 'St. Jude Academy', emphasis: true },
-            ]}
-          />
-        }
-        nav={nav}
-      >
+      <div className="flex flex-col gap-5">
+        <PageHeader
+          title="School settings"
+          meta={[
+            {
+              key: 'tenant',
+              label: activeSchool?.name ?? 'Active school',
+              emphasis: true,
+            },
+          ]}
+        />
         {children}
-      </SettingsLayout>
+      </div>
     </ShellMain>
   );
 }

@@ -48,14 +48,15 @@ export interface StudentRow {
   fees: FeeStatus;
 }
 
-const ENROLLMENT_META: Record<Enrollment, { label: string; tone: StateTone }> = {
-  active: { label: 'Active', tone: 'success' },
-  inactive: { label: 'Inactive', tone: 'neutral' },
-  suspended: { label: 'Suspended', tone: 'warning' },
-  graduated: { label: 'Graduated', tone: 'info' },
-  transferred: { label: 'Transferred', tone: 'neutral' },
-  withdrawn: { label: 'Withdrawn', tone: 'destructive' },
-};
+const ENROLLMENT_META: Record<Enrollment, { label: string; tone: StateTone }> =
+  {
+    active: { label: 'Active', tone: 'success' },
+    inactive: { label: 'Inactive', tone: 'neutral' },
+    suspended: { label: 'Suspended', tone: 'warning' },
+    graduated: { label: 'Graduated', tone: 'info' },
+    transferred: { label: 'Transferred', tone: 'neutral' },
+    withdrawn: { label: 'Withdrawn', tone: 'destructive' },
+  };
 
 const FEE_META: Record<FeeStatus, { label: string; tone: StateTone }> = {
   paid: { label: 'Paid', tone: 'success' },
@@ -77,10 +78,16 @@ interface Props {
   students: StudentRow[];
   schoolName: string;
   meta: PageHeaderMeta[];
+  initialQuery?: string;
 }
 
-export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
-  const [query, setQuery] = React.useState('');
+export function StudentDirectoryClient({
+  students,
+  schoolName,
+  meta,
+  initialQuery = '',
+}: Props) {
+  const [query, setQuery] = React.useState(initialQuery);
   const [classFilter, setClassFilter] = React.useState('all');
   const [statusFilter, setStatusFilter] = React.useState('all');
 
@@ -166,7 +173,10 @@ export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
               </div>
 
               <Select value={classFilter} onValueChange={setClassFilter}>
-                <SelectTrigger className="w-[7.5rem]" aria-label="Filter by class">
+                <SelectTrigger
+                  className="w-[7.5rem]"
+                  aria-label="Filter by class"
+                >
                   <SelectValue placeholder="Class" />
                 </SelectTrigger>
                 <SelectContent>
@@ -180,7 +190,10 @@ export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
               </Select>
 
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[8.5rem]" aria-label="Filter by status">
+                <SelectTrigger
+                  className="w-[8.5rem]"
+                  aria-label="Filter by status"
+                >
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -198,22 +211,29 @@ export function StudentDirectoryClient({ students, schoolName, meta }: Props) {
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No students match your filters' : 'No students yet'}
+              title={
+                hasFilters
+                  ? 'No students match your filters'
+                  : 'No students yet'
+              }
               description={
                 hasFilters
                   ? 'Try a different search term, or clear the filters to see the full directory.'
                   : 'Run the dev academic seed or create a student record.'
               }
               primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
+                hasFilters
+                  ? { label: 'Clear filters', onClick: resetFilters }
+                  : undefined
               }
             />
           }
           footer={
             <>
               <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of{' '}
-                {students.length}
+                Showing{' '}
+                <strong className="text-foreground">{filtered.length}</strong>{' '}
+                of {students.length}
               </span>
               {hasFilters ? (
                 <Button

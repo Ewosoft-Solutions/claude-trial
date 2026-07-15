@@ -1,7 +1,7 @@
 'use client';
 
 /* ============================================================
-   /settings/security — biometric sign-in (passkeys)
+   /account/security — biometric sign-in (passkeys)
 
    Opt-in enrolment of a platform authenticator (Face ID / Touch ID /
    Windows Hello / Android) for faster sign-in, plus management of the
@@ -140,6 +140,12 @@ export default function SecuritySettingsPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <div>
+        <h2 className="text-xl font-bold text-foreground">Security</h2>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Protect this account across every school and role.
+        </p>
+      </div>
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">

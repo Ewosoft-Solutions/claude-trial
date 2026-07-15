@@ -16,20 +16,8 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
-import {
-  Bell,
-  CircleQuestionMark,
-  LogOut,
-  Plus,
-  Settings,
-  User,
-} from 'lucide-react';
+import { Bell, LogOut, Plus, SlidersHorizontal } from 'lucide-react';
 
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
 import { AppShell } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
@@ -37,7 +25,6 @@ import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
 import { UserMenu } from '@workspace/ui/custom/shell/user-menu';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
-import { ModeToggle } from '@workspace/ui/custom/mode-toggle';
 import { useResolvedNavigation } from '@workspace/ui/hooks/use-navigation';
 import { findActiveNavItem } from '@workspace/ui/lib/navigation';
 import type {
@@ -47,25 +34,23 @@ import type {
 
 import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
-import type { UserProfile } from '@workspace/ui/types/shell.types';
 
 const AiWorkspaceLauncher = dynamic(
   () => import('./_shared/ai-workspace').then((mod) => mod.AiWorkspaceLauncher),
   { ssr: false },
 );
 
+const GlobalSearch = dynamic(
+  () => import('./_shared/global-search').then((mod) => mod.GlobalSearch),
+  { ssr: false },
+);
+
 const USER_MENU: UserMenuItem[] = [
   {
-    key: 'profile',
-    label: 'Profile',
-    icon: <User />,
-    href: '/settings/general',
-  },
-  {
-    key: 'settings',
-    label: 'Account settings',
-    icon: <Settings />,
-    href: '/settings/general',
+    key: 'account',
+    label: 'Account & preferences',
+    icon: <SlidersHorizontal />,
+    href: '/account/profile',
   },
   {
     key: 'signout',
@@ -76,51 +61,15 @@ const USER_MENU: UserMenuItem[] = [
   },
 ];
 
-/**
- * Compact identity card pinned to the bottom of the secondary nav
- * (AppSidebar's `navFooter` slot). The top bar only tells you which
- * *school* is active — this is the only place a user can tell which
- * *profile* (role) they're currently signed in as, which matters once
- * a user holds more than one (Teacher vs Parent, etc.).
- *
- * No online/away/busy presence indicator: that's a real-time
- * multi-user collaboration signal (Slack/Discord), and this app has no
- * feature yet that consumes it (no live chat, no "who's viewing this
- * record" — deliberately left out rather than adding inert state).
- */
-function SidebarProfileFooter({ user }: { user: UserProfile }) {
-  return (
-    <div className="flex items-center gap-2.5 rounded-[var(--radius-sm)] border border-border bg-card px-2.5 py-2">
-      <Avatar className="size-8 shrink-0 rounded-full">
-        {user.avatarUrl ? (
-          <AvatarImage src={user.avatarUrl} alt={user.name} />
-        ) : null}
-        <AvatarFallback
-          className="text-[11px] font-bold text-white"
-          style={{ background: user.color ?? 'var(--muted-foreground)' }}
-        >
-          {user.initials}
-        </AvatarFallback>
-      </Avatar>
-      <div className="flex min-w-0 flex-col">
-        <span className="truncate text-[13px] font-semibold text-foreground">
-          {user.name}
-        </span>
-        {user.caption ? (
-          <span className="truncate text-xs text-muted-foreground">
-            {user.caption}
-          </span>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
 function HeaderActions() {
   return (
     <>
-      <ModeToggle />
-      <Button variant="ghost" size="icon-sm" aria-label="Quick add">
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        aria-label="Quick add"
+        className="max-lg:hidden"
+      >
         <Plus />
       </Button>
       <Button
@@ -133,14 +82,6 @@ function HeaderActions() {
         <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-info text-[10px] font-bold text-info-foreground">
           3
         </span>
-      </Button>
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        aria-label="Help"
-        className="max-md:hidden"
-      >
-        <CircleQuestionMark />
       </Button>
     </>
   );
@@ -157,6 +98,18 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   } = useViewer();
   const router = useRouter();
   const pathname = usePathname();
+  const [searchOpen, setSearchOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setSearchOpen(true);
+      }
+    }
+    window.addEventListener('keydown', handleShortcut);
+    return () => window.removeEventListener('keydown', handleShortcut);
+  }, []);
 
   // One switcher entry per profile, not per school — a user can hold more
   // than one profile at the same school (e.g. Teacher + Parent), and each
@@ -203,9 +156,14 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                 router.refresh();
               },
             }
-          : item,
+          : item.key === 'account'
+            ? {
+                ...item,
+                href: `/account/profile?from=${encodeURIComponent(pathname)}`,
+              }
+            : item,
       ),
-    [router],
+    [pathname, router],
   );
 
   const navigate = React.useCallback(
@@ -272,19 +230,22 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                   schools={profileOptions}
                   activeSchoolId={activeProfileId}
                   onSchoolChange={handleProfileChange}
-                  menuLabel="Switch profile"
+                  menuLabel="Schools and roles"
                 />
               ) : undefined
             }
             breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
             search={
-              <OmniSearch placeholder="Search students, classes, records…" />
+              <OmniSearch
+                placeholder="Search students, classes, people…"
+                onClick={() => setSearchOpen(true)}
+              />
             }
             actions={
               <>
                 <HeaderActions />
-                <div className="mx-0.5 h-5 w-px bg-border max-md:hidden" />
-                <UserMenu user={user} items={userMenu} />
+                <div className="mx-0.5 h-5 w-px bg-border max-sm:hidden" />
+                <UserMenu user={user} items={userMenu} showTriggerLabel />
               </>
             }
           />
@@ -300,12 +261,17 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             }
             navGroups={nav.navGroups}
             navPanels={sidebarPanels}
-            navFooter={<SidebarProfileFooter user={user} />}
           />
         }
       >
         {children}
         <AiWorkspaceLauncher />
+        <GlobalSearch
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          navigation={config}
+          viewer={viewer}
+        />
       </AppShell>
     </div>
   );

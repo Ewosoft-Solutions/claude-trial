@@ -38,6 +38,8 @@ export interface UserMenuProps {
   className?: string;
   /** Menu alignment relative to the avatar trigger. */
   align?: 'start' | 'center' | 'end';
+  /** Show the signed-in person's name beside the avatar when space allows. */
+  showTriggerLabel?: boolean;
 }
 
 function UserAvatar({
@@ -68,17 +70,30 @@ export function UserMenu({
   showAccountHeader = true,
   className,
   align = 'end',
+  showTriggerLabel = false,
 }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className={cn(
-          'flex shrink-0 items-center rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
+          'flex shrink-0 items-center gap-2 rounded-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50',
           className,
         )}
         aria-label={`${user.name} — account menu`}
       >
         <UserAvatar user={user} />
+        {showTriggerLabel ? (
+          <span className="hidden max-w-36 flex-col items-start leading-tight xl:flex">
+            <span className="w-full truncate text-xs font-semibold text-foreground">
+              {user.name}
+            </span>
+            {user.caption ? (
+              <span className="w-full truncate text-[11px] text-muted-foreground">
+                {user.caption}
+              </span>
+            ) : null}
+          </span>
+        ) : null}
       </DropdownMenuTrigger>
       <DropdownMenuContent align={align} className="w-60">
         {showAccountHeader ? (
@@ -111,18 +126,14 @@ export function UserMenu({
             <DropdownMenuItem
               variant={item.destructive ? 'destructive' : 'default'}
               onSelect={() => item.onSelect?.()}
-              {...(item.href && !item.onSelect
-                ? { asChild: true }
-                : {})}
+              {...(item.href && !item.onSelect ? { asChild: true } : {})}
             >
               {item.href && !item.onSelect ? (
                 <a href={item.href}>
                   {item.icon}
                   {item.label}
                   {item.shortcut ? (
-                    <DropdownMenuShortcut>
-                      {item.shortcut}
-                    </DropdownMenuShortcut>
+                    <DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>
                   ) : null}
                 </a>
               ) : (
@@ -130,9 +141,7 @@ export function UserMenu({
                   {item.icon}
                   {item.label}
                   {item.shortcut ? (
-                    <DropdownMenuShortcut>
-                      {item.shortcut}
-                    </DropdownMenuShortcut>
+                    <DropdownMenuShortcut>{item.shortcut}</DropdownMenuShortcut>
                   ) : null}
                 </>
               )}

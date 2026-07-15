@@ -34,7 +34,7 @@ export interface OmniSearchProps {
   className?: string;
 }
 
-/** The non-interactive command-palette trigger from the Aurora top bar. */
+/** Responsive command-palette trigger for the Aurora top bar. */
 export function OmniSearch({
   placeholder = 'Search…',
   shortcut = '⌘K',
@@ -47,16 +47,16 @@ export function OmniSearch({
       onClick={onClick}
       aria-label={placeholder}
       className={cn(
-        'mx-auto flex h-[38px] w-9 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius)] border border-border bg-secondary text-[13px] text-muted-foreground outline-none',
-        'xl:w-full xl:max-w-[440px] xl:justify-start xl:px-3',
+        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius)] border border-border bg-secondary text-[13px] text-muted-foreground outline-none',
+        'sm:w-full sm:justify-start sm:px-3',
         'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         className,
       )}
     >
       <Search className="size-[15px] shrink-0" aria-hidden />
-      <span className="hidden truncate xl:inline">{placeholder}</span>
+      <span className="hidden truncate sm:inline">{placeholder}</span>
       {shortcut ? (
-        <kbd className="ml-auto hidden rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground xl:inline-block">
+        <kbd className="ml-auto hidden rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground xl:inline-block [@media(pointer:coarse)]:hidden">
           {shortcut}
         </kbd>
       ) : null}
@@ -86,18 +86,20 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,26rem)_1fr_auto] items-center gap-3.5 border-b border-border bg-sidebar px-4',
+        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_2.25rem_auto] items-center gap-2 border-b border-border bg-sidebar px-2.5 sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3 sm:px-4',
         className,
       )}
     >
       <div className="flex min-w-0 items-center gap-3.5 overflow-hidden">
         {schoolSwitcher}
         {breadcrumbs ? (
-          <div className="min-w-0 overflow-hidden max-xl:hidden">{breadcrumbs}</div>
+          <div className="min-w-0 overflow-hidden max-xl:hidden">
+            {breadcrumbs}
+          </div>
         ) : null}
       </div>
       {search ? (
-        <div className="mx-auto flex w-9 min-w-0 justify-self-center xl:w-full xl:max-w-[440px]">
+        <div className="mx-auto flex w-9 min-w-0 justify-self-center sm:w-full sm:max-w-[34rem]">
           {search}
         </div>
       ) : (
