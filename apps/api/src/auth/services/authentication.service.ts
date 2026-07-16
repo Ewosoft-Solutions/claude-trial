@@ -486,20 +486,32 @@ export class AuthenticationService {
   }
 
   /**
-   * Begin passwordless passkey login for the given email.
+   * Begin a passwordless passkey login.
    *
-   * Returns WebAuthn authentication options when the (active) account has
-   * passkeys, else `{ hasPasskey: false }`. The response is uniform across
-   * unknown/inactive accounts and accounts without passkeys, so this isn't a
-   * stronger account-enumeration oracle than password login already is.
+   * With an `email`, options are scoped to that (active) account's passkeys, and
+   * the response is `{ hasPasskey: false }` when there's no account/passkey —
+   * uniform across unknown/inactive accounts so it's no stronger an enumeration
+   * oracle than password login. Without an `email`, it's a **usernameless /
+   * discoverable** login: options over any resident passkey for this RP, with
+   * the user resolved from the assertion at verify time.
    */
   async beginPasskeyLogin(
     prisma: PrismaClient,
-    email: string,
+    email?: string,
   ): Promise<
     | { hasPasskey: false }
     | { hasPasskey: true; challengeId: string; options: unknown }
   > {
+    if (!email) {
+      const result =
+        await this.mfaService.beginUsernamelessWebAuthnLogin(prisma);
+      return {
+        hasPasskey: true,
+        challengeId: result.challengeId,
+        options: result.options,
+      };
+    }
+
     const user = await prisma.user.findUnique({
       where: { email },
       select: { id: true, isActive: true },
@@ -522,10 +534,14 @@ export class AuthenticationService {
   }
 
   /**
-   * Complete passwordless passkey login: verify the WebAuthn assertion for a
+   * Complete a passwordless passkey login: verify the WebAuthn assertion for a
    * `login` challenge and, on success, issue the same pre-auth token + school
    * list a password (or password+MFA) login returns. A user-verified passkey is
    * itself multi-factor, so no additional MFA step is required (3a.9, item C).
+   *
+   * Handles both flows: a per-user challenge (verify scoped to `challenge.userId`)
+   * and a usernameless one (`challenge.userId` is null → resolve the user from
+   * the credential).
    */
   async completePasskeyLogin({
     prisma,
@@ -538,8 +554,6 @@ export class AuthenticationService {
     authenticationResponse: AuthenticationResponseJSON;
     requestContext?: RequestContext;
   }): Promise<LoginResponse> {
-    const { ipAddress, userAgent } = requestContext || {};
-
     const challenge = await prisma.mfaChallenge.findUnique({
       where: { id: challengeId },
       select: { userId: true, operation: true },
@@ -549,20 +563,48 @@ export class AuthenticationService {
       throw new UnauthorizedException('Invalid login challenge');
     }
 
-    const verified = await this.mfaService.verifyChallenge(
-      prisma,
-      challengeId,
-      undefined,
-      undefined,
-      authenticationResponse,
-    );
-
-    if (!verified) {
-      throw new UnauthorizedException('Passkey verification failed');
+    let userId: string;
+    if (challenge.userId) {
+      const verified = await this.mfaService.verifyChallenge(
+        prisma,
+        challengeId,
+        undefined,
+        undefined,
+        authenticationResponse,
+      );
+      if (!verified) {
+        throw new UnauthorizedException('Passkey verification failed');
+      }
+      userId = challenge.userId;
+    } else {
+      const resolved = await this.mfaService.verifyUsernamelessWebAuthnLogin(
+        prisma,
+        challengeId,
+        authenticationResponse,
+      );
+      if (!resolved) {
+        throw new UnauthorizedException('Passkey verification failed');
+      }
+      userId = resolved;
     }
 
+    return this.issueLoginForUser(prisma, userId, challengeId, requestContext);
+  }
+
+  /**
+   * Shared tail for a completed passkey login: record the attempt, audit, and
+   * return the pre-auth token + school list for the resolved user.
+   */
+  private async issueLoginForUser(
+    prisma: PrismaClient,
+    userId: string,
+    challengeId: string,
+    requestContext?: RequestContext,
+  ): Promise<LoginResponse> {
+    const { ipAddress, userAgent } = requestContext || {};
+
     const user = await prisma.user.findUnique({
-      where: { id: challenge.userId },
+      where: { id: userId },
       select: {
         id: true,
         email: true,

@@ -185,8 +185,11 @@ model MfaMethod {
 
 // MFA Challenges - Active MFA verification challenges
 model MfaChallenge {
-  id          String  @id @default(uuid())
-  userId      String  @map("user_id")
+  id String @id @default(uuid())
+  // Nullable: a usernameless/discoverable passkey login challenge is created
+  // before we know who the user is — it's resolved from the assertion's
+  // credential at verification time.
+  userId      String? @map("user_id")
   mfaMethodId String? @map("mfa_method_id") // Nullable for recovery codes
   type        String // 'sms' | 'email' | 'totp' | 'webauthn' | 'recovery'
 
@@ -209,7 +212,7 @@ model MfaChallenge {
   expiresAt  DateTime  @map("expires_at")
   createdAt  DateTime  @default(now()) @map("created_at")
 
-  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
   mfaMethod MfaMethod? @relation(fields: [mfaMethodId], references: [id], onDelete: SetNull)
 
   @@index([userId])

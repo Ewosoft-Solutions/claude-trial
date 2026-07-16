@@ -11,6 +11,7 @@ import { OtpInput } from '@workspace/ui/components/otp-input';
 
 import { COOKIE_LAST_USER } from '@/lib/auth-cookies';
 import {
+  isConditionalMediationAvailable,
   isPlatformAuthenticatorAvailable,
   platformPasskeyLabel,
   startAuthentication,
@@ -65,10 +66,51 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
   const [authLabel, setAuthLabel] = useState('your device');
 
   useEffect(() => {
-    setHint(readHint());
+    const h = readHint();
+    setHint(h);
     setAuthLabel(platformPasskeyLabel());
     isPlatformAuthenticatorAvailable().then(setPasskeyReady);
-  }, []);
+
+    // Conditional UI ("passkey autofill"): in fresh mode, quietly offer any
+    // discoverable passkey inline on the sign-in fields. Resolves only when the
+    // user picks one; otherwise it sits idle and the password form still works.
+    if (h) return;
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        if (!(await isConditionalMediationAvailable())) return;
+        const optRes = await fetch('/api/auth/passkey/options', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: '{}',
+        });
+        const optData = await optRes.json();
+        if (!optRes.ok || !optData?.options) return;
+
+        const assertion = await startAuthentication(optData.options, {
+          conditional: true,
+          signal: controller.signal,
+        });
+
+        const verifyRes = await fetch('/api/auth/passkey/verify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            challengeId: optData.challengeId,
+            authenticationResponse: assertion,
+          }),
+        });
+        const verifyData = await verifyRes.json();
+        if (verifyRes.ok) {
+          router.push(verifyData.redirectTo ?? '/overview');
+          router.refresh();
+        }
+      } catch {
+        // Aborted, dismissed, or unsupported — stay on the password form.
+      }
+    })();
+    return () => controller.abort();
+  }, [router]);
 
   function switchAccount() {
     document.cookie = `${COOKIE_LAST_USER}=; Path=/; Max-Age=0`;
@@ -376,7 +418,9 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
               id="email"
               name="email"
               type="email"
-              autoComplete="email"
+              // "webauthn" lets discoverable passkeys surface in this field's
+              // autofill (conditional UI); "username" keeps password managers happy.
+              autoComplete="username webauthn"
               required
               placeholder="you@school.edu"
             />

@@ -435,6 +435,33 @@ export class MfaService {
   }
 
   /**
+   * Begin a usernameless / discoverable passwordless login — options over any
+   * resident passkey for this RP, with no user known yet.
+   */
+  async beginUsernamelessWebAuthnLogin(
+    prisma: PrismaClient,
+  ): Promise<{ challengeId: string; options: unknown }> {
+    const options =
+      await this.webauthnService.generateUsernamelessLoginOptions(prisma);
+    return { challengeId: options.challengeId, options };
+  }
+
+  /**
+   * Verify a usernameless assertion and resolve the owning user id (or null).
+   */
+  async verifyUsernamelessWebAuthnLogin(
+    prisma: PrismaClient,
+    challengeId: string,
+    authenticationResponse: AuthenticationResponseJSON,
+  ): Promise<string | null> {
+    return this.webauthnService.verifyUsernamelessAuthentication(
+      prisma,
+      challengeId,
+      authenticationResponse,
+    );
+  }
+
+  /**
    * Verify MFA challenge (3a.6)
    *
    * @param prisma - Prisma client instance

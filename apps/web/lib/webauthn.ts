@@ -29,6 +29,25 @@ export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   }
 }
 
+/**
+ * True when the browser supports conditional mediation ("passkey autofill") —
+ * i.e. offering discoverable passkeys inline on the sign-in fields.
+ */
+export async function isConditionalMediationAvailable(): Promise<boolean> {
+  if (!isWebAuthnSupported()) return false;
+  try {
+    const pkc = window.PublicKeyCredential as unknown as {
+      isConditionalMediationAvailable?: () => Promise<boolean>;
+    };
+    return (
+      typeof pkc.isConditionalMediationAvailable === 'function' &&
+      (await pkc.isConditionalMediationAvailable())
+    );
+  } catch {
+    return false;
+  }
+}
+
 function base64urlToBuffer(value: string): ArrayBuffer {
   const base64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const pad = (4 - (base64.length % 4)) % 4;
@@ -161,6 +180,10 @@ export interface AuthenticationResponseJSON {
  */
 export async function startAuthentication(
   options: AuthenticationOptionsJSON,
+  {
+    conditional = false,
+    signal,
+  }: { conditional?: boolean; signal?: AbortSignal } = {},
 ): Promise<AuthenticationResponseJSON> {
   const publicKey: PublicKeyCredentialRequestOptions = {
     ...(options as unknown as PublicKeyCredentialRequestOptions),
@@ -174,6 +197,10 @@ export async function startAuthentication(
 
   const credential = (await navigator.credentials.get({
     publicKey,
+    ...(conditional
+      ? { mediation: 'conditional' as CredentialMediationRequirement }
+      : {}),
+    ...(signal ? { signal } : {}),
   })) as PublicKeyCredential | null;
 
   if (!credential) {

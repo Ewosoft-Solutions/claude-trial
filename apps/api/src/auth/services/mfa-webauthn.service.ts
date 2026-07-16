@@ -439,4 +439,116 @@ export class MfaWebAuthnService {
 
     return false;
   }
+
+  /**
+   * Generate authentication options for a usernameless / discoverable login.
+   *
+   * `allowCredentials` is empty, so the authenticator offers any resident
+   * passkey for this RP — the user is unknown until they pick one. The stored
+   * challenge therefore has no `userId`; it's resolved from the assertion in
+   * `verifyUsernamelessAuthentication`.
+   */
+  async generateUsernamelessLoginOptions(
+    prisma: PrismaClient,
+  ): Promise<
+    Awaited<ReturnType<typeof generateAuthOptions>> & { challengeId: string }
+  > {
+    const opts: GenerateAuthenticationOptionsOpts = {
+      rpID: this.config.rpID,
+      allowCredentials: [],
+      userVerification: 'required',
+      timeout: 60000,
+    };
+
+    const options = await generateAuthOptions(opts);
+
+    const challenge = await prisma.mfaChallenge.create({
+      data: {
+        userId: null,
+        type: 'webauthn',
+        webauthnChallenge: options.challenge,
+        operation: 'login',
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+
+    return { ...options, challengeId: challenge.id };
+  }
+
+  /**
+   * Verify a usernameless assertion: resolve the credential globally (we don't
+   * know the user yet), verify the signature against its public key, and return
+   * the owning user id. Returns null on any failure (unknown credential,
+   * expired/used challenge, bad signature).
+   */
+  async verifyUsernamelessAuthentication(
+    prisma: PrismaClient,
+    challengeId: string,
+    authenticationResponse: AuthenticationResponseJSON,
+  ): Promise<string | null> {
+    const challenge = await prisma.mfaChallenge.findUnique({
+      where: { id: challengeId },
+    });
+
+    if (!challenge || !challenge.webauthnChallenge) return null;
+    if (challenge.verified) return null;
+    if (new Date() > challenge.expiresAt) return null;
+
+    // The credential id from the client is a base64url string, stored verbatim.
+    const method = await prisma.mfaMethod.findFirst({
+      where: {
+        type: 'webauthn',
+        webauthnId: authenticationResponse.id,
+        isActive: true,
+      },
+    });
+
+    if (!method || !method.webauthnPublicKey || !method.userId) return null;
+
+    // Defence-in-depth: the assertion's userHandle (set to the user id at
+    // registration) must match the credential's owner.
+    const userHandle = authenticationResponse.response.userHandle;
+    if (userHandle) {
+      const decoded = Buffer.from(userHandle, 'base64url').toString('utf8');
+      if (decoded !== method.userId) return null;
+    }
+
+    const publicKey = Buffer.from(
+      this.encryption.decrypt(method.webauthnPublicKey),
+      'base64',
+    );
+
+    const verification = await verifyAuthenticationResponse({
+      response: authenticationResponse,
+      expectedChallenge: challenge.webauthnChallenge,
+      expectedOrigin: this.config.origins,
+      expectedRPID: this.config.rpID,
+      credential: {
+        id: method.webauthnId!,
+        publicKey,
+        counter: method.webauthnCounter || 0,
+      },
+      requireUserVerification: true,
+    });
+
+    if (!verification.verified || !verification.authenticationInfo) return null;
+
+    await prisma.mfaMethod.update({
+      where: { id: method.id },
+      data: {
+        webauthnCounter: verification.authenticationInfo.newCounter,
+        lastUsedAt: new Date(),
+      },
+    });
+    await prisma.mfaChallenge.update({
+      where: { id: challengeId },
+      data: {
+        verified: true,
+        verifiedAt: new Date(),
+        mfaMethodId: method.id,
+      },
+    });
+
+    return method.userId;
+  }
 }

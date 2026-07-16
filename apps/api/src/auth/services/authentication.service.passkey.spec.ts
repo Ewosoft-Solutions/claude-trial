@@ -16,6 +16,8 @@ describe('AuthenticationService — passwordless passkey login', () => {
   let mfaService: {
     beginWebAuthnLogin: jest.Mock;
     verifyChallenge: jest.Mock;
+    beginUsernamelessWebAuthnLogin: jest.Mock;
+    verifyUsernamelessWebAuthnLogin: jest.Mock;
   };
   let service: AuthenticationService;
 
@@ -24,6 +26,8 @@ describe('AuthenticationService — passwordless passkey login', () => {
     mfaService = {
       beginWebAuthnLogin: jest.fn(),
       verifyChallenge: jest.fn(),
+      beginUsernamelessWebAuthnLogin: jest.fn(),
+      verifyUsernamelessWebAuthnLogin: jest.fn(),
     };
     service = new AuthenticationService(
       jwtService as never,
@@ -82,6 +86,20 @@ describe('AuthenticationService — passwordless passkey login', () => {
         challengeId: 'c1',
         options: { challenge: 'abc' },
       });
+    });
+
+    it('returns usernameless options when no email is given', async () => {
+      mfaService.beginUsernamelessWebAuthnLogin.mockResolvedValue({
+        challengeId: 'c9',
+        options: { challenge: 'xyz' },
+      });
+      await expect(service.beginPasskeyLogin({} as never)).resolves.toEqual({
+        hasPasskey: true,
+        challengeId: 'c9',
+        options: { challenge: 'xyz' },
+      });
+      expect(mfaService.beginUsernamelessWebAuthnLogin).toHaveBeenCalled();
+      expect(mfaService.beginWebAuthnLogin).not.toHaveBeenCalled();
     });
   });
 
@@ -154,6 +172,55 @@ describe('AuthenticationService — passwordless passkey login', () => {
       });
       // A successful login attempt is recorded for the user.
       expect(prisma.loginAttempt.create).toHaveBeenCalled();
+    });
+
+    it('resolves the user from the credential for a usernameless challenge', async () => {
+      const prisma = {
+        mfaChallenge: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ userId: null, operation: 'login' }),
+        },
+        user: {
+          findUnique: jest.fn().mockResolvedValue({
+            id: 'u1',
+            email: 'u@x.com',
+            firstName: 'Jane',
+            lastName: 'Doe',
+            defaultUserTenantId: null,
+          }),
+          update: jest.fn().mockResolvedValue({}),
+        },
+        loginAttempt: { create: jest.fn().mockResolvedValue({}) },
+        auditLog: { create: jest.fn().mockResolvedValue({}) },
+      };
+      mfaService.verifyUsernamelessWebAuthnLogin.mockResolvedValue('u1');
+      jwtService.generatePreAuthToken.mockResolvedValue('pre-auth-token');
+
+      const result = await service.completePasskeyLogin(baseArgs(prisma));
+
+      expect(mfaService.verifyUsernamelessWebAuthnLogin).toHaveBeenCalled();
+      // The per-user verify path must NOT run for a usernameless challenge.
+      expect(mfaService.verifyChallenge).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        success: true,
+        token: 'pre-auth-token',
+        user: { id: 'u1' },
+      });
+    });
+
+    it('rejects a usernameless challenge when the credential resolves to no user', async () => {
+      const prisma = {
+        mfaChallenge: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue({ userId: null, operation: 'login' }),
+        },
+      };
+      mfaService.verifyUsernamelessWebAuthnLogin.mockResolvedValue(null);
+      await expect(
+        service.completePasskeyLogin(baseArgs(prisma)),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
     });
   });
 });

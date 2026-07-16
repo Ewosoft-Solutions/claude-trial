@@ -2,16 +2,20 @@
  * Passwordless passkey-login DTOs (Biometrics Phase 2).
  */
 
-import { IsEmail, IsObject, IsString } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { IsEmail, IsObject, IsOptional, IsString } from 'class-validator';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /**
  * Request WebAuthn authentication options for a passwordless login.
+ *
+ * `email` is optional: omit it for a usernameless / discoverable login where
+ * the user is resolved from the chosen passkey.
  */
 export class PasskeyLoginOptionsDto {
-  @ApiProperty({ example: 'jane.doe@example.com' })
+  @ApiPropertyOptional({ example: 'jane.doe@example.com' })
+  @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
 }
 
 /**
