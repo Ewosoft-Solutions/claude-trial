@@ -126,7 +126,107 @@ export async function startRegistration(
   };
 }
 
-/** Best-effort friendly label for a newly enrolled device, from the UA string. */
+/** Authentication options from the backend (base64url-encoded fields). */
+export interface AuthenticationOptionsJSON {
+  challenge: string;
+  allowCredentials?: Array<{
+    id: string;
+    type: string;
+    transports?: string[];
+  }>;
+  [key: string]: unknown;
+}
+
+/** Serialized assertion, ready to POST back to complete login. */
+export interface AuthenticationResponseJSON {
+  id: string;
+  rawId: string;
+  type: string;
+  response: {
+    authenticatorData: string;
+    clientDataJSON: string;
+    signature: string;
+    userHandle?: string;
+  };
+  clientExtensionResults: AuthenticationExtensionsClientOutputs;
+  authenticatorAttachment?: string;
+}
+
+/**
+ * Run the browser assertion ceremony (`navigator.credentials.get`) for
+ * passwordless login and serialize the result for the backend verifier.
+ *
+ * Throws `NotAllowedError`/`AbortError` if the user cancels the biometric
+ * prompt — callers should treat those as a benign cancellation.
+ */
+export async function startAuthentication(
+  options: AuthenticationOptionsJSON,
+): Promise<AuthenticationResponseJSON> {
+  const publicKey: PublicKeyCredentialRequestOptions = {
+    ...(options as unknown as PublicKeyCredentialRequestOptions),
+    challenge: base64urlToBuffer(options.challenge),
+    allowCredentials: (options.allowCredentials ?? []).map((c) => ({
+      id: base64urlToBuffer(c.id),
+      type: c.type as PublicKeyCredentialType,
+      transports: c.transports as AuthenticatorTransport[] | undefined,
+    })),
+  };
+
+  const credential = (await navigator.credentials.get({
+    publicKey,
+  })) as PublicKeyCredential | null;
+
+  if (!credential) {
+    throw new Error('Authentication was cancelled');
+  }
+
+  const response = credential.response as AuthenticatorAssertionResponse;
+
+  return {
+    id: credential.id,
+    rawId: bufferToBase64url(credential.rawId),
+    type: credential.type,
+    response: {
+      authenticatorData: bufferToBase64url(response.authenticatorData),
+      clientDataJSON: bufferToBase64url(response.clientDataJSON),
+      signature: bufferToBase64url(response.signature),
+      userHandle: response.userHandle
+        ? bufferToBase64url(response.userHandle)
+        : undefined,
+    },
+    clientExtensionResults: credential.getClientExtensionResults(),
+    authenticatorAttachment: credential.authenticatorAttachment ?? undefined,
+  };
+}
+
+/**
+ * A best-guess, platform-appropriate name for the device's biometric unlock,
+ * for button copy ("Sign in with Face ID").
+ *
+ * WebAuthn deliberately does NOT expose the actual modality (Face ID vs Touch ID
+ * vs fingerprint) or which methods are configured, so this is inferred from the
+ * platform — the OS's own prompt shows the true sensor regardless. "Windows
+ * Hello" is the umbrella term that already covers face/fingerprint/PIN together.
+ */
+export function platformPasskeyLabel(): string {
+  if (typeof navigator === 'undefined') return 'your device';
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return 'Face ID';
+  if (/iPad/.test(ua)) return 'Touch ID';
+  if (/Macintosh/.test(ua)) return 'Touch ID';
+  if (/Android/.test(ua)) return 'your fingerprint';
+  if (/Windows/.test(ua)) return 'Windows Hello';
+  return 'your device';
+}
+
+/**
+ * Best-effort friendly default label for a newly enrolled device, by device
+ * type only (e.g. "iPhone", "Mac") — deliberately not the browser, since the
+ * passkey is really the device's and the provider line already distinguishes
+ * e.g. iCloud Keychain vs Google Password Manager. WebAuthn can't reveal the
+ * exact model (iPhone 16 Pro Max) or biometric type (Face ID vs fingerprint),
+ * so the user can rename it to whatever's meaningful.
+ */
 export function guessDeviceLabel(): string {
   if (typeof navigator === 'undefined') return 'This device';
   const ua = navigator.userAgent;

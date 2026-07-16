@@ -10,6 +10,7 @@ import {
   Controller,
   Post,
   Get,
+  Patch,
   Delete,
   Body,
   Param,
@@ -26,7 +27,10 @@ import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
 import { JwtAuthGuard } from './guards';
 import { BiometricsService } from './services/biometrics.service';
-import { VerifyBiometricRegistrationDto } from './dto/biometrics.dto';
+import {
+  VerifyBiometricRegistrationDto,
+  RenameBiometricDeviceDto,
+} from './dto/biometrics.dto';
 
 @ApiTags('Biometrics')
 @Controller('auth/biometrics')
@@ -119,6 +123,28 @@ export class BiometricsController {
 
     const prisma = this.dbService.client;
     return this.biometricsService.listDevices(prisma, user.userId);
+  }
+
+  /**
+   * Rename an enrolled biometric device.
+   *
+   * PATCH /auth/biometrics/devices/:id
+   */
+  @Patch('devices/:id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Rename an enrolled biometric device' })
+  async renameDevice(
+    @Param('id') id: string,
+    @Body() dto: RenameBiometricDeviceDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    if (!user?.userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+
+    const prisma = this.dbService.client;
+    await this.biometricsService.renameDevice(prisma, user.userId, id, dto.label);
+    return { success: true };
   }
 
   /**

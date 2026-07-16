@@ -12,3 +12,4 @@ export * from './recovery-mfa.dto';
 export * from './security-policy.dto';
 export * from './breach-response.dto';
 export * from './biometrics.dto';
+export * from './passkey-login.dto';

@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { BiometricsService } from './biometrics.service';
 
 describe('BiometricsService', () => {
@@ -139,5 +139,66 @@ describe('BiometricsService', () => {
       service.removeDevice(prisma as never, 'u1', 'other'),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(del).not.toHaveBeenCalled();
+  });
+
+  it('maps a known AAGUID to a provider name, and leaves unknown ones undefined', async () => {
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: 'm1',
+        name: 'iPhone',
+        webauthnAaguid: 'ea9b8d66-4d01-1d21-3ce4-b6b48cb575d4',
+        webauthnBackedUp: true,
+        webauthnTransports: ['internal', 'hybrid'],
+        createdAt: new Date('2026-07-15'),
+        lastUsedAt: null,
+      },
+      {
+        id: 'm2',
+        name: 'Mac',
+        webauthnAaguid: 'b5397666-4885-aa6b-cebf-e52262a439a2',
+        webauthnBackedUp: false,
+        webauthnTransports: ['internal'],
+        createdAt: new Date('2026-07-14'),
+        lastUsedAt: null,
+      },
+    ]);
+    const devices = await service.listDevices(
+      { mfaMethod: { findMany } } as never,
+      'u1',
+    );
+    expect(devices[0].provider).toBe('Google Password Manager');
+    expect(devices[1].provider).toBeUndefined();
+  });
+
+  it('renames a device scoped to the user + platform', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 1 });
+    const prisma = { mfaMethod: { updateMany } };
+
+    await service.renameDevice(prisma as never, 'u1', 'm1', '  iPhone 16 Pro  ');
+
+    expect(updateMany.mock.calls[0][0]).toMatchObject({
+      where: {
+        id: 'm1',
+        userId: 'u1',
+        type: 'webauthn',
+        webauthnAttachment: 'platform',
+      },
+      data: { name: 'iPhone 16 Pro' }, // trimmed
+    });
+  });
+
+  it('rejects an empty rename', async () => {
+    const updateMany = jest.fn();
+    await expect(
+      service.renameDevice({ mfaMethod: { updateMany } } as never, 'u1', 'm1', '   '),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
+
+  it('throws NotFound when renaming a device that is not the user\'s', async () => {
+    const updateMany = jest.fn().mockResolvedValue({ count: 0 });
+    await expect(
+      service.renameDevice({ mfaMethod: { updateMany } } as never, 'u1', 'x', 'New name'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

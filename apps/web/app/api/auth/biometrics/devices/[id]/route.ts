@@ -5,7 +5,15 @@
  * platform authenticator belonging to the signed-in user.
  */
 import { NextRequest } from 'next/server';
-import { proxyDelete } from '@/lib/api-proxy';
+import { proxyDelete, proxyPatch } from '@/lib/api-proxy';
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const { id } = await params;
+  return proxyPatch(req, `/auth/biometrics/devices/${encodeURIComponent(id)}`);
+}
 
 export async function DELETE(
   req: NextRequest,

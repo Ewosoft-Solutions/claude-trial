@@ -28,6 +28,8 @@ import {
   RefreshTokenDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
+  PasskeyLoginOptionsDto,
+  PasskeyLoginVerifyDto,
 } from './dto';
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
@@ -338,6 +340,50 @@ export class AuthController {
         ipAddress,
         userAgent,
       },
+    });
+  }
+
+  /**
+   * Begin passwordless passkey login (Biometrics Phase 2)
+   *
+   * POST /auth/passkey/login/options
+   *
+   * Public: the caller isn't authenticated yet. Returns WebAuthn options when
+   * the account has passkeys, else `{ hasPasskey: false }`.
+   */
+  @Post('passkey/login/options')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get passkey authentication options for login' })
+  async passkeyLoginOptions(@Body() dto: PasskeyLoginOptionsDto) {
+    return this.authenticationService.beginPasskeyLogin(
+      this.dbService.client,
+      dto.email,
+    );
+  }
+
+  /**
+   * Complete passwordless passkey login (Biometrics Phase 2)
+   *
+   * POST /auth/passkey/login/verify
+   *
+   * Public. Verifies the WebAuthn assertion and returns the same pre-auth
+   * token + school list as a completed password login.
+   */
+  @Post('passkey/login/verify')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Verify a passkey assertion and complete login' })
+  async passkeyLoginVerify(
+    @Body() dto: PasskeyLoginVerifyDto,
+    @Req() req: Request,
+  ) {
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'];
+
+    return this.authenticationService.completePasskeyLogin({
+      prisma: this.dbService.client,
+      challengeId: dto.challengeId,
+      authenticationResponse: dto.authenticationResponse as never,
+      requestContext: { ipAddress, userAgent },
     });
   }
 

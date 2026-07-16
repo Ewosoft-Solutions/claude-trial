@@ -486,6 +486,149 @@ export class AuthenticationService {
   }
 
   /**
+   * Begin passwordless passkey login for the given email.
+   *
+   * Returns WebAuthn authentication options when the (active) account has
+   * passkeys, else `{ hasPasskey: false }`. The response is uniform across
+   * unknown/inactive accounts and accounts without passkeys, so this isn't a
+   * stronger account-enumeration oracle than password login already is.
+   */
+  async beginPasskeyLogin(
+    prisma: PrismaClient,
+    email: string,
+  ): Promise<
+    | { hasPasskey: false }
+    | { hasPasskey: true; challengeId: string; options: unknown }
+  > {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      return { hasPasskey: false };
+    }
+
+    const result = await this.mfaService.beginWebAuthnLogin(prisma, user.id);
+    if (!result) {
+      return { hasPasskey: false };
+    }
+
+    return {
+      hasPasskey: true,
+      challengeId: result.challengeId,
+      options: result.options,
+    };
+  }
+
+  /**
+   * Complete passwordless passkey login: verify the WebAuthn assertion for a
+   * `login` challenge and, on success, issue the same pre-auth token + school
+   * list a password (or password+MFA) login returns. A user-verified passkey is
+   * itself multi-factor, so no additional MFA step is required (3a.9, item C).
+   */
+  async completePasskeyLogin({
+    prisma,
+    challengeId,
+    authenticationResponse,
+    requestContext,
+  }: {
+    prisma: PrismaClient;
+    challengeId: string;
+    authenticationResponse: AuthenticationResponseJSON;
+    requestContext?: RequestContext;
+  }): Promise<LoginResponse> {
+    const { ipAddress, userAgent } = requestContext || {};
+
+    const challenge = await prisma.mfaChallenge.findUnique({
+      where: { id: challengeId },
+      select: { userId: true, operation: true },
+    });
+
+    if (!challenge || challenge.operation !== 'login') {
+      throw new UnauthorizedException('Invalid login challenge');
+    }
+
+    const verified = await this.mfaService.verifyChallenge(
+      prisma,
+      challengeId,
+      undefined,
+      undefined,
+      authenticationResponse,
+    );
+
+    if (!verified) {
+      throw new UnauthorizedException('Passkey verification failed');
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: challenge.userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        defaultUserTenantId: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    await LoginAttemptService.recordAttempt(prisma, {
+      userId: user.id,
+      email: user.email,
+      ipAddress: ipAddress || 'unknown',
+      userAgent,
+      success: true,
+    });
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: null,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
+          resource: 'auth_login',
+          resourceId: user.id,
+          actorId: user.id,
+          actorEmail: user.email,
+          ipAddress: ipAddress || null,
+          userAgent: userAgent || null,
+          description: 'Passwordless passkey login successful',
+          metadata: { challengeId, method: 'webauthn_passwordless' },
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to log passkey login', auditError);
+    }
+
+    const schools = await SchoolSelectionService.getAvailableSchools(
+      prisma,
+      user.id,
+    );
+
+    const preAuthToken = await this.jwtService.generatePreAuthToken(user.id);
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      schools: toSchoolPickerOptions(
+        orderWithDefaultFirst(schools, user.defaultUserTenantId),
+      ),
+      token: preAuthToken,
+      requiresMfa: false,
+    };
+  }
+
+  /**
    * Select school / Switch context (3.3)
    *
    * Validates user access to school and generates JWT tokens.

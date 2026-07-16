@@ -8,9 +8,17 @@
  * the cross-platform hardware-key MFA path.
  */
 
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
 import { MfaWebAuthnService } from './mfa-webauthn.service';
+import { providerFromAaguid } from './webauthn-aaguids';
+
+/** Max length for a user-supplied device nickname. */
+const MAX_LABEL_LENGTH = 60;
 
 /**
  * A user-facing enrolled biometric device.
@@ -18,6 +26,8 @@ import { MfaWebAuthnService } from './mfa-webauthn.service';
 export interface BiometricDevice {
   id: string;
   label: string;
+  /** Passkey provider from the AAGUID (e.g. "iCloud Keychain"), when known. */
+  provider?: string;
   backedUp: boolean;
   transports: string[];
   createdAt: Date;
@@ -94,6 +104,7 @@ export class BiometricsService {
       select: {
         id: true,
         name: true,
+        webauthnAaguid: true,
         webauthnBackedUp: true,
         webauthnTransports: true,
         createdAt: true,
@@ -105,11 +116,48 @@ export class BiometricsService {
     return methods.map((m) => ({
       id: m.id,
       label: m.name ?? 'Passkey',
+      provider: providerFromAaguid(m.webauthnAaguid),
       backedUp: m.webauthnBackedUp ?? false,
       transports: m.webauthnTransports ?? [],
       createdAt: m.createdAt,
       lastUsedAt: m.lastUsedAt,
     }));
+  }
+
+  /**
+   * Rename an enrolled platform authenticator. Scoped to the calling user and
+   * to platform credentials, so a caller can't rename another user's device or
+   * a cross-platform hardware key through this endpoint.
+   */
+  async renameDevice(
+    prisma: PrismaClient,
+    userId: string,
+    methodId: string,
+    label: string,
+  ): Promise<void> {
+    const trimmed = label.trim();
+    if (!trimmed) {
+      throw new BadRequestException('A device name is required.');
+    }
+    if (trimmed.length > MAX_LABEL_LENGTH) {
+      throw new BadRequestException(
+        `Device name must be ${MAX_LABEL_LENGTH} characters or fewer.`,
+      );
+    }
+
+    const result = await prisma.mfaMethod.updateMany({
+      where: {
+        id: methodId,
+        userId,
+        type: 'webauthn',
+        webauthnAttachment: 'platform',
+      },
+      data: { name: trimmed },
+    });
+
+    if (result.count === 0) {
+      throw new NotFoundException('Biometric device not found');
+    }
   }
 
   /**

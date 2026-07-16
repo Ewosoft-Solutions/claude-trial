@@ -21,6 +21,7 @@ import {
   isSafeRedirectPath,
   makeClearCookie,
   makeSetCookie,
+  makeSetHintCookie,
 } from '@/lib/auth-cookies';
 
 interface LoginBody {
@@ -120,6 +121,15 @@ export async function POST(req: NextRequest) {
       makeSetCookie(COOKIE_REFRESH_TOKEN, selectRes.refreshToken, 7 * 24 * 3600),
     );
     response.headers.append('Set-Cookie', makeClearCookie(COOKIE_POST_LOGIN_REDIRECT));
+    // Returning-user hint (readable, no credential) so the next visit can greet
+    // them and offer passkey sign-in. 30-day life; persists across logout.
+    response.headers.append(
+      'Set-Cookie',
+      makeSetHintCookie(
+        { firstName: loginRes.user.firstName, email: loginRes.user.email },
+        30 * 24 * 3600,
+      ),
+    );
 
     return response;
   } catch (err) {

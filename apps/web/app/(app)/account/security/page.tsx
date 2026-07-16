@@ -15,10 +15,19 @@
    ============================================================ */
 
 import * as React from 'react';
-import { Fingerprint, RefreshCw, ShieldCheck, Trash2 } from 'lucide-react';
+import {
+  Check,
+  Fingerprint,
+  Pencil,
+  RefreshCw,
+  ShieldCheck,
+  Trash2,
+  X,
+} from 'lucide-react';
 
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
 import {
   Card,
   CardContent,
@@ -36,6 +45,8 @@ import {
 interface BiometricDevice {
   id: string;
   label: string;
+  /** Passkey provider (e.g. "iCloud Keychain"), from the AAGUID, when known. */
+  provider?: string;
   backedUp: boolean;
   transports: string[];
   createdAt: string;
@@ -58,6 +69,9 @@ export default function SecuritySettingsPage() {
   const [pendingRemove, setPendingRemove] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editValue, setEditValue] = React.useState('');
+  const [savingId, setSavingId] = React.useState<string | null>(null);
 
   const loadDevices = React.useCallback(async () => {
     try {
@@ -109,6 +123,8 @@ export default function SecuritySettingsPage() {
       const name = (err as { name?: string })?.name;
       if (name === 'NotAllowedError' || name === 'AbortError') {
         setError('Enrolment was cancelled.');
+      } else if (name === 'InvalidStateError') {
+        setError('This device is already set up for biometric sign-in.');
       } else {
         setError(err instanceof Error ? err.message : 'Enrolment failed.');
       }
@@ -135,6 +151,44 @@ export default function SecuritySettingsPage() {
       setError(err instanceof Error ? err.message : 'Could not remove device.');
     } finally {
       setPendingRemove(null);
+    }
+  }
+
+  function startEdit(device: BiometricDevice) {
+    setEditingId(device.id);
+    setEditValue(device.label);
+    setError(null);
+    setNotice(null);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditValue('');
+  }
+
+  async function handleRename(id: string) {
+    const label = editValue.trim();
+    if (!label) return;
+    setSavingId(id);
+    setError(null);
+    try {
+      const res = await fetch(`/api/auth/biometrics/devices/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label }),
+      });
+      if (!res.ok) {
+        throw new Error(
+          (await res.json())?.error ?? 'Could not rename this device.',
+        );
+      }
+      setEditingId(null);
+      setEditValue('');
+      await loadDevices();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not rename this device.');
+    } finally {
+      setSavingId(null);
     }
   }
 
@@ -206,44 +260,97 @@ export default function SecuritySettingsPage() {
               No devices enrolled yet.
             </p>
           ) : (
-            devices.map((device) => (
-              <div
-                key={device.id}
-                className="flex flex-wrap items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3"
-              >
-                <span
-                  className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"
-                  aria-hidden
+            devices.map((device) => {
+              const isEditing = editingId === device.id;
+              return (
+                <div
+                  key={device.id}
+                  className="flex flex-wrap items-center gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3"
                 >
-                  <Fingerprint className="size-4" />
-                </span>
-                <div className="flex min-w-0 flex-col">
-                  <span className="break-words text-sm font-semibold text-foreground">
-                    {device.label}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    Added {formatDate(device.createdAt)} · Last used{' '}
-                    {formatDate(device.lastUsedAt)}
-                  </span>
-                </div>
-                <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
-                  {device.backedUp ? (
-                    <Badge variant="outline" className="text-xs">
-                      Synced
-                    </Badge>
-                  ) : null}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={pendingRemove === device.id}
-                    onClick={() => handleRemove(device.id)}
+                  <span
+                    className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-muted-foreground"
+                    aria-hidden
                   >
-                    <Trash2 className="size-3" />
-                    {pendingRemove === device.id ? 'Removing…' : 'Remove'}
-                  </Button>
+                    <Fingerprint className="size-4" />
+                  </span>
+
+                  {isEditing ? (
+                    <form
+                      className="flex min-w-0 flex-1 items-center gap-2"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        void handleRename(device.id);
+                      }}
+                    >
+                      <Input
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        maxLength={60}
+                        autoFocus
+                        aria-label="Device name"
+                        className="h-8"
+                      />
+                      <Button
+                        type="submit"
+                        size="sm"
+                        disabled={savingId === device.id || !editValue.trim()}
+                      >
+                        <Check className="size-3" />
+                        {savingId === device.id ? 'Saving…' : 'Save'}
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={cancelEdit}
+                        disabled={savingId === device.id}
+                        aria-label="Cancel rename"
+                      >
+                        <X className="size-3" />
+                      </Button>
+                    </form>
+                  ) : (
+                    <>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="break-words text-sm font-semibold text-foreground">
+                          {device.label}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {device.provider ? `${device.provider} · ` : ''}Added{' '}
+                          {formatDate(device.createdAt)} · Last used{' '}
+                          {formatDate(device.lastUsedAt)}
+                        </span>
+                      </div>
+                      <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">
+                        {device.backedUp ? (
+                          <Badge variant="outline" className="text-xs">
+                            Synced
+                          </Badge>
+                        ) : null}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(device)}
+                          aria-label={`Rename ${device.label}`}
+                        >
+                          <Pencil className="size-3" />
+                          Rename
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={pendingRemove === device.id}
+                          onClick={() => handleRemove(device.id)}
+                        >
+                          <Trash2 className="size-3" />
+                          {pendingRemove === device.id ? 'Removing…' : 'Remove'}
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </CardContent>
       </Card>

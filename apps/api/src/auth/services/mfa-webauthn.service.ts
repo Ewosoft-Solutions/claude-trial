@@ -288,6 +288,7 @@ export class MfaWebAuthnService {
     prisma: PrismaClient,
     userId: string,
     operation: string,
+    userVerification: 'required' | 'preferred' | 'discouraged' = 'preferred',
   ): Promise<
     Awaited<ReturnType<typeof generateAuthOptions>> & { challengeId: string }
   > {
@@ -326,7 +327,7 @@ export class MfaWebAuthnService {
     const opts: GenerateAuthenticationOptionsOpts = {
       rpID: this.config.rpID,
       allowCredentials,
-      userVerification: 'preferred',
+      userVerification,
       timeout: 60000,
     };
 

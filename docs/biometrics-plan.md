@@ -266,6 +266,31 @@ device-remove, policy-change) via the existing audit log.
 
 ---
 
+## Appendix B — Testing on a physical device (Cloudflare tunnel)
+
+WebAuthn needs a **secure context** (HTTPS, or `localhost`/loopback) and an RP
+ID that is a **domain** (never an IP). So a LAN IP like `http://192.168.x.x:3001`
+can't be used from a phone. Use a Cloudflare named tunnel to a real host:
+
+- **Tunnel:** `swe-dev` (UUID `fc33581e-…`) → `~/.cloudflared/config.yml` routes
+  `swe-dev.schoolwithease.com` → `http://localhost:3001` (the **Next.js web
+  app**, NOT the API on :3030 — the API is reached server-side via the web
+  app's `/api/*` proxy). Run: `pnpm dev:tunnel` (`cloudflared tunnel run swe-dev`).
+- **API (`apps/api/.env`, gitignored):** `WEBAUTHN_RP_ID=swe-dev.schoolwithease.com`,
+  `WEBAUTHN_ORIGIN=https://swe-dev.schoolwithease.com`. A single RP ID can't
+  cover both `localhost` and the tunnel host (no shared suffix) — the file keeps
+  a commented localhost block to toggle back. **Restart the API after switching**
+  (dotenv loads `.env` at boot).
+- **Web (`apps/web/next.config.ts`):** `swe-dev.schoolwithease.com` added to
+  `allowedDevOrigins` so Next's dev server serves `/_next` assets + Server
+  Actions to the non-localhost origin. **Restart the web dev server** after the
+  change.
+- **Steps:** restart API + web → `pnpm dev:tunnel` → open
+  `https://swe-dev.schoolwithease.com` on laptop and phone → Settings → Security
+  → Set up biometric sign-in. Passkeys enrolled here are bound to the tunnel host
+  (not localhost). The tunnel is a separate process each session; `cloudflared
+  service install` can make it always-on.
+
 ## Appendix A — Phase 0 task breakdown (concrete)
 
 > **Progress (2026-07-15, branch `claude`):** Phase 0 committed (`42194e8`):
@@ -274,6 +299,19 @@ device-remove, policy-change) via the existing audit log.
 > suite green (260 tests). `[decide]` still open: prod
 > apex `WEBAUTHN_RP_ID` and the exact subdomain origin list (SimpleWebAuthn's
 > allow-list is exact-match, **no wildcards** — enumerate each tenant subdomain).
+>
+> **Phase 2 delivered (2026-07-16):** passwordless passkey login. API:
+> `POST /auth/passkey/login/options` (per-user, UV=required, `login` challenge) +
+> `/verify` (issues the same pre-auth token + schools as password login; a UV
+> passkey counts as MFA, no OTP). Web: `startAuthentication` get() ceremony,
+> `/api/auth/passkey/options|verify` routes, a readable **returning-user hint
+> cookie** (`swe_last_user`: firstName+email, no token), and a login form that
+> greets **"Welcome back, {First name}"** with a Face ID / fingerprint button +
+> "Not you?" escape. Full API suite 273 green; browser-verified on localhost
+> (button, greeting, options endpoint). Full ceremony needs the tunnel + a real
+> device. **Phase 2b follow-up:** true usernameless/conditional-UI one-tap (empty
+> allowCredentials) needs an unknown-user login-challenge store; today's flow is
+> per-user via the typed/pre-filled email.
 >
 > **Phase 1 delivered:**
 >

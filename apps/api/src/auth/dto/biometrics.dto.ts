@@ -32,3 +32,13 @@ export class VerifyBiometricRegistrationDto {
   @MaxLength(60)
   label?: string;
 }
+
+/**
+ * Rename an enrolled biometric device.
+ */
+export class RenameBiometricDeviceDto {
+  @ApiProperty({ example: 'iPhone 16 Pro Max' })
+  @IsString()
+  @MaxLength(60)
+  label: string;
+}

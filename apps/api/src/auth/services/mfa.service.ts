@@ -403,6 +403,38 @@ export class MfaService {
   }
 
   /**
+   * Begin a passwordless WebAuthn login: generate authentication options over
+   * all of the user's active passkeys, requiring user verification (so the
+   * passkey counts as MFA). Returns null when the user has no passkeys, so the
+   * caller can fall back to password login without leaking that fact as an error.
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - User ID (already resolved from the typed email)
+   * @returns Challenge id + options, or null if the user has no passkeys
+   */
+  async beginWebAuthnLogin(
+    prisma: PrismaClient,
+    userId: string,
+  ): Promise<{ challengeId: string; options: unknown } | null> {
+    const passkeyCount = await prisma.mfaMethod.count({
+      where: { userId, type: 'webauthn', isActive: true },
+    });
+
+    if (passkeyCount === 0) {
+      return null;
+    }
+
+    const options = await this.webauthnService.generateAuthenticationOptions(
+      prisma,
+      userId,
+      'login',
+      'required',
+    );
+
+    return { challengeId: options.challengeId, options };
+  }
+
+  /**
    * Verify MFA challenge (3a.6)
    *
    * @param prisma - Prisma client instance

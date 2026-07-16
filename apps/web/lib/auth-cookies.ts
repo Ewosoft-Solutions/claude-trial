@@ -30,6 +30,36 @@ export function isSafeRedirectPath(path: string | undefined | null): path is str
   return true;
 }
 
+/**
+ * Non-httpOnly hint cookie for the returning-user login experience. Holds the
+ * last signed-in user's first name + email (JSON) so the login page can greet
+ * them ("Welcome back, Jane") and surface passkey sign-in. Deliberately
+ * readable by client JS — it carries NO credential, only display/identity hints
+ * for a device the user already signed in on. Persists across logout (that's
+ * the point); a "Not you?" control clears it.
+ */
+export const COOKIE_LAST_USER = 'swe_last_user';
+
+/** Cookie attributes for the readable hint cookie (not HttpOnly). */
+const HINT_BASE = [
+  'Path=/',
+  'SameSite=Lax',
+  process.env.NODE_ENV === 'production' ? 'Secure' : '',
+]
+  .filter(Boolean)
+  .join('; ');
+
+/** Serialize the returning-user hint into a Set-Cookie value. */
+export function makeSetHintCookie(
+  hint: { firstName?: string | null; email: string },
+  maxAgeSeconds: number,
+) {
+  const value = encodeURIComponent(
+    JSON.stringify({ firstName: hint.firstName ?? '', email: hint.email }),
+  );
+  return `${COOKIE_LAST_USER}=${value}; ${HINT_BASE}; Max-Age=${maxAgeSeconds}`;
+}
+
 /** Base cookie attributes shared across all auth cookies. */
 export const COOKIE_BASE = [
   'HttpOnly',
