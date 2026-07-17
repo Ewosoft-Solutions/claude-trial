@@ -884,6 +884,26 @@ export class AuthenticationService {
       3600, // 1 hour
     );
 
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: payload.tenantId,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: AUDIT_ACTION.AUTHENTICATION.SESSION_REFRESHED,
+          resource: 'session',
+          resourceId: session.id,
+          actorId: payload.sub,
+          actorProfileId: payload.profileId,
+          actorRole: payload.roleId || null,
+          actorEmail: session.user?.email ?? null,
+          description: 'Access token refreshed',
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to audit session refresh', auditError);
+    }
+
     return {
       accessToken,
       expiresIn: 3600,
@@ -896,15 +916,16 @@ export class AuthenticationService {
    * Revokes the current session token.
    *
    * @param prisma - Prisma client instance
-   * @param token - Access token or refresh token to revoke
+   * @param userId - Authenticated user who owns the session
+   * @param refreshToken - Refresh token identifying the stored session
    * @returns Success response
    */
   async logout(
     prisma: PrismaClient,
-    token: string,
+    userId: string,
+    refreshToken: string,
   ): Promise<{ success: boolean; message: string }> {
-    // Revoke session by token
-    await SessionService.revokeSession(prisma, token);
+    await SessionService.revokeSession(prisma, userId, refreshToken);
 
     return {
       success: true,

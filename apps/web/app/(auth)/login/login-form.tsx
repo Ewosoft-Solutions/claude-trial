@@ -10,9 +10,10 @@ import { Card } from '@workspace/ui/components/card';
 import { OtpInput } from '@workspace/ui/components/otp-input';
 
 import { COOKIE_LAST_USER } from '@/lib/auth-cookies';
+import { ACTIVITY_STORAGE_KEY } from '@/lib/session-lifecycle';
 import {
+  canAttemptPasskey,
   isConditionalMediationAvailable,
-  isPlatformAuthenticatorAvailable,
   platformPasskeyLabel,
   startAuthentication,
 } from '@/lib/webauthn';
@@ -52,6 +53,14 @@ function timeGreeting(): string {
   return 'Good evening';
 }
 
+function recordFreshLoginActivity() {
+  try {
+    localStorage.setItem(ACTIVITY_STORAGE_KEY, String(Date.now()));
+  } catch {
+    // Storage can be unavailable in private browsing; login still succeeds.
+  }
+}
+
 /** `schoolName` is set when the login page is reached on a `{slug}.domain`
  *  subdomain — the page brands itself for that school. */
 export function LoginForm({ schoolName }: { schoolName?: string }) {
@@ -69,7 +78,10 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
     const h = readHint();
     setHint(h);
     setAuthLabel(platformPasskeyLabel());
-    isPlatformAuthenticatorAvailable().then(setPasskeyReady);
+    // The explicit button only needs WebAuthn itself. iOS standalone PWAs can
+    // return a false negative from the platform-authenticator advisory probe;
+    // the user-triggered ceremony below is the authoritative availability test.
+    setPasskeyReady(canAttemptPasskey());
 
     // Conditional UI ("passkey autofill"): in fresh mode, quietly offer any
     // discoverable passkey inline on the sign-in fields. Resolves only when the
@@ -102,6 +114,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
         });
         const verifyData = await verifyRes.json();
         if (verifyRes.ok) {
+          recordFreshLoginActivity();
           router.push(verifyData.redirectTo ?? '/overview');
           router.refresh();
         }
@@ -119,6 +132,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
   }
 
   function goToApp(redirectTo?: string) {
+    recordFreshLoginActivity();
     router.push(redirectTo ?? '/overview');
     router.refresh();
   }

@@ -417,7 +417,12 @@ export class MfaService {
     userId: string,
   ): Promise<{ challengeId: string; options: unknown } | null> {
     const passkeyCount = await prisma.mfaMethod.count({
-      where: { userId, type: 'webauthn', isActive: true },
+      where: {
+        userId,
+        type: 'webauthn',
+        webauthnAttachment: 'platform',
+        isActive: true,
+      },
     });
 
     if (passkeyCount === 0) {
@@ -429,6 +434,7 @@ export class MfaService {
       userId,
       'login',
       'required',
+      'platform',
     );
 
     return { challengeId: options.challengeId, options };

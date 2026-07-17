@@ -182,7 +182,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 298,
+  total: 299,
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -192,7 +192,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     COMMUNICATION_PERMISSIONS: 13,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
-    SYSTEM_ADMIN_PERMISSIONS: 18,
+    SYSTEM_ADMIN_PERMISSIONS: 19,
     PLATFORM_PERMISSIONS: 12,
     LIBRARY_PERMISSIONS: 7,
     TRANSPORTATION_PERMISSIONS: 8,
@@ -1581,7 +1581,7 @@ const REPORTS_PERMISSIONS = [
   },
 ];
 
-// System Administration Permissions (18 permissions)
+// System Administration Permissions (19 permissions)
 const SYSTEM_ADMIN_PERMISSIONS = [
   {
     name: 'settings.view',
@@ -1607,6 +1607,16 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     description: 'Edit school-specific settings',
     resource: 'settings',
     action: 'edit',
+    context: 'school',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'settings.security',
+    label: 'Manage Security Settings',
+    description: 'Manage session and authentication settings for the school',
+    resource: 'settings',
+    action: 'security',
     context: 'school',
     category: 'administrative',
     requiredClearanceLevel: 7,

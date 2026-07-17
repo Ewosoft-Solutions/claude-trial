@@ -20,10 +20,7 @@ export class ApiError extends Error {
   }
 }
 
-async function request<T>(
-  path: string,
-  init?: RequestInit,
-): Promise<T> {
+async function request<T>(path: string, init?: RequestInit): Promise<T> {
   if (!API_BASE) {
     throw new ApiError(503, 'API not configured');
   }
@@ -77,7 +74,11 @@ export const apiClient = {
     });
   },
 
-  delete<T>(path: string, headers?: Record<string, string>) {
-    return request<T>(path, { method: 'DELETE', headers });
+  delete<T>(path: string, body?: unknown, headers?: Record<string, string>) {
+    return request<T>(path, {
+      method: 'DELETE',
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      headers,
+    });
   },
 };

@@ -7,24 +7,29 @@
  * attendance/grade/fee aggregates) for the signed-in parent profile.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { ApiError, apiClient } from '@/lib/api-client';
-import { getBearerFromCookies } from '@/lib/server-api';
+import { apiClient } from '@/lib/api-client';
+import {
+  apiErrorResponse,
+  bearerAuthHeaders,
+  withAccessRefresh,
+} from '@/lib/api-proxy';
+import { attachRefreshedAccess } from '@/lib/server-refresh';
 
 export async function GET(req: NextRequest) {
-  const token = getBearerFromCookies(req.headers.get('cookie'));
-  if (!token) {
-    return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-  }
-
   try {
-    const data = await apiClient.get('/parent-portal/children', {
-      Authorization: `Bearer ${token}`,
-    });
-    return NextResponse.json({ children: data });
+    const { value: data, refreshed } = await withAccessRefresh(
+      req,
+      (accessToken) =>
+        apiClient.get(
+          '/parent-portal/children',
+          bearerAuthHeaders(req, accessToken),
+        ),
+    );
+    return attachRefreshedAccess(
+      NextResponse.json({ children: data }),
+      refreshed,
+    );
   } catch (err) {
-    if (err instanceof ApiError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiErrorResponse(err);
   }
 }

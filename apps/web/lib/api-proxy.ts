@@ -24,11 +24,36 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { API_BASE, ApiError, apiClient } from '@/lib/api-client';
 import { getBearerFromCookies } from '@/lib/server-api';
+import {
+  attachRefreshedAccess,
+  refreshAccessForRequest,
+  type RefreshedAccess,
+} from '@/lib/server-refresh';
 
 /** Bearer auth headers built from the request's access-token cookie. */
-export function bearerAuthHeaders(req: NextRequest): Record<string, string> {
-  const token = getBearerFromCookies(req.headers.get('cookie'));
+export function bearerAuthHeaders(
+  req: NextRequest,
+  accessToken?: string,
+): Record<string, string> {
+  const token = accessToken ?? getBearerFromCookies(req.headers.get('cookie'));
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+export async function withAccessRefresh<T>(
+  req: NextRequest,
+  operation: (accessToken?: string) => Promise<T>,
+): Promise<{ value: T; refreshed: RefreshedAccess | null }> {
+  try {
+    return { value: await operation(), refreshed: null };
+  } catch (error) {
+    if (!(error instanceof ApiError) || error.status !== 401) throw error;
+    const refreshed = await refreshAccessForRequest(req);
+    if (!refreshed) throw error;
+    return {
+      value: await operation(refreshed.accessToken),
+      refreshed,
+    };
+  }
 }
 
 /** Map a thrown error to the app's standard JSON error envelope. */
@@ -57,11 +82,16 @@ export async function proxyGet(
   upstreamPath: string,
 ): Promise<NextResponse> {
   try {
-    const data = await apiClient.get(
-      `${upstreamPath}${req.nextUrl.search}`,
-      bearerAuthHeaders(req),
+    const { value, refreshed } = await withAccessRefresh(req, (accessToken) =>
+      apiClient.get(
+        `${upstreamPath}${req.nextUrl.search}`,
+        bearerAuthHeaders(req, accessToken),
+      ),
     );
-    return NextResponse.json(data);
+    return attachRefreshedAccess(
+      NextResponse.json(value),
+      refreshed,
+    ) as NextResponse;
   } catch (err) {
     return apiErrorResponse(err);
   }
@@ -73,11 +103,18 @@ export async function proxyDelete(
   upstreamPath: string,
 ): Promise<NextResponse> {
   try {
-    const data = await apiClient.delete(
-      `${upstreamPath}${req.nextUrl.search}`,
-      bearerAuthHeaders(req),
+    const body = await readOptionalJson(req);
+    const { value, refreshed } = await withAccessRefresh(req, (accessToken) =>
+      apiClient.delete(
+        `${upstreamPath}${req.nextUrl.search}`,
+        body,
+        bearerAuthHeaders(req, accessToken),
+      ),
     );
-    return NextResponse.json(data);
+    return attachRefreshedAccess(
+      NextResponse.json(value),
+      refreshed,
+    ) as NextResponse;
   } catch (err) {
     return apiErrorResponse(err);
   }
@@ -96,8 +133,17 @@ async function proxyWrite(
 ): Promise<NextResponse> {
   try {
     const body = await readOptionalJson(req);
-    const data = await apiClient[method](upstreamPath, body, bearerAuthHeaders(req));
-    return NextResponse.json(data, { status });
+    const { value, refreshed } = await withAccessRefresh(req, (accessToken) =>
+      apiClient[method](
+        upstreamPath,
+        body,
+        bearerAuthHeaders(req, accessToken),
+      ),
+    );
+    return attachRefreshedAccess(
+      NextResponse.json(value, { status }),
+      refreshed,
+    ) as NextResponse;
   } catch (err) {
     return apiErrorResponse(err);
   }
@@ -160,28 +206,47 @@ export interface ProxyStreamOptions {
 export async function proxyStream(
   req: NextRequest,
   upstreamPath: string,
-  { errorMessage = 'AI request failed', forwardErrorBody = false }: ProxyStreamOptions = {},
+  {
+    errorMessage = 'AI request failed',
+    forwardErrorBody = false,
+  }: ProxyStreamOptions = {},
 ): Promise<Response> {
   if (!API_BASE) {
     return NextResponse.json({ error: 'API not configured' }, { status: 503 });
   }
 
-  const token = getBearerFromCookies(req.headers.get('cookie'));
+  let token = getBearerFromCookies(req.headers.get('cookie'));
+  let refreshed: RefreshedAccess | null = null;
   if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    refreshed = await refreshAccessForRequest(req);
+    if (!refreshed) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    token = refreshed.accessToken;
   }
 
-  const upstream = await fetch(`${API_BASE}${upstreamPath}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'text/event-stream',
-      Authorization: `Bearer ${token}`,
-    },
-    body: await req.text(),
-    // The LLM round-trip is long; never cache, never dedupe.
-    cache: 'no-store',
-  });
+  const body = await req.text();
+  const requestUpstream = (accessToken: string) =>
+    fetch(`${API_BASE}${upstreamPath}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'text/event-stream',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body,
+      // The LLM round-trip is long; never cache, never dedupe.
+      cache: 'no-store',
+    });
+
+  let upstream = await requestUpstream(token);
+  if (upstream.status === 401) {
+    const retryAccess = await refreshAccessForRequest(req);
+    if (retryAccess) {
+      refreshed = retryAccess;
+      upstream = await requestUpstream(retryAccess.accessToken);
+    }
+  }
 
   if (!upstream.ok || !upstream.body) {
     if (forwardErrorBody) {
@@ -191,7 +256,10 @@ export async function proxyStream(
       } catch {
         // keep the generic error
       }
-      return NextResponse.json(body, { status: upstream.status });
+      return attachRefreshedAccess(
+        NextResponse.json(body, { status: upstream.status }),
+        refreshed,
+      );
     }
     let message = errorMessage;
     try {
@@ -200,8 +268,14 @@ export async function proxyStream(
     } catch {
       // keep the generic message
     }
-    return NextResponse.json({ error: message }, { status: upstream.status });
+    return attachRefreshedAccess(
+      NextResponse.json({ error: message }, { status: upstream.status }),
+      refreshed,
+    );
   }
 
-  return new Response(upstream.body, { headers: SSE_HEADERS });
+  return attachRefreshedAccess(
+    new Response(upstream.body, { headers: SSE_HEADERS }),
+    refreshed,
+  );
 }

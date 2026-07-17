@@ -5,6 +5,7 @@ describe('BiometricsService', () => {
   let webauthn: {
     generateRegistrationOptions: jest.Mock;
     verifyRegistration: jest.Mock;
+    getRpId: jest.Mock;
   };
   let service: BiometricsService;
 
@@ -12,6 +13,7 @@ describe('BiometricsService', () => {
     webauthn = {
       generateRegistrationOptions: jest.fn(),
       verifyRegistration: jest.fn(),
+      getRpId: jest.fn().mockReturnValue('schoolwithease.com'),
     };
     service = new BiometricsService(webauthn as never);
   });
@@ -115,17 +117,29 @@ describe('BiometricsService', () => {
   });
 
   it('removes a device scoped to the user + platform, deleting the matched row', async () => {
-    const findFirst = jest.fn().mockResolvedValue({ id: 'm1' });
+    const findFirst = jest.fn().mockResolvedValue({
+      id: 'm1',
+      webauthnId: 'credential-id',
+    });
     const del = jest.fn().mockResolvedValue({});
     const prisma = { mfaMethod: { findFirst, delete: del } };
 
-    await service.removeDevice(prisma as never, 'u1', 'm1');
+    await expect(
+      service.removeDevice(prisma as never, 'u1', 'm1'),
+    ).resolves.toEqual({
+      credentialId: 'credential-id',
+      rpId: 'schoolwithease.com',
+    });
 
     expect(findFirst.mock.calls[0][0].where).toMatchObject({
       id: 'm1',
       userId: 'u1',
       type: 'webauthn',
       webauthnAttachment: 'platform',
+    });
+    expect(findFirst.mock.calls[0][0].select).toEqual({
+      id: true,
+      webauthnId: true,
     });
     expect(del).toHaveBeenCalledWith({ where: { id: 'm1' } });
   });

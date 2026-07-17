@@ -1,7 +1,14 @@
 'use client';
 
 import * as React from 'react';
-import { CheckCircle2, Clock, Send } from 'lucide-react';
+import {
+  CheckCircle2,
+  Clock,
+  Cloud,
+  CloudOff,
+  LoaderCircle,
+  Send,
+} from 'lucide-react';
 
 import {
   academicsApi,
@@ -19,11 +26,14 @@ import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { cn } from '@workspace/ui/lib/utils';
+import { authedFetch } from '@/lib/authed-fetch';
+import { useSessionActivityMode } from '@/app/providers/session-lifecycle-provider';
 
 type Answers = Record<string, string>;
 
 function scoreText(submission: AssessmentSubmission): string {
-  if (submission.pointsEarned == null || submission.maxPoints == null) return '-';
+  if (submission.pointsEarned == null || submission.maxPoints == null)
+    return '-';
   return `${submission.pointsEarned} / ${submission.maxPoints}`;
 }
 
@@ -33,7 +43,8 @@ function remainingMs(
   now: number,
 ): number | null {
   if (!attempt || !durationMinutes) return null;
-  const deadline = new Date(attempt.startedAt).getTime() + durationMinutes * 60 * 1000;
+  const deadline =
+    new Date(attempt.startedAt).getTime() + durationMinutes * 60 * 1000;
   return Math.max(0, deadline - now);
 }
 
@@ -74,8 +85,7 @@ function QuestionAnswer({
                 : 'hover:bg-accent',
             )}
           >
-            <span className="font-semibold">{option.label}.</span>{' '}
-            {option.text}
+            <span className="font-semibold">{option.label}.</span> {option.text}
           </button>
         ))}
       </div>
@@ -122,8 +132,9 @@ export function TakeAssessmentClient({
   const [paper, setPaper] = React.useState(initialPaper);
   const [submissions, setSubmissions] = React.useState(initialSubmissions);
   const [attempt, setAttempt] = React.useState<AssessmentSubmission | null>(
-    initialSubmissions.find((submission) => submission.status === 'in_progress') ??
-      null,
+    initialSubmissions.find(
+      (submission) => submission.status === 'in_progress',
+    ) ?? null,
   );
   const [answers, setAnswers] = React.useState<Answers>(() =>
     Object.fromEntries(
@@ -137,9 +148,19 @@ export function TakeAssessmentClient({
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [submitted, setSubmitted] = React.useState<AssessmentSubmission | null>(
-    initialSubmissions.find((submission) => submission.status !== 'in_progress') ??
-      null,
+    initialSubmissions.find(
+      (submission) => submission.status !== 'in_progress',
+    ) ?? null,
   );
+  const [saveStatus, setSaveStatus] = React.useState<
+    'idle' | 'saving' | 'saved' | 'error'
+  >('idle');
+  const answersRef = React.useRef(answers);
+  const lastSavedRef = React.useRef(JSON.stringify(answers));
+  const saveSequenceRef = React.useRef(0);
+
+  answersRef.current = answers;
+  useSessionActivityMode({ kind: 'assessment', active: Boolean(attempt) });
 
   React.useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 1000);
@@ -150,7 +171,9 @@ export function TakeAssessmentClient({
     if (paper) return;
     async function loadPaper() {
       try {
-        const res = await fetch(academicsApi(`assessments/${assessmentId}/take`));
+        const res = await authedFetch(
+          academicsApi(`assessments/${assessmentId}/take`),
+        );
         if (!res.ok) throw new Error(await readError(res));
         setPaper((await res.json()) as StudentPaper);
       } catch (err) {
@@ -164,20 +187,24 @@ export function TakeAssessmentClient({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(academicsApi(`assessments/${assessmentId}/start`), {
-        method: 'POST',
-      });
+      const res = await authedFetch(
+        academicsApi(`assessments/${assessmentId}/start`),
+        {
+          method: 'POST',
+        },
+      );
       if (!res.ok) throw new Error(await readError(res));
       const nextAttempt = (await res.json()) as AssessmentSubmission;
       setAttempt(nextAttempt);
-      setAnswers(
-        Object.fromEntries(
-          (nextAttempt.answers ?? []).map((answer) => [
-            answer.questionId,
-            answer.answer,
-          ]),
-        ),
+      const restoredAnswers = Object.fromEntries(
+        (nextAttempt.answers ?? []).map((answer) => [
+          answer.questionId,
+          answer.answer,
+        ]),
       );
+      setAnswers(restoredAnswers);
+      lastSavedRef.current = JSON.stringify(restoredAnswers);
+      setSaveStatus('saved');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not start attempt');
     } finally {
@@ -196,7 +223,7 @@ export function TakeAssessmentClient({
           answer: answers[row.question.id] ?? '',
         })),
       };
-      const res = await fetch(
+      const res = await authedFetch(
         academicsApi(`assessments/${assessmentId}/submissions`),
         {
           method: 'POST',
@@ -212,12 +239,83 @@ export function TakeAssessmentClient({
         result,
       ]);
       setAttempt(null);
+      setSaveStatus('idle');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Submission failed');
     } finally {
       setBusy(false);
     }
   }
+
+  const buildDraft = React.useCallback(
+    (currentAnswers: Answers) =>
+      paper
+        ? {
+            answers: paper.questions.map((row) => ({
+              questionId: row.question.id,
+              answer: currentAnswers[row.question.id] ?? '',
+            })),
+          }
+        : null,
+    [paper],
+  );
+
+  const saveDraft = React.useCallback(
+    async (currentAnswers: Answers, keepalive = false) => {
+      if (!attempt) return;
+      const payload = buildDraft(currentAnswers);
+      if (!payload) return;
+      const serialized = JSON.stringify(currentAnswers);
+      if (serialized === lastSavedRef.current) return;
+      const sequence = ++saveSequenceRef.current;
+      setSaveStatus('saving');
+      try {
+        const response = await authedFetch(
+          academicsApi(`assessments/${assessmentId}/submissions/draft`),
+          {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+            keepalive,
+          },
+        );
+        if (!response.ok) throw new Error(await readError(response));
+        if (sequence === saveSequenceRef.current) {
+          lastSavedRef.current = serialized;
+          setSaveStatus('saved');
+        }
+      } catch {
+        if (sequence === saveSequenceRef.current) setSaveStatus('error');
+      }
+    },
+    [assessmentId, attempt, buildDraft],
+  );
+
+  React.useEffect(() => {
+    if (!attempt || !paper) return;
+    const serialized = JSON.stringify(answers);
+    if (serialized === lastSavedRef.current) return;
+    const timer = window.setTimeout(() => {
+      void saveDraft(answers);
+    }, 1_000);
+    return () => window.clearTimeout(timer);
+  }, [answers, attempt, paper, saveDraft]);
+
+  React.useEffect(() => {
+    if (!attempt) return;
+    const flush = () => {
+      if (document.visibilityState === 'hidden') {
+        void saveDraft(answersRef.current, true);
+      }
+    };
+    const pageHide = () => void saveDraft(answersRef.current, true);
+    document.addEventListener('visibilitychange', flush);
+    window.addEventListener('pagehide', pageHide);
+    return () => {
+      document.removeEventListener('visibilitychange', flush);
+      window.removeEventListener('pagehide', pageHide);
+    };
+  }, [attempt, saveDraft]);
 
   const remaining = remainingMs(
     attempt,
@@ -226,7 +324,8 @@ export function TakeAssessmentClient({
   );
   const timeUp = remaining === 0;
   const answeredCount = paper
-    ? paper.questions.filter((row) => (answers[row.question.id] ?? '').trim()).length
+    ? paper.questions.filter((row) => (answers[row.question.id] ?? '').trim())
+        .length
     : 0;
 
   return (
@@ -246,7 +345,9 @@ export function TakeAssessmentClient({
             },
             {
               key: 'answered',
-              label: paper ? `${answeredCount}/${paper.questions.length} answered` : '0 answered',
+              label: paper
+                ? `${answeredCount}/${paper.questions.length} answered`
+                : '0 answered',
             },
           ]}
           actions={
@@ -258,7 +359,10 @@ export function TakeAssessmentClient({
                 <Send /> Submit
               </Button>
             ) : (
-              <Button onClick={() => void startAttempt()} disabled={busy || !paper}>
+              <Button
+                onClick={() => void startAttempt()}
+                disabled={busy || !paper}
+              >
                 <Clock /> Start
               </Button>
             )
@@ -304,7 +408,10 @@ export function TakeAssessmentClient({
               ) : null}
 
               {paper.questions.map((row, index) => (
-                <section key={row.question.id} className="rounded-lg border bg-card p-4">
+                <section
+                  key={row.question.id}
+                  className="rounded-lg border bg-card p-4"
+                >
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">
@@ -345,13 +452,49 @@ export function TakeAssessmentClient({
                 <div className="mt-3 grid gap-2 text-sm">
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">Status</span>
-                    <StatusBadge tone={attempt ? 'info' : submitted ? 'success' : 'neutral'}>
-                      {attempt ? 'In progress' : submitted ? 'Submitted' : 'Not started'}
+                    <StatusBadge
+                      tone={
+                        attempt ? 'info' : submitted ? 'success' : 'neutral'
+                      }
+                    >
+                      {attempt
+                        ? 'In progress'
+                        : submitted
+                          ? 'Submitted'
+                          : 'Not started'}
                     </StatusBadge>
                   </div>
+                  {attempt ? (
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-muted-foreground">Draft</span>
+                      <span
+                        className={cn(
+                          'inline-flex items-center gap-1.5 text-xs font-medium',
+                          saveStatus === 'error'
+                            ? 'text-destructive'
+                            : 'text-muted-foreground',
+                        )}
+                      >
+                        {saveStatus === 'saving' ? (
+                          <LoaderCircle className="size-3.5 animate-spin" />
+                        ) : saveStatus === 'error' ? (
+                          <CloudOff className="size-3.5" />
+                        ) : (
+                          <Cloud className="size-3.5" />
+                        )}
+                        {saveStatus === 'saving'
+                          ? 'Saving…'
+                          : saveStatus === 'error'
+                            ? 'Not saved'
+                            : 'Saved'}
+                      </span>
+                    </div>
+                  ) : null}
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">Time</span>
-                    <span className="font-medium">{formatRemaining(remaining)}</span>
+                    <span className="font-medium">
+                      {formatRemaining(remaining)}
+                    </span>
                   </div>
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-muted-foreground">Attempts</span>

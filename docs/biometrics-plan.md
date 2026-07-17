@@ -1,9 +1,12 @@
 # Biometrics & Passkeys — Design & Implementation Plan
 
-> **Status:** Designed, not started. Companion to `auth-hardening-plan.md`
-> (Workstream C, now expanded). Decisions below were confirmed with the product
-> owner on 2026-07-15; the remaining open items are flagged inline as
-> **[decide]**.
+> **Status:** Implementation in progress — Phases 0–2b and the first Phase 3
+> vertical slice are delivered; broader step-up/governance remains. Companion
+> to `auth-hardening-plan.md` (Workstream C, now expanded).
+> Decisions below were confirmed with the product owner on 2026-07-15; the
+> remaining open items are flagged inline as **[decide]**.
+> Physical iPhone installed-PWA acceptance was completed successfully on
+> 2026-07-17.
 
 ## Goal
 
@@ -214,7 +217,7 @@ sensitive action is invoked; biometric first, password/OTP fallback. Never a
 full page bounce.
 
 **PWA** — platform passkeys work inside the installed PWA; this is the strongest
-mobile story and should be tested explicitly.
+mobile story. Physical iPhone installed-PWA acceptance passed on 2026-07-17.
 
 ---
 
@@ -235,7 +238,8 @@ mobile story and should be tested explicitly.
 ## 8. Phasing
 
 Dependency: **Workstream A (silent session refresh)** from `auth-hardening-plan.md`
-is a prerequisite — passwordless + step-up assume sessions don't silently die.
+was delivered on 2026-07-16. Passwordless and step-up sessions now refresh
+proactively, retry protected requests once, and recover safely after PWA wake.
 
 0. **Phase 0 — Security & foundation:** §2 fixes, §3 migration, multi-tenant RP
    config. No user-visible change.
@@ -244,8 +248,9 @@ is a prerequisite — passwordless + step-up assume sessions don't silently die.
    from here.
 2. **Phase 2 — Passwordless login:** discoverable credentials, conditional UI,
    fallbacks.
-3. **Phase 3 — Step-up on sensitive actions:** `StepUpGuard` + platform catalog
-   (§4) wired onto the real endpoints; reflexive protection of §4C.
+3. **Phase 3 — Step-up on sensitive actions (in progress):** `StepUpGuard` +
+   platform catalog (§4) wired onto the real endpoints; reflexive protection of
+   §4C. The biometric enrol/remove slice is delivered; the full catalog is not.
 4. **Phase 4 — Governance surfaces:** Plane B tenant policy UI; Plane A platform
    editor + tenant read-only summary + change-request/feedback loop.
 
@@ -288,8 +293,8 @@ can't be used from a phone. Use a Cloudflare named tunnel to a real host:
 - **Steps:** restart API + web → `pnpm dev:tunnel` → open
   `https://swe-dev.schoolwithease.com` on laptop and phone → Settings → Security
   → Set up biometric sign-in. Passkeys enrolled here are bound to the tunnel host
-  (not localhost). The tunnel is a separate process each session; `cloudflared
-  service install` can make it always-on.
+  (not localhost). The tunnel is a separate process each session; running
+  `cloudflared service install` can make it always-on.
 
 ## Appendix A — Phase 0 task breakdown (concrete)
 
@@ -307,11 +312,47 @@ can't be used from a phone. Use a Cloudflare named tunnel to a real host:
 > `/api/auth/passkey/options|verify` routes, a readable **returning-user hint
 > cookie** (`swe_last_user`: firstName+email, no token), and a login form that
 > greets **"Welcome back, {First name}"** with a Face ID / fingerprint button +
-> "Not you?" escape. Full API suite 273 green; browser-verified on localhost
+> "Not you?" escape. Full API suite 281 green; browser-verified on localhost
 > (button, greeting, options endpoint). Full ceremony needs the tunnel + a real
-> device. **Phase 2b follow-up:** true usernameless/conditional-UI one-tap (empty
-> allowCredentials) needs an unknown-user login-challenge store; today's flow is
-> per-user via the typed/pre-filled email.
+> device. **Phase 2b delivered:** true usernameless/conditional-UI one-tap uses
+> an empty `allowCredentials` list and a nullable-user login challenge; the user
+> is resolved from the selected discoverable credential during verification.
+>
+> **Phase 2 PWA routing correction (2026-07-16):** explicit passkey actions no
+> longer use `isUserVerifyingPlatformAuthenticatorAvailable()` as a hard UI
+> gate because iOS standalone web apps can return a false negative. The
+> user-triggered WebAuthn ceremony is authoritative. Per-user biometric login
+> now selects only `platform` credentials, preserves each credential's stored
+> `getTransports()` values instead of inventing USB/NFC/BLE routes, and sends a
+> `client-device` hint so Chrome/macOS prefers iCloud Keychain + Touch ID over a
+> physical security key. The web middleware now redirects non-local HTTP
+> requests to HTTPS because WebAuthn is unavailable in insecure contexts. Any
+> iPhone Home Screen copy originally installed from `http://` must be removed
+> and added again from `https://swe-dev.schoolwithease.com` so its saved origin
+> is secure. Removing an enrolled passkey now also calls WebAuthn's
+> `signalUnknownCredential()` in supporting browsers. This is an opportunistic
+> consistency signal: the current provider may hide or delete its local copy,
+> while unsupported password managers and copies on other providers still need
+> manual cleanup.
+>
+> **Phase 3a delivered (2026-07-16):** the API now exposes authenticated
+> `POST /auth/step-up/options|verify` ceremonies for a server-owned operation
+> catalog. Confirmation prefers an enrolled `platform` passkey with required
+> user verification and falls back to the signed-in user's current password.
+> Both proofs produce short-lived, operation-bound challenges. Biometric
+> enrolment verification and device removal now use `StepUpGuard`; each proof
+> is consumed atomically once and cannot be replayed for another action. The
+> Account → Security UI performs confirmation inline in a mobile-friendly
+> drawer before continuing the requested action. Step-up success/failure and
+> biometric enrol/remove are written to the audit log on a best-effort basis.
+> Focused guard/service tests cover wrong-user, wrong-operation, expired and
+> replayed challenges.
+>
+> **Next for Phase 3:** silent refresh is delivered and no longer blocks this
+> work. Add TOTP / recovery fallback, persist the complete
+> `SensitiveOperationPolicy` catalog,
+> and apply it to the remaining §4 endpoints. Phase 4 still owns the platform
+> editor, tenant summary/change-request flow and tenant enrolment-policy UI.
 >
 > **Phase 1 delivered:**
 >
@@ -324,8 +365,7 @@ can't be used from a phone. Use a Cloudflare named tunnel to a real host:
 >   enrolment options returns 200, client reaches the WebAuthn ceremony.
 > - Fixed a real 401 found via browser test: registration must resolve
 >   email/display-name from the DB, not the JWT (token carries no email).
-> - **Follow-ups:** device delete must gain `@RequireStepUp()` in Phase 3
->   (§4C); the same JWT-email bug affects `mfa.controller.ts` MFA setup
+> - **Follow-up:** the same JWT-email bug affects `mfa.controller.ts` MFA setup
 >   endpoints (flagged as a separate task).
 
 **Goal of Phase 0:** land the security fixes + data/config foundation with **no

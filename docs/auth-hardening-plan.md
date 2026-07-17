@@ -1,150 +1,145 @@
-# Auth Hardening — Next-Session Plan
+# Auth Hardening — Session Lifecycle Plan
 
-> **Status:** Planned / not started. **How to start this session:** do **not**
-> jump straight to code. Begin by resolving the Open Questions below with the
-> user (use the AskUserQuestion flow), then propose a phased plan. Several
-> decisions here are product/security policy calls that must be the user's.
+> **Status:** Workstreams A and B delivered on 2026-07-16. Secure resume and
+> assessment draft protection are delivered with them. Workstream C continues
+> in `biometrics-plan.md`.
 
 ## Why this exists
 
-During the 2026-07-14 session the signed-in session silently expired while we
-were still actively working, bouncing us to `/login`. Investigation showed the
-plumbing for a smoother session already exists but **is not wired up**, and the
-user asked to add (a) an idle auto-logout and (b) biometric sign-in. This doc
-captures the current state, recommendations, and the questions to settle first.
+The one-hour access token used to disappear while an actively used session was
+still valid for seven days. The web app did not consume its refresh token, so
+the user was sent to `/login` mid-work. The same session layer also needed an
+explicit inactivity policy, safe long-work behaviour, and a trustworthy way to
+return a re-authenticated user to their work.
 
-## Current state (grounded in code)
+## Confirmed policy
 
-- **Two cookies exist:** `swe_access` (access token) and `swe_refresh` (refresh
-  token) — see `apps/web/lib/auth-cookies.ts`. The access cookie's `Max-Age` is
-  set to the token's `expiresIn` at login, so when it elapses the browser drops
-  the cookie.
-- **A refresh route exists but nothing calls it.** `POST /api/auth/refresh`
-  (`apps/web/app/api/auth/refresh/route.ts`) exchanges the refresh cookie for a
-  new access token — but a repo-wide search finds **no caller**. It is dead code.
-- **The middleware only checks cookie _existence_.** `apps/web/middleware.ts`
-  does `req.cookies.has(COOKIE_ACCESS_TOKEN)` → redirect to `/login` if absent.
-  It never validates or refreshes the token.
-- **`getSession()`** (`apps/web/lib/session.ts`) calls `GET /auth/me`; on a 401
-  (expired token) it returns null and the `(app)` layout redirects to login.
+- Access tokens last **1 hour** and refresh sessions have a fixed **7-day
+  absolute lifetime**. Refresh does not rotate or extend the stored session.
+- The default inactivity threshold is **15 minutes**.
+- The configured tenant range defaults to **5–60 minutes** and is server
+  enforced inside a non-configurable hard safety range of **5–120 minutes**.
+- At the inactivity threshold, standard screens receive a **2-minute** warning;
+  approved long-work screens receive **5 minutes**.
+- Tenant users with `settings.security` and platform users with
+  `platform.security` can update the tenant value. `settings.view` can read it.
+- All tabs share activity, refresh completion, and logout state.
+- Idle logout preserves an approved route for up to **30 minutes**, but never
+  bypasses the destination page's own permission checks.
 
-**Net:** the access token expires on its TTL, the cookie disappears, and because
-nothing ever calls `/api/auth/refresh`, the long-lived refresh token goes unused
-→ hard logout mid-session. This is the root of the bug we hit.
+## Workstream A — Silent session refresh ✅
 
----
+Delivered:
 
-## Workstream A — Silent session refresh (foundational; do first)
+- `authedFetch` retries one failed same-origin API request after a successful
+  refresh. The shared Next.js proxy layer also retries protected JSON, stream,
+  parent-portal, profile-switch, and multipart learning requests once.
+- Refreshes are single-flight within a tab and coordinated across tabs with Web
+  Locks plus a short-lived, non-sensitive local-storage completion marker.
+- The session provider refreshes five minutes before access expiry while the
+  app is visible and online, and checks again on focus, page-show, and PWA wake.
+- If an installed PWA wakes after the access cookie has expired but the refresh
+  cookie remains valid, middleware sends it through `/session/resume` instead
+  of presenting a false logout.
+- Refresh and logout reasons are audit logged. Logout revocation is idempotent,
+  so an already removed session is still a successful logout.
+- The seven-day refresh token and its database session remain the absolute cap;
+  no activity or access refresh extends them.
 
-The idle-logout feature only makes sense once sessions *don't* die on their own.
+## Workstream B — Inactivity logout ✅
 
-**Recommendation:**
-- Add a **client fetch wrapper** that, on a `401` from an `/api/*` call, calls
-  `POST /api/auth/refresh` **once**, then retries the original request; on
-  refresh failure, hard-logout (clear cookies, redirect to `/login` preserving
-  the return path via the existing `swe_post_login_redirect` cookie).
-- Add **proactive refresh**: a timer that refreshes shortly before the access
-  token's `expiresIn` while the tab is active (skip while hidden; refresh on
-  refocus). Pairs naturally with the SWR `revalidateOnFocus` already in place.
-- Coordinate across tabs (BroadcastChannel or a storage event) so N tabs don't
-  stampede the refresh endpoint.
-- Decide sliding vs absolute: refresh should extend the session up to an
-  **absolute maximum lifetime**, after which re-auth is required regardless.
+Delivered:
 
-**Touch points:** `lib/api-client`/a new `lib/authed-fetch`, `SwrProvider`
-`onError`, `pwa-register`-style timer, `api/auth/refresh` (already exists).
+- One global lifecycle provider observes pointer, keyboard, touch, wheel,
+  scroll, route, focus, visibility, and page-show activity. High-frequency
+  persistence is throttled and timestamp based, so a suspended PWA cannot pause
+  the clock.
+- The first tap after an already elapsed idle period cannot erase the timeout;
+  the warning is evaluated first.
+- Assessment, assignment, reading, and media modes can register as focus work.
+  Assessments register today while an attempt is active. A semantic activity
+  reporter is available for visible media progress when those screens land.
+- The warning is a controlled, accessible modal with a timestamp-derived
+  countdown. “I'm still here” must successfully refresh the session before the
+  timer resets; offline and expired-session states are explicit.
+- Logout is broadcast across tabs. Idle logout writes a closeable, persistent
+  notification that survives the login navigation until the user dismisses it.
+- Tenant and platform settings surfaces expose the effective timeout and the
+  two warning windows. Server validation, not the input control, enforces the
+  configured limits.
+- Policy updates, access refresh, manual logout, and idle logout are recorded in
+  the existing audit log.
 
----
+### Configuration
 
-## Workstream B — Idle auto-logout (tenant-customizable, env-capped)
+The following API environment keys are declared beside the authentication
+configuration and have matching examples:
 
-Log the user out after a period of **inactivity**, with the timeout configurable
-per tenant but never exceeding a server-side hard cap.
+```text
+AUTH_IDLE_TIMEOUT_MIN_MINUTES=5
+AUTH_IDLE_TIMEOUT_MAX_MINUTES=60
+AUTH_IDLE_TIMEOUT_DEFAULT_MINUTES=15
+AUTH_IDLE_STANDARD_GRACE_SECONDS=120
+AUTH_IDLE_FOCUS_GRACE_SECONDS=300
+```
 
-**Recommendation:**
-- **Idle timer** reset on real activity (pointer/key/visibility/route change and
-  successful API calls); debounce writes. On expiry → warn, then logout.
-- **Warn-before-logout** countdown modal ("You'll be signed out in 60s — Stay
-  signed in") that refreshes the session on "stay".
-- **Two independent limits:** idle timeout *and* absolute session lifetime
-  (Workstream A). Idle logout is client-driven UX; the absolute cap is enforced
-  server-side and can't be extended by activity.
-- **Config precedence:** tenant setting is clamped to
-  `[MIN, AUTH_IDLE_TIMEOUT_MAX]` where the max comes from an `.env` value
-  (group it beside the other auth/session env keys — do not append to the
-  bottom of `.env`). Enforce the clamp on the **server**, not just the client,
-  so a tampered client can't extend it.
-- **Multi-tab:** broadcast logout so all tabs drop together.
-- Store the tenant setting with the other tenant settings/feature config (check
-  how `tenant/features` and AI settings persist) and expose it in Settings for
-  an authorized role.
+`AUTH_RESUME_SECRET` must be set to a strong deployment secret in production.
+Production deliberately refuses to sign resume state when it is absent.
 
-**Security note:** client-side idle logout is UX, not a security boundary — the
-server-enforced absolute lifetime (A) is what actually bounds a stolen token.
+## Secure resume ✅
 
----
+- Idle, absolute-expiry, and refresh-failure logout can write a 30-minute HMAC
+  signed resume cookie containing only a sanitized local path, tenant/profile
+  context, and an allow-listed modal key.
+- Sensitive query names such as tokens, codes, passwords, credentials, and
+  redirect values are removed before signing.
+- The resume endpoint re-fetches `/auth/me`, verifies tenant/profile context,
+  and applies a route permission resolver. An invalid, expired, tampered, or
+  unauthorized state falls back to `/overview`.
+- The destination page and API still enforce the final authorization decision;
+  resume state is navigation intent, never an authorization credential.
+- Global search is the first allow-listed modal that can be reopened. Other
+  modals stay closed until they explicitly register a safe resume key.
 
-## Workstream C — Biometric login (Face ID / fingerprint)
+## Long-work data protection ✅
 
-The web-standard mechanism is **WebAuthn / passkeys** using **platform
-authenticators** (Face ID, Touch ID, Windows Hello, Android biometrics). The
-biometric never leaves the device — it unlocks a device-bound credential; the
-server only stores/verifies a public key. Works in the installed PWA.
+Assessment attempts now save draft answers after a one-second debounce and
+flush with a keepalive request when the page is hidden or unloaded. Draft save
+validates the active attempt and question IDs, enforces the assessment timer,
+and never grades or submits the attempt. Returning to an active attempt restores
+the saved answers.
 
-**Recommendation:**
-- Use WebAuthn platform authenticators (`residentKey`/`userVerification`).
-- **Two possible use cases — confirm which (see questions):**
-  1. **Passwordless login** — a registered passkey signs the user in directly.
-  2. **Step-up / unlock only** — password login first, then biometrics to
-     unlock a persisted session or to re-auth after idle. Lower risk, simpler.
-- **Enrollment:** opt-in from Account settings after a normal password login;
-  device-bound, so support enrolling multiple devices and a management/removal UI.
-- **Fallback:** always keep password (and MFA) available when biometrics are
-  unavailable, fail, or the device isn't enrolled.
-- **Backend (NestJS):** a WebAuthn credentials table (userId, credentialId,
-  publicKey, counter, deviceLabel, createdAt) + register/authenticate
-  challenge+verify endpoints; a vetted server lib (e.g. SimpleWebAuthn).
-- **Tenant policy:** whether a school can require / allow / forbid biometrics.
-- **Recovery:** account-recovery path if the only enrolled device is lost.
+Future assignment editors, readers, and media players should use the existing
+focus-mode and semantic-activity hooks. They should add their own draft/checkpoint
+endpoint before being designated long-work screens; extending the warning is
+not a substitute for preserving work.
 
----
+## Security boundaries
 
-## Open Questions to resolve first (ask before building)
+The browser inactivity timer is a user-experience and unattended-device
+control. It is not the only server security boundary. The fixed refresh-session
+expiry, access-token verification, database session validation, route guards,
+and permission checks remain authoritative.
 
-**Session & refresh (A)**
-1. What are the current access-token and refresh-token TTLs (from the API config)?
-2. Sliding sessions (activity extends up to a cap) or fixed absolute lifetime?
-3. On refresh failure mid-action, is a hard logout + return-to-path acceptable?
+## Verification record (2026-07-16)
 
-**Idle auto-logout (B)**
-4. What counts as "activity" — pointer/keyboard only, or also route/API calls?
-5. Default idle timeout, and the allowed tenant range `[MIN, MAX]`?
-6. Exact name/location of the `.env` hard-cap key (group beside which keys)?
-7. Warn-before-logout countdown — yes/no, and how long?
-8. Different timeouts per role/clearance (e.g. Finance stricter than Student)?
-9. Which role can edit the tenant timeout, and where does it live in Settings?
-10. Log out all tabs together?
+- Web TypeScript check: passed.
+- Web unit tests: **85/85** passed, including lifecycle timestamps, signed
+  resume, route authorization, and refresh single-flight/retry.
+- UI tests: **104/104** passed.
+- API unit tests: **300/300** passed across **45** suites.
+- API production build and web production build: passed.
+- API lint: passed with pre-existing warnings only and no errors.
+- UI/database strict lint still reports four pre-existing warnings in
+  `table.tsx`, `school-switcher.tsx`, and `verify-app-runtime.ts`; none is in a
+  file changed by this work.
+- Prisma client generation: passed.
+- Migration `20260716103000_session_idle_timeout_default`: applied locally.
+- Permission seed: **299** permissions and **1,690** pool assignments verified.
+- Physical iPhone installed-PWA acceptance: passed and confirmed by the product
+  owner on **2026-07-17**.
 
-**Biometrics (C)**
-11. Passwordless login, or step-up/unlock only (or both, phased)?
-12. Platform authenticators only, or also roaming security keys?
-13. Can a school require/forbid biometrics (tenant policy)?
-14. Multiple devices per user + a manage/remove UI?
-15. Recovery flow if the only enrolled device is lost?
+## Workstream C — Biometrics / passkeys
 
-**Cross-cutting**
-16. Audit-log auth events (login/logout/refresh/idle-timeout/biometric)? The app
-    already has an audit-log destination — reuse it?
-17. Any compliance constraints (data residency, session-length mandates)?
-
-## Suggested phasing
-
-1. **A — silent refresh** (fixes the bug we hit; unblocks everything).
-2. **B — idle auto-logout** (depends on A for the "stay signed in" refresh).
-3. **C — biometrics**, likely step-up/unlock first (C.2), passwordless later.
-
-## Related
-
-- Session seam: `apps/web/lib/session.ts`; middleware: `apps/web/middleware.ts`.
-- Refresh route (unused today): `apps/web/app/api/auth/refresh/route.ts`.
-- MFA already exists (`api/auth/verify-mfa`) — align biometrics with it.
+Continue from `biometrics-plan.md`. Silent refresh is no longer a blocker for
+expanding the server-owned step-up catalog and its governance surfaces.

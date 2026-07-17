@@ -8,9 +8,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import {
   COOKIE_ACCESS_TOKEN,
+  COOKIE_REFRESH_TOKEN,
   COOKIE_POST_LOGIN_REDIRECT,
+  COOKIE_SESSION_RESUME,
   isSafeRedirectPath,
 } from './lib/auth-cookies';
+import {
+  buildHttpsRedirectUrl,
+  shouldRedirectToHttps,
+} from './lib/secure-origin';
+import {
+  createResumeState,
+  RESUME_MAX_AGE_SECONDS,
+  signResumeState,
+} from './lib/resume-state';
 import { extractTenantSlug, TENANT_SLUG_HEADER } from './lib/tenant-host';
 
 const PUBLIC_PATHS = new Set([
@@ -18,6 +29,7 @@ const PUBLIC_PATHS = new Set([
   '/forgot-password',
   '/reset-password',
   '/accept-invite',
+  '/session/resume',
 ]);
 
 /**
@@ -35,7 +47,18 @@ function tenantAwareNext(req: NextRequest): NextResponse {
   return NextResponse.next({ request: { headers } });
 }
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
+  const forwardedHost =
+    req.headers.get('x-forwarded-host') ?? req.headers.get('host');
+  const forwardedProto =
+    req.headers.get('x-forwarded-proto') ??
+    req.nextUrl.protocol.replace(/:$/, '');
+
+  if (shouldRedirectToHttps(forwardedHost, forwardedProto)) {
+    const httpsUrl = buildHttpsRedirectUrl(req.url, forwardedHost);
+    return NextResponse.redirect(httpsUrl, 308);
+  }
+
   const { pathname } = req.nextUrl;
 
   // Let public paths and Next.js internals through (still tenant-tagged).
@@ -50,6 +73,39 @@ export function middleware(req: NextRequest) {
 
   const hasToken = req.cookies.has(COOKIE_ACCESS_TOKEN);
   if (!hasToken) {
+    const hasRefreshToken = req.cookies.has(COOKIE_REFRESH_TOKEN);
+
+    // Installed PWAs are commonly suspended past the one-hour access-token
+    // lifetime. If the fixed-lifetime refresh session remains valid, pass
+    // through a public refresh trampoline instead of showing a false logout.
+    if (hasRefreshToken) {
+      const resumeUrl = req.nextUrl.clone();
+      resumeUrl.pathname = '/session/resume';
+      resumeUrl.search = '';
+      const response = NextResponse.redirect(resumeUrl);
+      const state = createResumeState({
+        path: `${pathname}${req.nextUrl.search}`,
+      });
+      const signed = state ? await signResumeState(state) : null;
+      if (signed) {
+        response.cookies.set(COOKIE_SESSION_RESUME, signed, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV === 'production',
+          path: '/',
+          maxAge: RESUME_MAX_AGE_SECONDS,
+        });
+      }
+      response.cookies.set(COOKIE_POST_LOGIN_REDIRECT, '/session/resume', {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: RESUME_MAX_AGE_SECONDS,
+      });
+      return response;
+    }
+
     const loginUrl = req.nextUrl.clone();
     loginUrl.pathname = '/login';
     loginUrl.search = '';

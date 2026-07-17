@@ -8,8 +8,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiClient, ApiError } from '@/lib/api-client';
-import { COOKIE_ACCESS_TOKEN } from '@/lib/auth-cookies';
+import { apiClient } from '@/lib/api-client';
+import {
+  apiErrorResponse,
+  bearerAuthHeaders,
+  withAccessRefresh,
+} from '@/lib/api-proxy';
+import { attachRefreshedAccess } from '@/lib/server-refresh';
 
 interface SetDefaultProfileBody {
   profileId: string;
@@ -21,26 +26,25 @@ export async function PATCH(req: NextRequest) {
     const { profileId } = body;
 
     if (!profileId) {
-      return NextResponse.json({ error: 'profileId is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'profileId is required' },
+        { status: 400 },
+      );
     }
 
-    const accessToken = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const result = await apiClient.patch<{ success: boolean; defaultProfileId: string }>(
-      '/auth/default-profile',
-      { profileId },
-      { Authorization: `Bearer ${accessToken}` },
+    const { value: result, refreshed } = await withAccessRefresh(
+      req,
+      (accessToken) =>
+        apiClient.patch<{ success: boolean; defaultProfileId: string }>(
+          '/auth/default-profile',
+          { profileId },
+          bearerAuthHeaders(req, accessToken),
+        ),
     );
 
-    return NextResponse.json(result);
+    return attachRefreshedAccess(NextResponse.json(result), refreshed);
   } catch (err) {
-    if (err instanceof ApiError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
     console.error('[auth/default-profile]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiErrorResponse(err);
   }
 }

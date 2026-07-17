@@ -81,7 +81,9 @@ export class AssessmentTakingService {
       throw new BadRequestException('Assessment is not open for taking');
     }
     if (assessment.dueDate && assessment.dueDate.getTime() < Date.now()) {
-      throw new BadRequestException('The deadline for this assessment has passed');
+      throw new BadRequestException(
+        'The deadline for this assessment has passed',
+      );
     }
     return assessment;
   }
@@ -293,22 +295,38 @@ export class AssessmentTakingService {
       ...(marking.needsManualGrading ? {} : { gradedAt: new Date() }),
     };
 
-    const submission = open
-      ? await this.client.assessmentSubmission.update({
-          where: { id: open.id },
-          data,
-          select: SUBMISSION_SELECT,
-        })
-      : await this.client.assessmentSubmission.create({
-          data: {
-            tenantId,
-            assessmentId,
-            enrollmentId: enrollment.id,
-            attempt: (attempts[0]?.attempt ?? 0) + 1,
-            ...data,
-          },
-          select: SUBMISSION_SELECT,
-        });
+    let submission;
+    if (open) {
+      const claimed = await this.client.assessmentSubmission.updateMany({
+        where: { id: open.id, status: 'in_progress' },
+        data,
+      });
+      if (claimed.count !== 1) {
+        throw new BadRequestException(
+          'This attempt has already been submitted',
+        );
+      }
+      submission = await this.client.assessmentSubmission.findUnique({
+        where: { id: open.id },
+        select: SUBMISSION_SELECT,
+      });
+      if (!submission) {
+        throw new BadRequestException(
+          'This assessment attempt no longer exists',
+        );
+      }
+    } else {
+      submission = await this.client.assessmentSubmission.create({
+        data: {
+          tenantId,
+          assessmentId,
+          enrollmentId: enrollment.id,
+          attempt: (attempts[0]?.attempt ?? 0) + 1,
+          ...data,
+        },
+        select: SUBMISSION_SELECT,
+      });
+    }
 
     if (!marking.needsManualGrading) {
       await this.upsertGrade(
@@ -321,6 +339,83 @@ export class AssessmentTakingService {
       );
     }
 
+    return submission;
+  }
+
+  /** Persist ungraded answers for the student's one active attempt. */
+  async saveDraft(
+    tenantId: string,
+    actor: AcademicsActor,
+    assessmentId: string,
+    dto: SubmitAssessmentDto,
+  ) {
+    const assessment = await this.getTakeableAssessment(tenantId, assessmentId);
+    const enrollment = await this.getOwnEnrollment(
+      tenantId,
+      actor,
+      assessment.classId,
+    );
+    const open = await this.client.assessmentSubmission.findFirst({
+      where: {
+        tenantId,
+        assessmentId,
+        enrollmentId: enrollment.id,
+        status: 'in_progress',
+      },
+      select: { id: true, startedAt: true },
+    });
+    if (!open) {
+      throw new BadRequestException(
+        'Start the assessment before saving answers',
+      );
+    }
+
+    if (assessment.durationMinutes) {
+      const deadline =
+        open.startedAt.getTime() +
+        assessment.durationMinutes * 60 * 1000 +
+        DURATION_GRACE_MS;
+      if (Date.now() > deadline) {
+        throw new BadRequestException('Time is up for this attempt');
+      }
+    }
+
+    const rows = await this.client.assessmentQuestion.findMany({
+      where: { tenantId, assessmentId },
+      select: { questionId: true },
+    });
+    const knownIds = new Set(rows.map((row) => row.questionId));
+    const seen = new Set<string>();
+    for (const answer of dto.answers) {
+      if (!knownIds.has(answer.questionId)) {
+        throw new BadRequestException(
+          `Question ${answer.questionId} is not on this assessment`,
+        );
+      }
+      if (seen.has(answer.questionId)) {
+        throw new BadRequestException(
+          `Duplicate answer for question ${answer.questionId}`,
+        );
+      }
+      seen.add(answer.questionId);
+    }
+
+    const saved = await this.client.assessmentSubmission.updateMany({
+      where: { id: open.id, status: 'in_progress' },
+      data: { answers: dto.answers as object[] },
+    });
+    if (saved.count !== 1) {
+      throw new BadRequestException(
+        'This assessment attempt is no longer active',
+      );
+    }
+    const submission = await this.client.assessmentSubmission.findUnique({
+      where: { id: open.id },
+      select: SUBMISSION_SELECT,
+    });
+    if (!submission) {
+      throw new BadRequestException('This assessment attempt no longer exists');
+    }
     return submission;
   }
 
@@ -380,7 +475,8 @@ export class AssessmentTakingService {
 
     const values = {
       pointsEarned,
-      percentage: computed.percentage ?? this.percentage(pointsEarned, maxPoints),
+      percentage:
+        computed.percentage ?? this.percentage(pointsEarned, maxPoints),
       letterGrade: computed.letterGrade ?? null,
       gpaPoints: computed.gpaPoints ?? null,
       status: 'graded',

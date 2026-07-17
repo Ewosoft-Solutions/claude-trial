@@ -122,14 +122,18 @@ export class SessionService {
    * Revoke session
    *
    * @param prisma - Prisma client instance
-   * @param token - Session token
+   * @param userId - Owner of the session
+   * @param token - Refresh token stored on the session
    */
   static async revokeSession(
     prisma: PrismaClient,
+    userId: string,
     token: string,
   ): Promise<void> {
-    await prisma.session.update({
-      where: { token },
+    // Logout is idempotent: an expired, previously revoked, or already-cleaned
+    // session is still successfully logged out from the caller's perspective.
+    await prisma.session.updateMany({
+      where: { userId, token, revokedAt: null },
       data: {
         revokedAt: new Date(),
       },

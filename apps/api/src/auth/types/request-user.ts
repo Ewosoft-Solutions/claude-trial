@@ -7,6 +7,8 @@ export interface RequestUser {
   tenantId: string;
   profileId: string;
   roleId: string;
+  /** Expiry of the verified access token, expressed as epoch seconds. */
+  accessTokenExpiresAt?: number;
   email?: string;
   firstName?: string;
   lastName?: string;

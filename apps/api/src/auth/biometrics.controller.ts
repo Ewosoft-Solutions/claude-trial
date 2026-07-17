@@ -22,14 +22,16 @@ import {
   Logger,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
-import { DatabaseService } from '../common';
+import { AUDIT_ACTION, AUDIT_EVENT, DatabaseService } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
-import { JwtAuthGuard } from './guards';
+import { JwtAuthGuard, RequireStepUp, StepUpGuard } from './guards';
+import { STEP_UP_OPERATION } from './step-up.operations';
 import { BiometricsService } from './services/biometrics.service';
 import {
   VerifyBiometricRegistrationDto,
   RenameBiometricDeviceDto,
+  RemoveBiometricDeviceDto,
 } from './dto/biometrics.dto';
 
 @ApiTags('Biometrics')
@@ -75,6 +77,8 @@ export class BiometricsController {
    */
   @Post('register/verify')
   @HttpCode(HttpStatus.CREATED)
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.BIOMETRICS_ENROLL)
   @ApiOperation({ summary: 'Verify and store an enrolled biometric device' })
   async registerVerify(
     @Body() dto: VerifyBiometricRegistrationDto,
@@ -91,6 +95,12 @@ export class BiometricsController {
         dto.challengeId,
         dto.registrationResponse,
         dto.label,
+      );
+      await this.recordBiometricAudit(
+        user,
+        AUDIT_ACTION.AUTHENTICATION.BIOMETRIC_ENROLLED,
+        id,
+        'Biometric sign-in method enrolled',
       );
       return { success: true, id };
     } catch (err) {
@@ -143,7 +153,12 @@ export class BiometricsController {
     }
 
     const prisma = this.dbService.client;
-    await this.biometricsService.renameDevice(prisma, user.userId, id, dto.label);
+    await this.biometricsService.renameDevice(
+      prisma,
+      user.userId,
+      id,
+      dto.label,
+    );
     return { success: true };
   }
 
@@ -154,14 +169,59 @@ export class BiometricsController {
    */
   @Delete('devices/:id')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.BIOMETRICS_REMOVE)
   @ApiOperation({ summary: 'Remove an enrolled biometric device' })
-  async removeDevice(@Param('id') id: string, @AuthUser() user: RequestUser) {
+  async removeDevice(
+    @Param('id') id: string,
+    @Body() _dto: RemoveBiometricDeviceDto,
+    @AuthUser() user: RequestUser,
+  ) {
     if (!user?.userId) {
       throw new UnauthorizedException('User not authenticated');
     }
 
     const prisma = this.dbService.client;
-    await this.biometricsService.removeDevice(prisma, user.userId, id);
-    return { success: true };
+    const removed = await this.biometricsService.removeDevice(
+      prisma,
+      user.userId,
+      id,
+    );
+    await this.recordBiometricAudit(
+      user,
+      AUDIT_ACTION.AUTHENTICATION.BIOMETRIC_REMOVED,
+      id,
+      'Biometric sign-in method removed',
+    );
+    return { success: true, ...removed };
+  }
+
+  /** Audit persistence is best-effort and must not break account recovery. */
+  private async recordBiometricAudit(
+    user: RequestUser,
+    action:
+      | typeof AUDIT_ACTION.AUTHENTICATION.BIOMETRIC_ENROLLED
+      | typeof AUDIT_ACTION.AUTHENTICATION.BIOMETRIC_REMOVED,
+    methodId: string,
+    description: string,
+  ): Promise<void> {
+    try {
+      await this.dbService.client.auditLog.create({
+        data: {
+          tenantId: user.tenantId || null,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action,
+          resource: 'biometric_method',
+          resourceId: methodId,
+          actorId: user.userId,
+          actorProfileId: user.profileId || null,
+          actorEmail: user.email || null,
+          description,
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      this.logger.error('Failed to audit biometric device change', auditError);
+    }
   }
 }

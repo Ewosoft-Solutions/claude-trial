@@ -82,7 +82,7 @@ export const POLICY_TIERS = {
     passwordRequireSpecialChars: false,
     passwordMaxAge: 90,
     passwordPreventReuse: 5,
-    sessionTimeout: 30,
+    sessionTimeout: 15,
     requireMFAForSessionExtension: true,
     maxConcurrentSessions: 3,
     deviceManagement: 'basic' as DeviceManagement,
@@ -147,7 +147,7 @@ export const POLICY_TIERS = {
     passwordRequireSpecialChars: true,
     passwordMaxAge: 30,
     passwordPreventReuse: 20,
-    sessionTimeout: 5,
+    sessionTimeout: 15,
     requireMFAForSessionExtension: true,
     maxConcurrentSessions: 1,
     deviceManagement: 'strict' as DeviceManagement,
@@ -262,6 +262,9 @@ export class SecurityPolicyService {
         data: {
           policyTier: tier,
           ...tierConfig,
+          // Idle timeout is independently tenant-configurable. Changing a
+          // security tier must not silently replace an administrator's choice.
+          sessionTimeout: existingPolicy.sessionTimeout,
           isDefault: tier === 'basic',
           isEmergency: false,
           enforcedBy,
@@ -369,6 +372,7 @@ export class SecurityPolicyService {
         data: {
           policyTier: tier,
           ...tierConfig,
+          sessionTimeout: existingPolicy.sessionTimeout,
           isEmergency: true,
           enforcedBy: EnforcedBy.PLATFORM_ADMIN,
           enforcedByUserId,

@@ -14,6 +14,7 @@ import {
   makeSetCookie,
   makeClearCookie,
 } from '@/lib/auth-cookies';
+import { isTerminalRefreshFailure } from '@/lib/refresh-error';
 
 interface RefreshApiResponse {
   accessToken: string;
@@ -33,7 +34,10 @@ export async function POST() {
       refreshToken,
     });
 
-    const response = NextResponse.json({ success: true });
+    const response = NextResponse.json({
+      success: true,
+      accessExpiresAt: Date.now() + res.expiresIn * 1000,
+    });
     response.headers.append(
       'Set-Cookie',
       makeSetCookie(COOKIE_ACCESS_TOKEN, res.accessToken, res.expiresIn),
@@ -42,16 +46,31 @@ export async function POST() {
     return response;
   } catch (err) {
     if (err instanceof ApiError) {
-      // Refresh token invalid — clear both cookies
+      if (!isTerminalRefreshFailure(err.status)) {
+        return NextResponse.json(
+          { error: 'Session refresh is temporarily unavailable' },
+          { status: err.status },
+        );
+      }
+      // Refresh credential is invalid — clear both cookies.
       const response = NextResponse.json(
         { error: 'Session expired' },
         { status: 401 },
       );
-      response.headers.append('Set-Cookie', makeClearCookie(COOKIE_ACCESS_TOKEN));
-      response.headers.append('Set-Cookie', makeClearCookie(COOKIE_REFRESH_TOKEN));
+      response.headers.append(
+        'Set-Cookie',
+        makeClearCookie(COOKIE_ACCESS_TOKEN),
+      );
+      response.headers.append(
+        'Set-Cookie',
+        makeClearCookie(COOKIE_REFRESH_TOKEN),
+      );
       return response;
     }
     console.error('[auth/refresh]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 },
+    );
   }
 }

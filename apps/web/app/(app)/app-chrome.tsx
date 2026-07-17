@@ -34,6 +34,10 @@ import type {
 
 import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
+import {
+  useResumableModal,
+  useSessionLifecycle,
+} from '@/app/providers/session-lifecycle-provider';
 
 const AiWorkspaceLauncher = dynamic(
   () => import('./_shared/ai-workspace').then((mod) => mod.AiWorkspaceLauncher),
@@ -99,6 +103,9 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const { signOut } = useSessionLifecycle();
+  const reopenSearch = React.useCallback(() => setSearchOpen(true), []);
+  useResumableModal('global-search', searchOpen, reopenSearch);
 
   React.useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
@@ -151,9 +158,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           ? {
               ...item,
               onSelect: async () => {
-                await fetch('/api/auth/logout', { method: 'POST' });
-                router.push('/login');
-                router.refresh();
+                await signOut();
               },
             }
           : item.key === 'account'
@@ -163,7 +168,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               }
             : item,
       ),
-    [pathname, router],
+    [pathname, signOut],
   );
 
   const navigate = React.useCallback(

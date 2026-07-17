@@ -26,6 +26,7 @@ import {
   SetDefaultProfileDto,
   UpdateAccountDto,
   RefreshTokenDto,
+  LogoutDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
   PasskeyLoginOptionsDto,
@@ -34,8 +35,9 @@ import {
 import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { PermissionService } from './services/permission.service';
+import { SessionPolicyService } from './services/session-policy.service';
 import { JwtAuthGuard, PreAuthGuard } from './guards';
-import { DatabaseService, extractBearerToken } from '../common';
+import { AUDIT_ACTION, AUDIT_EVENT, DatabaseService } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
 import { SchoolSelectionService, type UserSchoolProfile } from '@workspace/api';
@@ -99,6 +101,7 @@ export class AuthController {
     private readonly authenticationService: AuthenticationService,
     private readonly passwordResetService: PasswordResetService,
     private readonly permissionService: PermissionService,
+    private readonly sessionPolicyService: SessionPolicyService,
     private readonly dbService: DatabaseService,
   ) {}
 
@@ -118,13 +121,17 @@ export class AuthController {
     const prisma = this.dbService.client;
     const { userId, tenantId, profileId } = user;
 
-    // Resolve permission context (role, clearanceLevel, permission names)
-    const ctx = await this.permissionService.getUserPermissionContext(
-      prisma,
-      userId,
-      tenantId,
-      profileId,
-    );
+    // Permission and session-policy reads are independent; start both before
+    // awaiting either to avoid a serial waterfall on every app navigation.
+    const [ctx, sessionPolicy] = await Promise.all([
+      this.permissionService.getUserPermissionContext(
+        prisma,
+        userId,
+        tenantId,
+        profileId,
+      ),
+      this.sessionPolicyService.getEffectivePolicy(prisma, tenantId),
+    ]);
 
     if (!ctx) {
       throw new UnauthorizedException('Session context unavailable');
@@ -149,8 +156,9 @@ export class AuthController {
     // Resolve role name (for caption)
     const role = await prisma.role.findUnique({
       where: { id: ctx.roleId },
-      select: { name: true, clearanceLevel: true },
+      select: { name: true, clearanceLevel: true, roleType: true },
     });
+    const scope = role?.roleType === 'platform' ? 'platform' : 'school';
 
     // Resolve all accessible schools for the user — one entry per profile
     // (UserTenant row); a user can hold multiple profiles at the same
@@ -198,13 +206,13 @@ export class AuthController {
         lastName: dbUser.lastName ?? undefined,
         phone: dbUser.phone ?? undefined,
       },
-      scope: 'school' as const,
+      scope,
       clearanceLevel: ctx.clearanceLevel,
       roles: [role?.name ?? 'Staff'],
       permissions: [...ctx.permissions.entries()]
         .filter(([, v]) => v.granted)
         .map(([name]) => name),
-      defaultSchoolId: tenantId,
+      defaultSchoolId: scope === 'school' ? tenantId : undefined,
       /** The profile the current access token was issued for — lets the
        *  frontend switcher highlight which of a user's several profiles
        *  (e.g. Teacher vs Parent at the same school) is currently active. */
@@ -213,7 +221,11 @@ export class AuthController {
        *  preferences › Schools & roles), distinct from activeProfileId — this is the
        *  stored preference, not necessarily the one live right now. */
       defaultProfileId: dbUser.defaultUserTenantId ?? undefined,
-      schools: schoolsWithFeatures,
+      schools: scope === 'school' ? schoolsWithFeatures : [],
+      sessionPolicy,
+      accessExpiresAt: user.accessTokenExpiresAt
+        ? user.accessTokenExpiresAt * 1000
+        : Date.now() + 60 * 60 * 1000,
     };
   }
 
@@ -543,16 +555,41 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
-  @ApiOperation({ summary: 'Logout current session (token blacklist)' })
-  async logout(@AuthUser() user: RequestUser, @Req() req: Request) {
+  @ApiOperation({ summary: 'Logout current refresh-token session' })
+  async logout(
+    @AuthUser() user: RequestUser,
+    @Body() logoutDto: LogoutDto,
+  ) {
     const prisma = this.dbService.client;
-    const token = extractBearerToken(req.headers.authorization);
+    const result = await this.authenticationService.logout(
+      prisma,
+      user.userId,
+      logoutDto.refreshToken,
+    );
 
-    if (!token) {
-      throw new Error('Token not found');
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: user.tenantId,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: AUDIT_ACTION.AUTHENTICATION.LOGOUT,
+          resource: 'session',
+          actorId: user.userId,
+          actorProfileId: user.profileId,
+          actorRole: user.roleId || null,
+          description:
+            logoutDto.reason === 'idle'
+              ? 'User signed out after inactivity'
+              : 'User signed out',
+          metadata: { reason: logoutDto.reason ?? 'manual' },
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to audit logout', auditError);
     }
 
-    return this.authenticationService.logout(prisma, token);
+    return result;
   }
 
   /**

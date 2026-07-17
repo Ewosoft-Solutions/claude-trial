@@ -5,6 +5,7 @@ import '@workspace/ui/globals.css';
 import { ThemeProvider } from './providers/theme-provider';
 import { PwaRegister } from './providers/pwa-register';
 import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
+import { SessionNoticeToaster } from './providers/session-notice-toaster';
 
 const geistSans = Geist({
   subsets: ['latin'],
@@ -52,6 +53,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <SessionNoticeToaster />
           {showColorSchemePreview ? <ColorScheme /> : null}
           <PwaRegister />
         </ThemeProvider>

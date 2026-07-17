@@ -189,3 +189,17 @@ export class UpdatePolicyDto {
   @Min(30)
   auditRetention?: number;
 }
+
+export class UpdateSessionPolicyDto {
+  @ApiProperty({
+    example: 15,
+    minimum: 5,
+    maximum: 120,
+    description:
+      'Minutes of real-user inactivity before the warning countdown begins',
+  })
+  @IsInt()
+  @Min(5)
+  @Max(120)
+  idleTimeoutMinutes: number;
+}

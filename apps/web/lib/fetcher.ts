@@ -5,8 +5,10 @@
  * route's `{ error }` message (the shape every proxy handler emits — see
  * lib/api-proxy.ts) so SWR surfaces it through its `error` field.
  */
+import { authedFetch } from '@/lib/authed-fetch';
+
 export async function jsonFetcher<T>(url: string): Promise<T> {
-  const res = await fetch(url);
+  const res = await authedFetch(url);
   const body: unknown = await res.json().catch(() => null);
 
   if (!res.ok) {

@@ -35,6 +35,37 @@ type AuthenticatorTransportFuture =
  */
 type AuthenticatorAttachment = 'platform' | 'cross-platform';
 
+type AuthenticationOptionsWithChallenge = Awaited<
+  ReturnType<typeof generateAuthOptions>
+> & {
+  challengeId: string;
+};
+
+const AUTHENTICATOR_TRANSPORTS = new Set<AuthenticatorTransportFuture>([
+  'ble',
+  'cable',
+  'hybrid',
+  'internal',
+  'nfc',
+  'smart-card',
+  'usb',
+]);
+
+/**
+ * Preserve the transport hints captured from `response.getTransports()` at
+ * registration. Inventing extra transports (especially `usb`) can make a
+ * browser route an iCloud/Touch ID passkey request to a physical security key.
+ */
+function storedTransports(
+  transports: string[],
+): AuthenticatorTransportFuture[] | undefined {
+  const supported = transports.filter(
+    (transport): transport is AuthenticatorTransportFuture =>
+      AUTHENTICATOR_TRANSPORTS.has(transport as AuthenticatorTransportFuture),
+  );
+  return supported.length > 0 ? supported : undefined;
+}
+
 /**
  * WebAuthn Configuration
  */
@@ -78,6 +109,11 @@ export class MfaWebAuthnService {
     };
   }
 
+  /** RP ID used by client-side passkey consistency signals. */
+  getRpId(): string {
+    return this.config.rpID;
+  }
+
   /**
    * Generate registration options for new WebAuthn credential
    *
@@ -105,8 +141,7 @@ export class MfaWebAuthnService {
       },
       select: {
         webauthnId: true,
-        webauthnPublicKey: true,
-        webauthnCounter: true,
+        webauthnTransports: true,
       },
     });
 
@@ -115,12 +150,7 @@ export class MfaWebAuthnService {
       .filter((c) => c.webauthnId)
       .map((cred) => ({
         id: cred.webauthnId!,
-        transports: [
-          'usb',
-          'nfc',
-          'ble',
-          'internal',
-        ] as AuthenticatorTransportFuture[],
+        transports: storedTransports(cred.webauthnTransports),
       }));
 
     // Generate registration options
@@ -289,20 +319,20 @@ export class MfaWebAuthnService {
     userId: string,
     operation: string,
     userVerification: 'required' | 'preferred' | 'discouraged' = 'preferred',
-  ): Promise<
-    Awaited<ReturnType<typeof generateAuthOptions>> & { challengeId: string }
-  > {
+    attachment?: AuthenticatorAttachment,
+  ): Promise<AuthenticationOptionsWithChallenge> {
     // Get user's WebAuthn credentials
     const credentials = await prisma.mfaMethod.findMany({
       where: {
         userId,
         type: 'webauthn',
         isActive: true,
+        ...(attachment ? { webauthnAttachment: attachment } : {}),
       },
       select: {
         id: true,
         webauthnId: true,
-        webauthnCounter: true,
+        webauthnTransports: true,
       },
     });
 
@@ -315,12 +345,7 @@ export class MfaWebAuthnService {
       .filter((c) => c.webauthnId)
       .map((cred) => ({
         id: cred.webauthnId!,
-        transports: [
-          'usb',
-          'nfc',
-          'ble',
-          'internal',
-        ] as AuthenticatorTransportFuture[],
+        transports: storedTransports(cred.webauthnTransports),
       }));
 
     // Generate authentication options
@@ -346,6 +371,12 @@ export class MfaWebAuthnService {
 
     return {
       ...options,
+      // The installed SimpleWebAuthn release predates this Level 3 field, so
+      // add it to the serialized response after option generation. Supporting
+      // browsers prefer the built-in/iCloud provider; older ones ignore it.
+      ...(attachment === 'platform'
+        ? { hints: ['client-device' as const] }
+        : {}),
       challengeId: challenge.id,
     };
   }
@@ -450,9 +481,7 @@ export class MfaWebAuthnService {
    */
   async generateUsernamelessLoginOptions(
     prisma: PrismaClient,
-  ): Promise<
-    Awaited<ReturnType<typeof generateAuthOptions>> & { challengeId: string }
-  > {
+  ): Promise<AuthenticationOptionsWithChallenge> {
     const opts: GenerateAuthenticationOptionsOpts = {
       rpID: this.config.rpID,
       allowCredentials: [],
@@ -472,7 +501,11 @@ export class MfaWebAuthnService {
       },
     });
 
-    return { ...options, challengeId: challenge.id };
+    return {
+      ...options,
+      hints: ['client-device'],
+      challengeId: challenge.id,
+    };
   }
 
   /**

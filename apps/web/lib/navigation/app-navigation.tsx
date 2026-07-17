@@ -505,6 +505,7 @@ export const SCHOOL_NAV: NavigationConfig = {
         anyPermission: [
           'settings.view',
           'settings.school',
+          'settings.security',
           'ai.configure',
           'roles.view',
           'users.view',
@@ -542,6 +543,15 @@ export const SCHOOL_NAV: NavigationConfig = {
               href: '/settings/features',
               access: {
                 anyPermission: ['settings.view', 'settings.school'],
+              },
+            },
+            {
+              key: 'settings-security',
+              label: 'Security',
+              icon: <ShieldCheck />,
+              href: '/settings/security',
+              access: {
+                anyPermission: ['settings.view', 'settings.security'],
               },
             },
           ],

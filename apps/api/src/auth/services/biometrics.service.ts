@@ -34,6 +34,12 @@ export interface BiometricDevice {
   lastUsedAt: Date | null;
 }
 
+/** Data the browser needs to notify its passkey provider after revocation. */
+export interface RemovedBiometricDevice {
+  credentialId: string | null;
+  rpId: string;
+}
+
 @Injectable()
 export class BiometricsService {
   constructor(private readonly webauthn: MfaWebAuthnService) {}
@@ -167,15 +173,14 @@ export class BiometricsService {
    * neither remove another user's device nor a cross-platform hardware key
    * through this endpoint.
    *
-   * NOTE: per the biometrics plan (§4C) this is a reflexive-security action and
-   * must gain `@RequireStepUp()` once the step-up flow is wired to endpoints in
-   * Phase 3 — a hijacked live session should not be able to strip biometrics.
+   * The controller protects this reflexive-security action with an
+   * operation-bound, single-use step-up challenge (§4C).
    */
   async removeDevice(
     prisma: PrismaClient,
     userId: string,
     methodId: string,
-  ): Promise<void> {
+  ): Promise<RemovedBiometricDevice> {
     const method = await prisma.mfaMethod.findFirst({
       where: {
         id: methodId,
@@ -183,7 +188,7 @@ export class BiometricsService {
         type: 'webauthn',
         webauthnAttachment: 'platform',
       },
-      select: { id: true },
+      select: { id: true, webauthnId: true },
     });
 
     if (!method) {
@@ -191,5 +196,10 @@ export class BiometricsService {
     }
 
     await prisma.mfaMethod.delete({ where: { id: method.id } });
+
+    return {
+      credentialId: method.webauthnId,
+      rpId: this.webauthn.getRpId(),
+    };
   }
 }

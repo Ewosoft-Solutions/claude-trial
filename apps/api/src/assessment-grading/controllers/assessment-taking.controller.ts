@@ -153,6 +153,22 @@ export class AssessmentTakingController {
     );
   }
 
+  @Patch(':id/submissions/draft')
+  @RequirePermissions(['assessments.take'])
+  @ApiOperation({ summary: 'Save answers for the active assessment attempt' })
+  async saveDraft(
+    @Param('id') id: string,
+    @Body() dto: SubmitAssessmentDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.taking.saveDraft(
+      req.user.tenantId,
+      this.actorFrom(req),
+      id,
+      dto,
+    );
+  }
+
   @Get(':id/submissions/mine')
   @RequirePermissions(['assessments.take'])
   @ApiOperation({ summary: "The student's own attempts" })

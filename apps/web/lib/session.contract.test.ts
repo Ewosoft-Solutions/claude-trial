@@ -31,6 +31,14 @@ const RAW_ME_RESPONSE = {
   defaultSchoolId: 'tenant-abc',
   activeProfileId: 'profile-1',
   defaultProfileId: 'profile-1',
+  sessionPolicy: {
+    idleTimeoutMinutes: 15,
+    minimumIdleTimeoutMinutes: 5,
+    maximumIdleTimeoutMinutes: 60,
+    standardWarningSeconds: 120,
+    focusWarningSeconds: 300,
+  },
+  accessExpiresAt: Date.now() + 60 * 60 * 1000,
   schools: [
     {
       id: 'tenant-abc',
@@ -53,6 +61,8 @@ const RAW_ME_RESPONSE = {
   defaultSchoolId?: string;
   activeProfileId?: string;
   defaultProfileId?: string;
+  sessionPolicy: Session['sessionPolicy'];
+  accessExpiresAt: number;
   schools: Array<{
     id: string;
     name: string;
@@ -76,6 +86,8 @@ function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
     defaultSchoolId: me.defaultSchoolId,
     activeProfileId: me.activeProfileId,
     defaultProfileId: me.defaultProfileId,
+    sessionPolicy: me.sessionPolicy,
+    accessExpiresAt: me.accessExpiresAt,
     schools: me.schools.map((s) => ({
       id: s.id,
       name: s.name,

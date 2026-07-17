@@ -10,8 +10,8 @@
    to the biometrics API. The "Set up" affordance only appears when the
    device actually exposes a platform authenticator.
 
-   Removing a device is a security-sensitive action; in a later phase it
-   will require step-up re-verification (see docs/biometrics-plan.md §4C).
+   Enrolling or removing a device first requires an operation-bound step-up
+   confirmation (see docs/biometrics-plan.md §4C).
    ============================================================ */
 
 import * as React from 'react';
@@ -37,10 +37,14 @@ import {
 } from '@workspace/ui/components/card';
 
 import {
+  getPasskeyAvailability,
   guessDeviceLabel,
-  isPlatformAuthenticatorAvailable,
+  signalUnknownPasskey,
   startRegistration,
+  type PasskeyAvailability,
 } from '@/lib/webauthn';
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { StepUpPrompt } from '../../_shared/step-up-prompt';
 
 interface BiometricDevice {
   id: string;
@@ -53,6 +57,10 @@ interface BiometricDevice {
   lastUsedAt: string | null;
 }
 
+type PendingStepUpAction =
+  | { kind: 'enroll' }
+  | { kind: 'remove'; deviceId: string };
+
 function formatDate(value: string | null): string {
   if (!value) return 'Never';
   return new Date(value).toLocaleDateString(undefined, {
@@ -63,7 +71,8 @@ function formatDate(value: string | null): string {
 }
 
 export default function SecuritySettingsPage() {
-  const [supported, setSupported] = React.useState<boolean | null>(null);
+  const [passkeyAvailability, setPasskeyAvailability] =
+    React.useState<PasskeyAvailability | null>(null);
   const [devices, setDevices] = React.useState<BiometricDevice[] | null>(null);
   const [enrolling, setEnrolling] = React.useState(false);
   const [pendingRemove, setPendingRemove] = React.useState<string | null>(null);
@@ -72,6 +81,8 @@ export default function SecuritySettingsPage() {
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editValue, setEditValue] = React.useState('');
   const [savingId, setSavingId] = React.useState<string | null>(null);
+  const [pendingStepUp, setPendingStepUp] =
+    React.useState<PendingStepUpAction | null>(null);
 
   const loadDevices = React.useCallback(async () => {
     try {
@@ -83,11 +94,14 @@ export default function SecuritySettingsPage() {
   }, []);
 
   React.useEffect(() => {
-    isPlatformAuthenticatorAvailable().then(setSupported);
+    // Do not treat the platform-authenticator advisory probe as authoritative:
+    // iOS standalone PWAs can report false even when Face ID passkeys work.
+    // A user-triggered WebAuthn ceremony is the reliable availability check.
+    setPasskeyAvailability(getPasskeyAvailability());
     void loadDevices();
   }, [loadDevices]);
 
-  async function handleEnroll() {
+  async function handleEnroll(stepUpChallengeId: string) {
     setEnrolling(true);
     setError(null);
     setNotice(null);
@@ -111,6 +125,7 @@ export default function SecuritySettingsPage() {
           challengeId,
           registrationResponse,
           label: guessDeviceLabel(),
+          stepUpChallengeId,
         }),
       });
       if (!verifyRes.ok) {
@@ -133,24 +148,56 @@ export default function SecuritySettingsPage() {
     }
   }
 
-  async function handleRemove(id: string) {
+  async function handleRemove(id: string, stepUpChallengeId: string) {
     setPendingRemove(id);
     setError(null);
     setNotice(null);
     try {
       const res = await fetch(`/api/auth/biometrics/devices/${id}`, {
         method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stepUpChallengeId }),
       });
       if (!res.ok) {
         throw new Error(
           (await res.json())?.error ?? 'Could not remove this device.',
         );
       }
+
+      const removed = (await res.json()) as {
+        credentialId?: string | null;
+        rpId?: string;
+      };
+      const signalResult =
+        removed.credentialId && removed.rpId
+          ? await signalUnknownPasskey({
+              rpId: removed.rpId,
+              credentialId: removed.credentialId,
+            })
+          : 'unsupported';
+
+      setNotice(
+        signalResult === 'signalled'
+          ? 'Passkey removed. Your current password manager was notified and may hide or delete its copy.'
+          : 'Passkey removed from this account. Delete it from your password manager too so it is no longer offered.',
+      );
       await loadDevices();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not remove device.');
     } finally {
       setPendingRemove(null);
+    }
+  }
+
+  function handleStepUpVerified(stepUpChallengeId: string) {
+    const action = pendingStepUp;
+    setPendingStepUp(null);
+    if (!action) return;
+
+    if (action.kind === 'enroll') {
+      void handleEnroll(stepUpChallengeId);
+    } else {
+      void handleRemove(action.deviceId, stepUpChallengeId);
     }
   }
 
@@ -186,7 +233,9 @@ export default function SecuritySettingsPage() {
       setEditValue('');
       await loadDevices();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not rename this device.');
+      setError(
+        err instanceof Error ? err.message : 'Could not rename this device.',
+      );
     } finally {
       setSavingId(null);
     }
@@ -209,23 +258,28 @@ export default function SecuritySettingsPage() {
           <CardDescription>
             Use your device&apos;s Face ID, fingerprint, or PIN to sign in
             faster — no password to type. Your biometric never leaves the
-            device; the school only stores a public key. This is optional and
-            doesn&apos;t replace multi-factor authentication if your school
-            requires it.
+            device; the school only stores a public key. A user-verified passkey
+            counts as multi-factor authentication, while password and recovery
+            options remain available.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {supported === false ? (
+          {passkeyAvailability === 'insecure-context' ? (
             <p className="text-sm text-muted-foreground">
-              This device or browser doesn&apos;t support biometric sign-in. You
-              can still set it up later from a device with Face ID, Touch ID,
-              Windows Hello, or Android biometrics.
+              Passkeys require HTTPS. Remove this Home Screen app, open this
+              site over HTTPS in Safari, then add it to the Home Screen again.
+            </p>
+          ) : passkeyAvailability === 'unsupported' ? (
+            <p className="text-sm text-muted-foreground">
+              This browser doesn&apos;t expose passkey support. You can still
+              set it up later from a browser with Face ID, Touch ID, Windows
+              Hello, or Android biometrics.
             </p>
           ) : (
             <div>
               <Button
-                onClick={handleEnroll}
-                disabled={enrolling || supported === null}
+                onClick={() => setPendingStepUp({ kind: 'enroll' })}
+                disabled={enrolling || passkeyAvailability === null}
               >
                 <Fingerprint className="size-4" />
                 {enrolling ? 'Waiting for device…' : 'Set up biometric sign-in'}
@@ -340,7 +394,12 @@ export default function SecuritySettingsPage() {
                           variant="outline"
                           size="sm"
                           disabled={pendingRemove === device.id}
-                          onClick={() => handleRemove(device.id)}
+                          onClick={() =>
+                            setPendingStepUp({
+                              kind: 'remove',
+                              deviceId: device.id,
+                            })
+                          }
                         >
                           <Trash2 className="size-3" />
                           {pendingRemove === device.id ? 'Removing…' : 'Remove'}
@@ -354,6 +413,29 @@ export default function SecuritySettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <StepUpPrompt
+        open={pendingStepUp !== null}
+        operation={
+          pendingStepUp?.kind === 'enroll'
+            ? STEP_UP_OPERATION.BIOMETRICS_ENROLL
+            : pendingStepUp?.kind === 'remove'
+              ? STEP_UP_OPERATION.BIOMETRICS_REMOVE
+              : null
+        }
+        title={
+          pendingStepUp?.kind === 'remove'
+            ? 'Confirm passkey removal'
+            : 'Confirm biometric setup'
+        }
+        description={
+          pendingStepUp?.kind === 'remove'
+            ? 'Confirm it is you before removing this sign-in method.'
+            : 'Confirm it is you before adding a new sign-in method.'
+        }
+        onCancel={() => setPendingStepUp(null)}
+        onVerified={handleStepUpVerified}
+      />
     </div>
   );
 }

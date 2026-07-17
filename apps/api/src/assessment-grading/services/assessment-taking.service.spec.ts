@@ -33,6 +33,7 @@ function makeService(overrides: {
   paper?: ReturnType<typeof paperRow>[];
   attempts?: Array<Record<string, unknown>>;
   enrollment?: Record<string, unknown> | null;
+  submissionUpdateCount?: number;
 }) {
   const created: Record<string, unknown>[] = [];
   const updated: Record<string, unknown>[] = [];
@@ -64,6 +65,12 @@ function makeService(overrides: {
     assessmentSubmission: {
       findMany: jest.fn().mockResolvedValue(overrides.attempts ?? []),
       findFirst: jest.fn().mockResolvedValue(null),
+      findUnique: jest.fn().mockImplementation(() =>
+        Promise.resolve({
+          id: 'submission-1',
+          ...(updated.at(-1) ?? {}),
+        }),
+      ),
       create: jest
         .fn()
         .mockImplementation(({ data }: { data: Record<string, unknown> }) => {
@@ -76,14 +83,21 @@ function makeService(overrides: {
           updated.push(data);
           return Promise.resolve({ id: 'submission-1', ...data });
         }),
+      updateMany: jest
+        .fn()
+        .mockImplementation(({ data }: { data: Record<string, unknown> }) => {
+          if (overrides.submissionUpdateCount === 0) {
+            return Promise.resolve({ count: 0 });
+          }
+          updated.push(data);
+          return Promise.resolve({ count: 1 });
+        }),
     },
     grade: {
-      upsert: jest
-        .fn()
-        .mockImplementation((args: Record<string, unknown>) => {
-          gradeUpserts.push(args);
-          return Promise.resolve({});
-        }),
+      upsert: jest.fn().mockImplementation((args: Record<string, unknown>) => {
+        gradeUpserts.push(args);
+        return Promise.resolve({});
+      }),
     },
   };
 
@@ -176,7 +190,9 @@ describe('AssessmentTakingService.submit', () => {
   it('enforces maxAttempts', async () => {
     const { service } = makeService({
       paper: [paperRow('q1', 1, 'mcq', 'A')],
-      attempts: [{ id: 's1', attempt: 1, status: 'graded', startedAt: new Date() }],
+      attempts: [
+        { id: 's1', attempt: 1, status: 'graded', startedAt: new Date() },
+      ],
     });
     await expect(
       service.submit(TENANT, ACTOR, 'assessment-1', {
@@ -214,6 +230,27 @@ describe('AssessmentTakingService.submit', () => {
     ).rejects.toThrow(/Time is up/);
   });
 
+  it('does not overwrite an attempt concurrently submitted elsewhere', async () => {
+    const { service } = makeService({
+      paper: [paperRow('q1', 1, 'mcq', 'A')],
+      attempts: [
+        {
+          id: 's1',
+          attempt: 1,
+          status: 'in_progress',
+          startedAt: new Date(),
+        },
+      ],
+      submissionUpdateCount: 0,
+    });
+
+    await expect(
+      service.submit(TENANT, ACTOR, 'assessment-1', {
+        answers: [{ questionId: 'q1', answer: 'A' }],
+      }),
+    ).rejects.toThrow(/already been submitted/);
+  });
+
   it('refuses unpublished assessments and non-enrolled students', async () => {
     const draft = makeService({
       assessment: {
@@ -241,6 +278,60 @@ describe('AssessmentTakingService.submit', () => {
   });
 });
 
+describe('AssessmentTakingService.saveDraft', () => {
+  it('persists answers only on the active attempt without grading', async () => {
+    const { service, client, updated, gradeUpserts } = makeService({
+      paper: [paperRow('q1', 2, 'mcq', 'A')],
+    });
+    client.assessmentSubmission.findFirst.mockResolvedValue({
+      id: 'submission-1',
+      startedAt: new Date(),
+    });
+
+    const result = await service.saveDraft(TENANT, ACTOR, 'assessment-1', {
+      answers: [{ questionId: 'q1', answer: 'B' }],
+    });
+
+    expect(updated).toEqual([{ answers: [{ questionId: 'q1', answer: 'B' }] }]);
+    expect(result).toEqual(
+      expect.objectContaining({
+        id: 'submission-1',
+        answers: [{ questionId: 'q1', answer: 'B' }],
+      }),
+    );
+    expect(gradeUpserts).toHaveLength(0);
+  });
+
+  it('rejects draft writes without an active attempt', async () => {
+    const { service } = makeService({
+      paper: [paperRow('q1', 2, 'mcq', 'A')],
+    });
+
+    await expect(
+      service.saveDraft(TENANT, ACTOR, 'assessment-1', {
+        answers: [{ questionId: 'q1', answer: 'B' }],
+      }),
+    ).rejects.toThrow(/Start the assessment/);
+  });
+
+  it('does not let a late draft overwrite a submitted attempt', async () => {
+    const { service, client } = makeService({
+      paper: [paperRow('q1', 2, 'mcq', 'A')],
+      submissionUpdateCount: 0,
+    });
+    client.assessmentSubmission.findFirst.mockResolvedValue({
+      id: 'submission-1',
+      startedAt: new Date(),
+    });
+
+    await expect(
+      service.saveDraft(TENANT, ACTOR, 'assessment-1', {
+        answers: [{ questionId: 'q1', answer: 'B' }],
+      }),
+    ).rejects.toThrow(/no longer active/);
+  });
+});
+
 describe('AssessmentTakingService.gradeSubmission', () => {
   function makeGradingService(submission: Record<string, unknown> | null) {
     const gradeUpserts: unknown[] = [];
@@ -262,7 +353,9 @@ describe('AssessmentTakingService.gradeSubmission', () => {
         }),
       },
     };
-    const access = { assertCanManageClass: jest.fn().mockResolvedValue(undefined) };
+    const access = {
+      assertCanManageClass: jest.fn().mockResolvedValue(undefined),
+    };
     const grading = { computeGrade: jest.fn().mockReturnValue({}) };
     const service = new AssessmentTakingService(
       { client } as never,
@@ -287,10 +380,16 @@ describe('AssessmentTakingService.gradeSubmission', () => {
   };
 
   it('records the manual total and upserts the Grade', async () => {
-    const { service, gradeUpserts, updates } = makeGradingService(baseSubmission);
-    const result = await service.gradeSubmission(TENANT, TEACHER, 'submission-1', {
-      pointsEarned: 8,
-    });
+    const { service, gradeUpserts, updates } =
+      makeGradingService(baseSubmission);
+    const result = await service.gradeSubmission(
+      TENANT,
+      TEACHER,
+      'submission-1',
+      {
+        pointsEarned: 8,
+      },
+    );
     expect(result.status).toBe('graded');
     expect(updates[0].data.needsManualGrading).toBe(false);
     expect(gradeUpserts).toHaveLength(1);
@@ -299,10 +398,15 @@ describe('AssessmentTakingService.gradeSubmission', () => {
   it('rejects totals above the paper maximum and ungraded in-progress attempts', async () => {
     const { service } = makeGradingService(baseSubmission);
     await expect(
-      service.gradeSubmission(TENANT, TEACHER, 'submission-1', { pointsEarned: 11 }),
+      service.gradeSubmission(TENANT, TEACHER, 'submission-1', {
+        pointsEarned: 11,
+      }),
     ).rejects.toThrow(/cannot exceed/);
 
-    const inProgress = makeGradingService({ ...baseSubmission, status: 'in_progress' });
+    const inProgress = makeGradingService({
+      ...baseSubmission,
+      status: 'in_progress',
+    });
     await expect(
       inProgress.service.gradeSubmission(TENANT, TEACHER, 'submission-1', {
         pointsEarned: 5,

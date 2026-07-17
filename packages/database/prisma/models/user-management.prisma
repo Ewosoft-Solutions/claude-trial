@@ -191,7 +191,7 @@ model MfaChallenge {
   // credential at verification time.
   userId      String? @map("user_id")
   mfaMethodId String? @map("mfa_method_id") // Nullable for recovery codes
-  type        String // 'sms' | 'email' | 'totp' | 'webauthn' | 'recovery'
+  type        String // 'sms' | 'email' | 'totp' | 'webauthn' | 'recovery' | 'password'
 
   // Challenge data
   code              String? // For SMS/Email: verification code (hashed)

@@ -13,6 +13,8 @@ jest.mock('@simplewebauthn/server', () => ({
 }));
 
 import {
+  generateAuthenticationOptions,
+  generateRegistrationOptions,
   verifyRegistrationResponse,
   verifyAuthenticationResponse,
 } from '@simplewebauthn/server';
@@ -141,6 +143,94 @@ describe('MfaWebAuthnService — credential-id encoding (P0-4)', () => {
     expect(verifyArg.expectedOrigin).toEqual([
       'https://schoolwithease.com',
       'https://acme.schoolwithease.com',
+    ]);
+  });
+});
+
+describe('MfaWebAuthnService — authenticator routing', () => {
+  it('uses stored transports and only platform credentials for biometric login', async () => {
+    const service = makeService();
+    const findMany = jest.fn().mockResolvedValue([
+      {
+        id: 'platform-method',
+        webauthnId: 'platform-credential',
+        webauthnAttachment: 'platform',
+        webauthnTransports: ['hybrid', 'internal'],
+      },
+    ]);
+    const prisma = {
+      mfaMethod: { findMany },
+      mfaChallenge: {
+        create: jest.fn().mockResolvedValue({ id: 'challenge-1' }),
+      },
+    };
+    (generateAuthenticationOptions as jest.Mock).mockResolvedValue({
+      challenge: 'challenge',
+      timeout: 60_000,
+    });
+
+    const result = await service.generateAuthenticationOptions(
+      prisma as never,
+      'user-1',
+      'login',
+      'required',
+      'platform',
+    );
+
+    expect(findMany.mock.calls[0][0].where).toMatchObject({
+      userId: 'user-1',
+      type: 'webauthn',
+      isActive: true,
+      webauthnAttachment: 'platform',
+    });
+    expect(
+      (generateAuthenticationOptions as jest.Mock).mock.calls[0][0],
+    ).toMatchObject({
+      allowCredentials: [
+        {
+          id: 'platform-credential',
+          transports: ['hybrid', 'internal'],
+        },
+      ],
+    });
+    expect(result.hints).toEqual(['client-device']);
+  });
+
+  it('preserves registered transports in duplicate-credential exclusions', async () => {
+    const service = makeService();
+    const prisma = {
+      mfaMethod: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            webauthnId: 'platform-credential',
+            webauthnTransports: ['hybrid', 'internal'],
+          },
+        ]),
+      },
+      mfaChallenge: {
+        create: jest.fn().mockResolvedValue({ id: 'challenge-1' }),
+      },
+    };
+    (generateRegistrationOptions as jest.Mock).mockResolvedValue({
+      challenge: 'challenge',
+    });
+
+    await service.generateRegistrationOptions(
+      prisma as never,
+      'user-1',
+      'user@example.test',
+      'Test User',
+      'platform',
+    );
+
+    expect(
+      (generateRegistrationOptions as jest.Mock).mock.calls[0][0]
+        .excludeCredentials,
+    ).toEqual([
+      {
+        id: 'platform-credential',
+        transports: ['hybrid', 'internal'],
+      },
     ]);
   });
 });

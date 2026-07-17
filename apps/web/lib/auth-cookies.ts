@@ -13,6 +13,7 @@ export const COOKIE_REFRESH_TOKEN = 'swe_refresh';
  * is the auth middleware, based on the page they were actually requesting.
  */
 export const COOKIE_POST_LOGIN_REDIRECT = 'swe_post_login_redirect';
+export const COOKIE_SESSION_RESUME = 'swe_session_resume';
 
 /**
  * Validates a path before it's ever used as a redirect target — applied

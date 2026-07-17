@@ -20,6 +20,7 @@ import type { ViewerContext } from '@workspace/ui/types/access.types';
 import type { UserProfile } from '@workspace/ui/types/shell.types';
 
 import type { Session, SessionSchool } from '@/lib/session';
+import { authedFetch } from '@/lib/authed-fetch';
 
 /* ---- context ------------------------------------------------- */
 export interface ViewerContextValue {
@@ -86,24 +87,27 @@ export function ViewerProvider({
   // is meant for a mistaken navigation, not a deliberate context switch.
   // /overview renders a different dashboard per clearance level, so it's
   // valid for every profile.
-  const switchProfile = React.useCallback(async (tenantId: string, profileId: string) => {
-    const res = await fetch('/api/auth/switch-profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tenantId, profileId }),
-    });
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}));
-      throw new Error(body.error ?? 'Failed to switch profile');
-    }
-    window.location.href = '/overview';
-  }, []);
+  const switchProfile = React.useCallback(
+    async (tenantId: string, profileId: string) => {
+      const res = await authedFetch('/api/auth/switch-profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId, profileId }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? 'Failed to switch profile');
+      }
+      window.location.href = '/overview';
+    },
+    [],
+  );
 
   // Persists the sign-in default; unlike switchProfile this doesn't change
   // anything about the current session, so no reload is needed — just
   // reflect the new default in local state for the settings UI.
   const setDefaultProfile = React.useCallback(async (profileId: string) => {
-    const res = await fetch('/api/auth/default-profile', {
+    const res = await authedFetch('/api/auth/default-profile', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ profileId }),
@@ -143,7 +147,14 @@ export function ViewerProvider({
       defaultProfileId,
       setDefaultProfile,
     };
-  }, [session, activeSchoolId, permissions, defaultProfileId, switchProfile, setDefaultProfile]);
+  }, [
+    session,
+    activeSchoolId,
+    permissions,
+    defaultProfileId,
+    switchProfile,
+    setDefaultProfile,
+  ]);
 
   return <ViewerCtx.Provider value={value}>{children}</ViewerCtx.Provider>;
 }

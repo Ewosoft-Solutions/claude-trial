@@ -41,6 +41,11 @@ export interface EnvironmentConfig {
    */
   STORAGE_LOCAL_ROOT: string;
   JWT_SECRET?: string;
+  AUTH_IDLE_TIMEOUT_MIN_MINUTES: number;
+  AUTH_IDLE_TIMEOUT_MAX_MINUTES: number;
+  AUTH_IDLE_TIMEOUT_DEFAULT_MINUTES: number;
+  AUTH_IDLE_STANDARD_GRACE_SECONDS: number;
+  AUTH_IDLE_FOCUS_GRACE_SECONDS: number;
   ENCRYPTION_KEY?: string;
   WEBAUTHN_RP_NAME: string;
   WEBAUTHN_RP_ID: string;
@@ -118,6 +123,31 @@ export const envValidationSchema = Joi.object({
     .default(false),
   STORAGE_LOCAL_ROOT: Joi.string().default('./storage'),
   JWT_SECRET: Joi.string().optional(),
+  AUTH_IDLE_TIMEOUT_MIN_MINUTES: Joi.number()
+    .integer()
+    .min(5)
+    .max(120)
+    .default(5),
+  AUTH_IDLE_TIMEOUT_MAX_MINUTES: Joi.number()
+    .integer()
+    .min(5)
+    .max(120)
+    .default(60),
+  AUTH_IDLE_TIMEOUT_DEFAULT_MINUTES: Joi.number()
+    .integer()
+    .min(5)
+    .max(120)
+    .default(15),
+  AUTH_IDLE_STANDARD_GRACE_SECONDS: Joi.number()
+    .integer()
+    .min(30)
+    .max(600)
+    .default(120),
+  AUTH_IDLE_FOCUS_GRACE_SECONDS: Joi.number()
+    .integer()
+    .min(30)
+    .max(900)
+    .default(300),
   ENCRYPTION_KEY: Joi.string().optional(),
   WEBAUTHN_RP_NAME: Joi.string().default('School With Ease'),
   WEBAUTHN_RP_ID: Joi.string().default('localhost'),

@@ -11,6 +11,7 @@ import { CommonModule } from '../common';
 import { AuthController } from './auth.controller';
 import { MfaController } from './mfa.controller';
 import { BiometricsController } from './biometrics.controller';
+import { StepUpController } from './step-up.controller';
 import {
   SecurityPolicyController,
   PlatformSecurityPolicyController,
@@ -46,6 +47,7 @@ import {
   MakerCheckerService,
   PlatformOversightService,
   SecurityPolicyService,
+  SessionPolicyService,
   BreachResponseService,
   StepUpService,
 } from './services';
@@ -73,6 +75,7 @@ import {
     AuthController,
     MfaController,
     BiometricsController,
+    StepUpController,
     SecurityPolicyController,
     PlatformSecurityPolicyController,
     BreachResponseController,
@@ -99,6 +102,7 @@ import {
     MakerCheckerService,
     PlatformOversightService,
     SecurityPolicyService,
+    SessionPolicyService,
     BreachResponseService,
     StepUpService,
     // Guards
@@ -125,6 +129,7 @@ import {
     MakerCheckerService,
     PlatformOversightService,
     SecurityPolicyService,
+    SessionPolicyService,
     BreachResponseService,
     StepUpService,
     // Guards

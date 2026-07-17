@@ -18,6 +18,7 @@ import { redirect } from 'next/navigation';
 
 import { ViewerProvider } from '@/app/providers/viewer-provider';
 import { SwrProvider } from '@/app/providers/swr-provider';
+import { SessionLifecycleProvider } from '@/app/providers/session-lifecycle-provider';
 import { getSession } from '@/lib/session';
 import { AppChrome } from './app-chrome';
 
@@ -29,13 +30,15 @@ export default async function AppLayout({
   const session = await getSession();
 
   if (!session) {
-    redirect('/login');
+    redirect('/session/resume');
   }
 
   return (
     <SwrProvider>
       <ViewerProvider session={session}>
-        <AppChrome>{children}</AppChrome>
+        <SessionLifecycleProvider session={session}>
+          <AppChrome>{children}</AppChrome>
+        </SessionLifecycleProvider>
       </ViewerProvider>
     </SwrProvider>
   );

@@ -32,9 +32,8 @@ export const STEP_UP_OPERATION_KEY = 'step_up_operation';
 /**
  * Require a fresh MFA step-up for this route, bound to `operation`.
  *
- * `operation` must match the operation the challenge was created with (today
- * one of the coarse MfaOperationType values, e.g. `'sensitive_operation'`; the
- * fine-grained catalog from the biometrics plan lands in a later phase).
+ * `operation` must match a value from the platform-owned sensitive-operation
+ * catalog and the operation on the server-side challenge.
  */
 export const RequireStepUp = (operation: string) =>
   SetMetadata(STEP_UP_OPERATION_KEY, operation);

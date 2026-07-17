@@ -18,12 +18,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { apiClient, ApiError } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 import {
   COOKIE_ACCESS_TOKEN,
   COOKIE_REFRESH_TOKEN,
   makeSetCookie,
 } from '@/lib/auth-cookies';
+import {
+  apiErrorResponse,
+  bearerAuthHeaders,
+  withAccessRefresh,
+} from '@/lib/api-proxy';
 
 interface SwitchProfileBody {
   tenantId: string;
@@ -56,15 +61,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const accessToken = req.cookies.get(COOKIE_ACCESS_TOKEN)?.value;
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
-    }
-
-    const result = await apiClient.post<SwitchProfileApiResponse>(
-      '/auth/switch-profile',
-      { tenantId, profileId },
-      { Authorization: `Bearer ${accessToken}` },
+    const { value: result } = await withAccessRefresh(req, (accessToken) =>
+      apiClient.post<SwitchProfileApiResponse>(
+        '/auth/switch-profile',
+        { tenantId, profileId },
+        bearerAuthHeaders(req, accessToken),
+      ),
     );
 
     const response = NextResponse.json({
@@ -83,10 +85,7 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (err) {
-    if (err instanceof ApiError) {
-      return NextResponse.json({ error: err.message }, { status: err.status });
-    }
     console.error('[auth/switch-profile]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return apiErrorResponse(err);
   }
 }

@@ -15,6 +15,12 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * `navigator.credentials.create()` / `@simplewebauthn/browser`.
  */
 export class VerifyBiometricRegistrationDto {
+  @ApiProperty({
+    description: 'Verified biometric-enrolment step-up challenge',
+  })
+  @IsString()
+  stepUpChallengeId: string;
+
   @ApiProperty({ description: 'Challenge id returned from register/options' })
   @IsString()
   challengeId: string;
@@ -31,6 +37,13 @@ export class VerifyBiometricRegistrationDto {
   @IsString()
   @MaxLength(60)
   label?: string;
+}
+
+/** Remove an enrolled biometric device after a fresh step-up. */
+export class RemoveBiometricDeviceDto {
+  @ApiProperty({ description: 'Verified biometric-removal step-up challenge' })
+  @IsString()
+  stepUpChallengeId: string;
 }
 
 /**

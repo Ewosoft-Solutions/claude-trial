@@ -9,6 +9,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Put,
   Delete,
   Body,
@@ -24,9 +25,14 @@ import {
   SecurityPolicyService,
 } from '../services/security-policy.service';
 import {
+  EffectiveSessionPolicy,
+  SessionPolicyService,
+} from '../services/session-policy.service';
+import {
   AssignPolicyDto,
   ChangePolicyTierDto,
   SetEmergencyPolicyDto,
+  UpdateSessionPolicyDto,
   // UpdatePolicyDto,
 } from '../dto/security-policy.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
@@ -35,9 +41,12 @@ import {
   ClearanceLevelGuard,
   RequireClearanceLevel,
 } from '../guards/clearance-level.guard';
-import { PermissionGuard, RequirePermissions } from '../guards/permission.guard';
+import {
+  PermissionGuard,
+  RequirePermissions,
+} from '../guards/permission.guard';
 import { type AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
-import { EnforcedBy } from '@workspace/api';
+import { EnforcedBy, PermissionMode } from '@workspace/api';
 import { AUDIT_ACTION, DatabaseService } from '../../common';
 
 @ApiTags(SwaggerTags.securityPolicies.name)
@@ -47,8 +56,62 @@ import { AUDIT_ACTION, DatabaseService } from '../../common';
 export class SecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
+    private readonly sessionPolicyService: SessionPolicyService,
     private readonly dbService: DatabaseService,
   ) {}
+
+  @Get('session')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions(
+    ['settings.view', 'settings.security'],
+    PermissionMode.ANY,
+  )
+  @ApiOperation({
+    summary: 'Get the effective inactivity policy for this tenant',
+  })
+  getSessionPolicy(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<EffectiveSessionPolicy> {
+    return this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      req.user.tenantId,
+    );
+  }
+
+  @Patch('session')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions(['settings.security'])
+  @ApiOperation({ summary: 'Update this tenant inactivity policy' })
+  async updateSessionPolicy(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: UpdateSessionPolicyDto,
+  ): Promise<EffectiveSessionPolicy> {
+    const before = await this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      req.user.tenantId,
+    );
+    const after = await this.sessionPolicyService.updateIdleTimeout(
+      this.dbService.client,
+      req.user.tenantId,
+      dto.idleTimeoutMinutes,
+      req.user.userId,
+      EnforcedBy.SCHOOL_ADMIN,
+    );
+    await this.securityPolicyService.logPolicyChange(
+      this.dbService.client,
+      req.user.tenantId,
+      AUDIT_ACTION.SECURITY.POLICY.UPDATE_SESSION_POLICY,
+      req.user.userId,
+      req.user.profileId,
+      req.userContext?.roleId ?? null,
+      null,
+      { before, after },
+      req.ip,
+      req.headers['user-agent'],
+      'Tenant inactivity policy updated',
+    );
+    return after;
+  }
 
   /**
    * Get school security policy (4a.6)
@@ -220,8 +283,60 @@ export class SecurityPolicyController {
 export class PlatformSecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
+    private readonly sessionPolicyService: SessionPolicyService,
     private readonly dbService: DatabaseService,
   ) {}
+
+  @Get(':schoolId/session')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @RequireClearanceLevel(10)
+  @RequirePermissions(['platform.security'])
+  @ApiOperation({ summary: 'Get a tenant inactivity policy' })
+  getTenantSessionPolicy(
+    @Param('schoolId') schoolId: string,
+  ): Promise<EffectiveSessionPolicy> {
+    return this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      schoolId,
+    );
+  }
+
+  @Patch(':schoolId/session')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @RequireClearanceLevel(10)
+  @RequirePermissions(['platform.security'])
+  @ApiOperation({ summary: 'Update a tenant inactivity policy' })
+  async updateTenantSessionPolicy(
+    @Request() req: AuthenticatedRequest,
+    @Param('schoolId') schoolId: string,
+    @Body() dto: UpdateSessionPolicyDto,
+  ): Promise<EffectiveSessionPolicy> {
+    const before = await this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      schoolId,
+    );
+    const after = await this.sessionPolicyService.updateIdleTimeout(
+      this.dbService.client,
+      schoolId,
+      dto.idleTimeoutMinutes,
+      req.user.userId,
+      EnforcedBy.PLATFORM_ADMIN,
+    );
+    await this.securityPolicyService.logPolicyChange(
+      this.dbService.client,
+      schoolId,
+      AUDIT_ACTION.SECURITY.POLICY.UPDATE_SESSION_POLICY,
+      req.user.userId,
+      req.user.profileId,
+      req.userContext?.roleId ?? null,
+      null,
+      { before, after },
+      req.ip,
+      req.headers['user-agent'],
+      'Platform inactivity policy update',
+    );
+    return after;
+  }
 
   /**
    * Set emergency policy (4a.7)

@@ -49,7 +49,7 @@ model SchoolSecurityPolicy {
   passwordPreventReuse        Int     @default(5) @map("password_prevent_reuse") // last N passwords
 
   // Session Management
-  sessionTimeout                Int     @default(30) @map("session_timeout") // minutes
+  sessionTimeout                Int     @default(15) @map("session_timeout") // idle minutes; tenant-configurable
   requireMFAForSessionExtension Boolean @default(true) @map("require_mfa_for_session_extension")
   maxConcurrentSessions         Int     @default(3) @map("max_concurrent_sessions")
 

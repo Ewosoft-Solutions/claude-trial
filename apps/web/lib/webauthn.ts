@@ -8,17 +8,79 @@
  * for that package later with no backend change.
  */
 
-/** True when the browser exposes the WebAuthn API at all. */
+export type PasskeyAvailability =
+  | 'available'
+  | 'insecure-context'
+  | 'unsupported';
+
+export type PasskeySignalResult = 'signalled' | 'unsupported' | 'failed';
+
+/** Explain why an explicit passkey ceremony can or cannot be offered. */
+export function getPasskeyAvailability(): PasskeyAvailability {
+  if (typeof window === 'undefined') return 'unsupported';
+  if (window.isSecureContext === false) return 'insecure-context';
+  return typeof window.PublicKeyCredential !== 'undefined'
+    ? 'available'
+    : 'unsupported';
+}
+
+/** True when this secure browser context exposes the WebAuthn API. */
 export function isWebAuthnSupported(): boolean {
-  return (
-    typeof window !== 'undefined' &&
-    typeof window.PublicKeyCredential !== 'undefined'
-  );
+  return getPasskeyAvailability() === 'available';
 }
 
 /**
- * True when the device has a usable built-in biometric/PIN authenticator
- * (Face ID, Touch ID, Windows Hello, Android). Gates the enrolment UI.
+ * True when it is reasonable to offer an explicit passkey action.
+ *
+ * Do not gate an explicit user-triggered ceremony on
+ * `isUserVerifyingPlatformAuthenticatorAvailable()`: iOS standalone web apps
+ * can return a false negative for that advisory probe even though WebAuthn is
+ * exposed and the passkey ceremony can use Face ID. The ceremony itself is the
+ * authoritative availability check and its errors are handled by the caller.
+ */
+export function canAttemptPasskey(): boolean {
+  return getPasskeyAvailability() === 'available';
+}
+
+/**
+ * Tell the password manager in this browser that the relying party no longer
+ * recognises a passkey. WebAuthn signals are advisory: a supporting provider
+ * may hide or delete its copy, while unsupported providers require manual
+ * cleanup. Provider failures must never undo the server-side revocation.
+ */
+export async function signalUnknownPasskey({
+  rpId,
+  credentialId,
+}: {
+  rpId: string;
+  credentialId: string;
+}): Promise<PasskeySignalResult> {
+  if (getPasskeyAvailability() !== 'available') return 'unsupported';
+
+  const pkc = window.PublicKeyCredential as unknown as {
+    signalUnknownCredential?: (options: {
+      rpId: string;
+      credentialId: string;
+    }) => Promise<undefined>;
+  };
+
+  if (typeof pkc.signalUnknownCredential !== 'function') {
+    return 'unsupported';
+  }
+
+  try {
+    await pkc.signalUnknownCredential({ rpId, credentialId });
+    return 'signalled';
+  } catch {
+    return 'failed';
+  }
+}
+
+/**
+ * Advisory platform-authenticator capability probe.
+ *
+ * This can be useful for passive UI hints, but must not hard-gate an explicit
+ * passkey action because some standalone iOS web apps return false negatives.
  */
 export async function isPlatformAuthenticatorAvailable(): Promise<boolean> {
   if (!isWebAuthnSupported()) return false;

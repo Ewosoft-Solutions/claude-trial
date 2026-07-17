@@ -31,7 +31,15 @@ import type {
   UserProfile,
 } from '@workspace/ui/types/shell.types';
 import { apiClient, ApiError } from './api-client';
-import { COOKIE_ACCESS_TOKEN } from './auth-cookies';
+import { COOKIE_ACCESS_TOKEN, COOKIE_REFRESH_TOKEN } from './auth-cookies';
+
+export interface SessionLifecyclePolicy {
+  idleTimeoutMinutes: number;
+  minimumIdleTimeoutMinutes: number;
+  maximumIdleTimeoutMinutes: number;
+  standardWarningSeconds: number;
+  focusWarningSeconds: number;
+}
 
 /** One profile (role) a viewer holds at a given school — a user can hold
  *  more than one (e.g. parent + teacher at the same school). */
@@ -75,6 +83,11 @@ export interface Session {
    *  preferences › Schools & roles) — the stored preference, not necessarily active
    *  right now. Undefined when the user hasn't set one. */
   defaultProfileId?: string;
+  sessionPolicy: SessionLifecyclePolicy;
+  /** Epoch milliseconds for proactive access-token refresh. */
+  accessExpiresAt: number;
+  /** Fixed refresh/session cap; activity and refresh never extend it. */
+  absoluteExpiresAt?: number;
 }
 
 /** Shape of GET /auth/me response from apps/api */
@@ -105,6 +118,23 @@ interface MeResponse {
     enabledFeatures?: string[];
     profiles: Array<{ profileId: string; role: string; caption: string }>;
   }>;
+  sessionPolicy: SessionLifecyclePolicy;
+  accessExpiresAt: number;
+}
+
+function decodeJwtExpiry(token: string | undefined): number | undefined {
+  if (!token) return undefined;
+  try {
+    const payload = token.split('.')[1];
+    if (!payload) return undefined;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(
+      Buffer.from(normalized, 'base64').toString('utf8'),
+    ) as { exp?: unknown };
+    return typeof decoded.exp === 'number' ? decoded.exp * 1000 : undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 /**
@@ -116,6 +146,7 @@ interface MeResponse {
 export async function getSession(): Promise<Session | null> {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(COOKIE_ACCESS_TOKEN)?.value;
+  const refreshToken = cookieStore.get(COOKIE_REFRESH_TOKEN)?.value;
 
   if (!accessToken) {
     return null;
@@ -136,6 +167,9 @@ export async function getSession(): Promise<Session | null> {
       defaultSchoolId: me.defaultSchoolId,
       activeProfileId: me.activeProfileId,
       defaultProfileId: me.defaultProfileId,
+      sessionPolicy: me.sessionPolicy,
+      accessExpiresAt: me.accessExpiresAt,
+      absoluteExpiresAt: decodeJwtExpiry(refreshToken),
       schools: me.schools.map((s) => ({
         id: s.id,
         name: s.name,
