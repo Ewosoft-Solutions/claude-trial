@@ -78,6 +78,33 @@ describe('SensitiveOperationPolicyService', () => {
     ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
+  it('makes another active school requirement effective account-wide', async () => {
+    const prisma = {
+      schoolSecurityPolicy: {
+        findMany: jest.fn().mockResolvedValue([
+          {
+            schoolId: 'required-tenant',
+            school: { name: 'Required Academy' },
+          },
+        ]),
+      },
+    };
+
+    await expect(
+      service.getEffectiveBiometricEnrollmentPolicy(
+        prisma as never,
+        'allow-tenant',
+        'user-1',
+      ),
+    ).resolves.toEqual({
+      policy: 'require',
+      activePolicy: 'allow',
+      requiredBy: [
+        { schoolId: 'required-tenant', schoolName: 'Required Academy' },
+      ],
+    });
+  });
+
   it('prevents removal of the last active platform passkey when enrolment is required', async () => {
     securityPolicies.getOrCreateDefaultPolicy.mockResolvedValue({
       biometricEnrollmentPolicy: 'require',

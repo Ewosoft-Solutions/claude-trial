@@ -4,7 +4,8 @@
  * Verifies that seed data was created correctly after running the seed script.
  * Run this after: npm run db:seed
  */
-import { SENSITIVE_OPERATION_CATALOG, prisma } from '../../src/client.js';
+import { SENSITIVE_OPERATION_CATALOG } from '../../src/client.js';
+import { prisma } from '../../src/singleton.js';
 
 interface VerificationResult {
   name: string;

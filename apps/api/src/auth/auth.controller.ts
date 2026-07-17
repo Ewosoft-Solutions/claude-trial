@@ -134,9 +134,10 @@ export class AuthController {
           profileId,
         ),
         this.sessionPolicyService.getEffectivePolicy(prisma, tenantId),
-        this.sensitiveOperationPolicies.getBiometricEnrollmentPolicy(
+        this.sensitiveOperationPolicies.getEffectiveBiometricEnrollmentPolicy(
           prisma,
           tenantId,
+          userId,
         ),
         prisma.mfaMethod.count({
           where: {
@@ -211,6 +212,7 @@ export class AuthController {
       dbUser.email[0].toUpperCase();
 
     return {
+      accountId: userId,
       user: {
         name: fullName,
         email: dbUser.email,
@@ -240,6 +242,8 @@ export class AuthController {
       sessionPolicy,
       biometricEnrollment: {
         policy: biometricEnrollmentPolicy.policy,
+        activePolicy: biometricEnrollmentPolicy.activePolicy,
+        requiredBy: biometricEnrollmentPolicy.requiredBy,
         enrolled: passkeyCount > 0,
       },
       accessExpiresAt: user.accessTokenExpiresAt

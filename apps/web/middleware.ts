@@ -1,9 +1,10 @@
 /**
- * Edge middleware — coarse authentication gate + subdomain tenant tagging.
+ * Edge middleware — canonical origin, coarse authentication gate, and an
+ * optional development host hint.
  *
- * Redirects to /login when an (app) route is requested without an
- * access-token cookie, and forwards the resolved `{slug}.domain` tenant slug
- * to the app as a request header for server-side use.
+ * Redirects to /login when an app route is requested without an access-token
+ * cookie. An optional host hint remains available for local/legacy previews;
+ * production tenant authority comes from the authenticated profile context.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import {
@@ -14,6 +15,7 @@ import {
   isSafeRedirectPath,
 } from './lib/auth-cookies';
 import {
+  buildCanonicalHostRedirectUrl,
   buildHttpsRedirectUrl,
   shouldRedirectToHttps,
 } from './lib/secure-origin';
@@ -33,11 +35,9 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 /**
- * Resolve the subdomain tenant slug and forward it to the app as a request
- * header, so server components (login branding, tenant preference) can read it
- * without a per-request DB lookup at the edge. Returns a response whose
- * downstream request carries the header; `null` slug (apex/reserved host)
- * passes through untouched.
+ * Resolve an optional development/legacy host hint and forward it to the app.
+ * This is never an authorization boundary; the canonical production app uses
+ * the authenticated school/profile selection as tenant authority.
  */
 function tenantAwareNext(req: NextRequest): NextResponse {
   const slug = extractTenantSlug(req.headers.get('host'));
@@ -53,6 +53,15 @@ export async function middleware(req: NextRequest) {
   const forwardedProto =
     req.headers.get('x-forwarded-proto') ??
     req.nextUrl.protocol.replace(/:$/, '');
+
+  const canonicalUrl = buildCanonicalHostRedirectUrl(
+    req.url,
+    forwardedHost,
+    process.env.APP_CANONICAL_ORIGIN,
+  );
+  if (canonicalUrl) {
+    return NextResponse.redirect(canonicalUrl, 308);
+  }
 
   if (shouldRedirectToHttps(forwardedHost, forwardedProto)) {
     const httpsUrl = buildHttpsRedirectUrl(req.url, forwardedHost);

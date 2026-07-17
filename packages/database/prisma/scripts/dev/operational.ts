@@ -12,7 +12,7 @@
  * DEV-SEED identifiers so it can be queried and cleaned intentionally.
  */
 
-import { prisma } from '../../../src/client.js';
+import { prisma } from '../../../src/singleton.js';
 import { assertDevSeedAllowed, DEV_SEED_TAG } from './guard.js';
 
 type TenantKey = 'greenfield' | 'sunrise';

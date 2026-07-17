@@ -39,7 +39,7 @@
  * WARNING: never use these credentials outside of a local dev database.
  */
 
-import { prisma } from '../../../src/client.js';
+import { prisma } from '../../../src/singleton.js';
 import bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 import { assertDevSeedAllowed } from './guard.js';

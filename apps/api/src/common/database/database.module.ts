@@ -45,7 +45,11 @@ function buildPrismaClient(
     idleTimeoutMillis: config.isServerless ? 10_000 : 30_000,
     connectionTimeoutMillis: config.connectionTimeout ?? 5_000,
   };
-  const adapter = new PrismaPg(new Pool(poolConfig));
+  const adapter = new PrismaPg(new Pool(poolConfig), {
+    // This module creates and owns the pool, so Prisma must close it when the
+    // corresponding client is disconnected during Nest shutdown.
+    disposeExternalPool: true,
+  });
   return new PrismaClient({
     adapter,
     log: config.logLevels?.length ? config.logLevels : undefined,

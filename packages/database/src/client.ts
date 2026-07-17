@@ -1,23 +1,9 @@
-import 'dotenv/config';
-import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import { Pool } from 'pg';
+import type { PrismaClient } from '@prisma/client';
 
-const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-
-const adapter = new PrismaPg(pool);
-
-declare global {
-  var __prisma: PrismaClient | undefined;
-}
-
-export const prisma = globalThis.__prisma ?? new PrismaClient({ adapter });
-
-if (process.env.NODE_ENV !== 'production') {
-  globalThis.__prisma = prisma;
-}
-
-export type PrismaClientType = typeof prisma;
+// Keep the package entry point free of connection side effects. Applications
+// commonly import Prisma types and enums from here while managing their own
+// client lifecycle; the CLI/seed singleton lives in singleton.ts.
+export type PrismaClientType = PrismaClient;
 
 export * from '@prisma/client';
 export * from './sensitive-operations.js';

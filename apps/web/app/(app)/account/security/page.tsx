@@ -15,6 +15,8 @@
    ============================================================ */
 
 import * as React from 'react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
 import {
   Check,
   Fingerprint,
@@ -43,8 +45,10 @@ import {
   startRegistration,
   type PasskeyAvailability,
 } from '@/lib/webauthn';
+import { isSafeRedirectPath } from '@/lib/auth-cookies';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import type { BiometricEnrollmentPolicy } from '@/lib/security-governance';
+import { useViewer } from '@/app/providers/viewer-provider';
 import { StepUpPrompt } from '../../_shared/step-up-prompt';
 
 interface BiometricDevice {
@@ -72,6 +76,11 @@ function formatDate(value: string | null): string {
 }
 
 export default function SecuritySettingsPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { biometricEnrollment } = useViewer();
+  const enrollmentCardRef = React.useRef<HTMLDivElement>(null);
+  const enrollmentIntentFocusedRef = React.useRef(false);
   const [passkeyAvailability, setPasskeyAvailability] =
     React.useState<PasskeyAvailability | null>(null);
   const [enrollmentPolicy, setEnrollmentPolicy] =
@@ -81,11 +90,19 @@ export default function SecuritySettingsPage() {
   const [pendingRemove, setPendingRemove] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [enrollmentComplete, setEnrollmentComplete] = React.useState(false);
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editValue, setEditValue] = React.useState('');
   const [savingId, setSavingId] = React.useState<string | null>(null);
   const [pendingStepUp, setPendingStepUp] =
     React.useState<PendingStepUpAction | null>(null);
+  const enrollmentIntent = searchParams.get('intent') === 'enroll';
+  const requestedReturn = searchParams.get('from');
+  const returnTo =
+    isSafeRedirectPath(requestedReturn) &&
+    !requestedReturn.startsWith('/account')
+      ? requestedReturn
+      : null;
 
   const loadDevices = React.useCallback(async () => {
     try {
@@ -113,8 +130,28 @@ export default function SecuritySettingsPage() {
       .catch(() => undefined);
   }, [loadDevices]);
 
+  React.useEffect(() => {
+    if (!enrollmentIntent || enrollmentIntentFocusedRef.current) return;
+    enrollmentIntentFocusedRef.current = true;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = enrollmentCardRef.current;
+      if (!target) return;
+      target.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches
+          ? 'auto'
+          : 'smooth',
+        block: 'start',
+      });
+      target.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [enrollmentIntent]);
+
   async function handleEnroll(stepUpChallengeId: string) {
     setEnrolling(true);
+    setEnrollmentComplete(false);
     setError(null);
     setNotice(null);
     try {
@@ -145,7 +182,9 @@ export default function SecuritySettingsPage() {
       }
 
       setNotice('Biometric sign-in is set up on this device.');
+      setEnrollmentComplete(true);
       await loadDevices();
+      router.refresh();
     } catch (err) {
       const name = (err as { name?: string })?.name;
       if (name === 'NotAllowedError' || name === 'AbortError') {
@@ -162,6 +201,7 @@ export default function SecuritySettingsPage() {
 
   async function handleRemove(id: string, stepUpChallengeId: string) {
     setPendingRemove(id);
+    setEnrollmentComplete(false);
     setError(null);
     setNotice(null);
     try {
@@ -261,63 +301,94 @@ export default function SecuritySettingsPage() {
           Protect this account across every school and role.
         </p>
       </div>
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
-            <ShieldCheck className="size-4 text-primary" />
-            Biometric sign-in
-          </CardTitle>
-          <CardDescription>
-            Use your device&apos;s Face ID, fingerprint, or PIN to sign in
-            faster — no password to type. Your biometric never leaves the
-            device; the school only stores a public key. A user-verified passkey
-            counts as multi-factor authentication, while password and recovery
-            options remain available.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-4">
-          {enrollmentPolicy === 'forbid' ? (
-            <p className="text-sm text-muted-foreground">
-              Your school does not allow new biometric sign-in enrolment.
-              Existing account recovery methods remain available.
-            </p>
-          ) : passkeyAvailability === 'insecure-context' ? (
-            <p className="text-sm text-muted-foreground">
-              Passkeys require HTTPS. Remove this Home Screen app, open this
-              site over HTTPS in Safari, then add it to the Home Screen again.
-            </p>
-          ) : passkeyAvailability === 'unsupported' ? (
-            <p className="text-sm text-muted-foreground">
-              This browser doesn&apos;t expose passkey support. You can still
-              set it up later from a browser with Face ID, Touch ID, Windows
-              Hello, or Android biometrics.
-            </p>
-          ) : (
-            <div>
-              <Button
-                onClick={() => setPendingStepUp({ kind: 'enroll' })}
-                disabled={enrolling || passkeyAvailability === null}
-              >
-                <Fingerprint className="size-4" />
-                {enrolling ? 'Waiting for device…' : 'Set up biometric sign-in'}
-              </Button>
-              {enrollmentPolicy === 'require' ? (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Required by your school. Your final passkey cannot be removed
-                  until another one is enrolled.
-                </p>
-              ) : null}
-            </div>
-          )}
+      <div
+        ref={enrollmentCardRef}
+        id="biometric-enrollment"
+        tabIndex={-1}
+        aria-labelledby="biometric-enrollment-card-title"
+        className={`scroll-mt-4 rounded-[var(--radius)] outline-none transition-shadow ${
+          enrollmentIntent ? 'ring-2 ring-primary/35 ring-offset-2' : ''
+        }`}
+      >
+        <Card className="shadow-card">
+          <CardHeader>
+            <CardTitle
+              id="biometric-enrollment-card-title"
+              className="flex items-center gap-2 text-base"
+            >
+              <ShieldCheck className="size-4 text-primary" />
+              Biometric sign-in
+            </CardTitle>
+            <CardDescription>
+              Use your device&apos;s Face ID, fingerprint, or PIN to sign in
+              faster — no password to type. Your biometric never leaves the
+              device; the school only stores a public key. A user-verified
+              passkey counts as multi-factor authentication, while password and
+              recovery options remain available.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-4">
+            {enrollmentPolicy === 'forbid' ? (
+              <p className="text-sm text-muted-foreground">
+                Your school does not allow new biometric sign-in enrolment.
+                Existing account recovery methods remain available.
+              </p>
+            ) : passkeyAvailability === 'insecure-context' ? (
+              <p className="text-sm text-muted-foreground">
+                Passkeys require HTTPS. Remove this Home Screen app, open this
+                site over HTTPS in Safari, then add it to the Home Screen again.
+              </p>
+            ) : passkeyAvailability === 'unsupported' ? (
+              <p className="text-sm text-muted-foreground">
+                This browser doesn&apos;t expose passkey support. You can still
+                set it up later from a browser with Face ID, Touch ID, Windows
+                Hello, or Android biometrics.
+              </p>
+            ) : (
+              <div>
+                <Button
+                  onClick={() => setPendingStepUp({ kind: 'enroll' })}
+                  disabled={enrolling || passkeyAvailability === null}
+                >
+                  <Fingerprint className="size-4" />
+                  {enrolling
+                    ? 'Waiting for device…'
+                    : 'Set up biometric sign-in'}
+                </Button>
+                {biometricEnrollment.policy === 'require' ? (
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    {biometricEnrollment.requiredBy.length === 1
+                      ? `Required by ${biometricEnrollment.requiredBy[0]?.schoolName}.`
+                      : biometricEnrollment.requiredBy.length > 1
+                        ? `Required by ${biometricEnrollment.requiredBy.length} of your schools.`
+                        : 'Required by your school.'}{' '}
+                    Your final passkey cannot be removed until another one is
+                    enrolled.
+                  </p>
+                ) : null}
+              </div>
+            )}
 
-          {notice ? (
-            <p className="text-sm text-emerald-600 dark:text-emerald-400">
-              {notice}
-            </p>
-          ) : null}
-          {error ? <p className="text-sm text-destructive">{error}</p> : null}
-        </CardContent>
-      </Card>
+            {notice ? (
+              <div className="flex flex-wrap items-center gap-2" role="status">
+                <p className="text-sm text-emerald-600 dark:text-emerald-400">
+                  {notice}
+                </p>
+                {enrollmentComplete && returnTo ? (
+                  <Button asChild variant="outline" size="sm">
+                    <Link href={returnTo}>Return to previous page</Link>
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {error ? (
+              <p className="text-sm text-destructive" role="alert">
+                {error}
+              </p>
+            ) : null}
+          </CardContent>
+        </Card>
+      </div>
 
       <Card className="shadow-card">
         <CardHeader>

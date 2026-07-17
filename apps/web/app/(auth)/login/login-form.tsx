@@ -12,6 +12,10 @@ import { OtpInput } from '@workspace/ui/components/otp-input';
 import { COOKIE_LAST_USER } from '@/lib/auth-cookies';
 import { ACTIVITY_STORAGE_KEY } from '@/lib/session-lifecycle';
 import {
+  clearMissingPasskeyIntent,
+  recordMissingPasskeyIntent,
+} from '@/lib/biometric-reminder';
+import {
   canAttemptPasskey,
   isConditionalMediationAvailable,
   platformPasskeyLabel,
@@ -127,6 +131,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
 
   function switchAccount() {
     document.cookie = `${COOKIE_LAST_USER}=; Path=/; Max-Age=0`;
+    clearMissingPasskeyIntent();
     setHint(null);
     setError(null);
   }
@@ -201,7 +206,8 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
           return;
         }
         if (!optData.hasPasskey) {
-          setError('No passkey on file — sign in with your password.');
+          recordMissingPasskeyIntent();
+          setError('No passkey set — sign in with your password.');
           return;
         }
 

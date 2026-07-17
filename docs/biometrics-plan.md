@@ -80,14 +80,14 @@ These are prerequisites — do not build biometrics on top of them unfixed.
    consistently for store + lookup.
 3. **Require user verification** (`userVerification: 'required'`) on the
    biometric path — `'preferred'` lets a device skip the actual biometric/PIN.
-4. **Multi-tenant RP scoping.** Credentials are bound to an RP ID and
-   origin-checked, but you serve tenants on `{slug}.domain`. Register under the
-   **apex RP ID** (e.g. `schoolwithease.com`) so one passkey works across all
-   subdomains, and pass `expectedOrigin` as the **allow-list array** of
-   subdomain origins to SimpleWebAuthn. Configure the production apex and
-   single- or multi-apex topology at deployment. Add `WEBAUTHN_RP_ID` /
-   `WEBAUTHN_ALLOWED_ORIGINS` (grouped beside the existing `WEBAUTHN_*` keys, not
-   appended to the bottom of env).
+4. **Multi-tenant RP scoping.** All schools share the canonical
+   `https://schoolwithease.com` application origin; tenancy comes from the
+   authenticated school/profile context, not tenant subdomains. Use
+   `schoolwithease.com` as the RP ID and validate the exact browser origins
+   `https://schoolwithease.com` and `https://www.schoolwithease.com`. API and
+   integration service subdomains do not run passkey ceremonies. Keep
+   `WEBAUTHN_RP_ID` / `WEBAUTHN_ALLOWED_ORIGINS` grouped beside the other
+   `WEBAUTHN_*` keys.
 5. **(Low priority)** Align `webauthnPublicKey` storage with the existing
    AES-256-GCM encrypted-column convention (`.env.example:28`). Public keys
    aren't secret, so this is hygiene, not a vulnerability.
@@ -221,6 +221,25 @@ full page bounce.
 **PWA** — platform passkeys work inside the installed PWA; this is the strongest
 mobile story. Physical iPhone installed-PWA acceptance passed on 2026-07-17.
 
+**Enrollment reminder** — when a returning user explicitly tries passkey
+sign-in but has no enrolled passkey, remember that intent through password/MFA
+login and show an in-flow banner beneath the app header:
+
+- `allow`: offer **Set up biometric sign-in**, **Remind me later** (14 days),
+  and **Don't remind me in this app**. Preferences are namespaced by account in
+  the current browser/PWA, so another device may still offer setup.
+- `require`: ignore optional suppression, keep the banner visible, and show one
+  stronger prompt per app session. Any active school membership with a
+  `require` policy makes the account-wide reminder effective and protects the
+  final passkey.
+- `forbid`: do not prompt or expose enrollment for that school. If another
+  active school requires enrollment, switch to an eligible school/profile
+  before opening setup.
+- Assessment-taking and other focus/reading/video routes defer the reminder
+  until the next safe screen. The setup link focuses Account → Security, starts
+  WebAuthn only after a user gesture, refreshes session state on success, and
+  preserves a validated in-app return path.
+
 ---
 
 ## 7. Recovery & fallbacks (non-negotiable)
@@ -266,22 +285,25 @@ device-remove, policy-change) via the existing audit log.
 ## 9. Verification record (2026-07-17)
 
 - Physical iPhone installed-PWA enrollment and returning-user login: passed.
-- API unit/integration tests: **316/316** across **46** suites.
-- Web unit tests: **85/85**; UI tests: **104/104**.
+- API unit/integration tests: **317/317** across **46** suites.
+- Web unit tests: **98/98**; UI tests: **104/104**.
 - API and web production builds: passed; web lint passed; API lint reported no
   errors and only existing warnings.
 - Prisma client generation, governance migrations, RLS coverage, seed, and seed
   verification: passed; all **32** sensitive-operation policies verified.
-- Database-gated e2e remains a deployment-environment check because the local
-  restricted-role `APP_RUNTIME_DATABASE_URL` has a malformed password value.
+- Database-backed e2e: **31/31** passed across **7** active suites; 5 live
+  external-provider suites skipped by their explicit gates.
 
 ---
 
 ## 10. Resolved decisions and deployment configuration
 
-- Production RP ID and exact allowed-origin values remain deployment
-  configuration; SimpleWebAuthn exact-match origin validation does not use
-  wildcard tenant origins.
+- Production RP ID is `schoolwithease.com`; accepted browser origins are
+  `https://schoolwithease.com` and its `https://www.schoolwithease.com` alias.
+  Service subdomains such as `api.schoolwithease.com` are intentionally excluded.
+- Set the web deployment's `APP_CANONICAL_ORIGIN` to
+  `https://schoolwithease.com`; middleware permanently redirects only the `www`
+  alias and preserves independent service subdomains.
 - Roaming security keys remain available beside platform passkeys.
 - A user cannot remove their last passkey while any active school membership
   requires biometric enrollment. Password, TOTP, and recovery remain available
@@ -322,9 +344,9 @@ can't be used from a phone. Use a Cloudflare named tunnel to a real host:
 > **Progress (2026-07-15, branch `claude`):** Phase 0 committed (`42194e8`):
 > P0-1..P0-5. P0-6 ✅ (public key AES-256-GCM encrypted at rest via
 > EncryptionService) and **Phase 1 backend + frontend** ✅ — see below. Full API
-> suite green (260 tests). Deployment configuration still required: prod
-> apex `WEBAUTHN_RP_ID` and the exact subdomain origin list (SimpleWebAuthn's
-> allow-list is exact-match, **no wildcards** — enumerate each tenant subdomain).
+> suite green (260 tests). Production is now confirmed as one canonical
+> multitenant origin: `schoolwithease.com`, with `www.schoolwithease.com` as an
+> alias and no school-specific subdomains.
 >
 > **Phase 2 delivered (2026-07-16):** passwordless passkey login. API:
 > `POST /auth/passkey/login/options` (per-user, UV=required, `login` challenge) +
@@ -464,7 +486,8 @@ dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
   foundation, consumed in Phase 1.
 - **Accept:** single-origin config still verifies (back-compat); a credential
   registered on one allowed origin verifies against the array; env validation
-  passes with and without the new key. Configure the prod apex value at deploy.
+  passes with and without the new key. Production values are recorded in the
+  production environment template.
 
 ### P0-6 — (Stretch / optional) Encrypt `webauthnPublicKey` at rest
 

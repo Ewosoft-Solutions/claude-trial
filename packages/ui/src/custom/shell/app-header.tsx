@@ -71,6 +71,8 @@ export interface AppHeaderProps {
   breadcrumbs?: React.ReactNode;
   /** Center command/search affordance — typically <OmniSearch/>. */
   search?: React.ReactNode;
+  /** Optional action displayed immediately beside the search affordance. */
+  searchAction?: React.ReactNode;
   /** Right-aligned actions: icon buttons, then the user menu. */
   actions?: React.ReactNode;
   className?: string;
@@ -80,13 +82,14 @@ export function AppHeader({
   schoolSwitcher,
   breadcrumbs,
   search,
+  searchAction,
   actions,
   className,
 }: AppHeaderProps) {
   return (
     <header
       className={cn(
-        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_2.25rem_auto] items-center gap-2 border-b border-border bg-sidebar px-2.5 sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3 sm:px-4',
+        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-sidebar px-2.5 sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3 sm:px-4',
         className,
       )}
     >
@@ -99,8 +102,23 @@ export function AppHeader({
         ) : null}
       </div>
       {search ? (
-        <div className="mx-auto flex w-9 min-w-0 justify-self-center sm:w-full sm:max-w-[34rem]">
-          {search}
+        <div
+          className={cn(
+            'mx-auto flex min-w-0 items-center justify-self-center',
+            searchAction
+              ? 'w-auto gap-2 sm:w-full sm:max-w-[40rem]'
+              : 'w-9 sm:w-full sm:max-w-[34rem]',
+          )}
+        >
+          <div
+            className={cn(
+              'flex min-w-0',
+              searchAction ? 'w-9 sm:flex-1' : 'w-full',
+            )}
+          >
+            {search}
+          </div>
+          {searchAction}
         </div>
       ) : (
         <div />

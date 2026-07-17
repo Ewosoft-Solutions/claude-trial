@@ -50,7 +50,7 @@ The requirements define **two deliberately separate AI systems**
   `LessonMaterial` model, no file upload pipeline, no text extraction, no
   embeddings/vector store. The tutor requirement assumes "uploaded lesson
   materials" — the platform has never had material upload. This makes the
-  tutor a *two-stage* build (substrate first, then RAG).
+  tutor a _two-stage_ build (substrate first, then RAG).
 - Assessment-mode AI blocking (depends on the tutor existing first).
 
 **Sequencing conclusion:** build the **Analytics AI first** (Steps 1–3) — every
@@ -94,7 +94,7 @@ Decisions agreed with the user after Step 1, before Step 2 starts:
   through a factory (platform key today; per-tenant key later) rather than
   bound as a key-singleton.
 - **Tier indirection, platform-managed.** Features (and later tenants)
-  reference model *tiers* ("standard" / "premium"), mapped to concrete
+  reference model _tiers_ ("standard" / "premium"), mapped to concrete
   provider+model in one platform config map. Per-feature env config from
   Step 2: `AI_MODEL_ANALYTICS` (default `claude-opus-4-8` — staff-facing, low
   volume, high value) and later `AI_MODEL_TUTOR` (default `claude-haiku-4-5`
@@ -133,7 +133,7 @@ Stand up the shared plumbing both AI systems need. No user-visible feature yet.
 > **Close-out (2026-07-06).** All bullets delivered; see the AI_HANDOFF.md
 > session entry for detail. Two corrections against the text below:
 > (1) the seed catalog was actually **277**, not 280 — it is now **280**
-> (277 + 3 ai.*), not 283; (2) `ai.analytics.query` has a clearance **floor
+> (277 + 3 ai.\*), not 283; (2) `ai.analytics.query` has a clearance **floor
 > of 1**, not 3+ — the requirements' "AI-Specific Access Implications" table
 > and this plan's own Step 2/3 acceptance (parent persona gets scoped
 > answers; `/assistant` nav visible to parents) require every authenticated
@@ -187,15 +187,15 @@ The requirements' "AI-Powered Analytics & Reporting System", built as tools.
 > child; student's financial ask was refused with the clearance shape;
 > ChatMessage + audit rows asserted. Run it with
 > `AI_LIVE=1 DATABASE_URL=<real db> npx jest --config ./test/jest-e2e.json
-> --testPathPattern ai-analytics-live --forceExit` (PAID — real API calls;
+--testPathPattern ai-analytics-live --forceExit` (PAID — real API calls;
 > `--forceExit` needed: the Nest app leaves an open handle after the suite).
-> Deviations/notes: (1) *(resolved — live acceptance passed, see above)*;
+> Deviations/notes: (1) _(resolved — live acceptance passed, see above)_;
 > (2) the system prompt
 > carries today's date + tenant + clearance but **not term context** (no
 > "current term" read service exists — pick up in Step 3 or 6)
-> *(RESOLVED 2026-07-09 pt. 5: new `CurrentTermService` in
+> _(RESOLVED 2026-07-09 pt. 5: new `CurrentTermService` in
 > `academic-structure`; `AnalyticsChatService` prepends a current-term line to
-> the volatile system block)*; (3) all six
+> the volatile system block)_; (3) all six
 > tools are exposed to the model for every caller (stable tool list = stable
 > prompt-cache prefix) with enforcement + audit at execution time;
 > (4) `GET /ai/analytics/sessions[/:id]` (Step 3's session list/resume
@@ -217,7 +217,7 @@ The requirements' "AI-Powered Analytics & Reporting System", built as tools.
   replays history, runs the manual tool loop, persists both sides of the
   exchange with tool-call metadata, audits via `logAIMediatorQuery`.
 - Response envelope mirrors the requirements: `{ data, visualization,
-  insights }` — `visualization` is a **chart spec** (type + series) the
+insights }` — `visualization` is a **chart spec** (type + series) the
   frontend renders with the existing wrappers, not an image.
 - System prompt: role/clearance-aware, tenant-pinned, includes today's date
   and the school's term context; refuses cross-tenant or out-of-scope asks.
@@ -377,6 +377,7 @@ re-assessment; none block AI work:
 - "Clearance Enforcement Gate 4" (update-time consistency check) —
   `requirements/role-permissions-management.md`, spec'd but unbuilt.
 - PWA: offline/read-first, push notifications, install (PRD Phase 2 items).
-- Subdomain tenant resolution (`{slug}.domain`) in `apps/web`.
+- Canonical-origin tenant resolution in `apps/web` (authenticated school/profile
+  context; school-specific production subdomains are not used).
 - Polymorphism by `schoolType` exercised in nav/UI; real feature-toggle system.
 - Runtime cutover to `app_runtime` DB role (ADR-004).

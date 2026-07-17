@@ -4,7 +4,7 @@
    AiWorkspaceLauncher
 
    One shell-level AI entry point:
-   - fixed FAB
+   - header launcher beside global search
    - full-screen in-app workspace
    - no URL/query state
    - modes derived from the viewer's permissions
@@ -186,14 +186,12 @@ export function AiWorkspaceLauncher() {
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'fixed bottom-[calc(var(--shell-mobile-bottom-inset,0rem)+1rem)] right-4 z-40 inline-flex h-14 items-center gap-2 rounded-full border border-primary/25 bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/25 outline-none transition-transform hover:-translate-y-0.5 focus-visible:ring-[3px] focus-visible:ring-ring/50 md:bottom-5 md:right-5',
+          'inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-[var(--radius)] border border-primary/25 bg-primary px-2 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 outline-none transition-colors hover:bg-primary/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 md:px-3',
         )}
-        aria-label="Open AI assistant"
+        aria-label="Ask AI"
       >
-        <span className="grid size-8 place-items-center rounded-full bg-white/20">
-          <Bot className="size-4" aria-hidden />
-        </span>
-        <span>AI</span>
+        <Bot className="size-4" aria-hidden />
+        <span>Ask AI</span>
       </button>
 
       {open ? (

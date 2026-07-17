@@ -7,6 +7,8 @@ import { Fingerprint, Palette, UserCircle, UsersRound, X } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
 
+import { isSafeRedirectPath } from '@/lib/auth-cookies';
+
 const SECTIONS = [
   {
     href: '/account/profile',
@@ -44,7 +46,8 @@ export default function AccountLayout({
   const searchParams = useSearchParams();
   const requestedReturn = searchParams.get('from');
   const returnTo =
-    requestedReturn?.startsWith('/') && !requestedReturn.startsWith('/account')
+    isSafeRedirectPath(requestedReturn) &&
+    !requestedReturn.startsWith('/account')
       ? requestedReturn
       : '/overview';
   const returnQuery = `?from=${encodeURIComponent(returnTo)}`;

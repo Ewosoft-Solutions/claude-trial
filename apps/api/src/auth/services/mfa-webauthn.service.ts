@@ -102,8 +102,8 @@ export class MfaWebAuthnService {
 
     this.config = {
       rpName: process.env.WEBAUTHN_RP_NAME || 'School With Ease',
-      // RP ID must be the apex registrable domain so one passkey works across
-      // every tenant subdomain of it.
+      // RP ID is the canonical registrable domain. Exact browser origins are
+      // validated separately, including the optional `www` alias.
       rpID: process.env.WEBAUTHN_RP_ID || 'localhost',
       origins,
     };

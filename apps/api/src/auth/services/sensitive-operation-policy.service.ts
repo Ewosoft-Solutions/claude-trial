@@ -30,6 +30,14 @@ export interface EffectiveSensitiveOperationPolicy extends SensitiveOperationDef
   updatedAt: Date | null;
 }
 
+export interface EffectiveBiometricEnrollmentPolicy {
+  /** Account-wide effective policy; any active required school wins. */
+  policy: BiometricEnrollmentPolicy;
+  /** Policy of the school/profile that issued the current access token. */
+  activePolicy: BiometricEnrollmentPolicy;
+  requiredBy: Array<{ schoolId: string; schoolName: string }>;
+}
+
 @Injectable()
 export class SensitiveOperationPolicyService {
   constructor(private readonly securityPolicies: SecurityPolicyService) {}
@@ -112,6 +120,42 @@ export class SensitiveOperationPolicyService {
     );
     return {
       policy: this.normalizeBiometricPolicy(policy.biometricEnrollmentPolicy),
+    };
+  }
+
+  async getEffectiveBiometricEnrollmentPolicy(
+    prisma: PrismaClient,
+    tenantId: string,
+    userId: string,
+  ): Promise<EffectiveBiometricEnrollmentPolicy> {
+    const [active, requiredPolicies] = await Promise.all([
+      this.getBiometricEnrollmentPolicy(prisma, tenantId),
+      prisma.schoolSecurityPolicy.findMany({
+        where: {
+          biometricEnrollmentPolicy: 'require',
+          school: {
+            status: 'active',
+            userTenants: {
+              some: { userId, status: 'active', suspended: false },
+            },
+          },
+        },
+        select: {
+          schoolId: true,
+          school: { select: { name: true } },
+        },
+        orderBy: { school: { name: 'asc' } },
+      }),
+    ]);
+
+    const requiredBy = requiredPolicies.map((entry) => ({
+      schoolId: entry.schoolId,
+      schoolName: entry.school.name,
+    }));
+    return {
+      activePolicy: active.policy,
+      policy: requiredBy.length > 0 ? 'require' : active.policy,
+      requiredBy,
     };
   }
 

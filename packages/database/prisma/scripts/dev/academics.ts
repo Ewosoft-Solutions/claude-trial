@@ -19,7 +19,7 @@
  * and finance invoices from the persona seed are preserved.
  */
 
-import { prisma } from '../../../src/client.js';
+import { prisma } from '../../../src/singleton.js';
 import bcrypt from 'bcrypt';
 import { assertDevSeedAllowed } from './guard.js';
 

@@ -21,6 +21,7 @@ import type {
 // ── Simulate the raw /auth/me API response ──────────────────────────────────
 
 const RAW_ME_RESPONSE = {
+  accountId: 'user-opaque-1',
   user: {
     name: 'Ada Okafor',
     email: 'ada@stjude.edu',
@@ -43,7 +44,14 @@ const RAW_ME_RESPONSE = {
     focusWarningSeconds: 300,
   },
   accessExpiresAt: Date.now() + 60 * 60 * 1000,
-  biometricEnrollment: { policy: 'require' as const, enrolled: false },
+  biometricEnrollment: {
+    policy: 'require' as const,
+    activePolicy: 'allow' as const,
+    requiredBy: [
+      { schoolId: 'tenant-required', schoolName: 'Required Academy' },
+    ],
+    enrolled: false,
+  },
   schools: [
     {
       id: 'tenant-abc',
@@ -64,6 +72,7 @@ const RAW_ME_RESPONSE = {
     },
   ],
 } satisfies {
+  accountId: string;
   user: UserProfile;
   scope: 'school' | 'platform';
   clearanceLevel: number;
@@ -90,6 +99,7 @@ const RAW_ME_RESPONSE = {
 
 function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
   return {
+    accountId: me.accountId,
     user: me.user,
     scope: me.scope,
     clearanceLevel: me.clearanceLevel as Session['clearanceLevel'],
@@ -128,6 +138,18 @@ describe('Session contract — /auth/me ↔ Session shape', () => {
     expect(typeof user.email).toBe('string');
     expect(typeof user.initials).toBe('string');
     expect(typeof user.caption).toBe('string');
+  });
+
+  it('carries an opaque account id and effective enrollment policy', () => {
+    expect(session.accountId).toBe('user-opaque-1');
+    expect(session.biometricEnrollment).toEqual({
+      policy: 'require',
+      activePolicy: 'allow',
+      requiredBy: [
+        { schoolId: 'tenant-required', schoolName: 'Required Academy' },
+      ],
+      enrolled: false,
+    });
   });
 
   it('scope is a valid NavScope', () => {

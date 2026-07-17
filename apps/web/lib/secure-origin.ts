@@ -41,3 +41,39 @@ export function buildHttpsRedirectUrl(
   url.port = '';
   return url;
 }
+
+/**
+ * Redirect the public `www` alias to the configured canonical web origin.
+ * Other hosts are deliberately ignored so a forged Host header cannot turn
+ * this into an open redirect and service subdomains (for example `api`) remain
+ * independent.
+ */
+export function buildCanonicalHostRedirectUrl(
+  requestUrl: string,
+  hostHeader: string | null,
+  canonicalOrigin: string | undefined,
+): URL | null {
+  if (!canonicalOrigin?.trim()) return null;
+
+  let canonical: URL;
+  try {
+    canonical = new URL(canonicalOrigin);
+  } catch {
+    return null;
+  }
+  if (canonical.protocol !== 'https:' || canonical.pathname !== '/') {
+    return null;
+  }
+
+  const publicHost = (hostHeader ?? '').split(',')[0]?.trim().toLowerCase();
+  const publicHostname = publicHost?.split(':')[0];
+  if (publicHostname !== `www.${canonical.hostname.toLowerCase()}`) {
+    return null;
+  }
+
+  const url = new URL(requestUrl);
+  url.protocol = canonical.protocol;
+  url.hostname = canonical.hostname;
+  url.port = canonical.port;
+  return url;
+}

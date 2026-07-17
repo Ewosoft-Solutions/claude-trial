@@ -65,6 +65,8 @@ export interface SessionSchool extends SchoolOption {
  * is an array (not a `Set`) — the client provider derives the lookup Set.
  */
 export interface Session {
+  /** Stable opaque account id for device-local, non-sensitive preferences. */
+  accountId: string;
   user: UserProfile;
   /** Active surface for the signed-in viewer. */
   scope: ViewerContext['scope'];
@@ -86,6 +88,8 @@ export interface Session {
   sessionPolicy: SessionLifecyclePolicy;
   biometricEnrollment: {
     policy: 'require' | 'allow' | 'forbid';
+    activePolicy: 'require' | 'allow' | 'forbid';
+    requiredBy: Array<{ schoolId: string; schoolName: string }>;
     enrolled: boolean;
   };
   /** Epoch milliseconds for proactive access-token refresh. */
@@ -96,6 +100,7 @@ export interface Session {
 
 /** Shape of GET /auth/me response from apps/api */
 interface MeResponse {
+  accountId: string;
   user: {
     name: string;
     email: string;
@@ -125,6 +130,8 @@ interface MeResponse {
   sessionPolicy: SessionLifecyclePolicy;
   biometricEnrollment: {
     policy: 'require' | 'allow' | 'forbid';
+    activePolicy: 'require' | 'allow' | 'forbid';
+    requiredBy: Array<{ schoolId: string; schoolName: string }>;
     enrolled: boolean;
   };
   accessExpiresAt: number;
@@ -167,6 +174,7 @@ export async function getSession(): Promise<Session | null> {
     });
 
     return {
+      accountId: me.accountId,
       user: me.user,
       scope: me.scope,
       clearanceLevel: me.clearanceLevel as ViewerContext['clearanceLevel'],

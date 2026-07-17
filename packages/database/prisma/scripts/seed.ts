@@ -1,4 +1,4 @@
-import { prisma } from '../../src/client.js';
+import { prisma } from '../../src/singleton.js';
 import { SENSITIVE_OPERATION_CATALOG } from '../../src/sensitive-operations.js';
 import bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';

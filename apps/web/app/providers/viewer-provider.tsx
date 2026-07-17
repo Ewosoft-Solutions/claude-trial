@@ -24,6 +24,8 @@ import { authedFetch } from '@/lib/authed-fetch';
 
 /* ---- context ------------------------------------------------- */
 export interface ViewerContextValue {
+  /** Stable opaque account id used only for local preference namespacing. */
+  accountId: string;
   /** The signed-in viewer, as consumed by the navigation model. */
   viewer: ViewerContext;
   /** Profile for the shell user menu. */
@@ -42,7 +44,11 @@ export interface ViewerContextValue {
    *  role at the same school, or a different school). Re-authenticates via
    *  POST /api/auth/switch-profile and reloads, since the new role,
    *  clearance level and permissions all come from a fresh access token. */
-  switchProfile: (tenantId: string, profileId: string) => Promise<void>;
+  switchProfile: (
+    tenantId: string,
+    profileId: string,
+    destination?: string,
+  ) => Promise<void>;
   /** The profile id the user has pinned as their sign-in default — the
    *  stored preference (Account settings › Profile), not necessarily the
    *  one active right now. */
@@ -89,7 +95,7 @@ export function ViewerProvider({
   // /overview renders a different dashboard per clearance level, so it's
   // valid for every profile.
   const switchProfile = React.useCallback(
-    async (tenantId: string, profileId: string) => {
+    async (tenantId: string, profileId: string, destination = '/overview') => {
       const res = await authedFetch('/api/auth/switch-profile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -99,7 +105,7 @@ export function ViewerProvider({
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error ?? 'Failed to switch profile');
       }
-      window.location.href = '/overview';
+      window.location.href = destination;
     },
     [],
   );
@@ -138,6 +144,7 @@ export function ViewerProvider({
     // SessionSchool extends SchoolOption, so the list is assignable as-is;
     // the extra `schoolType` is simply ignored by the shell switcher.
     return {
+      accountId: session.accountId,
       viewer,
       user: session.user,
       schools: session.schools,

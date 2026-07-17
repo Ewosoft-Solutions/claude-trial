@@ -1,4 +1,4 @@
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Inject, Logger, OnModuleDestroy } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@workspace/database';
 import { setContext } from '@workspace/database/rls';
 import { TENANT_PRISMA_CLIENT_TOKEN } from './database.service';
@@ -17,13 +17,18 @@ import { rlsAls, currentRlsTx } from './rls-als';
  * client — only tenant-data services should use `TenantDbService.client`.
  */
 @Injectable()
-export class TenantDbService {
+export class TenantDbService implements OnModuleDestroy {
   private readonly logger = new Logger(TenantDbService.name);
 
   constructor(
     @Inject(TENANT_PRISMA_CLIENT_TOKEN)
     private readonly tenantPrisma: PrismaClient,
   ) {}
+
+  /** Close the restricted-role connection pool when Nest shuts down. */
+  async onModuleDestroy(): Promise<void> {
+    await this.tenantPrisma.$disconnect();
+  }
 
   /** Run `fn` with the tenant RLS context set (`app.current_tenant_id`). */
   async runScoped<T>(

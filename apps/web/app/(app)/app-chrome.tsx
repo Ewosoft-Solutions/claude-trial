@@ -49,9 +49,24 @@ import type {
 import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
 import {
+  claimMissingPasskeyIntent,
+  clearBiometricReminderIntent,
+  clearBiometricReminderPreference,
+  clearRequiredEnrollmentPromptDismissal,
+  dismissRequiredEnrollmentPrompt,
+  hasDismissedRequiredEnrollmentPrompt,
+  isBiometricReminderFocusRoute,
+  readBiometricReminderPreference,
+  shouldShowBiometricReminder,
+  snoozeBiometricReminder,
+  suppressBiometricReminder,
+  type BiometricReminderPreference,
+} from '@/lib/biometric-reminder';
+import {
   useResumableModal,
   useSessionLifecycle,
 } from '@/app/providers/session-lifecycle-provider';
+import { BiometricEnrollmentBanner } from './_shared/biometric-enrollment-banner';
 
 const AiWorkspaceLauncher = dynamic(
   () => import('./_shared/ai-workspace').then((mod) => mod.AiWorkspaceLauncher),
@@ -107,6 +122,7 @@ function HeaderActions() {
 
 export function AppChrome({ children }: { children: React.ReactNode }) {
   const {
+    accountId,
     viewer,
     user,
     schools,
@@ -118,9 +134,13 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = React.useState(false);
-  const [enrollmentPromptOpen, setEnrollmentPromptOpen] = React.useState(
-    biometricEnrollment.policy === 'require' && !biometricEnrollment.enrolled,
-  );
+  const [enrollmentPromptOpen, setEnrollmentPromptOpen] = React.useState(false);
+  const [hasEnrollmentIntent, setHasEnrollmentIntent] = React.useState(false);
+  const [reminderPreference, setReminderPreference] =
+    React.useState<BiometricReminderPreference | null>(null);
+  const [switchingForEnrollment, setSwitchingForEnrollment] =
+    React.useState(false);
+  const requiredPromptShownRef = React.useRef(false);
   const { signOut } = useSessionLifecycle();
   const reopenSearch = React.useCallback(() => setSearchOpen(true), []);
   useResumableModal('global-search', searchOpen, reopenSearch);
@@ -135,6 +155,49 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     window.addEventListener('keydown', handleShortcut);
     return () => window.removeEventListener('keydown', handleShortcut);
   }, []);
+
+  React.useEffect(() => {
+    if (biometricEnrollment.enrolled) {
+      clearBiometricReminderIntent(accountId);
+      clearBiometricReminderPreference(accountId);
+      clearRequiredEnrollmentPromptDismissal(accountId);
+      setHasEnrollmentIntent(false);
+      setReminderPreference(null);
+      setEnrollmentPromptOpen(false);
+      return;
+    }
+
+    setHasEnrollmentIntent(claimMissingPasskeyIntent(accountId));
+    setReminderPreference(readBiometricReminderPreference(accountId));
+  }, [accountId, biometricEnrollment.enrolled]);
+
+  const focusRoute = isBiometricReminderFocusRoute(pathname);
+  const reminderVisible = shouldShowBiometricReminder({
+    enrolled: biometricEnrollment.enrolled,
+    policy: biometricEnrollment.policy,
+    hasIntent: hasEnrollmentIntent,
+    preference: reminderPreference,
+    focusRoute,
+  });
+  const enrollmentRequired =
+    biometricEnrollment.policy === 'require' && !biometricEnrollment.enrolled;
+
+  React.useEffect(() => {
+    if (
+      enrollmentRequired &&
+      !focusRoute &&
+      !hasDismissedRequiredEnrollmentPrompt(accountId) &&
+      !requiredPromptShownRef.current
+    ) {
+      requiredPromptShownRef.current = true;
+      setEnrollmentPromptOpen(true);
+    }
+  }, [accountId, enrollmentRequired, focusRoute]);
+
+  const dismissRequiredPrompt = React.useCallback(() => {
+    dismissRequiredEnrollmentPrompt(accountId);
+    setEnrollmentPromptOpen(false);
+  }, [accountId]);
 
   // One switcher entry per profile, not per school — a user can hold more
   // than one profile at the same school (e.g. Teacher + Parent), and each
@@ -156,6 +219,54 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       ),
     [schools],
   );
+
+  const setupHref = `/account/security?intent=enroll&from=${encodeURIComponent(pathname)}`;
+  const requiredContext = biometricEnrollment.requiredBy[0];
+  const requiredProfile = requiredContext
+    ? profileOptions.find(
+        (profile) => profile.tenantId === requiredContext.schoolId,
+      )
+    : undefined;
+  const mustSwitchForEnrollment =
+    enrollmentRequired &&
+    biometricEnrollment.activePolicy === 'forbid' &&
+    requiredProfile !== undefined;
+
+  const startEnrollment = React.useCallback(async () => {
+    setEnrollmentPromptOpen(false);
+    if (!mustSwitchForEnrollment || !requiredProfile) {
+      router.push(setupHref);
+      return;
+    }
+
+    setSwitchingForEnrollment(true);
+    try {
+      await switchProfile(
+        requiredProfile.tenantId,
+        requiredProfile.id,
+        setupHref,
+      );
+    } catch (error) {
+      setSwitchingForEnrollment(false);
+      console.error('[AppChrome] enrollment context switch failed', error);
+    }
+  }, [
+    mustSwitchForEnrollment,
+    requiredProfile,
+    router,
+    setupHref,
+    switchProfile,
+  ]);
+
+  const snoozeEnrollmentReminder = React.useCallback(() => {
+    snoozeBiometricReminder(accountId);
+    setReminderPreference(readBiometricReminderPreference(accountId));
+  }, [accountId]);
+
+  const suppressEnrollmentReminder = React.useCallback(() => {
+    suppressBiometricReminder(accountId);
+    setReminderPreference({ mode: 'never' });
+  }, [accountId]);
 
   const handleProfileChange = React.useCallback(
     (selected: { id: string }) => {
@@ -264,6 +375,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
                 onClick={() => setSearchOpen(true)}
               />
             }
+            searchAction={<AiWorkspaceLauncher />}
             actions={
               <>
                 <HeaderActions />
@@ -287,8 +399,20 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           />
         }
       >
+        {reminderVisible ? (
+          <BiometricEnrollmentBanner
+            required={enrollmentRequired}
+            requiredBy={biometricEnrollment.requiredBy.map(
+              (school) => school.schoolName,
+            )}
+            setupHref={mustSwitchForEnrollment ? undefined : setupHref}
+            onSetup={() => void startEnrollment()}
+            setupPending={switchingForEnrollment}
+            onSnooze={snoozeEnrollmentReminder}
+            onSuppress={suppressEnrollmentReminder}
+          />
+        ) : null}
         {children}
-        <AiWorkspaceLauncher />
         <GlobalSearch
           open={searchOpen}
           onOpenChange={setSearchOpen}
@@ -298,33 +422,35 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
       </AppShell>
       <Dialog
         open={enrollmentPromptOpen}
-        onOpenChange={setEnrollmentPromptOpen}
+        onOpenChange={(open) => {
+          if (open) setEnrollmentPromptOpen(true);
+          else dismissRequiredPrompt();
+        }}
       >
-        <DialogContent>
+        <DialogContent showCloseButton={false}>
           <DialogHeader>
             <div className="mb-2 grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
               <Fingerprint className="size-5" />
             </div>
             <DialogTitle>Set up biometric sign-in</DialogTitle>
             <DialogDescription>
-              Your school requires a passkey for faster, phishing-resistant
-              sign-in. Password and recovery options remain available.
+              {biometricEnrollment.requiredBy.length === 1
+                ? `${biometricEnrollment.requiredBy[0]?.schoolName} requires a passkey for faster, phishing-resistant sign-in.`
+                : biometricEnrollment.requiredBy.length > 1
+                  ? `${biometricEnrollment.requiredBy.length} of your schools require a passkey for faster, phishing-resistant sign-in.`
+                  : 'Your school requires a passkey for faster, phishing-resistant sign-in.'}{' '}
+              Password and recovery options remain available.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              variant="ghost"
-              onClick={() => setEnrollmentPromptOpen(false)}
-            >
-              Not now
+            <Button variant="ghost" onClick={dismissRequiredPrompt}>
+              Remind me after this session
             </Button>
             <Button
-              onClick={() => {
-                setEnrollmentPromptOpen(false);
-                router.push('/account/security');
-              }}
+              onClick={() => void startEnrollment()}
+              disabled={switchingForEnrollment}
             >
-              Set up passkey
+              {switchingForEnrollment ? 'Switching school…' : 'Set up now'}
             </Button>
           </DialogFooter>
         </DialogContent>
