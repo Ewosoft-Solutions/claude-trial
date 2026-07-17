@@ -33,6 +33,8 @@ import { DatabaseService } from '../../common/database/database.service';
 import { RoleType, TenantQueriesService } from '@workspace/api';
 import { AuthUser } from '../decorators';
 import type { RequestUser } from '../types/request-user';
+import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../step-up.operations';
 
 /**
  * Create Custom Role DTO
@@ -138,6 +140,8 @@ export class RoleManagementController {
    * likewise through PATCH /permissions/pool/:id/clearance.
    */
   @Post()
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.ROLES_CREATE)
   @HttpCode(HttpStatus.CREATED)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Create custom role' })
@@ -200,6 +204,8 @@ export class RoleManagementController {
    * conflict instead of silently narrowing its permissions.
    */
   @Patch(':id/clearance')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.ROLES_UPDATE)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: "Update a custom role's clearance level (Gate 4)" })
   @ApiResponse({ status: 200, description: 'Role clearance updated' })

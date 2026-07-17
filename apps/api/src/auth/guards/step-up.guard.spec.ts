@@ -12,13 +12,19 @@ function context(req: unknown) {
 describe('StepUpGuard', () => {
   let reflector: { getAllAndOverride: jest.Mock };
   let dbService: { client: object };
-  let stepUpService: { verifyAndConsume: jest.Mock };
+  let stepUpService: {
+    requiresStepUp: jest.Mock;
+    verifyAndConsume: jest.Mock;
+  };
   let guard: StepUpGuard;
 
   beforeEach(() => {
     reflector = { getAllAndOverride: jest.fn() };
     dbService = { client: {} };
-    stepUpService = { verifyAndConsume: jest.fn() };
+    stepUpService = {
+      requiresStepUp: jest.fn().mockResolvedValue(true),
+      verifyAndConsume: jest.fn(),
+    };
     guard = new StepUpGuard(
       reflector as never,
       dbService as never,
@@ -64,6 +70,17 @@ describe('StepUpGuard', () => {
       'sensitive_operation',
       'c1',
     );
+    expect(req.body).toEqual({});
+  });
+
+  it('allows the operation when the platform policy disables step-up', async () => {
+    reflector.getAllAndOverride.mockReturnValue('sensitive_operation');
+    stepUpService.requiresStepUp.mockResolvedValue(false);
+    const req = { user: { userId: 'u1' }, body: { stepUpChallengeId: 'c1' } };
+
+    await expect(guard.canActivate(context(req))).resolves.toBe(true);
+    expect(stepUpService.verifyAndConsume).not.toHaveBeenCalled();
+    expect(req.body).toEqual({});
   });
 
   it('rejects when the service reports no valid/consumable challenge', async () => {

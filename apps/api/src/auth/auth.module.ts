@@ -48,6 +48,7 @@ import {
   PlatformOversightService,
   SecurityPolicyService,
   SessionPolicyService,
+  SensitiveOperationPolicyService,
   BreachResponseService,
   StepUpService,
 } from './services';
@@ -103,6 +104,7 @@ import {
     PlatformOversightService,
     SecurityPolicyService,
     SessionPolicyService,
+    SensitiveOperationPolicyService,
     BreachResponseService,
     StepUpService,
     // Guards
@@ -130,6 +132,7 @@ import {
     PlatformOversightService,
     SecurityPolicyService,
     SessionPolicyService,
+    SensitiveOperationPolicyService,
     BreachResponseService,
     StepUpService,
     // Guards

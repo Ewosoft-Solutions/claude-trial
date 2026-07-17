@@ -9,6 +9,8 @@ import {
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 import { SwaggerTags } from '../../common/swagger-tags';
 import { UpdateTenantConfigurationDto } from '../dto';
 import { TenantConfigurationService } from '../services/tenant-configuration.service';
@@ -31,6 +33,8 @@ export class TenantConfigurationController {
   }
 
   @Put()
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.SYSTEM_CONFIGURATION)
   @RequirePermissions(['settings.school'])
   @ApiOperation({ summary: 'Update the active school configuration' })
   updateConfiguration(

@@ -25,6 +25,8 @@ import {
   CustomReportDto,
 } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 
 @ApiTags(SwaggerTags.reports.name)
 @Controller('reports')
@@ -57,6 +59,8 @@ export class ReportingController {
   }
 
   @Post('export')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.DATA_EXPORT)
   @RequirePermissions(['reports.export'])
   @ApiOperation({ summary: 'Export report (queued/stub)' })
   async export(

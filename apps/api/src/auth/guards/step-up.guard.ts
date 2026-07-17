@@ -70,15 +70,30 @@ export class StepUpGuard implements CanActivate {
       throw new ForbiddenException('User not authenticated');
     }
 
-    // The challenge id is taken ONLY from the request body. Headers are never
-    // trusted (that was the old guard's flaw); the body value is meaningless
-    // unless it matches a server-side challenge row, checked next.
+    // Guards run before Nest's global ValidationPipe. Capture and remove this
+    // guard-only proof so strict DTO whitelisting does not reject it after the
+    // challenge has been consumed. Business handlers never receive or trust it.
     const body = (request as { body?: Record<string, unknown> }).body;
     const challengeId =
       typeof body?.stepUpChallengeId === 'string'
         ? body.stepUpChallengeId
         : undefined;
+    if (body && 'stepUpChallengeId' in body) {
+      delete body.stepUpChallengeId;
+    }
 
+    if (
+      !(await this.stepUpService.requiresStepUp(
+        this.dbService.client,
+        operation,
+      ))
+    ) {
+      return true;
+    }
+
+    // The challenge id is taken ONLY from the request body. Headers are never
+    // trusted (that was the old guard's flaw); the body value is meaningless
+    // unless it matches a server-side challenge row, checked next.
     if (!challengeId) {
       throw new ForbiddenException(
         'Step-up verification required for this operation.',

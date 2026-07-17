@@ -28,6 +28,7 @@ import type { RequestUser } from './types/request-user';
 import { JwtAuthGuard, RequireStepUp, StepUpGuard } from './guards';
 import { STEP_UP_OPERATION } from './step-up.operations';
 import { BiometricsService } from './services/biometrics.service';
+import { SensitiveOperationPolicyService } from './services/sensitive-operation-policy.service';
 import {
   VerifyBiometricRegistrationDto,
   RenameBiometricDeviceDto,
@@ -43,6 +44,7 @@ export class BiometricsController {
 
   constructor(
     private readonly biometricsService: BiometricsService,
+    private readonly sensitiveOperationPolicies: SensitiveOperationPolicyService,
     private readonly dbService: DatabaseService,
   ) {}
 
@@ -62,6 +64,10 @@ export class BiometricsController {
     }
 
     const prisma = this.dbService.client;
+    await this.sensitiveOperationPolicies.assertEnrollmentAllowed(
+      prisma,
+      user.tenantId,
+    );
     const options = await this.biometricsService.generateRegistrationOptions(
       prisma,
       user.userId,
@@ -89,6 +95,10 @@ export class BiometricsController {
     }
 
     const prisma = this.dbService.client;
+    await this.sensitiveOperationPolicies.assertEnrollmentAllowed(
+      prisma,
+      user.tenantId,
+    );
     try {
       const id = await this.biometricsService.verifyRegistration(
         prisma,
@@ -133,6 +143,18 @@ export class BiometricsController {
 
     const prisma = this.dbService.client;
     return this.biometricsService.listDevices(prisma, user.userId);
+  }
+
+  @Get('policy')
+  @ApiOperation({ summary: 'Get biometric enrolment policy for this session' })
+  async getEnrollmentPolicy(@AuthUser() user: RequestUser) {
+    if (!user?.userId) {
+      throw new UnauthorizedException('User not authenticated');
+    }
+    return this.sensitiveOperationPolicies.getBiometricEnrollmentPolicy(
+      this.dbService.client,
+      user.tenantId,
+    );
   }
 
   /**
@@ -182,6 +204,11 @@ export class BiometricsController {
     }
 
     const prisma = this.dbService.client;
+    await this.sensitiveOperationPolicies.assertCanRemovePasskey(
+      prisma,
+      user.tenantId,
+      user.userId,
+    );
     const removed = await this.biometricsService.removeDevice(
       prisma,
       user.userId,

@@ -1,4 +1,5 @@
 import { prisma } from '../../src/client.js';
+import { SENSITIVE_OPERATION_CATALOG } from '../../src/sensitive-operations.js';
 import bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 
@@ -3693,6 +3694,39 @@ async function assignPoolsToRoles(
   return rolePoolCount;
 }
 
+async function seedSensitiveOperationPolicies() {
+  console.log('\n📋 Phase 6: Seeding sensitive-operation policies...');
+
+  for (const definition of SENSITIVE_OPERATION_CATALOG) {
+    await prisma.sensitiveOperationPolicy.upsert({
+      where: { operation: definition.operation },
+      update: {
+        label: definition.label,
+        description: definition.description,
+        category: definition.category,
+        requiredClearanceLevel: definition.requiredClearanceLevel,
+        requiredPermission: definition.requiredPermission,
+      },
+      create: {
+        operation: definition.operation,
+        label: definition.label,
+        description: definition.description,
+        category: definition.category,
+        enabled: true,
+        requiresStepUp: definition.requiresStepUp,
+        requiresMakerChecker: definition.requiresMakerChecker,
+        freshnessMinutes: definition.freshnessMinutes,
+        requiredClearanceLevel: definition.requiredClearanceLevel,
+        requiredPermission: definition.requiredPermission,
+      },
+    });
+  }
+
+  console.log(
+    `  ✅ Seeded ${SENSITIVE_OPERATION_CATALOG.length} sensitive-operation policies`,
+  );
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
@@ -3746,6 +3780,7 @@ async function main() {
     );
     const rolePoolCount = await assignPoolsToRoles(createdRoles, createdPools);
 
+    await seedSensitiveOperationPolicies();
     await seedPlatformBootstrap(prisma, createdRoles);
 
     console.log('\n✨ Seed completed successfully!');
@@ -3755,6 +3790,9 @@ async function main() {
     console.log(`  - All Permissions: ${allPermissions.length}`);
     console.log(`  - Permission-Pool Assignments: ${poolPermissionCount}`);
     console.log(`  - Role-Pool Assignments: ${rolePoolCount}`);
+    console.log(
+      `  - Sensitive Operations: ${SENSITIVE_OPERATION_CATALOG.length}`,
+    );
     console.log(
       `  - Platform Architect: ${PLATFORM_BOOTSTRAP.architect.email}`,
     );

@@ -84,6 +84,10 @@ export interface Session {
    *  right now. Undefined when the user hasn't set one. */
   defaultProfileId?: string;
   sessionPolicy: SessionLifecyclePolicy;
+  biometricEnrollment: {
+    policy: 'require' | 'allow' | 'forbid';
+    enrolled: boolean;
+  };
   /** Epoch milliseconds for proactive access-token refresh. */
   accessExpiresAt: number;
   /** Fixed refresh/session cap; activity and refresh never extend it. */
@@ -119,6 +123,10 @@ interface MeResponse {
     profiles: Array<{ profileId: string; role: string; caption: string }>;
   }>;
   sessionPolicy: SessionLifecyclePolicy;
+  biometricEnrollment: {
+    policy: 'require' | 'allow' | 'forbid';
+    enrolled: boolean;
+  };
   accessExpiresAt: number;
 }
 
@@ -168,6 +176,7 @@ export async function getSession(): Promise<Session | null> {
       activeProfileId: me.activeProfileId,
       defaultProfileId: me.defaultProfileId,
       sessionPolicy: me.sessionPolicy,
+      biometricEnrollment: me.biometricEnrollment,
       accessExpiresAt: me.accessExpiresAt,
       absoluteExpiresAt: decodeJwtExpiry(refreshToken),
       schools: me.schools.map((s) => ({

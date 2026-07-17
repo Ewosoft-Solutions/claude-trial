@@ -16,6 +16,7 @@ import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 
 import type { SessionLifecyclePolicy } from '@/lib/session';
 import { SessionSecurityForm } from '../../../settings/security/session-security-form';
+import { PlatformSecurityGovernance } from './platform-security-governance';
 
 interface School {
   id: string;
@@ -110,6 +111,8 @@ export default function PlatformSecuritySettingsPage() {
           tenantName={selected.name}
         />
       ) : null}
+
+      <PlatformSecurityGovernance />
     </div>
   );
 }

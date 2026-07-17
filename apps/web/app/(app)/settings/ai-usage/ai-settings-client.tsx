@@ -33,6 +33,8 @@ import {
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { useStepUpAction } from '../../_shared/use-step-up-action';
 
 export interface AiSettings {
   modelTier: string;
@@ -66,6 +68,7 @@ export function AiSettingsClient({ settings, pending }: Props) {
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const { requestStepUp, stepUpPrompt } = useStepUpAction();
 
   const [modelTier, setModelTier] = React.useState(settings.modelTier);
   const [analyticsEnabled, setAnalyticsEnabled] = React.useState(
@@ -98,7 +101,10 @@ export function AiSettingsClient({ settings, pending }: Props) {
     if (Number.isFinite(budget) && budget !== settings.monthlyTokenBudget)
       payload.monthlyTokenBudget = budget;
     const concurrency = Number(concurrencyLimit);
-    if (Number.isFinite(concurrency) && concurrency !== settings.concurrencyLimit)
+    if (
+      Number.isFinite(concurrency) &&
+      concurrency !== settings.concurrencyLimit
+    )
       payload.concurrencyLimit = concurrency;
     const threshold = Number(alertThresholdPercent);
     if (
@@ -117,40 +123,69 @@ export function AiSettingsClient({ settings, pending }: Props) {
     return payload;
   }
 
-  async function submit() {
+  function requestSubmit() {
     setError(null);
     setNotice(null);
     const payload = buildPayload();
-    if (byokProvider !== PLATFORM_KEY && !byokApiKey && !settings.byokProvider) {
-      setError('Enter the BYOK API key to switch to a bring-your-own-key provider.');
+    if (
+      byokProvider !== PLATFORM_KEY &&
+      !byokApiKey &&
+      !settings.byokProvider
+    ) {
+      setError(
+        'Enter the BYOK API key to switch to a bring-your-own-key provider.',
+      );
       return;
     }
     if (Object.keys(payload).length === 0) {
       setError('No changes to propose.');
       return;
     }
+    requestStepUp(
+      {
+        operation: STEP_UP_OPERATION.AI_SETTINGS_UPDATE,
+        title: 'Confirm AI settings proposal',
+        description:
+          'AI provider and usage controls are sensitive school settings.',
+      },
+      (challengeId) => submit(payload, challengeId),
+    );
+  }
+
+  async function submit(
+    payload: Record<string, unknown>,
+    stepUpChallengeId: string,
+  ) {
     setBusy(true);
     try {
       const res = await fetch('/api/ai/admin/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, stepUpChallengeId }),
       });
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? 'Could not submit the change.');
       }
       setByokApiKey('');
-      setNotice('Change submitted — a different admin must approve it before it applies.');
+      setNotice(
+        'Change submitted — a different admin must approve it before it applies.',
+      );
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not submit the change.');
+      setError(
+        err instanceof Error ? err.message : 'Could not submit the change.',
+      );
     } finally {
       setBusy(false);
     }
   }
 
-  async function decide(id: string, decision: 'approve' | 'reject') {
+  async function decide(
+    id: string,
+    decision: 'approve' | 'reject',
+    stepUpChallengeId: string,
+  ) {
     setError(null);
     setNotice(null);
     setBusy(true);
@@ -160,6 +195,7 @@ export function AiSettingsClient({ settings, pending }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           decision,
+          stepUpChallengeId,
           reason: decision === 'reject' ? 'Rejected via settings' : undefined,
         }),
       });
@@ -167,13 +203,33 @@ export function AiSettingsClient({ settings, pending }: Props) {
         const body = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(body.error ?? `Could not ${decision} the change.`);
       }
-      setNotice(decision === 'approve' ? 'Change approved and applied.' : 'Change rejected.');
+      setNotice(
+        decision === 'approve'
+          ? 'Change approved and applied.'
+          : 'Change rejected.',
+      );
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : `Could not ${decision} the change.`);
+      setError(
+        err instanceof Error
+          ? err.message
+          : `Could not ${decision} the change.`,
+      );
     } finally {
       setBusy(false);
     }
+  }
+
+  function requestDecision(id: string, decision: 'approve' | 'reject') {
+    requestStepUp(
+      {
+        operation: STEP_UP_OPERATION.AI_SETTINGS_UPDATE,
+        title: `${decision === 'approve' ? 'Approve' : 'Reject'} AI settings change`,
+        description:
+          'Confirm your identity before recording this maker-checker decision.',
+      },
+      (challengeId) => decide(id, decision, challengeId),
+    );
   }
 
   return (
@@ -183,7 +239,8 @@ export function AiSettingsClient({ settings, pending }: Props) {
           <CardHeader>
             <CardTitle className="text-base">Pending changes</CardTitle>
             <CardDescription>
-              Awaiting approval by an admin other than the requester (dual control).
+              Awaiting approval by an admin other than the requester (dual
+              control).
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
@@ -210,14 +267,14 @@ export function AiSettingsClient({ settings, pending }: Props) {
                     size="sm"
                     variant="outline"
                     disabled={busy}
-                    onClick={() => void decide(change.id, 'reject')}
+                    onClick={() => requestDecision(change.id, 'reject')}
                   >
                     Reject
                   </Button>
                   <Button
                     size="sm"
                     disabled={busy}
-                    onClick={() => void decide(change.id, 'approve')}
+                    onClick={() => requestDecision(change.id, 'approve')}
                   >
                     Approve
                   </Button>
@@ -237,10 +294,19 @@ export function AiSettingsClient({ settings, pending }: Props) {
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {error ? (
-            <NoticeBanner tone="destructive" role="alert" title={error} onDismiss={() => setError(null)} />
+            <NoticeBanner
+              tone="destructive"
+              role="alert"
+              title={error}
+              onDismiss={() => setError(null)}
+            />
           ) : null}
           {notice ? (
-            <NoticeBanner tone="success" title={notice} onDismiss={() => setNotice(null)} />
+            <NoticeBanner
+              tone="success"
+              title={notice}
+              onDismiss={() => setNotice(null)}
+            />
           ) : null}
 
           <div className="grid gap-4 @xl/main:grid-cols-2">
@@ -275,7 +341,14 @@ export function AiSettingsClient({ settings, pending }: Props) {
             </Field>
 
             {byokProvider !== PLATFORM_KEY ? (
-              <Field label="BYOK API key" hint={settings.keyLast4 ? `Current: …${settings.keyLast4}` : undefined}>
+              <Field
+                label="BYOK API key"
+                hint={
+                  settings.keyLast4
+                    ? `Current: …${settings.keyLast4}`
+                    : undefined
+                }
+              >
                 <Input
                   type="password"
                   value={byokApiKey}
@@ -329,12 +402,13 @@ export function AiSettingsClient({ settings, pending }: Props) {
           </div>
 
           <div className="flex justify-end">
-            <Button size="sm" disabled={busy} onClick={() => void submit()}>
+            <Button size="sm" disabled={busy} onClick={requestSubmit}>
               Submit for approval
             </Button>
           </div>
         </CardContent>
       </Card>
+      {stepUpPrompt}
     </div>
   );
 }
@@ -352,7 +426,9 @@ function Field({
     <div className="flex flex-col gap-1.5">
       <Label>{label}</Label>
       {children}
-      {hint ? <span className="text-xs text-muted-foreground">{hint}</span> : null}
+      {hint ? (
+        <span className="text-xs text-muted-foreground">{hint}</span>
+      ) : null}
     </div>
   );
 }

@@ -16,6 +16,8 @@ import { Input } from '@workspace/ui/components/input';
 import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 
 import type { SessionLifecyclePolicy } from '@/lib/session';
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { StepUpPrompt } from '../../_shared/step-up-prompt';
 
 export function SessionSecurityForm({
   initialPolicy,
@@ -35,17 +37,18 @@ export function SessionSecurityForm({
   const [value, setValue] = React.useState(initialPolicy.idleTimeoutMinutes);
   const [error, setError] = React.useState<string | null>(null);
   const [notice, setNotice] = React.useState<string | null>(null);
+  const [stepUpOpen, setStepUpOpen] = React.useState(false);
   const [isPending, startTransition] = React.useTransition();
   const dirty = value !== savedValue;
 
-  function save() {
+  function save(stepUpChallengeId: string) {
     setError(null);
     setNotice(null);
     startTransition(async () => {
       const response = await fetch(endpoint, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idleTimeoutMinutes: value }),
+        body: JSON.stringify({ idleTimeoutMinutes: value, stepUpChallengeId }),
       });
       const body = (await response.json().catch(() => ({}))) as {
         error?: string;
@@ -181,10 +184,25 @@ export function SessionSecurityForm({
       </Card>
 
       <div className="flex items-center justify-end">
-        <Button disabled={!canEdit || !dirty || isPending} onClick={save}>
+        <Button
+          disabled={!canEdit || !dirty || isPending}
+          onClick={() => setStepUpOpen(true)}
+        >
           {isPending ? 'Saving…' : 'Save inactivity policy'}
         </Button>
       </div>
+
+      <StepUpPrompt
+        open={stepUpOpen}
+        operation={STEP_UP_OPERATION.SECURITY_POLICY_UPDATE}
+        title="Confirm this security change"
+        description="Changing the inactivity policy affects every signed-in user at this school."
+        onCancel={() => setStepUpOpen(false)}
+        onVerified={(challengeId) => {
+          setStepUpOpen(false);
+          save(challengeId);
+        }}
+      />
     </div>
   );
 }

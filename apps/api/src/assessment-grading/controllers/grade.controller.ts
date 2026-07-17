@@ -28,6 +28,8 @@ import {
 import { AssessmentGradingService } from '../services/assessment-grading.service';
 import { CreateGradeDto, UpdateGradeDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 
 @ApiTags(SwaggerTags.grades.name)
 @Controller('grades')
@@ -63,6 +65,8 @@ export class GradeController {
   }
 
   @Put(':id')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.GRADES_OVERRIDE)
   @RequirePermissions(['grades.edit'])
   @ApiOperation({ summary: 'Update grade' })
   async update(

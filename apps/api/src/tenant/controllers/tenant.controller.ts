@@ -51,6 +51,8 @@ import {
   UpdateUserProfileDto,
 } from '../dto';
 import { type AuthenticatedRequest } from '../../auth/middleware/multi-layer-security.middleware';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 
 /**
  * Tenant Management Controller
@@ -78,6 +80,8 @@ export class TenantController {
    * 6.1: Implement school registration (platform admin or school owner)
    */
   @Post('register')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.TENANT_PROVISION)
   @RequireClearanceLevel(8) // Owner or higher
   @ApiOperation({ summary: 'Register a new school (tenant)' })
   @ApiResponse({ status: 201, description: 'School registered successfully' })
@@ -131,6 +135,8 @@ export class TenantController {
    * Update tenant
    */
   @Put(':id')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.TENANT_PROVISION)
   @RequireClearanceLevel(8) // Owner or higher
   @ApiOperation({ summary: 'Update tenant information' })
   async updateTenant(
@@ -147,6 +153,8 @@ export class TenantController {
    * 6.8: Implement tenant status management
    */
   @Patch(':id/status')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.TENANT_SUSPEND)
   @RequireClearanceLevel(9) // SuperAdmin or higher
   @ApiOperation({ summary: 'Update tenant status' })
   async updateTenantStatus(
@@ -173,6 +181,8 @@ export class TenantController {
    * 6.9: Create tenant settings/configuration API
    */
   @Put(':id/configuration')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.SYSTEM_CONFIGURATION)
   @RequireClearanceLevel(8) // Owner or higher
   @ApiOperation({ summary: 'Update tenant configuration' })
   async updateTenantConfiguration(
@@ -319,6 +329,8 @@ export class TenantController {
    * 6.4: Implement admin-controlled user addition
    */
   @Post(':id/users')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.USERS_CREATE)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Create user directly (without invitation)' })
   async createUser(
@@ -335,6 +347,8 @@ export class TenantController {
    * 6.4: Implement admin-controlled user addition (bulk import)
    */
   @Post(':id/users/bulk')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.DATA_BULK_IMPORT)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Bulk create users' })
   async bulkCreateUsers(
@@ -355,6 +369,8 @@ export class TenantController {
    * 6.4: Implement admin-controlled user addition
    */
   @Post(':id/users/add')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.USERS_CREATE)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Add existing user to tenant' })
   async addUserToTenant(
@@ -424,6 +440,8 @@ export class TenantController {
    * Update user profile (12.3)
    */
   @Put(':id/users/:profileId')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.USERS_ROLE_ASSIGN)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Update user profile' })
   async updateUserProfile(
@@ -445,6 +463,8 @@ export class TenantController {
    * Delete user profile (remove from tenant) (12.3)
    */
   @Delete(':id/users/:profileId')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.USERS_DELETE)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Delete user profile (remove from tenant)' })
   async deleteUserProfile(
@@ -466,6 +486,8 @@ export class TenantController {
    * 6.13: Implement secret access controls (platform admin only)
    */
   @Post(':id/jwt-secret/rotate')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.BREACH_RESPONSE)
   @RequireClearanceLevel(9) // SuperAdmin or higher
   @ApiOperation({ summary: 'Rotate JWT secret (platform admin only)' })
   async rotateJWTSecret(
@@ -488,6 +510,8 @@ export class TenantController {
    * 6.13: Implement secret access controls (platform admin only)
    */
   @Post(':id/jwt-secret/rotate-emergency')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.BREACH_RESPONSE)
   @RequireClearanceLevel(9) // SuperAdmin or higher
   @ApiOperation({
     summary: 'Emergency rotate JWT secret (platform admin only)',

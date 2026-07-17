@@ -1,7 +1,13 @@
 'use client';
 
 import * as React from 'react';
-import { Fingerprint, KeyRound, Loader2 } from 'lucide-react';
+import {
+  Fingerprint,
+  KeyRound,
+  LifeBuoy,
+  Loader2,
+  Smartphone,
+} from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -55,8 +61,15 @@ export function StepUpPrompt({
   );
   const [loadingOptions, setLoadingOptions] = React.useState(false);
   const [password, setPassword] = React.useState('');
+  const [totpCode, setTotpCode] = React.useState('');
+  const [recoveryCode, setRecoveryCode] = React.useState('');
   const [error, setError] = React.useState<string | null>(null);
   const [isPending, startTransition] = React.useTransition();
+  const onVerifiedRef = React.useRef(onVerified);
+
+  React.useEffect(() => {
+    onVerifiedRef.current = onVerified;
+  }, [onVerified]);
 
   React.useEffect(() => {
     if (!open || !operation) return;
@@ -64,6 +77,8 @@ export function StepUpPrompt({
     const controller = new AbortController();
     setOptions(null);
     setPassword('');
+    setTotpCode('');
+    setRecoveryCode('');
     setError(null);
     setLoadingOptions(true);
 
@@ -82,7 +97,12 @@ export function StepUpPrompt({
             ),
           );
         }
-        setOptions((await response.json()) as StepUpOptionsResponse);
+        const nextOptions = (await response.json()) as StepUpOptionsResponse;
+        if (!nextOptions.required) {
+          onVerifiedRef.current('');
+          return;
+        }
+        setOptions(nextOptions);
       })
       .catch((cause: unknown) => {
         if ((cause as { name?: string })?.name !== 'AbortError') {
@@ -100,29 +120,37 @@ export function StepUpPrompt({
     return () => controller.abort();
   }, [open, operation]);
 
+  async function verifyFactor(payload: Record<string, unknown>) {
+    if (!operation) return;
+    const response = await fetch('/api/auth/step-up/verify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ operation, ...payload }),
+    });
+    if (!response.ok) {
+      throw new Error(
+        await responseError(response, 'Identity confirmation failed.'),
+      );
+    }
+    const result = (await response.json()) as { challengeId: string };
+    onVerified(result.challengeId);
+  }
+
   function verifyWithPasskey() {
-    if (!operation || !options?.hasPasskey) return;
+    if (!operation || !options?.hasPasskey || !options.options) return;
+    const authenticationOptions = options.options;
+    const challengeId = options.challengeId;
 
     startTransition(async () => {
       setError(null);
       try {
-        const webauthnResponse = await startAuthentication(options.options);
-        const response = await fetch('/api/auth/step-up/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            operation,
-            challengeId: options.challengeId,
-            webauthnResponse,
-          }),
+        const webauthnResponse = await startAuthentication(
+          authenticationOptions,
+        );
+        await verifyFactor({
+          challengeId,
+          webauthnResponse,
         });
-        if (!response.ok) {
-          throw new Error(
-            await responseError(response, 'Identity confirmation failed.'),
-          );
-        }
-        const result = (await response.json()) as { challengeId: string };
-        onVerified(result.challengeId);
       } catch (cause) {
         const name = (cause as { name?: string })?.name;
         setError(
@@ -143,18 +171,28 @@ export function StepUpPrompt({
     startTransition(async () => {
       setError(null);
       try {
-        const response = await fetch('/api/auth/step-up/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ operation, password }),
-        });
-        if (!response.ok) {
-          throw new Error(
-            await responseError(response, 'Identity confirmation failed.'),
-          );
-        }
-        const result = (await response.json()) as { challengeId: string };
-        onVerified(result.challengeId);
+        await verifyFactor({ password });
+      } catch (cause) {
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : 'Identity confirmation failed.',
+        );
+      }
+    });
+  }
+
+  function verifyWithCode(
+    event: React.FormEvent<HTMLFormElement>,
+    factor: 'totpCode' | 'recoveryCode',
+  ) {
+    event.preventDefault();
+    const value = factor === 'totpCode' ? totpCode : recoveryCode;
+    if (!operation || !value) return;
+    startTransition(async () => {
+      setError(null);
+      try {
+        await verifyFactor({ [factor]: value });
       } catch (cause) {
         setError(
           cause instanceof Error
@@ -197,40 +235,98 @@ export function StepUpPrompt({
           ) : (
             <p className="text-sm text-muted-foreground">
               No built-in passkey is available for this account on this device.
-              Confirm with your current password instead.
+              Use another confirmation method below.
             </p>
           )}
 
           <div className="flex items-center gap-3" aria-hidden>
             <span className="h-px flex-1 bg-border" />
             <span className="text-xs uppercase tracking-wide text-muted-foreground">
-              or use password
+              or use another method
             </span>
             <span className="h-px flex-1 bg-border" />
           </div>
 
-          <form className="space-y-3" onSubmit={verifyWithPassword}>
-            <div className="space-y-2">
-              <Label htmlFor="step-up-password">Current password</Label>
-              <Input
-                id="step-up-password"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                disabled={isPending}
-              />
-            </div>
-            <Button
-              type="submit"
-              variant="outline"
-              className="w-full"
-              disabled={isPending || !password}
+          {options?.methods.totp ? (
+            <form
+              className="space-y-3"
+              onSubmit={(event) => verifyWithCode(event, 'totpCode')}
             >
-              <KeyRound className="size-4" />
-              {isPending ? 'Confirming…' : 'Confirm with password'}
-            </Button>
-          </form>
+              <div className="space-y-2">
+                <Label htmlFor="step-up-totp">Authenticator code</Label>
+                <Input
+                  id="step-up-totp"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={totpCode}
+                  onChange={(event) =>
+                    setTotpCode(event.target.value.replace(/\D/g, ''))
+                  }
+                  disabled={isPending}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                disabled={isPending || totpCode.length !== 6}
+              >
+                <Smartphone className="size-4" /> Confirm with authenticator
+              </Button>
+            </form>
+          ) : null}
+
+          {options?.methods.recoveryCode ? (
+            <form
+              className="space-y-3"
+              onSubmit={(event) => verifyWithCode(event, 'recoveryCode')}
+            >
+              <div className="space-y-2">
+                <Label htmlFor="step-up-recovery">Recovery code</Label>
+                <Input
+                  id="step-up-recovery"
+                  autoComplete="one-time-code"
+                  value={recoveryCode}
+                  onChange={(event) => setRecoveryCode(event.target.value)}
+                  disabled={isPending}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                disabled={isPending || recoveryCode.length < 8}
+              >
+                <LifeBuoy className="size-4" /> Use a recovery code
+              </Button>
+            </form>
+          ) : null}
+
+          {options?.methods.password ? (
+            <form className="space-y-3" onSubmit={verifyWithPassword}>
+              <div className="space-y-2">
+                <Label htmlFor="step-up-password">Current password</Label>
+                <Input
+                  id="step-up-password"
+                  type="password"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  disabled={isPending}
+                />
+              </div>
+              <Button
+                type="submit"
+                variant="outline"
+                className="w-full"
+                disabled={isPending || !password}
+              >
+                <KeyRound className="size-4" />
+                {isPending ? 'Confirming…' : 'Confirm with password'}
+              </Button>
+            </form>
+          ) : null}
 
           {error ? (
             <p role="alert" className="text-sm text-destructive">

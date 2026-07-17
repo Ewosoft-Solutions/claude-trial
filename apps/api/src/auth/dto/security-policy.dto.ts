@@ -13,11 +13,18 @@ import {
   IsInt,
   Min,
   Max,
+  IsIn,
+  MaxLength,
+  MinLength,
   ValidateNested,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import type { PolicyTier, DeviceManagement, AuditLevel } from '@workspace/api';
+import {
+  STEP_UP_OPERATION_VALUES,
+  type StepUpOperation,
+} from '../step-up.operations';
 
 export class TimeRestrictionDto {
   @ApiProperty({
@@ -29,7 +36,9 @@ export class TimeRestrictionDto {
   @Type(() => Object)
   allowedHours: Array<{ start: number; end: number }>;
 
-  @ApiProperty({ example: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'] })
+  @ApiProperty({
+    example: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'],
+  })
   @IsArray()
   @IsString({ each: true })
   allowedDays: string[];
@@ -68,7 +77,10 @@ export class SetEmergencyPolicyDto {
 }
 
 export class UpdatePolicyDto {
-  @ApiPropertyOptional({ enum: ['basic', 'enhanced', 'maximum'], example: 'enhanced' })
+  @ApiPropertyOptional({
+    enum: ['basic', 'enhanced', 'maximum'],
+    example: 'enhanced',
+  })
   @IsOptional()
   @IsEnum(['basic', 'enhanced', 'maximum'])
   policyTier?: PolicyTier;
@@ -83,7 +95,9 @@ export class UpdatePolicyDto {
   @IsBoolean()
   requireMFAForSensitiveOperations?: boolean;
 
-  @ApiPropertyOptional({ example: ['delete_student_record', 'export_financial_data'] })
+  @ApiPropertyOptional({
+    example: ['delete_student_record', 'export_financial_data'],
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -115,19 +129,28 @@ export class UpdatePolicyDto {
   @IsBoolean()
   passwordRequireSpecialChars?: boolean;
 
-  @ApiPropertyOptional({ example: 90, description: 'Maximum password age in days' })
+  @ApiPropertyOptional({
+    example: 90,
+    description: 'Maximum password age in days',
+  })
   @IsOptional()
   @IsInt()
   @Min(30)
   passwordMaxAge?: number;
 
-  @ApiPropertyOptional({ example: 5, description: 'Number of previous passwords to prevent reuse of' })
+  @ApiPropertyOptional({
+    example: 5,
+    description: 'Number of previous passwords to prevent reuse of',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
   passwordPreventReuse?: number;
 
-  @ApiPropertyOptional({ example: 30, description: 'Session timeout in minutes' })
+  @ApiPropertyOptional({
+    example: 30,
+    description: 'Session timeout in minutes',
+  })
   @IsOptional()
   @IsInt()
   @Min(5)
@@ -155,7 +178,10 @@ export class UpdatePolicyDto {
   @Min(1)
   loginAttemptLimit?: number;
 
-  @ApiPropertyOptional({ example: 15, description: 'Lockout duration in minutes' })
+  @ApiPropertyOptional({
+    example: 15,
+    description: 'Lockout duration in minutes',
+  })
   @IsOptional()
   @IsInt()
   @Min(1)
@@ -167,7 +193,10 @@ export class UpdatePolicyDto {
   @Type(() => TimeRestrictionDto)
   timeRestrictions?: TimeRestrictionDto | null;
 
-  @ApiPropertyOptional({ example: ['203.0.113.10', '198.51.100.0/24'], nullable: true })
+  @ApiPropertyOptional({
+    example: ['203.0.113.10', '198.51.100.0/24'],
+    nullable: true,
+  })
   @IsOptional()
   @IsArray()
   @IsString({ each: true })
@@ -178,12 +207,18 @@ export class UpdatePolicyDto {
   @IsBoolean()
   requireVPN?: boolean;
 
-  @ApiPropertyOptional({ enum: ['basic', 'standard', 'comprehensive'], example: 'comprehensive' })
+  @ApiPropertyOptional({
+    enum: ['basic', 'standard', 'comprehensive'],
+    example: 'comprehensive',
+  })
   @IsOptional()
   @IsEnum(['basic', 'standard', 'comprehensive'])
   auditLevel?: AuditLevel;
 
-  @ApiPropertyOptional({ example: 365, description: 'Audit log retention in days' })
+  @ApiPropertyOptional({
+    example: 365,
+    description: 'Audit log retention in days',
+  })
   @IsOptional()
   @IsInt()
   @Min(30)
@@ -202,4 +237,69 @@ export class UpdateSessionPolicyDto {
   @Min(5)
   @Max(120)
   idleTimeoutMinutes: number;
+}
+
+export const BIOMETRIC_ENROLLMENT_POLICIES = [
+  'require',
+  'allow',
+  'forbid',
+] as const;
+export type BiometricEnrollmentPolicy =
+  (typeof BIOMETRIC_ENROLLMENT_POLICIES)[number];
+
+export class UpdateBiometricEnrollmentPolicyDto {
+  @ApiProperty({ enum: BIOMETRIC_ENROLLMENT_POLICIES })
+  @IsIn(BIOMETRIC_ENROLLMENT_POLICIES)
+  policy: BiometricEnrollmentPolicy;
+}
+
+export class UpdateSensitiveOperationPolicyDto {
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  enabled?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  requiresStepUp?: boolean;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsBoolean()
+  requiresMakerChecker?: boolean;
+
+  @ApiPropertyOptional({ minimum: 1, maximum: 30 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Max(30)
+  freshnessMinutes?: number;
+}
+
+export class CreateSensitiveOperationChangeRequestDto extends UpdateSensitiveOperationPolicyDto {
+  @ApiProperty({ enum: STEP_UP_OPERATION_VALUES })
+  @IsString()
+  @IsIn(STEP_UP_OPERATION_VALUES)
+  operation: StepUpOperation;
+
+  @ApiProperty({ minLength: 10, maxLength: 1000 })
+  @IsString()
+  @MinLength(10)
+  @MaxLength(1000)
+  reason: string;
+}
+
+export const SENSITIVE_OPERATION_DECISIONS = ['approved', 'rejected'] as const;
+
+export class ReviewSensitiveOperationChangeRequestDto {
+  @ApiProperty({ enum: SENSITIVE_OPERATION_DECISIONS })
+  @IsIn(SENSITIVE_OPERATION_DECISIONS)
+  decision: (typeof SENSITIVE_OPERATION_DECISIONS)[number];
+
+  @ApiProperty({ minLength: 3, maxLength: 1000 })
+  @IsString()
+  @MinLength(3)
+  @MaxLength(1000)
+  feedback: string;
 }

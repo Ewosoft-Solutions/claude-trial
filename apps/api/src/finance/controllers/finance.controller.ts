@@ -13,7 +13,10 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
-import { PermissionGuard, RequirePermissions } from '../../auth/guards/permission.guard';
+import {
+  PermissionGuard,
+  RequirePermissions,
+} from '../../auth/guards/permission.guard';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { FinanceService } from '../services/finance.service';
 import {
@@ -24,6 +27,8 @@ import {
   UpdateInvoiceDto,
 } from '../dto/finance.dto';
 import type { AuthenticatedRequest } from 'src/auth';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 
 @ApiTags(SwaggerTags.finance.name)
 @Controller('finance')
@@ -58,11 +63,16 @@ export class FinanceController {
   @Get('invoices/:id')
   @RequirePermissions(['finance.view'])
   @ApiOperation({ summary: 'Get a single invoice with its payments' })
-  async getInvoice(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async getInvoice(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     return this.financeService.getInvoice(req.user.tenantId, id);
   }
 
   @Post('invoices')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_FEE_STRUCTURE_UPDATE)
   @RequirePermissions(['finance.manage'])
   @ApiOperation({ summary: 'Create a fee invoice' })
   async createInvoice(
@@ -77,6 +87,8 @@ export class FinanceController {
   }
 
   @Patch('invoices/:id')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_FEE_STRUCTURE_UPDATE)
   @RequirePermissions(['finance.manage'])
   @ApiOperation({ summary: 'Update a fee invoice' })
   async updateInvoice(
@@ -105,6 +117,8 @@ export class FinanceController {
   }
 
   @Post('payments')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_TRANSACTIONS)
   @RequirePermissions(['finance.manage'])
   @ApiOperation({ summary: 'Record a payment against an invoice' })
   async recordPayment(

@@ -15,6 +15,7 @@
   "moduleNameMapper": {
     "^@workspace/database$": "<rootDir>/../../packages/database/src/client.ts",
     "^@workspace/database/(.*)$": "<rootDir>/../../packages/database/src/$1",
+    "^\\.\\/sensitive-operations\\.js$": "<rootDir>/../../packages/database/src/sensitive-operations.ts",
     "^\\.\\/tenant-context\\.js$": "<rootDir>/../../packages/database/src/rls/tenant-context.ts"
   }
 }

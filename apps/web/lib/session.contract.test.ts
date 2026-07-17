@@ -12,7 +12,11 @@
 import { describe, expect, it } from 'vitest';
 import type { Session, SessionSchool } from './session';
 import type { UserProfile } from '@workspace/ui/types/shell.types';
-import type { FeatureKey, PermissionKey, SchoolType } from '@workspace/ui/types/access.types';
+import type {
+  FeatureKey,
+  PermissionKey,
+  SchoolType,
+} from '@workspace/ui/types/access.types';
 
 // ── Simulate the raw /auth/me API response ──────────────────────────────────
 
@@ -39,6 +43,7 @@ const RAW_ME_RESPONSE = {
     focusWarningSeconds: 300,
   },
   accessExpiresAt: Date.now() + 60 * 60 * 1000,
+  biometricEnrollment: { policy: 'require' as const, enrolled: false },
   schools: [
     {
       id: 'tenant-abc',
@@ -46,7 +51,13 @@ const RAW_ME_RESPONSE = {
       initials: 'SJ',
       color: '#4f6df5',
       schoolType: 'secondary',
-      enabledFeatures: ['transport', 'library', 'health', 'messaging', 'cafeteria'],
+      enabledFeatures: [
+        'transport',
+        'library',
+        'health',
+        'messaging',
+        'cafeteria',
+      ],
       profiles: [
         { profileId: 'profile-1', role: 'Principal', caption: 'Principal' },
       ],
@@ -63,6 +74,7 @@ const RAW_ME_RESPONSE = {
   defaultProfileId?: string;
   sessionPolicy: Session['sessionPolicy'];
   accessExpiresAt: number;
+  biometricEnrollment: Session['biometricEnrollment'];
   schools: Array<{
     id: string;
     name: string;
@@ -88,6 +100,7 @@ function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
     defaultProfileId: me.defaultProfileId,
     sessionPolicy: me.sessionPolicy,
     accessExpiresAt: me.accessExpiresAt,
+    biometricEnrollment: me.biometricEnrollment,
     schools: me.schools.map((s) => ({
       id: s.id,
       name: s.name,
@@ -97,7 +110,7 @@ function mapMeResponseToSession(me: typeof RAW_ME_RESPONSE): Session {
         s.profiles[0]?.caption ??
         'Staff',
       color: s.color,
-      schoolType: ((s.schoolType || 'secondary') as SchoolType),
+      schoolType: (s.schoolType || 'secondary') as SchoolType,
       enabledFeatures: (s.enabledFeatures ?? []) as FeatureKey[],
       profiles: s.profiles,
     })),

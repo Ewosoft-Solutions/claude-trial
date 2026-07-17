@@ -28,6 +28,8 @@ import {
   AiSettingsDecisionDto,
   AiSettingsRejectDto,
 } from '../dto/ai-settings.dto';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 
 @ApiTags(SwaggerTags.ai.name)
 @Controller('ai/admin')
@@ -63,6 +65,8 @@ export class AiAdminController {
   }
 
   @Post('settings/change-request')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.AI_SETTINGS_UPDATE)
   @RequirePermissions(['ai.configure'])
   @ApiOperation({
     summary:
@@ -83,7 +87,9 @@ export class AiAdminController {
 
   @Get('settings/change-requests')
   @RequirePermissions(['ai.configure'])
-  @ApiOperation({ summary: 'Pending AI-settings change requests for the tenant' })
+  @ApiOperation({
+    summary: 'Pending AI-settings change requests for the tenant',
+  })
   listChanges(@Request() req: AuthenticatedRequest) {
     const user = req.user!;
     return this.aiSettingsService.listPendingChanges(
@@ -93,6 +99,8 @@ export class AiAdminController {
   }
 
   @Post('settings/change-requests/:id/approve')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.AI_SETTINGS_UPDATE)
   @RequirePermissions(['ai.configure'])
   @ApiOperation({ summary: 'Approve + apply a pending AI-settings change' })
   approveChange(
@@ -111,6 +119,8 @@ export class AiAdminController {
   }
 
   @Post('settings/change-requests/:id/reject')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.AI_SETTINGS_UPDATE)
   @RequirePermissions(['ai.configure'])
   @ApiOperation({ summary: 'Reject a pending AI-settings change' })
   rejectChange(

@@ -44,6 +44,7 @@ import {
   type PasskeyAvailability,
 } from '@/lib/webauthn';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
+import type { BiometricEnrollmentPolicy } from '@/lib/security-governance';
 import { StepUpPrompt } from '../../_shared/step-up-prompt';
 
 interface BiometricDevice {
@@ -73,6 +74,8 @@ function formatDate(value: string | null): string {
 export default function SecuritySettingsPage() {
   const [passkeyAvailability, setPasskeyAvailability] =
     React.useState<PasskeyAvailability | null>(null);
+  const [enrollmentPolicy, setEnrollmentPolicy] =
+    React.useState<BiometricEnrollmentPolicy>('allow');
   const [devices, setDevices] = React.useState<BiometricDevice[] | null>(null);
   const [enrolling, setEnrolling] = React.useState(false);
   const [pendingRemove, setPendingRemove] = React.useState<string | null>(null);
@@ -99,6 +102,15 @@ export default function SecuritySettingsPage() {
     // A user-triggered WebAuthn ceremony is the reliable availability check.
     setPasskeyAvailability(getPasskeyAvailability());
     void loadDevices();
+    void fetch('/api/auth/biometrics/policy')
+      .then(async (response) => {
+        if (!response.ok) return;
+        const body = (await response.json()) as {
+          policy?: BiometricEnrollmentPolicy;
+        };
+        if (body.policy) setEnrollmentPolicy(body.policy);
+      })
+      .catch(() => undefined);
   }, [loadDevices]);
 
   async function handleEnroll(stepUpChallengeId: string) {
@@ -264,7 +276,12 @@ export default function SecuritySettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
-          {passkeyAvailability === 'insecure-context' ? (
+          {enrollmentPolicy === 'forbid' ? (
+            <p className="text-sm text-muted-foreground">
+              Your school does not allow new biometric sign-in enrolment.
+              Existing account recovery methods remain available.
+            </p>
+          ) : passkeyAvailability === 'insecure-context' ? (
             <p className="text-sm text-muted-foreground">
               Passkeys require HTTPS. Remove this Home Screen app, open this
               site over HTTPS in Safari, then add it to the Home Screen again.
@@ -284,6 +301,12 @@ export default function SecuritySettingsPage() {
                 <Fingerprint className="size-4" />
                 {enrolling ? 'Waiting for device…' : 'Set up biometric sign-in'}
               </Button>
+              {enrollmentPolicy === 'require' ? (
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Required by your school. Your final passkey cannot be removed
+                  until another one is enrolled.
+                </p>
+              ) : null}
             </div>
           )}
 

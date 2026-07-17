@@ -28,6 +28,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { useStepUpAction } from '../../../_shared/use-step-up-action';
 
 const SCHOOL_TYPES = [
   { value: 'nursery', label: 'Nursery' },
@@ -56,9 +58,9 @@ export default function OnboardSchoolPage() {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<CreatedSchool | null>(null);
+  const { requestStepUp, stepUpPrompt } = useStepUpAction();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function registerSchool(stepUpChallengeId: string) {
     setError(null);
     setSubmitting(true);
     try {
@@ -66,6 +68,7 @@ export default function OnboardSchoolPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          stepUpChallengeId,
           name: name.trim(),
           slug: slug.trim() || undefined,
           schoolType,
@@ -82,6 +85,19 @@ export default function OnboardSchoolPage() {
     } finally {
       setSubmitting(false);
     }
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    requestStepUp(
+      {
+        operation: STEP_UP_OPERATION.TENANT_PROVISION,
+        title: 'Confirm school registration',
+        description:
+          'Creating a tenant changes platform access and requires a fresh identity confirmation.',
+      },
+      registerSchool,
+    );
   }
 
   if (created) {
@@ -118,6 +134,7 @@ export default function OnboardSchoolPage() {
             </Button>
           </CardContent>
         </Card>
+        {stepUpPrompt}
       </div>
     );
   }
@@ -199,7 +216,10 @@ export default function OnboardSchoolPage() {
             ) : null}
 
             <div className="flex gap-3 pt-1">
-              <Button type="submit" disabled={submitting || name.trim().length < 2}>
+              <Button
+                type="submit"
+                disabled={submitting || name.trim().length < 2}
+              >
                 {submitting ? 'Registering…' : 'Register school'}
               </Button>
               <Button
@@ -213,6 +233,7 @@ export default function OnboardSchoolPage() {
           </form>
         </CardContent>
       </Card>
+      {stepUpPrompt}
     </div>
   );
 }

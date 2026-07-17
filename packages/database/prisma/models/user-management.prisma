@@ -185,7 +185,7 @@ model MfaMethod {
 
 // MFA Challenges - Active MFA verification challenges
 model MfaChallenge {
-  id String @id @default(uuid())
+  id          String  @id @default(uuid())
   // Nullable: a usernameless/discoverable passkey login challenge is created
   // before we know who the user is — it's resolved from the assertion's
   // credential at verification time.

@@ -36,6 +36,7 @@ import { AuthenticationService } from './services/authentication.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { PermissionService } from './services/permission.service';
 import { SessionPolicyService } from './services/session-policy.service';
+import { SensitiveOperationPolicyService } from './services/sensitive-operation-policy.service';
 import { JwtAuthGuard, PreAuthGuard } from './guards';
 import { AUDIT_ACTION, AUDIT_EVENT, DatabaseService } from '../common';
 import { AuthUser } from './decorators';
@@ -102,6 +103,7 @@ export class AuthController {
     private readonly passwordResetService: PasswordResetService,
     private readonly permissionService: PermissionService,
     private readonly sessionPolicyService: SessionPolicyService,
+    private readonly sensitiveOperationPolicies: SensitiveOperationPolicyService,
     private readonly dbService: DatabaseService,
   ) {}
 
@@ -123,15 +125,28 @@ export class AuthController {
 
     // Permission and session-policy reads are independent; start both before
     // awaiting either to avoid a serial waterfall on every app navigation.
-    const [ctx, sessionPolicy] = await Promise.all([
-      this.permissionService.getUserPermissionContext(
-        prisma,
-        userId,
-        tenantId,
-        profileId,
-      ),
-      this.sessionPolicyService.getEffectivePolicy(prisma, tenantId),
-    ]);
+    const [ctx, sessionPolicy, biometricEnrollmentPolicy, passkeyCount] =
+      await Promise.all([
+        this.permissionService.getUserPermissionContext(
+          prisma,
+          userId,
+          tenantId,
+          profileId,
+        ),
+        this.sessionPolicyService.getEffectivePolicy(prisma, tenantId),
+        this.sensitiveOperationPolicies.getBiometricEnrollmentPolicy(
+          prisma,
+          tenantId,
+        ),
+        prisma.mfaMethod.count({
+          where: {
+            userId,
+            type: 'webauthn',
+            webauthnAttachment: 'platform',
+            isActive: true,
+          },
+        }),
+      ]);
 
     if (!ctx) {
       throw new UnauthorizedException('Session context unavailable');
@@ -223,6 +238,10 @@ export class AuthController {
       defaultProfileId: dbUser.defaultUserTenantId ?? undefined,
       schools: scope === 'school' ? schoolsWithFeatures : [],
       sessionPolicy,
+      biometricEnrollment: {
+        policy: biometricEnrollmentPolicy.policy,
+        enrolled: passkeyCount > 0,
+      },
       accessExpiresAt: user.accessTokenExpiresAt
         ? user.accessTokenExpiresAt * 1000
         : Date.now() + 60 * 60 * 1000,
@@ -556,10 +575,7 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Logout current refresh-token session' })
-  async logout(
-    @AuthUser() user: RequestUser,
-    @Body() logoutDto: LogoutDto,
-  ) {
+  async logout(@AuthUser() user: RequestUser, @Body() logoutDto: LogoutDto) {
     const prisma = this.dbService.client;
     const result = await this.authenticationService.logout(
       prisma,

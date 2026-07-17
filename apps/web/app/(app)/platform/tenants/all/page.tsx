@@ -32,6 +32,8 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import { InviteUser } from '../../../_shared/invite-user';
 import { RefreshButton } from '../../../_shared/refresh-button';
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { useStepUpAction } from '../../../_shared/use-step-up-action';
 
 interface School {
   id: string;
@@ -63,6 +65,7 @@ export default function AllSchoolsPage() {
   const [actionError, setActionError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [inviteFor, setInviteFor] = useState<string | null>(null);
+  const { requestStepUp, stepUpPrompt } = useStepUpAction();
 
   const error =
     actionError ??
@@ -72,14 +75,18 @@ export default function AllSchoolsPage() {
         ? 'Failed to load schools'
         : null);
 
-  async function setStatus(id: string, status: 'active' | 'suspended') {
+  async function setStatus(
+    id: string,
+    status: 'active' | 'suspended',
+    stepUpChallengeId: string,
+  ) {
     setBusyId(id);
     setActionError(null);
     try {
       const res = await fetch(`/api/platform/schools/${id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify({ status, stepUpChallengeId }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -87,10 +94,24 @@ export default function AllSchoolsPage() {
       }
       await mutate();
     } catch (err) {
-      setActionError(err instanceof Error ? err.message : 'Something went wrong');
+      setActionError(
+        err instanceof Error ? err.message : 'Something went wrong',
+      );
     } finally {
       setBusyId(null);
     }
+  }
+
+  function confirmStatus(id: string, status: 'active' | 'suspended') {
+    requestStepUp(
+      {
+        operation: STEP_UP_OPERATION.TENANT_SUSPEND,
+        title: `${status === 'active' ? 'Activate' : 'Suspend'} this school?`,
+        description:
+          'This changes access for an entire tenant and requires a fresh identity confirmation.',
+      },
+      (challengeId) => setStatus(id, status, challengeId),
+    );
   }
 
   return (
@@ -171,7 +192,10 @@ export default function AllSchoolsPage() {
                         {s.schoolType?.replace('_', ' ') ?? '—'}
                       </TableCell>
                       <TableCell>
-                        <StatusBadge tone={STATUS_TONE[s.status] ?? 'neutral'} dot>
+                        <StatusBadge
+                          tone={STATUS_TONE[s.status] ?? 'neutral'}
+                          dot
+                        >
                           {s.status}
                         </StatusBadge>
                       </TableCell>
@@ -181,7 +205,7 @@ export default function AllSchoolsPage() {
                             <Button
                               size="sm"
                               disabled={busyId === s.id}
-                              onClick={() => setStatus(s.id, 'active')}
+                              onClick={() => confirmStatus(s.id, 'active')}
                             >
                               Activate
                             </Button>
@@ -190,7 +214,7 @@ export default function AllSchoolsPage() {
                               size="sm"
                               variant="outline"
                               disabled={busyId === s.id}
-                              onClick={() => setStatus(s.id, 'suspended')}
+                              onClick={() => confirmStatus(s.id, 'suspended')}
                             >
                               Suspend
                             </Button>
@@ -226,6 +250,7 @@ export default function AllSchoolsPage() {
           )}
         </CardContent>
       </Card>
+      {stepUpPrompt}
     </div>
   );
 }

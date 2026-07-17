@@ -637,15 +637,14 @@ export class MfaService {
 
       if (isValid) {
         // Mark code as used
-        await prisma.mfaRecoveryCode.update({
-          where: { id: recoveryCode.id },
+        const consumed = await prisma.mfaRecoveryCode.updateMany({
+          where: { id: recoveryCode.id, used: false },
           data: {
             used: true,
             usedAt: new Date(),
           },
         });
-
-        return true;
+        return consumed.count === 1;
       }
     }
 

@@ -13,6 +13,8 @@ describe('StepUpController', () => {
     begin: jest.Mock;
     verifyPassword: jest.Mock;
     verifyPasskey: jest.Mock;
+    verifyTotp: jest.Mock;
+    verifyRecoveryCode: jest.Mock;
   };
   let auditCreate: jest.Mock;
 
@@ -29,6 +31,8 @@ describe('StepUpController', () => {
       begin: jest.fn(),
       verifyPassword: jest.fn(),
       verifyPasskey: jest.fn(),
+      verifyTotp: jest.fn(),
+      verifyRecoveryCode: jest.fn(),
     };
     auditCreate = jest.fn().mockResolvedValue({});
 
@@ -127,6 +131,53 @@ describe('StepUpController', () => {
         metadata: expect.objectContaining({ method: 'passkey' }),
       }),
     });
+  });
+
+  it('verifies a TOTP fallback without writing the token to audit', async () => {
+    stepUpService.verifyTotp.mockResolvedValue('totp-challenge');
+
+    await expect(
+      controller.verify(
+        {
+          operation: STEP_UP_OPERATION.BIOMETRICS_REMOVE,
+          totpCode: '123456',
+        },
+        user,
+      ),
+    ).resolves.toEqual({ verified: true, challengeId: 'totp-challenge' });
+
+    expect(stepUpService.verifyTotp).toHaveBeenCalledWith(
+      expect.anything(),
+      user.userId,
+      STEP_UP_OPERATION.BIOMETRICS_REMOVE,
+      '123456',
+    );
+    expect(JSON.stringify(auditCreate.mock.calls)).not.toContain('123456');
+  });
+
+  it('verifies a one-time recovery-code fallback', async () => {
+    stepUpService.verifyRecoveryCode.mockResolvedValue('recovery-challenge');
+
+    await expect(
+      controller.verify(
+        {
+          operation: STEP_UP_OPERATION.BIOMETRICS_REMOVE,
+          recoveryCode: 'alpha-bravo',
+        },
+        user,
+      ),
+    ).resolves.toEqual({
+      verified: true,
+      challengeId: 'recovery-challenge',
+    });
+
+    expect(stepUpService.verifyRecoveryCode).toHaveBeenCalledWith(
+      expect.anything(),
+      user.userId,
+      STEP_UP_OPERATION.BIOMETRICS_REMOVE,
+      'alpha-bravo',
+    );
+    expect(JSON.stringify(auditCreate.mock.calls)).not.toContain('alpha-bravo');
   });
 
   it('rejects an empty proof and records the failed attempt', async () => {

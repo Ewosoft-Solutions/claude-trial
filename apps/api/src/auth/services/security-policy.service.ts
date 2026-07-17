@@ -31,6 +31,7 @@ export interface SecurityPolicy {
   requireMFA: boolean;
   requireMFAForSensitiveOperations: boolean;
   sensitiveOperations: string[];
+  biometricEnrollmentPolicy: string;
   passwordMinLength: number;
   passwordRequireUppercase: boolean;
   passwordRequireLowercase: boolean;
@@ -597,6 +598,11 @@ export class SecurityPolicyService {
       sensitiveOperations: Array.isArray(policy.sensitiveOperations)
         ? policy.sensitiveOperations
         : [],
+      biometricEnrollmentPolicy:
+        policy.biometricEnrollmentPolicy === 'require' ||
+        policy.biometricEnrollmentPolicy === 'forbid'
+          ? policy.biometricEnrollmentPolicy
+          : 'allow',
       passwordMinLength: policy.passwordMinLength,
       passwordRequireUppercase: policy.passwordRequireUppercase,
       passwordRequireLowercase: policy.passwordRequireLowercase,

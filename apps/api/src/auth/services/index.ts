@@ -18,4 +18,5 @@ export * from './maker-checker.service';
 export * from './platform-oversight.service';
 export * from './security-policy.service';
 export * from './session-policy.service';
+export * from './sensitive-operation-policy.service';
 export * from './breach-response.service';

@@ -40,7 +40,8 @@ import {
   VerifyRecoveryCodeResponseDto,
 } from './dto';
 import { MfaService } from './services/mfa.service';
-import { JwtAuthGuard } from './guards';
+import { JwtAuthGuard, RequireStepUp, StepUpGuard } from './guards';
+import { STEP_UP_OPERATION } from './step-up.operations';
 
 /**
  * MFA Controller
@@ -80,6 +81,8 @@ export class MfaController {
    * POST /auth/mfa/setup/sms
    */
   @Post('setup/sms')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.MFA_METHOD_ADD)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Setup SMS-based MFA method' })
   async setupSms(
@@ -123,6 +126,8 @@ export class MfaController {
    * POST /auth/mfa/setup/email
    */
   @Post('setup/email')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.MFA_METHOD_ADD)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Setup Email-based MFA method' })
   async setupEmail(
@@ -166,6 +171,8 @@ export class MfaController {
    * POST /auth/mfa/setup/totp
    */
   @Post('setup/totp')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.MFA_METHOD_ADD)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Setup TOTP MFA method' })
   async setupTotp(
@@ -194,6 +201,8 @@ export class MfaController {
    * POST /auth/mfa/setup/webauthn
    */
   @Post('setup/webauthn')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.MFA_METHOD_ADD)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Setup WebAuthn (security key) MFA method' })
   async setupWebAuthn(
@@ -391,6 +400,8 @@ export class MfaController {
    * POST /auth/mfa/recovery/generate
    */
   @Post('recovery/generate')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.MFA_RECOVERY_GENERATE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Generate MFA recovery codes' })
   async generateRecoveryCodes(
@@ -472,6 +483,8 @@ export class MfaController {
    * PUT /auth/mfa/methods/:methodId/disable
    */
   @Put('methods/:methodId/disable')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.MFA_METHOD_REMOVE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Disable an MFA method' })
   async disableMethod(
@@ -495,6 +508,8 @@ export class MfaController {
    * DELETE /auth/mfa/methods/:methodId
    */
   @Delete('methods/:methodId')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.MFA_METHOD_REMOVE)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an MFA method' })
   async deleteMethod(

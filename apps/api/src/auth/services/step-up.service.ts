@@ -20,38 +20,83 @@ import type { AuthenticationResponseJSON } from '@simplewebauthn/server';
 import { isStepUpOperation } from '../step-up.operations';
 import { MfaWebAuthnService } from './mfa-webauthn.service';
 import { PasswordService } from './password.service';
-
-const PASSWORD_STEP_UP_TTL_MS = 5 * 60 * 1000;
+import { MfaTotpService } from './mfa-totp.service';
+import { MfaService } from './mfa.service';
+import { SensitiveOperationPolicyService } from './sensitive-operation-policy.service';
 
 @Injectable()
 export class StepUpService {
-  constructor(private readonly webauthn: MfaWebAuthnService) {}
+  constructor(
+    private readonly webauthn: MfaWebAuthnService,
+    private readonly totp: MfaTotpService,
+    private readonly mfa: MfaService,
+    private readonly policies: SensitiveOperationPolicyService,
+  ) {}
+
+  async requiresStepUp(
+    prisma: PrismaClient,
+    operation: string,
+  ): Promise<boolean> {
+    this.assertOperation(operation);
+    const policy = await this.policies.getPolicy(prisma, operation);
+    return policy.enabled && policy.requiresStepUp;
+  }
 
   /**
    * Prepare passkey-first step-up for a catalogued operation. Password remains
    * available as the fallback even when no platform passkey is enrolled.
    */
-  async begin(
-    prisma: PrismaClient,
-    userId: string,
-    operation: string,
-  ): Promise<
-    | { hasPasskey: false }
-    | { hasPasskey: true; challengeId: string; options: unknown }
-  > {
+  async begin(prisma: PrismaClient, userId: string, operation: string) {
     this.assertOperation(operation);
 
-    const passkeyCount = await prisma.mfaMethod.count({
-      where: {
-        userId,
-        type: 'webauthn',
-        webauthnAttachment: 'platform',
-        isActive: true,
-      },
-    });
+    const policy = await this.policies.getPolicy(prisma, operation);
+    if (!policy.enabled || !policy.requiresStepUp) {
+      return {
+        required: false as const,
+        freshnessMinutes: policy.freshnessMinutes,
+        hasPasskey: false as const,
+        methods: {
+          passkey: false,
+          totp: false,
+          recoveryCode: false,
+          password: false,
+        },
+      };
+    }
+    const [passkeyCount, totpCount, recoveryCodeCount, user] =
+      await Promise.all([
+        prisma.mfaMethod.count({
+          where: {
+            userId,
+            type: 'webauthn',
+            webauthnAttachment: 'platform',
+            isActive: true,
+          },
+        }),
+        prisma.mfaMethod.count({
+          where: { userId, type: 'totp', isActive: true },
+        }),
+        prisma.mfaRecoveryCode.count({ where: { userId, used: false } }),
+        prisma.user.findUnique({
+          where: { id: userId },
+          select: { passwordHash: true },
+        }),
+      ]);
+
+    const methods = {
+      passkey: passkeyCount > 0,
+      totp: totpCount > 0,
+      recoveryCode: recoveryCodeCount > 0,
+      password: Boolean(user?.passwordHash),
+    };
 
     if (passkeyCount === 0) {
-      return { hasPasskey: false };
+      return {
+        required: true as const,
+        freshnessMinutes: policy.freshnessMinutes,
+        hasPasskey: false as const,
+        methods,
+      };
     }
 
     const options = await this.webauthn.generateAuthenticationOptions(
@@ -64,6 +109,9 @@ export class StepUpService {
 
     return {
       hasPasskey: true,
+      required: true as const,
+      freshnessMinutes: policy.freshnessMinutes,
+      methods,
       challengeId: options.challengeId,
       options,
     };
@@ -78,6 +126,7 @@ export class StepUpService {
     response: AuthenticationResponseJSON,
   ): Promise<string> {
     this.assertOperation(operation);
+    await this.requireStepUpPolicy(prisma, operation);
 
     const challenge = await prisma.mfaChallenge.findUnique({
       where: { id: challengeId },
@@ -141,21 +190,70 @@ export class StepUpService {
       throw new UnauthorizedException('Could not verify your identity.');
     }
 
-    const now = new Date();
-    const challenge = await prisma.mfaChallenge.create({
-      data: {
-        userId,
-        type: 'password',
-        operation,
-        verified: true,
-        verifiedAt: now,
-        consumedAt: null,
-        expiresAt: new Date(now.getTime() + PASSWORD_STEP_UP_TTL_MS),
-      },
-      select: { id: true },
-    });
+    return this.mintVerifiedChallenge(prisma, userId, operation, 'password');
+  }
 
-    return challenge.id;
+  async verifyTotp(
+    prisma: PrismaClient,
+    userId: string,
+    operation: string,
+    token: string,
+  ): Promise<string> {
+    this.assertOperation(operation);
+    await this.requireStepUpPolicy(prisma, operation);
+
+    const methods = await prisma.mfaMethod.findMany({
+      where: { userId, type: 'totp', isActive: true },
+      select: { id: true, secret: true },
+    });
+    const method = methods.find(
+      (candidate) =>
+        candidate.secret && this.totp.verifyToken(candidate.secret, token),
+    );
+    if (!method) {
+      throw new UnauthorizedException('Could not verify your identity.');
+    }
+
+    return prisma.$transaction(async (tx) => {
+      await tx.mfaMethod.update({
+        where: { id: method.id },
+        data: { lastUsedAt: new Date() },
+      });
+      return this.mintVerifiedChallenge(
+        tx as unknown as PrismaClient,
+        userId,
+        operation,
+        'totp',
+        method.id,
+      );
+    });
+  }
+
+  async verifyRecoveryCode(
+    prisma: PrismaClient,
+    userId: string,
+    operation: string,
+    code: string,
+  ): Promise<string> {
+    this.assertOperation(operation);
+    await this.requireStepUpPolicy(prisma, operation);
+
+    return prisma.$transaction(async (tx) => {
+      const verified = await this.mfa.verifyRecoveryCode(
+        tx as unknown as PrismaClient,
+        userId,
+        code,
+      );
+      if (!verified) {
+        throw new UnauthorizedException('Could not verify your identity.');
+      }
+      return this.mintVerifiedChallenge(
+        tx as unknown as PrismaClient,
+        userId,
+        operation,
+        'recovery',
+      );
+    });
   }
 
   /**
@@ -184,12 +282,19 @@ export class StepUpService {
       return false;
     }
 
+    const policy = await this.policies.getPolicy(prisma, operation);
+    if (!policy.enabled || !policy.requiresStepUp) return false;
+    const freshnessCutoff = new Date(
+      Date.now() - policy.freshnessMinutes * 60 * 1000,
+    );
+
     const result = await prisma.mfaChallenge.updateMany({
       where: {
         id: challengeId,
         userId,
         operation,
         verified: true,
+        verifiedAt: { gt: freshnessCutoff },
         consumedAt: null,
         expiresAt: { gt: new Date() },
       },
@@ -203,5 +308,42 @@ export class StepUpService {
     if (!isStepUpOperation(operation)) {
       throw new BadRequestException('Unsupported step-up operation.');
     }
+  }
+
+  private async requireStepUpPolicy(prisma: PrismaClient, operation: string) {
+    const policy = await this.policies.getPolicy(prisma, operation);
+    if (!policy.enabled || !policy.requiresStepUp) {
+      throw new BadRequestException(
+        'Step-up verification is not required for this operation.',
+      );
+    }
+    return policy;
+  }
+
+  private async mintVerifiedChallenge(
+    prisma: PrismaClient,
+    userId: string,
+    operation: string,
+    type: 'password' | 'totp' | 'recovery',
+    mfaMethodId?: string,
+  ): Promise<string> {
+    const policy = await this.requireStepUpPolicy(prisma, operation);
+    const now = new Date();
+    const challenge = await prisma.mfaChallenge.create({
+      data: {
+        userId,
+        mfaMethodId,
+        type,
+        operation,
+        verified: true,
+        verifiedAt: now,
+        consumedAt: null,
+        expiresAt: new Date(
+          now.getTime() + policy.freshnessMinutes * 60 * 1000,
+        ),
+      },
+      select: { id: true },
+    });
+    return challenge.id;
   }
 }

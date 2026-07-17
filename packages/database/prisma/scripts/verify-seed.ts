@@ -4,7 +4,7 @@
  * Verifies that seed data was created correctly after running the seed script.
  * Run this after: npm run db:seed
  */
-import { prisma } from '../../src/client.js';
+import { SENSITIVE_OPERATION_CATALOG, prisma } from '../../src/client.js';
 
 interface VerificationResult {
   name: string;
@@ -274,6 +274,44 @@ async function verifySeedData() {
     } else {
       console.log(`  ❌ Platform bootstrap is incomplete or missing`);
     }
+
+    // 8. Verify Sensitive-Operation Catalog
+    console.log('\n📋 Checking sensitive-operation policies...');
+    const sensitivePolicies = await prisma.sensitiveOperationPolicy.findMany({
+      orderBy: { operation: 'asc' },
+    });
+    const expectedOperations = new Set(
+      SENSITIVE_OPERATION_CATALOG.map(({ operation }) => operation),
+    );
+    const missingOperations = [...expectedOperations].filter(
+      (operation) =>
+        !sensitivePolicies.some((policy) => policy.operation === operation),
+    );
+    const invalidPolicies = sensitivePolicies.filter(
+      (policy) =>
+        policy.freshnessMinutes < 1 ||
+        policy.freshnessMinutes > 30 ||
+        (policy.enabled &&
+          !policy.requiresStepUp &&
+          !policy.requiresMakerChecker),
+    );
+    const sensitivePoliciesValid =
+      missingOperations.length === 0 && invalidPolicies.length === 0;
+
+    results.push({
+      name: 'Sensitive Operations',
+      status: sensitivePoliciesValid ? 'pass' : 'fail',
+      expected: SENSITIVE_OPERATION_CATALOG.length,
+      actual: sensitivePolicies.length,
+      message: sensitivePoliciesValid
+        ? `✅ Found all ${SENSITIVE_OPERATION_CATALOG.length} valid sensitive-operation policies`
+        : `❌ Missing ${missingOperations.length}; invalid ${invalidPolicies.length}`,
+    });
+    console.log(
+      sensitivePoliciesValid
+        ? `  ✅ Found all ${SENSITIVE_OPERATION_CATALOG.length} valid sensitive-operation policies`
+        : `  ❌ Missing: ${missingOperations.join(', ') || 'none'}; invalid: ${invalidPolicies.map(({ operation }) => operation).join(', ') || 'none'}`,
+    );
 
     // Summary
     console.log('\n' + '='.repeat(60));

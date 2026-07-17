@@ -16,9 +16,23 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
-import { Bell, LogOut, Plus, SlidersHorizontal } from 'lucide-react';
+import {
+  Bell,
+  Fingerprint,
+  LogOut,
+  Plus,
+  SlidersHorizontal,
+} from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
 import { AppShell } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
 import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
@@ -99,10 +113,14 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     activeSchoolId,
     activeProfileId,
     switchProfile,
+    biometricEnrollment,
   } = useViewer();
   const router = useRouter();
   const pathname = usePathname();
   const [searchOpen, setSearchOpen] = React.useState(false);
+  const [enrollmentPromptOpen, setEnrollmentPromptOpen] = React.useState(
+    biometricEnrollment.policy === 'require' && !biometricEnrollment.enrolled,
+  );
   const { signOut } = useSessionLifecycle();
   const reopenSearch = React.useCallback(() => setSearchOpen(true), []);
   useResumableModal('global-search', searchOpen, reopenSearch);
@@ -278,6 +296,39 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           viewer={viewer}
         />
       </AppShell>
+      <Dialog
+        open={enrollmentPromptOpen}
+        onOpenChange={setEnrollmentPromptOpen}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <div className="mb-2 grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+              <Fingerprint className="size-5" />
+            </div>
+            <DialogTitle>Set up biometric sign-in</DialogTitle>
+            <DialogDescription>
+              Your school requires a passkey for faster, phishing-resistant
+              sign-in. Password and recovery options remain available.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="ghost"
+              onClick={() => setEnrollmentPromptOpen(false)}
+            >
+              Not now
+            </Button>
+            <Button
+              onClick={() => {
+                setEnrollmentPromptOpen(false);
+                router.push('/account/security');
+              }}
+            >
+              Set up passkey
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

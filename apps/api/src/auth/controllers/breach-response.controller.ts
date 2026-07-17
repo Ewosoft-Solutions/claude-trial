@@ -29,7 +29,10 @@ import {
   JwtAuthGuard,
   ClearanceLevelGuard,
   RequireClearanceLevel,
+  RequireStepUp,
+  StepUpGuard,
 } from '../guards';
+import { STEP_UP_OPERATION } from '../step-up.operations';
 import { type AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
 
 /**
@@ -55,6 +58,8 @@ export class BreachResponseController {
    * @param dto - Breach response DTO
    */
   @Post('school')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.BREACH_RESPONSE)
   @RequireClearanceLevel(9) // Platform admin only
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Initiate breach response for a school' })
@@ -102,6 +107,8 @@ export class BreachResponseController {
    * @param dto - Breach response DTO
    */
   @Post('profile')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.BREACH_RESPONSE)
   @RequireClearanceLevel(9) // Platform admin only
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Initiate breach response for a user profile' })
@@ -149,6 +156,8 @@ export class BreachResponseController {
    * @param dto - Breach response DTO
    */
   @Post('platform')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.BREACH_RESPONSE)
   @RequireClearanceLevel(10) // Architect only (highest level)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Initiate platform-wide breach response' })

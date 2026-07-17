@@ -20,3 +20,4 @@ if (process.env.NODE_ENV !== 'production') {
 export type PrismaClientType = typeof prisma;
 
 export * from '@prisma/client';
+export * from './sensitive-operations.js';

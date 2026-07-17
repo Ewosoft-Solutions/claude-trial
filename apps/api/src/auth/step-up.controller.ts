@@ -54,7 +54,13 @@ export class StepUpController {
       throw new UnauthorizedException('User not authenticated');
     }
 
-    const method = dto.password ? 'password' : 'passkey';
+    const method = dto.password
+      ? 'password'
+      : dto.totpCode
+        ? 'totp'
+        : dto.recoveryCode
+          ? 'recovery'
+          : 'passkey';
     let challengeId: string;
     try {
       if (dto.password) {
@@ -63,6 +69,20 @@ export class StepUpController {
           user.userId,
           dto.operation,
           dto.password,
+        );
+      } else if (dto.totpCode) {
+        challengeId = await this.stepUpService.verifyTotp(
+          this.dbService.client,
+          user.userId,
+          dto.operation,
+          dto.totpCode,
+        );
+      } else if (dto.recoveryCode) {
+        challengeId = await this.stepUpService.verifyRecoveryCode(
+          this.dbService.client,
+          user.userId,
+          dto.operation,
+          dto.recoveryCode,
         );
       } else if (dto.challengeId && dto.webauthnResponse) {
         challengeId = await this.stepUpService.verifyPasskey(
@@ -74,7 +94,7 @@ export class StepUpController {
         );
       } else {
         throw new BadRequestException(
-          'Provide either a passkey response or your current password.',
+          'Provide a passkey, authenticator code, recovery code, or current password.',
         );
       }
     } catch (error) {
@@ -97,7 +117,7 @@ export class StepUpController {
   private async recordAudit(
     user: RequestUser,
     operation: string,
-    method: 'password' | 'passkey',
+    method: 'password' | 'passkey' | 'totp' | 'recovery',
     status: 'success' | 'failure',
     error?: unknown,
     challengeId?: string,

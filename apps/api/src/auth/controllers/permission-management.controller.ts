@@ -34,6 +34,8 @@ import { DatabaseService } from '../../common/database/database.service';
 import { PermissionPoolService } from '../services/permission-pool.service';
 import { RoleType } from '@workspace/api';
 import type { AuthenticatedRequest } from '../middleware';
+import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../step-up.operations';
 
 /**
  * Assign Permission Pools to Role DTO
@@ -191,6 +193,8 @@ export class PermissionManagementController {
    * (e.g. users.delete) that exceed what its clearance level should allow.
    */
   @Post('role/:roleId/assign')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.PERMISSIONS_MODIFY)
   @HttpCode(HttpStatus.OK)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Assign permission pools to role' })
@@ -243,7 +247,9 @@ export class PermissionManagementController {
       throw new Error('One or more permission pools not found');
     }
 
-    const overClearance = pools.filter((p) => p.clearanceLevel > role.clearanceLevel);
+    const overClearance = pools.filter(
+      (p) => p.clearanceLevel > role.clearanceLevel,
+    );
     if (overClearance.length > 0) {
       throw new Error(
         `Pools exceed role clearance level ${role.clearanceLevel}: ${overClearance.map((p) => p.name).join(', ')}`,
@@ -297,9 +303,13 @@ export class PermissionManagementController {
    * pool's permissions from under-clearance roles.
    */
   @Patch('pool/:poolId/clearance')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.PERMISSIONS_MODIFY)
   @HttpCode(HttpStatus.OK)
   @RequireClearanceLevel(7) // Management or higher
-  @ApiOperation({ summary: "Update a permission pool's clearance level (Gate 4)" })
+  @ApiOperation({
+    summary: "Update a permission pool's clearance level (Gate 4)",
+  })
   @ApiResponse({ status: 200, description: 'Pool clearance updated' })
   async updatePoolClearance(
     @Param('poolId') poolId: string,

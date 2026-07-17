@@ -50,6 +50,7 @@ export interface ViewerContextValue {
   /** Persist a new sign-in default via PATCH /api/auth/default-profile.
    *  Does not affect the current session — only future logins. */
   setDefaultProfile: (profileId: string) => Promise<void>;
+  biometricEnrollment: Session['biometricEnrollment'];
 }
 
 const ViewerCtx = React.createContext<ViewerContextValue | null>(null);
@@ -146,6 +147,7 @@ export function ViewerProvider({
       switchProfile,
       defaultProfileId,
       setDefaultProfile,
+      biometricEnrollment: session.biometricEnrollment,
     };
   }, [
     session,

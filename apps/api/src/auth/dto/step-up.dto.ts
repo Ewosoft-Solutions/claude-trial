@@ -3,6 +3,7 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   MinLength,
 } from 'class-validator';
@@ -37,4 +38,17 @@ export class VerifyStepUpDto extends BeginStepUpDto {
   @MinLength(1)
   @MaxLength(256)
   password?: string;
+
+  @ApiPropertyOptional({ description: 'Six-digit authenticator-app code' })
+  @IsOptional()
+  @IsString()
+  @Matches(/^\d{6}$/)
+  totpCode?: string;
+
+  @ApiPropertyOptional({ description: 'One-time account recovery code' })
+  @IsOptional()
+  @IsString()
+  @MinLength(8)
+  @MaxLength(64)
+  recoveryCode?: string;
 }

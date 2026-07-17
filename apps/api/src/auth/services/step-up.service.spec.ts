@@ -11,13 +11,26 @@ describe('StepUpService.verifyAndConsume', () => {
   };
   let updateMany: jest.Mock;
   let prisma: { mfaChallenge: { updateMany: jest.Mock } };
+  let policies: { getPolicy: jest.Mock };
 
   beforeEach(() => {
     webauthn = {
       generateAuthenticationOptions: jest.fn(),
       verifyAuthentication: jest.fn(),
     };
-    service = new StepUpService(webauthn as never);
+    policies = {
+      getPolicy: jest.fn().mockResolvedValue({
+        enabled: true,
+        requiresStepUp: true,
+        freshnessMinutes: 5,
+      }),
+    };
+    service = new StepUpService(
+      webauthn as never,
+      {} as never,
+      {} as never,
+      policies as never,
+    );
     updateMany = jest.fn();
     prisma = { mfaChallenge: { updateMany } };
   });
@@ -56,6 +69,10 @@ describe('StepUpService.verifyAndConsume', () => {
     // Freshness: only challenges expiring in the future match.
     expect(arg.where.expiresAt.gt).toBeInstanceOf(Date);
     expect(arg.where.expiresAt.gt.getTime()).toBeGreaterThanOrEqual(before);
+    expect(arg.where.verifiedAt.gt).toBeInstanceOf(Date);
+    expect(arg.where.verifiedAt.gt.getTime()).toBeGreaterThanOrEqual(
+      before - 5 * 60 * 1000,
+    );
     // Consumed atomically in the same statement.
     expect(arg.data.consumedAt).toBeInstanceOf(Date);
   });
@@ -92,6 +109,24 @@ describe('StepUpService.verifyAndConsume', () => {
     expect(first).toBe(true);
     expect(second).toBe(false);
   });
+
+  it('does not consume a challenge when the platform policy no longer requires step-up', async () => {
+    policies.getPolicy.mockResolvedValue({
+      enabled: true,
+      requiresStepUp: false,
+      freshnessMinutes: 5,
+    });
+
+    await expect(
+      service.verifyAndConsume(
+        prisma as never,
+        'u',
+        'sensitive_operation',
+        'c',
+      ),
+    ).resolves.toBe(false);
+    expect(updateMany).not.toHaveBeenCalled();
+  });
 });
 
 describe('StepUpService ceremonies', () => {
@@ -100,13 +135,30 @@ describe('StepUpService ceremonies', () => {
     generateAuthenticationOptions: jest.Mock;
     verifyAuthentication: jest.Mock;
   };
+  let totp: { verifyToken: jest.Mock };
+  let mfa: { verifyRecoveryCode: jest.Mock };
+  let policies: { getPolicy: jest.Mock };
 
   beforeEach(() => {
     webauthn = {
       generateAuthenticationOptions: jest.fn(),
       verifyAuthentication: jest.fn(),
     };
-    service = new StepUpService(webauthn as never);
+    totp = { verifyToken: jest.fn() };
+    mfa = { verifyRecoveryCode: jest.fn() };
+    policies = {
+      getPolicy: jest.fn().mockResolvedValue({
+        enabled: true,
+        requiresStepUp: true,
+        freshnessMinutes: 5,
+      }),
+    };
+    service = new StepUpService(
+      webauthn as never,
+      totp as never,
+      mfa as never,
+      policies as never,
+    );
   });
 
   afterEach(() => {
@@ -115,7 +167,11 @@ describe('StepUpService ceremonies', () => {
 
   it('offers a platform passkey ceremony when the user has one', async () => {
     const prisma = {
-      mfaMethod: { count: jest.fn().mockResolvedValue(1) },
+      mfaMethod: {
+        count: jest.fn().mockResolvedValueOnce(1).mockResolvedValueOnce(0),
+      },
+      mfaRecoveryCode: { count: jest.fn().mockResolvedValue(0) },
+      user: { findUnique: jest.fn().mockResolvedValue({ passwordHash: 'x' }) },
     };
     const options = { challengeId: 'challenge-1', challenge: 'abc' };
     webauthn.generateAuthenticationOptions.mockResolvedValue(options);
@@ -128,6 +184,14 @@ describe('StepUpService ceremonies', () => {
       ),
     ).resolves.toEqual({
       hasPasskey: true,
+      required: true,
+      freshnessMinutes: 5,
+      methods: {
+        passkey: true,
+        totp: false,
+        recoveryCode: false,
+        password: true,
+      },
       challengeId: 'challenge-1',
       options,
     });
@@ -143,6 +207,8 @@ describe('StepUpService ceremonies', () => {
   it('offers password fallback when no platform passkey is enrolled', async () => {
     const prisma = {
       mfaMethod: { count: jest.fn().mockResolvedValue(0) },
+      mfaRecoveryCode: { count: jest.fn().mockResolvedValue(2) },
+      user: { findUnique: jest.fn().mockResolvedValue({ passwordHash: 'x' }) },
     };
 
     await expect(
@@ -151,8 +217,50 @@ describe('StepUpService ceremonies', () => {
         'user-1',
         STEP_UP_OPERATION.BIOMETRICS_ENROLL,
       ),
-    ).resolves.toEqual({ hasPasskey: false });
+    ).resolves.toEqual({
+      required: true,
+      freshnessMinutes: 5,
+      hasPasskey: false,
+      methods: {
+        passkey: false,
+        totp: false,
+        recoveryCode: true,
+        password: true,
+      },
+    });
     expect(webauthn.generateAuthenticationOptions).not.toHaveBeenCalled();
+  });
+
+  it('allows the client to continue without a prompt when step-up is disabled', async () => {
+    policies.getPolicy.mockResolvedValue({
+      enabled: true,
+      requiresStepUp: false,
+      freshnessMinutes: 5,
+    });
+    const prisma = {
+      mfaMethod: { count: jest.fn() },
+      mfaRecoveryCode: { count: jest.fn() },
+      user: { findUnique: jest.fn() },
+    };
+
+    await expect(
+      service.begin(
+        prisma as never,
+        'user-1',
+        STEP_UP_OPERATION.BIOMETRICS_ENROLL,
+      ),
+    ).resolves.toEqual({
+      required: false,
+      freshnessMinutes: 5,
+      hasPasskey: false,
+      methods: {
+        passkey: false,
+        totp: false,
+        recoveryCode: false,
+        password: false,
+      },
+    });
+    expect(prisma.mfaMethod.count).not.toHaveBeenCalled();
   });
 
   it('rejects operations outside the platform-owned catalog', async () => {
@@ -273,5 +381,70 @@ describe('StepUpService ceremonies', () => {
       ),
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(create).not.toHaveBeenCalled();
+  });
+
+  it('accepts TOTP and records the method used in the minted challenge', async () => {
+    totp.verifyToken.mockReturnValue(true);
+    const create = jest.fn().mockResolvedValue({ id: 'totp-challenge' });
+    const tx = {
+      mfaMethod: { update: jest.fn().mockResolvedValue({}) },
+      mfaChallenge: { create },
+      sensitiveOperationPolicy: { findUnique: jest.fn() },
+    };
+    const prisma = {
+      mfaMethod: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue([{ id: 'totp-1', secret: 'secret' }]),
+      },
+      $transaction: jest.fn((callback) => callback(tx)),
+    };
+
+    await expect(
+      service.verifyTotp(
+        prisma as never,
+        'user-1',
+        STEP_UP_OPERATION.BIOMETRICS_REMOVE,
+        '123456',
+      ),
+    ).resolves.toBe('totp-challenge');
+    expect(tx.mfaMethod.update).toHaveBeenCalledWith({
+      where: { id: 'totp-1' },
+      data: { lastUsedAt: expect.any(Date) },
+    });
+    expect(create.mock.calls[0][0].data).toMatchObject({
+      userId: 'user-1',
+      mfaMethodId: 'totp-1',
+      type: 'totp',
+      verified: true,
+    });
+  });
+
+  it('consumes a recovery code before minting its operation-bound challenge', async () => {
+    mfa.verifyRecoveryCode.mockResolvedValue(true);
+    const create = jest.fn().mockResolvedValue({ id: 'recovery-challenge' });
+    const tx = { mfaChallenge: { create } };
+    const prisma = {
+      $transaction: jest.fn((callback) => callback(tx)),
+    };
+
+    await expect(
+      service.verifyRecoveryCode(
+        prisma as never,
+        'user-1',
+        STEP_UP_OPERATION.BIOMETRICS_REMOVE,
+        'alpha-bravo',
+      ),
+    ).resolves.toBe('recovery-challenge');
+    expect(mfa.verifyRecoveryCode).toHaveBeenCalledWith(
+      tx,
+      'user-1',
+      'alpha-bravo',
+    );
+    expect(create.mock.calls[0][0].data).toMatchObject({
+      userId: 'user-1',
+      type: 'recovery',
+      verified: true,
+    });
   });
 });

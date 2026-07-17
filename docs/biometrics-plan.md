@@ -1,10 +1,9 @@
 # Biometrics & Passkeys — Design & Implementation Plan
 
-> **Status:** Implementation in progress — Phases 0–2b and the first Phase 3
-> vertical slice are delivered; broader step-up/governance remains. Companion
-> to `auth-hardening-plan.md` (Workstream C, now expanded).
-> Decisions below were confirmed with the product owner on 2026-07-15; the
-> remaining open items are flagged inline as **[decide]**.
+> **Status:** Delivered — Phases 0–4 were implemented on 2026-07-17. Companion
+> to `auth-hardening-plan.md` (Workstream C).
+> Product decisions were confirmed with the product owner; production RP/origin
+> values remain deployment configuration.
 > Physical iPhone installed-PWA acceptance was completed successfully on
 > 2026-07-17.
 
@@ -36,10 +35,10 @@ Two governance planes fall out of #3 and #4 — keep them separate:
 
 ---
 
-## 1. Current state (grounded in code)
+## 1. Baseline before implementation (historical)
 
-**Backend WebAuthn already exists** — but built for hardware security keys, not
-device biometrics:
+The implementation started from an existing hardware-security-key WebAuthn
+path, without platform passkeys or a client-side biometric experience:
 
 - `apps/api/src/auth/services/mfa-webauthn.service.ts` uses `@simplewebauthn/server`
   with `authenticatorAttachment: 'cross-platform'`, `requireResidentKey: false`,
@@ -53,12 +52,12 @@ device biometrics:
 - Audit logging exists and is used at login (`authentication.service.ts:293`).
 - `WEBAUTHN_RP_NAME/RP_ID/ORIGIN` env keys exist (`env.config.ts:45`).
 
-**Client side: nothing.** `login-form.tsx` only handles a 6-digit OTP; there is
+At that baseline, `login-form.tsx` only handled a 6-digit OTP; there was
 no `@simplewebauthn/browser`, no `navigator.credentials` call, and **no
 Settings → Security page** (settings has profile/roles/audit/features/etc. but
 no security surface).
 
-**Step-up: scaffolding only, and unsound.** `guards/mfa-required.guard.ts` +
+Step-up was scaffolding only, and unsound. `guards/mfa-required.guard.ts` +
 `maker-checker.service.ts` exist, but the guard is applied to **no endpoint**
 and `MfaRequired()` is a no-op stub. See §5 for the defect.
 
@@ -85,8 +84,8 @@ These are prerequisites — do not build biometrics on top of them unfixed.
    origin-checked, but you serve tenants on `{slug}.domain`. Register under the
    **apex RP ID** (e.g. `schoolwithease.com`) so one passkey works across all
    subdomains, and pass `expectedOrigin` as the **allow-list array** of
-   subdomain origins to SimpleWebAuthn. **[decide]** the apex domain value +
-   whether prod is single-apex or multi-apex. Add `WEBAUTHN_RP_ID` /
+   subdomain origins to SimpleWebAuthn. Configure the production apex and
+   single- or multi-apex topology at deployment. Add `WEBAUTHN_RP_ID` /
    `WEBAUTHN_ALLOWED_ORIGINS` (grouped beside the existing `WEBAUTHN_*` keys, not
    appended to the bottom of env).
 5. **(Low priority)** Align `webauthnPublicKey` storage with the existing
@@ -106,8 +105,8 @@ Reuse `MfaMethod` / `MfaChallenge`; add:
   `transports?` (JSON) — for richer device management + iCloud/Google-synced
   passkey awareness.
 - `MfaChallenge.consumedAt` — enforce single-use for step-up.
-- **Plane B (tenant):** biometric enrollment policy in `tenant.settings` JSON
-  alongside `features` (`require | allow | forbid`, optionally per-role).
+- **Plane B (tenant):** `SchoolSecurityPolicy.biometricEnrollmentPolicy`
+  (`require | allow | forbid`), school-wide and tenant-admin managed.
 - **Plane A (platform):** a `SensitiveOperationPolicy` table owned by platform,
   seeded from the code catalog in §4 (operation, category, assurance level,
   requiresMakerChecker, freshnessMinutes, enabled). Editable only by platform.
@@ -185,10 +184,12 @@ per operation; tenants see this as a read-only summary.
 
 **Governance:**
 
-- Plane B (tenant admin): `GET/PUT /settings/security/biometric-policy`.
-- Plane A (platform): `GET/PUT /platform/step-up-policy`; tenant-facing
-  `GET /settings/security/step-up-summary` (read-only) +
-  `POST /settings/security/step-up-change-request` (→ platform review + feedback).
+- Plane B (tenant admin): `GET/PATCH /security-policies/biometrics`.
+- Plane A (platform): `GET/PATCH /platform/security-policies/step-up-policies`
+  plus request review under
+  `/platform/security-policies/step-up-change-requests`; tenant-facing
+  `GET /security-policies/step-up-policies` and
+  `GET/POST /security-policies/step-up-change-requests`.
 
 ---
 
@@ -203,11 +204,12 @@ per operation; tenants see this as a read-only summary.
 - Respect Plane B policy: if the school **forbids**, hide enrolment; if it
   **requires**, prompt on next login until enrolled.
 
-**Login** (`login-form.tsx` today only knows OTP):
+**Login:**
 
-- Show a "Sign in with Face ID / fingerprint" button **only** when
-  `PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()` and
-  (phase 2) `isConditionalMediationAvailable()` resolve true.
+- Show a "Sign in with Face ID / fingerprint" action for a returning user when
+  WebAuthn exists. Do not hard-gate the explicit user-triggered ceremony on
+  `isUserVerifyingPlatformAuthenticatorAvailable()` because iOS standalone PWA
+  can report a false negative.
 - Passwordless: on load, offer conditional-UI ("passkey autofill"); tapping it
   triggers the platform biometric with zero typing. Password remains a fallback
   link for un-enrolled devices.
@@ -226,9 +228,8 @@ mobile story. Physical iPhone installed-PWA acceptance passed on 2026-07-17.
 - Password + existing MFA + **recovery codes** stay available at all times.
 - **Lost-only-device:** because the target is passwordless, a user may lack
   password muscle-memory — make "Sign in another way" prominent and route to
-  password/recovery-code re-auth, then force re-enrolment. **[decide]** whether
-  losing the last passkey while policy = _require_ triggers an admin-assisted
-  reset.
+  password/recovery-code re-auth, then force re-enrolment. A user cannot remove
+  the last passkey while any active membership requires enrollment.
 - Enrolment always needs a prior strong auth (password login), so a stolen live
   session alone can't silently add an attacker's device (and §4C step-up guards
   device changes).
@@ -248,26 +249,46 @@ proactively, retry protected requests once, and recover safely after PWA wake.
    from here.
 2. **Phase 2 — Passwordless login:** discoverable credentials, conditional UI,
    fallbacks.
-3. **Phase 3 — Step-up on sensitive actions (in progress):** `StepUpGuard` +
-   platform catalog (§4) wired onto the real endpoints; reflexive protection of
-   §4C. The biometric enrol/remove slice is delivered; the full catalog is not.
-4. **Phase 4 — Governance surfaces:** Plane B tenant policy UI; Plane A platform
-   editor + tenant read-only summary + change-request/feedback loop.
+3. **Phase 3 — Step-up on sensitive actions (delivered):** the complete
+   versioned 32-operation catalog is persisted, policy-aware, and wired to the
+   existing sensitive endpoints. Passkey, TOTP, recovery-code, and password
+   proofs are supported; challenges are operation-bound, fresh, and single-use.
+4. **Phase 4 — Governance surfaces (delivered):** Plane B tenant enrollment
+   policy UI and enforcement; Plane A platform editor; tenant read-only catalog,
+   change-request and feedback loop; platform review with self-review prevention
+   and transactional approval.
 
 Cross-cutting throughout: audit every biometric event (enrol, login, step-up,
 device-remove, policy-change) via the existing audit log.
 
 ---
 
-## 9. Open items to confirm (**[decide]**)
+## 9. Verification record (2026-07-17)
 
-- Apex RP ID / allowed-origins for prod (single vs multi apex).
-- Roaming security keys: keep the existing cross-platform path alongside, or
-  platform-only? (User's ask centres on device biometrics; recommend keeping the
-  existing hardware-key path as-is and adding platform as a sibling.)
-- Lost-last-device behaviour when policy = _require_.
-- Default freshness window for step-up (recommend 5 min, matching pre-auth TTL).
-- Per-role enrolment policy granularity under Plane B, or school-wide only.
+- Physical iPhone installed-PWA enrollment and returning-user login: passed.
+- API unit/integration tests: **316/316** across **46** suites.
+- Web unit tests: **85/85**; UI tests: **104/104**.
+- API and web production builds: passed; web lint passed; API lint reported no
+  errors and only existing warnings.
+- Prisma client generation, governance migrations, RLS coverage, seed, and seed
+  verification: passed; all **32** sensitive-operation policies verified.
+- Database-gated e2e remains a deployment-environment check because the local
+  restricted-role `APP_RUNTIME_DATABASE_URL` has a malformed password value.
+
+---
+
+## 10. Resolved decisions and deployment configuration
+
+- Production RP ID and exact allowed-origin values remain deployment
+  configuration; SimpleWebAuthn exact-match origin validation does not use
+  wildcard tenant origins.
+- Roaming security keys remain available beside platform passkeys.
+- A user cannot remove their last passkey while any active school membership
+  requires biometric enrollment. Password, TOTP, and recovery remain available
+  for recovery and re-enrollment.
+- The default step-up freshness window is 5 minutes and platform policy may set
+  1–30 minutes per operation.
+- Enrollment policy is school-wide in this release.
 
 ---
 
@@ -301,7 +322,7 @@ can't be used from a phone. Use a Cloudflare named tunnel to a real host:
 > **Progress (2026-07-15, branch `claude`):** Phase 0 committed (`42194e8`):
 > P0-1..P0-5. P0-6 ✅ (public key AES-256-GCM encrypted at rest via
 > EncryptionService) and **Phase 1 backend + frontend** ✅ — see below. Full API
-> suite green (260 tests). `[decide]` still open: prod
+> suite green (260 tests). Deployment configuration still required: prod
 > apex `WEBAUTHN_RP_ID` and the exact subdomain origin list (SimpleWebAuthn's
 > allow-list is exact-match, **no wildcards** — enumerate each tenant subdomain).
 >
@@ -348,11 +369,12 @@ can't be used from a phone. Use a Cloudflare named tunnel to a real host:
 > Focused guard/service tests cover wrong-user, wrong-operation, expired and
 > replayed challenges.
 >
-> **Next for Phase 3:** silent refresh is delivered and no longer blocks this
-> work. Add TOTP / recovery fallback, persist the complete
-> `SensitiveOperationPolicy` catalog,
-> and apply it to the remaining §4 endpoints. Phase 4 still owns the platform
-> editor, tenant summary/change-request flow and tenant enrolment-policy UI.
+> **Phases 3 and 4 delivered (2026-07-17):** TOTP and single-use recovery-code
+> fallback, the complete versioned `SensitiveOperationPolicy` catalog, database
+> policy and tenant-request models, policy-aware endpoint guards, tenant
+> enrollment enforcement, platform policy editing, and tenant request/review
+> surfaces are complete. The `require` rule is enforced across active school
+> memberships so switching tenant context cannot bypass last-passkey protection.
 >
 > **Phase 1 delivered:**
 >
@@ -442,7 +464,7 @@ dev`). Keep CI green (PR #1 baseline) and migrations forward-only/nullable.
   foundation, consumed in Phase 1.
 - **Accept:** single-origin config still verifies (back-compat); a credential
   registered on one allowed origin verifies against the array; env validation
-  passes with and without the new key. **[decide]** the prod apex value.
+  passes with and without the new key. Configure the prod apex value at deploy.
 
 ### P0-6 — (Stretch / optional) Encrypt `webauthnPublicKey` at rest
 

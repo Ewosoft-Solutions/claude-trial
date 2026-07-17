@@ -1,8 +1,9 @@
 # Auth Hardening — Session Lifecycle Plan
 
 > **Status:** Workstreams A and B delivered on 2026-07-16. Secure resume and
-> assessment draft protection are delivered with them. Workstream C continues
-> in `biometrics-plan.md`.
+> assessment draft protection are delivered with them. Workstream C biometrics
+> and passkey Phases 0–4 were completed on 2026-07-17 in
+> `biometrics-plan.md`.
 
 ## Why this exists
 
@@ -127,7 +128,7 @@ and permission checks remain authoritative.
 - Web unit tests: **85/85** passed, including lifecycle timestamps, signed
   resume, route authorization, and refresh single-flight/retry.
 - UI tests: **104/104** passed.
-- API unit tests: **300/300** passed across **45** suites.
+- API unit tests: **316/316** passed across **46** suites.
 - API production build and web production build: passed.
 - API lint: passed with pre-existing warnings only and no errors.
 - UI/database strict lint still reports four pre-existing warnings in
@@ -139,7 +140,9 @@ and permission checks remain authoritative.
 - Physical iPhone installed-PWA acceptance: passed and confirmed by the product
   owner on **2026-07-17**.
 
-## Workstream C — Biometrics / passkeys
+## Workstream C — Biometrics / passkeys ✅
 
-Continue from `biometrics-plan.md`. Silent refresh is no longer a blocker for
-expanding the server-owned step-up catalog and its governance surfaces.
+Phases 0–4 are complete in `biometrics-plan.md`: platform passkeys,
+passwordless login, policy-aware step-up with fallbacks, the server-owned
+sensitive-operation catalog, tenant enrollment policy, and platform/tenant
+governance surfaces.
