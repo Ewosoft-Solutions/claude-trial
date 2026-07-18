@@ -24,6 +24,7 @@ import { AdmissionsModule } from './admissions/admissions.module';
 import { TransportModule } from './transport/transport.module';
 import { LibraryModule } from './library/library.module';
 import { HealthModule } from './health/health.module';
+import { HealthCheckModule } from './common/health-check/health-check.module';
 import { HrModule } from './hr/hr.module';
 import { EventsModule } from './events/events.module';
 import { ParentPortalModule } from './parent-portal/parent-portal.module';
@@ -105,6 +106,7 @@ import { AppController } from './app.controller';
     TransportModule,
     LibraryModule,
     HealthModule,
+    HealthCheckModule,
     HrModule,
     EventsModule,
     ParentPortalModule,

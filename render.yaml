@@ -1,0 +1,112 @@
+# Render Blueprint (IaC) — School With Ease backend.
+# Demo environment. UAT is a second copy of this Blueprint with its own
+# datastores + secrets (see docs/deployment-plan.md §4).
+#
+# Scope (Phase D0): the always-on API + Postgres (pgvector) + Key Value (Redis,
+# free tier for throttle). The background `worker` and a paid persistent Key
+# Value land in Phase D1 when the durable queue does.
+#
+# Web (Next.js) is NOT here — it deploys to Vercel. Object storage is Cloudflare
+# R2. Migrations run in CI (GitHub Actions), not on Render, so there is no
+# preDeployCommand here; the runtime image is lean and boots as app_runtime.
+
+services:
+  - type: web
+    name: swe-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: starter # always-on (no cold starts); 100-min request timeout
+    region: oregon # keep API + Postgres + Key Value in ONE region (hot path)
+    healthCheckPath: /healthz
+    numInstances: 1 # → raise to ≥2 in Phase D2 after the scale-out gaps close
+    # The GitHub Actions CD workflow is the single deploy path (it deploys only
+    # after CI passes). Disable Render's own push-triggered deploys to avoid
+    # double deploys.
+    autoDeploy: false
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: "3000"
+      # Fail-closed RLS at runtime (ADR-004). Do not weaken in a deployed env.
+      - key: DB_RLS_ENFORCED
+        value: "true"
+      # Owner connection — used only by migrations/seed run OUT of band (CI).
+      - key: DATABASE_URL
+        fromDatabase:
+          name: swe-postgres
+          property: connectionString
+      # Restricted runtime role (app_runtime) — set out of band as a secret in
+      # the Render dashboard AFTER creating the role (docs/database-setup.md §5).
+      # Must be non-superuser / non-BYPASSRLS or /readyz + boot self-test fail.
+      - key: APP_RUNTIME_DATABASE_URL
+        sync: false
+      - key: REDIS_URL
+        fromService:
+          type: keyvalue
+          name: swe-keyvalue
+          property: connectionString
+      # Public web origin (Vercel) — CORS allow-list + email links. One origin
+      # in the proxy model; add the www alias if used.
+      - key: APP_WEB_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      # WebAuthn is bound to the web domain per env (passkeys don't cross envs).
+      - key: WEBAUTHN_RP_ID
+        sync: false
+      - key: WEBAUTHN_ORIGIN
+        sync: false
+      - key: WEBAUTHN_ALLOWED_ORIGINS
+        sync: false
+      # Secrets — set in the dashboard / env group, never committed.
+      # Generate per env: openssl rand -base64 64 (32 for ENCRYPTION_KEY).
+      - key: JWT_SECRET
+        sync: false
+      - key: ENCRYPTION_KEY
+        sync: false
+      # AI + integrations (leave unset to degrade gracefully).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: VOYAGE_API_KEY
+        sync: false
+      # Object storage (Cloudflare R2) — consumed by the S3 provider in D1.
+      - key: STORAGE_S3_ENDPOINT
+        sync: false
+      - key: STORAGE_S3_BUCKET
+        sync: false
+      - key: STORAGE_S3_ACCESS_KEY_ID
+        sync: false
+      - key: STORAGE_S3_SECRET_ACCESS_KEY
+        sync: false
+
+  # ── Phase D1: background worker (durable queue consumer). Same image, queue
+  # ── start command. Uncomment when §6.2 lands and Key Value is on a paid,
+  # ── persistent plan.
+  # - type: worker
+  #   name: swe-worker
+  #   runtime: docker
+  #   dockerfilePath: ./apps/api/Dockerfile
+  #   dockerContext: .
+  #   plan: starter
+  #   region: oregon
+  #   dockerCommand: node dist/main --worker
+  #   envVars:
+  #     - fromGroup: swe-api-env # share the API's env group
+
+databases:
+  - name: swe-postgres
+    plan: basic-256mb # → basic-1gb in Phase D2 under load
+    region: oregon
+    postgresMajorVersion: "16"
+    # pgvector is enabled by the learning_domain migration (CREATE EXTENSION
+    # vector). Confirm it is in the instance's allowed extensions on provision.
+
+# Render Key Value (Redis-compatible). Free 25MB = throttle only (NO
+# persistence). Move to a paid, persistent plan in D1 for the durable queue.
+keyValues:
+  - name: swe-keyvalue
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction

@@ -61,6 +61,14 @@ export interface EnvironmentConfig {
    * No trailing slash.
    */
   APP_WEB_URL: string;
+  /**
+   * Comma-separated allow-list of browser origins permitted by CORS. In the
+   * deployed model the web app (Vercel) reaches the API only server-side via
+   * its proxy (`lib/api-proxy.ts`), so the browser never calls the API cross
+   * -origin and this stays locked down. Optional — falls back to `[APP_WEB_URL]`.
+   * `*` is honoured only in non-production for local tooling.
+   */
+  CORS_ALLOWED_ORIGINS?: string;
   DB_POOL_MIN: number;
   DB_POOL_MAX: number;
   DB_CONNECTION_TIMEOUT: number;
@@ -157,6 +165,7 @@ export const envValidationSchema = Joi.object({
     .uri()
     .default('http://localhost:3001')
     .custom((value: string) => value.replace(/\/+$/, '')),
+  CORS_ALLOWED_ORIGINS: Joi.string().optional(),
   DB_POOL_MIN: Joi.number().integer().min(1).max(100).default(2),
   DB_POOL_MAX: Joi.number().integer().min(1).max(100).default(10),
   DB_CONNECTION_TIMEOUT: Joi.number().integer().min(1000).default(5000),
