@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="regular" data-nav="labels" data-inspector="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchoolWithEase — Shell Layout Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sketch.css">
+</head>
+<body>
+<div class="page">
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <div class="masthead">
+    <div>
+      <h1>School<span class="tm">With</span>Ease <span style="font-family:'Kalam';font-size:18px;color:var(--ink-soft);">— shell layouts</span></h1>
+      <p>Four fluid, customisable shells for a multi-tenant school dashboard. Same regions, different ways to morph. Flip themes, density &amp; nav mode in the Tweaks panel to feel them adapt.</p>
+    </div>
+    <div class="kit-meta">low-fi · v1<br>structure, not style</div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===================== TABS ===================== -->
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-target="A">A — Three-column layered<b>dense · inspector</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="B">B — Adaptive sidebar<b>one nav, morphs</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="C">C — Widget canvas<b>drag · presets</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="D">D — Workspace-forward<b>multi-tenant</b></button>
+  </div>
+
+  <!-- ============================================================
+       LAYOUT A — THREE-COLUMN LAYERED
+       ============================================================ -->
+  <section class="layout active" id="A">
+    <div class="lead">
+      <h2>A · Three-column layered shell</h2>
+      <span class="pill">rail + nav + main + inspector</span>
+      <p>The dense baseline. Everything on screen at once — collapse the nav to icons, detach the inspector, and the main area breathes.</p>
+    </div>
+
+    <div class="frame">
+      <!-- top command bar -->
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> St. Jude Academy <span style="color:var(--ink-faint)">▾</span></div>
+        <div class="crumbs"><span>Admin</span><span class="sep">▸</span><span>Students</span><span class="sep">▸</span><span class="cur">Enrollment</span></div>
+        <div class="search"><span>⌕</span> Search students, classes, records… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">＋</span><span class="ico">◔</span><span class="ico">⚑</span><span class="av">BE</span></div>
+        <span class="mark" style="top:9px; left:50%; transform:translateX(-160px);">1</span>
+        <span class="mark" style="top:9px; left:208px;">2</span>
+      </div>
+
+      <div class="body">
+        <!-- icon rail -->
+        <div class="rail">
+          <div class="logo"></div>
+          <div class="ri on">▦</div><div class="ri">☰</div><div class="ri">⚲</div>
+          <div class="ri">▤</div><div class="ri">◷</div>
+          <div class="ri spring">⚙</div>
+          <span class="mark" style="top:54px; left:42px;">3</span>
+        </div>
+
+        <!-- secondary nav -->
+        <div class="nav">
+          <div class="nav-h"><b>Students</b><span style="color:var(--ink-faint)">‹‹</span></div>
+          <div class="grp-label">Records</div>
+          <div class="nitem on"><span class="ti"></span><span>Enrollment</span><span class="cnt">42</span></div>
+          <div class="nitem"><span class="ti"></span><span>Directory</span><span class="cnt">1.2k</span></div>
+          <div class="nitem"><span class="ti"></span><span>Attendance</span></div>
+          <div class="grp-label">Academics ▾</div>
+          <div class="nitem"><span class="ti"></span><span>Gradebook</span></div>
+          <div class="nitem sub"><span class="ti"></span><span>Report cards</span></div>
+          <div class="nitem sub"><span class="ti"></span><span>Transcripts</span></div>
+          <div class="grp-label">Operations ▸</div>
+          <div class="nitem"><span class="ti"></span><span>Fees &amp; billing</span><span class="cnt">7</span></div>
+          <span class="mark" style="top:120px; right:10px;">4</span>
+        </div>
+
+        <!-- main -->
+        <div class="main">
+          <div class="main-head">
+            <h3>Enrollment</h3><span class="sub">Spring Term 2024 · 42 pending</span>
+            <div class="actions"><span class="btn">Filter</span><span class="btn pri">＋ New student</span></div>
+          </div>
+          <div class="main-body">
+            <div class="grid" style="grid-template-columns:1fr 1fr; grid-template-rows:auto 1fr;">
+              <div class="card"><div class="ch"><span class="dot"></span><b>New applicants</b><span class="grip">⠿</span></div><div class="kpi-row"><span class="kpi">128</span><span class="trend">▲ 12%</span></div><span class="skel" style="width:70%"></span></div>
+              <div class="card"><div class="ch"><span class="dot"></span><b>Seats remaining</b><span class="grip">⠿</span></div><div class="kpi-row"><span class="kpi">34</span><span class="sub">of 480</span></div><span class="skel" style="width:55%"></span></div>
+              <div class="card" style="grid-column:1 / -1;"><div class="ch"><span class="dot"></span><b>Applicant pipeline</b><span class="grip">⠿</span></div>
+                <div class="bars"><i style="height:40%"></i><i style="height:62%"></i><i class="hl" style="height:85%"></i><i style="height:50%"></i><i style="height:70%"></i><i style="height:35%"></i><i style="height:55%"></i><i style="height:78%"></i></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- inspector -->
+        <div class="inspector">
+          <div class="ins-h"><b>Alex Rivera</b><span style="color:var(--ink-faint)">⤢</span></div>
+          <div class="av" style="width:48px;height:48px;border-radius:12px;">AR</div>
+          <div class="lines"><span class="skel" style="width:80%"></span><span class="skel" style="width:60%"></span></div>
+          <div class="boxs" style="padding:10px;"><div class="lines"><span class="skel sm" style="width:90%"></span><span class="skel sm" style="width:70%"></span><span class="skel sm" style="width:80%"></span></div></div>
+          <span class="btn pri" style="text-align:center;">Enroll &amp; send invite</span>
+          <span class="mark" style="top:54px; right:12px;">5</span>
+        </div>
+      </div>
+
+      <!-- status bar -->
+      <div class="statusbar"><span class="s-dot"></span> Synced · 2m ago <span>·</span> Spring Term 2024 <span class="spring">3 background jobs</span> <span>⌘K to jump anywhere</span></div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Command bar</b><p>Global ⌘K search jumps to any student, class or record — the navigation shortcut you liked.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Breadcrumb trail</b><p>Always shows where you are and the path back. Each crumb is a jump point.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Collapsible rail</b><p>The icon rail collapses the nav to icons-only (try Nav mode in Tweaks) for a wider work area.</p></div></div>
+      <div class="note"><span class="n">4</span><div><b>Grouped nav</b><p>Sections collapse/expand, carry counts, and items can be hidden or reordered per tenant.</p></div></div>
+      <div class="note"><span class="n">5</span><div><b>Inspector</b><p>Context detail for the selection. Pins open, or detaches/hides (toggle in Tweaks).</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       LAYOUT B — ADAPTIVE SINGLE SIDEBAR
+       ============================================================ -->
+  <section class="layout" id="B">
+    <div class="lead">
+      <h2>B · Adaptive single sidebar</h2>
+      <span class="pill">one nav, three forms</span>
+      <p>No separate rail. A single sidebar morphs between collapsed icons, labelled list, and a drill-in subnav stack. Search is the hero; detail slides over.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> St. Jude Academy ▾</div>
+        <div class="search" style="max-width:600px;"><span>⌕</span> Search or jump to… &nbsp; <span style="color:var(--ink-faint)">try “Grade 11 attendance”</span> <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">⚑</span><span class="av">BE</span></div>
+        <span class="mark" style="top:9px; left:50%; transform:translateX(-40px);">1</span>
+      </div>
+
+      <div class="body">
+        <!-- the morphing sidebar, shown in drill-in state -->
+        <div class="nav drill" style="width:calc(248px * var(--pad));">
+          <div class="back">‹ &nbsp;<b style="font-family:'Caveat';font-size:19px;">Students</b></div>
+          <div class="nitem on"><span class="ti"></span><span>Enrollment</span></div>
+          <div class="nitem"><span class="ti"></span><span>Directory</span></div>
+          <div class="nitem"><span class="ti"></span><span>Attendance</span><span class="chev">›</span></div>
+          <div class="nitem"><span class="ti"></span><span>Behaviour</span></div>
+          <div class="grp-label">Quick filters</div>
+          <div class="nitem sub"><span class="ti"></span><span>Pending invites</span></div>
+          <div class="nitem sub"><span class="ti"></span><span>Waitlisted</span></div>
+          <div class="nitem" style="margin-top:auto; opacity:.45;"><span class="ti"></span><span>Transport</span><span class="chev">⊘</span></div>
+          <span class="mark" style="top:14px; right:12px;">3</span>
+          <span class="mark" style="bottom:18px; right:12px;">4</span>
+        </div>
+
+        <div class="main">
+          <div class="main-head"><h3>Enrollment</h3><span class="sub">click a row → detail slides in ›</span><div class="actions"><span class="btn">Sort</span><span class="btn pri">＋ New</span></div></div>
+          <div class="main-body">
+            <div class="box" style="padding:0; overflow:hidden;">
+              <div style="display:flex; gap:12px; padding:11px 14px; border-bottom:2px solid var(--line-soft); align-items:center;"><span class="av">AR</span><span class="skel" style="width:160px"></span><span class="skel sm" style="width:90px; margin-left:auto"></span></div>
+              <div style="display:flex; gap:12px; padding:11px 14px; border-bottom:2px solid var(--line-soft); align-items:center; background:color-mix(in srgb,var(--accent) 12%, transparent);"><span class="av">MJ</span><span class="skel" style="width:200px"></span><span class="skel sm" style="width:70px; margin-left:auto"></span></div>
+              <div style="display:flex; gap:12px; padding:11px 14px; border-bottom:2px solid var(--line-soft); align-items:center;"><span class="av">SK</span><span class="skel" style="width:140px"></span><span class="skel sm" style="width:90px; margin-left:auto"></span></div>
+              <div style="display:flex; gap:12px; padding:11px 14px; align-items:center;"><span class="av">TP</span><span class="skel" style="width:180px"></span><span class="skel sm" style="width:60px; margin-left:auto"></span></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- slide-over ghost -->
+        <div class="slideover">
+          <div class="ins-h" style="display:flex;justify-content:space-between;align-items:center;"><b style="font-family:'Caveat';font-size:21px;">Maria Jones</b><span style="color:var(--ink-faint)">✕</span></div>
+          <div class="av" style="width:46px;height:46px;border-radius:12px;">MJ</div>
+          <div class="lines"><span class="skel" style="width:85%"></span><span class="skel" style="width:65%"></span><span class="skel" style="width:75%"></span></div>
+          <div class="boxs" style="padding:10px;"><div class="lines"><span class="skel sm" style="width:90%"></span><span class="skel sm" style="width:60%"></span></div></div>
+          <span class="scrawl" style="top:-2px; left:-118px;">detail = slide-over →</span>
+        </div>
+
+        <!-- morph states diagram -->
+        <div class="morph">
+          <div class="mh">one sidebar, 3 forms</div>
+          <div class="states">
+            <div class="st" style="width:26px;"><span class="dot" style="margin:0 auto"></span><span class="b"></span><span class="b"></span><span class="b"></span></div>
+            <span class="arr">→</span>
+            <div class="st" style="width:64px;"><span class="b" style="width:80%"></span><span class="b"></span><span class="b" style="width:60%"></span></div>
+            <span class="arr">→</span>
+            <div class="st" style="width:64px; border-color:var(--accent);"><span class="b" style="width:40%;background:var(--accent)"></span><span class="b"></span><span class="b"></span></div>
+          </div>
+          <span class="mark" style="top:-12px; left:-12px;">2</span>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> All changes saved <span class="spring"></span> Press Esc to close detail</div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Search-first</b><p>The command bar is the primary way to move. Type a query or jump straight to a screen.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>One nav, morphs</b><p>Collapsed icons → labelled list → drill-in stack. No second rail to maintain.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Drill-in subnav</b><p>Tapping a parent pushes its children in with a back affordance — good for deep, nested paths.</p></div></div>
+      <div class="note"><span class="n">4</span><div><b>Per-tenant features</b><p>Greyed item = feature switched off for this institution. Flip on/off per profile or tenant.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       LAYOUT C — WIDGET CANVAS
+       ============================================================ -->
+  <section class="layout" id="C">
+    <div class="lead">
+      <h2>C · Widget canvas</h2>
+      <span class="pill">drag · resize · presets</span>
+      <p>Dashboard-first. The main area is a snap-grid you arrange yourself — drag to move, drag corners to resize, add cards from a palette, save the layout as a preset per role.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> St. Jude Academy ▾</div>
+        <div class="crumbs"><span class="cur">Dashboard</span><span class="sep">·</span><span>Registrar view ▾</span></div>
+        <div class="search"><span>⌕</span> Search… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="btn">Presets ▾</span><span class="btn pri">✎ Edit layout</span><span class="av">BE</span></div>
+        <span class="mark" style="top:9px; left:392px;">3</span>
+      </div>
+
+      <div class="body">
+        <div class="rail" style="width:calc(120px * var(--pad)); align-items:stretch; padding:12px 8px;">
+          <div class="logo" style="margin:0 auto 6px;"></div>
+          <div class="nitem on" style="justify-content:flex-start"><span class="ti"></span><span>Home</span></div>
+          <div class="nitem"><span class="ti"></span><span>Students</span></div>
+          <div class="nitem"><span class="ti"></span><span>Classes</span></div>
+          <div class="nitem"><span class="ti"></span><span>Finance</span></div>
+          <div class="nitem" style="margin-top:auto"><span class="ti"></span><span>Settings</span></div>
+        </div>
+
+        <div class="main">
+          <div class="main-head"><h3>Good afternoon, Benjamin</h3><span class="sub">editing · drag cards to rearrange</span></div>
+          <div class="main-body dotgrid" style="border-radius:8px;">
+            <div class="grid" style="grid-template-columns:repeat(3,1fr); grid-template-rows:auto auto 1fr;">
+              <div class="card"><div class="ch"><span class="dot"></span><b>Attendance</b><span class="grip">⠿</span></div><div class="kpi-row"><span class="kpi">94%</span><span class="trend">▲</span></div></div>
+              <div class="card"><div class="ch"><span class="dot"></span><b>Fees due</b><span class="grip">⠿</span></div><div class="kpi-row"><span class="kpi">£12k</span></div></div>
+              <div class="card"><div class="ch"><span class="dot"></span><b>Open tickets</b><span class="grip">⠿</span></div><div class="kpi-row"><span class="kpi">8</span></div></div>
+              <div class="card" style="grid-column:span 2; grid-row:span 2;"><div class="ch"><span class="dot"></span><b>Enrolment trend</b><span class="grip">⠿</span></div>
+                <div class="bars"><i style="height:35%"></i><i style="height:55%"></i><i style="height:48%"></i><i class="hl" style="height:80%"></i><i style="height:62%"></i><i style="height:72%"></i><i style="height:90%"></i></div>
+              </div>
+              <div class="card"><div class="ch"><span class="dot"></span><b>Today</b><span class="grip">⠿</span></div><div class="lines"><span class="skel" style="width:90%"></span><span class="skel" style="width:70%"></span><span class="skel" style="width:80%"></span></div></div>
+              <div class="card boxs dash-add" style="border-style:dashed;"><span class="plus">＋</span> Add widget</div>
+            </div>
+            <span class="mark" style="top:14px; right:160px;">1</span>
+            <span class="mark" style="bottom:18px; right:120px;">2</span>
+          </div>
+        </div>
+
+        <div class="inspector">
+          <div class="ins-h"><b>Widget settings</b></div>
+          <span class="sub">Enrolment trend</span>
+          <div class="boxs" style="padding:10px;"><div class="lines"><span class="skel sm" style="width:60%"></span><span class="skel" style="width:100%"></span><span class="skel sm" style="width:80%"></span><span class="skel" style="width:100%"></span></div></div>
+          <span class="sub">Range · Source · Style</span>
+          <span class="mark" style="top:54px; right:12px;">4</span>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> Layout “Registrar” <span class="spring"></span> Unsaved changes · <b style="color:var(--accent)">Save preset</b></div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Drag &amp; resize</b><p>Each card has a grip; cards snap to the dot grid and reflow. Resize from the corners.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Widget palette</b><p>The dashed tile opens a gallery of widgets — KPIs, charts, lists, calendars — to drop in.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Layout presets</b><p>Save arrangements as named presets and bind them to a role (Registrar, Teacher, Parent…).</p></div></div>
+      <div class="note"><span class="n">4</span><div><b>Per-widget settings</b><p>Selecting a card opens its config in the inspector — range, data source, styling.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       LAYOUT D — WORKSPACE-FORWARD (MULTI-TENANT)
+       ============================================================ -->
+  <section class="layout" id="D">
+    <div class="lead">
+      <h2>D · Workspace-forward shell</h2>
+      <span class="pill">multi-tenant · master–detail</span>
+      <p>Built around switching context. A workspace rail holds tenants/profiles; the nav reconfigures per tenant &amp; role; the main area is a master–detail split; a quick bar lives along the bottom.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="crumbs"><span class="tenant" style="border-radius:8px;"><span class="sq"></span>St. Jude ▾</span><span class="sep">▸</span><span>Role: Registrar</span><span class="sep">▸</span><span class="cur">Students</span></div>
+        <div class="search"><span>⌕</span> Search this workspace… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico round">↻</span><span class="av">BE</span></div>
+      </div>
+
+      <div class="body">
+        <!-- workspace / tenant switcher rail -->
+        <div class="rail" style="gap:10px;">
+          <div class="av" style="width:34px;height:34px;border-radius:10px;background:var(--accent);color:#fff;border-color:var(--line);">SJ</div>
+          <div class="av" style="width:34px;height:34px;border-radius:10px;">OH</div>
+          <div class="av" style="width:34px;height:34px;border-radius:10px;">KP</div>
+          <div class="ri">＋</div>
+          <div class="ri spring">⚙</div>
+          <span class="mark" style="top:46px; left:42px;">1</span>
+        </div>
+
+        <!-- role-context nav -->
+        <div class="nav">
+          <div class="nav-h"><b>Registrar</b><span class="sub" style="font-size:11px;">▾</span></div>
+          <div class="grp-label">For this role</div>
+          <div class="nitem on"><span class="ti"></span><span>Students</span></div>
+          <div class="nitem"><span class="ti"></span><span>Admissions</span><span class="cnt">12</span></div>
+          <div class="nitem"><span class="ti"></span><span>Records</span></div>
+          <div class="nitem"><span class="ti"></span><span>Compliance</span></div>
+          <div class="grp-label">Shared</div>
+          <div class="nitem"><span class="ti"></span><span>Calendar</span></div>
+          <div class="nitem"><span class="ti"></span><span>Messages</span><span class="cnt">3</span></div>
+          <span class="mark" style="top:14px; right:12px;">2</span>
+        </div>
+
+        <!-- master-detail main -->
+        <div class="main">
+          <div class="main-head"><h3>Students</h3><div class="actions"><span class="btn">Filter</span><span class="btn pri">＋ New</span></div></div>
+          <div class="main-body" style="display:flex; gap:0; padding:6px 0 0;">
+            <div class="box" style="flex:0 0 230px; border-radius:8px 0 0 8px; border-right-width:2px; overflow:hidden;">
+              <div style="display:flex;gap:9px;padding:10px 12px;border-bottom:2px solid var(--line-soft);align-items:center;"><span class="av">AR</span><div class="lines" style="flex:1"><span class="skel sm" style="width:80%"></span><span class="skel sm" style="width:50%"></span></div></div>
+              <div style="display:flex;gap:9px;padding:10px 12px;border-bottom:2px solid var(--line-soft);align-items:center;background:color-mix(in srgb,var(--accent) 12%,transparent);"><span class="av">MJ</span><div class="lines" style="flex:1"><span class="skel sm" style="width:70%"></span><span class="skel sm" style="width:55%"></span></div></div>
+              <div style="display:flex;gap:9px;padding:10px 12px;border-bottom:2px solid var(--line-soft);align-items:center;"><span class="av">SK</span><div class="lines" style="flex:1"><span class="skel sm" style="width:85%"></span><span class="skel sm" style="width:45%"></span></div></div>
+              <div style="display:flex;gap:9px;padding:10px 12px;align-items:center;"><span class="av">TP</span><div class="lines" style="flex:1"><span class="skel sm" style="width:75%"></span><span class="skel sm" style="width:50%"></span></div></div>
+            </div>
+            <div class="box" style="flex:1; border-radius:0 8px 8px 0; border-left:none; padding:14px;">
+              <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px;"><span class="av" style="width:44px;height:44px;border-radius:12px;">MJ</span><div class="lines"><span class="skel" style="width:140px"></span><span class="skel sm" style="width:90px"></span></div></div>
+              <div class="grid" style="grid-template-columns:1fr 1fr; gap:10px;">
+                <div class="boxs" style="padding:10px;"><span class="skel sm" style="width:60%;margin-bottom:7px;"></span><span class="skel" style="width:90%"></span></div>
+                <div class="boxs" style="padding:10px;"><span class="skel sm" style="width:55%;margin-bottom:7px;"></span><span class="skel" style="width:80%"></span></div>
+                <div class="boxs" style="padding:10px;grid-column:1/-1;"><div class="lines"><span class="skel sm" style="width:40%"></span><span class="skel" style="width:100%"></span><span class="skel" style="width:85%"></span></div></div>
+              </div>
+              <span class="mark" style="top:8px; left:8px;">3</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- prominent quick bar -->
+      <div class="statusbar" style="height:calc(40px * var(--pad)); font-size:13px;">
+        <span class="s-dot"></span> <b>Spring Term 2024</b> ▾
+        <span>·</span> <span>Synced 1m ago</span>
+        <span class="spring"></span>
+        <span class="btn" style="padding:3px 10px;">＋ Quick add</span>
+        <span class="btn" style="padding:3px 10px;">↥ Import</span>
+        <span class="btn" style="padding:3px 10px;">⎙ Report</span>
+        <span class="mark" style="top:-12px; right:60px;">4</span>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Workspace switcher</b><p>Stacked tenant/profile avatars. Switching reconfigures the whole shell; ＋ adds a new profile.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Role-context nav</b><p>Nav contents follow the active role &amp; tenant — Registrar sees different items than a Teacher.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Master–detail</b><p>List on the left, full record on the right. No modal hop — stay oriented while you work.</p></div></div>
+      <div class="note"><span class="n">4</span><div><b>Quick bar</b><p>Persistent term selector, sync state and quick actions docked along the bottom.</p></div></div>
+    </div>
+  </section>
+
+  <p class="footnote">— wireframes for structure &amp; flow · open Tweaks (toolbar) to switch theme, density, nav mode &amp; accent —</p>
+</div>
+
+<!-- ===================== TWEAKS ISLAND ===================== -->
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script>
+  // ---- tab switching (plain JS) ----
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', 'false'); });
+      t.setAttribute('aria-selected', 'true');
+      var id = t.getAttribute('data-target');
+      document.querySelectorAll('.layout').forEach(function (s) { s.classList.toggle('active', s.id === id); });
+    });
+  });
+</script>
+
+<script type="text/babel">
+  const DENSITY = { compact: 0.82, regular: 1, comfy: 1.15 };
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "dark": false,
+    "accent": "#4f6df5",
+    "density": "compact",
+    "navMode": "labels",
+    "inspector": true
+  }/*EDITMODE-END*/;
+
+  function apply(t) {
+    const r = document.documentElement;
+    r.setAttribute('data-theme', t.dark ? 'dark' : 'light');
+    r.setAttribute('data-density', t.density);
+    r.setAttribute('data-nav', t.navMode);
+    r.setAttribute('data-inspector', t.inspector ? 'on' : 'off');
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--pad', String(DENSITY[t.density] || 1));
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(() => { apply(t); }, [t]);
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Appearance" />
+        <TweakToggle label="Dark mode" value={t.dark} onChange={(v) => setTweak('dark', v)} />
+        <TweakColor label="Accent" value={t.accent}
+          options={['#4f6df5', '#1f8a5b', '#c2452f', '#7a5ae0', '#0e7490']}
+          onChange={(v) => setTweak('accent', v)} />
+        <TweakSection label="Layout" />
+        <TweakRadio label="Density" value={t.density} options={['compact', 'regular', 'comfy']}
+          onChange={(v) => setTweak('density', v)} />
+        <TweakRadio label="Nav mode" value={t.navMode} options={['icons', 'labels']}
+          onChange={(v) => setTweak('navMode', v)} />
+        <TweakToggle label="Show inspector (A/C)" value={t.inspector} onChange={(v) => setTweak('inspector', v)} />
+      </TweaksPanel>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+</body>
+</html>

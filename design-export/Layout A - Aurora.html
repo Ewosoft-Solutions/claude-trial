@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchoolWithEase — Layout A · Aurora</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Kalam:wght@300;400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shell-base.css">
+<link rel="stylesheet" href="shell-themes.css">
+<link rel="stylesheet" href="aurora.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #050409; overflow: hidden; }
+  #stage { position: absolute; inset: 0; display: grid; place-items: center; }
+  #frame {
+    width: 1440px; height: 900px; flex: none;
+    border-radius: 22px; overflow: hidden; position: relative;
+    box-shadow: 0 40px 120px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(255,255,255,.06);
+    transform-origin: center center;
+  }
+</style>
+</head>
+<body>
+<div id="stage"><div id="frame"></div></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="shell-build.js"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "theme": "light",
+    "accent": "#5b8cff",
+    "secondary": "#ff6fae"
+  }/*EDITMODE-END*/;
+
+  function render(t) {
+    const accent = t.accent === TWEAK_DEFAULTS.accent ? null : t.accent;
+    const secondary = t.secondary === TWEAK_DEFAULTS.secondary ? null : t.secondary;
+    document.getElementById('frame').innerHTML =
+      window.buildShell('aurora', t.theme, 'Aurora · Enrollment', { accent, accent2: secondary });
+  }
+
+  function fit() {
+    const m = 40;
+    const s = Math.min((window.innerWidth - m) / 1440, (window.innerHeight - m) / 900, 1);
+    document.getElementById('frame').style.transform = `scale(${s})`;
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(() => { render(t); }, [t]);
+    React.useEffect(() => { fit(); window.addEventListener('resize', fit); return () => window.removeEventListener('resize', fit); }, []);
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Appearance" />
+        <TweakRadio label="Mode" value={t.theme} options={['dark', 'light']}
+          onChange={(v) => setTweak('theme', v)} />
+        <TweakSection label="Neon palette" />
+        <TweakColor label="Primary / accent" value={t.accent}
+          options={['#5b8cff', '#8c5cff', '#22d3ee', '#2ee6a6', '#ff6fae']}
+          onChange={(v) => setTweak('accent', v)} />
+        <TweakColor label="Secondary" value={t.secondary}
+          options={['#ff6fae', '#8c5cff', '#2ee6a6', '#ffce5c', '#22d3ee']}
+          onChange={(v) => setTweak('secondary', v)} />
+        <TweakButton label="Reset colors"
+          onClick={() => { setTweak('accent', TWEAK_DEFAULTS.accent); setTweak('secondary', TWEAK_DEFAULTS.secondary); }} />
+      </TweaksPanel>
+    );
+  }
+
+  ReactDOM.createRoot(document.body.appendChild(document.createElement('div'))).render(<App />);
+</script>
+</body>
+</html>

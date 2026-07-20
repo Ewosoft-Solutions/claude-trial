@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Patch,
@@ -21,6 +22,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { StudentService } from '../services/student.service';
 import {
   CreateStudentDto,
@@ -32,14 +34,32 @@ import {
   UpdateEnrollmentStatusDto,
   BulkGuardianUpsertDto,
 } from '../dto';
+import {
+  buildAcademicsActor,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 import type { AuthenticatedRequest } from 'src/auth';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 
 @ApiTags(SwaggerTags.students.name)
 @Controller('students')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class StudentController {
   constructor(private readonly studentService: StudentService) {}
+
+  private actorFrom(req: AuthenticatedRequest): AcademicsActor {
+    if (!req.userContext) {
+      throw new ForbiddenException('User context not found');
+    }
+    return buildAcademicsActor(
+      req.userContext,
+      'students.view',
+      'classes.teachers.assign',
+    );
+  }
 
   /**
    * Create student (13.1)
@@ -66,7 +86,7 @@ export class StudentController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.studentService.list(user!.tenantId, query);
+    return this.studentService.list(user!.tenantId, query, this.actorFrom(req));
   }
 
   /**
@@ -149,6 +169,8 @@ export class StudentController {
    * Delete student (13.1 delete)
    */
   @Delete(':id')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.STUDENTS_DELETE)
   @RequirePermissions(['students.delete'])
   @ApiOperation({ summary: 'Delete student' })
   async deleteStudent(

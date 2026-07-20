@@ -16,11 +16,7 @@
     "**/*.tsx",
     "next-env.d.ts",
     "next.config.ts",
-    ".next/types/**/*.ts",
-    "../../packages/ui/src/custom/charts/chart-area-interactive.tsx",
-    "../../packages/ui/src/custom/tables/data-table.tsx",
-    "app/components/site-header.tsx",
-    "../../packages/ui/src/lib/generate-breadcrumbs.ts"
+    ".next/types/**/*.ts"
   ],
   "exclude": ["node_modules"]
 }

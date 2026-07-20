@@ -1,0 +1,48 @@
+// ============================================
+// Attendance Models
+// ============================================
+//
+// AttendanceRecord tracks daily per-student-per-class attendance marks.
+// Tenant-scoped with tenant_id NOT NULL → covered by RLS in the
+// "student-management" schema (enforce_tenant_rls() picks it up automatically;
+// migration also applies RLS explicitly for self-containment).
+//
+// status values: 'present' | 'absent' | 'late' | 'excused'
+// Unique per (tenantId, studentId, classId, date) so a re-save is an upsert.
+// ============================================
+
+model AttendanceRecord {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  studentId String   @map("student_id")
+  classId   String   @map("class_id")
+  date      DateTime @db.Date
+
+  status String  @default("present") // 'present' | 'absent' | 'late' | 'excused'
+  notes  String?
+
+  // Who took attendance
+  recordedBy String? @map("recorded_by") // user_tenant_id
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  class   Class   @relation(fields: [classId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, studentId, classId, date])
+  @@index([tenantId])
+  @@index([tenantId, classId, date])
+  @@index([tenantId, studentId])
+  @@index([studentId])
+  @@index([classId])
+  @@index([date])
+  @@map("attendance_records")
+  @@schema("student-management")
+}

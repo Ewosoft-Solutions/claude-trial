@@ -63,8 +63,12 @@ model Announcement {
   @@index([priority])
   @@index([publishAt])
   @@index([createdAt])
-  @@schema("communication")
+  // Tenant-leading composites for the announcement feed (filter by status,
+  // order by recency) scoped to one tenant.
+  @@index([tenantId, status])
+  @@index([tenantId, createdAt])
   @@map("announcements")
+  @@schema("communication")
 }
 
 // Message - Direct messages between users (profiles)
@@ -113,15 +117,19 @@ model Message {
   @@index([status])
   @@index([createdAt])
   @@index([sentAt])
-  @@schema("communication")
+  // Tenant-leading composites for the sent list and recency ordering.
+  @@index([tenantId, senderId])
+  @@index([tenantId, createdAt])
   @@map("messages")
+  @@schema("communication")
 }
 
 // MessageReadReceipt - Track read status for messages
 model MessageReadReceipt {
-  id        String @id @default(uuid())
-  messageId String @map("message_id")
-  readerId  String @map("reader_id") // UserTenant ID of reader
+  id        String  @id @default(uuid())
+  messageId String  @map("message_id")
+  readerId  String  @map("reader_id") // UserTenant ID of reader
+  tenantId  String? @map("tenant_id") // Denormalized from message for RLS
 
   readAt DateTime @default(now()) @map("read_at")
 
@@ -133,6 +141,7 @@ model MessageReadReceipt {
   @@index([messageId])
   @@index([readerId])
   @@index([readAt])
-  @@schema("communication")
+  @@index([tenantId])
   @@map("message_read_receipts")
+  @@schema("communication")
 }

@@ -22,7 +22,15 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/scripts/seed.ts",
+    "db:seed:dev": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/personas.ts",
+    "db:seed:academics": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/academics.ts",
+    "db:seed:ops": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/operational.ts",
+    "db:seed:dev:full": "pnpm run db:seed && pnpm run db:seed:dev && pnpm run db:seed:academics && pnpm run db:seed:ops",
     "db:verify": "tsx prisma/scripts/verify-seed.ts",
+    "db:rls:check": "prisma db execute --file prisma/scripts/rls-coverage-check.sql",
+    "db:rls:enforce": "prisma db execute --file prisma/scripts/rls-enforce.sql",
+    "db:rls:proof": "tsx prisma/scripts/rls-prisma-proof.ts",
+    "db:rls:verify": "tsx prisma/scripts/verify-app-runtime.ts",
     "db:studio": "prisma studio",
     "dev": "tsup src/* --watch",
     "prebuild": "npm run db:generate",
@@ -48,7 +56,7 @@
     "prisma": "^7.1.0",
     "rimraf": "^6.0.1",
     "tsup": "^8.5.0",
-    "tsx": "4.19.1",
+    "tsx": "4.23.1",
     "typescript": "^5.9.3"
   }
 }

@@ -4,7 +4,8 @@
  * Verifies that seed data was created correctly after running the seed script.
  * Run this after: npm run db:seed
  */
-import { prisma } from '../../src/client.js';
+import { SENSITIVE_OPERATION_CATALOG } from '../../src/client.js';
+import { prisma } from '../../src/singleton.js';
 
 interface VerificationResult {
   name: string;
@@ -81,7 +82,7 @@ async function verifySeedData() {
     // 3. Verify Permissions
     console.log('\n📋 Checking permissions...');
     const permissions = await prisma.permission.findMany();
-    const expectedPermissions = 274; // From SEED_DATA_IMPLEMENTATION.md
+    const expectedPermissions = 298; // Base catalog + Admissions (15) + HR/Payroll (3) + AI (4) + Lessons (9) + Academics build-out (questions/taking/teacher-allocation)
     const actualPermissions = permissions.length;
 
     results.push({
@@ -183,9 +184,9 @@ async function verifySeedData() {
       (a, b) => b.clearanceLevel - a.clearanceLevel,
     );
     sortedRoleAssignments.forEach((role) => {
-        const count = role.rolePools.length;
-        console.log(`     - ${role.name}: ${count} pools`);
-      });
+      const count = role.rolePools.length;
+      console.log(`     - ${role.name}: ${count} pools`);
+    });
 
     // 6. Verify Clearance Levels
     console.log('\n📋 Checking clearance level coverage...');
@@ -242,8 +243,7 @@ async function verifySeedData() {
     }
 
     const bootstrapPass =
-      platformTenant !== null &&
-      architectUser?.passwordHash !== null
+      platformTenant !== null && architectUser?.passwordHash !== null;
 
     results.push({
       name: 'Platform Bootstrap',
@@ -275,6 +275,44 @@ async function verifySeedData() {
     } else {
       console.log(`  ❌ Platform bootstrap is incomplete or missing`);
     }
+
+    // 8. Verify Sensitive-Operation Catalog
+    console.log('\n📋 Checking sensitive-operation policies...');
+    const sensitivePolicies = await prisma.sensitiveOperationPolicy.findMany({
+      orderBy: { operation: 'asc' },
+    });
+    const expectedOperations = new Set(
+      SENSITIVE_OPERATION_CATALOG.map(({ operation }) => operation),
+    );
+    const missingOperations = [...expectedOperations].filter(
+      (operation) =>
+        !sensitivePolicies.some((policy) => policy.operation === operation),
+    );
+    const invalidPolicies = sensitivePolicies.filter(
+      (policy) =>
+        policy.freshnessMinutes < 1 ||
+        policy.freshnessMinutes > 30 ||
+        (policy.enabled &&
+          !policy.requiresStepUp &&
+          !policy.requiresMakerChecker),
+    );
+    const sensitivePoliciesValid =
+      missingOperations.length === 0 && invalidPolicies.length === 0;
+
+    results.push({
+      name: 'Sensitive Operations',
+      status: sensitivePoliciesValid ? 'pass' : 'fail',
+      expected: SENSITIVE_OPERATION_CATALOG.length,
+      actual: sensitivePolicies.length,
+      message: sensitivePoliciesValid
+        ? `✅ Found all ${SENSITIVE_OPERATION_CATALOG.length} valid sensitive-operation policies`
+        : `❌ Missing ${missingOperations.length}; invalid ${invalidPolicies.length}`,
+    });
+    console.log(
+      sensitivePoliciesValid
+        ? `  ✅ Found all ${SENSITIVE_OPERATION_CATALOG.length} valid sensitive-operation policies`
+        : `  ❌ Missing: ${missingOperations.join(', ') || 'none'}; invalid: ${invalidPolicies.map(({ operation }) => operation).join(', ') || 'none'}`,
+    );
 
     // Summary
     console.log('\n' + '='.repeat(60));

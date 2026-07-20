@@ -2,6 +2,7 @@
   "moduleFileExtensions": ["js", "json", "ts"],
   "rootDir": "..",
   "testEnvironment": "node",
+  "testTimeout": 30000,
   "testRegex": ".e2e-spec.ts$",
   "setupFiles": ["<rootDir>/test/setup-env.ts"],
   "transform": {
@@ -13,8 +14,10 @@
     ]
   },
   "moduleNameMapper": {
+    "^pdf-parse$": "<rootDir>/test/mocks/pdf-parse.ts",
     "^@workspace/database$": "<rootDir>/../../packages/database/src/client.ts",
     "^@workspace/database/(.*)$": "<rootDir>/../../packages/database/src/$1",
+    "^\\.\\/sensitive-operations\\.js$": "<rootDir>/../../packages/database/src/sensitive-operations.ts",
     "^\\.\\/tenant-context\\.js$": "<rootDir>/../../packages/database/src/rls/tenant-context.ts"
   }
 }

@@ -1,4 +1,5 @@
-import { prisma } from '../../src/client.js';
+import { prisma } from '../../src/singleton.js';
+import { SENSITIVE_OPERATION_CATALOG } from '../../src/sensitive-operations.js';
 import bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
 
@@ -182,17 +183,17 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 274,
+  total: 299,
   arrays: {
     STUDENT_PERMISSIONS: 15,
-    ACADEMIC_MANAGEMENT_PERMISSIONS: 19,
-    GRADE_ASSESSMENT_PERMISSIONS: 21,
+    ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
+    GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
     FINANCIAL_PERMISSIONS: 16,
     COMMUNICATION_PERMISSIONS: 13,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
-    SYSTEM_ADMIN_PERMISSIONS: 18,
+    SYSTEM_ADMIN_PERMISSIONS: 19,
     PLATFORM_PERMISSIONS: 12,
     LIBRARY_PERMISSIONS: 7,
     TRANSPORTATION_PERMISSIONS: 8,
@@ -209,6 +210,9 @@ const EXPECTED_PERMISSION_COUNTS = {
     TIMETABLE_PERMISSIONS: 12,
     EXAMS_PERMISSIONS: 12,
     ADMISSIONS_PERMISSIONS: 15,
+    HR_PAYROLL_PERMISSIONS: 3,
+    AI_PERMISSIONS: 4,
+    LESSONS_PERMISSIONS: 9,
   },
   clearanceLevels: { min: 0, max: 10 },
 };
@@ -366,7 +370,7 @@ function validatePermissionsCatalog(
   }
 }
 
-// All Permissions - Comprehensive List (274 permissions total)
+// All Permissions - Comprehensive List (280 permissions total)
 //
 // Permission Summary by Category:
 // - Student Management (15 permissions)
@@ -394,6 +398,8 @@ function validatePermissionsCatalog(
 // - Timetable (12 permissions)
 // - Exams (12 permissions)
 // - Admissions (15 permissions)
+// - HR & Payroll (3 permissions)
+// - AI (3 permissions)
 
 // Student Management Permissions (15 permissions)
 const STUDENT_PERMISSIONS = [
@@ -718,6 +724,27 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     category: 'academic',
     requiredClearanceLevel: 7,
   },
+  {
+    name: 'classes.teachers.view',
+    label: 'View Class Teacher Assignments',
+    description: 'View which teachers are allocated to a class (incl. history)',
+    resource: 'classes',
+    action: 'teachers',
+    context: 'view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'classes.teachers.assign',
+    label: 'Assign Teachers to Classes',
+    description:
+      'Allocate teachers to classes and unassign them (keeps history)',
+    resource: 'classes',
+    action: 'teachers',
+    context: 'assign',
+    category: 'academic',
+    requiredClearanceLevel: 4,
+  },
 ];
 
 // Grade & Assessment Permissions (21 permissions)
@@ -914,6 +941,64 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
     action: 'export',
     category: 'academic',
     requiredClearanceLevel: 7,
+  },
+  {
+    name: 'questions.view',
+    label: 'View Question Bank',
+    description:
+      'View course question bank entries (includes answers/solutions)',
+    resource: 'questions',
+    action: 'view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'questions.create',
+    label: 'Create Questions',
+    description: 'Add questions to the bank of a course they teach',
+    resource: 'questions',
+    action: 'create',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'questions.edit',
+    label: 'Edit Questions',
+    description: 'Edit question bank entries of a course they teach',
+    resource: 'questions',
+    action: 'edit',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'questions.delete',
+    label: 'Delete Questions',
+    description: 'Delete (or retire, when already used) question bank entries',
+    resource: 'questions',
+    action: 'delete',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'assessments.take',
+    label: 'Take Assessments',
+    description:
+      'Take published assessments of enrolled classes and view own submissions',
+    resource: 'assessments',
+    action: 'take',
+    category: 'academic',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'assessments.manage.all',
+    label: 'Manage All Assessments',
+    description:
+      'Override: manage assessments, papers and question banks for any class',
+    resource: 'assessments',
+    action: 'manage',
+    context: 'all',
+    category: 'academic',
+    requiredClearanceLevel: 4,
   },
 ];
 
@@ -1497,7 +1582,7 @@ const REPORTS_PERMISSIONS = [
   },
 ];
 
-// System Administration Permissions (18 permissions)
+// System Administration Permissions (19 permissions)
 const SYSTEM_ADMIN_PERMISSIONS = [
   {
     name: 'settings.view',
@@ -1523,6 +1608,16 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     description: 'Edit school-specific settings',
     resource: 'settings',
     action: 'edit',
+    context: 'school',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'settings.security',
+    label: 'Manage Security Settings',
+    description: 'Manage session and authentication settings for the school',
+    resource: 'settings',
+    action: 'security',
     context: 'school',
     category: 'administrative',
     requiredClearanceLevel: 7,
@@ -2995,6 +3090,187 @@ const ADMISSIONS_PERMISSIONS = [
   },
 ];
 
+// HR & Payroll Permissions (3 permissions)
+//
+// hr.view backs the HR nav section + /hr/* layout gate added in Step 6
+// (schoolType-driven nav polymorphism); payroll.* backs the Step 8
+// HR/Payroll operational module.
+const HR_PAYROLL_PERMISSIONS = [
+  {
+    name: 'hr.view',
+    label: 'View HR',
+    description: 'View the HR section (staff directory, leave, payroll)',
+    resource: 'hr',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'payroll.view',
+    label: 'View Payroll',
+    description: 'View payroll records',
+    resource: 'payroll',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'payroll.process',
+    label: 'Process Payroll',
+    description: 'Create and approve payroll runs',
+    resource: 'payroll',
+    action: 'process',
+    category: 'administrative',
+    requiredClearanceLevel: 8,
+  },
+];
+
+// AI Permissions (4 permissions)
+//
+// Backs the AI integration (docs/ai-integration-plan.md, Step 1).
+// ai.analytics.query has a clearance FLOOR of 1, not 3+: per
+// requirements/ai-integration.md → "AI-Specific Access Implications",
+// every authenticated member gets analytics scoped to their level
+// (students: personal, parents: their children, staff: broader) — the
+// scoping is enforced by AIMediatorService at query time, not by
+// withholding the permission. ai.chat.use is the Academic AI tutor
+// (students, level 1+). ai.integrity.monitor is the staff-facing exam
+// integrity monitor, with UI/backend callers expected to pair it with
+// academic or assessment permissions. ai.configure is Management+
+// (level 7+).
+const AI_PERMISSIONS = [
+  {
+    name: 'ai.analytics.query',
+    label: 'Query Analytics AI',
+    description:
+      'Ask the analytics AI assistant questions (answers scoped by clearance level and access scope)',
+    resource: 'ai',
+    action: 'analytics.query',
+    category: 'administrative',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'ai.chat.use',
+    label: 'Use AI Tutor',
+    description: 'Chat with the lesson-scoped academic AI tutor',
+    resource: 'ai',
+    action: 'chat.use',
+    category: 'academic',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'ai.integrity.monitor',
+    label: 'Monitor AI Integrity',
+    description:
+      'View assessment integrity signals such as blocked tutor attempts and exam-window anomalies',
+    resource: 'ai',
+    action: 'integrity.monitor',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'ai.configure',
+    label: 'Configure AI',
+    description: 'Configure AI settings and view AI usage/health',
+    resource: 'ai',
+    action: 'configure',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+];
+
+// Lesson Content Permissions (6 permissions) — learning schema (AI plan Step 4)
+const LESSONS_PERMISSIONS = [
+  {
+    name: 'lessons.view',
+    label: 'View Lessons',
+    description: 'View lesson content and materials',
+    resource: 'lessons',
+    action: 'view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.create',
+    label: 'Create Lessons',
+    description: 'Create lessons for a class',
+    resource: 'lessons',
+    action: 'create',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.edit',
+    label: 'Edit Lessons',
+    description: 'Edit lesson details',
+    resource: 'lessons',
+    action: 'edit',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.delete',
+    label: 'Delete Lessons',
+    description: 'Delete lessons and their materials',
+    resource: 'lessons',
+    action: 'delete',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.materials.upload',
+    label: 'Upload Lesson Materials',
+    description: 'Upload files as lesson materials',
+    resource: 'lessons',
+    action: 'materials',
+    context: 'upload',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.materials.delete',
+    label: 'Delete Lesson Materials',
+    description: 'Remove uploaded lesson materials',
+    resource: 'lessons',
+    action: 'materials',
+    context: 'delete',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'lessons.view.own',
+    label: 'View Own Class Lessons',
+    description:
+      'View published + approved lessons and approved materials of enrolled classes (students)',
+    resource: 'lessons',
+    action: 'view',
+    context: 'own',
+    category: 'academic',
+    requiredClearanceLevel: 1,
+  },
+  {
+    name: 'lessons.approve',
+    label: 'Approve Lesson Content',
+    description:
+      'Approve or reject lessons and uploaded materials before students can see them',
+    resource: 'lessons',
+    action: 'approve',
+    category: 'academic',
+    requiredClearanceLevel: 4,
+  },
+  {
+    name: 'lessons.manage.all',
+    label: 'Manage All Lessons',
+    description:
+      'Override: author and manage lesson content for classes they do not teach',
+    resource: 'lessons',
+    action: 'manage',
+    context: 'all',
+    category: 'academic',
+    requiredClearanceLevel: 4,
+  },
+];
+
 // Role to Pool mapping
 const ROLE_TO_POOL_MAPPING: Record<string, string> = {
   Architect: 'Level10_PlatformArchitect',
@@ -3009,171 +3285,6 @@ const ROLE_TO_POOL_MAPPING: Record<string, string> = {
   Student: 'Level1_Student',
   Guest: 'Level0_Guest',
 };
-
-// Optional sample guardian seeding to exercise guardian links and children scope
-async function seedSampleGuardian(
-  prismaInstance: typeof prisma,
-  createdRoles: Record<string, string>,
-) {
-  const parentRoleId = createdRoles['Parent'];
-  const studentRoleId = createdRoles['Student'];
-
-  if (!parentRoleId || !studentRoleId) {
-    console.warn(
-      '⚠️  Skipping sample guardian seed: Parent/Student roles not found.',
-    );
-    return;
-  }
-
-  // Upsert tenant
-  const tenant = await prismaInstance.tenant.upsert({
-    where: { slug: 'sample-school' },
-    update: { name: 'Sample School', status: 'active' },
-    create: {
-      name: 'Sample School',
-      slug: 'sample-school',
-      status: 'active',
-      settings: {},
-    },
-  });
-
-  // Upsert users
-  const parentUser = await prismaInstance.user.upsert({
-    where: { email: 'parent@example.com' },
-    update: { firstName: 'Parent', lastName: 'Guardian', isActive: true },
-    create: {
-      email: 'parent@example.com',
-      firstName: 'Parent',
-      lastName: 'Guardian',
-      isActive: true,
-      isVerified: true,
-    },
-  });
-
-  const studentUser = await prismaInstance.user.upsert({
-    where: { email: 'student@example.com' },
-    update: { firstName: 'Student', lastName: 'Sample', isActive: true },
-    create: {
-      email: 'student@example.com',
-      firstName: 'Student',
-      lastName: 'Sample',
-      isActive: true,
-      isVerified: true,
-    },
-  });
-
-  // Upsert profiles
-  const existingParentProfile = await prismaInstance.userTenant.findFirst({
-    where: {
-      userId: parentUser.id,
-      tenantId: tenant.id,
-    },
-  });
-
-  const parentProfile =
-    existingParentProfile ??
-    (await prismaInstance.userTenant.create({
-      data: {
-        userId: parentUser.id,
-        tenantId: tenant.id,
-        status: 'active',
-        suspended: false,
-      },
-    }));
-
-  const existingStudentProfile = await prismaInstance.userTenant.findFirst({
-    where: {
-      userId: studentUser.id,
-      tenantId: tenant.id,
-    },
-  });
-
-  const studentProfile =
-    existingStudentProfile ??
-    (await prismaInstance.userTenant.create({
-      data: {
-        userId: studentUser.id,
-        tenantId: tenant.id,
-        status: 'active',
-        suspended: false,
-      },
-    }));
-
-  // Assign roles
-  await prismaInstance.userTenantRole.upsert({
-    where: {
-      userTenantId: parentProfile.id,
-    },
-    update: {},
-    create: {
-      userTenantId: parentProfile.id,
-      roleId: parentRoleId,
-      isPrimary: true,
-    },
-  });
-
-  await prismaInstance.userTenantRole.upsert({
-    where: {
-      userTenantId: studentProfile.id,
-    },
-    update: {},
-    create: {
-      userTenantId: studentProfile.id,
-      roleId: studentRoleId,
-      isPrimary: true,
-    },
-  });
-
-  // Upsert student
-  const student = await prismaInstance.student.upsert({
-    where: {
-      tenantId_studentNumber: {
-        tenantId: tenant.id,
-        studentNumber: 'STU-TEST-001',
-      },
-    },
-    update: {
-      userTenantId: studentProfile.id,
-      gradeLevel: '10',
-    },
-    create: {
-      tenantId: tenant.id,
-      userTenantId: studentProfile.id,
-      studentNumber: 'STU-TEST-001',
-      admissionNumber: 'ADM-TEST-001',
-      gradeLevel: '10',
-      enrollmentStatus: 'active',
-    },
-  });
-
-  // Link guardian
-  await prismaInstance.studentGuardian.upsert({
-    where: {
-      studentId_userTenantId: {
-        studentId: student.id,
-        userTenantId: parentProfile.id,
-      },
-    },
-    update: {
-      relationship: 'parent',
-      isPrimary: true,
-      legalGuardian: true,
-    },
-    create: {
-      tenantId: tenant.id,
-      studentId: student.id,
-      userTenantId: parentProfile.id,
-      relationship: 'parent',
-      isPrimary: true,
-      legalGuardian: true,
-      contactPriority: 1,
-    },
-  });
-
-  console.log(
-    '  ✅ Seeded sample guardian/student data for sample-school (parent@example.com -> STU-TEST-001)',
-  );
-}
 
 /**
  * Phase 6: Platform Bootstrap
@@ -3196,9 +3307,7 @@ async function seedPlatformBootstrap(
   const architectRoleId = createdRoles['Architect'];
 
   if (!architectRoleId) {
-    console.warn(
-      '⚠️  Skipping platform bootstrap: Architect role not found.',
-    );
+    console.warn('⚠️  Skipping platform bootstrap: Architect role not found.');
     return;
   }
 
@@ -3214,12 +3323,15 @@ async function seedPlatformBootstrap(
       status: PLATFORM_BOOTSTRAP.tenant.status,
       settings: {
         isPlatformTenant: true,
-        description: 'System tenant for platform administration. Do not delete.',
+        description:
+          'System tenant for platform administration. Do not delete.',
       },
     },
   });
 
-  console.log(`  ✅ Platform tenant: ${platformTenant.name} (${platformTenant.slug})`);
+  console.log(
+    `  ✅ Platform tenant: ${platformTenant.name} (${platformTenant.slug})`,
+  );
 
   const jwtSecret = crypto.randomBytes(32).toString('base64');
   const encryptedSecret = Buffer.from(jwtSecret).toString('base64');
@@ -3295,11 +3407,15 @@ async function seedPlatformBootstrap(
     },
   });
 
-  console.log(`  ✅ Architect profile linked to platform tenant with Architect role`);
+  console.log(
+    `  ✅ Architect profile linked to platform tenant with Architect role`,
+  );
   console.log(`\n  🔑 Platform bootstrap credentials:`);
   console.log(`     Email:    ${PLATFORM_BOOTSTRAP.architect.email}`);
   console.log(`     Password: ${PLATFORM_BOOTSTRAP.architect.defaultPassword}`);
-  console.log(`     ⚠️  Change this password immediately after first login in production!`);
+  console.log(
+    `     ⚠️  Change this password immediately after first login in production!`,
+  );
 }
 
 // Permission to Pool mapping based on clearance level
@@ -3310,17 +3426,28 @@ function getPermissionPoolsForPermission(
 ): string[] {
   const poolNames: string[] = [];
 
+  // Clearance is a floor, not a ceiling: a permission requiring level R
+  // must be available to every pool at R *and above* (more-privileged
+  // tiers always retain everything less-privileged tiers can do, plus
+  // more) — never to pools below R. Iterating the other direction (0..R)
+  // would leak high-clearance permissions (e.g. requiredClearanceLevel: 8
+  // "users.delete") down into low-clearance pools like Level3_Teacher.
+
   // Platform permissions only go to platform pools (levels 9-10)
   if (category === 'platform') {
-    for (let level = 9; level <= requiredClearanceLevel; level++) {
+    for (
+      let level = Math.max(9, requiredClearanceLevel);
+      level <= 10;
+      level++
+    ) {
       const pool = PERMISSION_POOLS.find((p) => p.clearanceLevel === level);
       if (pool) {
         poolNames.push(pool.name);
       }
     }
   } else {
-    // School permissions go to all pools at their clearance level and below
-    for (let level = 0; level <= requiredClearanceLevel; level++) {
+    // School permissions go to their clearance level and every level above it
+    for (let level = requiredClearanceLevel; level <= 10; level++) {
       const pool = PERMISSION_POOLS.find((p) => p.clearanceLevel === level);
       if (pool) {
         poolNames.push(pool.name);
@@ -3567,6 +3694,39 @@ async function assignPoolsToRoles(
   return rolePoolCount;
 }
 
+async function seedSensitiveOperationPolicies() {
+  console.log('\n📋 Phase 6: Seeding sensitive-operation policies...');
+
+  for (const definition of SENSITIVE_OPERATION_CATALOG) {
+    await prisma.sensitiveOperationPolicy.upsert({
+      where: { operation: definition.operation },
+      update: {
+        label: definition.label,
+        description: definition.description,
+        category: definition.category,
+        requiredClearanceLevel: definition.requiredClearanceLevel,
+        requiredPermission: definition.requiredPermission,
+      },
+      create: {
+        operation: definition.operation,
+        label: definition.label,
+        description: definition.description,
+        category: definition.category,
+        enabled: true,
+        requiresStepUp: definition.requiresStepUp,
+        requiresMakerChecker: definition.requiresMakerChecker,
+        freshnessMinutes: definition.freshnessMinutes,
+        requiredClearanceLevel: definition.requiredClearanceLevel,
+        requiredPermission: definition.requiredPermission,
+      },
+    });
+  }
+
+  console.log(
+    `  ✅ Seeded ${SENSITIVE_OPERATION_CATALOG.length} sensitive-operation policies`,
+  );
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
@@ -3603,6 +3763,9 @@ async function main() {
       TIMETABLE_PERMISSIONS,
       EXAMS_PERMISSIONS,
       ADMISSIONS_PERMISSIONS,
+      HR_PAYROLL_PERMISSIONS,
+      AI_PERMISSIONS,
+      LESSONS_PERMISSIONS,
     };
 
     const allPermissions = Object.values(permissionArrays).flat();
@@ -3617,7 +3780,7 @@ async function main() {
     );
     const rolePoolCount = await assignPoolsToRoles(createdRoles, createdPools);
 
-    await seedSampleGuardian(prisma, createdRoles);
+    await seedSensitiveOperationPolicies();
     await seedPlatformBootstrap(prisma, createdRoles);
 
     console.log('\n✨ Seed completed successfully!');
@@ -3627,7 +3790,12 @@ async function main() {
     console.log(`  - All Permissions: ${allPermissions.length}`);
     console.log(`  - Permission-Pool Assignments: ${poolPermissionCount}`);
     console.log(`  - Role-Pool Assignments: ${rolePoolCount}`);
-    console.log(`  - Platform Architect: ${PLATFORM_BOOTSTRAP.architect.email}`);
+    console.log(
+      `  - Sensitive Operations: ${SENSITIVE_OPERATION_CATALOG.length}`,
+    );
+    console.log(
+      `  - Platform Architect: ${PLATFORM_BOOTSTRAP.architect.email}`,
+    );
   } catch (error) {
     console.error('❌ Error seeding database:', error);
     process.exit(1);

@@ -1,0 +1,180 @@
+name: CD (demo)
+
+# Continuous delivery to the DEMO environment.
+#
+# Trigger: runs only AFTER the "CI" workflow completes successfully on `main`,
+# so nothing deploys unless the full gate (build/lint/typecheck/tests/RLS
+# coverage/e2e isolation) passed on that exact commit.
+#
+# Flow (see docs/deployment-plan.md §5):
+#   migrate (owner role)  →  deploy-api (Render)  →  deploy-web (Vercel)  →  smoke
+#
+# Migrations run HERE (not as a Render pre-deploy hook): `prisma` is a devDep and
+# the migrations live in packages/database, so CI is the natural place to run
+# them as the DB owner while the runtime container only ever boots as
+# app_runtime (ADR-004). Forward-only/additive migrations keep the brief
+# expand-contract window (new schema, old code) safe.
+#
+# ── Required GitHub secrets (Environment: demo) ──────────────────────────────
+#   DATABASE_URL_OWNER   Render Postgres OWNER external conn (…?sslmode=require)
+#   RENDER_API_KEY       Render API key (Account Settings → API Keys)
+#   RENDER_API_SERVICE   Render service id for swe-api (srv-…)
+#   API_BASE_URL         Public API origin, e.g. https://api.demo.schoolwithease.com
+#   VERCEL_TOKEN         Vercel access token
+#   VERCEL_ORG_ID        Vercel org/team id
+#   VERCEL_PROJECT_ID    Vercel project id (the apps/web project)
+# Note: set the Render service `autoDeploy: false` (see render.yaml) so Render
+# does not ALSO deploy on push — this workflow is the single deploy path.
+
+on:
+  workflow_run:
+    workflows: ['CI']
+    types: [completed]
+    branches: [main]
+
+# Never run two demo deploys at once; do not cancel an in-flight deploy.
+concurrency:
+  group: cd-demo
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PNPM_VERSION: 10.34.5
+  NODE_VERSION: 22
+
+jobs:
+  migrate:
+    name: DB migrate (owner)
+    runs-on: ubuntu-latest
+    environment: demo
+    # Gate: only proceed when the CI run we are reacting to actually passed.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout the CI-tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply migrations (prisma migrate deploy, owner role)
+        working-directory: packages/database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_OWNER }}
+        run: pnpm db:deploy
+
+  deploy-api:
+    name: Deploy API (Render)
+    runs-on: ubuntu-latest
+    environment: demo
+    needs: migrate
+    steps:
+      - name: Trigger Render deploy
+        id: trigger
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE: ${{ secrets.RENDER_API_SERVICE }}
+        run: |
+          set -euo pipefail
+          deploy_id=$(curl -fsS -X POST \
+            -H "Authorization: Bearer ${RENDER_API_KEY}" \
+            -H "Content-Type: application/json" \
+            "https://api.render.com/v1/services/${RENDER_API_SERVICE}/deploys" \
+            -d '{"clearCache":"do_not_clear"}' | jq -r '.id')
+          if [ -z "$deploy_id" ] || [ "$deploy_id" = "null" ]; then
+            echo "Failed to create a Render deploy"; exit 1
+          fi
+          echo "Render deploy: $deploy_id"
+          echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Render deploy to go live
+        env:
+          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+          RENDER_API_SERVICE: ${{ secrets.RENDER_API_SERVICE }}
+          DEPLOY_ID: ${{ steps.trigger.outputs.deploy_id }}
+        run: |
+          set -euo pipefail
+          # Poll up to ~20 min. `live` = success; the *_failed / canceled states
+          # are terminal failures. Render's health check (/healthz) already gates
+          # the cutover, so `live` means the new instance passed readiness.
+          for i in $(seq 1 80); do
+            status=$(curl -fsS \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              "https://api.render.com/v1/services/${RENDER_API_SERVICE}/deploys/${DEPLOY_ID}" \
+              | jq -r '.status')
+            echo "[$i] status=$status"
+            case "$status" in
+              live) echo "Deploy is live."; exit 0 ;;
+              build_failed|update_failed|canceled|deactivated|pre_deploy_failed)
+                echo "Deploy failed: $status"; exit 1 ;;
+            esac
+            sleep 15
+          done
+          echo "Timed out waiting for the deploy to go live"; exit 1
+
+  deploy-web:
+    name: Deploy Web (Vercel)
+    runs-on: ubuntu-latest
+    environment: demo
+    needs: deploy-api
+    env:
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+    steps:
+      - name: Checkout the CI-tested commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Vercel CLI
+        run: npm install --global vercel@latest
+
+      # Vercel builds from the monorepo root; the project's Root Directory
+      # (apps/web) + apps/web/vercel.json drive the Turbo build of web's
+      # workspace deps. VERCEL_ORG_ID / VERCEL_PROJECT_ID link the project.
+      - name: Pull Vercel project settings
+        run: vercel pull --yes --environment=production --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Build
+        run: vercel build --prod --token="${{ secrets.VERCEL_TOKEN }}"
+
+      - name: Deploy (prebuilt)
+        run: vercel deploy --prebuilt --prod --token="${{ secrets.VERCEL_TOKEN }}"
+
+  smoke:
+    name: Smoke test
+    runs-on: ubuntu-latest
+    environment: demo
+    needs: [deploy-api, deploy-web]
+    steps:
+      - name: API liveness + readiness
+        env:
+          API_BASE_URL: ${{ secrets.API_BASE_URL }}
+        run: |
+          set -euo pipefail
+          echo "GET ${API_BASE_URL}/healthz"
+          curl -fsS "${API_BASE_URL}/healthz"
+          echo
+          # /readyz returns 200 only when the app_runtime DB connection + RLS
+          # self-test pass, so a green smoke here proves runtime isolation is live.
+          echo "GET ${API_BASE_URL}/readyz"
+          curl -fsS "${API_BASE_URL}/readyz"
+          echo

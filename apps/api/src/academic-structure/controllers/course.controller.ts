@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Delete,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -18,16 +19,33 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { AcademicStructureService } from '../services/academic-structure.service';
 import { CreateCourseDto, UpdateCourseDto } from '../dto';
+import {
+  buildAcademicsActor,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 import type { AuthenticatedRequest } from 'src/auth';
 
 @ApiTags(SwaggerTags.courses.name)
 @Controller('courses')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class CourseController {
   constructor(private readonly academicService: AcademicStructureService) {}
+
+  private actorFrom(req: AuthenticatedRequest): AcademicsActor {
+    if (!req.userContext) {
+      throw new ForbiddenException('User context not found');
+    }
+    return buildAcademicsActor(
+      req.userContext,
+      'courses.view',
+      'classes.teachers.assign',
+    );
+  }
 
   @Post()
   @RequirePermissions(['courses.create'])
@@ -49,7 +67,12 @@ export class CourseController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user!;
-    return this.academicService.listCourses(user.tenantId, search, status);
+    return this.academicService.listCourses(
+      user.tenantId,
+      search,
+      status,
+      this.actorFrom(req),
+    );
   }
 
   @Get(':id')
@@ -60,7 +83,11 @@ export class CourseController {
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
-    return this.academicService.getCourse(user.tenantId, id);
+    return this.academicService.getCourse(
+      user.tenantId,
+      id,
+      this.actorFrom(req),
+    );
   }
 
   @Put(':id')

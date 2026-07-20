@@ -22,7 +22,8 @@ export type MfaChallengeType =
   | 'email'
   | 'totp'
   | 'webauthn'
-  | 'recovery';
+  | 'recovery'
+  | 'password';
 
 /**
  * MFA Operation Type

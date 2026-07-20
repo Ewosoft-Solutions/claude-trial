@@ -17,7 +17,7 @@ import {
   type AuthenticationResponseJSON,
 } from '@simplewebauthn/server';
 import { PrismaClient } from '@workspace/database';
-import { MfaBaseService } from './mfa-base.service';
+import { EncryptionService } from '../../common/encryption';
 
 // Define transport types locally since they're not directly exported
 type AuthenticatorTransportFuture =
@@ -30,12 +30,54 @@ type AuthenticatorTransportFuture =
   | 'usb';
 
 /**
+ * Authenticator kind: `platform` = built-in device biometrics (Face ID /
+ * Touch ID / Windows Hello / Android), `cross-platform` = roaming security key.
+ */
+type AuthenticatorAttachment = 'platform' | 'cross-platform';
+
+type AuthenticationOptionsWithChallenge = Awaited<
+  ReturnType<typeof generateAuthOptions>
+> & {
+  challengeId: string;
+};
+
+const AUTHENTICATOR_TRANSPORTS = new Set<AuthenticatorTransportFuture>([
+  'ble',
+  'cable',
+  'hybrid',
+  'internal',
+  'nfc',
+  'smart-card',
+  'usb',
+]);
+
+/**
+ * Preserve the transport hints captured from `response.getTransports()` at
+ * registration. Inventing extra transports (especially `usb`) can make a
+ * browser route an iCloud/Touch ID passkey request to a physical security key.
+ */
+function storedTransports(
+  transports: string[],
+): AuthenticatorTransportFuture[] | undefined {
+  const supported = transports.filter(
+    (transport): transport is AuthenticatorTransportFuture =>
+      AUTHENTICATOR_TRANSPORTS.has(transport as AuthenticatorTransportFuture),
+  );
+  return supported.length > 0 ? supported : undefined;
+}
+
+/**
  * WebAuthn Configuration
  */
 interface WebAuthnConfig {
   rpName: string;
   rpID: string;
-  origin: string;
+  /**
+   * Allowed assertion origins. A passkey is scoped to a single RP ID (the apex
+   * registrable domain) but may be presented from several tenant subdomain
+   * origins, so origin verification is against this allow-list.
+   */
+  origins: string[];
 }
 
 /**
@@ -47,13 +89,29 @@ interface WebAuthnConfig {
 export class MfaWebAuthnService {
   private config: WebAuthnConfig;
 
-  constructor() {
-    // TODO: Load from environment variables
+  constructor(private readonly encryption: EncryptionService) {
+    const primaryOrigin =
+      process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000';
+    // WEBAUTHN_ALLOWED_ORIGINS is a comma-separated allow-list of origins the
+    // app is served from (e.g. tenant subdomains). Falls back to the single
+    // WEBAUTHN_ORIGIN when unset, so existing single-origin setups are unchanged.
+    const origins = (process.env.WEBAUTHN_ALLOWED_ORIGINS || primaryOrigin)
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean);
+
     this.config = {
       rpName: process.env.WEBAUTHN_RP_NAME || 'School With Ease',
+      // RP ID is the canonical registrable domain. Exact browser origins are
+      // validated separately, including the optional `www` alias.
       rpID: process.env.WEBAUTHN_RP_ID || 'localhost',
-      origin: process.env.WEBAUTHN_ORIGIN || 'http://localhost:3000',
+      origins,
     };
+  }
+
+  /** RP ID used by client-side passkey consistency signals. */
+  getRpId(): string {
+    return this.config.rpID;
   }
 
   /**
@@ -70,6 +128,7 @@ export class MfaWebAuthnService {
     userId: string,
     userName: string,
     userDisplayName: string,
+    attachment: AuthenticatorAttachment = 'cross-platform',
   ): Promise<
     Awaited<ReturnType<typeof generateRegOptions>> & { challengeId: string }
   > {
@@ -82,8 +141,7 @@ export class MfaWebAuthnService {
       },
       select: {
         webauthnId: true,
-        webauthnPublicKey: true,
-        webauthnCounter: true,
+        webauthnTransports: true,
       },
     });
 
@@ -92,12 +150,7 @@ export class MfaWebAuthnService {
       .filter((c) => c.webauthnId)
       .map((cred) => ({
         id: cred.webauthnId!,
-        transports: [
-          'usb',
-          'nfc',
-          'ble',
-          'internal',
-        ] as AuthenticatorTransportFuture[],
+        transports: storedTransports(cred.webauthnTransports),
       }));
 
     // Generate registration options
@@ -110,11 +163,22 @@ export class MfaWebAuthnService {
       timeout: 60000,
       attestationType: 'none',
       excludeCredentials,
-      authenticatorSelection: {
-        authenticatorAttachment: 'cross-platform',
-        userVerification: 'preferred',
-        requireResidentKey: false,
-      },
+      // Platform (biometric) credentials must be discoverable and
+      // user-verified so they can drive one-tap passwordless login and count
+      // as MFA. Cross-platform hardware keys keep their existing, looser policy.
+      authenticatorSelection:
+        attachment === 'platform'
+          ? {
+              authenticatorAttachment: 'platform',
+              residentKey: 'required',
+              requireResidentKey: true,
+              userVerification: 'required',
+            }
+          : {
+              authenticatorAttachment: 'cross-platform',
+              userVerification: 'preferred',
+              requireResidentKey: false,
+            },
       supportedAlgorithmIDs: [-7, -257], // ES256, RS256
     };
 
@@ -151,6 +215,7 @@ export class MfaWebAuthnService {
     challengeId: string,
     registrationResponse: any,
     name?: string,
+    attachment: AuthenticatorAttachment = 'cross-platform',
   ): Promise<string> {
     // Find challenge
     const challenge = await prisma.mfaChallenge.findUnique({
@@ -178,7 +243,7 @@ export class MfaWebAuthnService {
     const opts: VerifyRegistrationResponseOpts = {
       response: registrationResponse,
       expectedChallenge: challenge.webauthnChallenge,
-      expectedOrigin: this.config.origin,
+      expectedOrigin: this.config.origins,
       expectedRPID: this.config.rpID,
       requireUserVerification: true,
     };
@@ -193,22 +258,36 @@ export class MfaWebAuthnService {
       id: credentialID,
       publicKey: credentialPublicKey,
       counter,
+      transports,
     } = verification.registrationInfo.credential;
 
-    // TODO: Encrypt credentialPublicKey before storing
-    // For now, storing as base64 (NOT RECOMMENDED FOR PRODUCTION)
-    const encryptedPublicKey =
-      Buffer.from(credentialPublicKey).toString('base64');
+    // Device metadata for the management UI: whether the passkey is synced
+    // across devices (iCloud/Google) and the authenticator model id.
+    const { credentialBackedUp, aaguid } = verification.registrationInfo;
+
+    // Encrypt the public key at rest (AES-256-GCM), matching the convention for
+    // other sensitive columns (TOTP/JWT secrets). Stored as base64(iv+tag+ct).
+    // The raw key bytes are base64-encoded first, then encrypted.
+    const encryptedPublicKey = this.encryption.encrypt(
+      Buffer.from(credentialPublicKey).toString('base64'),
+    );
 
     // Create MFA method
     const method = await prisma.mfaMethod.create({
       data: {
         userId: challenge.userId,
         type: 'webauthn',
-        name: name || 'Hardware Key',
-        webauthnId: Buffer.from(credentialID).toString('base64'),
+        name: name || (attachment === 'platform' ? 'Passkey' : 'Hardware Key'),
+        // `credentialID` is already a base64url string from SimpleWebAuthn v13.
+        // Store it verbatim — the previous Buffer→base64 round-trip mangled it
+        // (base64 ≠ base64url), so authentication lookups never matched.
+        webauthnId: credentialID,
         webauthnPublicKey: encryptedPublicKey,
         webauthnCounter: counter,
+        webauthnAttachment: attachment,
+        webauthnBackedUp: credentialBackedUp ?? null,
+        webauthnTransports: transports ?? [],
+        webauthnAaguid: aaguid ?? null,
         isActive: true,
         verifiedAt: new Date(),
       },
@@ -239,20 +318,21 @@ export class MfaWebAuthnService {
     prisma: PrismaClient,
     userId: string,
     operation: string,
-  ): Promise<
-    Awaited<ReturnType<typeof generateAuthOptions>> & { challengeId: string }
-  > {
+    userVerification: 'required' | 'preferred' | 'discouraged' = 'preferred',
+    attachment?: AuthenticatorAttachment,
+  ): Promise<AuthenticationOptionsWithChallenge> {
     // Get user's WebAuthn credentials
     const credentials = await prisma.mfaMethod.findMany({
       where: {
         userId,
         type: 'webauthn',
         isActive: true,
+        ...(attachment ? { webauthnAttachment: attachment } : {}),
       },
       select: {
         id: true,
         webauthnId: true,
-        webauthnCounter: true,
+        webauthnTransports: true,
       },
     });
 
@@ -265,19 +345,14 @@ export class MfaWebAuthnService {
       .filter((c) => c.webauthnId)
       .map((cred) => ({
         id: cred.webauthnId!,
-        transports: [
-          'usb',
-          'nfc',
-          'ble',
-          'internal',
-        ] as AuthenticatorTransportFuture[],
+        transports: storedTransports(cred.webauthnTransports),
       }));
 
     // Generate authentication options
     const opts: GenerateAuthenticationOptionsOpts = {
       rpID: this.config.rpID,
       allowCredentials,
-      userVerification: 'preferred',
+      userVerification,
       timeout: 60000,
     };
 
@@ -296,6 +371,12 @@ export class MfaWebAuthnService {
 
     return {
       ...options,
+      // The installed SimpleWebAuthn release predates this Level 3 field, so
+      // add it to the serialized response after option generation. Supporting
+      // browsers prefer the built-in/iCloud provider; older ones ignore it.
+      ...(attachment === 'platform'
+        ? { hints: ['client-device' as const] }
+        : {}),
       challengeId: challenge.id,
     };
   }
@@ -326,17 +407,13 @@ export class MfaWebAuthnService {
       return false;
     }
 
-    // Find credential by ID
-    const credentialId = Buffer.from(
-      authenticationResponse.id,
-      'base64',
-    ).toString('base64');
-
+    // The client sends the credential id as a base64url string; it was stored
+    // verbatim at registration, so match on it directly (no re-encoding).
     const method = await prisma.mfaMethod.findFirst({
       where: {
         userId: challenge.userId,
         type: 'webauthn',
-        webauthnId: credentialId,
+        webauthnId: authenticationResponse.id,
         isActive: true,
       },
     });
@@ -345,15 +422,18 @@ export class MfaWebAuthnService {
       return false;
     }
 
-    // TODO: Decrypt webauthnPublicKey before verification
-    // For now, assuming it's stored as base64
-    const publicKey = Buffer.from(method.webauthnPublicKey, 'base64');
+    // Decrypt the stored public key (reverse of registration): decrypt to the
+    // base64 string, then back to raw bytes for verification.
+    const publicKey = Buffer.from(
+      this.encryption.decrypt(method.webauthnPublicKey),
+      'base64',
+    );
 
     // Verify authentication response
     const opts: VerifyAuthenticationResponseOpts = {
       response: authenticationResponse,
       expectedChallenge: challenge.webauthnChallenge,
-      expectedOrigin: this.config.origin,
+      expectedOrigin: this.config.origins,
       expectedRPID: this.config.rpID,
       credential: {
         id: method.webauthnId!,
@@ -389,5 +469,119 @@ export class MfaWebAuthnService {
     }
 
     return false;
+  }
+
+  /**
+   * Generate authentication options for a usernameless / discoverable login.
+   *
+   * `allowCredentials` is empty, so the authenticator offers any resident
+   * passkey for this RP — the user is unknown until they pick one. The stored
+   * challenge therefore has no `userId`; it's resolved from the assertion in
+   * `verifyUsernamelessAuthentication`.
+   */
+  async generateUsernamelessLoginOptions(
+    prisma: PrismaClient,
+  ): Promise<AuthenticationOptionsWithChallenge> {
+    const opts: GenerateAuthenticationOptionsOpts = {
+      rpID: this.config.rpID,
+      allowCredentials: [],
+      userVerification: 'required',
+      timeout: 60000,
+    };
+
+    const options = await generateAuthOptions(opts);
+
+    const challenge = await prisma.mfaChallenge.create({
+      data: {
+        userId: null,
+        type: 'webauthn',
+        webauthnChallenge: options.challenge,
+        operation: 'login',
+        expiresAt: new Date(Date.now() + 60000),
+      },
+    });
+
+    return {
+      ...options,
+      hints: ['client-device'],
+      challengeId: challenge.id,
+    };
+  }
+
+  /**
+   * Verify a usernameless assertion: resolve the credential globally (we don't
+   * know the user yet), verify the signature against its public key, and return
+   * the owning user id. Returns null on any failure (unknown credential,
+   * expired/used challenge, bad signature).
+   */
+  async verifyUsernamelessAuthentication(
+    prisma: PrismaClient,
+    challengeId: string,
+    authenticationResponse: AuthenticationResponseJSON,
+  ): Promise<string | null> {
+    const challenge = await prisma.mfaChallenge.findUnique({
+      where: { id: challengeId },
+    });
+
+    if (!challenge || !challenge.webauthnChallenge) return null;
+    if (challenge.verified) return null;
+    if (new Date() > challenge.expiresAt) return null;
+
+    // The credential id from the client is a base64url string, stored verbatim.
+    const method = await prisma.mfaMethod.findFirst({
+      where: {
+        type: 'webauthn',
+        webauthnId: authenticationResponse.id,
+        isActive: true,
+      },
+    });
+
+    if (!method || !method.webauthnPublicKey || !method.userId) return null;
+
+    // Defence-in-depth: the assertion's userHandle (set to the user id at
+    // registration) must match the credential's owner.
+    const userHandle = authenticationResponse.response.userHandle;
+    if (userHandle) {
+      const decoded = Buffer.from(userHandle, 'base64url').toString('utf8');
+      if (decoded !== method.userId) return null;
+    }
+
+    const publicKey = Buffer.from(
+      this.encryption.decrypt(method.webauthnPublicKey),
+      'base64',
+    );
+
+    const verification = await verifyAuthenticationResponse({
+      response: authenticationResponse,
+      expectedChallenge: challenge.webauthnChallenge,
+      expectedOrigin: this.config.origins,
+      expectedRPID: this.config.rpID,
+      credential: {
+        id: method.webauthnId!,
+        publicKey,
+        counter: method.webauthnCounter || 0,
+      },
+      requireUserVerification: true,
+    });
+
+    if (!verification.verified || !verification.authenticationInfo) return null;
+
+    await prisma.mfaMethod.update({
+      where: { id: method.id },
+      data: {
+        webauthnCounter: verification.authenticationInfo.newCounter,
+        lastUsedAt: new Date(),
+      },
+    });
+    await prisma.mfaChallenge.update({
+      where: { id: challengeId },
+      data: {
+        verified: true,
+        verifiedAt: new Date(),
+        mfaMethodId: method.id,
+      },
+    });
+
+    return method.userId;
   }
 }

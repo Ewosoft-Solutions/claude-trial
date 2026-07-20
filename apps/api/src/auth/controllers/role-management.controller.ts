@@ -8,6 +8,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   UseGuards,
@@ -32,6 +33,8 @@ import { DatabaseService } from '../../common/database/database.service';
 import { RoleType, TenantQueriesService } from '@workspace/api';
 import { AuthUser } from '../decorators';
 import type { RequestUser } from '../types/request-user';
+import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../step-up.operations';
 
 /**
  * Create Custom Role DTO
@@ -42,6 +45,11 @@ export class CreateCustomRoleDto {
   clearanceLevel: number;
   permissionPoolIds: string[];
   permissionIds?: string[];
+}
+
+/** Gate 4: change a custom role's clearance level. */
+export class UpdateRoleClearanceDto {
+  clearanceLevel: number;
 }
 
 /**
@@ -98,11 +106,6 @@ export class RoleManagementController {
         ],
       },
       include: {
-        rolePermissions: {
-          include: {
-            permission: true,
-          },
-        },
         rolePools: {
           include: {
             pool: {
@@ -130,8 +133,15 @@ export class RoleManagementController {
    * Create custom role (12.4)
    *
    * POST /roles
+   *
+   * A role's clearanceLevel is changed through PATCH /roles/:id/clearance
+   * below, which applies Gate 4 (update-time consistency) from
+   * requirements/role-permissions-management.md — a pool's clearanceLevel
+   * likewise through PATCH /permissions/pool/:id/clearance.
    */
   @Post()
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.ROLES_CREATE)
   @HttpCode(HttpStatus.CREATED)
   @RequireClearanceLevel(7) // Management or higher
   @ApiOperation({ summary: 'Create custom role' })
@@ -182,5 +192,40 @@ export class RoleManagementController {
     };
 
     return this.roleService.createCustomRole(prisma, input);
+  }
+
+  /**
+   * Update a custom role's clearance level (Gate 4).
+   *
+   * PATCH /roles/:id/clearance
+   *
+   * Re-validates that no pool already assigned to the role exceeds the new
+   * level (reject-and-list), so lowering a role's clearance surfaces the
+   * conflict instead of silently narrowing its permissions.
+   */
+  @Patch(':id/clearance')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.ROLES_UPDATE)
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({ summary: "Update a custom role's clearance level (Gate 4)" })
+  @ApiResponse({ status: 200, description: 'Role clearance updated' })
+  async updateRoleClearance(
+    @Param('id') id: string,
+    @Body() data: UpdateRoleClearanceDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    const prisma = this.dbService.client;
+    const context = await this.permissionService.getUserPermissionContext(
+      prisma,
+      user.userId,
+      user.tenantId,
+      user.profileId,
+    );
+    return this.roleService.updateRoleClearance(prisma, {
+      roleId: id,
+      tenantId: user.tenantId,
+      newClearanceLevel: data.clearanceLevel,
+      actorClearanceLevel: context?.clearanceLevel ?? 0,
+    });
   }
 }

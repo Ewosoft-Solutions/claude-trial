@@ -65,14 +65,15 @@ model AcademicYear {
   @@index([status])
   @@index([isDefault])
   @@index([startDate, endDate])
-  @@schema("academic-structure")
   @@map("academic_years")
+  @@schema("academic-structure")
 }
 
 // Term - Academic terms within an academic year (semester, trimester, quarter, etc.)
 model Term {
   id             String   @id @default(uuid())
   academicYearId String   @map("academic_year_id")
+  tenantId       String?  @map("tenant_id") // Denormalized from academicYear for RLS + tenant-scoped queries
   name           String // e.g., "Fall Term", "Semester 1", "Trimester 1"
   type           String // 'semester' | 'trimester' | 'quarter' | 'term' | 'custom'
   startDate      DateTime @map("start_date")
@@ -98,8 +99,10 @@ model Term {
   @@index([status])
   @@index([order])
   @@index([startDate, endDate])
-  @@schema("academic-structure")
+  @@index([tenantId])
+  @@index([tenantId, academicYearId])
   @@map("terms")
+  @@schema("academic-structure")
 }
 
 // Course - Course catalog (tenant-scoped)
@@ -134,24 +137,26 @@ model Course {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant  Tenant  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  classes Class[]
+  tenant    Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  classes   Class[]
+  questions Question[] // Question bank entries for this course
 
   @@unique([tenantId, code]) // Unique course code per tenant
   @@index([tenantId])
   @@index([status])
   @@index([category])
   @@index([code])
-  @@schema("academic-structure")
   @@map("courses")
+  @@schema("academic-structure")
 }
 
 // Class - Course offering in a specific term (section/classroom)
 model Class {
-  id             String @id @default(uuid())
-  courseId       String @map("course_id")
-  termId         String @map("term_id")
-  academicYearId String @map("academic_year_id") // Denormalized for easier queries
+  id             String  @id @default(uuid())
+  courseId       String  @map("course_id")
+  termId         String  @map("term_id")
+  academicYearId String  @map("academic_year_id") // Denormalized for easier queries
+  tenantId       String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Section Information
   section String // e.g., "A", "B", "Section 1", "Morning"
@@ -182,12 +187,14 @@ model Class {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  course        Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
-  term          Term           @relation(fields: [termId], references: [id], onDelete: Cascade)
-  academicYear  AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  classTeachers ClassTeacher[] // Teacher assignments
-  enrollments   Enrollment[] // Student enrollments
-  assessments   Assessment[] // Assessments/assignments
+  course            Course             @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  term              Term               @relation(fields: [termId], references: [id], onDelete: Cascade)
+  academicYear      AcademicYear       @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  classTeachers     ClassTeacher[] // Teacher assignments
+  enrollments       Enrollment[] // Student enrollments
+  assessments       Assessment[] // Assessments/assignments
+  attendanceRecords AttendanceRecord[]
+  lessons           Lesson[] // Lesson content (learning schema)
 
   @@unique([courseId, termId, section]) // Unique section per course-term combination
   @@index([courseId])
@@ -195,17 +202,21 @@ model Class {
   @@index([academicYearId])
   @@index([status])
   @@index([room])
-  @@schema("academic-structure")
+  @@index([tenantId])
+  @@index([tenantId, termId])
+  @@index([tenantId, status])
   @@map("classes")
+  @@schema("academic-structure")
 }
 
 // ClassTeacher - Many-to-many: Teachers assigned to classes
 // Note: This assumes UserTenant (profile) represents teachers
 // For now, we'll use userTenantId to reference the teacher's profile
 model ClassTeacher {
-  id           String @id @default(uuid())
-  classId      String @map("class_id")
-  userTenantId String @map("user_tenant_id") // Teacher's profile (UserTenant)
+  id           String  @id @default(uuid())
+  classId      String  @map("class_id")
+  userTenantId String  @map("user_tenant_id") // Teacher's profile (UserTenant)
+  tenantId     String? @map("tenant_id") // Denormalized from class for RLS
 
   // Role/Assignment Type
   role String @default("teacher") // 'teacher' | 'assistant' | 'co-teacher' | 'substitute'
@@ -227,6 +238,7 @@ model ClassTeacher {
   @@index([classId])
   @@index([userTenantId])
   @@index([isActive])
-  @@schema("academic-structure")
+  @@index([tenantId])
   @@map("class_teachers")
+  @@schema("academic-structure")
 }

@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import { describe, it, beforeEach } from '@jest/globals';
+import { describe, it, beforeEach, afterEach } from '@jest/globals';
 import request from 'supertest';
 import { AppModule } from './../src/app.module';
 import { Server } from 'http';
@@ -15,6 +15,10 @@ describe('AppController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it('/ (GET)', () => {

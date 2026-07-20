@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="compact" data-sso="on" data-sandbox="on" data-user="multi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auth Flow — SchoolWithEase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sketch.css">
+<link rel="stylesheet" href="auth.css">
+<style>
+  .af-stage { flex:1; min-height:0; display:none; }
+  .af-stage.on { display:flex; flex-direction:column; }
+  .af-scroll { flex:1; min-height:0; overflow:auto; padding:18px 22px; }
+  .center-body { flex:1; min-height:0; display:flex; align-items:center; justify-content:flex-start; flex-direction:column; overflow:auto; padding:22px; background:var(--frame); }
+  .center-body > * { margin-block:auto; }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <h1>Auth <span class="tm">flow</span> <span style="font-family:'Kalam';font-size:18px;color:var(--ink-soft);">· one login, every workspace</span></h1>
+      <p>The unified entry model for SchoolWithEase: a <b>single gateway</b> → <b>compulsory 2FA</b> → <b>workspace discovery</b>. There's no open signup — owners arrive through two gated routes (<b>managed demo ~80%</b> / <b>instant sandbox ~20%</b>) and are provisioned only after compliance verification, while staff &amp; families come <b>by invite / import</b>. Every tab is live.</p>
+    </div>
+    <div class="kit-meta">low-fi · v1<br>identity &amp; access</div>
+  </div>
+
+  <hr class="rule">
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true"  data-target="pane-gateway">Gateway<b>sign-in · SSO</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-verify">Verify<b>compulsory 2FA</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-discover">Workspaces<b>profile discovery</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-acquire">Acquisition<b>2 gated routes</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-invite">Invite<b>acceptance flow</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="pane-provision">Provisioning<b>compliance gateway</b></button>
+  </div>
+
+  <!-- ============================================================
+       PANE — GATEWAY (unified sign-in)
+       ============================================================ -->
+  <section class="layout active" id="pane-gateway" data-screen-label="Gateway">
+    <div class="lead">
+      <h2>The central gateway</h2>
+      <span class="pill">schoolwithease.com · one identity</span>
+      <p>One email + password — or SSO — for <b>every</b> profile a person holds across the platform. The same screen is the front door for owners, staff, students and parents; what differs is only <i>how the account was created</i>.</p>
+    </div>
+
+    <div class="frame" style="height:560px;">
+      <div class="webbar">
+        <div class="brand"><span class="sq"></span> SchoolWithEase</div>
+        <div class="wnav">
+          <a>Product</a><a>Pricing</a><a>Help</a>
+          <span class="btn selfserve-zone" data-goto="pane-acquire" style="cursor:pointer;">Book a demo</span>
+        </div>
+        <span class="mark" style="top:36px; right:20px;">3</span>
+      </div>
+
+      <div class="authsurface">
+        <div class="brandpanel">
+          <h2>One login.<br>Every workspace.</h2>
+          <p class="lede">Sign in once. SchoolWithEase finds every school, campus and role attached to you — and drops you exactly where you left off.</p>
+          <div class="trustlist">
+            <div class="tr"><span class="ic">🔒</span><div><b>Compulsory 2FA</b><small>Every account, every sign-in — no exceptions.</small></div></div>
+            <div class="tr"><span class="ic">◈</span><div><b>Global identity</b><small>One User ID maps to many profiles &amp; roles.</small></div></div>
+            <div class="tr"><span class="ic">↻</span><div><b>Last-used routing</b><small>Returns you to your most recent workspace.</small></div></div>
+          </div>
+        </div>
+
+        <div class="authform">
+          <div class="authcard">
+            <h3>Sign in</h3>
+            <p class="ahint">Use your SchoolWithEase email — the one your school invited or that you registered with.</p>
+            <div class="frow tight"><span class="flab">Email <span class="req">*</span></span><div class="inp ph" id="gw-email">name@school.edu</div></div>
+            <div class="frow tight">
+              <span class="flabrow"><span class="flab">Password <span class="req">*</span></span><span class="flink">Forgot?</span></span>
+              <div class="inp">••••••••<span class="reveal" id="gw-reveal">show</span></div>
+              <span class="mark" style="position:static; margin:6px 0 0 auto;">1</span>
+            </div>
+            <span class="btn pri" id="gw-continue" data-goto="pane-verify" style="display:block;text-align:center;padding:11px;">Continue ›</span>
+
+            <div class="sso-zone">
+              <div class="divider">or continue with</div>
+              <div class="ssorow">
+                <span class="ssobtn" data-goto="pane-verify"><span class="g" style="color:#4285F4;">G</span> Google</span>
+                <span class="ssobtn" data-goto="pane-verify"><span class="g" style="color:#00A4EF;">⊞</span> Microsoft</span>
+              </div>
+              <span class="mark" style="position:static; margin:2px 0 0 auto;">2</span>
+            </div>
+
+            <div class="authfoot selfserve-zone">New school? <a data-goto="pane-acquire">Book a demo →</a> <span class="sandbox-zone">· <a data-goto="pane-acquire">try a sandbox</a></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>One credential, globally</b><p>Credentials are verified against the platform, not a single school. The User ID is the boundary — profiles hang off it.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>SSO is first-class</b><p>Google / Microsoft sign-in still lands in the same MFA + discovery flow. Toggle SSO off in Tweaks to see the password-only gateway.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>No open production signup</b><p>“Book a demo” and “try a sandbox” are the only owner doors — neither creates a live tenant. Toggle <i>Sandbox route</i> off in Tweaks for demo-only acquisition.</p></div></div>
+    </div>
+
+    <div class="lead" style="margin-top:24px;">
+      <h2>Who can get an account?</h2>
+      <span class="pill">strict dual-entry</span>
+      <p>School data stays sealed by limiting <i>how</i> accounts come to exist. Three doors, three rules.</p>
+    </div>
+
+    <div class="access">
+      <div class="acccard">
+        <div class="ah"><span class="ic">♪</span><b>School Owners</b></div>
+        <span class="statbadge tag" style="border-color:var(--line-soft);color:var(--ink-faint);">Verified onboarding</span>
+        <p>No open production signup. Owners <b>book a managed demo</b> or spin up a <b>locked sandbox</b> — a real tenant is provisioned only after compliance verifies the school.</p>
+        <div class="how">Door → <b>Acquisition tab</b> · then the compliance gateway</div>
+      </div>
+      <div class="acccard">
+        <div class="ah"><span class="ic">✉</span><b>Staff &amp; Teachers</b></div>
+        <span class="statbadge tag" style="border-color:var(--line-soft);color:var(--ink-faint);">By invitation only</span>
+        <p>Cannot sign up openly. The owner issues an email invite that grants access to specific campuses &amp; institutions.</p>
+        <div class="how">Door → <b>Invite tab</b> · from Architect “Send invite”</div>
+      </div>
+      <div class="acccard">
+        <div class="ah"><span class="ic">☻</span><b>Students &amp; Parents</b></div>
+        <span class="statbadge tag" style="border-color:var(--line-soft);color:var(--ink-faint);">Import or invite</span>
+        <p>No open sign-up. Admins bulk-import to auto-generate linked portal accounts — or invite a single student / parent individually.</p>
+        <div class="how">Door → bulk import <b>or</b> individual invite · first sign-in = set password</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PANE — VERIFY (compulsory MFA)
+       ============================================================ -->
+  <section class="layout" id="pane-verify" data-screen-label="Verify (MFA)">
+    <div class="lead">
+      <h2>Security &amp; authentication</h2>
+      <span class="pill">2FA · mandatory</span>
+      <p>Credentials checked → a second factor is <b>always</b> required before any profile loads. Users pick a channel; the platform remembers trusted devices for 30 days to keep it light.</p>
+    </div>
+
+    <div class="frame" style="height:540px;">
+      <div class="webbar">
+        <div class="brand"><span class="sq"></span> SchoolWithEase</div>
+        <div class="wnav"><span style="font-size:12px;">Signed in as <b style="color:var(--ink);">bello.a@greenfield.edu</b></span><a id="vf-cancel" data-goto="pane-gateway" style="cursor:pointer;">Cancel</a></div>
+      </div>
+
+      <div class="center-body">
+        <div class="authcard" style="max-width:380px;">
+          <!-- CODE-ENTRY VIEW -->
+          <div id="vf-entry">
+            <div style="display:flex;align-items:center;gap:11px;margin-bottom:6px;">
+              <span class="method-ic ic" id="vf-method-ic" style="width:40px;height:40px;border:2px solid var(--line);border-radius:11px;display:grid;place-items:center;font-size:18px;flex:none;">⊞</span>
+              <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;"><h3 style="margin:0;white-space:nowrap;font-size:26px;line-height:1;">Verify it's you</h3><span class="ahint" style="margin:0;display:block;" id="vf-method-label">Authenticator app · TOTP</span></div>
+              <span class="mark" style="position:static;flex:none;">1</span>
+            </div>
+            <p class="ahint" id="vf-instruction">Enter the 6-digit code from your authenticator app.</p>
+            <div class="otp" id="vf-otp" style="margin:4px 0 6px;">
+              <div class="cell f">4</div><div class="cell f">1</div><div class="cell f">9</div>
+              <div class="cell cur">7</div><div class="cell"></div><div class="cell"></div>
+            </div>
+            <div id="vf-resend" style="font-size:12px;color:var(--ink-soft);margin-bottom:6px;">Didn't get it? <span class="flink" id="vf-resend-link">Resend code</span> · <span id="vf-timer">0:23</span></div>
+            <label class="ckrow" id="vf-trust" style="margin:6px 0 12px;"><span class="ckbox on">✓</span> Trust this device for 30 days <span class="mark" style="position:static;margin-left:6px;">3</span></label>
+            <span class="btn pri" id="vf-verify" data-goto="pane-discover" style="display:block;text-align:center;padding:11px;">Verify &amp; continue ›</span>
+            <div class="authfoot" style="margin-top:11px;">Can't use this method? <a id="vf-try-another">Try another way →</a> <span class="mark" style="position:static;margin-left:4px;">2</span></div>
+          </div>
+
+          <!-- METHOD-PICKER VIEW -->
+          <div id="vf-picker" hidden>
+            <h3 style="margin:0 0 3px;">Choose a method</h3>
+            <p class="ahint">How do you want to receive your second factor?</p>
+            <div class="methods" id="vf-methods">
+              <div class="method" data-method="authenticator" data-icon="⊞" data-title="Authenticator app · TOTP" data-instr="Enter the 6-digit code from your authenticator app." data-resend="off"><span class="ic">⊞</span><div class="tx"><b>Authenticator app</b><small>Time-based code · most secure</small></div><span class="badge2">recommended</span><span class="chk">✓</span></div>
+              <div class="method" data-method="sms" data-icon="✆" data-title="SMS · ••• 4821" data-instr="We texted a 6-digit code to your phone ending 4821." data-resend="on"><span class="ic">✆</span><div class="tx"><b>SMS text</b><small>To •••• •• 4821</small></div><span class="chk">✓</span></div>
+              <div class="method" data-method="whatsapp" data-icon="✺" data-title="WhatsApp OTP · ••• 4821" data-instr="We sent a 6-digit code to your WhatsApp ending 4821." data-resend="on"><span class="ic">✺</span><div class="tx"><b>WhatsApp OTP</b><small>To •••• •• 4821</small></div><span class="chk">✓</span></div>
+              <div class="method" data-method="email" data-icon="✉" data-title="Email code" data-instr="We emailed a 6-digit code to b•••@greenfield.edu." data-resend="on"><span class="ic">✉</span><div class="tx"><b>Email code</b><small>To b•••@greenfield.edu</small></div><span class="chk">✓</span></div>
+              <div class="method" data-method="backup" data-icon="⚿" data-title="Backup code" data-instr="Enter one of your 10 single-use backup codes." data-resend="off"><span class="ic">⚿</span><div class="tx"><b>Backup code</b><small>One-time recovery codes</small></div><span class="chk">✓</span></div>
+            </div>
+            <div class="authfoot" style="margin-top:13px;"><a id="vf-back-entry">← Back to code entry</a></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Always-on, never skippable</b><p>2FA fires after every credential check — password <i>and</i> SSO paths. There's no “remember me” that bypasses it, only trusted devices.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Channel choice</b><p>SMS, WhatsApp OTP, authenticator, email or a backup code. Toggle which channels exist in Tweaks — disabled ones grey out here.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Trusted devices</b><p>Opting in skips the prompt for 30 days on that device — re-prompting on new hardware or after a password change.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PANE — WORKSPACE DISCOVERY
+       ============================================================ -->
+  <section class="layout" id="pane-discover" data-screen-label="Workspace discovery">
+    <div class="lead">
+      <h2>Workspace discovery</h2>
+      <span class="pill">first login · then last-used</span>
+      <p>After 2FA, the system reads every profile attached to the User ID. <b>First time</b> → a visual matrix to choose from. <b>After that</b> → straight to the last workspace, with a switcher one tap away.</p>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin:0 2px 12px;flex-wrap:wrap;">
+      <span style="font-family:'Caveat',cursive;font-size:18px;color:var(--ink-soft);">Show state:</span>
+      <span class="seg" id="disc-seg">
+        <button data-state="first" aria-pressed="true">First login</button>
+        <button data-state="returning" aria-pressed="false">Returning</button>
+      </span>
+      <span class="statbadge" id="disc-userbadge" style="margin-left:auto;">Multi-profile user · 4 profiles</span>
+    </div>
+
+    <div class="frame" style="height:560px;">
+      <div class="webbar">
+        <div class="brand"><span class="sq"></span> SchoolWithEase</div>
+        <div class="wnav"><span style="font-size:12px;">bello.a@greenfield.edu</span><span class="av" style="width:26px;height:26px;font-size:10px;">BA</span></div>
+        <span class="mark" style="top:12px; left:188px;">1</span>
+      </div>
+
+      <!-- FIRST-LOGIN: matrix -->
+      <div class="disc-state on" id="disc-first" style="padding:18px 22px;overflow:hidden;">
+        <div class="disc-head">
+          <div><h3>Choose a workspace</h3><span class="sub">You belong to 4 workspaces. Pick one to enter — set a default to skip this next time.</span></div>
+          <span class="who">attached to <b style="color:var(--ink);">Bello Adewale</b> <span class="av" style="width:24px;height:24px;font-size:9px;">BA</span></span>
+          <span class="mark" style="position:static;">2</span>
+        </div>
+        <div class="profile-grid" id="disc-grid">
+          <div class="profile-card last" data-go="Role Dashboards.html">
+            <div class="pch"><span class="av">GF</span><div><b>Greenfield — Secondary</b><small>Mainland Campus</small></div><span class="star on">★</span></div>
+            <div class="prole"><span class="rdot"></span> Class Teacher</div>
+            <div class="pscope"><span class="chip">JSS&nbsp;2B form</span><span class="chip">Gradebook</span></div>
+            <div class="pfoot">● last active · 2h ago — default</div>
+          </div>
+          <div class="profile-card" data-go="Role Dashboards.html">
+            <div class="pch"><span class="av">GF</span><div><b>Greenfield — Primary</b><small>Mainland Campus</small></div><span class="star">☆</span></div>
+            <div class="prole"><span class="rdot"></span> Subject Teacher</div>
+            <div class="pscope"><span class="chip">Maths · P4–P6</span></div>
+            <div class="pfoot">last active · 3 days ago</div>
+          </div>
+          <div class="profile-card" data-go="Role Dashboards.html">
+            <div class="pch"><span class="av" style="background:#1f8a5b;">SD</span><div><b>Sunny Days Academy</b><small>single campus</small></div><span class="star">☆</span></div>
+            <div class="prole"><span class="rdot"></span> Bursar</div>
+            <div class="pscope"><span class="chip">Finance &amp; Fees</span></div>
+            <div class="pfoot">last active · 2 weeks ago</div>
+          </div>
+          <div class="profile-card platform" data-go="Architect Flow.html">
+            <div class="pch"><span class="av">◈</span><div><b>SchoolWithEase</b><small>platform</small></div><span class="star">☆</span></div>
+            <div class="prole"><span class="rdot"></span> Platform Architect</div>
+            <div class="pscope"><span class="chip ok">All tenants</span></div>
+            <div class="pfoot">last active · today</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- RETURNING: fast path -->
+      <div class="disc-state" id="disc-returning">
+        <div class="fastpath">
+          <div class="hello">Welcome back, Bello 👋</div>
+          <div class="routing">
+            <span class="av">GF</span>
+            <div class="rt"><b>Greenfield — Secondary</b><small>Taking you to your Class Teacher workspace…</small></div>
+            <span class="btn pri" data-go="Role Dashboards.html" style="margin-left:8px;">Enter ›</span>
+          </div>
+          <div style="font-size:12px;color:var(--ink-soft);">Not this one?</div>
+          <div class="recents">
+            <span class="rec" data-state="first"><span class="av" style="background:var(--accent);color:#fff;">GF</span> Greenfield — Primary</span>
+            <span class="rec" data-state="first"><span class="av" style="background:#1f8a5b;color:#fff;">SD</span> Sunny Days · Bursar</span>
+            <span class="rec" data-state="first"><span class="av" style="background:var(--ink);color:#fff;">◈</span> Platform</span>
+            <span class="rec" data-state="first" style="border-style:dashed;border-color:var(--accent);color:var(--accent);">⊞ See all workspaces</span>
+          </div>
+          <span class="mark" style="bottom:18px;right:22px;">3</span>
+        </div>
+      </div>
+
+      <!-- SINGLE-PROFILE skip (shown via tweak) -->
+      <div class="disc-state" id="disc-single">
+        <div class="bigstate">
+          <div class="glyph">→</div>
+          <h4>One workspace — going straight in</h4>
+          <p>Single-profile users (most staff &amp; students) never see a picker. After 2FA they land directly in their only workspace.</p>
+          <span class="btn pri" data-go="Role Dashboards.html">Enter Greenfield ›</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Driven by the data matrix</b><p>The grid is literally the user's <code style="font-family:Kalam">UserRoleAssignment</code> rows — each (school, campus, institution, role) is one card.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Set a default once</b><p>Starring a workspace (or just entering it) writes the last-used cookie, so returning users skip straight past this screen.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Fast path, never trapped</b><p>Returning users auto-route but always get a one-tap “choose another / see all”. Single-profile users skip discovery entirely (toggle in Tweaks).</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PANE — ACQUISITION (two gated routes, no open signup)
+       ============================================================ -->
+  <section class="layout" id="pane-acquire" data-screen-label="Acquisition" data-route="A">
+    <div class="lead">
+      <h2>Two gated routes in — no open signup</h2>
+      <span class="pill">demo-led · 80 / 20</span>
+      <p>Production tenants are <b>never</b> spun up by an anonymous form. Every school enters through one of two verified routes — and both land at the compliance gateway before a single byte of real data exists.</p>
+    </div>
+
+    <div class="route-cards">
+      <div class="route-card primary pick" data-route="A">
+        <div class="rh"><span class="ic">☎</span><div><b>Book a demo</b><small>Managed onboarding</small></div><span class="share">~80%</span></div>
+        <p>Talk to onboarding, verify your corporate credentials (CAC), and we hand-provision your secure 3-tier production workspace.</p>
+        <span class="statbadge ok" style="align-self:flex-start;">Primary track</span>
+      </div>
+      <div class="route-card pick sandbox-zone" data-route="B">
+        <div class="rh"><span class="ic">▷</span><div><b>Instant sandbox</b><small>Product-led evaluation</small></div><span class="share">~20%</span></div>
+        <p>Verify a corporate email or phone OTP and explore a locked playground pre-filled with realistic dummy data in seconds.</p>
+        <span class="statbadge" style="align-self:flex-start;border-color:var(--line-soft);color:var(--ink-faint);">Evaluation track</span>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin:16px 2px 12px;flex-wrap:wrap;">
+      <span style="font-family:'Caveat',cursive;font-size:18px;color:var(--ink-soft);">Preview route:</span>
+      <span class="seg" id="rt-seg">
+        <button data-route="A" aria-pressed="true">A · Book a demo</button>
+        <button data-route="B" aria-pressed="false" class="sandbox-zone">B · Instant sandbox</button>
+      </span>
+      <span class="statbadge" id="rt-badge" style="margin-left:auto;">Lead → CRM → manual provisioning</span>
+    </div>
+
+    <div class="frame" style="height:600px;">
+      <div class="webbar">
+        <div class="brand"><span class="sq"></span> SchoolWithEase</div>
+        <div class="wnav"><a data-goto="pane-gateway" style="cursor:pointer;">Already have an account? Sign in</a></div>
+      </div>
+
+      <!-- ROUTE A — managed onboarding lead capture -->
+      <div class="disc-state on" id="rt-A">
+        <div class="authsurface">
+          <div class="brandpanel">
+            <h2>Let's set up your school — properly.</h2>
+            <p class="lede">Most schools come aboard with a guided session. We confirm you're a real, registered institution, then build the workspace with you.</p>
+            <div class="trustlist">
+              <div class="tr"><span class="ic">☎</span><div><b>White-glove setup</b><small>We configure campuses, levels &amp; plan with you.</small></div></div>
+              <div class="tr"><span class="ic">⚖</span><div><b>CAC-verified</b><small>Corporate registration checked before go-live.</small></div></div>
+              <div class="tr"><span class="ic">✺</span><div><b>WhatsApp-first</b><small>We reach out on your preferred channel.</small></div></div>
+            </div>
+          </div>
+          <div class="authform">
+            <div class="authcard" id="rtA-form">
+              <h3>Book your onboarding</h3>
+              <p class="ahint">Tell us about your school — our team verifies &amp; provisions from here.</p>
+              <div class="frow tight"><span class="flab">School name <span class="req">*</span></span><div class="inp ph">Brightside Group of Schools</div></div>
+              <div class="frow-grid">
+                <div class="frow tight"><span class="flab">Expected students <span class="req">*</span></span><div class="inp">200 – 1,000 <span class="suffix">▾</span></div></div>
+                <div class="frow tight"><span class="flab">Location <span class="req">*</span></span><div class="inp">Lagos, NG <span class="suffix">▾</span></div></div>
+              </div>
+              <div class="frow tight"><span class="flab">Contact person <span class="req">*</span></span><div class="inp ph">Mrs. Funke Adeyemi</div></div>
+              <div class="frow-grid">
+                <div class="frow tight"><span class="flab">Phone · WhatsApp <span class="req">*</span></span><div class="inp ph">+234 803 …</div></div>
+                <div class="frow tight"><span class="flab">Work email <span class="req">*</span></span><div class="inp ph">funke@brightside.edu.ng</div></div>
+              </div>
+              <span class="btn pri" id="rtA-submit" style="display:block;text-align:center;padding:11px;">Book my demo ›</span>
+              <div class="authfoot">Prefer to explore first? <a data-route="B">Try the sandbox →</a></div>
+              <span class="mark" style="position:static;margin:2px 0 0 auto;">1</span>
+            </div>
+            <div class="authcard" id="rtA-done" hidden style="text-align:center;align-items:center;">
+              <div class="glyph" style="width:54px;height:54px;border:2.5px solid var(--accent);border-radius:15px;display:grid;place-items:center;font-size:24px;color:var(--accent);">✓</div>
+              <h3 style="margin:0;">Lead created — #SWE-2048</h3>
+              <p class="ahint" style="text-align:center;">Routed to the onboarding CRM. We'll WhatsApp <b style="color:var(--ink);">+234 803 …</b> within 1 business day to verify your CAC and provision your workspace.</p>
+              <div class="vtl" style="text-align:left;align-self:stretch;">
+                <div class="vrow done"><span class="vdot">✓</span><div class="vtx"><b>Lead captured in CRM</b><small>#SWE-2048 · just now</small></div></div>
+                <div class="vline fill"></div>
+                <div class="vrow cur"><span class="vdot">◔</span><div class="vtx"><b>Onboarding reaches out</b><small>WhatsApp / call · ≤ 1 business day</small></div></div>
+                <div class="vline"></div>
+                <div class="vrow"><span class="vdot">⚖</span><div class="vtx"><b>CAC credentials verified</b><small>Compliance gateway</small></div></div>
+                <div class="vline"></div>
+                <div class="vrow"><span class="vdot">★</span><div class="vtx"><b>Production workspace provisioned</b><small>3-tier · owner invited</small></div></div>
+              </div>
+              <span class="btn" id="rtA-reset">‹ Edit submission</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ROUTE B — instant locked sandbox -->
+      <div class="disc-state" id="rt-B">
+        <div class="center-body" id="rtB-verify">
+          <div class="authcard" style="max-width:380px;text-align:center;align-items:center;">
+            <span style="font-size:26px;">▷</span>
+            <h3 style="margin:0;">Spin up a live sandbox</h3>
+            <p class="ahint" style="text-align:center;">No setup, no real data. Verify a corporate email or phone to deploy your playground.</p>
+            <span class="seg" style="align-self:center;"><button aria-pressed="true">Corporate email</button><button aria-pressed="false">Phone OTP</button></span>
+            <div class="frow tight" style="width:100%;text-align:left;"><span class="flab">Work email <span class="req">*</span></span><div class="inp ph">you@yourschool.edu</div></div>
+            <span class="btn pri" id="rtB-spin" style="display:block;text-align:center;padding:11px;width:100%;">Deploy sandbox ›</span>
+            <div class="authfoot">Corporate domains only · public inboxes blocked <span class="mark" style="position:static;margin-left:4px;">2</span></div>
+          </div>
+        </div>
+
+        <div id="rtB-play" hidden style="display:none;flex-direction:column;flex:1;min-height:0;">
+          <div class="activate-banner">
+            <span class="ic">⚠</span>
+            <div><b>You're in a sandbox — data is fake &amp; temporary</b><small>Expires in 14 days · real student data &amp; live invoices are disabled.</small></div>
+            <span class="btn pri" data-goto="pane-provision">Activate Real School (Verify Profile) ›</span>
+            <span class="mark" style="position:static;">3</span>
+          </div>
+          <div class="playground">
+            <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+              <h3 style="font-family:'Caveat',cursive;font-size:24px;margin:0;white-space:nowrap;">Demo Academy · Secondary</h3>
+              <span class="sbx-tag">⚿ Sandbox</span>
+              <span class="dummy-flag" style="margin-left:auto;">every figure here is dummy data</span>
+            </div>
+            <div class="kpis">
+              <div class="kpi-card"><span class="lab">Students</span><span class="val">842</span><span class="tr">sample roster</span></div>
+              <div class="kpi-card"><span class="lab">Attendance</span><span class="val">94%</span><span class="tr">this week</span></div>
+              <div class="kpi-card"><span class="lab">Revenue</span><span class="val">₦12.4M</span><span class="tr">mock ledger</span></div>
+              <div class="kpi-card"><span class="lab">Outstanding</span><span class="val">₦1.1M</span><span class="tr down">mock</span></div>
+            </div>
+            <div class="cols even">
+              <div class="panel">
+                <div class="ph"><b>Students</b><span class="more">fake registry</span></div>
+                <table class="tbl"><tbody>
+                  <tr><td>Ada Obi</td><td>JSS 2B</td><td><span class="statbadge ok">present</span></td></tr>
+                  <tr><td>Tunde Bello</td><td>JSS 2B</td><td><span class="statbadge ok">present</span></td></tr>
+                  <tr><td>Chioma Eze</td><td>JSS 2A</td><td><span class="statbadge warn">absent</span></td></tr>
+                </tbody></table>
+                <span class="btn locked" id="lk-student" style="margin-top:11px;display:inline-flex;gap:7px;align-items:center;">＋ Add real student <span class="sbx-tag">🔒 disabled</span></span>
+              </div>
+              <div class="panel">
+                <div class="ph"><b>Finance</b><span class="more">mock invoices</span></div>
+                <table class="tbl"><tbody>
+                  <tr><td>Term 2 fees</td><td>₦8.2M</td><td><span class="statbadge ok">paid</span></td></tr>
+                  <tr><td>Bus &amp; meals</td><td>₦2.1M</td><td><span class="statbadge warn">partial</span></td></tr>
+                </tbody></table>
+                <span class="btn locked" id="lk-invoice" style="margin-top:11px;display:inline-flex;gap:7px;align-items:center;">＄ Issue live invoice <span class="sbx-tag">🔒 disabled</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Lead telemetry → CRM</b><p>Route A captures school name, expected population, location, contact &amp; WhatsApp number — then posts straight to the onboarding CRM. No tenant is created.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Sandbox ≠ production</b><p>Route B verifies a corporate identity and deploys a throwaway playground. Real student data &amp; live invoices are hard-blocked.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>One door out of the sandbox</b><p>The persistent “Activate Real School” banner routes evaluators into the same compliance gateway as Route A.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       PANE — PROVISIONING (verification & compliance gateway)
+       ============================================================ -->
+  <section class="layout" id="pane-provision" data-screen-label="Provisioning">
+    <div class="lead">
+      <h2>Verification &amp; compliance gateway</h2>
+      <span class="pill">internal · lead → live tenant</span>
+      <p>The back-office that turns a <b>Pending Lead</b> into an operational multi-tenant organisation. Onboarding verifies credentials and <b>manually</b> provisions the 3-tier workspace — nothing auto-deploys to production.</p>
+    </div>
+
+    <div class="frame" style="height:600px;">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> SchoolWithEase <span style="color:var(--ink-faint)">▾</span></div>
+        <div class="crumbs"><span>Platform</span><span class="sep">▸</span><span>Onboarding CRM</span><span class="sep">▸</span><span class="cur">Verification queue</span></div>
+        <div class="search"><span>⌕</span> Search leads… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">⚑</span><span class="av">OPS</span></div>
+      </div>
+
+      <div class="pipeline" id="prov-pipeline"></div>
+
+      <div class="ops">
+        <div class="queue" id="prov-queue"></div>
+        <div class="opdetail" id="prov-detail"></div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Human in the loop</b><p>Approval is a manual decision by onboarding — CAC number, domain ownership &amp; a duplicate/look-alike check must all pass before provisioning unlocks.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Provisioning builds the tenant</b><p>“Provision workspace” emits the 3-tier <code style="font-family:Kalam">Organization ▸ Campus ▸ Institution</code> records and fires the owner invite — the same one accepted in the Invite tab.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Hands off to Architect</b><p>A provisioned tenant drops the owner into the 5-step <a href="Architect Flow.html" style="color:var(--accent);">Architect onboarding</a> to seat their team.</p></div></div>
+    </div>
+
+    <div class="lead" style="margin-top:24px;">
+      <h2>Data contracts · the payloads</h2>
+      <span class="pill">pending_lead → active tenant</span>
+      <p>Three payloads carry a school through the gateway. Each is owned by a different surface — marketing site, compliance ops, and the provisioning engine — and they chain by foreign key.</p>
+    </div>
+
+    <div class="payloads" id="prov-payloads"></div>
+    <div class="payload-flow" id="prov-flow"></div>
+  </section>
+
+  <!-- ============================================================
+       PANE — INVITE ACCEPTANCE
+       ============================================================ -->
+  <section class="layout" id="pane-invite" data-screen-label="Invite acceptance" data-rtype="staff">
+    <div class="lead">
+      <h2>Invitation acceptance</h2>
+      <span class="pill">staff · students · parents</span>
+      <p>The other side of "Send invite" — for <b>staff, students and parents alike</b>. The invitee lands from an email/SMS link, proves it's them, <b>reviews exactly what they're being granted</b>, and (for staff) sets up 2FA. Several invites can be accepted at once.</p>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;margin:0 2px 12px;flex-wrap:wrap;">
+      <span style="font-family:'Caveat',cursive;font-size:18px;color:var(--ink-soft);">Invitee is a:</span>
+      <span class="seg" id="iv-seg">
+        <button data-rtype="staff" aria-pressed="true">Staff member</button>
+        <button data-rtype="student" aria-pressed="false">Student</button>
+        <button data-rtype="parent" aria-pressed="false">Parent</button>
+      </span>
+      <span class="statbadge" id="iv-rbadge" style="margin-left:auto;">Role &amp; scope grant</span>
+    </div>
+
+    <div class="frame" style="height:660px;">
+      <div class="webbar">
+        <div class="brand"><span class="sq"></span> SchoolWithEase</div>
+        <div class="wnav"><span style="font-size:12px;">Invitation for <b style="color:var(--ink);" id="iv-wb-email">grace.o@greenfield.edu</b></span></div>
+      </div>
+
+      <div class="main" style="background:var(--frame);">
+        <div class="main-head">
+          <div style="display:flex;flex-direction:column;gap:1px;min-width:0;">
+            <h3 id="iv-title">You're invited</h3>
+            <span class="sub" id="iv-sub">Accept invitation · step 1 of 4</span>
+          </div>
+        </div>
+
+        <div class="stepper" style="margin:0;border:none;border-top:2px solid var(--line-soft);border-bottom:2px solid var(--line-soft);border-radius:0;">
+          <div class="step active" data-ivstep="1"><span class="num">1</span><span class="stx"><b>Verify</b><small>set password</small></span></div>
+          <div class="step-conn" data-ivconn="1"></div>
+          <div class="step" data-ivstep="2"><span class="num">2</span><span class="stx"><b>Review</b><small>role &amp; scope</small></span></div>
+          <div class="step-conn" data-ivconn="2"></div>
+          <div class="step" data-ivstep="3"><span class="num">3</span><span class="stx"><b>Secure</b><small>set up 2FA</small></span></div>
+          <div class="step-conn" data-ivconn="3"></div>
+          <div class="step" data-ivstep="4"><span class="num">4</span><span class="stx"><b>Done</b><small>enter</small></span></div>
+        </div>
+
+        <!-- IV stage 1 — verify & password -->
+        <section class="af-stage on" id="iv1">
+          <div class="af-scroll">
+            <div class="authcard" style="max-width:420px;margin:0 auto;">
+              <div class="invite-banner" data-rtype="staff">
+                <span class="av" style="background:var(--accent);color:#fff;">GO</span>
+                <div><b>Mrs. Grace O.</b> invited you to join<br><b style="font-family:'Caveat',cursive;font-size:18px;">Greenfield Academy</b> <small>as Class Teacher &amp; more</small></div>
+              </div>
+              <div class="invite-banner" data-rtype="parent" hidden>
+                <span class="av" style="background:#1f8a5b;color:#fff;">GA</span>
+                <div><b>Greenfield Academy</b> invited you to the<br><b style="font-family:'Caveat',cursive;font-size:18px;">Parent Portal</b> <small>linked to Tunde &amp; Ada Bello</small></div>
+              </div>
+              <div class="invite-banner" data-rtype="student" hidden>
+                <span class="av" style="background:#7a5ae0;color:#fff;">GA</span>
+                <div><b>Greenfield Academy</b> set up your<br><b style="font-family:'Caveat',cursive;font-size:18px;">Student Portal</b> <small>JSS 2B · Secondary</small></div>
+              </div>
+              <p class="ahint">This invite is locked to the contact below — confirming it's really you.</p>
+              <div class="frow tight"><span class="flab" id="iv-contactlab">Your email</span><div class="inp" style="opacity:.8;"><span id="iv-email">grace.o@greenfield.edu</span> <span class="suffix">🔒 from invite</span></div></div>
+              <div class="frow tight"><span class="flab">Full name <span class="req">*</span></span><div class="inp ph" id="iv-name">Mrs. Grace Okafor</div></div>
+              <div class="frow tight"><span class="flab">Set a password <span class="req">*</span></span><div class="inp">••••••••••<span class="reveal">show</span></div></div>
+              <div class="sso-zone">
+                <div class="divider">or</div>
+                <span class="ssobtn"><span class="g" style="color:#4285F4;">G</span> Use Google (matches your email)</span>
+              </div>
+              <span class="mark" style="position:static;margin:6px 0 0 auto;">1</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- IV stage 2 — review role & scope (multi-invite) -->
+        <section class="af-stage" id="iv2">
+          <div class="af-scroll">
+            <div style="max-width:480px;margin:0 auto;">
+
+              <!-- STAFF review -->
+              <div data-rtype="staff">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px;">
+                  <span style="font-size:13px;color:var(--ink-soft);">You were invited to <b style="color:var(--ink);">2 workspaces</b>. Review what each grants, then accept.</span>
+                  <label class="ckrow" style="margin-left:auto;"><span class="ckbox on" id="iv-acceptall">✓</span> Accept all</label>
+                  <span class="mark" style="position:static;">3</span>
+                </div>
+                <div class="scope-card">
+                  <div class="sch"><span class="av">GF</span><div><b>Greenfield — Secondary</b><small>Mainland Campus</small></div><span class="statbadge ok" style="margin-left:auto;">invited</span></div>
+                  <div class="sbody">
+                    <div class="scope-line"><span class="k">Role</span><span class="chip ok">♔ Class Teacher</span></div>
+                    <div class="scope-line"><span class="k">Scope</span><div class="chiprow"><span class="chip">Form: JSS 2B</span><span class="chip">Own classes</span></div></div>
+                    <div class="scope-line"><span class="k">Can do</span><div class="chiprow"><span class="chip">Attendance</span><span class="chip">Gradebook</span><span class="chip">Messaging</span></div></div>
+                  </div>
+                  <label class="accrow ckrow"><span class="ckbox on">✓</span> Accept this invitation</label>
+                </div>
+                <div class="scope-card">
+                  <div class="sch"><span class="av" style="background:#1f8a5b;">GF</span><div><b>Greenfield — Primary</b><small>Mainland Campus</small></div><span class="statbadge ok" style="margin-left:auto;">invited</span></div>
+                  <div class="sbody">
+                    <div class="scope-line"><span class="k">Role</span><span class="chip ok">▦ Subject Teacher</span></div>
+                    <div class="scope-line"><span class="k">Scope</span><div class="chiprow"><span class="chip">Maths · P4–P6</span></div></div>
+                    <div class="scope-line"><span class="k">Can do</span><div class="chiprow"><span class="chip">Gradebook</span><span class="chip">Messaging</span></div></div>
+                  </div>
+                  <label class="accrow ckrow"><span class="ckbox on">✓</span> Accept this invitation</label>
+                </div>
+                <span class="mark" style="position:static;margin:2px 0 0 2px;">2</span>
+              </div>
+
+              <!-- PARENT review -->
+              <div data-rtype="parent" hidden>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px;">
+                  <span style="font-size:13px;color:var(--ink-soft);">You're being linked to <b style="color:var(--ink);">2 children</b>. Confirm each to see their school life.</span>
+                  <label class="ckrow" style="margin-left:auto;"><span class="ckbox on">✓</span> Link all</label>
+                  <span class="mark" style="position:static;">3</span>
+                </div>
+                <div class="scope-card">
+                  <div class="sch"><span class="av" style="background:#7a5ae0;">TB</span><div><b>Tunde Bello</b><small>JSS 2B · Secondary</small></div><span class="statbadge ok" style="margin-left:auto;">your child</span></div>
+                  <div class="sbody">
+                    <div class="scope-line"><span class="k">Relation</span><span class="chip ok">Parent / Guardian</span></div>
+                    <div class="scope-line"><span class="k">You'll see</span><div class="chiprow"><span class="chip">Attendance</span><span class="chip">Report cards</span><span class="chip">Fees &amp; invoices</span><span class="chip">Teacher messages</span></div></div>
+                  </div>
+                  <label class="accrow ckrow"><span class="ckbox on">✓</span> Link to this child</label>
+                </div>
+                <div class="scope-card">
+                  <div class="sch"><span class="av" style="background:#7a5ae0;">AB</span><div><b>Ada Bello</b><small>P5 · Primary</small></div><span class="statbadge ok" style="margin-left:auto;">your child</span></div>
+                  <div class="sbody">
+                    <div class="scope-line"><span class="k">Relation</span><span class="chip ok">Parent / Guardian</span></div>
+                    <div class="scope-line"><span class="k">You'll see</span><div class="chiprow"><span class="chip">Attendance</span><span class="chip">Report cards</span><span class="chip">Fees &amp; invoices</span></div></div>
+                  </div>
+                  <label class="accrow ckrow"><span class="ckbox on">✓</span> Link to this child</label>
+                </div>
+                <span class="mark" style="position:static;margin:2px 0 0 2px;">2</span>
+              </div>
+
+              <!-- STUDENT review -->
+              <div data-rtype="student" hidden>
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:13px;">
+                  <span style="font-size:13px;color:var(--ink-soft);">Confirm your details to activate your <b style="color:var(--ink);">student portal</b>.</span>
+                  <span class="mark" style="position:static;margin-left:auto;">3</span>
+                </div>
+                <div class="scope-card">
+                  <div class="sch"><span class="av" style="background:#7a5ae0;">AB</span><div><b>Your portal</b><small>Greenfield — Secondary</small></div><span class="statbadge ok" style="margin-left:auto;">activating</span></div>
+                  <div class="sbody">
+                    <div class="scope-line"><span class="k">Class</span><div class="chiprow"><span class="chip ok">JSS 2B</span><span class="chip">Form: Mrs. Grace O.</span></div></div>
+                    <div class="scope-line"><span class="k">You'll see</span><div class="chiprow"><span class="chip">Timetable</span><span class="chip">Assignments</span><span class="chip">Results</span><span class="chip">Messages</span></div></div>
+                  </div>
+                  <label class="accrow ckrow"><span class="ckbox on">✓</span> Activate my portal</label>
+                </div>
+                <span class="mark" style="position:static;margin:2px 0 0 2px;">2</span>
+              </div>
+
+            </div>
+          </div>
+        </section>
+
+        <!-- IV stage 3 — set up 2FA -->
+        <section class="af-stage" id="iv3">
+          <div class="af-scroll">
+            <div class="authcard" style="max-width:400px;margin:0 auto;">
+              <h3 style="margin:0;">Secure your account</h3>
+              <p class="ahint" id="iv-2fa-hint">2FA is required for everyone on SchoolWithEase. Pick how you'll verify.</p>
+              <div class="methods">
+                <div class="method on"><span class="ic">⊞</span><div class="tx"><b>Authenticator app</b><small>Scan a QR · most secure</small></div><span class="badge2">recommended</span><span class="chk">✓</span></div>
+                <div class="method"><span class="ic">✆</span><div class="tx"><b>SMS text</b><small>Add a phone number</small></div><span class="chk">✓</span></div>
+                <div class="method"><span class="ic">✺</span><div class="tx"><b>WhatsApp OTP</b><small>Add a WhatsApp number</small></div><span class="chk">✓</span></div>
+              </div>
+              <div class="boxs" style="padding:12px;display:flex;gap:11px;align-items:center;margin-top:4px;">
+                <div style="width:64px;height:64px;border:2px solid var(--line);border-radius:9px;background:var(--skel);display:grid;place-items:center;font-size:11px;color:var(--ink-faint);flex:none;">QR</div>
+                <div style="font-size:12px;color:var(--ink-soft);">Scan with your authenticator, then enter the 6-digit code to confirm.</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- IV stage 4 — done -->
+        <section class="af-stage" id="iv4">
+          <div class="center-body">
+            <div class="bigstate" style="gap:11px;">
+              <div class="glyph" style="border-color:var(--accent);color:var(--accent);">✓</div>
+              <h4 id="iv-done-h">You're all set, Grace</h4>
+              <p id="iv-done-p">2 workspaces added to your account. Because you hold more than one profile, you'll land on the workspace picker.</p>
+              <span class="btn pri" data-goto="pane-discover">Go to workspace discovery ›</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="wz-foot">
+          <span class="btn" id="iv-back" style="opacity:.5;">‹ Back</span>
+          <span style="font-size:12px;color:var(--ink-faint);" id="iv-hint">Invites expire in 14 days · locked to the invited email.</span>
+          <span class="btn pri" id="iv-next" style="margin-left:auto;">Continue ›</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Identity is pinned</b><p>The email is fixed by the invite token — the invitee just sets a password (or links SSO on a matching address). No open registration.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Informed consent</b><p>Before accepting, they see the exact role, data scope and permissions — the same grant the owner picked in Architect's Roles step.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Multi-invite in one go</b><p>Invited to several (campus, institution) pairs? Each is a card; “Accept all” creates every <code style="font-family:Kalam">UserRoleAssignment</code> at once.</p></div></div>
+    </div>
+
+    <div class="lead" style="margin-top:24px;">
+      <h2>Adding students &amp; parents</h2>
+      <span class="pill">invite one · or import many</span>
+      <p>Bulk import still auto-generates linked student &amp; parent accounts. But admins can now <b>also invite a single person</b> on the spot — a mid-term transfer, or a guardian the import missed.</p>
+    </div>
+
+    <div class="minis two">
+      <div>
+        <div class="frame mini" style="height:360px;">
+          <div class="swvar">
+            <div class="svh"><b style="font-family:'Caveat',cursive;font-size:16px;">Invite a person</b><span style="margin-left:auto;color:var(--ink-faint);font-size:11px;">admin · People</span></div>
+            <div class="svb" style="gap:11px;">
+              <span class="seg" style="align-self:flex-start;"><button aria-pressed="false">Student</button><button aria-pressed="true">Parent</button></span>
+              <div class="frow tight"><span class="flab">Full name <span class="req">*</span></span><div class="inp ph">Mr. Femi Bello</div></div>
+              <div class="frow tight"><span class="flab">Email or phone <span class="req">*</span></span><div class="inp ph">femi@gmail.com · or +234…</div></div>
+              <div class="frow tight"><span class="flab">Link to student</span><div class="inp">Tunde Bello · JSS 2B <span class="suffix">＋ add another</span></div></div>
+              <span class="btn pri" style="align-self:flex-start;">✉ Send invite</span>
+            </div>
+          </div>
+        </div>
+        <div class="framecap"><b>A · Individual invite</b> — one student or parent, links to a child</div>
+      </div>
+      <div>
+        <div class="frame mini" style="height:360px;">
+          <div class="swvar">
+            <div class="svh"><b style="font-family:'Caveat',cursive;font-size:16px;">Bulk import</b><span style="margin-left:auto;color:var(--ink-faint);font-size:11px;">admin · People</span></div>
+            <div class="svb" style="gap:11px;">
+              <div class="uploadbox" style="padding:14px;"><span class="ub-ic">↥</span> Drop a CSV / Excel<br><span style="color:var(--ink-faint);">name · class · guardian email</span></div>
+              <div class="boxs" style="padding:10px;display:flex;gap:9px;align-items:center;"><span style="font-size:16px;">↻</span><div style="font-size:11.5px;color:var(--ink-soft);">Auto-generates a <b>student portal</b> + linked <b>parent portal</b> per row.</div></div>
+              <div style="font-size:11.5px;color:var(--ink-faint);">214 rows ready · 3 need a guardian contact</div>
+              <span class="btn pri" style="align-self:flex-start;">▷ Import 214 people</span>
+            </div>
+          </div>
+        </div>
+        <div class="framecap"><b>B · Bulk import</b> — CSV builds linked accounts at scale</div>
+      </div>
+    </div>
+  </section>
+
+  <p class="footnote">— identity &amp; access · interactive wireframe · open Tweaks for SSO, sandbox route, MFA channels &amp; profile count —</p>
+</div>
+
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+  const DENSITY = { compact: 0.82, regular: 1, comfy: 1.15 };
+  const TD = /*EDITMODE-BEGIN*/{
+    "dark": false,
+    "accent": "#4f6df5",
+    "density": "compact",
+    "sso": true,
+    "sandbox": true,
+    "user": "multi",
+    "mfa": [
+      "authenticator",
+      "sms",
+      "whatsapp",
+      "email",
+      "backup"
+    ]
+  }/*EDITMODE-END*/;
+  const MFA_ALL = ["authenticator", "sms", "whatsapp", "email", "backup"];
+  function apply(t){
+    const r=document.documentElement;
+    r.setAttribute('data-theme',t.dark?'dark':'light');
+    r.setAttribute('data-density',t.density);
+    r.style.setProperty('--accent',t.accent);
+    r.style.setProperty('--pad',String(DENSITY[t.density]||1));
+    r.setAttribute('data-sso',t.sso?'on':'off');
+    r.setAttribute('data-sandbox',t.sandbox?'on':'off');
+    r.setAttribute('data-user',t.user);
+    if(window.__authApply) window.__authApply(t);
+  }
+  function App(){const [t,setTweak]=useTweaks(TD);React.useEffect(()=>{apply(t);},[t]);
+    const toggleMfa=(m)=>{const has=t.mfa.includes(m); let next=has?t.mfa.filter(x=>x!==m):[...t.mfa,m]; if(next.length===0) next=[m]; setTweak('mfa',MFA_ALL.filter(x=>next.includes(x)));};
+    return (<TweaksPanel title="Tweaks">
+      <TweakSection label="Appearance" />
+      <TweakToggle label="Dark mode" value={t.dark} onChange={(v)=>setTweak('dark',v)} />
+      <TweakColor label="Accent" value={t.accent} options={['#4f6df5','#1f8a5b','#c2452f','#7a5ae0','#0e7490']} onChange={(v)=>setTweak('accent',v)} />
+      <TweakRadio label="Density" value={t.density} options={['compact','regular','comfy']} onChange={(v)=>setTweak('density',v)} />
+      <TweakSection label="Acquisition" />
+      <TweakToggle label="SSO sign-in" value={t.sso} onChange={(v)=>setTweak('sso',v)} />
+      <TweakToggle label="Instant sandbox route" value={t.sandbox} onChange={(v)=>setTweak('sandbox',v)} />
+      <TweakSection label="Discovery" />
+      <TweakRadio label="This user has" value={t.user} options={['multi','single']} onChange={(v)=>setTweak('user',v)} />
+      <TweakSection label="Available 2FA channels" />
+      <TweakToggle label="Authenticator (TOTP)" value={t.mfa.includes('authenticator')} onChange={()=>toggleMfa('authenticator')} />
+      <TweakToggle label="SMS OTP" value={t.mfa.includes('sms')} onChange={()=>toggleMfa('sms')} />
+      <TweakToggle label="WhatsApp OTP" value={t.mfa.includes('whatsapp')} onChange={()=>toggleMfa('whatsapp')} />
+      <TweakToggle label="Email code" value={t.mfa.includes('email')} onChange={()=>toggleMfa('email')} />
+      <TweakToggle label="Backup codes" value={t.mfa.includes('backup')} onChange={()=>toggleMfa('backup')} />
+    </TweaksPanel>);}
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+<script src="auth-flow.js"></script>
+</body>
+</html>

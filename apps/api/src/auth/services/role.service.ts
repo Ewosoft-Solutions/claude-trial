@@ -9,6 +9,7 @@ import {
   Injectable,
   BadRequestException,
   ForbiddenException,
+  NotFoundException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
 import { RoleType, ClearanceLevel } from '@workspace/api';
@@ -330,44 +331,26 @@ export class RoleService {
       },
     });
 
-    const permissionIds = new Set<string>();
-    for (const pool of pools) {
-      for (const pp of pool.poolPermissions) {
-        permissionIds.add(pp.permissionId);
-      }
-    }
-
-    // Add any additional permissions (already validated against pools)
-    if (input.permissionIds) {
-      for (const permId of input.permissionIds) {
-        permissionIds.add(permId);
-      }
-    }
-
-    // Assign permissions to role
-    if (permissionIds.size > 0) {
-      await prisma.rolePermission.createMany({
-        data: Array.from(permissionIds).map((permissionId) => ({
-          roleId: role.id,
-          permissionId,
-          grantedBy: input.createdBy,
-        })),
-        skipDuplicates: true,
-      });
-    }
+    // Permission resolution is pools-only (see TenantQueriesService.resolveRolePoolPermissions) —
+    // direct per-permission grants are not written here. `input.permissionIds`, when present, has
+    // already been validated (clearance + pool membership) in validateCustomRoleCreation purely as
+    // an input constraint; the role's actual permissions come entirely from its assigned pools.
 
     // 5. Return role with relations
     const roleWithRelations = await prisma.role.findUnique({
       where: { id: role.id },
       include: {
-        rolePermissions: {
-          include: {
-            permission: true,
-          },
-        },
         rolePools: {
           include: {
-            pool: true,
+            pool: {
+              include: {
+                poolPermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -410,5 +393,77 @@ export class RoleService {
     }
 
     return true;
+  }
+
+  /**
+   * Gate 4 (role side) — change a custom role's clearance level with the
+   * update-time consistency check from
+   * requirements/role-permissions-management.md.
+   *
+   * Lowering a role's clearance can strand pools whose own clearance now
+   * exceeds it; rather than let Gate 3 silently narrow the role's effective
+   * permissions, we reject-and-list the conflicting pools so the admin sees
+   * the misconfiguration they are about to cause.
+   */
+  async updateRoleClearance(
+    prisma: PrismaClient,
+    input: {
+      roleId: string;
+      tenantId: string;
+      newClearanceLevel: number;
+      actorClearanceLevel: number;
+    },
+  ) {
+    const { roleId, tenantId, newClearanceLevel, actorClearanceLevel } = input;
+
+    if (
+      !Number.isInteger(newClearanceLevel) ||
+      newClearanceLevel < ClearanceLevel.GUEST ||
+      newClearanceLevel > ClearanceLevel.MANAGEMENT
+    ) {
+      throw new BadRequestException(
+        `Custom role clearance must be an integer between ${ClearanceLevel.GUEST} and ${ClearanceLevel.MANAGEMENT}`,
+      );
+    }
+
+    const role = await prisma.role.findFirst({
+      where: { id: roleId, tenantId, roleType: RoleType.CUSTOM },
+      include: { rolePools: { include: { pool: true } } },
+    });
+    if (!role) {
+      throw new NotFoundException('Custom role not found for this tenant');
+    }
+
+    // Actor must out-rank both the role's current and requested level, so a
+    // change cannot smuggle a role past the actor's own authority.
+    if (
+      !this.canCreateCustomRole(actorClearanceLevel, newClearanceLevel) ||
+      !this.canCreateCustomRole(actorClearanceLevel, role.clearanceLevel)
+    ) {
+      throw new ForbiddenException(
+        "Insufficient clearance to change this role's clearance level",
+      );
+    }
+
+    const conflictingPools = role.rolePools
+      .map((rp) => rp.pool)
+      .filter((pool) => pool.clearanceLevel > newClearanceLevel)
+      .map((pool) => ({
+        id: pool.id,
+        name: pool.name,
+        clearanceLevel: pool.clearanceLevel,
+      }));
+
+    if (conflictingPools.length > 0) {
+      throw new BadRequestException({
+        message: `Cannot lower role clearance to ${newClearanceLevel}: ${conflictingPools.length} assigned pool(s) exceed it. Detach them first.`,
+        conflictingPools,
+      });
+    }
+
+    return prisma.role.update({
+      where: { id: roleId },
+      data: { clearanceLevel: newClearanceLevel },
+    });
   }
 }

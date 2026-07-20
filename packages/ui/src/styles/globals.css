@@ -7,85 +7,215 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* Single source of truth for CSS variables */
-/* Default color scheme */
+/* ============================================================
+   SchoolWithEase — Design Tokens (Phase 1 / Milestone 2)
+
+   Source of truth: design-export/ "Aurora" direction
+   (shell-themes.css `.shell[data-dir="aurora"]`). Aurora is a
+   playful neon-glass system with a light and a dark variant;
+   the values below translate that direction into stable,
+   flat color/structural roles that the shared shadcn/ui
+   components consume.
+
+   Theme mapping:
+     :root  → Aurora LIGHT variant
+     .dark  → Aurora DARK variant (Aurora's signature surface)
+
+   Token layers:
+     1. BRANDABLE COLOR ROLES  — a tenant may override these to
+        re-skin the product. They carry colour only.
+     2. STRUCTURAL TOKENS      — radius, typography, spacing,
+        elevation, layout dimensions, focus. NEVER tenant
+        overridable: changing them would alter layout/behavior.
+
+   Glass/gradient field treatments from Aurora are intentionally
+   NOT encoded here — flat surface colours are used so shared
+   components render predictably. The decorative aurora field is
+   a shell-component concern (Milestone 3).
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   :root — Aurora LIGHT + structural tokens
+   ------------------------------------------------------------ */
 :root {
-  --radius: 0.625rem;
-  --header-height: 4rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  color-scheme: light;
+
+  /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
+  /* base surfaces */
+  --background: #eceefc; /* aurora --bg (light) */
+  --foreground: #191b38; /* aurora --ink */
+  --card: #ffffff; /* aurora --surface (flattened) */
+  --card-foreground: #191b38;
+  --popover: #ffffff;
+  --popover-foreground: #191b38;
+
+  /* primary action (aurora --accent / --accent-ink) */
+  --primary: #4f6df5;
+  --primary-foreground: #ffffff;
+
+  /* muted / secondary surfaces */
+  --secondary: #e6e8fa;
+  --secondary-foreground: #2a2d55;
+  --muted: #e6e8fa;
+  --muted-foreground: #565b8c; /* between aurora --ink-2 and --ink-3 */
+
+  /* subtle hover / active surface (aurora --accent-tint flattened) */
+  --accent: #e4e8fc;
+  --accent-foreground: #2a2d55;
+
+  /* danger (aurora --neg) */
+  --destructive: #f0506e;
+  --destructive-foreground: #ffffff;
+
+  /* lines / fields / focus (aurora --line / --accent) */
+  --border: #d7d9ee;
+  --input: #d7d9ee;
+  --ring: #4f6df5;
+
+  /* status / semantic roles (aurora --pos / --warn / --neg / --accent-2) */
+  --success: #12b886;
+  --success-foreground: #ffffff;
+  --warning: #d98a25;
+  --warning-foreground: #ffffff;
+  --info: #ff5fa8; /* aurora --accent-2 (light) */
+  --info-foreground: #ffffff;
+
+  /* chart palette — aurora neon blend (blue · green · blurple · pink · amber) */
+  --chart-1: #4f6df5;
+  --chart-2: #12b886;
+  --chart-3: #8c5cff;
+  --chart-4: #ff5fa8;
+  --chart-5: #d98a25;
+
+  /* sidebar / navigation surface (aurora --panel / --nav) */
+  --sidebar: #f4f5fd;
+  --sidebar-foreground: #191b38;
+  --sidebar-primary: #4f6df5;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e4e8fc;
+  --sidebar-accent-foreground: #2a2d55;
+  --sidebar-border: #d7d9ee;
+  --sidebar-ring: #4f6df5;
+
+  /* ---- 2. STRUCTURAL TOKENS (theme-independent) ---- */
+
+  /* radius — aurora rounded direction (--radius 18px / --radius-sm 12px) */
+  --radius: 1rem;
+
+  /* typography — font families are registered in @theme inline below
+     (they reference the app's next/font variables: --font-geist-sans /
+     --font-geist-mono), with the aurora families kept as fallback. */
+
+  /* weights */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-display: 800;
+
+  /* line-height / tracking (aurora body line-height 1.45) */
+  --leading-tight: 1.1;
+  --leading-snug: 1.3;
+  --leading-normal: 1.45;
+  --leading-relaxed: 1.6;
+  --tracking-tighter: -0.02em;
+  --tracking-tight: -0.01em;
+  --tracking-normal: 0;
+  --tracking-wide: 0.05em;
+
+  /* layout dimensions (aurora shell measurements) */
+  --header-height: 4rem; /* top bar */
+  --rail-width: 4.5rem; /* labelled primary rail */
+  --nav-width: 15.25rem; /* 244px secondary nav */
+  --inspector-width: 19rem; /* 304px inspector */
+  --content-padding: 1.375rem; /* 22px main padding */
+
+  /* elevation (aurora --shadow-* light) */
+  --shadow-xs: 0 1px 1.5px rgba(40, 40, 90, 0.06);
+  --shadow-sm: 0 1px 2px rgba(40, 40, 90, 0.08);
+  --shadow-md: 0 6px 18px -6px rgba(40, 40, 100, 0.22);
+  --shadow-lg: 0 18px 38px -18px rgba(40, 40, 100, 0.34);
+  --shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.7) inset,
+    0 18px 38px -24px rgba(40, 40, 100, 0.4);
+  --shadow-accent: 0 6px 22px -6px
+    color-mix(in oklab, var(--primary) 55%, transparent);
+
+  /* focus / interaction */
+  --ring-width: 3px;
 }
 
+/* ------------------------------------------------------------
+   .dark — Aurora DARK color roles (colour only; structure
+   inherits from :root). Dark elevation overrides included.
+   ------------------------------------------------------------ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
-  --mode-toggle-background: oklch(0.205 0 0);
-  --mode-toggle-foreground: oklch(0.985 0 0);
+  color-scheme: dark;
+
+  --background: #07060f; /* aurora --bg (dark) */
+  --foreground: #eef0ff; /* aurora --ink */
+  --card: #14122a; /* aurora glass card (flattened) */
+  --card-foreground: #eef0ff;
+  --popover: #14122a;
+  --popover-foreground: #eef0ff;
+
+  --primary: #5b8cff; /* aurora --accent (dark) */
+  --primary-foreground: #06081f; /* aurora --accent-ink */
+
+  --secondary: #1e1c3a;
+  --secondary-foreground: #eef0ff;
+  --muted: #1a1832;
+  --muted-foreground: #8b8fc4; /* between aurora --ink-2 and --ink-3 */
+
+  --accent: #232145;
+  --accent-foreground: #eef0ff;
+
+  --destructive: #ff6b81; /* aurora --neg (dark) */
+  --destructive-foreground: #2a0710;
+
+  --border: #211f3a;
+  --input: #2b2950;
+  --ring: #5b8cff;
+
+  --success: #2ee6a6;
+  --success-foreground: #06281f;
+  --warning: #ffce5c;
+  --warning-foreground: #2a1f00;
+  --info: #ff6fae; /* aurora --accent-2 (dark) */
+  --info-foreground: #2a0716;
+
+  --chart-1: #5b8cff;
+  --chart-2: #2ee6a6;
+  --chart-3: #8c5cff;
+  --chart-4: #ff6fae;
+  --chart-5: #ffce5c;
+
+  --sidebar: #0c0a1d;
+  --sidebar-foreground: #eef0ff;
+  --sidebar-primary: #5b8cff;
+  --sidebar-primary-foreground: #06081f;
+  --sidebar-accent: #232145;
+  --sidebar-accent-foreground: #eef0ff;
+  --sidebar-border: #211f3a;
+  --sidebar-ring: #5b8cff;
+
+  /* elevation (aurora --shadow-* dark) */
+  --shadow-md: 0 10px 26px -12px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 18px 48px -24px rgba(0, 0, 0, 0.85);
+  --shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 40px -24px rgba(0, 0, 0, 0.85);
+  --shadow-accent: 0 6px 22px -6px
+    color-mix(in oklab, var(--primary) 60%, transparent);
 }
 
+/* ------------------------------------------------------------
+   Tailwind theme registration — exposes the runtime tokens as
+   utilities (bg-*, text-*, border-*, shadow-*, font-*, etc.).
+   `inline` keeps utilities tracking the active theme's vars.
+   ------------------------------------------------------------ */
 @theme inline {
-  --header-height: var(--header-height);
+  /* colour roles */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -102,6 +232,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -110,10 +246,6 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -122,6 +254,36 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* radius scale (derived from --radius) */
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+
+  /* typography — point Tailwind's font utilities at the app's next/font
+     variables, with the aurora design families as fallback */
+  --font-sans:
+    var(--font-geist-sans), 'Plus Jakarta Sans', system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --font-mono:
+    var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
+  --font-display:
+    var(--font-geist-sans), 'Plus Jakarta Sans', system-ui, sans-serif;
+
+  /* elevation */
+  --shadow-xs: var(--shadow-xs);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
+  --shadow-card: var(--shadow-card);
+  --shadow-accent: var(--shadow-accent);
+
+  /* layout dimensions */
+  --header-height: var(--header-height);
+  --spacing-rail: var(--rail-width);
+  --spacing-nav: var(--nav-width);
+  --spacing-inspector: var(--inspector-width);
 }
 
 @layer base {
@@ -129,30 +291,34 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 }
 
-:root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
-}
+/* ============================================================
+   TENANT BRANDING CONTRACT
+   ------------------------------------------------------------
+   A tenant may re-skin the product by overriding BRANDABLE
+   COLOR ROLES ONLY, scoped to a tenant attribute. Tenants must
+   NOT override structural tokens (--radius, --font-*,
+   layout dimensions, --shadow-*, spacing) — those define
+   layout and behaviour and are shared across all tenants.
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --foreground-rgb: 255, 255, 255;
-    --background-start-rgb: 0, 0, 0;
-    --background-end-rgb: 0, 0, 0;
-  }
-}
+   Override both themes for parity. Example:
 
-body {
-  color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
+   [data-tenant="greenfield"] {
+     --primary: #0f766e;
+     --primary-foreground: #ffffff;
+     --ring: #0f766e;
+     --sidebar-primary: #0f766e;
+   }
+   .dark[data-tenant="greenfield"],
+   .dark [data-tenant="greenfield"] {
+     --primary: #2cc9b4;
+     --primary-foreground: #052420;
+     --ring: #2cc9b4;
+     --sidebar-primary: #2cc9b4;
+   }
+   ============================================================ */

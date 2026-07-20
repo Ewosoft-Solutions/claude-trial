@@ -66,16 +66,17 @@ model GradingSystem {
   @@index([systemType])
   @@index([isDefault])
   @@index([isActive])
-  @@schema("academic-structure")
   @@map("grading_systems")
+  @@schema("academic-structure")
 }
 
 // Assessment - Assessment/assignment definition (quiz, test, project, homework, etc.)
 model Assessment {
-  id             String @id @default(uuid())
-  classId        String @map("class_id")
-  academicYearId String @map("academic_year_id") // Denormalized for easier queries
-  termId         String @map("term_id") // Denormalized for easier queries
+  id             String  @id @default(uuid())
+  classId        String  @map("class_id")
+  academicYearId String  @map("academic_year_id") // Denormalized for easier queries
+  termId         String  @map("term_id") // Denormalized for easier queries
+  tenantId       String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Assessment Information
   name        String // e.g., "Midterm Exam", "Final Project", "Chapter 5 Quiz"
@@ -92,6 +93,10 @@ model Assessment {
   dueDate      DateTime? @map("due_date")
   gradedDate   DateTime? @map("graded_date")
 
+  // Online-taking rules (question-backed assessments)
+  durationMinutes Int? @map("duration_minutes") // Time allowed once started; null = untimed
+  maxAttempts     Int  @default(1) @map("max_attempts") // Attempts per student (assignments default to one)
+
   // Status
   status String @default("draft") // 'draft' | 'published' | 'in_progress' | 'graded' | 'archived'
 
@@ -106,11 +111,13 @@ model Assessment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  class         Class          @relation(fields: [classId], references: [id], onDelete: Cascade)
-  academicYear  AcademicYear   @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
-  term          Term           @relation(fields: [termId], references: [id], onDelete: Cascade)
-  gradingSystem GradingSystem? @relation(fields: [gradingSystemId], references: [id], onDelete: SetNull)
-  grades        Grade[]
+  class               Class                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  academicYear        AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
+  term                Term                   @relation(fields: [termId], references: [id], onDelete: Cascade)
+  gradingSystem       GradingSystem?         @relation(fields: [gradingSystemId], references: [id], onDelete: SetNull)
+  grades              Grade[]
+  assessmentQuestions AssessmentQuestion[] // Question paper (ordered, weighted)
+  submissions         AssessmentSubmission[] // Student attempts
 
   @@index([classId])
   @@index([academicYearId])
@@ -118,15 +125,18 @@ model Assessment {
   @@index([status])
   @@index([dueDate])
   @@index([type])
-  @@schema("academic-structure")
+  @@index([tenantId])
+  @@index([tenantId, classId])
   @@map("assessments")
+  @@schema("academic-structure")
 }
 
 // Grade - Individual student grade for an assessment
 model Grade {
-  id           String @id @default(uuid())
-  enrollmentId String @map("enrollment_id")
-  assessmentId String @map("assessment_id")
+  id           String  @id @default(uuid())
+  enrollmentId String  @map("enrollment_id")
+  assessmentId String  @map("assessment_id")
+  tenantId     String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
   // Grade Values
   pointsEarned Decimal? @map("points_earned") // Points earned (e.g., 85.5)
@@ -165,6 +175,122 @@ model Grade {
   @@index([status])
   @@index([submittedAt])
   @@index([gradedAt])
-  @@schema("academic-structure")
+  @@index([tenantId])
+  @@index([tenantId, assessmentId])
   @@map("grades")
+  @@schema("academic-structure")
+}
+
+// Question - Course-scoped question bank entry (reusable across assessments)
+// Pattern adopted from learn-lift/gau question module (see
+// docs/academics-reuse-assessment.md §2.3), upgraded to tenant + course
+// scoping and per-assessment weighting via AssessmentQuestion.
+model Question {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  courseId String @map("course_id") // Bank is scoped to a course (outlives any one class)
+
+  style       String  @default("mcq") // 'mcq' | 'true_false' | 'short_answer' | 'essay'
+  instruction String? // e.g., "Choose the correct option"
+  text        String // The question stem
+  imageKey    String? @map("image_key") // Optional illustration (StorageProvider key)
+
+  // MCQ/true_false options: [{ "label": "A", "text": "...", "imageKey": null }, ...]
+  options Json?
+
+  // Correct answer: option label for mcq/true_false, model answer text for
+  // short_answer; null for essay (always teacher-graded).
+  correctAnswer String? @map("correct_answer")
+  solution      String? // Worked solution shown after grading
+
+  difficulty String? // 'easy' | 'medium' | 'hard'
+  isActive   Boolean @default(true) @map("is_active")
+
+  // Audit Fields
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  course              Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  assessmentQuestions AssessmentQuestion[]
+
+  @@index([tenantId])
+  @@index([tenantId, courseId])
+  @@index([tenantId, style])
+  @@index([tenantId, isActive])
+  @@map("questions")
+  @@schema("academic-structure")
+}
+
+// AssessmentQuestion - Ordered, weighted attachment of a bank question to an
+// assessment (the "question paper")
+model AssessmentQuestion {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  assessmentId String @map("assessment_id")
+  questionId   String @map("question_id")
+
+  order  Int     @default(0) // Position on the paper
+  points Decimal @default(1) // Points this question is worth in this assessment
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  question   Question   @relation(fields: [questionId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, questionId]) // A question appears once per paper
+  @@index([assessmentId])
+  @@index([questionId])
+  @@index([tenantId])
+  @@index([tenantId, assessmentId])
+  @@map("assessment_questions")
+  @@schema("academic-structure")
+}
+
+// AssessmentSubmission - One student attempt at a question-backed assessment
+// (learn-lift "answer sheet", upgraded: per-question points, attempt limits,
+// deadline/duration enforcement, manual-grading handoff into Grade)
+model AssessmentSubmission {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  assessmentId String @map("assessment_id")
+  enrollmentId String @map("enrollment_id") // Student-in-class (same key Grade uses)
+
+  attempt Int @default(1) // 1-based attempt number
+
+  // Answers as submitted: [{ "questionId": "...", "answer": "B" }, ...]
+  answers Json
+
+  // Marking — objective styles are auto-marked server-side; essays/short
+  // answers leave needsManualGrading=true and status='submitted'.
+  pointsEarned       Decimal? @map("points_earned")
+  maxPoints          Decimal? @map("max_points") // Paper total at submission time
+  percentage         Decimal?
+  needsManualGrading Boolean  @default(false) @map("needs_manual_grading")
+
+  status String @default("submitted") // 'in_progress' | 'submitted' | 'graded'
+
+  startedAt   DateTime  @default(now()) @map("started_at")
+  submittedAt DateTime? @map("submitted_at")
+  gradedAt    DateTime? @map("graded_at")
+  gradedBy    String?   @map("graded_by") // UserTenant id (manual grading)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([assessmentId, enrollmentId, attempt]) // Attempts are numbered per student
+  @@index([assessmentId])
+  @@index([enrollmentId])
+  @@index([tenantId])
+  @@index([tenantId, assessmentId])
+  @@index([tenantId, status])
+  @@map("assessment_submissions")
+  @@schema("academic-structure")
 }

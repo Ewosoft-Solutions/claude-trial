@@ -11,6 +11,28 @@ export class TenantService {
   constructor(private readonly dbService: DatabaseService) {}
 
   /**
+   * Public branding lookup by subdomain slug — safe to call unauthenticated
+   * (e.g. from the login page on `{slug}.domain`). Returns only non-sensitive
+   * identity/branding fields, and only for an active tenant.
+   */
+  async getPublicBySlug(slug: string) {
+    const tenant = await this.dbService.client.tenant.findUnique({
+      where: { slug },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        schoolType: true,
+        status: true,
+      },
+    });
+    if (!tenant || tenant.status === 'suspended' || tenant.status === 'deleted') {
+      throw new NotFoundException('School not found');
+    }
+    return tenant;
+  }
+
+  /**
    * Get tenant by ID
    *
    * @param tenantId - Tenant ID

@@ -9,6 +9,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Put,
   Delete,
   Body,
@@ -24,9 +25,18 @@ import {
   SecurityPolicyService,
 } from '../services/security-policy.service';
 import {
+  EffectiveSessionPolicy,
+  SessionPolicyService,
+} from '../services/session-policy.service';
+import {
   AssignPolicyDto,
   ChangePolicyTierDto,
   SetEmergencyPolicyDto,
+  UpdateSessionPolicyDto,
+  UpdateBiometricEnrollmentPolicyDto,
+  UpdateSensitiveOperationPolicyDto,
+  CreateSensitiveOperationChangeRequestDto,
+  ReviewSensitiveOperationChangeRequestDto,
   // UpdatePolicyDto,
 } from '../dto/security-policy.dto';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
@@ -35,10 +45,18 @@ import {
   ClearanceLevelGuard,
   RequireClearanceLevel,
 } from '../guards/clearance-level.guard';
-import { PermissionGuard, RequirePermissions } from '../guards/permission.guard';
+import {
+  PermissionGuard,
+  RequirePermissions,
+} from '../guards/permission.guard';
 import { type AuthenticatedRequest } from '../middleware/multi-layer-security.middleware';
-import { EnforcedBy } from '@workspace/api';
+import { EnforcedBy, PermissionMode } from '@workspace/api';
 import { AUDIT_ACTION, DatabaseService } from '../../common';
+import { AUDIT_EVENT } from '../../common';
+import { SensitiveOperationPolicyService } from '../services/sensitive-operation-policy.service';
+import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../step-up.operations';
+import { Prisma } from '@workspace/database';
 
 @ApiTags(SwaggerTags.securityPolicies.name)
 @Controller('security-policies')
@@ -47,8 +65,160 @@ import { AUDIT_ACTION, DatabaseService } from '../../common';
 export class SecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
+    private readonly sessionPolicyService: SessionPolicyService,
+    private readonly sensitiveOperationPolicies: SensitiveOperationPolicyService,
     private readonly dbService: DatabaseService,
   ) {}
+
+  @Get('biometrics')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions(
+    ['settings.view', 'settings.security'],
+    PermissionMode.ANY,
+  )
+  @ApiOperation({ summary: 'Get this tenant biometric enrolment policy' })
+  getBiometricEnrollmentPolicy(@Request() req: AuthenticatedRequest) {
+    return this.sensitiveOperationPolicies.getBiometricEnrollmentPolicy(
+      this.dbService.client,
+      req.user.tenantId,
+    );
+  }
+
+  @Patch('biometrics')
+  @UseGuards(PermissionGuard, StepUpGuard)
+  @RequirePermissions(['settings.security'])
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
+  @ApiOperation({ summary: 'Update this tenant biometric enrolment policy' })
+  async updateBiometricEnrollmentPolicy(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: UpdateBiometricEnrollmentPolicyDto,
+  ) {
+    const before =
+      await this.sensitiveOperationPolicies.getBiometricEnrollmentPolicy(
+        this.dbService.client,
+        req.user.tenantId,
+      );
+    const after =
+      await this.sensitiveOperationPolicies.updateBiometricEnrollmentPolicy(
+        this.dbService.client,
+        req.user.tenantId,
+        dto.policy,
+        req.user.userId,
+      );
+    await this.recordGovernanceAudit(
+      req,
+      AUDIT_ACTION.SECURITY.POLICY.UPDATE_BIOMETRIC_ENROLLMENT_POLICY,
+      'biometric_enrollment_policy',
+      req.user.tenantId,
+      { before, after },
+    );
+    return after;
+  }
+
+  @Get('step-up-policies')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions(
+    ['settings.view', 'settings.security'],
+    PermissionMode.ANY,
+  )
+  @ApiOperation({ summary: 'Get the platform-owned sensitive-action summary' })
+  getSensitiveOperationSummary() {
+    return this.sensitiveOperationPolicies.listPolicies(this.dbService.client);
+  }
+
+  @Get('step-up-change-requests')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions(
+    ['settings.view', 'settings.security'],
+    PermissionMode.ANY,
+  )
+  @ApiOperation({ summary: 'List this tenant policy change requests' })
+  getSensitiveOperationChangeRequests(@Request() req: AuthenticatedRequest) {
+    return this.sensitiveOperationPolicies.listTenantChangeRequests(
+      this.dbService.client,
+      req.user.tenantId,
+    );
+  }
+
+  @Post('step-up-change-requests')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions(['settings.security'])
+  @ApiOperation({
+    summary: 'Request a platform sensitive-action policy change',
+  })
+  async createSensitiveOperationChangeRequest(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: CreateSensitiveOperationChangeRequestDto,
+  ) {
+    const request = await this.sensitiveOperationPolicies.createChangeRequest(
+      this.dbService.client,
+      req.user.tenantId,
+      req.user.userId,
+      dto,
+    );
+    await this.recordGovernanceAudit(
+      req,
+      AUDIT_ACTION.SECURITY.POLICY.REQUEST_SENSITIVE_OPERATION_CHANGE,
+      'sensitive_operation_change_request',
+      request.id,
+      { operation: request.operation },
+    );
+    return request;
+  }
+
+  @Get('session')
+  @UseGuards(PermissionGuard)
+  @RequirePermissions(
+    ['settings.view', 'settings.security'],
+    PermissionMode.ANY,
+  )
+  @ApiOperation({
+    summary: 'Get the effective inactivity policy for this tenant',
+  })
+  getSessionPolicy(
+    @Request() req: AuthenticatedRequest,
+  ): Promise<EffectiveSessionPolicy> {
+    return this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      req.user.tenantId,
+    );
+  }
+
+  @Patch('session')
+  @UseGuards(PermissionGuard, StepUpGuard)
+  @RequirePermissions(['settings.security'])
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
+  @ApiOperation({ summary: 'Update this tenant inactivity policy' })
+  async updateSessionPolicy(
+    @Request() req: AuthenticatedRequest,
+    @Body() dto: UpdateSessionPolicyDto,
+  ): Promise<EffectiveSessionPolicy> {
+    const before = await this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      req.user.tenantId,
+    );
+    const after = await this.sessionPolicyService.updateIdleTimeout(
+      this.dbService.client,
+      req.user.tenantId,
+      dto.idleTimeoutMinutes,
+      req.user.userId,
+      EnforcedBy.SCHOOL_ADMIN,
+    );
+    await this.securityPolicyService.logPolicyChange(
+      this.dbService.client,
+      req.user.tenantId,
+      AUDIT_ACTION.SECURITY.POLICY.UPDATE_SESSION_POLICY,
+      req.user.userId,
+      req.user.profileId,
+      req.userContext?.roleId ?? null,
+      null,
+      { before, after },
+      req.ip,
+      req.headers['user-agent'],
+      'Tenant inactivity policy updated',
+    );
+    return after;
+  }
 
   /**
    * Get school security policy (4a.6)
@@ -80,7 +250,8 @@ export class SecurityPolicyController {
    * School admins can assign or update their school's security policy
    */
   @Post()
-  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @UseGuards(ClearanceLevelGuard, PermissionGuard, StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
   @RequireClearanceLevel(2) // SuperAdmin or higher
   @RequirePermissions(['security_policy:manage'])
   @ApiOperation({ summary: 'Assign or update security policy tier' })
@@ -145,7 +316,8 @@ export class SecurityPolicyController {
    * School admins can upgrade or downgrade their school's security policy tier
    */
   @Put('tier')
-  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @UseGuards(ClearanceLevelGuard, PermissionGuard, StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
   @RequireClearanceLevel(2) // SuperAdmin or higher
   @RequirePermissions(['security_policy:manage'])
   @ApiOperation({ summary: 'Change security policy tier' })
@@ -205,6 +377,33 @@ export class SecurityPolicyController {
 
     return policy;
   }
+
+  private async recordGovernanceAudit(
+    req: AuthenticatedRequest,
+    action: string,
+    resource: string,
+    resourceId: string,
+    metadata: Record<string, unknown>,
+  ): Promise<void> {
+    await this.dbService.client.auditLog.create({
+      data: {
+        tenantId: req.user.tenantId,
+        eventType: AUDIT_EVENT.SECURITY_EVENT,
+        action,
+        resource,
+        resourceId,
+        actorId: req.user.userId,
+        actorProfileId: req.user.profileId,
+        actorRole: req.userContext?.roleId ?? null,
+        actorEmail: req.user.email ?? null,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        description: 'Security governance policy changed',
+        metadata: JSON.parse(JSON.stringify(metadata)) as Prisma.InputJsonValue,
+        status: 'success',
+      },
+    });
+  }
 }
 
 /**
@@ -220,8 +419,143 @@ export class SecurityPolicyController {
 export class PlatformSecurityPolicyController {
   constructor(
     private readonly securityPolicyService: SecurityPolicyService,
+    private readonly sessionPolicyService: SessionPolicyService,
+    private readonly sensitiveOperationPolicies: SensitiveOperationPolicyService,
     private readonly dbService: DatabaseService,
   ) {}
+
+  @Get('step-up-policies')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @RequireClearanceLevel(9)
+  @RequirePermissions(['platform.security'])
+  @ApiOperation({ summary: 'List platform sensitive-operation policies' })
+  listSensitiveOperationPolicies() {
+    return this.sensitiveOperationPolicies.listPolicies(this.dbService.client);
+  }
+
+  @Patch('step-up-policies/:operation')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard, StepUpGuard)
+  @RequireClearanceLevel(9)
+  @RequirePermissions(['platform.security'])
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
+  @ApiOperation({ summary: 'Update a sensitive-operation policy' })
+  async updateSensitiveOperationPolicy(
+    @Request() req: AuthenticatedRequest,
+    @Param('operation') operation: string,
+    @Body() dto: UpdateSensitiveOperationPolicyDto,
+  ) {
+    const before = await this.sensitiveOperationPolicies.getPolicy(
+      this.dbService.client,
+      operation,
+    );
+    const after = await this.sensitiveOperationPolicies.updatePolicy(
+      this.dbService.client,
+      operation,
+      dto,
+      req.user.userId,
+    );
+    await this.recordPlatformGovernanceAudit(
+      req,
+      AUDIT_ACTION.SECURITY.POLICY.UPDATE_SENSITIVE_OPERATION_POLICY,
+      'sensitive_operation_policy',
+      operation,
+      { before, after },
+    );
+    return after;
+  }
+
+  @Get('step-up-change-requests')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @RequireClearanceLevel(9)
+  @RequirePermissions(['platform.security'])
+  @ApiOperation({ summary: 'List tenant sensitive-operation change requests' })
+  listSensitiveOperationChangeRequests() {
+    return this.sensitiveOperationPolicies.listPlatformChangeRequests(
+      this.dbService.client,
+    );
+  }
+
+  @Patch('step-up-change-requests/:requestId')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard, StepUpGuard)
+  @RequireClearanceLevel(9)
+  @RequirePermissions(['platform.security'])
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
+  @ApiOperation({
+    summary: 'Review a tenant sensitive-operation change request',
+  })
+  async reviewSensitiveOperationChangeRequest(
+    @Request() req: AuthenticatedRequest,
+    @Param('requestId') requestId: string,
+    @Body() dto: ReviewSensitiveOperationChangeRequestDto,
+  ) {
+    const reviewed = await this.sensitiveOperationPolicies.reviewChangeRequest(
+      this.dbService.client,
+      requestId,
+      req.user.userId,
+      dto,
+    );
+    await this.recordPlatformGovernanceAudit(
+      req,
+      AUDIT_ACTION.SECURITY.POLICY.REVIEW_SENSITIVE_OPERATION_CHANGE,
+      'sensitive_operation_change_request',
+      requestId,
+      { operation: reviewed.operation, decision: reviewed.status },
+      reviewed.tenantId,
+    );
+    return reviewed;
+  }
+
+  @Get(':schoolId/session')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @RequireClearanceLevel(10)
+  @RequirePermissions(['platform.security'])
+  @ApiOperation({ summary: 'Get a tenant inactivity policy' })
+  getTenantSessionPolicy(
+    @Param('schoolId') schoolId: string,
+  ): Promise<EffectiveSessionPolicy> {
+    return this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      schoolId,
+    );
+  }
+
+  @Patch(':schoolId/session')
+  @UseGuards(ClearanceLevelGuard, PermissionGuard, StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
+  @RequireClearanceLevel(10)
+  @RequirePermissions(['platform.security'])
+  @ApiOperation({ summary: 'Update a tenant inactivity policy' })
+  async updateTenantSessionPolicy(
+    @Request() req: AuthenticatedRequest,
+    @Param('schoolId') schoolId: string,
+    @Body() dto: UpdateSessionPolicyDto,
+  ): Promise<EffectiveSessionPolicy> {
+    const before = await this.sessionPolicyService.getEffectivePolicy(
+      this.dbService.client,
+      schoolId,
+    );
+    const after = await this.sessionPolicyService.updateIdleTimeout(
+      this.dbService.client,
+      schoolId,
+      dto.idleTimeoutMinutes,
+      req.user.userId,
+      EnforcedBy.PLATFORM_ADMIN,
+    );
+    await this.securityPolicyService.logPolicyChange(
+      this.dbService.client,
+      schoolId,
+      AUDIT_ACTION.SECURITY.POLICY.UPDATE_SESSION_POLICY,
+      req.user.userId,
+      req.user.profileId,
+      req.userContext?.roleId ?? null,
+      null,
+      { before, after },
+      req.ip,
+      req.headers['user-agent'],
+      'Platform inactivity policy update',
+    );
+    return after;
+  }
 
   /**
    * Set emergency policy (4a.7)
@@ -229,7 +563,8 @@ export class PlatformSecurityPolicyController {
    * Platform admins can set emergency policies for any school
    */
   @Post(':schoolId/emergency')
-  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @UseGuards(ClearanceLevelGuard, PermissionGuard, StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
   @RequireClearanceLevel(9) // SuperAdmin or Architect only
   @RequirePermissions(['security_policy:emergency_override'])
   @ApiOperation({ summary: 'Set emergency policy for a school' })
@@ -296,7 +631,8 @@ export class PlatformSecurityPolicyController {
    * Platform admins can remove emergency policies and revert to previous tier
    */
   @Delete(':schoolId/emergency')
-  @UseGuards(ClearanceLevelGuard, PermissionGuard)
+  @UseGuards(ClearanceLevelGuard, PermissionGuard, StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.SECURITY_POLICY_UPDATE)
   @RequireClearanceLevel(9) // SuperAdmin or Architect only
   @RequirePermissions(['security_policy:emergency_override'])
   @ApiOperation({ summary: 'Remove emergency policy for a school' })
@@ -378,5 +714,33 @@ export class PlatformSecurityPolicyController {
     );
 
     return policy;
+  }
+
+  private async recordPlatformGovernanceAudit(
+    req: AuthenticatedRequest,
+    action: string,
+    resource: string,
+    resourceId: string,
+    metadata: Record<string, unknown>,
+    tenantId?: string,
+  ): Promise<void> {
+    await this.dbService.client.auditLog.create({
+      data: {
+        tenantId: tenantId ?? req.user.tenantId ?? null,
+        eventType: AUDIT_EVENT.SECURITY_EVENT,
+        action,
+        resource,
+        resourceId,
+        actorId: req.user.userId,
+        actorProfileId: req.user.profileId,
+        actorRole: req.userContext?.roleId ?? null,
+        actorEmail: req.user.email ?? null,
+        ipAddress: req.ip,
+        userAgent: req.headers['user-agent'],
+        description: 'Platform security governance policy changed',
+        metadata: JSON.parse(JSON.stringify(metadata)) as Prisma.InputJsonValue,
+        status: 'success',
+      },
+    });
   }
 }

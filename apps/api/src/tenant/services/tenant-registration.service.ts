@@ -46,8 +46,19 @@ export class TenantRegistrationService {
     createdBy: string,
     requesterRole: string,
   ) {
+    // `requesterRole` arrives from the request context as the role's UUID
+    // (userContext.roleId), but canRegisterTenant/isPlatformAdminRole compare
+    // against role *names* (e.g. 'Architect'). Resolve the id to a name so the
+    // authorization check works. Falls back to the raw value when a name is
+    // passed directly (or the id is unknown), preserving prior behaviour.
+    const resolvedRole = await this.dbService.client.role.findUnique({
+      where: { id: requesterRole },
+      select: { name: true },
+    });
+    const requesterRoleName = resolvedRole?.name ?? requesterRole;
+
     // Validate requester has permission (platform admin or school owner)
-    if (!canRegisterTenant(requesterRole)) {
+    if (!canRegisterTenant(requesterRoleName)) {
       throw new BadRequestException(
         'Only platform admins or school owners can register schools',
       );
@@ -88,6 +99,7 @@ export class TenantRegistrationService {
         name: data.name,
         slug,
         emailDomain: data.emailDomain?.toLowerCase(),
+        schoolType: data.schoolType,
         status: TenantStatus.PENDING, // Start as pending, activate after onboarding
         settings: data.settings || {},
         createdBy,
@@ -96,7 +108,7 @@ export class TenantRegistrationService {
 
     // 6.2: Auto-generate JWT secret (platform admin only)
     // Only platform admins can trigger secret generation
-    if (isPlatformAdminRole(requesterRole)) {
+    if (isPlatformAdminRole(requesterRoleName)) {
       await JWTSecretService.initializeTenantJWTSecret(
         this.dbService.client,
         tenant.id,

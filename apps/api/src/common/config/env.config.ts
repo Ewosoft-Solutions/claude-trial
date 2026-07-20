@@ -11,13 +11,64 @@ import Joi from 'joi';
 
 export interface EnvironmentConfig {
   DATABASE_URL: string;
+  /**
+   * Optional runtime connection as the restricted, non-BYPASSRLS `app_runtime`
+   * role. When set, tenant-data services use it so Postgres RLS enforces tenant
+   * isolation at runtime. Falls back to DATABASE_URL (owner) when unset — RLS is
+   * then bypassed (pre-cutover behaviour, no regression). See ADR-004.
+   */
+  APP_RUNTIME_DATABASE_URL?: string;
+  /**
+   * Force the boot-time RLS enforcement self-test to fail-closed (throw) instead
+   * of warn. When unset it defaults to ON in production and OFF elsewhere, so
+   * prod cannot silently boot without runtime tenant isolation. Set explicitly
+   * to override (e.g. `true` to enforce in staging, `false` to opt a prod-like
+   * box out deliberately). See RlsEnforcementService + ADR-004.
+   */
+  DB_RLS_ENFORCED?: boolean;
   NODE_ENV: 'development' | 'test' | 'production' | string;
   PORT: number;
+  /**
+   * Opt-in debug error payloads (details/stack/internal messages) on HTTP
+   * error responses. Unset principle: defaults to false and must be set to
+   * `true` explicitly — NODE_ENV=development alone never exposes internals.
+   * Read raw off process.env by HttpExceptionFilter.
+   */
+  API_DEBUG_ERRORS: boolean;
+  /**
+   * Root directory for the local-disk StorageProvider (lesson material
+   * binaries). Relative paths resolve against the API process cwd.
+   */
+  STORAGE_LOCAL_ROOT: string;
   JWT_SECRET?: string;
+  AUTH_IDLE_TIMEOUT_MIN_MINUTES: number;
+  AUTH_IDLE_TIMEOUT_MAX_MINUTES: number;
+  AUTH_IDLE_TIMEOUT_DEFAULT_MINUTES: number;
+  AUTH_IDLE_STANDARD_GRACE_SECONDS: number;
+  AUTH_IDLE_FOCUS_GRACE_SECONDS: number;
   ENCRYPTION_KEY?: string;
   WEBAUTHN_RP_NAME: string;
   WEBAUTHN_RP_ID: string;
   WEBAUTHN_ORIGIN: string;
+  /**
+   * Comma-separated allow-list of origins a passkey assertion may come from
+   * (e.g. tenant subdomains). Optional — falls back to `[WEBAUTHN_ORIGIN]`.
+   */
+  WEBAUTHN_ALLOWED_ORIGINS?: string;
+  /**
+   * Public origin of the web app, used to build user-facing links in outbound
+   * email (e.g. the invitation accept link `${APP_WEB_URL}/accept-invite?...`).
+   * No trailing slash.
+   */
+  APP_WEB_URL: string;
+  /**
+   * Comma-separated allow-list of browser origins permitted by CORS. In the
+   * deployed model the web app (Vercel) reaches the API only server-side via
+   * its proxy (`lib/api-proxy.ts`), so the browser never calls the API cross
+   * -origin and this stays locked down. Optional — falls back to `[APP_WEB_URL]`.
+   * `*` is honoured only in non-production for local tooling.
+   */
+  CORS_ALLOWED_ORIGINS?: string;
   DB_POOL_MIN: number;
   DB_POOL_MAX: number;
   DB_CONNECTION_TIMEOUT: number;
@@ -66,15 +117,55 @@ export const envValidationSchema = Joi.object({
   DATABASE_URL: Joi.string()
     .uri({ scheme: ['postgres', 'postgresql'] })
     .required(),
+  APP_RUNTIME_DATABASE_URL: Joi.string()
+    .uri({ scheme: ['postgres', 'postgresql'] })
+    .optional(),
+  DB_RLS_ENFORCED: Joi.boolean().truthy('true').falsy('false').optional(),
   NODE_ENV: Joi.string()
     .valid('development', 'test', 'production')
     .default('development'),
   PORT: Joi.number().integer().min(1).max(65535).default(3000),
+  API_DEBUG_ERRORS: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
+  STORAGE_LOCAL_ROOT: Joi.string().default('./storage'),
   JWT_SECRET: Joi.string().optional(),
+  AUTH_IDLE_TIMEOUT_MIN_MINUTES: Joi.number()
+    .integer()
+    .min(5)
+    .max(120)
+    .default(5),
+  AUTH_IDLE_TIMEOUT_MAX_MINUTES: Joi.number()
+    .integer()
+    .min(5)
+    .max(120)
+    .default(60),
+  AUTH_IDLE_TIMEOUT_DEFAULT_MINUTES: Joi.number()
+    .integer()
+    .min(5)
+    .max(120)
+    .default(15),
+  AUTH_IDLE_STANDARD_GRACE_SECONDS: Joi.number()
+    .integer()
+    .min(30)
+    .max(600)
+    .default(120),
+  AUTH_IDLE_FOCUS_GRACE_SECONDS: Joi.number()
+    .integer()
+    .min(30)
+    .max(900)
+    .default(300),
   ENCRYPTION_KEY: Joi.string().optional(),
   WEBAUTHN_RP_NAME: Joi.string().default('School With Ease'),
   WEBAUTHN_RP_ID: Joi.string().default('localhost'),
   WEBAUTHN_ORIGIN: Joi.string().default('http://localhost:3001'),
+  WEBAUTHN_ALLOWED_ORIGINS: Joi.string().optional(),
+  APP_WEB_URL: Joi.string()
+    .uri()
+    .default('http://localhost:3001')
+    .custom((value: string) => value.replace(/\/+$/, '')),
+  CORS_ALLOWED_ORIGINS: Joi.string().optional(),
   DB_POOL_MIN: Joi.number().integer().min(1).max(100).default(2),
   DB_POOL_MAX: Joi.number().integer().min(1).max(100).default(10),
   DB_CONNECTION_TIMEOUT: Joi.number().integer().min(1000).default(5000),

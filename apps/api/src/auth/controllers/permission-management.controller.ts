@@ -8,6 +8,7 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Body,
   Param,
   Query,
@@ -30,14 +31,25 @@ import {
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { DatabaseService } from '../../common/database/database.service';
+import { PermissionPoolService } from '../services/permission-pool.service';
 import { RoleType } from '@workspace/api';
 import type { AuthenticatedRequest } from '../middleware';
+import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../step-up.operations';
 
 /**
- * Assign Permissions to Role DTO
+ * Assign Permission Pools to Role DTO
+ *
+ * Permission resolution is pools-only (see TenantQueriesService.resolveRolePoolPermissions);
+ * roles never carry direct per-permission grants, so this assigns whole pools.
  */
-export class AssignPermissionsToRoleDto {
-  permissionIds: string[];
+export class AssignPermissionPoolsToRoleDto {
+  poolIds: string[];
+}
+
+/** Gate 4: change a tenant permission pool's clearance level. */
+export class UpdatePoolClearanceDto {
+  clearanceLevel: number;
 }
 
 /**
@@ -50,7 +62,10 @@ export class AssignPermissionsToRoleDto {
 @UseGuards(JwtAuthGuard, TenantContextGuard)
 @ApiBearerAuth('JWT-auth')
 export class PermissionManagementController {
-  constructor(private readonly dbService: DatabaseService) {}
+  constructor(
+    private readonly dbService: DatabaseService,
+    private readonly permissionPoolService: PermissionPoolService,
+  ) {}
 
   /**
    * Get all permissions (12.5)
@@ -136,11 +151,6 @@ export class PermissionManagementController {
     const role = await this.dbService.client.role.findUnique({
       where: { id: roleId },
       include: {
-        rolePermissions: {
-          include: {
-            permission: true,
-          },
-        },
         rolePools: {
           include: {
             pool: {
@@ -161,15 +171,7 @@ export class PermissionManagementController {
       throw new Error('Role not found');
     }
 
-    // Combine permissions from direct assignments and pools
     const permissions = new Map<string, any>();
-
-    // Add direct permissions
-    for (const rp of role.rolePermissions) {
-      permissions.set(rp.permission.id, rp.permission);
-    }
-
-    // Add permissions from pools
     for (const rpool of role.rolePools) {
       for (const pp of rpool.pool.poolPermissions) {
         permissions.set(pp.permission.id, pp.permission);
@@ -180,21 +182,29 @@ export class PermissionManagementController {
   }
 
   /**
-   * Assign permissions to role (12.5)
+   * Assign permission pools to role (12.5)
    *
    * POST /permissions/role/:roleId/assign
+   *
+   * Permission resolution is pools-only — a role's permissions come entirely
+   * from its assigned pools, so this gates every pool's clearanceLevel
+   * against the target role's clearanceLevel before assigning. Without this
+   * gate a clearance-7 caller could hand a low-clearance role permissions
+   * (e.g. users.delete) that exceed what its clearance level should allow.
    */
   @Post('role/:roleId/assign')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.PERMISSIONS_MODIFY)
   @HttpCode(HttpStatus.OK)
   @RequireClearanceLevel(7) // Management or higher
-  @ApiOperation({ summary: 'Assign permissions to role' })
+  @ApiOperation({ summary: 'Assign permission pools to role' })
   @ApiResponse({
     status: 200,
-    description: 'Permissions assigned successfully',
+    description: 'Permission pools assigned successfully',
   })
-  async assignPermissionsToRole(
+  async assignPermissionPoolsToRole(
     @Param('roleId') roleId: string,
-    @Body() data: AssignPermissionsToRoleDto,
+    @Body() data: AssignPermissionPoolsToRoleDto,
     @Request() req: AuthenticatedRequest,
   ) {
     const user = req.user;
@@ -223,37 +233,96 @@ export class PermissionManagementController {
       throw new Error('Role not found');
     }
 
-    // Only allow assigning permissions to custom roles
+    // Only allow assigning permission pools to custom roles
     if (role.roleType !== RoleType.CUSTOM) {
       throw new Error('Cannot assign permissions to system or platform roles');
     }
 
-    // Remove existing permissions
-    await this.dbService.client.rolePermission.deleteMany({
+    // Gate: no pool may exceed the target role's clearance level
+    const pools = await this.dbService.client.permissionPool.findMany({
+      where: { id: { in: data.poolIds } },
+    });
+
+    if (pools.length !== data.poolIds.length) {
+      throw new Error('One or more permission pools not found');
+    }
+
+    const overClearance = pools.filter(
+      (p) => p.clearanceLevel > role.clearanceLevel,
+    );
+    if (overClearance.length > 0) {
+      throw new Error(
+        `Pools exceed role clearance level ${role.clearanceLevel}: ${overClearance.map((p) => p.name).join(', ')}`,
+      );
+    }
+
+    // Replace existing pool assignments
+    await this.dbService.client.rolePermissionPool.deleteMany({
       where: { roleId },
     });
 
-    // Add new permissions
-    if (data.permissionIds.length > 0) {
-      await this.dbService.client.rolePermission.createMany({
-        data: data.permissionIds.map((permissionId) => ({
+    if (data.poolIds.length > 0) {
+      await this.dbService.client.rolePermissionPool.createMany({
+        data: data.poolIds.map((poolId) => ({
           roleId,
-          permissionId,
-          grantedBy: user.userId,
+          poolId,
+          assignedBy: user.userId,
         })),
       });
     }
 
-    // Return updated role with permissions
+    // Return updated role with pool-resolved permissions
     return this.dbService.client.role.findUnique({
       where: { id: roleId },
       include: {
-        rolePermissions: {
+        rolePools: {
           include: {
-            permission: true,
+            pool: {
+              include: {
+                poolPermissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
           },
         },
       },
     });
+  }
+
+  /**
+   * Update a tenant permission pool's clearance level (Gate 4).
+   *
+   * PATCH /permissions/pool/:poolId/clearance
+   *
+   * Re-validates that every role currently referencing the pool still
+   * out-ranks (or equals) the pool's new level (reject-and-list), so raising
+   * a pool's clearance surfaces the conflict instead of silently dropping the
+   * pool's permissions from under-clearance roles.
+   */
+  @Patch('pool/:poolId/clearance')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.PERMISSIONS_MODIFY)
+  @HttpCode(HttpStatus.OK)
+  @RequireClearanceLevel(7) // Management or higher
+  @ApiOperation({
+    summary: "Update a permission pool's clearance level (Gate 4)",
+  })
+  @ApiResponse({ status: 200, description: 'Pool clearance updated' })
+  async updatePoolClearance(
+    @Param('poolId') poolId: string,
+    @Body() data: UpdatePoolClearanceDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const tenantId = req.userContext?.tenantId;
+    if (!tenantId) {
+      throw new Error('Tenant context required');
+    }
+    return this.permissionPoolService.updatePoolClearance(
+      this.dbService.client,
+      { poolId, tenantId, newClearanceLevel: data.clearanceLevel },
+    );
   }
 }

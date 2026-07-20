@@ -1,0 +1,97 @@
+/* ============================================================
+   AURORA — responsive layer (container-query driven)
+   The .device wrapper is the query container; the same shell
+   markup reflows: desktop → tablet → mobile.
+   Load AFTER shell-base.css, shell-themes.css, aurora.css.
+   ============================================================ */
+
+.device { container-type: inline-size; width: 100%; height: 100%; position: relative; overflow: hidden; }
+
+/* ============================================================
+   TABLET  (700–1099px)  — drop the secondary nav, stack content
+   ============================================================ */
+@container (min-width: 700px) and (max-width: 1099px) {
+  .shell[data-dir="aurora"] .nav { display: none; }
+  .shell[data-dir="aurora"] .inspector { width: 290px; }
+  .shell[data-dir="aurora"] .main-body { overflow-y: auto; }
+  .shell[data-dir="aurora"] .filters { overflow-x: auto; scrollbar-width: none; }
+  .shell[data-dir="aurora"] .filters::-webkit-scrollbar { display: none; }
+  .shell[data-dir="aurora"] .kpis { grid-template-columns: repeat(2, 1fr); }
+  .shell[data-dir="aurora"] .split { display: flex; flex-direction: column; }
+  .shell[data-dir="aurora"] .split .panel:first-child { min-height: 250px; }
+  .shell[data-dir="aurora"] .split .panel:last-child { min-height: 320px; }
+  .shell[data-dir="aurora"] .main-head h1 { font-size: 36px; }
+  .shell[data-dir="aurora"] .ai-fab .fab-chip { display: none; }
+}
+
+/* ============================================================
+   MOBILE  (≤699px)  — single column, bottom tab bar, card list
+   ============================================================ */
+@container (max-width: 699px) {
+
+  /* ---- body becomes a single scrolling column ---- */
+  .shell[data-dir="aurora"] .body { flex-direction: column; }
+  .shell[data-dir="aurora"] .nav,
+  .shell[data-dir="aurora"] .inspector,
+  .shell[data-dir="aurora"] .statusbar { display: none; }
+
+  /* ---- top bar: condense to logo + search + avatar ---- */
+  .shell[data-dir="aurora"] .topbar { height: 54px; gap: 10px; padding: 0 12px; }
+  .shell[data-dir="aurora"] .crumbs { display: none; }
+  .shell[data-dir="aurora"] .tenant { font-size: 0; padding: 6px; gap: 0; }
+  .shell[data-dir="aurora"] .tenant .chev { display: none; }
+  .shell[data-dir="aurora"] .omni { flex: 1 1 auto; max-width: none; }
+  .shell[data-dir="aurora"] .top-actions .sep-v,
+  .shell[data-dir="aurora"] .top-actions .iconbtn:nth-of-type(3) { display: none; }
+
+  /* ---- main fills width; clear the bottom bar ---- */
+  .shell[data-dir="aurora"] .main { padding-bottom: 66px; min-height: 0; }
+  .shell[data-dir="aurora"] .main-body { overflow-y: auto; gap: 14px; }
+  .shell[data-dir="aurora"] .main-head { padding: 14px 16px 8px; flex-wrap: wrap; }
+  .shell[data-dir="aurora"] .main-head h1 { font-size: 34px; }
+  .shell[data-dir="aurora"] .main-head .head-actions .seg,
+  .shell[data-dir="aurora"] .main-head .head-actions .btn:not(.primary) { display: none; }
+  .shell[data-dir="aurora"] .filters { overflow-x: auto; padding: 0 16px 10px; scrollbar-width: none; }
+  .shell[data-dir="aurora"] .filters::-webkit-scrollbar { display: none; }
+  .shell[data-dir="aurora"] .main-body { padding: 0 16px 16px; }
+
+  /* ---- KPIs 2-up, chart + list stacked ---- */
+  .shell[data-dir="aurora"] .kpis { grid-template-columns: repeat(2, 1fr); }
+  .shell[data-dir="aurora"] .split { display: flex; flex-direction: column; }
+  .shell[data-dir="aurora"] .split .panel:first-child { min-height: 230px; }
+
+  /* ---- data table → card list ---- */
+  .shell[data-dir="aurora"] .tbl { table-layout: auto; }
+  .shell[data-dir="aurora"] .tbl thead { display: none; }
+  .shell[data-dir="aurora"] .tbl tbody { display: flex; flex-direction: column; gap: 8px; padding-top: 4px; }
+  .shell[data-dir="aurora"] .tbl tr {
+    display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px 10px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px;
+  }
+  .shell[data-dir="aurora"] .tbl tbody tr.on { background: var(--accent-tint); }
+  .shell[data-dir="aurora"] .tbl td { display: block; width: auto !important; border: none !important; padding: 0 !important; }
+  .shell[data-dir="aurora"] .tbl td:nth-child(1) { grid-row: 1; grid-column: 1; }
+  .shell[data-dir="aurora"] .tbl td:nth-child(4) { grid-row: 1; grid-column: 2; text-align: right; }
+  .shell[data-dir="aurora"] .tbl td:nth-child(2) { grid-row: 2; grid-column: 1; }
+  .shell[data-dir="aurora"] .tbl td:nth-child(3) { grid-row: 2; grid-column: 2; justify-self: end; }
+
+  /* ---- icon rail → bottom tab bar ---- */
+  .shell[data-dir="aurora"] .rail {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 30;
+    width: 100%; height: 60px; flex-direction: row; justify-content: space-around; align-items: center;
+    padding: 6px 10px; gap: 4px;
+    border-right: none; border-top: 1px solid var(--line);
+    background: var(--glass-status);
+  }
+  .shell[data-dir="aurora"] .rail .logo-mark,
+  .shell[data-dir="aurora"] .rail .spacer,
+  .shell[data-dir="aurora"] .rail .rdiv,
+  .shell[data-dir="aurora"] .rail .ri:nth-last-child(1),
+  .shell[data-dir="aurora"] .rail .ri:nth-last-child(2) { display: none; }
+  .shell[data-dir="aurora"] .rail .ri.on::before { display: none; }
+
+  /* ---- FAB sits above the bottom bar; bubble only ---- */
+  .shell[data-dir="aurora"] .ai-fab { right: 16px; bottom: 76px; }
+  .shell[data-dir="aurora"] .ai-fab .fab-chip { display: none; }
+  .shell[data-dir="aurora"] .ai-fab .fab-bubble { width: 56px; height: 56px; }
+}

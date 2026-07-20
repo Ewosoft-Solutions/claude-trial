@@ -11,12 +11,14 @@ import {
   ExecutionContext,
   UnauthorizedException,
 } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 // import { JwtService } from '@nestjs/jwt';
 // import { JWTSecretService } from '@workspace/api';
 import { AuthJWTService } from '../services/jwt.service';
 import { RequestUser } from '../types/request-user';
-import { DatabaseService } from '../../common';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { DatabaseService, extractBearerToken } from '../../common';
 
 /**
  * JWT Auth Guard
@@ -29,9 +31,20 @@ export class JwtAuthGuard implements CanActivate {
     // private readonly jwtService: JwtService,
     private readonly authJWTService: AuthJWTService,
     private readonly dbService: DatabaseService,
+    private readonly reflector: Reflector,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Public routes (e.g. invitation acceptance) skip authentication so a
+    // caller without an account/token can reach them.
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
     const request = context
       .switchToHttp()
       .getRequest<Request & { user?: RequestUser }>();
@@ -44,6 +57,15 @@ export class JwtAuthGuard implements CanActivate {
     // Decode token to get tenant ID (without verification)
     const decoded = this.authJWTService.decodeToken(token);
     if (!decoded?.tenantId) {
+      // A pre-auth token (issued by POST /auth/login before school
+      // selection) decodes fine but never carries a tenantId — surface
+      // that distinctly instead of a generic "invalid format", since
+      // it's the #1 cause of this guard rejecting an otherwise-real token.
+      if (decoded?.type === 'pre_auth') {
+        throw new UnauthorizedException(
+          'This is a pre-auth token (no school selected yet). Exchange it via POST /auth/select-school for an access token first.',
+        );
+      }
       throw new UnauthorizedException('Invalid token format');
     }
 
@@ -66,13 +88,13 @@ export class JwtAuthGuard implements CanActivate {
       tenantId: payload.tenantId,
       profileId: payload.profileId,
       roleId: payload.roleId,
+      accessTokenExpiresAt: payload.exp,
     };
 
     return true;
   }
 
-  private extractTokenFromHeader(request: any): string | undefined {
-    const [type, token] = request.headers.authorization?.split(' ') ?? [];
-    return type === 'Bearer' ? token : undefined;
+  private extractTokenFromHeader(request: Request): string | undefined {
+    return extractBearerToken(request.headers.authorization);
   }
 }

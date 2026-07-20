@@ -1,5 +1,11 @@
 # Prisma Schema Organization
 
+> **Setting up a database (local/dev/staging/prod)?** Follow
+> [`docs/database-setup.md`](../../docs/database-setup.md) — the end-to-end
+> checklist (env vars → migrate → seed → RLS check → `app_runtime` provisioning
+> → isolation proof). This file documents the *schema*; that guide documents the
+> *setup*.
+
 The Prisma schema is organized into multiple files by context for better maintainability and clarity.
 
 ## ✅ Schema Status
@@ -86,11 +92,27 @@ pnpm db:push
 # Run migrations
 pnpm db:migrate
 
+# Seed production-safe catalog data only
+pnpm db:seed
+
+# Seed local/remote dev personas and workflows
+pnpm db:seed:dev:full
+
 # Open Prisma Studio
 pnpm db:studio
 ```
 
 All commands will automatically discover all `.prisma` files in the `prisma/` directory.
+
+## Dev Seeds
+
+Production-safe seed data lives in `prisma/scripts/seed.ts`. Dev-only seeds live
+under `prisma/scripts/dev/` and are guarded by `ENABLE_DEV_SEEDS=true`; they
+also refuse to run when `NODE_ENV`, `APP_ENV`, or `VERCEL_ENV` is production.
+
+Dev records use traceable identifiers such as `STU-DEV-*`, `ADM-DEV-*`,
+`DEV-INV-*`, `DEV-PMT-*`, and `DEV-SEED` labels/notes so accidental data can be
+found and cleaned deliberately.
 
 ## Benefits
 
@@ -257,3 +279,22 @@ As the application grows, you can add more context-based files:
 - `mfa.prisma` - Multi-factor authentication models
 - `security-policy.prisma` - Security policy models
 - `jwt-secrets.prisma` - JWT secret management models
+
+## Tenant isolation (Row-Level Security) — REQUIRED for new tables
+
+Tenant data isolation is enforced at the database via Postgres RLS (see
+`ARCHITECTURE_DECISIONS.md` ADR-004 and `docs/tenant-isolation-plan.md`).
+
+**Any new table with a `tenant_id`/`school_id` column MUST have RLS + a
+`tenant_isolation` policy.** This is enforced in CI:
+
+```bash
+pnpm --filter @workspace/database db:rls:check    # fails if a tenant table lacks RLS
+pnpm --filter @workspace/database db:rls:enforce  # apply strict policy to any missing
+```
+
+When adding a tenant-scoped model, follow the checklist in
+`docs/tenant-isolation-plan.md` (add `tenantId` + indexes, call
+`enforce_tenant_rls()` in the migration, backfill, add the model to
+`STRICT_TENANT_MODELS`). `ALTER DEFAULT PRIVILEGES` already auto-grants new
+tables to the runtime `app_runtime` role.

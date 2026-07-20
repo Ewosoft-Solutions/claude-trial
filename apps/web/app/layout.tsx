@@ -1,16 +1,18 @@
-import type { Metadata } from 'next';
-import localFont from 'next/font/local';
+import type { Metadata, Viewport } from 'next';
+import { Geist, Geist_Mono } from 'next/font/google';
 
 import '@workspace/ui/globals.css';
 import { ThemeProvider } from './providers/theme-provider';
+import { PwaRegister } from './providers/pwa-register';
 import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
+import { SessionNoticeToaster } from './providers/session-notice-toaster';
 
-const geistSans = localFont({
-  src: './fonts/GeistVF.woff',
+const geistSans = Geist({
+  subsets: ['latin'],
   variable: '--font-geist-sans',
 });
-const geistMono = localFont({
-  src: './fonts/GeistMonoVF.woff',
+const geistMono = Geist_Mono({
+  subsets: ['latin'],
   variable: '--font-geist-mono',
 });
 
@@ -18,7 +20,23 @@ export const metadata: Metadata = {
   title: 'School With Ease',
   description:
     'School With Ease — multi-tenant school management with auth, students, classes, assessments, communications, and reporting.',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    title: 'School With Ease',
+    statusBarStyle: 'default',
+  },
 };
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#4f6df5',
+};
+
+const showColorSchemePreview =
+  process.env.NEXT_PUBLIC_SHOW_COLOR_SCHEME_PREVIEW === 'true';
 
 export default function RootLayout({
   children,
@@ -35,7 +53,9 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
-          <ColorScheme />
+          <SessionNoticeToaster />
+          {showColorSchemePreview ? <ColorScheme /> : null}
+          <PwaRegister />
         </ThemeProvider>
       </body>
     </html>

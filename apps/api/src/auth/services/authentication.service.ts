@@ -27,6 +27,53 @@ import { MfaBaseService } from './mfa-base.service';
 import { AuthenticationResponseJSON } from '@simplewebauthn/server';
 
 /**
+ * School picker option — the minimal subset of UserSchoolProfile needed to
+ * let a user pick which school to sign into. Deliberately omits `roles`
+ * and `primaryRole`: at this point in the flow the user has supplied
+ * credentials but has not completed MFA (if enabled) or selected a school,
+ * so no role/organizational detail should be disclosed yet. Full profile
+ * detail (including role) is only returned post-authentication, from
+ * GET /auth/me.
+ */
+export type SchoolPickerOption = Omit<UserSchoolProfile, 'roles' | 'primaryRole'>;
+
+function toSchoolPickerOptions(schools: UserSchoolProfile[]): SchoolPickerOption[] {
+  return schools.map(({ roles: _roles, primaryRole: _primaryRole, ...rest }) => rest);
+}
+
+/**
+ * Orders a user's profiles for the post-login auto-select step: the
+ * frontend always takes index 0 (see apps/web/app/api/auth/login/route.ts)
+ * as the default sign-in context. Without this, that index was whatever
+ * order the DB query happened to return (effectively insertion order) —
+ * arbitrary and meaningless to the user.
+ *
+ * Sorts deterministically by school name then profile id (so the default
+ * fallback is at least stable and predictable), then — if the user has set
+ * a preferred profile via PATCH /auth/default-profile and it's still in
+ * the list — moves that one to the front, overriding the deterministic
+ * order.
+ */
+function orderWithDefaultFirst(
+  schools: UserSchoolProfile[],
+  defaultUserTenantId: string | null | undefined,
+): UserSchoolProfile[] {
+  const sorted = [...schools].sort(
+    (a, b) =>
+      a.tenantName.localeCompare(b.tenantName) ||
+      a.profileId.localeCompare(b.profileId),
+  );
+
+  if (!defaultUserTenantId) return sorted;
+
+  const defaultIndex = sorted.findIndex((s) => s.profileId === defaultUserTenantId);
+  if (defaultIndex <= 0) return sorted;
+
+  const [preferred] = sorted.splice(defaultIndex, 1);
+  return [preferred!, ...sorted];
+}
+
+/**
  * Login Response
  */
 export interface LoginResponse {
@@ -37,7 +84,7 @@ export interface LoginResponse {
     firstName: string | null;
     lastName: string | null;
   };
-  schools: UserSchoolProfile[];
+  schools: SchoolPickerOption[];
   /** Short-lived pre-auth token for the select-school step. */
   token?: string;
   requiresMfa?: boolean;
@@ -131,6 +178,7 @@ export class AuthenticationService {
         isVerified: true,
         loginAttempts: true,
         lockedUntil: true,
+        defaultUserTenantId: true,
       },
     });
 
@@ -318,7 +366,9 @@ export class AuthenticationService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      schools,
+      schools: toSchoolPickerOptions(
+        orderWithDefaultFirst(schools, user.defaultUserTenantId),
+      ),
       token: preAuthToken,
       requiresMfa: false,
     };
@@ -384,6 +434,7 @@ export class AuthenticationService {
         email: true,
         firstName: true,
         lastName: true,
+        defaultUserTenantId: true,
       },
     });
 
@@ -426,7 +477,194 @@ export class AuthenticationService {
         firstName: user.firstName,
         lastName: user.lastName,
       },
-      schools,
+      schools: toSchoolPickerOptions(
+        orderWithDefaultFirst(schools, user.defaultUserTenantId),
+      ),
+      token: preAuthToken,
+      requiresMfa: false,
+    };
+  }
+
+  /**
+   * Begin a passwordless passkey login.
+   *
+   * With an `email`, options are scoped to that (active) account's passkeys, and
+   * the response is `{ hasPasskey: false }` when there's no account/passkey —
+   * uniform across unknown/inactive accounts so it's no stronger an enumeration
+   * oracle than password login. Without an `email`, it's a **usernameless /
+   * discoverable** login: options over any resident passkey for this RP, with
+   * the user resolved from the assertion at verify time.
+   */
+  async beginPasskeyLogin(
+    prisma: PrismaClient,
+    email?: string,
+  ): Promise<
+    | { hasPasskey: false }
+    | { hasPasskey: true; challengeId: string; options: unknown }
+  > {
+    if (!email) {
+      const result =
+        await this.mfaService.beginUsernamelessWebAuthnLogin(prisma);
+      return {
+        hasPasskey: true,
+        challengeId: result.challengeId,
+        options: result.options,
+      };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true, isActive: true },
+    });
+
+    if (!user || !user.isActive) {
+      return { hasPasskey: false };
+    }
+
+    const result = await this.mfaService.beginWebAuthnLogin(prisma, user.id);
+    if (!result) {
+      return { hasPasskey: false };
+    }
+
+    return {
+      hasPasskey: true,
+      challengeId: result.challengeId,
+      options: result.options,
+    };
+  }
+
+  /**
+   * Complete a passwordless passkey login: verify the WebAuthn assertion for a
+   * `login` challenge and, on success, issue the same pre-auth token + school
+   * list a password (or password+MFA) login returns. A user-verified passkey is
+   * itself multi-factor, so no additional MFA step is required (3a.9, item C).
+   *
+   * Handles both flows: a per-user challenge (verify scoped to `challenge.userId`)
+   * and a usernameless one (`challenge.userId` is null → resolve the user from
+   * the credential).
+   */
+  async completePasskeyLogin({
+    prisma,
+    challengeId,
+    authenticationResponse,
+    requestContext,
+  }: {
+    prisma: PrismaClient;
+    challengeId: string;
+    authenticationResponse: AuthenticationResponseJSON;
+    requestContext?: RequestContext;
+  }): Promise<LoginResponse> {
+    const challenge = await prisma.mfaChallenge.findUnique({
+      where: { id: challengeId },
+      select: { userId: true, operation: true },
+    });
+
+    if (!challenge || challenge.operation !== 'login') {
+      throw new UnauthorizedException('Invalid login challenge');
+    }
+
+    let userId: string;
+    if (challenge.userId) {
+      const verified = await this.mfaService.verifyChallenge(
+        prisma,
+        challengeId,
+        undefined,
+        undefined,
+        authenticationResponse,
+      );
+      if (!verified) {
+        throw new UnauthorizedException('Passkey verification failed');
+      }
+      userId = challenge.userId;
+    } else {
+      const resolved = await this.mfaService.verifyUsernamelessWebAuthnLogin(
+        prisma,
+        challengeId,
+        authenticationResponse,
+      );
+      if (!resolved) {
+        throw new UnauthorizedException('Passkey verification failed');
+      }
+      userId = resolved;
+    }
+
+    return this.issueLoginForUser(prisma, userId, challengeId, requestContext);
+  }
+
+  /**
+   * Shared tail for a completed passkey login: record the attempt, audit, and
+   * return the pre-auth token + school list for the resolved user.
+   */
+  private async issueLoginForUser(
+    prisma: PrismaClient,
+    userId: string,
+    challengeId: string,
+    requestContext?: RequestContext,
+  ): Promise<LoginResponse> {
+    const { ipAddress, userAgent } = requestContext || {};
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        firstName: true,
+        lastName: true,
+        defaultUserTenantId: true,
+      },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    await LoginAttemptService.recordAttempt(prisma, {
+      userId: user.id,
+      email: user.email,
+      ipAddress: ipAddress || 'unknown',
+      userAgent,
+      success: true,
+    });
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: null,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
+          resource: 'auth_login',
+          resourceId: user.id,
+          actorId: user.id,
+          actorEmail: user.email,
+          ipAddress: ipAddress || null,
+          userAgent: userAgent || null,
+          description: 'Passwordless passkey login successful',
+          metadata: { challengeId, method: 'webauthn_passwordless' },
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to log passkey login', auditError);
+    }
+
+    const schools = await SchoolSelectionService.getAvailableSchools(
+      prisma,
+      user.id,
+    );
+
+    const preAuthToken = await this.jwtService.generatePreAuthToken(user.id);
+
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      schools: toSchoolPickerOptions(
+        orderWithDefaultFirst(schools, user.defaultUserTenantId),
+      ),
       token: preAuthToken,
       requiresMfa: false,
     };
@@ -562,6 +800,38 @@ export class AuthenticationService {
   }
 
   /**
+   * Set the profile to auto-select at future logins (Account settings ›
+   * Profile). Reuses the same ownership check as selectSchool: the target
+   * profile must belong to the calling user, so a caller can never point
+   * their default at someone else's profile.
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - Calling user's id
+   * @param profileId - UserTenant id to set as the sign-in default
+   */
+  async setDefaultProfile(
+    prisma: PrismaClient,
+    userId: string,
+    profileId: string,
+  ): Promise<{ success: true; defaultProfileId: string }> {
+    const userTenant = await prisma.userTenant.findUnique({
+      where: { id: profileId },
+      select: { userId: true },
+    });
+
+    if (userTenant?.userId !== userId) {
+      throw new UnauthorizedException('Invalid profile');
+    }
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { defaultUserTenantId: profileId },
+    });
+
+    return { success: true, defaultProfileId: profileId };
+  }
+
+  /**
    * Refresh access token (3.8)
    *
    * Validates refresh token and generates new access token.
@@ -614,6 +884,26 @@ export class AuthenticationService {
       3600, // 1 hour
     );
 
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: payload.tenantId,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: AUDIT_ACTION.AUTHENTICATION.SESSION_REFRESHED,
+          resource: 'session',
+          resourceId: session.id,
+          actorId: payload.sub,
+          actorProfileId: payload.profileId,
+          actorRole: payload.roleId || null,
+          actorEmail: session.user?.email ?? null,
+          description: 'Access token refreshed',
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to audit session refresh', auditError);
+    }
+
     return {
       accessToken,
       expiresIn: 3600,
@@ -626,15 +916,16 @@ export class AuthenticationService {
    * Revokes the current session token.
    *
    * @param prisma - Prisma client instance
-   * @param token - Access token or refresh token to revoke
+   * @param userId - Authenticated user who owns the session
+   * @param refreshToken - Refresh token identifying the stored session
    * @returns Success response
    */
   async logout(
     prisma: PrismaClient,
-    token: string,
+    userId: string,
+    refreshToken: string,
   ): Promise<{ success: boolean; message: string }> {
-    // Revoke session by token
-    await SessionService.revokeSession(prisma, token);
+    await SessionService.revokeSession(prisma, userId, refreshToken);
 
     return {
       success: true,

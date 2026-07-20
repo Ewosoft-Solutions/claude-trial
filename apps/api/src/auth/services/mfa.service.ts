@@ -403,6 +403,71 @@ export class MfaService {
   }
 
   /**
+   * Begin a passwordless WebAuthn login: generate authentication options over
+   * all of the user's active passkeys, requiring user verification (so the
+   * passkey counts as MFA). Returns null when the user has no passkeys, so the
+   * caller can fall back to password login without leaking that fact as an error.
+   *
+   * @param prisma - Prisma client instance
+   * @param userId - User ID (already resolved from the typed email)
+   * @returns Challenge id + options, or null if the user has no passkeys
+   */
+  async beginWebAuthnLogin(
+    prisma: PrismaClient,
+    userId: string,
+  ): Promise<{ challengeId: string; options: unknown } | null> {
+    const passkeyCount = await prisma.mfaMethod.count({
+      where: {
+        userId,
+        type: 'webauthn',
+        webauthnAttachment: 'platform',
+        isActive: true,
+      },
+    });
+
+    if (passkeyCount === 0) {
+      return null;
+    }
+
+    const options = await this.webauthnService.generateAuthenticationOptions(
+      prisma,
+      userId,
+      'login',
+      'required',
+      'platform',
+    );
+
+    return { challengeId: options.challengeId, options };
+  }
+
+  /**
+   * Begin a usernameless / discoverable passwordless login — options over any
+   * resident passkey for this RP, with no user known yet.
+   */
+  async beginUsernamelessWebAuthnLogin(
+    prisma: PrismaClient,
+  ): Promise<{ challengeId: string; options: unknown }> {
+    const options =
+      await this.webauthnService.generateUsernamelessLoginOptions(prisma);
+    return { challengeId: options.challengeId, options };
+  }
+
+  /**
+   * Verify a usernameless assertion and resolve the owning user id (or null).
+   */
+  async verifyUsernamelessWebAuthnLogin(
+    prisma: PrismaClient,
+    challengeId: string,
+    authenticationResponse: AuthenticationResponseJSON,
+  ): Promise<string | null> {
+    return this.webauthnService.verifyUsernamelessAuthentication(
+      prisma,
+      challengeId,
+      authenticationResponse,
+    );
+  }
+
+  /**
    * Verify MFA challenge (3a.6)
    *
    * @param prisma - Prisma client instance
@@ -572,15 +637,14 @@ export class MfaService {
 
       if (isValid) {
         // Mark code as used
-        await prisma.mfaRecoveryCode.update({
-          where: { id: recoveryCode.id },
+        const consumed = await prisma.mfaRecoveryCode.updateMany({
+          where: { id: recoveryCode.id, used: false },
           data: {
             used: true,
             usedAt: new Date(),
           },
         });
-
-        return true;
+        return consumed.count === 1;
       }
     }
 

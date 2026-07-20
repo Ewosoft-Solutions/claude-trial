@@ -14,10 +14,22 @@ import { Prisma } from '@workspace/database';
  *
  * Global exception filter that catches and formats all HTTP exceptions
  * and unhandled errors before sending them to the client.
+ *
+ * Error hygiene: the client only ever receives a toast-ready `message` —
+ * internals (exception details, Prisma codes/meta, stack traces, raw
+ * unhandled-error messages) are logged server-side and included in the
+ * response ONLY when `API_DEBUG_ERRORS=true` is set explicitly. Unset
+ * principle: absent the flag, debug payloads are never emitted regardless
+ * of NODE_ENV.
  */
 @Catch()
 export class HttpExceptionFilter implements ExceptionFilter {
   private readonly logger = new Logger(HttpExceptionFilter.name);
+
+  /** Opt-in debug payloads. Read per request so tests can toggle it. */
+  private get debugErrors(): boolean {
+    return process.env.API_DEBUG_ERRORS === 'true';
+  }
 
   catch(exception: unknown, host: ArgumentsHost) {
     const ctx = host.switchToHttp();
@@ -25,13 +37,18 @@ export class HttpExceptionFilter implements ExceptionFilter {
     const request = ctx.getRequest<Request>();
 
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
-    let message = 'Internal server error';
+    let message: string | string[] = 'Internal server error';
     let details: any = null;
+    /** Server-side context for the log line (never sent unless debugging). */
+    let internalMessage: string | null = null;
 
     // Handle known error types
     if (exception instanceof HttpException) {
       status = exception.getStatus();
       const errorResponse = exception.getResponse();
+      // HttpException messages are thrown deliberately (guards, validation
+      // pipes…) and are safe for the client — validation errors arrive as a
+      // message array the frontend renders per field.
       message =
         typeof errorResponse === 'string'
           ? errorResponse
@@ -41,7 +58,7 @@ export class HttpExceptionFilter implements ExceptionFilter {
           ? errorResponse
           : null;
     } else if (exception instanceof Prisma.PrismaClientKnownRequestError) {
-      // Handle Prisma errors
+      // Handle Prisma errors — friendly message; code/meta are debug-only.
       status = this.getPrismaErrorStatus(exception);
       message = this.getPrismaErrorMessage(exception);
       details = {
@@ -53,12 +70,14 @@ export class HttpExceptionFilter implements ExceptionFilter {
       message = 'Database validation error';
       details = { message: exception.message };
     } else if (exception instanceof Error) {
-      message = exception.message;
+      // Unhandled error: its raw message may name tables, files, or hosts.
+      // Keep the generic message for the client; log the real one.
+      internalMessage = exception.message;
     }
 
-    // Log error
+    // Log error (always carries the full internal message + stack)
     this.logger.error(
-      `Error ${status} on ${request.method} ${request.path}: ${message}`,
+      `Error ${status} on ${request.method} ${request.path}: ${internalMessage ?? String(message)}`,
       exception instanceof Error ? exception.stack : undefined,
       'HttpExceptionFilter',
     );
@@ -72,17 +91,17 @@ export class HttpExceptionFilter implements ExceptionFilter {
       method: request.method,
     };
 
-    if (details) {
-      errorResponse.details = details;
-    }
-
-    // Include stack trace in development
-    if (
-      process.env.NODE_ENV === 'development' &&
-      exception instanceof Error &&
-      exception.stack
-    ) {
-      errorResponse.stack = exception.stack;
+    // Debug payloads are opt-in only (API_DEBUG_ERRORS=true).
+    if (this.debugErrors) {
+      if (details) {
+        errorResponse.details = details;
+      }
+      if (internalMessage) {
+        errorResponse.internalMessage = internalMessage;
+      }
+      if (exception instanceof Error && exception.stack) {
+        errorResponse.stack = exception.stack;
+      }
     }
 
     response.status(status).json(errorResponse);

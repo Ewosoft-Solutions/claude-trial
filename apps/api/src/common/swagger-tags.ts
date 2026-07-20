@@ -33,7 +33,43 @@ export const SwaggerTags = {
     description: 'Announcements endpoints',
   },
   messages: { name: 'messages', description: 'Messaging endpoints' },
+  attendance: {
+    name: 'attendance',
+    description: 'Attendance management endpoints',
+  },
+  finance: { name: 'finance', description: 'Finance & billing endpoints' },
+  admissions: {
+    name: 'admissions',
+    description: 'Admissions pipeline endpoints',
+  },
+  transport: {
+    name: 'transport',
+    description: 'Transport/route assignment endpoints',
+  },
+  library: {
+    name: 'library',
+    description: 'Library catalog & circulation endpoints',
+  },
+  studentHealth: {
+    name: 'health',
+    description: 'Student health record endpoints',
+  },
+  hr: { name: 'hr', description: 'HR & payroll endpoints' },
+  events: { name: 'events', description: 'School events endpoints' },
+  learning: {
+    name: 'learning',
+    description: 'Lesson content & material endpoints (AI tutor substrate)',
+  },
+  parentPortal: {
+    name: 'parent-portal',
+    description: "Guardian-scoped endpoints for a parent's own children",
+  },
+  ai: { name: 'ai', description: 'AI (assistant/mediator) endpoints' },
   reports: { name: 'reports', description: 'Reporting & analytics endpoints' },
+  search: {
+    name: 'search',
+    description: 'Tenant-scoped global search endpoints',
+  },
   auditLogs: { name: 'audit-logs', description: 'Audit log endpoints' },
   roles: { name: 'roles', description: 'Role management endpoints' },
   permissions: {

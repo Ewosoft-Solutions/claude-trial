@@ -6,10 +6,15 @@ const Table = React.forwardRef<
   HTMLTableElement,
   React.HTMLAttributes<HTMLTableElement>
 >(({ className, ...props }, ref) => (
-  <div className="relative w-full overflow-auto">
+  <div
+    role="region"
+    aria-label="Scrollable table. Swipe or use the arrow keys to see more columns."
+    tabIndex={0}
+    className="relative w-full touch-pan-x overflow-x-auto rounded-[inherit] outline-none focus-visible:ring-[3px] focus-visible:ring-inset focus-visible:ring-ring/50"
+  >
     <table
       ref={ref}
-      className={cn("w-full caption-bottom text-sm", className)}
+      className={cn("w-full min-w-max caption-bottom text-sm", className)}
       {...props}
     />
   </div>
@@ -73,7 +78,7 @@ const TableHead = React.forwardRef<
   <th
     ref={ref}
     className={cn(
-      "h-10 px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
+      "h-10 whitespace-nowrap px-2 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0 [&>[role=checkbox]]:translate-y-[2px]",
       className
     )}
     {...props}

@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "web",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["/tmp/swe-run.cjs"],
+      "port": 3013
+    },
+    {
+      "name": "web-pnpm",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "web", "exec", "next", "dev", "--turbopack"],
+      "autoPort": true
+    }
+  ]
+}

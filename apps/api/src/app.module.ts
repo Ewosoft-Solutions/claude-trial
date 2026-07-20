@@ -1,5 +1,7 @@
 import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
+import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { RlsTenantInterceptor } from './common/database/rls-tenant.interceptor';
 import {
   envConfig,
   envValidationSchema,
@@ -15,6 +17,21 @@ import { AcademicStructureModule } from './academic-structure/academic-structure
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
 import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
+import { OverviewModule } from './overview/overview.module';
+import { AttendanceModule } from './attendance/attendance.module';
+import { FinanceModule } from './finance/finance.module';
+import { AdmissionsModule } from './admissions/admissions.module';
+import { TransportModule } from './transport/transport.module';
+import { LibraryModule } from './library/library.module';
+import { HealthModule } from './health/health.module';
+import { HealthCheckModule } from './common/health-check/health-check.module';
+import { HrModule } from './hr/hr.module';
+import { EventsModule } from './events/events.module';
+import { ParentPortalModule } from './parent-portal/parent-portal.module';
+import { AiModule } from './ai/ai.module';
+import { AiTutorModule } from './ai/ai-tutor.module';
+import { LearningModule } from './learning/learning.module';
+import { SearchModule } from './search/search.module';
 import { RequestLoggerMiddleware } from './common/middleware';
 import { DatabaseModule } from './common/database/database.module';
 import { Prisma } from '@workspace/database';
@@ -37,9 +54,12 @@ import { AppController } from './app.controller';
     // Database module with async configuration
     DatabaseModule.forRootAsync({
       useFactory: (configService: ConfigService) => {
-        const envConfig: EnvConfig = configService.getOrThrow<EnvConfig>('env', {
-          infer: true,
-        });
+        const envConfig: EnvConfig = configService.getOrThrow<EnvConfig>(
+          'env',
+          {
+            infer: true,
+          },
+        );
 
         const logLevels: Prisma.LogLevel[] = [];
         if (envConfig.DB_LOG_QUERIES && envConfig.NODE_ENV === 'development') {
@@ -57,6 +77,7 @@ import { AppController } from './app.controller';
 
         return {
           databaseUrl: envConfig.DATABASE_URL,
+          tenantDatabaseUrl: envConfig.APP_RUNTIME_DATABASE_URL,
           poolMin: envConfig.DB_POOL_MIN,
           poolMax: envConfig.DB_POOL_MAX,
           connectionTimeout: envConfig.DB_CONNECTION_TIMEOUT,
@@ -78,9 +99,28 @@ import { AppController } from './app.controller';
     AssessmentGradingModule,
     CommunicationModule,
     ReportingAnalyticsModule,
+    OverviewModule,
+    AttendanceModule,
+    FinanceModule,
+    AdmissionsModule,
+    TransportModule,
+    LibraryModule,
+    HealthModule,
+    HealthCheckModule,
+    HrModule,
+    EventsModule,
+    ParentPortalModule,
+    AiModule,
+    AiTutorModule,
+    LearningModule,
+    SearchModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    // Opens the per-request RLS scope for @TenantScoped handlers (no-op otherwise).
+    { provide: APP_INTERCEPTOR, useClass: RlsTenantInterceptor },
+  ],
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {

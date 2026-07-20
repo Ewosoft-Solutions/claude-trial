@@ -17,6 +17,10 @@ import * as crypto from 'node:crypto';
 import * as bcrypt from 'bcrypt';
 import { AUDIT_ACTION } from '../../common/audit/audit.constants';
 import { QueueService } from '../../common/queue/queue.service';
+import {
+  INVITATION_EMAIL_JOB,
+  type InvitationEmailPayload,
+} from '../../common/email';
 
 /**
  * User Invitation Service
@@ -114,23 +118,40 @@ export class UserInvitationService {
       },
     });
 
-    // Assign single role
+    // Assign single role. `tenantId` is the denormalized column RLS uses to
+    // scope user_tenant_roles (its policy has no NULL escape); it MUST be set
+    // or the assignment is invisible to any RLS-scoped read.
     await this.dbService.client.userTenantRole.create({
       data: {
         userTenantId: userTenant.id,
+        tenantId,
         roleId: data.roleId,
         isPrimary: true,
         assignedBy: createdBy,
       },
     });
 
-    // Enqueue invitation email dispatch (stub for async processing)
-    this.queueService.enqueue('invitation-email', {
-      tenantId,
-      userId: user.id,
-      userTenantId: userTenant.id,
+    // Enqueue invitation email dispatch. The handler (EmailQueueRegistrar)
+    // composes the accept link and sends via the configured EmailService.
+    const [tenant, role] = await Promise.all([
+      this.dbService.client.tenant.findUnique({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+      this.dbService.client.role.findUnique({
+        where: { id: data.roleId },
+        select: { name: true },
+      }),
+    ]);
+    const recipientName =
+      [data.firstName, data.lastName].filter(Boolean).join(' ') || null;
+    this.queueService.enqueue<InvitationEmailPayload>(INVITATION_EMAIL_JOB, {
       email: data.email.toLowerCase(),
-      roleId: data.roleId,
+      invitationToken,
+      tenantName: tenant?.name ?? 'your school',
+      roleName: role?.name ?? null,
+      recipientName,
+      expiresAt: invitationExpiresAt,
     });
 
     // Audit log
@@ -260,6 +281,156 @@ export class UserInvitationService {
       success: true,
       userId: userTenant.userId,
       tenantId: userTenant.tenantId,
+    };
+  }
+
+  /**
+   * List invitations for a tenant (management surface).
+   *
+   * Returns pending and/or accepted invitations with the acceptance path so
+   * an admin can copy/share the link until email delivery exists. The raw
+   * token is only exposed to management (clearance-gated at the controller).
+   *
+   * @param tenantId - Tenant ID
+   * @param status - Optional filter: 'pending' | 'accepted'
+   */
+  async listInvitations(tenantId: string, status?: string) {
+    const where: {
+      tenantId: string;
+      invitationToken?: { not: null };
+      invitationAcceptedAt?: null | { not: null };
+    } = { tenantId };
+
+    if (status === 'pending') {
+      where.invitationToken = { not: null };
+      where.invitationAcceptedAt = null;
+    } else if (status === 'accepted') {
+      where.invitationAcceptedAt = { not: null };
+    } else {
+      // Default: only rows that originated from an invitation.
+      where.invitationToken = { not: null };
+    }
+
+    const rows = await this.dbService.client.userTenant.findMany({
+      where,
+      include: {
+        user: { select: { email: true, firstName: true, lastName: true } },
+        userTenantRole: { include: { role: { select: { name: true } } } },
+      },
+      orderBy: { addedAt: 'desc' },
+    });
+
+    const now = new Date();
+    return rows.map((row) => {
+      const pending =
+        !!row.invitationToken && row.invitationAcceptedAt === null;
+      const expired =
+        pending && !!row.invitationExpiresAt && row.invitationExpiresAt < now;
+      return {
+        id: row.id,
+        email: row.user.email,
+        firstName: row.user.firstName,
+        lastName: row.user.lastName,
+        role: row.userTenantRole?.role?.name ?? null,
+        status: row.invitationAcceptedAt
+          ? 'accepted'
+          : expired
+            ? 'expired'
+            : 'pending',
+        invitationExpiresAt: row.invitationExpiresAt,
+        invitationAcceptedAt: row.invitationAcceptedAt,
+        // Present only for still-pending invites so a link can be shared.
+        token: pending && !expired ? row.invitationToken : null,
+        acceptPath:
+          pending && !expired
+            ? `/accept-invite?token=${row.invitationToken}`
+            : null,
+      };
+    });
+  }
+
+  /**
+   * Revoke a pending invitation.
+   *
+   * Deletes the pending profile (and its role, via cascade). Refuses to touch
+   * an already-accepted invitation.
+   *
+   * @param tenantId - Tenant ID
+   * @param invitationId - userTenant id of the invitation
+   * @param revokedBy - User ID performing the revoke
+   */
+  async revokeInvitation(
+    tenantId: string,
+    invitationId: string,
+    revokedBy: string,
+  ) {
+    const invitation = await this.dbService.client.userTenant.findFirst({
+      where: { id: invitationId, tenantId },
+      include: { user: { select: { id: true, email: true } } },
+    });
+
+    if (!invitation) {
+      throw new NotFoundException('Invitation not found');
+    }
+
+    if (invitation.invitationAcceptedAt) {
+      throw new ConflictException(
+        'Invitation already accepted; remove the user instead',
+      );
+    }
+
+    await this.dbService.client.userTenant.delete({
+      where: { id: invitation.id },
+    });
+
+    await this.auditService.logUserAction({
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_REVOKED,
+      tenantId,
+      userId: invitation.user.id,
+      performedBy: revokedBy,
+      metadata: { email: invitation.user.email },
+    });
+
+    return { success: true };
+  }
+
+  /**
+   * Public preview of an invitation by token.
+   *
+   * Powers the accept-invitation page: shows who/what the invite is for
+   * without requiring an account. Returns only non-sensitive fields and never
+   * echoes the token.
+   *
+   * @param token - Invitation token
+   */
+  async getInvitationByToken(token: string) {
+    const invitation = await this.dbService.client.userTenant.findFirst({
+      where: { invitationToken: token },
+      include: {
+        user: { select: { email: true, firstName: true, lastName: true } },
+        tenant: { select: { name: true, slug: true } },
+        userTenantRole: { include: { role: { select: { name: true } } } },
+      },
+    });
+
+    if (!invitation || invitation.invitationAcceptedAt) {
+      throw new NotFoundException('Invitation not found or already accepted');
+    }
+
+    const expired =
+      !!invitation.invitationExpiresAt &&
+      invitation.invitationExpiresAt < new Date();
+
+    return {
+      valid: !expired,
+      expired,
+      email: invitation.user.email,
+      firstName: invitation.user.firstName,
+      lastName: invitation.user.lastName,
+      tenantName: invitation.tenant.name,
+      tenantSlug: invitation.tenant.slug,
+      role: invitation.userTenantRole?.role?.name ?? null,
+      invitationExpiresAt: invitation.invitationExpiresAt,
     };
   }
 

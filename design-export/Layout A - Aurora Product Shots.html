@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchoolWithEase — Aurora · Product Shots</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;600;700&family=Kalam:wght@300;400;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shell-base.css">
+<link rel="stylesheet" href="shell-themes.css">
+<link rel="stylesheet" href="aurora.css">
+<link rel="stylesheet" href="aurora-responsive.css">
+<link rel="stylesheet" href="aurora-screens.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #07060f; }
+
+  /* on-brand product backdrop (always deep aurora so devices pop) */
+  .shot {
+    width: 100%; height: 100%; display: grid; place-items: center; position: relative; overflow: hidden;
+    background:
+      radial-gradient(50% 45% at 14% 6%,  rgba(74,120,255,.5)  0%, transparent 60%),
+      radial-gradient(48% 50% at 88% 10%, rgba(150,92,255,.46) 0%, transparent 62%),
+      radial-gradient(46% 52% at 86% 96%, rgba(255,79,158,.34) 0%, transparent 60%),
+      radial-gradient(52% 56% at 8% 98%,  rgba(35,224,168,.28) 0%, transparent 60%),
+      linear-gradient(160deg, #0c0926 0%, #08060f 52%, #0b0614 100%);
+  }
+  .shot::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(120% 120% at 50% 50%, transparent 55%, rgba(0,0,0,.45) 100%);
+  }
+  .shot .stagewrap { position: relative; z-index: 1; }
+
+  /* the live screen wrapper that drives container queries */
+  .device { container-type: inline-size; }
+
+  /* keep the canvas calm: the Ada bubble is decorative here */
+  .fab-bubble { animation: none !important; }
+
+  /* ---- iPhone safe-area tweaks so the shell clears island + home bar ---- */
+  .ios .shell[data-dir="aurora"] .topbar { padding-top: 48px; height: 98px; align-items: flex-end; padding-bottom: 10px; }
+  .ios .shell[data-dir="aurora"] .rail { bottom: 8px; }
+  .ios .shell[data-dir="aurora"] .main { padding-bottom: 82px; }
+  .ios .shell[data-dir="aurora"] .ai-fab { bottom: 86px; }
+
+  /* ---- iPad bezel ---- */
+  .ipad { background: linear-gradient(150deg, #1a1a24, #0e0e15); padding: 16px; border-radius: 44px;
+    box-shadow: 0 50px 110px -36px rgba(0,0,0,.85), 0 0 0 1px rgba(255,255,255,.06), inset 0 0 0 1px rgba(255,255,255,.04); position: relative; }
+  .ipad .cam { position: absolute; top: 8px; left: 50%; transform: translateX(-50%); width: 7px; height: 7px; border-radius: 50%;
+    background: #05050a; box-shadow: 0 0 0 2px rgba(255,255,255,.05); z-index: 5; }
+  .ipad .screen { border-radius: 30px; overflow: hidden; box-shadow: 0 0 0 1px rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="shell-build.js"></script>
+<script src="aurora-screens.js"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="browser-window.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script type="text/babel">
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "theme": "light",
+    "accent": "#5b8cff",
+    "secondary": "#ff6fae"
+  }/*EDITMODE-END*/;
+
+  // one section per screen, stacked down the canvas
+  const SECTIONS = [
+    { key: 'enrollment', title: 'Enrollment',          sub: 'Registrar pipeline · the hero screen',          url: 'app.schoolwithease.com/students/enrollment', tab: 'Enrollment · SchoolWithEase' },
+    { key: 'dashboard',  title: 'Leadership dashboard', sub: "Head's overview · KPIs, attendance, approvals", url: 'app.schoolwithease.com/overview',            tab: 'Overview · SchoolWithEase' },
+    { key: 'timetable',  title: 'Timetable',            sub: 'Weekly class grid · drag to reschedule',        url: 'app.schoolwithease.com/timetable',           tab: 'Timetable · SchoolWithEase' },
+    { key: 'gradebook',  title: 'Gradebook',            sub: 'Marks matrix · class distribution',             url: 'app.schoolwithease.com/gradebook/biology-11b', tab: 'Gradebook · SchoolWithEase' },
+    { key: 'ada',        title: 'Ada — AI copilot',     sub: 'Grounded, role-scoped, sources cited',          url: 'app.schoolwithease.com/ada',                 tab: 'Ada · SchoolWithEase' },
+    { key: 'reports',    title: 'Reports & analytics',  sub: 'Trends vs target · scheduled board packs',      url: 'app.schoolwithease.com/reports',             tab: 'Reports · SchoolWithEase' },
+    { key: 'finance',    title: 'Fees & finance',       sub: 'Bursar · collections, invoices, defaulters',    url: 'app.schoolwithease.com/finance/fees',        tab: 'Finance · SchoolWithEase' },
+    { key: 'record',     title: 'Student record',       sub: 'Full profile · guardians, classes, attendance', url: 'app.schoolwithease.com/students/maya-chen',  tab: 'Maya Chen · SchoolWithEase' },
+  ];
+
+  function Screen({ theme, accent, secondary, label, cls, screen }) {
+    const a = accent === TWEAK_DEFAULTS.accent ? null : accent;
+    const s = secondary === TWEAK_DEFAULTS.secondary ? null : secondary;
+    const html = (screen && screen !== 'enrollment')
+      ? window.buildAuroraScreen(screen, theme, { accent: a, accent2: s })
+      : window.buildShell('aurora', theme, label, { accent: a, accent2: s });
+    return (
+      <div className={"device " + (cls || "")} style={{ width: '100%', height: '100%' }}
+        dangerouslySetInnerHTML={{ __html: html }} />
+    );
+  }
+
+  function TabletFrame({ children }) {
+    return (
+      <div className="ipad">
+        <div className="cam" />
+        <div className="screen" style={{ width: 800, height: 1080 }}>{children}</div>
+      </div>
+    );
+  }
+
+  function trio(sec, p) {
+    const dark = p.theme === 'dark';
+    return (
+      <React.Fragment>
+        <DCArtboard id={sec.key + '-iphone'} label="iPhone" width={620} height={1120}>
+          <div className="shot"><div className="stagewrap">
+            <IOSDevice dark={dark} width={402} height={874}>
+              <Screen {...p} screen={sec.key} cls="ios" label={sec.title + ' · iPhone'} />
+            </IOSDevice>
+          </div></div>
+        </DCArtboard>
+
+        <DCArtboard id={sec.key + '-ipad'} label="iPad" width={1040} height={1340}>
+          <div className="shot"><div className="stagewrap">
+            <TabletFrame>
+              <Screen {...p} screen={sec.key} label={sec.title + ' · iPad'} />
+            </TabletFrame>
+          </div></div>
+        </DCArtboard>
+
+        <DCArtboard id={sec.key + '-desktop'} label="Desktop" width={1560} height={1160}>
+          <div className="shot"><div className="stagewrap">
+            <ChromeWindow width={1320} height={900} url={sec.url}
+              tabs={[{ title: sec.tab }, { title: 'Timetable' }]} activeIndex={0}>
+              <Screen {...p} screen={sec.key} label={sec.title + ' · desktop'} />
+            </ChromeWindow>
+          </div></div>
+        </DCArtboard>
+      </React.Fragment>
+    );
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const p = { theme: t.theme, accent: t.accent, secondary: t.secondary };
+
+    return (
+      <React.Fragment>
+        <DesignCanvas initialZoom={0.42}>
+          {SECTIONS.map((sec) => (
+            <DCSection key={sec.key} id={sec.key} title={sec.title} subtitle={sec.sub + ' · iPhone · iPad · desktop'}>
+              {trio(sec, p)}
+            </DCSection>
+          ))}
+        </DesignCanvas>
+
+        <TweaksPanel title="Tweaks">
+          <TweakSection label="Appearance" />
+          <TweakRadio label="Mode" value={t.theme} options={['dark', 'light']} onChange={(v) => setTweak('theme', v)} />
+          <TweakSection label="Neon palette" />
+          <TweakColor label="Primary / accent" value={t.accent}
+            options={['#5b8cff', '#8c5cff', '#22d3ee', '#2ee6a6', '#ff6fae']}
+            onChange={(v) => setTweak('accent', v)} />
+          <TweakColor label="Secondary" value={t.secondary}
+            options={['#ff6fae', '#8c5cff', '#2ee6a6', '#ffce5c', '#22d3ee']}
+            onChange={(v) => setTweak('secondary', v)} />
+          <TweakButton label="Reset colors"
+            onClick={() => { setTweak('accent', TWEAK_DEFAULTS.accent); setTweak('secondary', TWEAK_DEFAULTS.secondary); }} />
+        </TweaksPanel>
+      </React.Fragment>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

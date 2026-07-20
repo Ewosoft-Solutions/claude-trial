@@ -13,6 +13,7 @@
     "db:seed": "turbo run db:seed",
     "db:studio": "turbo run db:studio",
     "dev": "turbo run dev",
+    "dev:tunnel": "cloudflared tunnel run swe-dev",
     "build": "turbo run build",
     "test": "turbo run test",
     "test:e2e": "turbo run test:e2e",
@@ -23,25 +24,17 @@
   "devDependencies": {
     "@workspace/eslint-config": "workspace:*",
     "@workspace/typescript-config": "workspace:*",
+    "eslint": "^9.31.0",
     "@workspace/vitest-config": "workspace:*",
     "prettier": "^3.6.0",
     "prettier-plugin-tailwindcss": "^0.6.11",
-    "tsx": "4.19.1",
+    "tsx": "4.23.1",
     "turbo": "^2.5.8",
     "typescript": "5.9.3",
-    "vitest": "^4.0.14"
+    "vitest": "^4.1.10"
   },
-  "packageManager": "pnpm@10.4.1",
+  "packageManager": "pnpm@10.34.5",
   "engines": {
     "node": ">=20.19"
-  },
-  "pnpm": {
-    "overrides": {
-      "glob": "^11.0.0",
-      "rimraf": "^5.0.0",
-      "inflight": "npm:@jsdevtools/inflight@^1.0.6",
-      "lodash.get": "npm:lodash@^4.17.21",
-      "@types/minimatch": "^5.1.2"
-    }
   }
 }

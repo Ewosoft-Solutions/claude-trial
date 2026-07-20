@@ -18,6 +18,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { CommunicationService } from '../services/communication.service';
 import { CreateMessageDto, MarkMessageReadDto, ListMessagesDto } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
@@ -25,6 +26,7 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiTags(SwaggerTags.messages.name)
 @Controller('messages')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class MessageController {
   constructor(private readonly commService: CommunicationService) {}

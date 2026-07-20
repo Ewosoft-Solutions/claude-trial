@@ -16,6 +16,7 @@ import { Reflector } from '@nestjs/core';
 import { PermissionService } from '../services/permission.service';
 import { DatabaseService } from '../../common';
 import { RequestUser } from '../types/request-user';
+import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
 
 /**
  * Metadata key for clearance level requirement
@@ -45,6 +46,15 @@ export class ClearanceLevelGuard implements CanActivate {
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
+    // Public routes skip clearance checks (and never need userContext).
+    const isPublic = this.reflector.getAllAndOverride<boolean>(IS_PUBLIC_KEY, [
+      context.getHandler(),
+      context.getClass(),
+    ]);
+    if (isPublic) {
+      return true;
+    }
+
     const requiredLevel = this.reflector.getAllAndOverride<number>(
       CLEARANCE_LEVEL_KEY,
       [context.getHandler(), context.getClass()],

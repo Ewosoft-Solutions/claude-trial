@@ -7,7 +7,15 @@ export default [
       'turbo/no-undeclared-env-vars': [
         'error',
         {
-          allowList: ['NODE_ENV', 'DATABASE_URL'],
+          allowList: [
+            'NODE_ENV',
+            'APP_ENV',
+            'VERCEL_ENV',
+            'DATABASE_URL',
+            'ENABLE_DEV_SEEDS',
+            'TA',
+            'TB',
+          ],
         },
       ],
     },

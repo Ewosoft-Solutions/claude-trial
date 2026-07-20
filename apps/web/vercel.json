@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "installCommand": "pnpm install --frozen-lockfile",
+  "buildCommand": "cd ../.. && pnpm exec turbo run build --filter=web",
+  "comments": [
+    "Set the Vercel Project's Root Directory to apps/web. The build runs from",
+    "the monorepo root so Turbo builds web's workspace deps (@workspace/ui etc.)",
+    "first. Streaming API responses proxy through Next route handlers; fluid",
+    "compute allows up to 300s, which covers the capped AI streams.",
+    "Env (Project Settings, per environment): NEXT_PUBLIC_API_URL (the Render",
+    "API origin), APP_CANONICAL_ORIGIN, AUTH_RESUME_SECRET (not NEXT_PUBLIC_)."
+  ],
+  "functions": {
+    "app/api/**/*": {
+      "maxDuration": 300
+    }
+  }
+}

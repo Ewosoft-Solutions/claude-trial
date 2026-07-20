@@ -21,6 +21,7 @@ model Tenant {
   name        String
   slug        String?  @unique
   emailDomain String?  @map("email_domain") // Optional, for validation
+  schoolType  String?  @map("school_type") // 'nursery'|'primary'|'secondary'|'university'|'college'|'training_institute'|'organization'
   status      String   @default("pending") // 'active' | 'pending' | 'suspended'
   settings    Json? // School-specific settings (JSONB)
   createdBy   String?  @map("created_by")
@@ -28,22 +29,42 @@ model Tenant {
   updatedAt   DateTime @updatedAt @map("updated_at")
 
   // Relations
-  roles           Role[]
-  userTenants     UserTenant[]
-  permissionPools PermissionPool[]
-  academicYears   AcademicYear[]
-  courses         Course[]
-  students        Student[]
-  gradingSystems  GradingSystem[]
-  announcements   Announcement[]
-  messages        Message[]
-  auditLogs       AuditLog[]
-  jwtConfig       TenantJWTConfig?
-  securityPolicy  SchoolSecurityPolicy?
-  studentGuardians StudentGuardian[]
+  roles                                  Role[]
+  userTenants                            UserTenant[]
+  permissionPools                        PermissionPool[]
+  academicYears                          AcademicYear[]
+  courses                                Course[]
+  students                               Student[]
+  gradingSystems                         GradingSystem[]
+  announcements                          Announcement[]
+  messages                               Message[]
+  auditLogs                              AuditLog[]
+  jwtConfig                              TenantJWTConfig?
+  securityPolicy                         SchoolSecurityPolicy?
+  studentGuardians                       StudentGuardian[]
+  attendanceRecords                      AttendanceRecord[]
+  feeInvoices                            FeeInvoice[]
+  payments                               Payment[]
+  admissionApplications                  AdmissionApplication[]
+  transportAssignments                   TransportAssignment[]
+  libraryBooks                           LibraryBook[]
+  healthRecords                          HealthRecord[]
+  staffPayrollRecords                    StaffPayrollRecord[]
+  staffLeaveRequests                     StaffLeaveRequest[]
+  schoolEvents                           SchoolEvent[]
+  eventAttendees                         EventAttendee[]
+  chatSessions                           ChatSession[]
+  chatMessages                           ChatMessage[]
+  aiSettings                             AiSettings?
+  aiUsageMonthly                         AiUsageMonthly[]
+  aiConcurrencyLeases                    AiConcurrencyLease[]
+  lessons                                Lesson[]
+  lessonMaterials                        LessonMaterial[]
+  materialChunks                         MaterialChunk[]
+  sensitiveOperationPolicyChangeRequests SensitiveOperationPolicyChangeRequest[]
 
   @@index([status])
   @@index([emailDomain])
-  @@schema("tenant")
   @@map("tenants")
+  @@schema("tenant")
 }

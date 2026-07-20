@@ -10,6 +10,8 @@ import { PassportModule } from '@nestjs/passport';
 import { CommonModule } from '../common';
 import { AuthController } from './auth.controller';
 import { MfaController } from './mfa.controller';
+import { BiometricsController } from './biometrics.controller';
+import { StepUpController } from './step-up.controller';
 import {
   SecurityPolicyController,
   PlatformSecurityPolicyController,
@@ -27,11 +29,12 @@ import { MfaEmailService } from './services/mfa-email.service';
 import { MfaTotpService } from './services/mfa-totp.service';
 import { MfaWebAuthnService } from './services/mfa-webauthn.service';
 import { MfaAuditService } from './services/mfa-audit.service';
+import { BiometricsService } from './services/biometrics.service';
 import {
   JwtAuthGuard,
   PreAuthGuard,
   TenantContextGuard,
-  MfaRequiredGuard,
+  StepUpGuard,
   ClearanceLevelGuard,
   PermissionGuard,
   ContextValidationGuard,
@@ -44,8 +47,10 @@ import {
   MakerCheckerService,
   PlatformOversightService,
   SecurityPolicyService,
+  SessionPolicyService,
+  SensitiveOperationPolicyService,
   BreachResponseService,
-  AIMediatorService,
+  StepUpService,
 } from './services';
 
 /**
@@ -70,6 +75,8 @@ import {
   controllers: [
     AuthController,
     MfaController,
+    BiometricsController,
+    StepUpController,
     SecurityPolicyController,
     PlatformSecurityPolicyController,
     BreachResponseController,
@@ -88,6 +95,7 @@ import {
     MfaTotpService,
     MfaWebAuthnService,
     MfaAuditService,
+    BiometricsService,
     // Authorization services
     PermissionService,
     RoleService,
@@ -95,13 +103,15 @@ import {
     MakerCheckerService,
     PlatformOversightService,
     SecurityPolicyService,
+    SessionPolicyService,
+    SensitiveOperationPolicyService,
     BreachResponseService,
-    AIMediatorService,
+    StepUpService,
     // Guards
     JwtAuthGuard,
     PreAuthGuard,
     TenantContextGuard,
-    MfaRequiredGuard,
+    StepUpGuard,
     ClearanceLevelGuard,
     PermissionGuard,
     ContextValidationGuard,
@@ -121,13 +131,15 @@ import {
     MakerCheckerService,
     PlatformOversightService,
     SecurityPolicyService,
+    SessionPolicyService,
+    SensitiveOperationPolicyService,
     BreachResponseService,
-    AIMediatorService,
+    StepUpService,
     // Guards
     JwtAuthGuard,
     PreAuthGuard,
     TenantContextGuard,
-    MfaRequiredGuard,
+    StepUpGuard,
     ClearanceLevelGuard,
     PermissionGuard,
     ContextValidationGuard,

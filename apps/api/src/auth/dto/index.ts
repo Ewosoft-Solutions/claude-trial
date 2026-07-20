@@ -1,6 +1,9 @@
 export * from './login.dto';
 export * from './select-school.dto';
+export * from './set-default-profile.dto';
+export * from './update-account.dto';
 export * from './refresh-token.dto';
+export * from './logout.dto';
 export * from './request-password-reset.dto';
 export * from './reset-password.dto';
 export * from './change-password.dto';
@@ -9,4 +12,5 @@ export * from './verify-mfa.dto';
 export * from './recovery-mfa.dto';
 export * from './security-policy.dto';
 export * from './breach-response.dto';
-export * from './ai-mediator.dto';
+export * from './biometrics.dto';
+export * from './passkey-login.dto';

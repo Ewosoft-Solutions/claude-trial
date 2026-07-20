@@ -1,0 +1,98 @@
+// ============================================
+// Finance Models
+// ============================================
+//
+// FeeInvoice: a billing record issued to a student for a term's fees.
+// Payment: a payment receipt against an invoice.
+//
+// Both are tenant-scoped (tenant_id NOT NULL) in the "finance" schema
+// and covered by RLS (migration applies the policy explicitly so
+// db:rls:check passes from day one).
+//
+// invoice status: 'draft' | 'issued' | 'paid' | 'partial' | 'overdue' | 'cancelled'
+// payment status: 'pending' | 'completed' | 'failed' | 'refunded'
+// payment method: 'transfer' | 'card' | 'cash' | 'cheque'
+// ============================================
+
+model FeeInvoice {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  invoiceNumber String @map("invoice_number")
+
+  studentId String  @map("student_id")
+  classId   String? @map("class_id")
+
+  // Term / period
+  termName  String? @map("term_name")
+  termYear  Int?    @map("term_year")
+  termCycle Int?    @map("term_cycle")
+
+  issuedDate DateTime? @map("issued_date") @db.Date
+  dueDate    DateTime? @map("due_date") @db.Date
+
+  // Amounts in minor units (kobo) — avoids float issues
+  amountDue  Int @default(0) @map("amount_due")
+  amountPaid Int @default(0) @map("amount_paid")
+
+  status String @default("draft") // draft | issued | paid | partial | overdue | cancelled
+
+  notes String?
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments Payment[]
+
+  @@unique([tenantId, invoiceNumber])
+  @@index([tenantId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@index([studentId])
+  @@map("fee_invoices")
+  @@schema("finance")
+}
+
+model Payment {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  receiptNumber String @map("receipt_number")
+  invoiceId     String @map("invoice_id")
+  studentId     String @map("student_id")
+
+  method    String   @default("transfer") // transfer | card | cash | cheque
+  paidAt    DateTime @map("paid_at") @db.Date
+  amount    Int // minor units (kobo)
+  reference String? // payment gateway ref / cheque number
+
+  status String @default("completed") // pending | completed | failed | refunded
+
+  notes String?
+
+  // Audit
+  recordedBy String?  @map("recorded_by")
+  createdBy  String?  @map("created_by")
+  updatedBy  String?  @map("updated_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice FeeInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, receiptNumber])
+  @@index([tenantId])
+  @@index([tenantId, invoiceId])
+  @@index([tenantId, studentId])
+  @@index([tenantId, status])
+  @@index([invoiceId])
+  @@index([studentId])
+  @@map("payments")
+  @@schema("finance")
+}

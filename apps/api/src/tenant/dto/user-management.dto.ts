@@ -13,31 +13,35 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * Create User Directly DTO
  */
 export class CreateUserDto {
-  @ApiProperty({ description: 'Email address' })
+  @ApiProperty({ description: 'Email address', example: 'jane.doe@example.com' })
   @IsEmail()
   email: string;
 
-  @ApiProperty({ description: 'Password' })
+  @ApiProperty({ description: 'Password', example: 'StrongP@ssw0rd!' })
   @IsString()
   @MinLength(8)
   password: string;
 
-  @ApiPropertyOptional({ description: 'First name' })
+  @ApiPropertyOptional({ description: 'First name', example: 'Jane' })
   @IsOptional()
   @IsString()
   firstName?: string;
 
-  @ApiPropertyOptional({ description: 'Last name' })
+  @ApiPropertyOptional({ description: 'Last name', example: 'Doe' })
   @IsOptional()
   @IsString()
   lastName?: string;
 
-  @ApiPropertyOptional({ description: 'Phone number' })
+  @ApiPropertyOptional({ description: 'Phone number', example: '+234-801-234-5678' })
   @IsOptional()
   @IsString()
   phone?: string;
 
-  @ApiProperty({ description: 'Role IDs to assign', type: [String] })
+  @ApiProperty({
+    description: 'Role IDs to assign',
+    type: [String],
+    example: ['a1b2c3d4-e5f6-4789-9abc-def012345678'],
+  })
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
@@ -61,11 +65,15 @@ export class BulkCreateUsersDto {
  * Add User to Tenant DTO
  */
 export class AddUserToTenantDto {
-  @ApiProperty({ description: 'User ID' })
+  @ApiProperty({ description: 'User ID', example: 'a1b2c3d4-e5f6-4789-9abc-def012345678' })
   @IsUUID('4')
   userId: string;
 
-  @ApiProperty({ description: 'Role IDs to assign', type: [String] })
+  @ApiProperty({
+    description: 'Role IDs to assign',
+    type: [String],
+    example: ['a1b2c3d4-e5f6-4789-9abc-def012345678'],
+  })
   @IsArray()
   @ArrayMinSize(1)
   @IsUUID('4', { each: true })
@@ -76,22 +84,22 @@ export class AddUserToTenantDto {
  * Update User DTO
  */
 export class UpdateUserDto {
-  @ApiPropertyOptional({ description: 'First name' })
+  @ApiPropertyOptional({ description: 'First name', example: 'Jane' })
   @IsOptional()
   @IsString()
   firstName?: string;
 
-  @ApiPropertyOptional({ description: 'Last name' })
+  @ApiPropertyOptional({ description: 'Last name', example: 'Doe' })
   @IsOptional()
   @IsString()
   lastName?: string;
 
-  @ApiPropertyOptional({ description: 'Phone number' })
+  @ApiPropertyOptional({ description: 'Phone number', example: '+234-801-234-5678' })
   @IsOptional()
   @IsString()
   phone?: string;
 
-  @ApiPropertyOptional({ description: 'Is active' })
+  @ApiPropertyOptional({ description: 'Is active', example: true })
   @IsOptional()
   isActive?: boolean;
 }
@@ -100,12 +108,16 @@ export class UpdateUserDto {
  * Update User Profile DTO (for tenant-specific profile)
  */
 export class UpdateUserProfileDto {
-  @ApiPropertyOptional({ description: 'Profile status' })
+  @ApiPropertyOptional({ description: 'Profile status', example: 'active' })
   @IsOptional()
   @IsString()
   status?: string;
 
-  @ApiPropertyOptional({ description: 'Role IDs to assign', type: [String] })
+  @ApiPropertyOptional({
+    description: 'Role IDs to assign',
+    type: [String],
+    example: ['a1b2c3d4-e5f6-4789-9abc-def012345678'],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

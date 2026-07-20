@@ -35,32 +35,33 @@ model SchoolSecurityPolicy {
   policyTier String @map("policy_tier") // 'basic' | 'enhanced' | 'maximum'
 
   // MFA Configuration
-  requireMFA                        Boolean @default(true) @map("require_mfa")
+  requireMFA                       Boolean @default(true) @map("require_mfa")
   requireMFAForSensitiveOperations Boolean @default(true) @map("require_mfa_for_sensitive_operations")
-  sensitiveOperations               Json    @default("[]") @map("sensitive_operations") // Array of operation names
+  sensitiveOperations              Json    @default("[]") @map("sensitive_operations") // Array of operation names
+  biometricEnrollmentPolicy        String  @default("allow") @map("biometric_enrollment_policy") // 'require' | 'allow' | 'forbid'
 
   // Password Policy
-  passwordMinLength        Int     @default(8) @map("password_min_length")
-  passwordRequireUppercase Boolean @default(true) @map("password_require_uppercase")
-  passwordRequireLowercase Boolean @default(true) @map("password_require_lowercase")
-  passwordRequireNumbers   Boolean @default(true) @map("password_require_numbers")
+  passwordMinLength           Int     @default(8) @map("password_min_length")
+  passwordRequireUppercase    Boolean @default(true) @map("password_require_uppercase")
+  passwordRequireLowercase    Boolean @default(true) @map("password_require_lowercase")
+  passwordRequireNumbers      Boolean @default(true) @map("password_require_numbers")
   passwordRequireSpecialChars Boolean @default(false) @map("password_require_special_chars")
-  passwordMaxAge           Int     @default(90) @map("password_max_age") // days
-  passwordPreventReuse     Int     @default(5) @map("password_prevent_reuse") // last N passwords
+  passwordMaxAge              Int     @default(90) @map("password_max_age") // days
+  passwordPreventReuse        Int     @default(5) @map("password_prevent_reuse") // last N passwords
 
   // Session Management
-  sessionTimeout                Int     @default(30) @map("session_timeout") // minutes
+  sessionTimeout                Int     @default(15) @map("session_timeout") // idle minutes; tenant-configurable
   requireMFAForSessionExtension Boolean @default(true) @map("require_mfa_for_session_extension")
   maxConcurrentSessions         Int     @default(3) @map("max_concurrent_sessions")
 
   // Access Control
   deviceManagement  String @default("basic") @map("device_management") // 'none' | 'basic' | 'strict'
-  loginAttemptLimit Int     @default(5) @map("login_attempt_limit")
-  lockoutDuration   Int     @default(15) @map("lockout_duration") // minutes
+  loginAttemptLimit Int    @default(5) @map("login_attempt_limit")
+  lockoutDuration   Int    @default(15) @map("lockout_duration") // minutes
 
   // Conditional Access
-  timeRestrictions Json? @map("time_restrictions") // { allowedHours: [{ start: number, end: number }], allowedDays: string[] }
-  ipWhitelist      Json? @map("ip_whitelist") // string[] of IP addresses
+  timeRestrictions Json?   @map("time_restrictions") // { allowedHours: [{ start: number, end: number }], allowedDays: string[] }
+  ipWhitelist      Json?   @map("ip_whitelist") // string[] of IP addresses
   requireVPN       Boolean @default(false) @map("require_vpn")
 
   // Audit
@@ -83,8 +84,61 @@ model SchoolSecurityPolicy {
   @@unique([schoolId])
   @@index([policyTier])
   @@index([isEmergency])
-  @@schema("security-policy")
   @@map("school_security_policies")
+  @@schema("security-policy")
 }
 
+// Platform-owned catalog controlling fresh identity confirmation and
+// maker-checker requirements for sensitive operations.
+model SensitiveOperationPolicy {
+  id                     String   @id @default(uuid())
+  operation              String   @unique
+  label                  String
+  description            String?
+  category               String
+  enabled                Boolean  @default(true)
+  requiresStepUp         Boolean  @default(true) @map("requires_step_up")
+  requiresMakerChecker   Boolean  @default(false) @map("requires_maker_checker")
+  freshnessMinutes       Int      @default(5) @map("freshness_minutes")
+  requiredClearanceLevel Int      @default(0) @map("required_clearance_level")
+  requiredPermission     String?  @map("required_permission")
+  updatedBy              String?  @map("updated_by")
+  createdAt              DateTime @default(now()) @map("created_at")
+  updatedAt              DateTime @updatedAt @map("updated_at")
 
+  changeRequests SensitiveOperationPolicyChangeRequest[]
+
+  @@index([category])
+  @@index([enabled])
+  @@map("sensitive_operation_policies")
+  @@schema("security-policy")
+}
+
+// Tenant proposals are advisory until a platform reviewer accepts them. The
+// platform decision and feedback remain visible to the requesting tenant.
+model SensitiveOperationPolicyChangeRequest {
+  id                            String    @id @default(uuid())
+  tenantId                      String    @map("tenant_id")
+  operation                     String
+  requestedEnabled              Boolean?  @map("requested_enabled")
+  requestedRequiresStepUp       Boolean?  @map("requested_requires_step_up")
+  requestedRequiresMakerChecker Boolean?  @map("requested_requires_maker_checker")
+  requestedFreshnessMinutes     Int?      @map("requested_freshness_minutes")
+  reason                        String
+  status                        String    @default("pending") // pending | approved | rejected
+  requestedBy                   String    @map("requested_by")
+  reviewedBy                    String?   @map("reviewed_by")
+  feedback                      String?
+  reviewedAt                    DateTime? @map("reviewed_at")
+  createdAt                     DateTime  @default(now()) @map("created_at")
+  updatedAt                     DateTime  @updatedAt @map("updated_at")
+
+  tenant Tenant                   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  policy SensitiveOperationPolicy @relation(fields: [operation], references: [operation], onDelete: Restrict)
+
+  @@index([tenantId, status])
+  @@index([operation, status])
+  @@index([status, createdAt])
+  @@map("sensitive_operation_policy_change_requests")
+  @@schema("security-policy")
+}

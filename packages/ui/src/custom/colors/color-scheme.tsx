@@ -50,7 +50,7 @@ const colorVariables = [
   { name: 'sidebar-ring', display: 'Sidebar Ring' },
 ];
 
-function ColorSwatch({ variableName }: { variableName: string }) {
+function ColorSwatch({ variableName }: Readonly<{ variableName: string }>) {
   const [computedColor, setComputedColor] = React.useState<string>('');
   const [copied, setCopied] = React.useState(false);
 

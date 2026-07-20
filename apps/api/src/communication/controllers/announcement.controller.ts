@@ -19,6 +19,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { CommunicationService } from '../services/communication.service';
 import {
   CreateAnnouncementDto,
@@ -30,6 +31,7 @@ import type { AuthenticatedRequest } from 'src/auth';
 @ApiTags(SwaggerTags.announcements.name)
 @Controller('announcements')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class AnnouncementController {
   constructor(private readonly commService: CommunicationService) {}

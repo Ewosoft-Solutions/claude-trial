@@ -1,0 +1,698 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="compact" data-annot="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SchoolWithEase — Web Experience Wireframes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sketch.css">
+<link rel="stylesheet" href="hybrid.css">
+</head>
+<body>
+<div class="page">
+
+  <!-- ===================== MASTHEAD ===================== -->
+  <div class="masthead">
+    <div>
+      <h1>School<span class="tm">With</span>Ease <span style="font-family:'Kalam';font-size:18px;color:var(--ink-soft);">— web experience</span></h1>
+      <p>The desktop side of one platform. <b>Web is for managing deeply</b> — dashboards, analytics, bulk operations, finance and configuration. Persistent sidebar, global search, multi-panel layouts and dense, keyboard-friendly tables.</p>
+    </div>
+    <div class="kit-meta">low-fi · v1<br>manage, in depth</div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ===================== TABS ===================== -->
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-target="exec">Executive<b>management · AI insights</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="students">Students<b>management workspace</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="finance">Finance<b>billing · collections</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="gradebook">Gradebook<b>teacher · assessment</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="analytics">Analytics<b>cohorts · trends</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="reporting">Reporting<b>builder · roll-ups</b></button>
+    <button class="tab" role="tab" aria-selected="false" data-target="states">UI states<b>loading · access · export</b></button>
+  </div>
+
+  <!-- ============================================================
+       EXECUTIVE
+       ============================================================ -->
+  <section class="layout active" id="exec">
+    <div class="lead">
+      <h2>Executive dashboard</h2>
+      <span class="pill">KPIs · trends · AI insights</span>
+      <p>The management home: institution health at a glance, the trends behind it, and an AI Insights rail that surfaces what changed and why — so leaders read signal, not rows.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Academy <span style="color:var(--ink-faint)">▾</span></div>
+        <div class="crumbs"><span>Management</span><span class="sep">▸</span><span class="cur">Executive dashboard</span></div>
+        <div class="search"><span>⌕</span> Search students, staff, reports… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">＋</span><span class="ico">◔</span><span class="ico">⚑</span><span class="av">PO</span></div>
+      </div>
+
+      <div class="body">
+        <div class="rail">
+          <div class="logo"></div>
+          <div class="ri on">▦</div><div class="ri">☰</div><div class="ri">₦</div><div class="ri">▤</div><div class="ri">◷</div>
+          <div class="ri spring">⚙</div>
+        </div>
+
+        <div class="nav">
+          <div class="nav-h"><b>Management</b></div>
+          <div class="grp-label">Overview</div>
+          <div class="nitem on"><span class="ti"></span><span>Executive</span></div>
+          <div class="nitem"><span class="ti"></span><span>Analytics</span></div>
+          <div class="nitem"><span class="ti"></span><span>Financial reports</span></div>
+          <div class="nitem"><span class="ti"></span><span>Operations</span></div>
+          <div class="grp-label">Institution</div>
+          <div class="nitem"><span class="ti"></span><span>Campuses</span><span class="cnt">3</span></div>
+          <div class="nitem"><span class="ti"></span><span>Staff</span></div>
+          <div class="nitem"><span class="ti"></span><span>Admissions</span><span class="cnt">12</span></div>
+        </div>
+
+        <div class="main">
+          <div class="main-head">
+            <h3>Good morning, Principal Obi</h3><span class="sub">Term 3 · across 3 campuses</span>
+            <div class="actions"><span class="btn">Term 3 ▾</span><span class="btn pri">⎙ Board report</span></div>
+          </div>
+          <div class="main-body scrolly">
+            <div class="kpis">
+              <div class="kpi-card"><span class="lab">Enrolment</span><span class="val">1,284</span><span class="tr">▲ 4.2% vs T2</span></div>
+              <div class="kpi-card"><span class="lab">Attendance</span><span class="val">94.1%</span><span class="tr">▲ 1.1%</span></div>
+              <div class="kpi-card"><span class="lab">Fees collected</span><span class="val">82%</span><span class="tr down">▼ 3% behind</span></div>
+              <div class="kpi-card"><span class="lab">Staff ratio</span><span class="val">1:18</span><span class="tr">steady</span></div>
+            </div>
+            <div class="cols">
+              <div class="panel">
+                <div class="ph"><b>Enrolment trend</b><span class="more">12 terms ›</span></div>
+                <div class="chart-bars"><i style="height:42%"></i><i style="height:48%"></i><i style="height:45%"></i><i style="height:58%"></i><i style="height:55%"></i><i style="height:64%"></i><i style="height:60%"></i><i style="height:72%"></i><i style="height:70%"></i><i style="height:80%"></i><i style="height:78%"></i><i class="hl" style="height:90%"></i></div>
+                <div class="xlabels"><span>T1</span><span>T2</span><span>T3</span><span>T4</span><span>T5</span><span>T6</span><span>T7</span><span>T8</span><span>T9</span><span>T10</span><span>T11</span><span>T12</span></div>
+              </div>
+              <div class="panel">
+                <div class="ph"><b>Attendance mix</b></div>
+                <div style="display:flex;gap:16px;align-items:center;">
+                  <div class="donut"><span class="dc">94%</span></div>
+                  <div class="legend">
+                    <div class="lg"><span class="sw4" style="background:var(--accent)"></span> Present · 94%</div>
+                    <div class="lg"><span class="sw4" style="background:color-mix(in srgb,var(--accent) 40%,var(--frame))"></span> Late · 4%</div>
+                    <div class="lg"><span class="sw4" style="background:var(--skel)"></span> Absent · 2%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="ph"><b>Campus comparison</b><span class="more">Export ›</span></div>
+              <table class="tbl">
+                <thead><tr><th>Campus</th><th>Enrolment</th><th>Attendance</th><th>Fees collected</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td>Main · Lekki</td><td>642</td><td>95.2%</td><td>88%</td><td><span class="statbadge ok">Healthy</span></td></tr>
+                  <tr><td>North · Yaba</td><td>418</td><td>93.8%</td><td>81%</td><td><span class="statbadge ok">Healthy</span></td></tr>
+                  <tr><td>West · Ikeja</td><td>224</td><td>91.0%</td><td>69%</td><td><span class="statbadge warn">Watch fees</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="inspector">
+          <div class="ins-h"><b>✦ AI Insights</b><span style="color:var(--ink-faint)">⤢</span></div>
+          <span class="sub">Role-scoped · this term</span>
+          <div class="insight-row"><span class="spark">▼</span><div class="it"><b>West fees slipping</b><small>69% vs 85% target — 3 plans lapsed this week.</small></div></div>
+          <div class="insight-row"><span class="spark">▲</span><div class="it"><b>Y10 attendance up</b><small>+2.4% after the new SMS reminders.</small></div></div>
+          <div class="insight-row"><span class="spark">!</span><div class="it"><b>Admissions backlog</b><small>12 applications awaiting review &gt; 5 days.</small></div></div>
+          <div class="boxs" style="padding:10px;font-size:12px;color:var(--ink-soft);margin-top:auto;">Ask: "Why did West fees drop?"</div>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> Synced · 4m ago <span>·</span> Term 3 2026 <span class="spring">Data through yesterday 11:59pm</span></div>
+      <span class="mark" style="top:62px; left:660px;">1</span>
+      <span class="mark" style="top:62px; right:240px;">2</span>
+      <span class="mark" style="top:62px; right:14px;">3</span>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>KPI band</b><p>Four institution-level metrics with term-over-term deltas. Red delta flags fees running behind — the one thing to act on.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Trends, then table</b><p>Charts for the shape, a campus comparison table for the detail. Each row drills into that campus's full dashboard.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>AI Insights rail</b><p>Role-scoped narrative — what moved and why — plus a question box. The web counterpart to the mobile tutor.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       STUDENT MANAGEMENT
+       ============================================================ -->
+  <section class="layout" id="students">
+    <div class="lead">
+      <h2>Student management workspace</h2>
+      <span class="pill">table · filters · bulk ops</span>
+      <p>Where administration lives: a dense, sortable roster with multi-select for bulk actions (message, move class, export) and an inspector that previews the selected record without leaving the list.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Academy ▾</div>
+        <div class="crumbs"><span>Administration</span><span class="sep">▸</span><span>Students</span><span class="sep">▸</span><span class="cur">Directory</span></div>
+        <div class="search"><span>⌕</span> Search students… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">＋</span><span class="ico">◔</span><span class="av">PO</span></div>
+      </div>
+
+      <div class="body">
+        <div class="rail"><div class="logo"></div><div class="ri">▦</div><div class="ri on">☰</div><div class="ri">₦</div><div class="ri">▤</div><div class="ri spring">⚙</div></div>
+
+        <div class="nav">
+          <div class="nav-h"><b>Students</b></div>
+          <div class="grp-label">Records</div>
+          <div class="nitem"><span class="ti"></span><span>Enrolment</span><span class="cnt">42</span></div>
+          <div class="nitem on"><span class="ti"></span><span>Directory</span><span class="cnt">1.2k</span></div>
+          <div class="nitem"><span class="ti"></span><span>Attendance</span></div>
+          <div class="nitem"><span class="ti"></span><span>Behaviour</span></div>
+          <div class="grp-label">Manage</div>
+          <div class="nitem"><span class="ti"></span><span>Admissions</span><span class="cnt">12</span></div>
+          <div class="nitem"><span class="ti"></span><span>Classes</span></div>
+          <div class="nitem"><span class="ti"></span><span>Guardians</span></div>
+        </div>
+
+        <div class="main">
+          <div class="main-head">
+            <h3>Directory</h3><span class="sub">1,284 students · Term 3</span>
+            <div class="actions"><span class="btn">⥥ Filter</span><span class="btn">↥ Import</span><span class="btn pri">＋ New student</span></div>
+          </div>
+          <div class="main-body scrolly">
+            <div class="bulkbar" style="margin-bottom:12px;"><span class="cnt2">3</span> selected <span class="sp"><span class="btn" style="padding:3px 10px;">✉ Message</span><span class="btn" style="padding:3px 10px;">⇄ Move class</span><span class="btn" style="padding:3px 10px;">⎙ Export</span><span class="btn" style="padding:3px 10px;border-color:var(--note);color:var(--note);">Archive</span></span></div>
+            <div class="linetbl-wrap">
+              <table class="tbl">
+                <thead><tr><th style="width:30px;"><span class="rowsel on">✓</span></th><th>Student</th><th>Class</th><th>Guardian</th><th>Attendance</th><th>Fees</th><th>Status</th></tr></thead>
+                <tbody>
+                  <tr><td><span class="rowsel on">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">AB</span> Ada Bello</td><td>10B</td><td>Mr Bello</td><td>96%</td><td><span class="statbadge ok">Paid</span></td><td><span class="chip ok">Active</span></td></tr>
+                  <tr><td><span class="rowsel on">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">CO</span> Chidi Obi</td><td>10B</td><td>Mrs Obi</td><td>92%</td><td><span class="statbadge warn">₦85k due</span></td><td><span class="chip ok">Active</span></td></tr>
+                  <tr><td><span class="rowsel on">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">EN</span> Ene Nuhu</td><td>9A</td><td>Mr Nuhu</td><td>88%</td><td><span class="statbadge ok">Paid</span></td><td><span class="chip">On leave</span></td></tr>
+                  <tr><td><span class="rowsel">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">FK</span> Femi Kazeem</td><td>11C</td><td>Mrs Kazeem</td><td>97%</td><td><span class="statbadge ok">Paid</span></td><td><span class="chip ok">Active</span></td></tr>
+                  <tr><td><span class="rowsel">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">GU</span> Grace Udo</td><td>9A</td><td>Mr Udo</td><td>91%</td><td><span class="statbadge warn">₦40k due</span></td><td><span class="chip ok">Active</span></td></tr>
+                  <tr><td><span class="rowsel">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">HM</span> Hauwa Musa</td><td>10B</td><td>Mrs Musa</td><td>99%</td><td><span class="statbadge ok">Paid</span></td><td><span class="chip ok">Active</span></td></tr>
+                  <tr><td><span class="rowsel">✓</span></td><td style="display:flex;gap:8px;align-items:center;"><span class="av">IY</span> Ibrahim Yusuf</td><td>11C</td><td>Mr Yusuf</td><td>85%</td><td><span class="statbadge ok">Paid</span></td><td><span class="chip ok">Active</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="inspector">
+          <div class="ins-h"><b>Ada Bello</b><span style="color:var(--ink-faint)">⤢</span></div>
+          <div style="display:flex;gap:10px;align-items:center;"><span class="av" style="width:44px;height:44px;border-radius:12px;">AB</span><div><b style="font-family:'Caveat';font-size:18px;">Ada Bello</b><div class="sub" style="font-size:11px;">10B · ID 0421</div></div></div>
+          <div class="field"><span class="lab">Guardian</span><span style="font-size:13px;">Mr Bello · +234…</span></div>
+          <div class="field"><span class="lab">Attendance</span><span style="font-size:13px;">96% · 2 lates</span></div>
+          <div class="field"><span class="lab">Fees</span><span class="chip ok" style="align-self:flex-start;">Paid in full</span></div>
+          <span class="btn pri" style="text-align:center;margin-top:6px;">Open full record</span>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> 1,284 records <span class="spring"></span> 3 selected · ⌘A select all · Esc clear</div>
+      <span class="mark" style="top:108px; left:300px;">1</span>
+      <span class="mark" style="top:148px; left:300px;">2</span>
+      <span class="mark" style="top:62px; right:14px;">3</span>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Bulk action bar</b><p>Selecting rows reveals contextual bulk ops — message guardians, move class, export, archive — with a live count.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Dense, scannable table</b><p>Avatar, class, guardian, attendance, fee status and state per row. Sortable headers, checkbox multi-select, keyboard shortcuts.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Inline inspector</b><p>The selected student previews on the right; "Open full record" goes deep without losing the list position.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       FINANCE
+       ============================================================ -->
+  <section class="layout" id="finance">
+    <div class="lead">
+      <h2>Finance dashboard</h2>
+      <span class="pill">billing · collections · ageing</span>
+      <p>The bursar's command centre: what's collected, what's outstanding, and where the risk sits. Collections trend, an ageing table, and discount exposure — built for reconciliation, not just viewing.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Academy ▾</div>
+        <div class="crumbs"><span>Finance</span><span class="sep">▸</span><span class="cur">Collections</span></div>
+        <div class="search"><span>⌕</span> Search invoices, payers… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">＋</span><span class="ico">◔</span><span class="av">BU</span></div>
+      </div>
+
+      <div class="body">
+        <div class="rail"><div class="logo"></div><div class="ri">▦</div><div class="ri">☰</div><div class="ri on">₦</div><div class="ri">▤</div><div class="ri spring">⚙</div></div>
+
+        <div class="nav">
+          <div class="nav-h"><b>Finance</b></div>
+          <div class="grp-label">Revenue</div>
+          <div class="nitem on"><span class="ti"></span><span>Collections</span></div>
+          <div class="nitem"><span class="ti"></span><span>Billing</span></div>
+          <div class="nitem"><span class="ti"></span><span>Invoices</span><span class="cnt">38</span></div>
+          <div class="nitem"><span class="ti"></span><span>Discounts</span></div>
+          <div class="grp-label">Close</div>
+          <div class="nitem"><span class="ti"></span><span>Reconciliation</span></div>
+          <div class="nitem"><span class="ti"></span><span>Reports</span></div>
+        </div>
+
+        <div class="main">
+          <div class="main-head">
+            <h3>Collections</h3><span class="sub">Term 3 · all campuses</span>
+            <div class="actions"><span class="btn">Term 3 ▾</span><span class="btn">↻ Reconcile</span><span class="btn pri">＋ Record payment</span></div>
+          </div>
+          <div class="main-body scrolly">
+            <div class="kpis">
+              <div class="kpi-card"><span class="lab">Collected</span><span class="val">₦184m</span><span class="tr">82% of billed</span></div>
+              <div class="kpi-card"><span class="lab">Outstanding</span><span class="val">₦41m</span><span class="tr down">▼ 312 payers</span></div>
+              <div class="kpi-card"><span class="lab">Overdue &gt;30d</span><span class="val">₦12m</span><span class="tr down">at risk</span></div>
+              <div class="kpi-card"><span class="lab">Discounts</span><span class="val">₦9m</span><span class="tr">4.1% of revenue</span></div>
+            </div>
+            <div class="cols">
+              <div class="panel">
+                <div class="ph"><b>Collections by week</b><span class="more">Term 3 ›</span></div>
+                <div class="chart-bars"><i style="height:30%"></i><i style="height:55%"></i><i style="height:80%"></i><i class="hl" style="height:92%"></i><i style="height:48%"></i><i style="height:40%"></i><i style="height:35%"></i><i style="height:28%"></i></div>
+                <div class="xlabels"><span>W1</span><span>W2</span><span>W3</span><span>W4</span><span>W5</span><span>W6</span><span>W7</span><span>W8</span></div>
+              </div>
+              <div class="panel">
+                <div class="ph"><b>Outstanding ageing</b></div>
+                <div style="display:flex;gap:16px;align-items:center;">
+                  <div class="donut" style="background:conic-gradient(var(--accent) 0 54%, color-mix(in srgb,var(--accent) 40%,var(--frame)) 54% 75%, var(--note) 75% 100%);"><span class="dc">₦41m</span></div>
+                  <div class="legend">
+                    <div class="lg"><span class="sw4" style="background:var(--accent)"></span> Current · ₦22m</div>
+                    <div class="lg"><span class="sw4" style="background:color-mix(in srgb,var(--accent) 40%,var(--frame))"></span> 1–30d · ₦7m</div>
+                    <div class="lg"><span class="sw4" style="background:var(--note)"></span> &gt;30d · ₦12m</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="ph"><b>Top overdue accounts</b><span class="more">Send reminders ›</span></div>
+              <table class="tbl">
+                <thead><tr><th>Payer</th><th>Student</th><th>Invoice</th><th>Amount</th><th>Age</th><th></th></tr></thead>
+                <tbody>
+                  <tr><td>Mrs Obi</td><td>Chidi Obi · 10B</td><td>#INV-2291</td><td>₦85,000</td><td><span class="statbadge warn">42d</span></td><td><span class="btn" style="padding:2px 9px;">Remind</span></td></tr>
+                  <tr><td>Mr Udo</td><td>Grace Udo · 9A</td><td>#INV-2310</td><td>₦40,000</td><td><span class="statbadge warn">31d</span></td><td><span class="btn" style="padding:2px 9px;">Remind</span></td></tr>
+                  <tr><td>Mrs Eze</td><td>Tobi Eze · 8C</td><td>#INV-2188</td><td>₦120,000</td><td><span class="statbadge warn">58d</span></td><td><span class="btn" style="padding:2px 9px;">Remind</span></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> Last reconciled 1h ago <span class="spring"></span> 38 open invoices · ₦41m outstanding</div>
+      <span class="mark" style="top:108px; left:300px;">1</span>
+      <span class="mark" style="top:300px; right:300px;">2</span>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Money KPIs</b><p>Collected, outstanding, overdue and discount exposure — the four numbers a bursar reports upward every week.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Ageing &amp; action</b><p>The ageing donut isolates the &gt;30-day risk; the overdue table turns it into per-account reminders in one click.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       GRADEBOOK
+       ============================================================ -->
+  <section class="layout" id="gradebook">
+    <div class="lead">
+      <h2>Teacher gradebook</h2>
+      <span class="pill">grid · assessments · entry</span>
+      <p>The teacher's deep-work surface — a spreadsheet of students × assessments with inline entry, weighting and a running term grade. Heavy keyboard use; this is web, not mobile, by design.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Academy ▾</div>
+        <div class="crumbs"><span>Teaching</span><span class="sep">▸</span><span>10B · Biology</span><span class="sep">▸</span><span class="cur">Gradebook</span></div>
+        <div class="search"><span>⌕</span> Jump to student or assessment… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">＋</span><span class="av">BE</span></div>
+      </div>
+
+      <div class="body">
+        <div class="rail"><div class="logo"></div><div class="ri">▦</div><div class="ri on">▤</div><div class="ri">☰</div><div class="ri">✦</div><div class="ri spring">⚙</div></div>
+
+        <div class="nav">
+          <div class="nav-h"><b>10B Biology</b></div>
+          <div class="grp-label">Teach</div>
+          <div class="nitem on"><span class="ti"></span><span>Gradebook</span></div>
+          <div class="nitem"><span class="ti"></span><span>Attendance</span></div>
+          <div class="nitem"><span class="ti"></span><span>Assessments</span><span class="cnt">6</span></div>
+          <div class="nitem"><span class="ti"></span><span>Lessons</span></div>
+          <div class="nitem"><span class="ti"></span><span>Class AI</span></div>
+        </div>
+
+        <div class="main">
+          <div class="main-head">
+            <h3>Gradebook</h3><span class="sub">10B · Biology · 29 students</span>
+            <div class="actions"><span class="btn">⚖ Weights</span><span class="btn">↥ Import</span><span class="btn pri">＋ Assessment</span></div>
+          </div>
+          <div class="main-body scrolly">
+            <div class="linetbl-wrap">
+              <table class="tbl" style="font-size:12px;">
+                <thead>
+                  <tr>
+                    <th style="position:sticky;left:0;background:var(--panel);">Student</th>
+                    <th class="num">Quiz 1<br><small style="font-weight:400;color:var(--ink-faint);">10%</small></th>
+                    <th class="num">Lab rpt<br><small style="font-weight:400;color:var(--ink-faint);">15%</small></th>
+                    <th class="num">Mid-term<br><small style="font-weight:400;color:var(--ink-faint);">25%</small></th>
+                    <th class="num">Project<br><small style="font-weight:400;color:var(--ink-faint);">20%</small></th>
+                    <th class="num">Osmosis<br><small style="font-weight:400;color:var(--ink-faint);">10%</small></th>
+                    <th class="num">Term</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td style="display:flex;gap:8px;align-items:center;"><span class="av">AB</span> Ada Bello</td><td class="num">92</td><td class="num">88</td><td class="num">90</td><td class="num">95</td><td class="num">92</td><td class="num"><span class="statbadge ok">A · 91</span></td></tr>
+                  <tr><td style="display:flex;gap:8px;align-items:center;"><span class="av">CO</span> Chidi Obi</td><td class="num">78</td><td class="num">82</td><td class="num">74</td><td class="num">80</td><td class="num" style="background:color-mix(in srgb,var(--accent) 14%,transparent);outline:2px solid var(--accent);">__</td><td class="num"><span class="statbadge">B · 79</span></td></tr>
+                  <tr><td style="display:flex;gap:8px;align-items:center;"><span class="av">EN</span> Ene Nuhu</td><td class="num">65</td><td class="num">70</td><td class="num">62</td><td class="num">71</td><td class="num">68</td><td class="num"><span class="statbadge warn">C · 67</span></td></tr>
+                  <tr><td style="display:flex;gap:8px;align-items:center;"><span class="av">FK</span> Femi Kazeem</td><td class="num">88</td><td class="num">91</td><td class="num">85</td><td class="num">89</td><td class="num">90</td><td class="num"><span class="statbadge ok">A · 88</span></td></tr>
+                  <tr><td style="display:flex;gap:8px;align-items:center;"><span class="av">GU</span> Grace Udo</td><td class="num">74</td><td class="num">79</td><td class="num">80</td><td class="num">76</td><td class="num">82</td><td class="num"><span class="statbadge">B · 78</span></td></tr>
+                  <tr><td style="display:flex;gap:8px;align-items:center;"><span class="av">HM</span> Hauwa Musa</td><td class="num">96</td><td class="num">94</td><td class="num">92</td><td class="num">98</td><td class="num">95</td><td class="num"><span class="statbadge ok">A · 95</span></td></tr>
+                  <tr style="font-family:'Caveat';"><td style="font-size:15px;">Class average</td><td class="num">82</td><td class="num">84</td><td class="num">80</td><td class="num">85</td><td class="num">84</td><td class="num">B · 83</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="boxs" style="margin-top:12px;padding:11px;display:flex;gap:9px;align-items:center;font-size:12px;color:var(--ink-soft);"><span class="spark">✦</span> Class AI: 4 students dipped on the mid-term — suggest a recap on cell transport. <span class="btn" style="margin-left:auto;padding:3px 10px;">Draft plan</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> Autosaved <span class="spring"></span> Tab / ↵ to move between cells · entering Osmosis · Chidi Obi</div>
+      <span class="mark" style="top:96px; left:300px;">1</span>
+      <span class="mark" style="top:200px; left:540px;">2</span>
+      <span class="mark" style="bottom:60px; right:300px;">3</span>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Students × assessments</b><p>Frozen first column, weighted assessment columns, and a computed term grade per pupil and a class-average footer.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Inline entry</b><p>The highlighted cell is the active entry point — type a score, Tab/Enter to advance. Autosaves; no modal.</p></div></div>
+      <div class="note"><span class="n">3</span><div><b>Class AI nudge</b><p>The model reads the grid and proposes a targeted re-teach — the teacher's version of the insights rail.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       ANALYTICS
+       ============================================================ -->
+  <section class="layout" id="analytics">
+    <div class="lead">
+      <h2>Analytics center</h2>
+      <span class="pill">cohorts · filters · compare</span>
+      <p>Multi-panel analysis for leaders and academic VPs. A filter rail scopes the question; the canvas answers with KPIs, trend lines and cohort comparisons that can be saved as a view or pushed to a report.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Academy ▾</div>
+        <div class="crumbs"><span>Management</span><span class="sep">▸</span><span class="cur">Analytics</span></div>
+        <div class="search"><span>⌕</span> Ask a question of your data… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">＋</span><span class="av">VP</span></div>
+      </div>
+
+      <div class="body">
+        <!-- filter rail reusing rep-builder -->
+        <div class="rep-builder" style="width:212px;flex:none;">
+          <div class="rbh">Scope</div>
+          <div class="rep-grp"><div class="rgl">Campus</div>
+            <div class="rep-opt on"><span class="bx">✓</span> All campuses</div>
+            <div class="rep-opt"><span class="bx"></span> Main · Lekki</div>
+            <div class="rep-opt"><span class="bx"></span> North · Yaba</div>
+          </div>
+          <div class="rep-grp"><div class="rgl">Cohort</div>
+            <div class="rep-opt radio on"><span class="bx">✓</span> Year group</div>
+            <div class="rep-opt radio"><span class="bx"></span> Class</div>
+            <div class="rep-opt radio"><span class="bx"></span> Gender</div>
+          </div>
+          <div class="rep-grp"><div class="rgl">Metric</div>
+            <div class="rep-opt on"><span class="bx">✓</span> Attendance</div>
+            <div class="rep-opt on"><span class="bx">✓</span> Avg grade</div>
+            <div class="rep-opt"><span class="bx"></span> Behaviour</div>
+          </div>
+          <div class="rep-run"><span class="btn pri" style="display:block;text-align:center;">Save view</span></div>
+        </div>
+
+        <div class="main">
+          <div class="main-head">
+            <h3>Year-group performance</h3><span class="sub">All campuses · Term 3</span>
+            <div class="actions"><span class="btn">⤢ Compare term</span><span class="btn pri">⎙ To report</span></div>
+          </div>
+          <div class="main-body scrolly">
+            <div class="rep-kpis" style="margin-bottom:14px;">
+              <div class="kpi-card"><span class="lab">Avg attendance</span><span class="val">94.1%</span><span class="tr">▲ 1.1%</span></div>
+              <div class="kpi-card"><span class="lab">Avg grade</span><span class="val">B (78)</span><span class="tr">▲ 2 pts</span></div>
+              <div class="kpi-card"><span class="lab">At-risk pupils</span><span class="val">63</span><span class="tr down">▲ 8</span></div>
+            </div>
+            <div class="panel" style="margin-bottom:14px;">
+              <div class="ph"><b>Avg grade by year group</b><span class="more">vs last term ›</span></div>
+              <div class="chart-bars" style="height:150px;"><i style="height:60%"></i><i style="height:66%"></i><i style="height:72%"></i><i class="hl" style="height:80%"></i><i style="height:74%"></i><i style="height:68%"></i><i style="height:58%"></i></div>
+              <div class="xlabels"><span>Y7</span><span>Y8</span><span>Y9</span><span>Y10</span><span>Y11</span><span>Y12</span><span>Y13</span></div>
+            </div>
+            <div class="cols even">
+              <div class="panel">
+                <div class="ph"><b>Attendance vs grade</b></div>
+                <div class="dotgrid box" style="height:120px;border-style:dashed;position:relative;">
+                  <span class="dot" style="position:absolute;left:20%;top:60%;"></span><span class="dot" style="position:absolute;left:40%;top:48%;background:var(--accent);"></span><span class="dot" style="position:absolute;left:55%;top:38%;"></span><span class="dot" style="position:absolute;left:70%;top:28%;background:var(--accent);"></span><span class="dot" style="position:absolute;left:82%;top:20%;"></span><span class="scrawl" style="bottom:6px;right:10px;">correlation ↗</span>
+                </div>
+              </div>
+              <div class="panel">
+                <div class="ph"><b>Cohort split</b></div>
+                <div style="display:flex;gap:14px;align-items:center;"><div class="donut"><span class="dc">Y10</span></div><div class="legend"><div class="lg"><span class="sw4" style="background:var(--accent)"></span> Above target · 62%</div><div class="lg"><span class="sw4" style="background:color-mix(in srgb,var(--accent) 40%,var(--frame))"></span> On target · 22%</div><div class="lg"><span class="sw4" style="background:var(--note)"></span> Below · 16%</div></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> View: "Year-group · T3" <span class="spring"></span> 1,284 pupils in scope · unsaved filters</div>
+      <span class="mark" style="top:120px; left:14px;">1</span>
+      <span class="mark" style="top:250px; left:300px;">2</span>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Filter rail scopes everything</b><p>Campus, cohort and metric pickers reshape the whole canvas. Saved combinations become named, shareable views.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Answer, many ways</b><p>KPIs, bar trends, a scatter correlation and a cohort donut — pick the panel that makes the point, then push it to a report.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       REPORTING
+       ============================================================ -->
+  <section class="layout" id="reporting">
+    <div class="lead">
+      <h2>Reporting workspace</h2>
+      <span class="pill">builder · roll-up · export</span>
+      <p>Pick dimensions and measures on the left, preview a grouped roll-up on the right, then export or schedule. The plain-language query line shows exactly what the table answers.</p>
+    </div>
+
+    <div class="frame">
+      <div class="topbar">
+        <div class="tenant"><span class="sq"></span> Greenfield Academy ▾</div>
+        <div class="crumbs"><span>Reporting</span><span class="sep">▸</span><span class="cur">New report</span></div>
+        <div class="search"><span>⌕</span> Templates &amp; saved reports… <span class="kbd">⌘K</span></div>
+        <div class="tb-icons"><span class="ico">＋</span><span class="av">PO</span></div>
+      </div>
+
+      <div class="body">
+        <div class="main" style="border:none;">
+          <div class="report">
+            <div class="rep-builder">
+              <div class="rbh">Build report</div>
+              <div class="rep-grp"><div class="rgl">Group by</div>
+                <div class="rep-opt on"><span class="bx">✓</span> Campus</div>
+                <div class="rep-opt on"><span class="bx">✓</span> Year group</div>
+                <div class="rep-opt"><span class="bx"></span> Class</div>
+              </div>
+              <div class="rep-grp"><div class="rgl">Measures</div>
+                <div class="rep-opt on"><span class="bx">✓</span> Enrolment</div>
+                <div class="rep-opt on"><span class="bx">✓</span> Attendance %</div>
+                <div class="rep-opt on"><span class="bx">✓</span> Fees collected</div>
+                <div class="rep-opt"><span class="bx"></span> Avg grade</div>
+              </div>
+              <div class="rep-grp"><div class="rgl">Period</div>
+                <div class="rep-opt radio on"><span class="bx">✓</span> Term 3</div>
+                <div class="rep-opt radio"><span class="bx"></span> Full year</div>
+              </div>
+              <div class="rep-run"><span class="btn pri" style="display:block;text-align:center;margin-bottom:7px;">▶ Run report</span><span class="btn" style="display:block;text-align:center;">⎙ Schedule</span></div>
+            </div>
+            <div class="rep-canvas">
+              <div class="rep-q">Showing <code>Enrolment</code>, <code>Attendance %</code>, <code>Fees collected</code> grouped by <code>Campus</code> → <code>Year group</code> for <code>Term 3</code>.</div>
+              <table class="rollup-tbl">
+                <thead><tr><th>Campus / Year</th><th class="num">Enrolment</th><th class="num">Attendance</th><th class="num">Fees collected</th></tr></thead>
+                <tbody>
+                  <tr class="grp"><td><span class="d" style="background:var(--accent)"></span>Main · Lekki</td><td class="num">642</td><td class="num">95.2%</td><td class="num">88%</td></tr>
+                  <tr class="leaf"><td>Year 10</td><td class="num">128</td><td class="num">96.1%</td><td class="num">91%</td></tr>
+                  <tr class="leaf"><td>Year 11</td><td class="num">119</td><td class="num">94.0%</td><td class="num">86%</td></tr>
+                  <tr class="grp"><td><span class="d" style="background:color-mix(in srgb,var(--accent) 55%,var(--frame))"></span>North · Yaba</td><td class="num">418</td><td class="num">93.8%</td><td class="num">81%</td></tr>
+                  <tr class="leaf"><td>Year 10</td><td class="num">96</td><td class="num">94.2%</td><td class="num">83%</td></tr>
+                  <tr class="leaf"><td>Year 11</td><td class="num">88</td><td class="num">92.5%</td><td class="num">78%</td></tr>
+                  <tr class="grp"><td><span class="d" style="background:var(--note)"></span>West · Ikeja</td><td class="num">224</td><td class="num">91.0%</td><td class="num">69%</td></tr>
+                  <tr class="leaf"><td>Year 10</td><td class="num">61</td><td class="num">91.8%</td><td class="num">72%</td></tr>
+                  <tr class="total"><td>All campuses</td><td class="num">1,284</td><td class="num">94.1%</td><td class="num">82%</td></tr>
+                </tbody>
+              </table>
+              <div style="display:flex;gap:8px;"><span class="btn pri">⤓ Export CSV</span><span class="btn">⎙ PDF</span><span class="btn">＋ Save template</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="statusbar"><span class="s-dot"></span> Report ready · 9 rows <span class="spring"></span> Last run just now</div>
+      <span class="mark" style="top:120px; left:14px;">1</span>
+      <span class="mark" style="top:120px; left:240px;">2</span>
+    </div>
+
+    <div class="notes">
+      <div class="note"><span class="n">1</span><div><b>Dimensions &amp; measures</b><p>Tick what to group by and what to count. The builder is the whole query — no formula language to learn.</p></div></div>
+      <div class="note"><span class="n">2</span><div><b>Roll-up preview &amp; export</b><p>Grouped totals with a plain-language summary line, then export to CSV / PDF or save as a reusable template.</p></div></div>
+    </div>
+  </section>
+
+  <!-- ============================================================
+       WEB UI STATES
+       ============================================================ -->
+  <section class="layout" id="states">
+    <div class="lead">
+      <h2>Web UI states</h2>
+      <span class="pill">loading · empty · access · export</span>
+      <p>The operational states a management tool must handle — long-running reports, permission boundaries, bulk confirmations and successful exports — drawn so the build covers more than the happy path.</p>
+    </div>
+
+    <div class="minis two">
+      <!-- data loading -->
+      <div>
+        <div class="frame mini" style="height:330px;">
+          <div class="topbar"><div class="tenant"><span class="sq"></span> Greenfield ▾</div><div class="search"><span>⌕</span> Search…</div><div class="tb-icons"><span class="av">PO</span></div></div>
+          <div class="body"><div class="rail" style="width:46px;"><div class="logo"></div><div class="ri on">▦</div><div class="ri">☰</div></div>
+            <div class="main"><div class="main-head"><h3>Executive</h3><span class="sub">loading…</span></div>
+              <div class="main-body">
+                <div class="kpis"><div class="kpi-card shimmer"><span class="skel sm" style="width:60%"></span><span class="skel tall" style="width:50%"></span></div><div class="kpi-card shimmer"><span class="skel sm" style="width:60%"></span><span class="skel tall" style="width:50%"></span></div><div class="kpi-card shimmer"><span class="skel sm" style="width:60%"></span><span class="skel tall" style="width:50%"></span></div></div>
+                <div class="panel shimmer" style="margin-top:10px;"><span class="skel" style="width:40%"></span><div class="chart-bars" style="height:70px;"><i style="height:40%"></i><i style="height:60%"></i><i style="height:50%"></i><i style="height:75%"></i><i style="height:65%"></i></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="framecap"><b>Data loading</b> — shaped skeletons, no layout jump</div>
+      </div>
+
+      <!-- no results -->
+      <div>
+        <div class="frame mini" style="height:330px;">
+          <div class="topbar"><div class="tenant"><span class="sq"></span> Greenfield ▾</div><div class="search" style="border-color:var(--accent);"><span>⌕</span> "xyzzy enrolment 1998"</div><div class="tb-icons"><span class="av">PO</span></div></div>
+          <div class="body"><div class="rail" style="width:46px;"><div class="logo"></div><div class="ri on">☰</div></div>
+            <div class="main"><div class="main-body"><div class="bigstate"><span class="glyph">⌕</span><h4>No results</h4><p>Nothing matches "xyzzy enrolment 1998". Check spelling or clear filters.</p><div style="display:flex;gap:8px;"><span class="btn">Clear filters</span><span class="btn pri">Browse all</span></div></div></div></div>
+          </div>
+        </div>
+        <div class="framecap"><b>No search results</b> — suggest a recovery</div>
+      </div>
+
+      <!-- report generation -->
+      <div>
+        <div class="frame mini" style="height:330px;">
+          <div class="topbar"><div class="tenant"><span class="sq"></span> Greenfield ▾</div><div class="crumbs"><span class="cur">Reporting</span></div><div class="tb-icons"><span class="av">PO</span></div></div>
+          <div class="body"><div class="rail" style="width:46px;"><div class="logo"></div><div class="ri on">▤</div></div>
+            <div class="main"><div class="main-body"><div class="bigstate"><span class="glyph">⎙</span><h4>Generating report…</h4><p>Board pack · 3 campuses · 9 sheets</p><div class="prog" style="width:200px;"><i style="width:68%"></i></div><span class="sub" style="font-size:12px;">68% · ~12s left · you can keep working</span></div></div></div>
+          </div>
+        </div>
+        <div class="framecap"><b>Report generation</b> — progress, non-blocking</div>
+      </div>
+
+      <!-- bulk confirm -->
+      <div>
+        <div class="frame mini" style="height:330px;position:relative;">
+          <div class="topbar"><div class="tenant"><span class="sq"></span> Greenfield ▾</div><div class="crumbs"><span class="cur">Students</span></div><div class="tb-icons"><span class="av">PO</span></div></div>
+          <div class="body" style="filter:opacity(.5);"><div class="rail" style="width:46px;"><div class="logo"></div><div class="ri on">☰</div></div><div class="main"><div class="main-body"><div class="skel" style="width:80%;margin-bottom:8px;"></div><div class="skel" style="width:70%;margin-bottom:8px;"></div><div class="skel" style="width:75%;"></div></div></div></div>
+          <div class="scrim"></div>
+          <div class="floatins" style="position:absolute;top:80px;left:50%;transform:translateX(-50%);width:280px;">
+            <div class="bar"><b>Confirm bulk action</b></div>
+            <div style="font-size:13px;">Move <b>3 students</b> from <b>10B → 10C</b>? Guardians will be notified.</div>
+            <div class="caps"><span class="cap"><span class="cg">✉</span> Notify guardians</span></div>
+            <div style="display:flex;gap:8px;margin-top:4px;"><span class="btn" style="flex:1;text-align:center;">Cancel</span><span class="btn pri" style="flex:1;text-align:center;">Move 3</span></div>
+          </div>
+        </div>
+        <div class="framecap"><b>Bulk operation confirm</b> — preview the blast radius</div>
+      </div>
+
+      <!-- export success -->
+      <div>
+        <div class="frame mini" style="height:330px;position:relative;">
+          <div class="topbar"><div class="tenant"><span class="sq"></span> Greenfield ▾</div><div class="crumbs"><span class="cur">Reporting</span></div><div class="tb-icons"><span class="av">PO</span></div></div>
+          <div class="body"><div class="rail" style="width:46px;"><div class="logo"></div><div class="ri on">▤</div></div>
+            <div class="main"><div class="main-body"><div class="bigstate"><span class="glyph" style="border-color:var(--accent);color:var(--accent);">✓</span><h4>Export ready</h4><p>Term3-Board-Pack.pdf · 1.8 MB</p><div style="display:flex;gap:8px;"><span class="btn pri">⤓ Download</span><span class="btn">✉ Email to board</span></div></div></div></div>
+          </div>
+          <div class="toast show" style="bottom:14px;">✓ Saved to Reports · shared with 4 people</div>
+        </div>
+        <div class="framecap"><b>Export success</b> — confirm + next step</div>
+      </div>
+
+      <!-- access denied -->
+      <div>
+        <div class="frame mini" style="height:330px;">
+          <div class="topbar"><div class="tenant"><span class="sq"></span> Greenfield ▾</div><div class="crumbs"><span>Finance</span><span class="sep">▸</span><span class="cur">Payroll</span></div><div class="tb-icons"><span class="av">TE</span></div></div>
+          <div class="body"><div class="rail" style="width:46px;"><div class="logo"></div><div class="ri">▦</div><div class="ri on">₦</div></div>
+            <div class="main"><div class="main-body"><div class="bigstate"><span class="glyph" style="border-color:var(--note);color:var(--note);">⊘</span><h4>Access denied</h4><p>Payroll is restricted to Finance &amp; Owners. Your role (Teacher) can't view this.</p><div style="display:flex;gap:8px;"><span class="btn">Back to dashboard</span><span class="btn pri">Request access</span></div></div></div></div>
+          </div>
+        </div>
+        <div class="framecap"><b>Access denied</b> — role boundary, with a path</div>
+      </div>
+    </div>
+  </section>
+
+  <p class="footnote">— web = manage deeply · open Tweaks (toolbar) to switch theme, density, accent &amp; toggle annotations —</p>
+</div>
+
+<!-- ===================== TWEAKS ISLAND ===================== -->
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+
+<script>
+  document.querySelectorAll('.tab').forEach(function (t) {
+    t.addEventListener('click', function () {
+      document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', 'false'); });
+      t.setAttribute('aria-selected', 'true');
+      var id = t.getAttribute('data-target');
+      document.querySelectorAll('.layout').forEach(function (s) { s.classList.toggle('active', s.id === id); });
+    });
+  });
+</script>
+
+<script type="text/babel">
+  const DENSITY = { compact: 0.82, regular: 1, comfy: 1.15 };
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "dark": false,
+    "accent": "#4f6df5",
+    "density": "compact",
+    "annot": true
+  }/*EDITMODE-END*/;
+
+  function apply(t) {
+    const r = document.documentElement;
+    r.setAttribute('data-theme', t.dark ? 'dark' : 'light');
+    r.setAttribute('data-density', t.density);
+    r.setAttribute('data-annot', t.annot ? 'on' : 'off');
+    r.style.setProperty('--accent', t.accent);
+    r.style.setProperty('--pad', String(DENSITY[t.density] || 1));
+  }
+
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    React.useEffect(() => { apply(t); }, [t]);
+    return (
+      <TweaksPanel title="Tweaks">
+        <TweakSection label="Appearance" />
+        <TweakToggle label="Dark mode" value={t.dark} onChange={(v) => setTweak('dark', v)} />
+        <TweakColor label="Accent" value={t.accent}
+          options={['#4f6df5', '#1f8a5b', '#c2452f', '#7a5ae0', '#0e7490']}
+          onChange={(v) => setTweak('accent', v)} />
+        <TweakSection label="Layout" />
+        <TweakRadio label="Density" value={t.density} options={['compact', 'regular', 'comfy']}
+          onChange={(v) => setTweak('density', v)} />
+        <TweakToggle label="Annotations" value={t.annot} onChange={(v) => setTweak('annot', v)} />
+      </TweaksPanel>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+</body>
+</html>

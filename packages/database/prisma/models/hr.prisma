@@ -1,0 +1,86 @@
+// ============================================
+// HR & Payroll Models
+// ============================================
+//
+// StaffPayrollRecord: one payroll run entry for a staff member's
+// UserTenant profile. No hard FK to UserTenant (loose reference,
+// following the AttendanceRecord.recordedBy convention) since a
+// staff member's identity lives in the auth/profile domain, not HR.
+//
+// Tenant-scoped (tenant_id NOT NULL) in the "hr" schema and covered
+// by RLS (migration applies the policy explicitly so db:rls:check
+// passes from day one).
+//
+// status: 'draft' | 'approved' | 'paid'
+// ============================================
+
+model StaffPayrollRecord {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  staffUserTenantId String  @map("staff_user_tenant_id") // loose reference to UserTenant
+  staffName         String  @map("staff_name") // denormalized snapshot
+  role              String? // job title / role at time of run
+
+  payPeriod  String  @map("pay_period") // e.g. "2026-06"
+  grossPay   Decimal @map("gross_pay") @db.Decimal(12, 2)
+  deductions Decimal @default(0) @db.Decimal(12, 2)
+  netPay     Decimal @map("net_pay") @db.Decimal(12, 2)
+
+  status   String    @default("draft") // draft | approved | paid
+  paidDate DateTime? @map("paid_date") @db.Date
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, payPeriod])
+  @@index([staffUserTenantId])
+  @@map("staff_payroll_records")
+  @@schema("hr")
+}
+
+// StaffLeaveRequest - a staff member's leave request and its approval state.
+// Tenant-scoped (tenant_id NOT NULL) in the "hr" schema, RLS applied
+// explicitly so db:rls:check passes from day one.
+// leaveType: 'annual' | 'sick' | 'unpaid' | 'other'
+// status:    'pending' | 'approved' | 'rejected' | 'cancelled'
+model StaffLeaveRequest {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  staffUserTenantId String @map("staff_user_tenant_id") // loose reference to UserTenant
+  staffName         String @map("staff_name") // denormalized snapshot
+
+  leaveType String   @map("leave_type")
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+  days      Int
+  reason    String?
+
+  status     String  @default("pending")
+  reviewedBy String? @map("reviewed_by")
+  reviewNote String? @map("review_note")
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([staffUserTenantId])
+  @@map("staff_leave_requests")
+  @@schema("hr")
+}

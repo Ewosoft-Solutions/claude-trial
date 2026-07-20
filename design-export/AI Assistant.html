@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light" data-density="compact" data-sources="on">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Assistant — SchoolWithEase</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;500;700&family=Kalam:wght@300;400;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sketch.css">
+<link rel="stylesheet" href="ai.css">
+</head>
+<body>
+<div class="page">
+
+  <div class="masthead">
+    <div>
+      <h1>AI <span class="tm">assistant</span> <span style="font-family:'Kalam';font-size:18px;color:var(--ink-soft);">· two systems, embedded everywhere</span></h1>
+      <p>One always-present launcher, every role. The <b>Academic Tutor</b> (lesson-grounded, source-linked) and the <b>Analytics AI</b> (role-scoped data Q&amp;A) live inside one floating bubble, bottom-right of every screen. Switch role, try a question, and toggle <b>Assessment mode</b> to watch AI step back for academic integrity.</p>
+    </div>
+    <div class="kit-meta">low-fi · v1<br>AI layer</div>
+  </div>
+
+  <hr class="rule">
+
+  <!-- ============ SWITCHER ============ -->
+  <div class="switcher">
+    <div class="swgrp"><span class="lbl">Viewing as</span>
+      <button class="pillbtn" data-role="student" aria-pressed="true">Student</button>
+      <button class="pillbtn" data-role="teacher" aria-pressed="false">Teacher</button>
+      <button class="pillbtn" data-role="classteacher" aria-pressed="false">Class Teacher</button>
+      <button class="pillbtn" data-role="parent" aria-pressed="false">Parent</button>
+      <button class="pillbtn" data-role="principal" aria-pressed="false">Principal</button>
+      <button class="pillbtn" data-role="vpacademic" aria-pressed="false">VP Academic</button>
+      <button class="pillbtn" data-role="vpadmin" aria-pressed="false">VP Admin</button>
+      <button class="pillbtn" data-role="owner" aria-pressed="false">School Owner</button>
+      <button class="pillbtn" data-role="bursar" aria-pressed="false">Bursar</button>
+      <button class="pillbtn" data-role="librarian" aria-pressed="false">Librarian</button>
+      <button class="pillbtn" data-role="architect" aria-pressed="false">Architect</button>
+    </div>
+    <div class="swgrp"><span class="lbl">State</span>
+      <span class="seg">
+        <button data-view="live" aria-pressed="true">Live</button>
+        <button data-view="assessment" aria-pressed="false">Assessment mode</button>
+      </span>
+    </div>
+  </div>
+
+  <!-- ============ THE SHELL + AI LAYER ============ -->
+  <div class="frame ai-host" id="ai-frame"></div>
+
+  <div class="notes" id="ai-notes"></div>
+
+  <p class="footnote">— same shell, AI woven in as a floating bubble · Academic Tutor &amp; Analytics AI in distinct accents · open Tweaks for accents, sources &amp; theme —</p>
+</div>
+
+<div id="tweaks-root"></div>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel">
+  const DENSITY = { compact: 0.82, regular: 1, comfy: 1.15 };
+  const TD = /*EDITMODE-BEGIN*/{
+    "dark": false,
+    "accent": "#4f6df5",
+    "dataAccent": "#b3791b",
+    "density": "compact",
+    "sources": true
+  }/*EDITMODE-END*/;
+  function apply(t){
+    const r=document.documentElement;
+    r.setAttribute('data-theme',t.dark?'dark':'light');
+    r.setAttribute('data-density',t.density);
+    r.setAttribute('data-sources', t.sources ? 'on':'off');
+    r.style.setProperty('--accent',t.accent);
+    r.style.setProperty('--ai-data',t.dataAccent);
+    r.style.setProperty('--pad',String(DENSITY[t.density]||1));
+  }
+  function App(){const [t,setTweak]=useTweaks(TD);React.useEffect(()=>{apply(t);},[t]);
+    return (<TweaksPanel title="Tweaks">
+      <TweakSection label="AI systems" />
+      <TweakColor label="Tutor accent" value={t.accent} options={['#4f6df5','#1f8a5b','#0e7490','#c2452f','#2c2b27']} onChange={(v)=>setTweak('accent',v)} />
+      <TweakColor label="Analytics accent" value={t.dataAccent} options={['#7a5ae0','#0e7490','#c2452f','#1f8a5b','#b3791b']} onChange={(v)=>setTweak('dataAccent',v)} />
+      <TweakToggle label="Show source references" value={t.sources} onChange={(v)=>setTweak('sources',v)} />
+      <TweakSection label="Appearance" />
+      <TweakToggle label="Dark mode" value={t.dark} onChange={(v)=>setTweak('dark',v)} />
+      <TweakRadio label="Density" value={t.density} options={['compact','regular','comfy']} onChange={(v)=>setTweak('density',v)} />
+    </TweaksPanel>);}
+  ReactDOM.createRoot(document.getElementById('tweaks-root')).render(<App />);
+</script>
+
+<script src="role-data.js"></script>
+<script src="ai-data.js"></script>
+<script src="ai-render.js"></script>
+</body>
+</html>

@@ -52,6 +52,8 @@ This document describes all environment variables required for the School With E
 - `WEBAUTHN_RP_NAME`: Relying Party name (default: `School With Ease`)
 - `WEBAUTHN_RP_ID`: Relying Party ID (default: `localhost`)
 - `WEBAUTHN_ORIGIN`: Origin URL (default: `http://localhost:3000`)
+- `WEBAUTHN_ALLOWED_ORIGINS`: Optional comma-separated exact browser-origin
+  allow-list; API and other service hosts should not be included
 
 ### Database Connection Pool
 

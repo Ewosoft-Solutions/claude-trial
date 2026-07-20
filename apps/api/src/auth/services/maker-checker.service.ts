@@ -135,6 +135,16 @@ export class MakerCheckerService {
         },
       ],
       [
+        'ai.settings.update',
+        {
+          operation: 'ai.settings.update',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['ai.configure'],
+          requiredClearanceLevel: 7, // Management+ — mirrors the ai.configure seed
+          timeLimitHours: 48,
+        },
+      ],
+      [
         'backup.restore',
         {
           operation: 'backup.restore',

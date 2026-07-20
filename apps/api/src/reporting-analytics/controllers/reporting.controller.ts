@@ -15,6 +15,7 @@ import {
   PermissionGuard,
   RequirePermissions,
 } from '../../auth/guards/permission.guard';
+import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { ReportingAnalyticsService } from '../services/reporting-analytics.service';
 import {
   AcademicPerformanceReportDto,
@@ -24,10 +25,13 @@ import {
   CustomReportDto,
 } from '../dto';
 import type { AuthenticatedRequest } from 'src/auth';
+import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
+import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 
 @ApiTags(SwaggerTags.reports.name)
 @Controller('reports')
 @UseGuards(JwtAuthGuard, TenantContextGuard, PermissionGuard)
+@TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class ReportingController {
   constructor(private readonly reportingService: ReportingAnalyticsService) {}
@@ -55,6 +59,8 @@ export class ReportingController {
   }
 
   @Post('export')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.DATA_EXPORT)
   @RequirePermissions(['reports.export'])
   @ApiOperation({ summary: 'Export report (queued/stub)' })
   async export(

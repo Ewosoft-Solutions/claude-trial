@@ -2,6 +2,7 @@ import { Injectable, Scope, Inject, Logger } from '@nestjs/common';
 import { PrismaClient, Prisma } from '@workspace/database';
 import { PRISMA_CLIENT_TOKEN } from './database.service';
 import { setContext, clearContext } from '@workspace/database/rls';
+import { currentRlsTx } from './rls-als';
 
 /**
  * Prisma Transaction Service
@@ -67,6 +68,14 @@ export class PrismaTransactionService {
     tenantId: string,
     userId?: string,
   ): Promise<T> {
+    // If a request-level RLS scope is active (opened by RlsTenantInterceptor on
+    // the app_runtime client), reuse its transaction so this work runs RLS-
+    // enforced under the request's tenant GUC. Covers @TenantScoped routes.
+    const scopedTx = currentRlsTx();
+    if (scopedTx) {
+      return fn(scopedTx);
+    }
+
     if (this.tx) {
       // Already in transaction - reuse it
       // RLS context should already be set

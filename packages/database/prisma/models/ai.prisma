@@ -1,0 +1,137 @@
+// ============================================
+// AI Models
+// ============================================
+//
+// ChatSession: one conversation with an AI system, owned by a
+// profile (userTenantId -> profile.user_tenants.id, kept as a
+// plain id like created_by elsewhere). type distinguishes the two
+// deliberately separate AI systems (requirements/ai-integration.md):
+//   'analytics' — clearance-scoped Q&A over school data
+//   'academic'  — lesson-scoped tutor (lessonId used from Step 4 on)
+//
+// ChatMessage: one side of an exchange. metadata JSONB carries
+// tool calls, sources, confidence, token counts.
+//
+// Tenant-scoped (tenant_id NOT NULL) in the "ai" schema and covered
+// by RLS (migration applies the policy explicitly so db:rls:check
+// passes from day one).
+//
+// status: 'active' | 'archived'
+// sender: 'user' | 'assistant'
+// ============================================
+
+model ChatSession {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  userTenantId String @map("user_tenant_id")
+
+  type     String // analytics | academic
+  lessonId String? @map("lesson_id") // academic sessions only (Step 4+)
+  title    String?
+  status   String  @default("active") // active | archived
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant   Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  @@index([tenantId])
+  @@index([tenantId, userTenantId])
+  @@index([tenantId, type, status])
+  @@map("chat_sessions")
+  @@schema("ai")
+}
+
+model ChatMessage {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  sessionId String @map("session_id")
+
+  sender   String // user | assistant
+  content  String
+  metadata Json? // tool calls, sources, confidence, token counts
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relations
+  tenant  Tenant      @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([sessionId, createdAt])
+  @@map("chat_messages")
+  @@schema("ai")
+}
+
+model AiSettings {
+  id       String @id @default(uuid())
+  tenantId String @unique @map("tenant_id")
+
+  modelTier             String  @default("standard") @map("model_tier")
+  analyticsEnabled      Boolean @default(true) @map("analytics_enabled")
+  tutorEnabled          Boolean @default(true) @map("tutor_enabled")
+  monthlyTokenBudget    Int     @default(1000000) @map("monthly_token_budget")
+  concurrencyLimit      Int     @default(3) @map("concurrency_limit")
+  alertThresholdPercent Int     @default(80) @map("alert_threshold_percent")
+
+  // BYOK-ready columns. Null means use the platform-managed provider key.
+  byokProvider    String? @map("byok_provider")
+  encryptedApiKey String? @map("encrypted_api_key")
+  keyLast4        String? @map("key_last4")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("ai_settings")
+  @@schema("ai")
+}
+
+model AiUsageMonthly {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  month    String
+  feature  String // analytics | tutor
+
+  requestCount             Int @default(0) @map("request_count")
+  inputTokens              Int @default(0) @map("input_tokens")
+  outputTokens             Int @default(0) @map("output_tokens")
+  cacheReadInputTokens     Int @default(0) @map("cache_read_input_tokens")
+  cacheCreationInputTokens Int @default(0) @map("cache_creation_input_tokens")
+  totalTokens              Int @default(0) @map("total_tokens")
+
+  lastProvider String?   @map("last_provider")
+  lastModel    String?   @map("last_model")
+  lastUsedAt   DateTime  @default(now()) @map("last_used_at")
+  alertSentAt  DateTime? @map("alert_sent_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, month, feature])
+  @@index([tenantId, month])
+  @@map("ai_usage_monthly")
+  @@schema("ai")
+}
+
+model AiConcurrencyLease {
+  id        String   @id @default(uuid())
+  tenantId  String   @map("tenant_id")
+  feature   String
+  profileId String   @map("profile_id")
+  startedAt DateTime @default(now()) @map("started_at")
+  expiresAt DateTime @map("expires_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, expiresAt])
+  @@index([tenantId, feature])
+  @@map("ai_concurrency_leases")
+  @@schema("ai")
+}

@@ -1,0 +1,19 @@
+# Docker build context is the repo root (monorepo build needs the whole
+# workspace). Keep the context lean and never ship secrets or stale build output.
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/coverage
+.git
+**/*.log
+
+# Never copy real environment files into the image.
+**/.env
+**/.env.*
+!**/.env.example
+
+# Local/dev-only assets not needed to build or run the API.
+design-export
+.vscode
+.tmp
