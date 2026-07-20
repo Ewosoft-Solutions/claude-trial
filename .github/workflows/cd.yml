@@ -144,6 +144,15 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
 
+      # `vercel build` runs here, not on Vercel's builders, so it executes our
+      # install/build commands (pnpm + Turbo) in this runner's environment.
+      # Vercel provisions pnpm on its own infrastructure; a GitHub runner does
+      # not, so install it explicitly or the build fails with `pnpm: not found`.
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
       - name: Install Vercel CLI
         run: npm install --global vercel@latest
 
