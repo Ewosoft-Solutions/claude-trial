@@ -32,6 +32,7 @@
       "dependsOn": ["^build"],
       "inputs": ["$TURBO_DEFAULT$", ".env*"],
       "env": ["IS_SERVERLESS"],
+      "passThroughEnv": ["DATABASE_URL"],
       "outputs": [".next/**", "!.next/cache/**", "dist/**"]
     },
     "db:migrate": {
