@@ -23,6 +23,11 @@ WORKDIR /app
 
 # ---- build ------------------------------------------------------------------
 FROM base AS build
+# Dummy URL for the build only: packages/database/prisma.config.ts resolves
+# env('DATABASE_URL') at config-load time, so even `prisma generate` (which
+# never connects) fails without it. Build-stage ENV does not reach the runtime
+# stage; Render injects the real DATABASE_URL there.
+ENV DATABASE_URL="postgresql://build:build@localhost:5432/build"
 # Copy the whole workspace: pnpm needs the full topology (all package.json +
 # lockfile) to resolve workspace links, and Turbo needs the sources to build
 # api's dependency graph (@workspace/database → @workspace/api → api).
