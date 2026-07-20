@@ -100,14 +100,27 @@ temp file **outside** the repo:
 
 ```bash
 SECRET="$(openssl rand -hex 32)"                       # hex → no URL-encoding needed
-printf "ALTER ROLE app_runtime WITH PASSWORD '%s';\n" "$SECRET" > /tmp/app-runtime-pw.sql
+printf "ALTER ROLE app_runtime WITH LOGIN PASSWORD '%s';\n" "$SECRET" > /tmp/app-runtime-pw.sql
 cd packages/database
 corepack pnpm exec prisma db execute --file /tmp/app-runtime-pw.sql
 rm -f /tmp/app-runtime-pw.sql                          # delete the file with the secret
 echo "app_runtime password (store in secret manager): $SECRET"
 ```
 
-The role already has `LOGIN` and `NOBYPASSRLS`; you're only setting its password.
+The migrations create `app_runtime` as **`NOLOGIN`** with `NOBYPASSRLS` (login +
+password are provisioned out-of-band per environment), so this step enables
+`LOGIN` **and** sets the password in one statement — matching what CI does. The
+password-only form leaves the role unable to log in, the `app_runtime`
+connection fails, and RLS runtime enforcement never activates.
+
+Verify the boot self-test's requirements — can log in, NOT superuser, NOT
+bypassrls:
+
+```sql
+SELECT rolname, rolcanlogin, rolsuper, rolbypassrls
+FROM pg_roles WHERE rolname = 'app_runtime';
+-- Expect: rolcanlogin = t, rolsuper = f, rolbypassrls = f
+```
 
 ### 5b. Point the app at it
 
