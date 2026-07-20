@@ -23,7 +23,8 @@ services:
     # The GitHub Actions CD workflow is the single deploy path (it deploys only
     # after CI passes). Disable Render's own push-triggered deploys to avoid
     # double deploys.
-    autoDeploy: false
+    # Quoted: bare `off` is boolean false under YAML 1.1 parsers.
+    autoDeployTrigger: "off"
     envVars:
       - key: NODE_ENV
         value: production
@@ -81,6 +82,18 @@ services:
       - key: STORAGE_S3_SECRET_ACCESS_KEY
         sync: false
 
+  # Redis-compatible cache/queue backend. Declared as a SERVICE (type: keyvalue),
+  # not a top-level block. Free plan = 25MB and NO persistence — fine for the
+  # ephemeral AI throttle; move to a paid, persistent plan in D1 when the durable
+  # queue lands. `ipAllowList: []` blocks all public access: only Render services
+  # on the private network connect.
+  - type: keyvalue
+    name: swe-keyvalue
+    plan: free
+    region: oregon
+    maxmemoryPolicy: noeviction
+    ipAllowList: []
+
   # ── Phase D1: background worker (durable queue consumer). Same image, queue
   # ── start command. Uncomment when §6.2 lands and Key Value is on a paid,
   # ── persistent plan.
@@ -102,11 +115,3 @@ databases:
     postgresMajorVersion: "16"
     # pgvector is enabled by the learning_domain migration (CREATE EXTENSION
     # vector). Confirm it is in the instance's allowed extensions on provision.
-
-# Render Key Value (Redis-compatible). Free 25MB = throttle only (NO
-# persistence). Move to a paid, persistent plan in D1 for the durable queue.
-keyValues:
-  - name: swe-keyvalue
-    plan: free
-    region: oregon
-    maxmemoryPolicy: noeviction
