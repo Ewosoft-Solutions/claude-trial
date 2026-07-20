@@ -17,13 +17,21 @@
 -- ============================================================
 
 -- 1) Default privileges for FUTURE tables/sequences created by the owner.
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA
+--    No `FOR ROLE <name>`: default privileges apply to CURRENT_USER, i.e. the
+--    role actually running the migration. Hardcoding `postgres` only worked
+--    where the owner happened to be named `postgres` (local dev, CI) and failed
+--    on managed Postgres (Render owns the DB as a generated user), where the
+--    role either does not exist or we are not a member of it. The portable form
+--    matches every other migration in this directory, and
+--    20260710020000_app_runtime_grants_cutover re-applies the same default
+--    privileges per schema anyway.
+ALTER DEFAULT PRIVILEGES IN SCHEMA
   "academic-structure", "audit-logging", "communication", "jwt-secrets",
   "profile", "roles-permissions", "security-policy", "student-management",
   "tenant", "user-management"
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_runtime;
 
-ALTER DEFAULT PRIVILEGES FOR ROLE postgres IN SCHEMA
+ALTER DEFAULT PRIVILEGES IN SCHEMA
   "academic-structure", "audit-logging", "communication", "jwt-secrets",
   "profile", "roles-permissions", "security-policy", "student-management",
   "tenant", "user-management"
