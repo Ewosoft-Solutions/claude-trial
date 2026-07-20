@@ -441,6 +441,26 @@ which would lose per-stage retry/visibility.)
 **Phase D4 — Production readiness (later).** Promote Blueprint to prod domain;
 prod monitoring (Datadog); runbook + on-call.
 
+**Phase D5 — Staging / feature-preview environment (captured 2026-07-20; do
+not lose).** Once production is live, a persistent pre-rollout staging lane so
+features are exercised end-to-end before promotion:
+
+- **Web:** Vercel preview deployments (free on Hobby; every non-prod branch
+  gets a URL). Requires the conditional Ignored Build Step —
+  `[ "$VERCEL_ENV" = "production" ] && exit 0 || exit 1` — so Git builds
+  previews while CD alone deploys production. Full staging implies **Vercel
+  Pro** (~$20/mo): Hobby's terms exclude commercial use, budget the flip at D3.
+- **API:** a dedicated `swe-api-staging` Render service (same image lineage,
+  staging env group) — previews must NOT point at the production API/DB.
+- **Data:** own Postgres (fresh + migrated, or PITR copy of prod) + own Key
+  Value; `env.staging.template` already carries the config shape.
+- **Domain/WebAuthn:** staging needs a stable first-level domain (e.g.
+  `staging.schoolwithease.com`) — passkeys are RP-bound, so `*.vercel.app`
+  preview URLs can never do passkey ceremonies; password/TOTP work there.
+  Full auth testing happens on the stable staging domain.
+- **CD:** extend `cd.yml` with a `staging` GitHub Environment lane (promote the
+  same SHA, same single-deploy-path discipline as demo).
+
 ---
 
 ## 13. Open items to confirm before/at D0
