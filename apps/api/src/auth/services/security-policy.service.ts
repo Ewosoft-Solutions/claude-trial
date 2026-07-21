@@ -10,7 +10,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { Prisma, PrismaClient } from '@workspace/database';
 import {
   EnforcedBy,
   PolicyTier,
@@ -202,19 +202,45 @@ export class SecurityPolicyService {
     prisma: PrismaClient,
     schoolId: string,
   ): Promise<SecurityPolicy> {
-    let policy = await this.getSchoolPolicy(prisma, schoolId);
+    const existing = await this.getSchoolPolicy(prisma, schoolId);
+    if (existing) return existing;
 
-    // Create default Basic tier policy
-    policy ??= await this.assignPolicy(
-      prisma,
-      schoolId,
-      'basic',
-      EnforcedBy.SCHOOL_ADMIN,
-      null,
-      'Default policy assigned on school creation',
-    );
+    try {
+      // Create default Basic tier policy
+      return await this.assignPolicy(
+        prisma,
+        schoolId,
+        'basic',
+        EnforcedBy.SCHOOL_ADMIN,
+        null,
+        'Default policy assigned on school creation',
+      );
+    } catch (error) {
+      // Losing a race to create the row is routine here, not exceptional.
+      // `schoolId` is unique, and the read above cannot be atomic with the
+      // write inside assignPolicy, so any two callers that both find no policy
+      // will both try to create one. GET /auth/me does exactly that on a
+      // tenant's first request: it resolves the session policy and the
+      // biometric enrolment policy concurrently, and both land here.
+      //
+      // The winner's row is precisely what this method was asked for, so read
+      // it back rather than failing — which used to surface as a 409 on the
+      // first page load for any tenant with no policy row yet.
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
+      ) {
+        throw error;
+      }
 
-    return policy;
+      const created = await this.getSchoolPolicy(prisma, schoolId);
+      // Nothing to read back means the conflict came from somewhere other than
+      // a concurrent create of this row; surfacing the original error is more
+      // honest than inventing a policy.
+      if (!created) throw error;
+
+      return created;
+    }
   }
 
   /**
