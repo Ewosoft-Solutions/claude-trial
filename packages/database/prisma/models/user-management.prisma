@@ -44,6 +44,13 @@ model User {
   passwordResetToken     String?   @map("password_reset_token")
   passwordResetExpiresAt DateTime? @map("password_reset_expires_at")
 
+  // Forced Rotation
+  // Set on accounts whose password was assigned rather than chosen — the
+  // seeded platform Architect above all. Login refuses to issue any token
+  // while this is true, so an assigned password cannot survive first login.
+  // Cleared by POST /auth/change-password.
+  mustChangePassword Boolean @default(false) @map("must_change_password")
+
   // Sign-in Preference
   // The profile (UserTenant) to auto-select at login instead of falling back
   // to insertion order — set via PATCH /auth/default-profile. Nullable: not

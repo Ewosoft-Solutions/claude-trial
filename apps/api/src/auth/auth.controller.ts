@@ -29,6 +29,7 @@ import {
   LogoutDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
+  ChangePasswordDto,
   PasskeyLoginOptionsDto,
   PasskeyLoginVerifyDto,
 } from './dto';
@@ -567,6 +568,39 @@ export class AuthController {
     );
 
     return { success: true, message: 'Password reset successfully' };
+  }
+
+  /**
+   * Change password using the current password
+   *
+   * POST /auth/change-password
+   *
+   * Deliberately unauthenticated: an account flagged mustChangePassword is
+   * refused a token at login, so it has no way to call a guarded endpoint.
+   * The current password is the credential here, and it is re-validated in
+   * full — including the lockout check — inside the service.
+   */
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Change password by supplying the current password',
+  })
+  async changePassword(
+    @Body() changePasswordDto: ChangePasswordDto,
+    @Req() req: Request,
+  ) {
+    const prisma = this.dbService.client;
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    const userAgent = req.headers['user-agent'];
+
+    return this.authenticationService.changePassword(
+      prisma,
+      changePasswordDto.email,
+      changePasswordDto.currentPassword,
+      changePasswordDto.newPassword,
+      ipAddress,
+      userAgent,
+    );
   }
 
   /**

@@ -3469,6 +3469,10 @@ async function seedPlatformBootstrap(
       lastName: PLATFORM_BOOTSTRAP.architect.lastName,
       isActive: true,
       isVerified: true,
+      // Set on create only. Re-seeding must not re-arm the flag for an operator
+      // who has already rotated — the upsert's update branch leaves both the
+      // password hash and this flag alone.
+      mustChangePassword: true,
     },
   });
 
@@ -3516,9 +3520,9 @@ async function seedPlatformBootstrap(
     `     Password: (not printed — retrieve SEED_ARCHITECT_PASSWORD from the secret store)`,
   );
   console.log(
-    `     ⚠️  Change this password immediately after first login — nothing forces`,
+    `     ⚠️  This account must change its password at first login — no token is`,
   );
-  console.log(`        it (the User model has no mustChangePassword flag).`);
+  console.log(`        issued until it does (POST /auth/change-password).`);
 }
 
 // Permission to Pool mapping based on clearance level
