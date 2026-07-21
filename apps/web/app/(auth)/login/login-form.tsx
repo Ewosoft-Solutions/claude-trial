@@ -27,6 +27,17 @@ type MfaState = {
   mfaMethodType: string;
 };
 
+/**
+ * Credentials held in memory for the duration of a sign-in attempt.
+ *
+ * Forced rotation can surface either straight after the password (no MFA) or
+ * after the second factor, and POST /auth/change-password takes no token — the
+ * email and current password ARE the credential it re-validates. So both have
+ * to survive from the password step to the rotation step. Cleared as soon as
+ * the attempt ends, one way or the other.
+ */
+type PendingCredentials = { email: string; password: string };
+
 type UserHint = { firstName: string; email: string };
 
 /** Read the readable returning-user hint cookie (first name + email). */
@@ -73,6 +84,8 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
   const [error, setError] = useState<string | null>(null);
   const [mfa, setMfa] = useState<MfaState | null>(null);
   const [otpCode, setOtpCode] = useState('');
+  const [pending, setPending] = useState<PendingCredentials | null>(null);
+  const [mustRotate, setMustRotate] = useState(false);
 
   const [hint, setHint] = useState<UserHint | null>(null);
   const [passkeyReady, setPasskeyReady] = useState(false);
@@ -138,12 +151,23 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
 
   function goToApp(redirectTo?: string) {
     recordFreshLoginActivity();
+    setPending(null);
     router.push(redirectTo ?? '/overview');
     router.refresh();
   }
 
+  /** Drop out of every in-progress step, discarding the held credentials. */
+  function resetAttempt() {
+    setMfa(null);
+    setOtpCode('');
+    setMustRotate(false);
+    setPending(null);
+    setError(null);
+  }
+
   function submitPassword(email: string, password: string) {
     setError(null);
+    setPending({ email, password });
     startTransition(async () => {
       try {
         const res = await fetch('/api/auth/login', {
@@ -155,6 +179,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
         const data = await res.json();
 
         if (!res.ok) {
+          setPending(null);
           setError(data.error ?? 'Sign in failed. Check your credentials.');
           return;
         }
@@ -168,11 +193,74 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
           return;
         }
 
+        // Assigned password that has never been rotated. No session exists yet
+        // and none will until it changes, so this is a step, not an error.
+        if (data.mustChangePassword) {
+          setMfa(null);
+          setMustRotate(true);
+          return;
+        }
+
         goToApp(data.redirectTo);
+      } catch {
+        setPending(null);
+        setError('Unable to connect to the server. Please try again.');
+      }
+    });
+  }
+
+  function submitRotation(newPassword: string, confirmPassword: string) {
+    if (!pending) return;
+
+    if (newPassword !== confirmPassword) {
+      setError('The two passwords do not match.');
+      return;
+    }
+    if (newPassword === pending.password) {
+      setError('Choose a password different from your current one.');
+      return;
+    }
+
+    setError(null);
+    startTransition(async () => {
+      try {
+        const res = await fetch('/api/auth/change-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: pending.email,
+            currentPassword: pending.password,
+            newPassword,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          // Policy rejections come back phrased for display.
+          setError(data.error ?? 'Could not update your password.');
+          return;
+        }
+
+        // Rotation issues no session of its own, so sign in again with the new
+        // password. That re-enters the normal flow rather than forking it —
+        // note an MFA-enrolled user is challenged once more here, which is the
+        // cost of the API keeping rotation entirely tokenless.
+        setMustRotate(false);
+        submitPassword(pending.email, newPassword);
       } catch {
         setError('Unable to connect to the server. Please try again.');
       }
     });
+  }
+
+  function handleRotation(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    submitRotation(
+      form.get('newPassword') as string,
+      form.get('confirmPassword') as string,
+    );
   }
 
   function handleFreshSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -268,6 +356,15 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
           return;
         }
 
+        // The second factor was accepted, but the password still has to be
+        // rotated before a session is issued.
+        if (data.mustChangePassword) {
+          setMfa(null);
+          setOtpCode('');
+          setMustRotate(true);
+          return;
+        }
+
         goToApp(data.redirectTo);
       } catch {
         setError('Unable to connect to the server. Please try again.');
@@ -278,6 +375,86 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
   function handleMfa(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     submitMfa(otpCode);
+  }
+
+  // --- Forced password rotation step ---
+  // Reached from the password step, or from MFA for an enrolled user. There is
+  // no way past it: the API issues no token until the password changes.
+  if (mustRotate && pending) {
+    return (
+      <div className="grid h-svh w-full place-items-center px-4">
+        <Card className="w-full max-w-sm p-8 space-y-6">
+          <div className="space-y-1">
+            <h1 className="text-xl font-semibold tracking-tight">
+              Choose a new password
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              This account is still using an assigned password. Set your own to
+              finish signing in.
+            </p>
+          </div>
+
+          <form onSubmit={handleRotation} className="space-y-4">
+            {/* Lets a password manager attach the new credential to the right
+                account, and offer to update the stored one. */}
+            <input
+              type="text"
+              name="username"
+              autoComplete="username"
+              value={pending.email}
+              readOnly
+              tabIndex={-1}
+              className="sr-only"
+              aria-hidden="true"
+            />
+
+            <div className="space-y-2">
+              <Label htmlFor="newPassword">New password</Label>
+              <Input
+                id="newPassword"
+                name="newPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                placeholder="At least 8 characters"
+                autoFocus
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm new password</Label>
+              <Input
+                id="confirmPassword"
+                name="confirmPassword"
+                type="password"
+                autoComplete="new-password"
+                required
+                minLength={8}
+                placeholder="Re-enter the new password"
+              />
+            </div>
+
+            {error && (
+              <p role="alert" className="text-sm text-destructive">
+                {error}
+              </p>
+            )}
+
+            <Button type="submit" className="w-full" disabled={isPending}>
+              {isPending ? 'Updating…' : 'Update password and sign in'}
+            </Button>
+            <button
+              type="button"
+              className="w-full text-sm text-muted-foreground underline underline-offset-4"
+              onClick={resetAttempt}
+            >
+              Back to sign in
+            </button>
+          </form>
+        </Card>
+      </div>
+    );
   }
 
   // --- MFA step ---
@@ -325,11 +502,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
             <button
               type="button"
               className="w-full text-sm text-muted-foreground underline underline-offset-4"
-              onClick={() => {
-                setMfa(null);
-                setOtpCode('');
-                setError(null);
-              }}
+              onClick={resetAttempt}
             >
               Back to sign in
             </button>

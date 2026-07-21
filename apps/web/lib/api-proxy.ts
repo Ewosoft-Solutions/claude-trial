@@ -22,7 +22,7 @@
 import 'server-only';
 import { NextRequest, NextResponse } from 'next/server';
 
-import { API_BASE, ApiError, apiClient } from '@/lib/api-client';
+import { API_BASE, ApiError, apiClient, apiErrorBody } from '@/lib/api-client';
 import { getBearerFromCookies } from '@/lib/server-api';
 import {
   attachRefreshedAccess,
@@ -56,12 +56,28 @@ export async function withAccessRefresh<T>(
   }
 }
 
-/** Map a thrown error to the app's standard JSON error envelope. */
+/**
+ * Map a thrown error to the app's standard JSON error envelope.
+ *
+ * An `ApiError` is already classified — forward its status and message. Anything
+ * else is a genuine bug in the handler, so the client gets the generic message
+ * while the real error is logged. Never let a throw reach the client unlogged:
+ * an unexplained 500 in production is close to undebuggable after the fact.
+ */
 export function apiErrorResponse(err: unknown): NextResponse {
   if (err instanceof ApiError) {
-    return NextResponse.json({ error: err.message }, { status: err.status });
+    return NextResponse.json(apiErrorBody(err.message, err.internalMessage), {
+      status: err.status,
+    });
   }
-  return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  console.error('[api-proxy] unhandled error:', err);
+  return NextResponse.json(
+    apiErrorBody(
+      'Internal server error',
+      err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+    ),
+    { status: 500 },
+  );
 }
 
 /**

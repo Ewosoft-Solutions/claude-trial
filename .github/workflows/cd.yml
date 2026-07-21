@@ -20,6 +20,7 @@ name: CD (demo)
 #   RENDER_API_KEY       Render API key (Account Settings → API Keys)
 #   RENDER_API_SERVICE   Render service id for swe-api (srv-…)
 #   API_BASE_URL         Public API origin, e.g. https://api.demo.schoolwithease.com
+#   WEB_BASE_URL         Public web origin, e.g. https://demo.schoolwithease.com
 #   VERCEL_TOKEN         Vercel access token
 #   VERCEL_ORG_ID        Vercel org/team id
 #   VERCEL_PROJECT_ID    Vercel project id (the apps/web project)
@@ -187,3 +188,75 @@ jobs:
           echo "GET ${API_BASE_URL}/readyz"
           curl -fsS "${API_BASE_URL}/readyz"
           echo
+
+      # The web app never exposes the API directly: the browser only ever calls
+      # same-origin /api/* routes, which the Next server proxies to the Nest API
+      # using NEXT_PUBLIC_API_URL. That variable lives in Vercel's project
+      # settings (pulled by `vercel pull` at build time) — NOT in these secrets —
+      # so a perfectly healthy API and a green deploy can still ship a web app
+      # that cannot reach it. Nothing above would notice. This step does.
+      #
+      # Both probes are unauthenticated and deliberately expect a NON-2xx status:
+      # the point is not that the endpoint succeeds, but that the Next server
+      # reached the API and forwarded *its* answer. A 5xx means the round-trip
+      # never happened — the proxy threw before it got a response.
+      - name: Web → API round-trip (proxy reachability)
+        env:
+          WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
+        run: |
+          set -euo pipefail
+
+          # probe <method> <path> <expected-status> <what-it-proves> [curl args…]
+          probe() {
+            local method="$1" path="$2" expected="$3" why="$4"
+            shift 4
+            local got
+            got=$(curl -sS -o /dev/null -w '%{http_code}' \
+                    -X "$method" "$@" "${WEB_BASE_URL}${path}" || echo "000")
+
+            if [ "$got" = "$expected" ]; then
+              printf '  ok    %-6s %-22s -> %s  (%s)\n' "$method" "$path" "$got" "$why"
+              return 0
+            fi
+
+            printf '  FAIL  %-6s %-22s -> %s, expected %s  (%s)\n' \
+              "$method" "$path" "$got" "$expected" "$why"
+            case "$got" in
+              5*)
+                echo "        A 5xx here means the Next server could not reach the API."
+                echo "        Check NEXT_PUBLIC_API_URL in Vercel -> Settings -> Environment"
+                echo "        Variables (Production). It must be a full origin including the"
+                echo "        scheme, e.g. https://api.demo.schoolwithease.com"
+                echo "        Then REDEPLOY: NEXT_PUBLIC_* is inlined at build time, so"
+                echo "        changing the value without a rebuild has no effect." ;;
+              000)
+                echo "        No HTTP response at all — ${WEB_BASE_URL} is unreachable (DNS/TLS)." ;;
+            esac
+            return 1
+          }
+
+          echo "Probing ${WEB_BASE_URL} …"
+          failed=0
+
+          # Shared proxy path (lib/api-proxy.ts -> lib/api-client.ts). Upstream
+          # /health/records is JWT-guarded, so an authenticated-and-reachable
+          # proxy forwards 401. 500 = the fetch to the API itself threw.
+          probe GET /api/health 401 \
+            "proxied GET reaches the API and forwards its 401" || failed=1
+
+          # The login route does NOT use api-proxy — it has its own two-step
+          # handler, so exercise it separately. An invalid body is rejected by
+          # the DTO layer before any credential check, which means no failed
+          # login attempt and no account-lockout state is written by CD.
+          probe POST /api/auth/login 400 \
+            "login route reaches the API and forwards DTO validation" \
+            -H 'Content-Type: application/json' \
+            --data '{"email":"not-an-email","password":""}' || failed=1
+
+          if [ "$failed" -ne 0 ]; then
+            echo
+            echo "Web -> API wiring is broken. The API is healthy (checked above);"
+            echo "the web app cannot talk to it."
+            exit 1
+          fi
+          echo "Web -> API round-trip OK."

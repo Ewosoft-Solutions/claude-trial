@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "nest start --watch",
     "build": "nest build",
+    "check-types": "tsc -p tsconfig.build.json --noEmit",
     "start": "nest start",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
