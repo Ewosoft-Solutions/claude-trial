@@ -215,8 +215,16 @@ reserve those for `uat`/`production`.) Add these **environment secrets**:
 | `DATABASE_URL_OWNER` | owner external conn (Step 1) |
 | `RENDER_API_KEY` | Render → Account Settings → API Keys |
 | `RENDER_API_SERVICE` | `swe-api` service id `srv-…` (Step 6) |
-| `API_BASE_URL` | `https://api.demo.schoolwithease.com` |
+| `API_BASE_URL` | `https://api.demo.schoolwithease.com` (smoke only) |
+| `WEB_BASE_URL` | `https://demo.schoolwithease.com` (smoke only) |
 | `VERCEL_TOKEN` / `VERCEL_ORG_ID` / `VERCEL_PROJECT_ID` | Step 8 |
+
+> `API_BASE_URL` / `WEB_BASE_URL` are **only** the targets the smoke job curls —
+> they do not configure either app. The web app's API origin comes from
+> `NEXT_PUBLIC_API_URL` in **Vercel** project settings (Step 8), which `vercel
+> pull` fetches at build time. Because `NEXT_PUBLIC_*` is inlined into the
+> bundle during `vercel build`, changing it in Vercel requires a **redeploy** to
+> take effect — restarting is not enough.
 
 ## Step 11 — First deploy
 
