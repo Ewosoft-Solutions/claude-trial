@@ -27,100 +27,79 @@ const PLATFORM_BOOTSTRAP = {
 };
 
 /**
- * Development-only fallbacks for the platform Architect account.
+ * The Architect credentials this repo used to ship with.
  *
- * These are public knowledge (they live in the repo), so they are usable ONLY
- * when the environment is not production-like. Any production-like seed must
- * supply SEED_ARCHITECT_EMAIL / SEED_ARCHITECT_PASSWORD from the secret store.
+ * Kept ONLY so an already-seeded environment can be recognised as still holding
+ * them — they are never used to create or authenticate anything. The value is in
+ * this repo's git history permanently, so treating it as a known-compromised
+ * password to detect (rather than a secret to hide) is the useful thing left to
+ * do with it. See the retro-remediation in seedPlatformBootstrap.
  */
-const ARCHITECT_DEV_DEFAULTS = {
+const COMPROMISED_LEGACY_CREDENTIALS = {
   email: 'architect@schoolwithease.com',
   password: 'Architect@2025!',
 };
 
 const ARCHITECT_MIN_PASSWORD_LENGTH = 16;
 
-// Deliberately wider than scripts/dev/guard.ts: staging, demo, and preview
-// environments are publicly reachable, so a known-credential Architect there is
-// as exploitable as one in production. "preview" covers Vercel feature previews
-// (VERCEL_ENV=preview), which means every preview that seeds must supply
-// SEED_ARCHITECT_* — the point is that ephemeral does not mean unreachable.
-// This set gates bootstrap credentials only; it does not affect whether dev
-// seeds are allowed to run (see scripts/dev/guard.ts).
-const PRODUCTION_ENV_VALUES = new Set([
-  'prod',
-  'production',
-  'staging',
-  'stage',
-  'demo',
-  'preview',
-]);
-
-function isProductionLike(value: string | undefined): boolean {
-  return PRODUCTION_ENV_VALUES.has((value ?? '').trim().toLowerCase());
-}
-
-/** Returns the [name, value] of the first production-like env marker, if any. */
-function detectProductionEnv(): [string, string] | undefined {
-  const marker = (
-    [
-      ['NODE_ENV', process.env.NODE_ENV],
-      ['APP_ENV', process.env.APP_ENV],
-      ['VERCEL_ENV', process.env.VERCEL_ENV],
-    ] as const
-  ).find(([, value]) => isProductionLike(value));
-
-  return marker ? [marker[0], marker[1] as string] : undefined;
-}
-
 let cachedArchitectCredentials: { email: string; password: string } | undefined;
 
 /**
- * Resolves the bootstrap Architect credentials.
+ * Resolves the bootstrap Architect credentials from the environment.
  *
- * The Architect holds clearance level 10 (unrestricted access to every school,
- * every record, every configuration), so a known-credential Architect is a full
- * platform compromise. In production-like environments the credentials must come
- * from the environment; there is deliberately no fallback.
+ * The Architect holds clearance level 10 — unrestricted access to every school,
+ * every record, every configuration — so a predictable Architect credential is a
+ * full platform compromise.
+ *
+ * There is deliberately no fallback, in any environment. An earlier version
+ * allowed built-in defaults whenever NODE_ENV/APP_ENV/VERCEL_ENV did not look
+ * production-like, which made the safety of the most privileged account in the
+ * system depend on correctly guessing environment labels: an unset APP_ENV, or a
+ * deployment labelled "live" or "prd", silently fell through to a password
+ * published in this repo. Requiring the variables everywhere removes that entire
+ * class of failure, at the cost of two variables in local .env files.
  */
 function getArchitectCredentials(): { email: string; password: string } {
   if (cachedArchitectCredentials) return cachedArchitectCredentials;
 
   const email = process.env.SEED_ARCHITECT_EMAIL?.trim();
   const password = process.env.SEED_ARCHITECT_PASSWORD;
-  const productionEnv = detectProductionEnv();
 
-  if (productionEnv) {
-    const [envName, envValue] = productionEnv;
-    const prefix = `[seed] Refusing to bootstrap the platform Architect with built-in defaults because ${envName}=${envValue}.`;
+  const missing = [
+    email ? undefined : 'SEED_ARCHITECT_EMAIL',
+    password ? undefined : 'SEED_ARCHITECT_PASSWORD',
+  ].filter(Boolean);
 
-    const missing = [
-      email ? undefined : 'SEED_ARCHITECT_EMAIL',
-      password ? undefined : 'SEED_ARCHITECT_PASSWORD',
-    ].filter(Boolean);
+  if (missing.length > 0) {
+    throw new Error(
+      `[seed] ${missing.join(' and ')} must be set — there is no built-in default for the platform Architect. ` +
+        `For a deployed environment take the value from the secret store; for local development generate one, e.g. ` +
+        `SEED_ARCHITECT_PASSWORD=$(openssl rand -base64 24). See packages/database/.env.example.`,
+    );
+  }
 
-    if (missing.length > 0) {
-      throw new Error(
-        `${prefix} Set ${missing.join(' and ')} from the secret store before seeding.`,
-      );
-    }
+  if (password === COMPROMISED_LEGACY_CREDENTIALS.password) {
+    throw new Error(
+      `[seed] SEED_ARCHITECT_PASSWORD is set to the password this repo used to ship. ` +
+        `It is in the git history permanently and must be treated as public. Generate a new one.`,
+    );
+  }
 
-    if (password === ARCHITECT_DEV_DEFAULTS.password) {
-      throw new Error(
-        `${prefix} SEED_ARCHITECT_PASSWORD is set to the repo's development default, which is public. Use a generated secret.`,
-      );
-    }
+  if ((password as string).length < ARCHITECT_MIN_PASSWORD_LENGTH) {
+    throw new Error(
+      `[seed] SEED_ARCHITECT_PASSWORD must be at least ${ARCHITECT_MIN_PASSWORD_LENGTH} characters.`,
+    );
+  }
 
-    if ((password as string).length < ARCHITECT_MIN_PASSWORD_LENGTH) {
-      throw new Error(
-        `${prefix} SEED_ARCHITECT_PASSWORD must be at least ${ARCHITECT_MIN_PASSWORD_LENGTH} characters.`,
-      );
-    }
+  if (!(email as string).includes('@')) {
+    throw new Error(
+      `[seed] SEED_ARCHITECT_EMAIL must be an email address — it receives password resets and security notices for the most privileged account on the platform.`,
+    );
   }
 
   cachedArchitectCredentials = {
-    email: email || ARCHITECT_DEV_DEFAULTS.email,
-    password: password || ARCHITECT_DEV_DEFAULTS.password,
+    email: email as string,
+    password: password as string,
   };
 
   return cachedArchitectCredentials;
@@ -3474,7 +3453,7 @@ async function seedPlatformBootstrap(
   const stillOnPublishedDefault = Boolean(
     existingArchitect?.passwordHash &&
     (await bcrypt.compare(
-      ARCHITECT_DEV_DEFAULTS.password,
+      COMPROMISED_LEGACY_CREDENTIALS.password,
       existingArchitect.passwordHash,
     )),
   );
@@ -3888,7 +3867,7 @@ async function assignPermissionsToPools(
 
       // A duplicate permission name in the catalog would otherwise queue the
       // same pair twice; the old per-pair upsert collapsed those naturally.
-      const key = `${poolId} ${permissionId}`;
+      const key = `${poolId}\u0000${permissionId}`;
       if (seenPairs.has(key)) {
         continue;
       }

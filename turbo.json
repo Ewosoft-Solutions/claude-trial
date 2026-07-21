@@ -46,7 +46,8 @@
       "cache": false
     },
     "db:seed": {
-      "cache": false
+      "cache": false,
+      "env": ["SEED_ARCHITECT_EMAIL", "SEED_ARCHITECT_PASSWORD"]
     },
     "db:generate": {
       "dependsOn": ["^db:generate"],
