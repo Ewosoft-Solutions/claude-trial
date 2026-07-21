@@ -21,12 +21,110 @@ const PLATFORM_BOOTSTRAP = {
     status: 'active' as const,
   },
   architect: {
-    email: 'architect@schoolwithease.com',
     firstName: 'Platform',
     lastName: 'Architect',
-    defaultPassword: 'Architect@2025!',
   },
 };
+
+/**
+ * Development-only fallbacks for the platform Architect account.
+ *
+ * These are public knowledge (they live in the repo), so they are usable ONLY
+ * when the environment is not production-like. Any production-like seed must
+ * supply SEED_ARCHITECT_EMAIL / SEED_ARCHITECT_PASSWORD from the secret store.
+ */
+const ARCHITECT_DEV_DEFAULTS = {
+  email: 'architect@schoolwithease.com',
+  password: 'Architect@2025!',
+};
+
+const ARCHITECT_MIN_PASSWORD_LENGTH = 16;
+
+// Deliberately wider than scripts/dev/guard.ts: staging, demo, and preview
+// environments are publicly reachable, so a known-credential Architect there is
+// as exploitable as one in production. "preview" covers Vercel feature previews
+// (VERCEL_ENV=preview), which means every preview that seeds must supply
+// SEED_ARCHITECT_* — the point is that ephemeral does not mean unreachable.
+// This set gates bootstrap credentials only; it does not affect whether dev
+// seeds are allowed to run (see scripts/dev/guard.ts).
+const PRODUCTION_ENV_VALUES = new Set([
+  'prod',
+  'production',
+  'staging',
+  'stage',
+  'demo',
+  'preview',
+]);
+
+function isProductionLike(value: string | undefined): boolean {
+  return PRODUCTION_ENV_VALUES.has((value ?? '').trim().toLowerCase());
+}
+
+/** Returns the [name, value] of the first production-like env marker, if any. */
+function detectProductionEnv(): [string, string] | undefined {
+  const marker = (
+    [
+      ['NODE_ENV', process.env.NODE_ENV],
+      ['APP_ENV', process.env.APP_ENV],
+      ['VERCEL_ENV', process.env.VERCEL_ENV],
+    ] as const
+  ).find(([, value]) => isProductionLike(value));
+
+  return marker ? [marker[0], marker[1] as string] : undefined;
+}
+
+let cachedArchitectCredentials: { email: string; password: string } | undefined;
+
+/**
+ * Resolves the bootstrap Architect credentials.
+ *
+ * The Architect holds clearance level 10 (unrestricted access to every school,
+ * every record, every configuration), so a known-credential Architect is a full
+ * platform compromise. In production-like environments the credentials must come
+ * from the environment; there is deliberately no fallback.
+ */
+function getArchitectCredentials(): { email: string; password: string } {
+  if (cachedArchitectCredentials) return cachedArchitectCredentials;
+
+  const email = process.env.SEED_ARCHITECT_EMAIL?.trim();
+  const password = process.env.SEED_ARCHITECT_PASSWORD;
+  const productionEnv = detectProductionEnv();
+
+  if (productionEnv) {
+    const [envName, envValue] = productionEnv;
+    const prefix = `[seed] Refusing to bootstrap the platform Architect with built-in defaults because ${envName}=${envValue}.`;
+
+    const missing = [
+      email ? undefined : 'SEED_ARCHITECT_EMAIL',
+      password ? undefined : 'SEED_ARCHITECT_PASSWORD',
+    ].filter(Boolean);
+
+    if (missing.length > 0) {
+      throw new Error(
+        `${prefix} Set ${missing.join(' and ')} from the secret store before seeding.`,
+      );
+    }
+
+    if (password === ARCHITECT_DEV_DEFAULTS.password) {
+      throw new Error(
+        `${prefix} SEED_ARCHITECT_PASSWORD is set to the repo's development default, which is public. Use a generated secret.`,
+      );
+    }
+
+    if ((password as string).length < ARCHITECT_MIN_PASSWORD_LENGTH) {
+      throw new Error(
+        `${prefix} SEED_ARCHITECT_PASSWORD must be at least ${ARCHITECT_MIN_PASSWORD_LENGTH} characters.`,
+      );
+    }
+  }
+
+  cachedArchitectCredentials = {
+    email: email || ARCHITECT_DEV_DEFAULTS.email,
+    password: password || ARCHITECT_DEV_DEFAULTS.password,
+  };
+
+  return cachedArchitectCredentials;
+}
 
 // System Roles with clearance levels
 const SYSTEM_ROLES = [
@@ -3352,13 +3450,12 @@ async function seedPlatformBootstrap(
 
   console.log(`  ✅ JWT secret initialized for platform tenant`);
 
-  const passwordHash = await bcrypt.hash(
-    PLATFORM_BOOTSTRAP.architect.defaultPassword,
-    12,
-  );
+  const architectCredentials = getArchitectCredentials();
+
+  const passwordHash = await bcrypt.hash(architectCredentials.password, 12);
 
   const architectUser = await prismaInstance.user.upsert({
-    where: { email: PLATFORM_BOOTSTRAP.architect.email },
+    where: { email: architectCredentials.email },
     update: {
       firstName: PLATFORM_BOOTSTRAP.architect.firstName,
       lastName: PLATFORM_BOOTSTRAP.architect.lastName,
@@ -3366,7 +3463,7 @@ async function seedPlatformBootstrap(
       isVerified: true,
     },
     create: {
-      email: PLATFORM_BOOTSTRAP.architect.email,
+      email: architectCredentials.email,
       passwordHash,
       firstName: PLATFORM_BOOTSTRAP.architect.firstName,
       lastName: PLATFORM_BOOTSTRAP.architect.lastName,
@@ -3410,12 +3507,18 @@ async function seedPlatformBootstrap(
   console.log(
     `  ✅ Architect profile linked to platform tenant with Architect role`,
   );
-  console.log(`\n  🔑 Platform bootstrap credentials:`);
-  console.log(`     Email:    ${PLATFORM_BOOTSTRAP.architect.email}`);
-  console.log(`     Password: ${PLATFORM_BOOTSTRAP.architect.defaultPassword}`);
+  // Never print the password — seed output lands in CI logs, deploy logs, and
+  // scrollback. The operator retrieves it from wherever SEED_ARCHITECT_PASSWORD
+  // was set.
+  console.log(`\n  🔑 Platform bootstrap account:`);
+  console.log(`     Email:    ${architectCredentials.email}`);
   console.log(
-    `     ⚠️  Change this password immediately after first login in production!`,
+    `     Password: (not printed — retrieve SEED_ARCHITECT_PASSWORD from the secret store)`,
   );
+  console.log(
+    `     ⚠️  Change this password immediately after first login — nothing forces`,
+  );
+  console.log(`        it (the User model has no mustChangePassword flag).`);
 }
 
 // Permission to Pool mapping based on clearance level
@@ -3731,6 +3834,10 @@ async function main() {
   console.log('🌱 Starting database seed...\n');
 
   try {
+    // Fail before touching the database if the Architect credentials are unsafe
+    // for this environment.
+    getArchitectCredentials();
+
     validatePermissionPools();
     validateRolePoolMapping(SYSTEM_ROLES, ROLE_TO_POOL_MAPPING);
 
@@ -3793,9 +3900,7 @@ async function main() {
     console.log(
       `  - Sensitive Operations: ${SENSITIVE_OPERATION_CATALOG.length}`,
     );
-    console.log(
-      `  - Platform Architect: ${PLATFORM_BOOTSTRAP.architect.email}`,
-    );
+    console.log(`  - Platform Architect: ${getArchitectCredentials().email}`);
   } catch (error) {
     console.error('❌ Error seeding database:', error);
     process.exit(1);
