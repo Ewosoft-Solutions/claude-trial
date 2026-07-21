@@ -29,6 +29,12 @@ interface VerifyMfaApiResponse {
   user: { id: string; email: string };
   token?: string;
   schools: Array<{ tenantId: string; profileId: string }>;
+  /**
+   * Forced rotation is evaluated AFTER the second factor, so it surfaces here
+   * as well as on /auth/login — an enrolled user proves MFA first, then learns
+   * the password must change. Like login, the API withholds the token.
+   */
+  mustChangePassword?: boolean;
 }
 
 interface SelectSchoolApiResponse {
@@ -49,14 +55,32 @@ export async function POST(req: NextRequest) {
       { challengeId, code },
     );
 
-    if (!verifyRes.success || !verifyRes.token) {
+    if (!verifyRes.success) {
+      return NextResponse.json({ error: 'MFA verification failed' }, { status: 401 });
+    }
+
+    // The code was correct, but the password must be rotated before a session
+    // is issued. Checked before the token test below, which would otherwise
+    // report a successful verification as "MFA verification failed".
+    if (verifyRes.mustChangePassword) {
+      return NextResponse.json(verifyRes);
+    }
+
+    if (!verifyRes.token) {
       return NextResponse.json({ error: 'MFA verification failed' }, { status: 401 });
     }
 
     // Step 2 — select school (pick first available)
     const school = verifyRes.schools[0];
     if (!school) {
-      return NextResponse.json({ error: 'No school available for this account' }, { status: 403 });
+      return NextResponse.json(
+        {
+          error:
+            'This account is not linked to an active school or platform workspace. ' +
+            'Ask an administrator to assign one.',
+        },
+        { status: 403 },
+      );
     }
 
     const selectRes = await apiClient.post<SelectSchoolApiResponse>(
