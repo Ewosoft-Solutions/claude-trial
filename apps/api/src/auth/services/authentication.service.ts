@@ -6,7 +6,11 @@
  */
 
 // External imports
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 // Workspace imports
 import {
   SchoolSelectionService,
@@ -35,10 +39,17 @@ import { AuthenticationResponseJSON } from '@simplewebauthn/server';
  * detail (including role) is only returned post-authentication, from
  * GET /auth/me.
  */
-export type SchoolPickerOption = Omit<UserSchoolProfile, 'roles' | 'primaryRole'>;
+export type SchoolPickerOption = Omit<
+  UserSchoolProfile,
+  'roles' | 'primaryRole'
+>;
 
-function toSchoolPickerOptions(schools: UserSchoolProfile[]): SchoolPickerOption[] {
-  return schools.map(({ roles: _roles, primaryRole: _primaryRole, ...rest }) => rest);
+function toSchoolPickerOptions(
+  schools: UserSchoolProfile[],
+): SchoolPickerOption[] {
+  return schools.map(
+    ({ roles: _roles, primaryRole: _primaryRole, ...rest }) => rest,
+  );
 }
 
 /**
@@ -66,7 +77,9 @@ function orderWithDefaultFirst(
 
   if (!defaultUserTenantId) return sorted;
 
-  const defaultIndex = sorted.findIndex((s) => s.profileId === defaultUserTenantId);
+  const defaultIndex = sorted.findIndex(
+    (s) => s.profileId === defaultUserTenantId,
+  );
   if (defaultIndex <= 0) return sorted;
 
   const [preferred] = sorted.splice(defaultIndex, 1);
@@ -87,6 +100,12 @@ export interface LoginResponse {
   schools: SchoolPickerOption[];
   /** Short-lived pre-auth token for the select-school step. */
   token?: string;
+  /**
+   * The account's password was assigned rather than chosen and must be rotated
+   * before anything else. No token is issued while this is true — the client
+   * must call POST /auth/change-password with the current password.
+   */
+  mustChangePassword?: boolean;
   requiresMfa?: boolean;
   mfaChallengeId?: string;
   mfaMethodType?: MfaMethodType;
@@ -178,6 +197,7 @@ export class AuthenticationService {
         isVerified: true,
         loginAttempts: true,
         lockedUntil: true,
+        mustChangePassword: true,
         defaultUserTenantId: true,
       },
     });
@@ -356,6 +376,13 @@ export class AuthenticationService {
       }
     }
 
+    // An assigned password must be rotated before it can be used for anything.
+    // Deliberately placed after the MFA branch above, so an enrolled user still
+    // proves their second factor first.
+    if (user.mustChangePassword) {
+      return this.passwordRotationRequiredResponse(user);
+    }
+
     const preAuthToken = await this.jwtService.generatePreAuthToken(user.id);
 
     return {
@@ -371,6 +398,179 @@ export class AuthenticationService {
       ),
       token: preAuthToken,
       requiresMfa: false,
+    };
+  }
+
+  /**
+   * Shape returned when login stops short because the password must be rotated.
+   *
+   * No token and no school list. Every downstream step — select-school,
+   * switch-profile, refresh — requires a token, so withholding it is what
+   * actually enforces the rotation rather than merely signalling it to the
+   * client. POST /auth/change-password is the only way forward.
+   */
+  private passwordRotationRequiredResponse(user: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  }): LoginResponse {
+    return {
+      success: true,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      },
+      schools: [],
+      mustChangePassword: true,
+      requiresMfa: false,
+    };
+  }
+
+  /**
+   * Change password using the current password (no session required).
+   *
+   * Exists so a forced rotation can be completed by an account that cannot
+   * obtain a token yet. It is also the reason forced rotation does not depend
+   * on the email-based reset flow, which needs a working mail transport a
+   * freshly deployed environment may not have.
+   *
+   * Re-validates credentials from scratch: holding a mustChangePassword account
+   * hostage is not an authenticated state, so nothing here may be skipped.
+   */
+  async changePassword(
+    prisma: PrismaClient,
+    email: string,
+    currentPassword: string,
+    newPassword: string,
+    ipAddress: string,
+    userAgent?: string,
+  ): Promise<{ success: boolean; message: string }> {
+    const user = await prisma.user.findUnique({
+      where: { email: email.toLowerCase() },
+      select: {
+        id: true,
+        email: true,
+        passwordHash: true,
+        isActive: true,
+      },
+    });
+
+    const recordFailure = async (failureReason: string) => {
+      await LoginAttemptService.recordAttempt(prisma, {
+        userId: user?.id,
+        email: email.toLowerCase(),
+        ipAddress,
+        userAgent,
+        success: false,
+        failureReason,
+      });
+    };
+
+    // Lockout is checked before the password comparison so this endpoint cannot
+    // be used as an oracle that sidesteps the login rate limiting.
+    if (user) {
+      const lockoutStatus = await LoginAttemptService.checkLockoutStatus(
+        prisma,
+        user.id,
+      );
+
+      if (lockoutStatus.isLocked) {
+        await recordFailure('Account locked');
+        throw new UnauthorizedException(
+          `Account is locked until ${lockoutStatus.lockedUntil?.toISOString()}`,
+        );
+      }
+    }
+
+    if (!user || !user.passwordHash || !user.isActive) {
+      await recordFailure('Change password: no usable account');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const currentValid = await PasswordService.comparePassword(
+      currentPassword,
+      user.passwordHash,
+    );
+
+    if (!currentValid) {
+      await recordFailure('Change password: invalid current password');
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    if (newPassword === currentPassword) {
+      throw new BadRequestException(
+        'New password must differ from the current password',
+      );
+    }
+
+    // Same policy and reuse rules the reset flow applies — a forced rotation
+    // must not be a way to set a weaker password than the policy allows.
+    const validation = await PasswordService.validatePasswordAgainstAllSchools(
+      prisma,
+      user.id,
+      newPassword,
+    );
+
+    if (!validation.valid) {
+      throw new BadRequestException(validation.errors.join(' '));
+    }
+
+    const reused = await PasswordService.checkPasswordReuse(
+      prisma,
+      user.id,
+      newPassword,
+    );
+
+    if (reused) {
+      throw new BadRequestException(
+        'New password matches a recently used password',
+      );
+    }
+
+    const newHash = await PasswordService.hashPassword(newPassword);
+
+    await PasswordService.savePasswordHistory(
+      prisma,
+      user.id,
+      user.passwordHash,
+    );
+
+    await prisma.user.update({
+      where: { id: user.id },
+      data: {
+        passwordHash: newHash,
+        passwordChangedAt: new Date(),
+        mustChangePassword: false,
+        updatedBy: user.id,
+      },
+    });
+
+    try {
+      await prisma.auditLog.create({
+        data: {
+          tenantId: null,
+          eventType: AUDIT_EVENT.AUTHENTICATION,
+          action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
+          resource: 'auth_change_password',
+          resourceId: user.id,
+          actorId: user.id,
+          actorEmail: user.email,
+          ipAddress,
+          userAgent: userAgent || null,
+          description: 'Password changed via current-password flow',
+          status: 'success',
+        },
+      });
+    } catch (auditError) {
+      console.error('Failed to log password change', auditError);
+    }
+
+    return {
+      success: true,
+      message: 'Password changed successfully. Please sign in again.',
     };
   }
 
@@ -434,6 +634,7 @@ export class AuthenticationService {
         email: true,
         firstName: true,
         lastName: true,
+        mustChangePassword: true,
         defaultUserTenantId: true,
       },
     });
@@ -465,6 +666,10 @@ export class AuthenticationService {
       });
     } catch (auditError) {
       console.error('Failed to log MFA verification', auditError);
+    }
+
+    if (user.mustChangePassword) {
+      return this.passwordRotationRequiredResponse(user);
     }
 
     const preAuthToken = await this.jwtService.generatePreAuthToken(user.id);
@@ -610,6 +815,7 @@ export class AuthenticationService {
         email: true,
         firstName: true,
         lastName: true,
+        mustChangePassword: true,
         defaultUserTenantId: true,
       },
     });
@@ -651,6 +857,13 @@ export class AuthenticationService {
       prisma,
       user.id,
     );
+
+    // Gated here too: a passkey login never touches the password, but the
+    // assigned password stays a valid credential on the account until it is
+    // rotated, so letting passkeys through would leave that credential live.
+    if (user.mustChangePassword) {
+      return this.passwordRotationRequiredResponse(user);
+    }
 
     const preAuthToken = await this.jwtService.generatePreAuthToken(user.id);
 
@@ -706,10 +919,7 @@ export class AuthenticationService {
       },
     });
 
-    if (
-      userTenant?.userId !== userId ||
-      userTenant.tenantId !== tenantId
-    ) {
+    if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {
       throw new UnauthorizedException('Invalid profile');
     }
 

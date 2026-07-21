@@ -45,6 +45,19 @@ openssl rand -base64 64   # AUTH_RESUME_SECRET (web)
 openssl rand -hex 32      # app_runtime DB password (hex → safe in a connection URL)
 ```
 
+> **Remote connection strings need `?sslmode=require`.** Render (and most managed
+> Postgres) refuse non-TLS external connections. Prisma's *migration engine*
+> negotiates TLS automatically, so `db:deploy` works without it — but every
+> script that goes through `packages/database/src/singleton.ts` (`db:seed`,
+> `db:verify`, `db:rls:proof`, `db:rls:verify`, the dev seeds) uses a raw `pg`
+> Pool, which enables TLS **only** when the URL says so. Without it they fail
+> with `P1010 … DatabaseAccessDenied` / `SSL/TLS required`. Append
+> `?sslmode=require` to the external URL for all of these.
+>
+> Note also that `packages/database/.env` defines a localhost `DATABASE_URL`.
+> Forgetting the inline prefix silently targets your **local** database rather
+> than failing loudly — always pass it explicitly for remote work.
+
 ## Step 3 — Apply migrations as the DB owner
 
 Creates every table **and** the `app_runtime` role (as `NOLOGIN`) + its grants.
