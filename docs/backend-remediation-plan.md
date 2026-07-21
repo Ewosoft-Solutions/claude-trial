@@ -103,8 +103,9 @@ Only the deploy-time env flip (#2, operational) and CI wiring (Step 2) remain.
 - ✅ `app_runtime` LOGIN enabled on the **local** dev DB (`ALTER ROLE app_runtime
   LOGIN PASSWORD '…'`; uncommitted — prod uses a secret). App **builds** (`nest build`).
 - ✅ Assets for the e2e exist: `apps/api/test/multi-tenant-isolation.e2e-spec.ts`
-  + harness (`jest-e2e.json`, `setup-env.ts`); seed creds
-  `architect@schoolwithease.com` / `Architect@2025!`.
+  + harness (`jest-e2e.json`, `setup-env.ts`); seed creds come from
+  `SEED_ARCHITECT_EMAIL` / `SEED_ARCHITECT_PASSWORD` (see the seed script — the
+  password is no longer written down here or anywhere else in the repo).
 
 **Remaining (the invasive part — do as a focused unit, verify by booting):**
 1. Make ALL runtime DB access RLS-context-aware. The app has 3 patterns:

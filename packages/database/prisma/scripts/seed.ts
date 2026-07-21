@@ -3454,6 +3454,31 @@ async function seedPlatformBootstrap(
 
   const passwordHash = await bcrypt.hash(architectCredentials.password, 12);
 
+  // Retro-remediation for environments seeded before the credential hardening.
+  //
+  // A new Architect is armed with mustChangePassword below, but an account that
+  // already exists is left alone — re-seeding must never re-arm the flag for an
+  // operator who has legitimately rotated. That leaves a gap: any environment
+  // seeded from the old script still holds the password that was published in
+  // this repo, and no amount of re-seeding would challenge it.
+  //
+  // So: arm the flag on an existing account only when its stored hash still
+  // matches that published default. Anyone who rotated fails the comparison and
+  // is untouched; anyone still on the leaked value is forced to rotate at their
+  // next login.
+  const existingArchitect = await prismaInstance.user.findUnique({
+    where: { email: architectCredentials.email },
+    select: { id: true, passwordHash: true, mustChangePassword: true },
+  });
+
+  const stillOnPublishedDefault = Boolean(
+    existingArchitect?.passwordHash &&
+    (await bcrypt.compare(
+      ARCHITECT_DEV_DEFAULTS.password,
+      existingArchitect.passwordHash,
+    )),
+  );
+
   const architectUser = await prismaInstance.user.upsert({
     where: { email: architectCredentials.email },
     update: {
@@ -3461,6 +3486,11 @@ async function seedPlatformBootstrap(
       lastName: PLATFORM_BOOTSTRAP.architect.lastName,
       isActive: true,
       isVerified: true,
+      // Only ever flipped on, and only for a hash that matches the published
+      // default. Note this deliberately does not reset the password itself:
+      // overwriting a hash on every seed would let a re-seed silently revert a
+      // rotation an operator had already performed.
+      ...(stillOnPublishedDefault ? { mustChangePassword: true } : {}),
     },
     create: {
       email: architectCredentials.email,
@@ -3469,12 +3499,18 @@ async function seedPlatformBootstrap(
       lastName: PLATFORM_BOOTSTRAP.architect.lastName,
       isActive: true,
       isVerified: true,
-      // Set on create only. Re-seeding must not re-arm the flag for an operator
-      // who has already rotated — the upsert's update branch leaves both the
-      // password hash and this flag alone.
       mustChangePassword: true,
     },
   });
+
+  if (stillOnPublishedDefault && !existingArchitect?.mustChangePassword) {
+    console.warn(
+      `  ⚠️  Existing Architect is still using the password published in this repo.`,
+    );
+    console.warn(
+      `      Forced rotation has been armed — it must be changed at next login.`,
+    );
+  }
 
   console.log(`  ✅ Architect user: ${architectUser.email}`);
 
