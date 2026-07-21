@@ -95,6 +95,58 @@ Build the runtime connection string (same host/db as owner, `app_runtime` user):
 APP_RUNTIME_DATABASE_URL="postgresql://app_runtime:<hex32>@<host>:<port>/<db>?sslmode=require"
 ```
 
+## Step 4b — Seed the database
+
+The base seed creates system roles, permission pools, permissions, the platform
+tenant, and the 32 sensitive-operation policies. The app cannot function without
+it. Three things the connection string must carry:
+
+| Requirement | Why |
+| --- | --- |
+| `sslmode=verify-full` | Render refuses non-TLS external connections, and the seed's raw `pg` Pool only enables TLS when the URL asks for it (Prisma's migration engine negotiates it on its own, which is why Step 3 worked without it). `verify-full` rather than `require` — pg treats them identically today but `require` weakens in pg v9. |
+| `options=-c%20app.is_platform%3Don` | Tables are `FORCE ROW LEVEL SECURITY`, so even the owner is subject to RLS, and the managed owner is **not** a superuser (unlike local/CI, where it is). Global rows (`tenant_id IS NULL`) can only be inserted through the ADR-004 platform branch. Scoped to this session only. |
+| `SEED_ARCHITECT_EMAIL` | Required in every environment; the seed has no built-in default. |
+
+```bash
+ export DEMO_DB='postgresql://<owner>:<pw>@<external-host>/<db>?sslmode=verify-full&options=-c%20app.is_platform%3Don'
+
+SEED_ARCHITECT_EMAIL='architect@yourdomain.com' DATABASE_URL="$DEMO_DB" \
+  pnpm --filter @workspace/database db:seed
+
+DATABASE_URL="$DEMO_DB" pnpm --filter @workspace/database db:verify
+```
+
+Expect this to take a while against a remote database and to print little while
+it runs — it is issuing thousands of inserts across the network.
+
+**Claim the Architect account.** It is seeded with **no password**, so no
+standing credential for it exists anywhere. Mint a single-use token (valid 30
+minutes; only its hash is stored) when you are ready to use it — never from a
+deploy pipeline, where it would land in the logs:
+
+```bash
+SEED_ARCHITECT_EMAIL='architect@yourdomain.com' DATABASE_URL="$DEMO_DB" \
+  pnpm --filter @workspace/database run bootstrap:architect-token
+```
+
+Exchange it for a password of your choosing:
+`POST /auth/reset-password { "token": "<token>", "newPassword": "<chosen>" }`.
+
+**Optional — synthetic demo data.** Dev seeds refuse a non-local target unless
+you opt in explicitly, so pass `ALLOW_REMOTE_DEV_SEED_TARGET=true`. Run them in
+order; academics and operational data depend on the schools personas creates:
+
+```bash
+for s in db:seed:dev db:seed:academics db:seed:ops; do
+  DATABASE_URL="$DEMO_DB" ALLOW_REMOTE_DEV_SEED_TARGET=true \
+    pnpm --filter @workspace/database $s
+done
+```
+
+These create accounts with well-known passwords — acceptable for synthetic demo
+data, but **rotate them before any UAT client touches the environment**, and
+never run them against production.
+
 ## Step 5 — Render Key Value (Redis)
 
 Render → **New → Key Value**. Name `swe-keyvalue`, region **Oregon**, plan
