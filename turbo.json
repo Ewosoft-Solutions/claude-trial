@@ -47,7 +47,7 @@
     },
     "db:seed": {
       "cache": false,
-      "env": ["SEED_ARCHITECT_EMAIL", "SEED_ARCHITECT_PASSWORD"]
+      "env": ["SEED_ARCHITECT_EMAIL"]
     },
     "db:generate": {
       "dependsOn": ["^db:generate"],
@@ -67,6 +67,10 @@
     },
     "transit": {
       "dependsOn": ["^transit"]
+    },
+    "bootstrap:architect-token": {
+      "cache": false,
+      "env": ["SEED_ARCHITECT_EMAIL"]
     }
   }
 }
