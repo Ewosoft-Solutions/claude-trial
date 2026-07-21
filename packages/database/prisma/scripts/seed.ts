@@ -3561,6 +3561,28 @@ function getPermissionPoolsForPermission(
   return poolNames;
 }
 
+/**
+ * Rows per `createMany` call.
+ *
+ * Seeding is latency-bound, not throughput-bound. Against a remote database
+ * (a laptop seeding Render Oregon, ~300ms RTT) the old one-upsert-per-row loops
+ * issued ~2,000 sequential round-trips and took 10-20 minutes; locally the same
+ * work is instant, so the cost is entirely per-statement latency. Batching
+ * collapses those round-trips to a handful.
+ *
+ * 1000 rows keeps each statement well under Postgres' 65535 bind-parameter
+ * ceiling even for wider tables.
+ */
+const INSERT_CHUNK_SIZE = 1000;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
+  }
+  return chunks;
+}
+
 async function seedSystemRoles() {
   console.log('📋 Phase 1: Creating system roles...');
   const createdRoles: Record<string, string> = {};
@@ -3675,36 +3697,112 @@ async function upsertPermissions(
     [...new Set(duplicates)].forEach((name) => console.warn(`     - ${name}`));
   }
 
-  const createdPermissions: Record<string, string> = {};
+  // Unlike phases 4 and 5, this upsert's `update` body is NOT a no-op — it
+  // rewrites label/description/resource/action/context/category/clearance. So
+  // this phase cannot be a blind `createMany({ skipDuplicates: true })`: that
+  // would silently stop propagating catalog edits to an already-seeded database.
+  //
+  // Instead: read the current rows once, insert the missing ones in batches, and
+  // issue an update only for rows whose fields actually drifted — zero of them
+  // on a re-seed with an unchanged catalog.
+  const desiredByName = new Map<
+    string,
+    {
+      name: string;
+      label: string;
+      description: string;
+      resource: string;
+      action: string;
+      context: string | null;
+      category?: string;
+      requiredClearanceLevel: number;
+    }
+  >();
 
+  // Last entry wins, matching the net effect of the previous sequential upserts
+  // when the catalog contains a duplicate name.
   for (const permData of allPermissions) {
-    const permission = await prisma.permission.upsert({
-      where: {
-        name: permData.name,
-      },
-      update: {
-        label: permData.label,
-        description: permData.description,
-        resource: permData.resource,
-        action: permData.action,
-        context: (permData as any).context || null,
-        category: permData.category,
-        requiredClearanceLevel: permData.requiredClearanceLevel,
-      } as any,
-      create: {
-        name: permData.name,
-        label: permData.label,
-        description: permData.description,
-        resource: permData.resource,
-        action: permData.action,
-        context: (permData as any).context || null,
-        category: permData.category,
-        requiredClearanceLevel: permData.requiredClearanceLevel,
-      } as any,
+    desiredByName.set(permData.name, {
+      name: permData.name,
+      label: permData.label,
+      description: permData.description,
+      resource: permData.resource,
+      action: permData.action,
+      context: (permData as any).context || null,
+      category: permData.category,
+      requiredClearanceLevel: permData.requiredClearanceLevel,
     });
-    createdPermissions[permData.name] = permission.id;
-    console.log(`  ✅ Created permission: ${permData.name}`);
   }
+
+  const desired = [...desiredByName.values()];
+
+  const existing = await prisma.permission.findMany({
+    where: { name: { in: [...desiredByName.keys()] } },
+  });
+  const existingByName = new Map(existing.map((row) => [row.name, row]));
+
+  const createdPermissions: Record<string, string> = {};
+  const toCreate: typeof desired = [];
+  const toUpdate: Array<{ id: string; data: (typeof desired)[number] }> = [];
+
+  for (const permData of desired) {
+    const current = existingByName.get(permData.name);
+
+    if (!current) {
+      toCreate.push(permData);
+      continue;
+    }
+
+    createdPermissions[permData.name] = current.id;
+
+    const drifted =
+      current.label !== permData.label ||
+      current.description !== permData.description ||
+      current.resource !== permData.resource ||
+      current.action !== permData.action ||
+      current.context !== permData.context ||
+      current.category !== permData.category ||
+      current.requiredClearanceLevel !== permData.requiredClearanceLevel;
+
+    if (drifted) {
+      toUpdate.push({ id: current.id, data: permData });
+    }
+  }
+
+  let createdSoFar = 0;
+  for (const batch of chunk(toCreate, INSERT_CHUNK_SIZE)) {
+    await prisma.permission.createMany({
+      data: batch as any,
+      skipDuplicates: true,
+    });
+    createdSoFar += batch.length;
+    console.log(`  … created ${createdSoFar}/${toCreate.length} permissions`);
+  }
+
+  let updatedSoFar = 0;
+  for (const { id, data } of toUpdate) {
+    await prisma.permission.update({ where: { id }, data: data as any });
+    updatedSoFar++;
+    if (updatedSoFar % 50 === 0 || updatedSoFar === toUpdate.length) {
+      console.log(`  … updated ${updatedSoFar}/${toUpdate.length} permissions`);
+    }
+  }
+
+  // `createMany` does not return generated ids, so resolve the new rows' ids for
+  // the name → id map that phase 4 depends on.
+  if (toCreate.length > 0) {
+    const insertedRows = await prisma.permission.findMany({
+      where: { name: { in: toCreate.map((permData) => permData.name) } },
+      select: { id: true, name: true },
+    });
+    for (const row of insertedRows) {
+      createdPermissions[row.name] = row.id;
+    }
+  }
+
+  console.log(
+    `  ✅ ${desired.length} permissions in sync (${toCreate.length} created, ${toUpdate.length} updated, ${desired.length - toCreate.length - toUpdate.length} unchanged)`,
+  );
 
   return createdPermissions;
 }
@@ -3719,19 +3817,26 @@ async function assignPermissionsToPools(
   createdPools: Record<string, string>,
 ) {
   console.log('\n📋 Phase 4: Assigning permissions to pools...');
-  let poolPermissionCount = 0;
+
+  // This is the expensive phase. Clearance is a floor, so a permission at level
+  // R belongs to every pool from R to 10 — ~299 permissions fan out to ~1,700
+  // (pool, permission) pairs. Collect them all in memory first, then insert in
+  // batches instead of awaiting one upsert per pair.
+  const pairs: Array<{ poolId: string; permissionId: string }> = [];
+  const seenPairs = new Set<string>();
 
   for (const permData of allPermissions) {
-    const poolNames = getPermissionPoolsForPermission(
-      permData.requiredClearanceLevel,
-      permData.category,
-    );
     const permissionId = createdPermissions[permData.name];
 
     if (!permissionId) {
       console.warn(`  ⚠️  Permission not found: ${permData.name}`);
       continue;
     }
+
+    const poolNames = getPermissionPoolsForPermission(
+      permData.requiredClearanceLevel,
+      permData.category,
+    );
 
     for (const poolName of poolNames) {
       const poolId = createdPools[poolName];
@@ -3741,27 +3846,39 @@ async function assignPermissionsToPools(
         continue;
       }
 
-      await prisma.permissionPoolPermission.upsert({
-        where: {
-          poolId_permissionId: {
-            poolId,
-            permissionId,
-          },
-        },
-        update: {},
-        create: {
-          poolId,
-          permissionId,
-        },
-      });
-      poolPermissionCount++;
+      // A duplicate permission name in the catalog would otherwise queue the
+      // same pair twice; the old per-pair upsert collapsed those naturally.
+      const key = `${poolId} ${permissionId}`;
+      if (seenPairs.has(key)) {
+        continue;
+      }
+      seenPairs.add(key);
+      pairs.push({ poolId, permissionId });
     }
   }
 
+  // `skipDuplicates` reproduces the old upsert's empty `update: {}` body: rows
+  // that already exist are left exactly as they were, so this stays idempotent.
+  let inserted = 0;
+  let processed = 0;
+
+  for (const batch of chunk(pairs, INSERT_CHUNK_SIZE)) {
+    const result = await prisma.permissionPoolPermission.createMany({
+      data: batch,
+      skipDuplicates: true,
+    });
+
+    inserted += result.count;
+    processed += batch.length;
+    console.log(
+      `  … assigned ${processed}/${pairs.length} permission-pool relationships`,
+    );
+  }
+
   console.log(
-    `  ✅ Assigned ${poolPermissionCount} permission-pool relationships`,
+    `  ✅ Assigned ${pairs.length} permission-pool relationships (${inserted} new, ${pairs.length - inserted} already present)`,
   );
-  return poolPermissionCount;
+  return pairs.length;
 }
 
 async function assignPoolsToRoles(
@@ -3769,32 +3886,35 @@ async function assignPoolsToRoles(
   createdPools: Record<string, string>,
 ) {
   console.log('\n📋 Phase 5: Assigning pools to roles...');
-  let rolePoolCount = 0;
+
+  // Same empty `update: {}` body as phase 4, so the batched insert is
+  // equivalent. Far fewer rows here, but it is the same round-trip tax.
+  const pairs: Array<{ roleId: string; poolId: string }> = [];
 
   for (const [roleName, poolName] of Object.entries(ROLE_TO_POOL_MAPPING)) {
     const roleId = createdRoles[roleName];
     const poolId = createdPools[poolName];
 
     if (roleId && poolId) {
-      await prisma.rolePermissionPool.upsert({
-        where: {
-          roleId_poolId: {
-            roleId,
-            poolId,
-          },
-        },
-        update: {},
-        create: {
-          roleId,
-          poolId,
-        },
-      });
-      rolePoolCount++;
-      console.log(`  ✅ Assigned ${poolName} to ${roleName}`);
+      pairs.push({ roleId, poolId });
     }
   }
 
-  return rolePoolCount;
+  let inserted = 0;
+
+  for (const batch of chunk(pairs, INSERT_CHUNK_SIZE)) {
+    const result = await prisma.rolePermissionPool.createMany({
+      data: batch,
+      skipDuplicates: true,
+    });
+    inserted += result.count;
+  }
+
+  console.log(
+    `  ✅ Assigned ${pairs.length} role-pool relationships (${inserted} new, ${pairs.length - inserted} already present)`,
+  );
+
+  return pairs.length;
 }
 
 async function seedSensitiveOperationPolicies() {
