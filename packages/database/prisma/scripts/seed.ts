@@ -27,101 +27,66 @@ const PLATFORM_BOOTSTRAP = {
 };
 
 /**
- * Development-only fallbacks for the platform Architect account.
+ * The Architect credentials this repo used to ship with.
  *
- * These are public knowledge (they live in the repo), so they are usable ONLY
- * when the environment is not production-like. Any production-like seed must
- * supply SEED_ARCHITECT_EMAIL / SEED_ARCHITECT_PASSWORD from the secret store.
+ * Kept ONLY so an already-seeded environment can be recognised as still holding
+ * them — they are never used to create or authenticate anything. The value is in
+ * this repo's git history permanently, so treating it as a known-compromised
+ * password to detect (rather than a secret to hide) is the useful thing left to
+ * do with it. See the retro-remediation in seedPlatformBootstrap.
  */
-const ARCHITECT_DEV_DEFAULTS = {
+const COMPROMISED_LEGACY_CREDENTIALS = {
   email: 'architect@schoolwithease.com',
   password: 'Architect@2025!',
 };
 
-const ARCHITECT_MIN_PASSWORD_LENGTH = 16;
-
-// Deliberately wider than scripts/dev/guard.ts: staging, demo, and preview
-// environments are publicly reachable, so a known-credential Architect there is
-// as exploitable as one in production. "preview" covers Vercel feature previews
-// (VERCEL_ENV=preview), which means every preview that seeds must supply
-// SEED_ARCHITECT_* — the point is that ephemeral does not mean unreachable.
-// This set gates bootstrap credentials only; it does not affect whether dev
-// seeds are allowed to run (see scripts/dev/guard.ts).
-const PRODUCTION_ENV_VALUES = new Set([
-  'prod',
-  'production',
-  'staging',
-  'stage',
-  'demo',
-  'preview',
-]);
-
-function isProductionLike(value: string | undefined): boolean {
-  return PRODUCTION_ENV_VALUES.has((value ?? '').trim().toLowerCase());
-}
-
-/** Returns the [name, value] of the first production-like env marker, if any. */
-function detectProductionEnv(): [string, string] | undefined {
-  const marker = (
-    [
-      ['NODE_ENV', process.env.NODE_ENV],
-      ['APP_ENV', process.env.APP_ENV],
-      ['VERCEL_ENV', process.env.VERCEL_ENV],
-    ] as const
-  ).find(([, value]) => isProductionLike(value));
-
-  return marker ? [marker[0], marker[1] as string] : undefined;
-}
-
-let cachedArchitectCredentials: { email: string; password: string } | undefined;
+let cachedArchitectCredentials: { email: string } | undefined;
 
 /**
- * Resolves the bootstrap Architect credentials.
+ * Resolves the bootstrap Architect identity from the environment.
  *
- * The Architect holds clearance level 10 (unrestricted access to every school,
- * every record, every configuration), so a known-credential Architect is a full
- * platform compromise. In production-like environments the credentials must come
- * from the environment; there is deliberately no fallback.
+ * Note what is NOT here: a password. The Architect holds clearance level 10 —
+ * unrestricted access to every school, every record, every configuration — and
+ * the safest bootstrap credential for an account like that is one that does not
+ * exist. The account is created with no password at all; an operator claims it
+ * once via a short-lived single-use token minted by
+ * `pnpm bootstrap:architect-token`.
+ *
+ * That removes the standing secret entirely. There is no value to rotate, leak,
+ * commit, paste into CI, or forget about in a secret store — earlier versions of
+ * this script had a password hardcoded here, then env-supplied, and both left a
+ * durable credential for the most privileged account on the platform.
+ *
+ * The email is required and has no default: it is the address that receives
+ * password resets and security notices for that account, so pointing it at a
+ * mailbox nobody controls is its own failure mode.
  */
-function getArchitectCredentials(): { email: string; password: string } {
+function getArchitectCredentials(): { email: string } {
   if (cachedArchitectCredentials) return cachedArchitectCredentials;
 
   const email = process.env.SEED_ARCHITECT_EMAIL?.trim();
-  const password = process.env.SEED_ARCHITECT_PASSWORD;
-  const productionEnv = detectProductionEnv();
 
-  if (productionEnv) {
-    const [envName, envValue] = productionEnv;
-    const prefix = `[seed] Refusing to bootstrap the platform Architect with built-in defaults because ${envName}=${envValue}.`;
-
-    const missing = [
-      email ? undefined : 'SEED_ARCHITECT_EMAIL',
-      password ? undefined : 'SEED_ARCHITECT_PASSWORD',
-    ].filter(Boolean);
-
-    if (missing.length > 0) {
-      throw new Error(
-        `${prefix} Set ${missing.join(' and ')} from the secret store before seeding.`,
-      );
-    }
-
-    if (password === ARCHITECT_DEV_DEFAULTS.password) {
-      throw new Error(
-        `${prefix} SEED_ARCHITECT_PASSWORD is set to the repo's development default, which is public. Use a generated secret.`,
-      );
-    }
-
-    if ((password as string).length < ARCHITECT_MIN_PASSWORD_LENGTH) {
-      throw new Error(
-        `${prefix} SEED_ARCHITECT_PASSWORD must be at least ${ARCHITECT_MIN_PASSWORD_LENGTH} characters.`,
-      );
-    }
+  if (!email) {
+    throw new Error(
+      `[seed] SEED_ARCHITECT_EMAIL must be set — there is no built-in default for the platform Architect. ` +
+        `See packages/database/.env.example.`,
+    );
   }
 
-  cachedArchitectCredentials = {
-    email: email || ARCHITECT_DEV_DEFAULTS.email,
-    password: password || ARCHITECT_DEV_DEFAULTS.password,
-  };
+  if (!email.includes('@')) {
+    throw new Error(
+      `[seed] SEED_ARCHITECT_EMAIL must be an email address — it receives password resets and security notices for the most privileged account on the platform.`,
+    );
+  }
+
+  if (process.env.SEED_ARCHITECT_PASSWORD) {
+    throw new Error(
+      `[seed] SEED_ARCHITECT_PASSWORD is set but no longer used. The Architect is bootstrapped without a password; ` +
+        `claim it with a single-use token from \`pnpm bootstrap:architect-token\`. Remove the variable to continue.`,
+    );
+  }
+
+  cachedArchitectCredentials = { email };
 
   return cachedArchitectCredentials;
 }
@@ -3452,7 +3417,30 @@ async function seedPlatformBootstrap(
 
   const architectCredentials = getArchitectCredentials();
 
-  const passwordHash = await bcrypt.hash(architectCredentials.password, 12);
+  // Retro-remediation for environments seeded before the credential hardening.
+  //
+  // A new Architect is armed with mustChangePassword below, but an account that
+  // already exists is left alone — re-seeding must never re-arm the flag for an
+  // operator who has legitimately rotated. That leaves a gap: any environment
+  // seeded from the old script still holds the password that was published in
+  // this repo, and no amount of re-seeding would challenge it.
+  //
+  // So: arm the flag on an existing account only when its stored hash still
+  // matches that published default. Anyone who rotated fails the comparison and
+  // is untouched; anyone still on the leaked value is forced to rotate at their
+  // next login.
+  const existingArchitect = await prismaInstance.user.findUnique({
+    where: { email: architectCredentials.email },
+    select: { id: true, passwordHash: true, mustChangePassword: true },
+  });
+
+  const stillOnPublishedDefault = Boolean(
+    existingArchitect?.passwordHash &&
+    (await bcrypt.compare(
+      COMPROMISED_LEGACY_CREDENTIALS.password,
+      existingArchitect.passwordHash,
+    )),
+  );
 
   const architectUser = await prismaInstance.user.upsert({
     where: { email: architectCredentials.email },
@@ -3461,20 +3449,33 @@ async function seedPlatformBootstrap(
       lastName: PLATFORM_BOOTSTRAP.architect.lastName,
       isActive: true,
       isVerified: true,
+      // Only ever flipped on, and only for a hash that matches the published
+      // default. Note this deliberately does not reset the password itself:
+      // overwriting a hash on every seed would let a re-seed silently revert a
+      // rotation an operator had already performed.
+      ...(stillOnPublishedDefault ? { mustChangePassword: true } : {}),
     },
     create: {
       email: architectCredentials.email,
-      passwordHash,
+      // No password. The account cannot authenticate until an operator claims
+      // it with a single-use token — login already rejects an account with no
+      // password hash. Nothing secret is created here, so nothing can leak.
+      passwordHash: null,
       firstName: PLATFORM_BOOTSTRAP.architect.firstName,
       lastName: PLATFORM_BOOTSTRAP.architect.lastName,
       isActive: true,
       isVerified: true,
-      // Set on create only. Re-seeding must not re-arm the flag for an operator
-      // who has already rotated — the upsert's update branch leaves both the
-      // password hash and this flag alone.
-      mustChangePassword: true,
     },
   });
+
+  if (stillOnPublishedDefault && !existingArchitect?.mustChangePassword) {
+    console.warn(
+      `  ⚠️  Existing Architect is still using the password published in this repo.`,
+    );
+    console.warn(
+      `      Forced rotation has been armed — it must be changed at next login.`,
+    );
+  }
 
   console.log(`  ✅ Architect user: ${architectUser.email}`);
 
@@ -3511,18 +3512,21 @@ async function seedPlatformBootstrap(
   console.log(
     `  ✅ Architect profile linked to platform tenant with Architect role`,
   );
-  // Never print the password — seed output lands in CI logs, deploy logs, and
-  // scrollback. The operator retrieves it from wherever SEED_ARCHITECT_PASSWORD
-  // was set.
+  // Nothing secret to print: the account has no password. Seeding is safe to run
+  // in CI and deploy pipelines without leaking a credential into their logs.
   console.log(`\n  🔑 Platform bootstrap account:`);
   console.log(`     Email:    ${architectCredentials.email}`);
+  console.log(`     Password: (none — the account cannot sign in yet)`);
   console.log(
-    `     Password: (not printed — retrieve SEED_ARCHITECT_PASSWORD from the secret store)`,
+    `\n     To claim it, run \`pnpm bootstrap:architect-token\` and exchange the`,
   );
   console.log(
-    `     ⚠️  This account must change its password at first login — no token is`,
+    `     single-use token via POST /auth/reset-password. Mint the token when`,
   );
-  console.log(`        issued until it does (POST /auth/change-password).`);
+  console.log(
+    `     you are ready to use it — it is short-lived, and minting it from a`,
+  );
+  console.log(`     deploy pipeline would put it in the pipeline's logs.`);
 }
 
 // Permission to Pool mapping based on clearance level
@@ -3852,7 +3856,7 @@ async function assignPermissionsToPools(
 
       // A duplicate permission name in the catalog would otherwise queue the
       // same pair twice; the old per-pair upsert collapsed those naturally.
-      const key = `${poolId} ${permissionId}`;
+      const key = `${poolId}\u0000${permissionId}`;
       if (seenPairs.has(key)) {
         continue;
       }

@@ -27,6 +27,22 @@ export interface PasswordResetRequest {
 }
 
 /**
+ * Hashes a reset token for storage.
+ *
+ * The column holds the hash, never the token itself, so a database read —
+ * a backup, a log, a compromised read replica — yields nothing usable: an
+ * attacker would need the preimage to reset anyone's password.
+ *
+ * Plain SHA-256 with no salt is correct here and not a shortcut. The input is
+ * 32 bytes from a CSPRNG, so there is no dictionary to attack and nothing to
+ * slow down; a salt would only prevent the direct lookup this flow depends on.
+ * (Contrast passwords, which are low-entropy and need bcrypt.)
+ */
+export function hashResetToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
  * Password Reset Service
  *
  * Provides password reset functionality with enhanced security.
@@ -87,11 +103,12 @@ export class PasswordResetService {
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour expiration
 
-    // Save reset token
+    // Save the token's hash, never the token itself — the caller gets the only
+    // usable copy and it exists nowhere at rest.
     await prisma.user.update({
       where: { id: user.id },
       data: {
-        passwordResetToken: token,
+        passwordResetToken: hashResetToken(token),
         passwordResetExpiresAt: expiresAt,
       },
     });
@@ -124,9 +141,11 @@ export class PasswordResetService {
     mfaCode?: string,
     ipAddress?: string,
   ): Promise<void> {
-    // Find user by reset token
+    // Look up by the token's hash — the raw token is never stored.
+    const tokenHash = hashResetToken(token);
+
     const user = await prisma.user.findFirst({
-      where: { passwordResetToken: token },
+      where: { passwordResetToken: tokenHash },
       select: {
         id: true,
         email: true,
@@ -146,7 +165,7 @@ export class PasswordResetService {
     }
 
     // Check if token matches
-    if (user.passwordResetToken !== token) {
+    if (user.passwordResetToken !== tokenHash) {
       throw new UnauthorizedException('Invalid reset token');
     }
 
@@ -204,6 +223,10 @@ export class PasswordResetService {
         passwordChangedAt: new Date(),
         passwordResetToken: null,
         passwordResetExpiresAt: null,
+        // Choosing a password through this flow satisfies a forced rotation —
+        // including the platform bootstrap, where this is how the Architect
+        // sets its first password.
+        mustChangePassword: false,
       },
     });
 
