@@ -41,10 +41,24 @@ Vercel/GitHub below. **Never commit these.**
 
 ```bash
 openssl rand -base64 64   # JWT_SECRET
-openssl rand -base64 32   # ENCRYPTION_KEY   (32 bytes; rotating it invalidates every encrypted column)
+openssl rand -base64 32   # ENCRYPTION_KEY   (32 bytes → exactly 44 base64 chars)
 openssl rand -base64 64   # AUTH_RESUME_SECRET (web)
 openssl rand -hex 32      # app_runtime DB password (hex → safe in a connection URL)
 ```
+
+> **`ENCRYPTION_KEY` is a HARD boot requirement in production — the API refuses
+> to start without it.** Use `openssl rand -base64 32` exactly: the value must be
+> **exactly 44 characters** (32 bytes, base64). A missing key, or one of any
+> other length (e.g. a 64-byte `JWT_SECRET`-shaped value, 88 chars), makes the
+> instance crash on boot with `ENCRYPTION_KEY is required in production` — which
+> surfaces as a Render `update_failed` and a failed CD run, not a clear message
+> in the deploy UI. This is deliberate fail-closed behaviour (0.5.7a): without a
+> real key the app would otherwise encrypt pupil health data under a constant,
+> effectively-public key. It is NOT enforced in `development`/`test` (so CI,
+> which runs `NODE_ENV=test`, will not catch a missing production key for you —
+> the boot smoke in CI covers the *code* path, not your Render env). Rotating the
+> key later invalidates every encrypted column; use `db:rotate:health-encryption`
+> under a maintenance window (Step 4d).
 
 > **Remote connection strings need `?sslmode=verify-full`.** Render (and most
 > managed Postgres) refuse non-TLS external connections. Prisma's *migration
@@ -328,9 +342,15 @@ env vars on `swe-api` (dashboard → Environment):
 | `WEBAUTHN_RP_ID` | `demo.schoolwithease.com` |
 | `WEBAUTHN_ORIGIN` | `https://demo.schoolwithease.com` |
 | `WEBAUTHN_ALLOWED_ORIGINS` | `https://demo.schoolwithease.com` |
-| `JWT_SECRET` / `ENCRYPTION_KEY` | from Step 2 |
+| `JWT_SECRET` | from Step 2 |
+| `ENCRYPTION_KEY` | from Step 2 — **required to boot**, exactly 44 base64 chars (`openssl rand -base64 32`). A missing/malformed value crashes the instance → Render `update_failed`. |
 | `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` | your keys (optional; AI degrades gracefully) |
 | `STORAGE_S3_*` | from Step 7 (set now; consumed in D1) |
+
+> **If a deploy fails with `update_failed`, check `ENCRYPTION_KEY` first.** The
+> most common cause of the new instance failing to go live is a missing or
+> wrong-length `ENCRYPTION_KEY` (see Step 2). The instance's own logs show the
+> exact boot error.
 
 Confirm **Auto-Deploy = No** (set by `render.yaml autoDeploy: false`). Add a
 custom domain **`api.demo.schoolwithease.com`**. Copy the **service id**
