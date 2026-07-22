@@ -13,6 +13,13 @@ import { AUDIT_ACTION } from '../../common/audit/audit.constants';
  *
  * Handles tenant status management (active, pending, suspended).
  * 6.8: Implement tenant status management
+ *
+ * NOTE: `updateTenantStatus` is no longer on the HTTP path — platform tenant
+ * activate/suspend now goes through `PlatformApprovalService`, which enforces
+ * the SuperAdmin-proposes/Architect-disposes approval flow. Do not re-wire a
+ * controller to this method: it changes tenant status directly and would bypass
+ * that control. Kept for programmatic/system use (e.g. registration side
+ * effects) only.
  */
 @Injectable()
 export class TenantStatusService {

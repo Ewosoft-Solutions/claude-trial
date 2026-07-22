@@ -156,7 +156,16 @@ export const envValidationSchema = Joi.object({
     .min(30)
     .max(900)
     .default(300),
-  ENCRYPTION_KEY: Joi.string().optional(),
+  // Required in production: without it EncryptionService would fall back to a
+  // constant-derived development key, so every "encrypted" field would be
+  // readable by anyone with the source. Fail at boot rather than encrypt under
+  // an effectively public key. Base64 of exactly 32 bytes (44 chars) —
+  // generate with `openssl rand -base64 32`.
+  ENCRYPTION_KEY: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string().base64().length(44).required(),
+    otherwise: Joi.string().optional(),
+  }),
   WEBAUTHN_RP_NAME: Joi.string().default('School With Ease'),
   WEBAUTHN_RP_ID: Joi.string().default('localhost'),
   WEBAUTHN_ORIGIN: Joi.string().default('http://localhost:3001'),

@@ -182,7 +182,12 @@ export default function AllSchoolsPage() {
                   <Fragment key={s.id}>
                     <TableRow>
                       <TableCell>
-                        <div className="font-medium">{s.name}</div>
+                        <Link
+                          href={`/platform/tenants/${s.id}`}
+                          className="font-medium underline-offset-4 hover:underline"
+                        >
+                          {s.name}
+                        </Link>
                         <div className="text-xs text-muted-foreground">
                           {s.slug}
                           {s.emailDomain ? ` · ${s.emailDomain}` : ''}

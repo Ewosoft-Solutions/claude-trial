@@ -246,7 +246,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 299,
+  total: 304,
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -257,7 +257,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
     SYSTEM_ADMIN_PERMISSIONS: 19,
-    PLATFORM_PERMISSIONS: 12,
+    PLATFORM_PERMISSIONS: 17,
     LIBRARY_PERMISSIONS: 7,
     TRANSPORTATION_PERMISSIONS: 8,
     CAFETERIA_PERMISSIONS: 8,
@@ -1822,7 +1822,14 @@ const SYSTEM_ADMIN_PERMISSIONS = [
   },
 ];
 
-// Platform Permissions (12 permissions)
+// Platform Permissions (17 permissions)
+//
+// Clearance is the floor: `getPermissionPoolsForPermission` routes a
+// category:'platform' permission into pools at max(9, requiredClearanceLevel)
+// and above. So level 9 => Architect + SuperAdmin; level 10 => Architect only.
+// That floor is authoritative — `checkPermission` enforces a permission's own
+// clearance even against a direct per-profile grant, so a level-10 permission
+// can never be held by a clearance-9 role by any route.
 const PLATFORM_PERMISSIONS = [
   {
     name: 'platform.override',
@@ -1869,12 +1876,71 @@ const PLATFORM_PERMISSIONS = [
     category: 'platform',
     requiredClearanceLevel: 10,
   },
+  // Tenant management is split into three facets rather than one permission.
+  // SuperAdmin must be able to *operate* on tenants (support work) without
+  // being able to *inspect* their internals — separation of duties cuts across
+  // seniority, so a single `platform.tenants` could not express it.
+  // See docs/platform-scope-plan.md §7.2.
   {
-    name: 'platform.tenants',
-    label: 'Manage Tenants',
-    description: 'Manage school tenant accounts',
+    name: 'platform.tenants.read',
+    label: 'View Tenants',
+    description: 'List schools with status and onboarding progress',
     resource: 'platform',
     action: 'tenants',
+    context: 'read',
+    category: 'platform',
+    requiredClearanceLevel: 9,
+  },
+  {
+    name: 'platform.tenants.act',
+    label: 'Act On Tenants',
+    description:
+      'Activate/suspend a school, invite its owner, advance onboarding. Approval-gated below clearance 10.',
+    resource: 'platform',
+    action: 'tenants',
+    context: 'act',
+    category: 'platform',
+    requiredClearanceLevel: 9,
+  },
+  {
+    name: 'platform.tenants.inspect',
+    label: 'Inspect Tenant Internals',
+    description:
+      'View tenant configuration, security policy and JWT state. Architect only.',
+    resource: 'platform',
+    action: 'tenants',
+    context: 'inspect',
+    category: 'platform',
+    requiredClearanceLevel: 10,
+  },
+  {
+    name: 'platform.metrics',
+    label: 'Cross-Tenant Metrics',
+    description:
+      'Query and aggregate analytics across tenants. Architect only — this is the "query the system" capability.',
+    resource: 'platform',
+    action: 'metrics',
+    category: 'platform',
+    requiredClearanceLevel: 10,
+  },
+  {
+    name: 'platform.privileges',
+    label: 'Manage Platform Privileges',
+    description:
+      'Manage roles, permissions and clearance across the platform. Architect only.',
+    resource: 'platform',
+    action: 'privileges',
+    category: 'platform',
+    requiredClearanceLevel: 10,
+  },
+  {
+    name: 'platform.approvals.override',
+    label: 'Override Approvals',
+    description:
+      'Decide or overturn any pending approval request at any level. The standing top of every approval chain.',
+    resource: 'platform',
+    action: 'approvals',
+    context: 'override',
     category: 'platform',
     requiredClearanceLevel: 10,
   },
@@ -3827,7 +3893,7 @@ async function assignPermissionsToPools(
   console.log('\n📋 Phase 4: Assigning permissions to pools...');
 
   // This is the expensive phase. Clearance is a floor, so a permission at level
-  // R belongs to every pool from R to 10 — ~299 permissions fan out to ~1,700
+  // R belongs to every pool from R to 10 — ~304 permissions fan out to ~1,700
   // (pool, permission) pairs. Collect them all in memory first, then insert in
   // batches instead of awaiting one upsert per pair.
   const pairs: Array<{ poolId: string; permissionId: string }> = [];

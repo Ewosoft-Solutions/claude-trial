@@ -24,13 +24,13 @@ import {
   CalendarDays,
   ChartColumn,
   CircleQuestionMark,
+  ClipboardCheck,
   Contact,
   CreditCard,
   FileText,
   GraduationCap,
   HeartPulse,
   House,
-  LifeBuoy,
   Palette,
   PartyPopper,
   ScrollText,
@@ -612,7 +612,7 @@ export const PLATFORM_NAV: NavigationConfig = {
       label: 'Tenants',
       icon: <Building2 />,
       href: '/platform/tenants',
-      access: { scope: 'platform', anyPermission: ['platform.tenants'] },
+      access: { scope: 'platform', anyPermission: ['platform.tenants.read'] },
       panelHeader: { icon: <Building2 />, title: 'Schools' },
       groups: [
         {
@@ -624,63 +624,39 @@ export const PLATFORM_NAV: NavigationConfig = {
               label: 'All schools',
               icon: <Building2 />,
               href: '/platform/tenants/all',
-              access: { anyPermission: ['platform.tenants'] },
+              access: { anyPermission: ['platform.tenants.read'] },
             },
             {
               key: 'onboarding',
               label: 'Onboarding',
               icon: <UserPlus />,
               href: '/platform/tenants/onboarding',
-              access: { anyPermission: ['platform.tenants'] },
+              access: { anyPermission: ['platform.tenants.act'] },
+            },
+            {
+              key: 'approvals',
+              label: 'Approvals',
+              icon: <ClipboardCheck />,
+              href: '/platform/tenants/approvals',
+              access: { anyPermission: ['platform.tenants.act'] },
             },
           ],
         },
       ],
     },
-    {
-      key: 'analytics',
-      label: 'Analytics',
-      icon: <ChartColumn />,
-      href: '/platform/analytics',
-      access: {
-        scope: 'platform',
-        anyPermission: ['platform.monitoring', 'analytics.advanced'],
-      },
-      panelHeader: { icon: <ChartColumn />, title: 'Platform analytics' },
-      groups: [
-        {
-          key: 'health',
-          items: [
-            {
-              key: 'usage',
-              label: 'Usage',
-              icon: <ChartColumn />,
-              href: '/platform/analytics/usage',
-              access: {
-                anyPermission: ['platform.monitoring', 'analytics.advanced'],
-              },
-            },
-            {
-              key: 'performance',
-              label: 'Performance',
-              icon: <ChartColumn />,
-              href: '/platform/analytics/performance',
-              access: { anyPermission: ['platform.monitoring'] },
-            },
-          ],
-        },
-      ],
-    },
+    // Audit re-added in 2.1 — its page is now real. Analytics, Support and
+    // Billing remain removed (Phase 2/3 features, docs/platform-scope-plan.md §5);
+    // re-add each when its pages land, as done for Tenants → Approvals and here.
     {
       key: 'audit',
       label: 'Audit',
-      icon: <ShieldCheck />,
-      href: '/platform/audit',
+      icon: <ScrollText />,
+      href: '/platform/audit/log',
       access: {
         scope: 'platform',
         anyPermission: ['platform.audit', 'platform.audit.limited'],
       },
-      panelHeader: { icon: <ShieldCheck />, title: 'Audit & security' },
+      panelHeader: { icon: <ScrollText />, title: 'Audit' },
       groups: [
         {
           key: 'trail',
@@ -694,89 +670,23 @@ export const PLATFORM_NAV: NavigationConfig = {
                 anyPermission: ['platform.audit', 'platform.audit.limited'],
               },
             },
-            {
-              key: 'security',
-              label: 'Security',
-              icon: <ShieldCheck />,
-              href: '/platform/audit/security',
-              access: { anyPermission: ['platform.security'] },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      key: 'support',
-      label: 'Support',
-      icon: <LifeBuoy />,
-      href: '/platform/support',
-      access: {
-        scope: 'platform',
-        anyPermission: ['platform.support', 'platform.support.access'],
-      },
-      panelHeader: { icon: <LifeBuoy />, title: 'Support' },
-      groups: [
-        {
-          key: 'tickets',
-          items: [
-            {
-              key: 'queue',
-              label: 'Ticket queue',
-              icon: <LifeBuoy />,
-              href: '/platform/support/queue',
-              access: {
-                anyPermission: ['platform.support', 'platform.support.access'],
-              },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      key: 'billing',
-      label: 'Billing',
-      icon: <CreditCard />,
-      href: '/platform/billing',
-      access: { scope: 'platform', anyPermission: ['platform.billing'] },
-      panelHeader: { icon: <CreditCard />, title: 'Platform billing' },
-      groups: [
-        {
-          key: 'subscriptions',
-          items: [
-            {
-              key: 'plans',
-              label: 'Plans',
-              icon: <CreditCard />,
-              href: '/platform/billing/plans',
-              access: { anyPermission: ['platform.billing'] },
-            },
-            {
-              key: 'invoices',
-              label: 'Invoices',
-              icon: <Banknote />,
-              href: '/platform/billing/invoices',
-              access: { anyPermission: ['platform.billing'] },
-            },
           ],
         },
       ],
     },
   ],
   footer: [
-    {
-      key: 'platform-help',
-      label: 'Help',
-      icon: <CircleQuestionMark />,
-      href: '/platform/help',
-    },
+    // Help (/platform/help) and the Maintenance settings item were removed (1.4)
+    // as dead links. The Settings entry now points straight at the one platform
+    // settings page that exists — security governance.
     {
       key: 'platform-settings',
       label: 'Settings',
       icon: <Settings />,
-      href: '/platform/settings',
+      href: '/platform/settings/security',
       access: {
         scope: 'platform',
-        anyPermission: ['platform.security', 'platform.maintenance'],
+        anyPermission: ['platform.security'],
       },
       panelHeader: { icon: <Settings />, title: 'Platform settings' },
       groups: [
@@ -784,17 +694,17 @@ export const PLATFORM_NAV: NavigationConfig = {
           key: 'platform-config',
           items: [
             {
-              key: 'maintenance',
-              label: 'Maintenance',
-              icon: <Settings />,
-              href: '/platform/settings/maintenance',
-              access: { anyPermission: ['platform.maintenance'] },
-            },
-            {
               key: 'security-settings',
               label: 'Security',
               icon: <ShieldCheck />,
               href: '/platform/settings/security',
+              access: { anyPermission: ['platform.security'] },
+            },
+            {
+              key: 'policy-posture',
+              label: 'Policy posture',
+              icon: <ShieldCheck />,
+              href: '/platform/settings/policies',
               access: { anyPermission: ['platform.security'] },
             },
           ],

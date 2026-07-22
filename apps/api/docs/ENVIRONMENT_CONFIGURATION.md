@@ -27,7 +27,7 @@ This document describes all environment variables required for the School With E
 - `DATABASE_URL` (required): PostgreSQL connection string
   - Format: `postgresql://[user]:[password]@[host]:[port]/[database]`
   - Example: `postgresql://postgres:password@localhost:5432/schoolsys`
-  - Production: Include SSL mode: `?sslmode=require`
+  - Production: Include SSL mode: `?sslmode=verify-full`
 
 ### Application Configuration
 

@@ -6,6 +6,7 @@
     "dev": "nest start --watch",
     "build": "nest build",
     "check-types": "tsc -p tsconfig.build.json --noEmit",
+    "check:privileged-db": "node scripts/check-privileged-db-usage.mjs",
     "start": "nest start",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",

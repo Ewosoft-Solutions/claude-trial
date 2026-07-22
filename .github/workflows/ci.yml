@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, claude]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -73,11 +73,16 @@ jobs:
 
       - name: Grant app_runtime LOGIN for CI
         run: |
-          psql "$DATABASE_URL" -c "ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime_pw';"
+          echo "ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime_pw';" | \
+            pnpm --filter @workspace/database exec prisma db execute --stdin
 
       - name: RLS coverage check (gate)
         working-directory: packages/database
         run: pnpm db:rls:check
+
+      - name: Privileged DB usage check (gate)
+        working-directory: apps/api
+        run: pnpm check:privileged-db
 
       # ── Build shared packages (needed for type-check of apps) ────────────
       - name: Build packages/database

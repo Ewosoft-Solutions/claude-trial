@@ -1,0 +1,5 @@
+#!/bin/sh
+
+# Git for Windows, macOS, and Linux all execute hooks through this shell.
+# The implementation itself lives in Node to keep platform-specific logic out.
+exec node scripts/ci/run-local-ci.mjs

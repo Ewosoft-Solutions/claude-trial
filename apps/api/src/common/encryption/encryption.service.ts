@@ -37,6 +37,33 @@ export class EncryptionService {
     });
     this.envConfig = envConfig;
     const key = envConfig?.ENCRYPTION_KEY;
+    const isProduction = envConfig?.NODE_ENV === 'production';
+
+    // Fail closed in production. Both branches below are development
+    // conveniences that silently weaken the key — a missing key falls back to a
+    // constant derived from source, and a short key is stretched by hashing so
+    // that "password" appears to work. Either would leave real pupil data
+    // encrypted under something an attacker can reproduce, while every log line
+    // and health check reports success. Config validation (env.config.ts) also
+    // requires the key in production; this is the second lock on the same door.
+    if (isProduction) {
+      if (!key) {
+        throw new Error(
+          'ENCRYPTION_KEY is required in production. Generate one with ' +
+            '`openssl rand -base64 32`. Refusing to start with a development key.',
+        );
+      }
+      const decoded = Buffer.from(key, 'base64');
+      if (decoded.length !== this.keyLength) {
+        throw new Error(
+          `ENCRYPTION_KEY must be exactly ${this.keyLength} bytes, base64-encoded ` +
+            `(got ${decoded.length}). Generate one with \`openssl rand -base64 32\`. ` +
+            'Refusing to start with a stretched or truncated key.',
+        );
+      }
+      this.encryptionKey = decoded;
+      return;
+    }
 
     if (!key) {
       this.logger.warn(
@@ -50,12 +77,13 @@ export class EncryptionService {
         .update(defaultKey)
         .digest();
     } else {
-      // For production, prefer base64-encoded 32-byte keys; otherwise hash to 32 bytes
+      // Prefer base64-encoded 32-byte keys; otherwise hash to 32 bytes so that
+      // local/test setups can use an arbitrary string. Development only —
+      // production takes the strict path above.
       const decodedKey = Buffer.from(key, 'base64');
       if (decodedKey.length === this.keyLength) {
         this.encryptionKey = decodedKey;
       } else {
-        // Fallback: hash any other key input to derive a 32-byte key
         this.encryptionKey = crypto.createHash('sha256').update(key).digest();
       }
     }
@@ -174,6 +202,69 @@ export class EncryptionService {
    */
   decryptFromStorage(encryptedData: string): string {
     return this.decrypt(encryptedData);
+  }
+
+  /**
+   * Envelope prefix marking a value this service encrypted. Lets a read path
+   * distinguish ciphertext from legacy plaintext during a field-by-field
+   * migration, so decryption is only attempted on values we actually encrypted.
+   */
+  private readonly envelopePrefix = 'enc:v1:';
+
+  /**
+   * Encrypt a nullable field value for at-rest storage, tagged with the
+   * envelope prefix. `null`/`undefined` pass through unchanged (an absent value
+   * has nothing to hide and must stay queryable as NULL).
+   */
+  encryptEnveloped(plaintext: string | null | undefined): string | null {
+    if (plaintext === null || plaintext === undefined) return null;
+    return this.envelopePrefix + this.encrypt(plaintext);
+  }
+
+  /**
+   * Inverse of `encryptEnveloped`. A value without the prefix is returned
+   * unchanged — it is legacy plaintext that predates encryption (or is mid
+   * backfill). This is what makes turning encryption on non-breaking; the
+   * backfill script then rewrites those rows so the prefix becomes universal.
+   */
+  decryptEnveloped(value: string | null | undefined): string | null {
+    if (value === null || value === undefined) return null;
+    if (!value.startsWith(this.envelopePrefix)) return value;
+    return this.decrypt(value.slice(this.envelopePrefix.length));
+  }
+
+  /** Whether a stored value carries the encryption envelope. */
+  isEnveloped(value: string | null | undefined): boolean {
+    return typeof value === 'string' && value.startsWith(this.envelopePrefix);
+  }
+
+  /**
+   * Keyed one-way digest, for **blind indexes**.
+   *
+   * `encrypt()` uses a random IV, so the same plaintext yields different
+   * ciphertext every time — which is what you want for confidentiality and what
+   * makes encrypted columns unsearchable. This gives the opposite property on
+   * purpose: the same input always produces the same digest, so equal values can
+   * be matched in SQL without the database ever holding the plaintext.
+   *
+   * The trade-off is deliberate and bounded: an attacker with a database dump
+   * sees which rows share a value, but cannot learn *which* value, because the
+   * digest is keyed and they do not have the key. Only use this for low-entropy
+   * values from a controlled vocabulary that must be searched — never as a
+   * substitute for `encrypt()` on free text.
+   *
+   * `domain` separates uses so that the same input in two different features
+   * never produces the same digest.
+   *
+   * @param value - Value to index (normalize before calling)
+   * @param domain - Domain separator, e.g. 'health-flag'
+   * @returns Hex-encoded HMAC-SHA256 digest
+   */
+  blindIndex(value: string, domain: string): string {
+    return crypto
+      .createHmac('sha256', this.encryptionKey)
+      .update(`${domain}:${value}`)
+      .digest('hex');
   }
 
   /**

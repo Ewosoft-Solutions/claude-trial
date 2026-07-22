@@ -69,6 +69,20 @@ export const AUDIT_ACTION = {
       REVIEW_SENSITIVE_OPERATION_CHANGE: 'review_sensitive_operation_change',
     },
   },
+  // Cross-tenant (platform-scope) access. These record use of the audited
+  // `app.is_platform` RLS bypass — the only sanctioned way to read across
+  // tenants. Every `@PlatformScoped()` request produces a CROSS_TENANT_ACCESS
+  // row whether it succeeds or fails; the override/impersonation actions are
+  // for the higher-privilege paths in `PlatformOversightService`.
+  PLATFORM: {
+    CROSS_TENANT_ACCESS: 'platform_cross_tenant_access',
+    CROSS_TENANT_ACCESS_DENIED: 'platform_cross_tenant_access_denied',
+    OVERRIDE_GRANTED: 'platform_override_granted',
+    OVERRIDE_DENIED: 'platform_override_denied',
+    IMPERSONATION_START: 'platform_tenant_impersonation_start',
+    IMPERSONATION_END: 'platform_tenant_impersonation_end',
+    TENANT_STATUS_ACTION: 'platform_tenant_status_action',
+  },
   TENANT_LIFECYCLE: {
     TENANT_REGISTERED: 'tenant_registered',
     TENANT_UPDATED: 'tenant_updated',
@@ -122,6 +136,14 @@ export const AUDIT_ACTION_VALUES = [
   AUDIT_ACTION.SECURITY.POLICY.UPDATE_SENSITIVE_OPERATION_POLICY,
   AUDIT_ACTION.SECURITY.POLICY.REQUEST_SENSITIVE_OPERATION_CHANGE,
   AUDIT_ACTION.SECURITY.POLICY.REVIEW_SENSITIVE_OPERATION_CHANGE,
+  // Platform (cross-tenant) access
+  AUDIT_ACTION.PLATFORM.CROSS_TENANT_ACCESS,
+  AUDIT_ACTION.PLATFORM.CROSS_TENANT_ACCESS_DENIED,
+  AUDIT_ACTION.PLATFORM.OVERRIDE_GRANTED,
+  AUDIT_ACTION.PLATFORM.OVERRIDE_DENIED,
+  AUDIT_ACTION.PLATFORM.IMPERSONATION_START,
+  AUDIT_ACTION.PLATFORM.IMPERSONATION_END,
+  AUDIT_ACTION.PLATFORM.TENANT_STATUS_ACTION,
   // Tenant lifecycle
   AUDIT_ACTION.TENANT_LIFECYCLE.TENANT_REGISTERED,
   AUDIT_ACTION.TENANT_LIFECYCLE.TENANT_UPDATED,

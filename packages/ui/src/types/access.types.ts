@@ -74,7 +74,7 @@ export type NavScope = 'platform' | 'school';
 
 /**
  * A dot-namespaced permission key, e.g. `students.view`,
- * `grades.edit.own_classes`, `platform.tenants`. The 274 keys are
+ * `grades.edit.own_classes`, `platform.tenants.read`. The 274 keys are
  * enumerated in requirements/permissions.md; kept as a string so the
  * model stays decoupled from that evolving list.
  */

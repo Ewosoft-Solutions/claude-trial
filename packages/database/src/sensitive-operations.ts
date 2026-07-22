@@ -366,7 +366,7 @@ export const SENSITIVE_OPERATION_CATALOG = [
     requiresMakerChecker: false,
     freshnessMinutes: 5,
     requiredClearanceLevel: 9,
-    requiredPermission: 'platform.tenants',
+    requiredPermission: 'platform.tenants.act',
   },
   {
     operation: 'tenant.suspend',
@@ -377,7 +377,7 @@ export const SENSITIVE_OPERATION_CATALOG = [
     requiresMakerChecker: false,
     freshnessMinutes: 5,
     requiredClearanceLevel: 9,
-    requiredPermission: 'platform.tenants',
+    requiredPermission: 'platform.tenants.act',
   },
 ] as const satisfies readonly SensitiveOperationDefinition[];
 

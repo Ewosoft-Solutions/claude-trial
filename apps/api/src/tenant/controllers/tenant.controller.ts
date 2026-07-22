@@ -27,9 +27,9 @@ import {
   ClearanceLevelGuard,
 } from '../../auth/guards/clearance-level.guard';
 import { Public } from '../../auth/decorators/public.decorator';
+import { PlatformScoped } from '../../auth/decorators/platform-scoped.decorator';
 import { TenantService } from '../services/tenant.service';
 import { TenantRegistrationService } from '../services/tenant-registration.service';
-import { TenantStatusService } from '../services/tenant-status.service';
 import { TenantConfigurationService } from '../services/tenant-configuration.service';
 import { UserInvitationService } from '../services/user-invitation.service';
 import { UserManagementService } from '../services/user-management.service';
@@ -49,7 +49,10 @@ import {
   AddUserToTenantDto,
   UpdateUserDto,
   UpdateUserProfileDto,
+  ApprovePlatformRequestDto,
+  RejectPlatformRequestDto,
 } from '../dto';
+import { PlatformApprovalService } from '../services/platform-approval.service';
 import { type AuthenticatedRequest } from '../../auth/middleware/multi-layer-security.middleware';
 import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
 import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
@@ -67,12 +70,12 @@ export class TenantController {
   constructor(
     private readonly tenantService: TenantService,
     private readonly registrationService: TenantRegistrationService,
-    private readonly statusService: TenantStatusService,
     private readonly configurationService: TenantConfigurationService,
     private readonly invitationService: UserInvitationService,
     private readonly userManagementService: UserManagementService,
     private readonly emailValidationService: EmailDomainValidationService,
     private readonly jwtRotationService: JWTSecretRotationService,
+    private readonly platformApproval: PlatformApprovalService,
   ) {}
 
   /**
@@ -106,16 +109,28 @@ export class TenantController {
    * Get tenant by ID
    */
   @Get(':id')
+  @PlatformScoped(['platform.tenants.read'])
   @ApiOperation({ summary: 'Get tenant by ID' })
-  async getTenant(@Param('id') id: string) {
-    return this.tenantService.getTenant(id);
+  async getTenant(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    // Facet-gated payload, not just a facet-gated route: the base record is
+    // readable at `.read`, but configuration / security policy / JWT state are
+    // tenant internals and need `.inspect`. Bundling them behind one permission
+    // is what let a SuperAdmin who could activate a school also read its JWT
+    // rotation state. See docs/platform-scope-plan.md §7.2.
+    const canInspect = Boolean(
+      req.userContext?.permissions?.get('platform.tenants.inspect')?.granted,
+    );
+    return this.tenantService.getTenant(id, { includeInternals: canInspect });
   }
 
   /**
    * List tenants
    */
   @Get()
-  @RequireClearanceLevel(9) // SuperAdmin or higher
+  @PlatformScoped(['platform.tenants.read'])
   @ApiOperation({ summary: 'List all tenants' })
   async listTenants(
     @Query('status') status?: string,
@@ -149,21 +164,90 @@ export class TenantController {
   }
 
   /**
-   * Update tenant status
-   * 6.8: Implement tenant status management
+   * Update tenant status (activate / suspend).
+   *
+   * Separation of duties: an Architect acts directly; a SuperAdmin's action is
+   * held as a pending approval that an Architect must confirm. The response
+   * distinguishes the two via `outcome`. See docs/platform-scope-plan.md §7.3.
    */
   @Patch(':id/status')
   @UseGuards(StepUpGuard)
   @RequireStepUp(STEP_UP_OPERATION.TENANT_SUSPEND)
-  @RequireClearanceLevel(9) // SuperAdmin or higher
-  @ApiOperation({ summary: 'Update tenant status' })
+  @PlatformScoped(['platform.tenants.act'])
+  @ApiOperation({ summary: 'Activate or suspend a tenant (approval-gated for SuperAdmin)' })
   async updateTenantStatus(
     @Param('id') id: string,
     @Body() data: UpdateTenantStatusDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const user = req.user;
-    return this.statusService.updateTenantStatus(id, data, user.userId);
+    return this.platformApproval.submitTenantStatusChange({
+      actor: this.platformActor(req),
+      targetTenantId: id,
+      status: data.status as 'active' | 'suspended',
+      reason: data.reason,
+    });
+  }
+
+  /**
+   * Pending tenant-action approval requests (the Architect's queue).
+   */
+  @Get('approvals/pending')
+  @PlatformScoped(['platform.tenants.act'])
+  @ApiOperation({ summary: 'List pending tenant-action approval requests' })
+  async listPendingApprovals() {
+    return this.platformApproval.listPending();
+  }
+
+  /**
+   * Approve a pending tenant action, executing the deferred change.
+   */
+  @Post('approvals/:requestId/approve')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.TENANT_SUSPEND)
+  @PlatformScoped(['platform.tenants.act'])
+  @ApiOperation({ summary: 'Approve a pending tenant action' })
+  async approveTenantAction(
+    @Param('requestId') requestId: string,
+    @Body() data: ApprovePlatformRequestDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.platformApproval.approve({
+      actor: this.platformActor(req),
+      requestId,
+      reason: data.reason,
+    });
+  }
+
+  /**
+   * Reject a pending tenant action.
+   */
+  @Post('approvals/:requestId/reject')
+  @PlatformScoped(['platform.tenants.act'])
+  @ApiOperation({ summary: 'Reject a pending tenant action' })
+  async rejectTenantAction(
+    @Param('requestId') requestId: string,
+    @Body() data: RejectPlatformRequestDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    await this.platformApproval.reject({
+      actor: this.platformActor(req),
+      requestId,
+      reason: data.reason,
+    });
+    return { rejected: true };
+  }
+
+  /** Build the platform actor from the request's resolved permission context. */
+  private platformActor(req: AuthenticatedRequest) {
+    const ctx = req.userContext;
+    return {
+      userId: req.user.userId,
+      tenantId: req.user.tenantId,
+      clearanceLevel: ctx?.clearanceLevel ?? 0,
+      canOverride: Boolean(
+        ctx?.permissions?.get('platform.approvals.override')?.granted,
+      ),
+    };
   }
 
   /**

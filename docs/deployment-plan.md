@@ -319,7 +319,7 @@ Small, contained changes — do these with the §3 foundation, independent of §
 - **Migrations:** run in the GitHub Actions CD job as owner (`db:deploy`) before
   the Render deploy — not a Render pre-deploy hook (see §5). Forward-only.
 - **Connection pool:** start from `env.production.template` values (`DB_POOL_*`,
-  `sslmode=require`, `connection_limit`); tune under load test.
+  `sslmode=verify-full`, `connection_limit`); tune under load test.
 - **Backups & restore:** enable Render Postgres automated backups + PITR on both
   demo and UAT; verify a restore before onboarding real client config.
 
@@ -417,7 +417,7 @@ _Provisioning checklist: `docs/deployment-runbook.md`._
 
 | Secret | What |
 | --- | --- |
-| `DATABASE_URL_OWNER` | Render Postgres **owner** external conn (`…?sslmode=require`) — migrations |
+| `DATABASE_URL_OWNER` | Render Postgres **owner** external conn (`…?sslmode=verify-full`) — migrations |
 | `RENDER_API_KEY` | Render API key |
 | `RENDER_API_SERVICE` | Render service id for `swe-api` (`srv-…`) |
 | `API_BASE_URL` | Public API origin, e.g. `https://api.demo.schoolwithease.com` |

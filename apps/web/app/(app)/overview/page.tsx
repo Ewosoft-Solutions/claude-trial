@@ -16,6 +16,7 @@
    ============================================================ */
 
 import { useViewer } from '@/app/providers/viewer-provider';
+import { PlatformDashboard } from './dashboards/platform-dashboard';
 import { AdminDashboard } from './dashboards/admin-dashboard';
 import { FinanceDashboard } from './dashboards/finance-dashboard';
 import { ITDashboard } from './dashboards/it-dashboard';
@@ -30,6 +31,13 @@ export default function OverviewPage() {
     schools.find((s) => s.id === activeSchoolId)?.name ?? 'your school';
 
   const { clearanceLevel } = viewer;
+
+  // Scope is the primary axis, above clearance: a platform operator lands on the
+  // platform overview, not a school dashboard. (A platform viewer has no active
+  // school, so the school dashboards below would have nothing to render anyway.)
+  if (viewer.scope === 'platform') {
+    return <PlatformDashboard userName={user.name} />;
+  }
 
   // Render per clearance level. Custom per-profile permissions may have
   // stripped access to specific sections — but clearance level is the
