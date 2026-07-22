@@ -644,9 +644,40 @@ export const PLATFORM_NAV: NavigationConfig = {
         },
       ],
     },
-    // Audit re-added in 2.1 — its page is now real. Analytics, Support and
-    // Billing remain removed (Phase 2/3 features, docs/platform-scope-plan.md §5);
-    // re-add each when its pages land, as done for Tenants → Approvals and here.
+    // Analytics re-added in Phase 3 (its pages are now real). Support and
+    // Billing remain removed (no backend — docs/platform-scope-plan.md §5, 2.4);
+    // re-add each when its pages land.
+    {
+      key: 'analytics',
+      label: 'Analytics',
+      icon: <ChartColumn />,
+      href: '/platform/analytics',
+      access: { scope: 'platform', anyPermission: ['platform.metrics'] },
+      panelHeader: { icon: <ChartColumn />, title: 'Analytics' },
+      groups: [
+        {
+          key: 'insight',
+          items: [
+            {
+              key: 'analytics-overview',
+              label: 'Overview',
+              icon: <ChartColumn />,
+              href: '/platform/analytics',
+              access: { anyPermission: ['platform.metrics'] },
+            },
+            {
+              key: 'assistant',
+              label: 'AI assistant',
+              icon: <Sparkles />,
+              href: '/platform/analytics/assistant',
+              access: { anyPermission: ['platform.metrics'] },
+            },
+          ],
+        },
+      ],
+    },
+    // Audit re-added in 2.1 — its page is now real. Support and Billing remain
+    // removed (Phase 2/3 features); re-add each when its pages land.
     {
       key: 'audit',
       label: 'Audit',
