@@ -9,6 +9,7 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
 import { ClearanceLevel, ClearanceLevelHelpers } from '@workspace/api';
 import { PermissionService, UserPermissionContext } from './permission.service';
+import { PlatformAuditService } from '../../common/audit/platform-audit.service';
 
 /**
  * Platform Override Context
@@ -26,10 +27,20 @@ export interface PlatformOverrideContext {
  * Platform Oversight Service
  *
  * Provides platform-level oversight and emergency access capabilities.
+ *
+ * NOTE: nothing injects this service yet. It is the designed seam for
+ * "act on behalf of a tenant" (support/remediation), which is still an open
+ * product decision — see `docs/platform-scope-plan.md` §6. It is kept, and now
+ * fully audited, so that wiring it up later cannot accidentally introduce an
+ * unaudited override path. Do not add call sites without also deciding the
+ * tenant-notification policy that should accompany them.
  */
 @Injectable()
 export class PlatformOversightService {
-  constructor(private readonly permissionService: PermissionService) {}
+  constructor(
+    private readonly permissionService: PermissionService,
+    private readonly platformAudit: PlatformAuditService,
+  ) {}
 
   /**
    * Check platform override access (4.9)
@@ -66,6 +77,8 @@ export class PlatformOversightService {
    *
    * @param prisma - Prisma client instance
    * @param platformUserId - Platform user ID (Architect or SuperAdmin)
+   * @param actingTenantId - The platform user's own tenant (the platform tenant).
+   *   Audit rows are filed here, not against the target — see below.
    * @param targetTenantId - Target tenant ID to access
    * @param overrideReason - Reason for override
    * @param emergencyAccess - Whether this is emergency access
@@ -74,6 +87,7 @@ export class PlatformOversightService {
   async createPlatformOverrideContext(
     prisma: PrismaClient,
     platformUserId: string,
+    actingTenantId: string,
     targetTenantId: string,
     overrideReason: string,
     emergencyAccess: boolean = false,
@@ -87,26 +101,59 @@ export class PlatformOversightService {
         platformUserId, // Profile ID same as user ID for platform users
       );
 
+    // Overrides are system activity, so they are filed in the PLATFORM's audit
+    // trail (keyed to the platform tenant) with the target in metadata — not in
+    // the target tenant's own log. A platform operator acting on tenant
+    // configuration is not an account intrusion, and the tenant's user-facing
+    // audit should not present it as one. See docs/platform-scope-plan.md §7.1.
+    // Denials are recorded too — a rejected override is the more interesting
+    // security event.
+    const denyOverride = async (
+      reason: string,
+      clearanceLevel?: number,
+    ): Promise<never> => {
+      await this.platformAudit.logOverride({
+        userId: platformUserId,
+        tenantId: actingTenantId,
+        targetTenantId,
+        overrideReason,
+        emergencyAccess,
+        granted: false,
+        clearanceLevel,
+        failureReason: reason,
+      });
+      throw new ForbiddenException(reason);
+    };
+
     if (!platformUserContext) {
-      throw new ForbiddenException('Platform user not found');
+      return denyOverride('Platform user not found');
     }
 
     // Verify platform override access
     if (!this.hasPlatformOverrideAccess(platformUserContext)) {
-      throw new ForbiddenException(
+      return denyOverride(
         'Insufficient clearance for platform override',
+        platformUserContext.clearanceLevel,
       );
     }
 
     // Verify emergency access if required
     if (emergencyAccess && !this.hasEmergencyAccess(platformUserContext)) {
-      throw new ForbiddenException(
+      return denyOverride(
         'Insufficient clearance for emergency access',
+        platformUserContext.clearanceLevel,
       );
     }
 
-    // TODO: Log platform override access for audit
-    // await this.auditService.logPlatformOverride({ ... });
+    await this.platformAudit.logOverride({
+      userId: platformUserId,
+      tenantId: actingTenantId,
+      targetTenantId,
+      overrideReason,
+      emergencyAccess,
+      granted: true,
+      clearanceLevel: platformUserContext.clearanceLevel,
+    });
 
     return {
       userId: platformUserId,
@@ -182,7 +229,9 @@ export class PlatformOversightService {
       'platform.override',
       'platform.audit',
       'platform.maintenance',
-      'platform.tenants',
+      'platform.tenants.read',
+      'platform.tenants.act',
+      'platform.tenants.inspect',
       'platform.security',
     ];
 

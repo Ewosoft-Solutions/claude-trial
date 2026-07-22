@@ -1,7 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import { EncryptionService } from '../../common/encryption/encryption.service';
 import { ListHealthRecordsDto, UpsertHealthRecordDto } from '../dto/health.dto';
+import { HealthFlagsService } from './health-flags.service';
+
+/**
+ * Free-text medical fields encrypted at rest. Read/written whole and never
+ * searched (search is the coded-flag layer), so encryption costs nothing in
+ * queryability. See docs/platform-scope-plan.md decision 2 / 0.5.7c.
+ */
+const NARRATIVE_FIELDS = [
+  'bloodType',
+  'allergies',
+  'conditions',
+  'medications',
+  'notes',
+] as const;
+type NarrativeField = (typeof NARRATIVE_FIELDS)[number];
 
 const STUDENT_SELECT = {
   id: true,
@@ -16,6 +32,8 @@ export class HealthService {
   constructor(
     private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
+    private readonly flags: HealthFlagsService,
+    private readonly encryption: EncryptionService,
   ) {}
 
   private get client() {
@@ -35,11 +53,62 @@ export class HealthService {
       };
     }
 
-    return this.client.healthRecord.findMany({
+    // Flag search runs against the blind index, never the narrative text:
+    // matching prose would silently miss "peanuts" when asked for "peanut".
+    if (query.flags?.length) {
+      where['healthFlagIndex'] =
+        query.flagsMatch === 'all'
+          ? this.flags.hasAllFilter(query.flags)
+          : this.flags.hasAnyFilter(query.flags);
+    }
+
+    const records = await this.client.healthRecord.findMany({
       where,
       include: { student: { select: STUDENT_SELECT } },
       orderBy: [{ status: 'desc' }, { updatedAt: 'desc' }],
     });
+
+    return records.map((record) => this.present(record));
+  }
+
+  /**
+   * Present a stored record to callers: decode the flag columns into
+   * `healthFlags`, and decrypt the at-rest narrative fields. The encrypted flag
+   * blob and the digest index are storage detail and are stripped — exposing
+   * the index would hand out a lookup table.
+   */
+  private present<
+    T extends {
+      healthFlagsEnc?: string | null;
+      healthFlagIndex?: string[];
+    } & Partial<Record<NarrativeField, string | null>>,
+  >(record: T) {
+    // Strip the storage-only columns; the digest index especially must never
+    // leave the service (it would be a lookup table).
+    const { healthFlagsEnc, healthFlagIndex, ...rest } = record;
+    void healthFlagIndex;
+    const out = { ...rest, healthFlags: this.flags.decode(healthFlagsEnc) };
+    for (const field of NARRATIVE_FIELDS) {
+      if (field in out) {
+        (out as Record<string, unknown>)[field] = this.encryption.decryptEnveloped(
+          out[field] ?? null,
+        );
+      }
+    }
+    return out;
+  }
+
+  /** Envelope-encrypt the narrative fields present in a write payload. */
+  private encryptNarrative(
+    data: Partial<Record<NarrativeField, string | null | undefined>>,
+  ): Partial<Record<NarrativeField, string | null>> {
+    const out: Partial<Record<NarrativeField, string | null>> = {};
+    for (const field of NARRATIVE_FIELDS) {
+      if (data[field] !== undefined) {
+        out[field] = this.encryption.encryptEnveloped(data[field]);
+      }
+    }
+    return out;
   }
 
   async summary(tenantId: string) {
@@ -62,35 +131,47 @@ export class HealthService {
     const student = await this.client.student.findFirst({ where: { id: studentId, tenantId } });
     if (!student) throw new NotFoundException('Student not found');
 
-    return this.client.healthRecord.upsert({
+    // Encoded once and written to both columns together — see HealthFlagsService.
+    const encodedFlags =
+      dto.healthFlags !== undefined ? this.flags.encode(dto.healthFlags) : undefined;
+
+    // Envelope-encrypt the narrative fields present on the payload.
+    const enc = this.encryptNarrative(dto);
+
+    const record = await this.client.healthRecord.upsert({
       where: { studentId },
       update: {
-        ...(dto.bloodType !== undefined && { bloodType: dto.bloodType }),
-        ...(dto.allergies !== undefined && { allergies: dto.allergies }),
-        ...(dto.conditions !== undefined && { conditions: dto.conditions }),
-        ...(dto.medications !== undefined && { medications: dto.medications }),
+        ...(encodedFlags !== undefined && encodedFlags),
+        ...(enc.bloodType !== undefined && { bloodType: enc.bloodType }),
+        ...(enc.allergies !== undefined && { allergies: enc.allergies }),
+        ...(enc.conditions !== undefined && { conditions: enc.conditions }),
+        ...(enc.medications !== undefined && { medications: enc.medications }),
         ...(dto.emergencyContactName !== undefined && { emergencyContactName: dto.emergencyContactName }),
         ...(dto.emergencyContactPhone !== undefined && { emergencyContactPhone: dto.emergencyContactPhone }),
         ...(dto.lastCheckup !== undefined && { lastCheckup: new Date(dto.lastCheckup) }),
         ...(dto.status !== undefined && { status: dto.status }),
-        ...(dto.notes !== undefined && { notes: dto.notes }),
+        ...(enc.notes !== undefined && { notes: enc.notes }),
         updatedBy: userId,
       },
       create: {
         tenantId,
         studentId,
-        bloodType: dto.bloodType ?? null,
-        allergies: dto.allergies ?? null,
-        conditions: dto.conditions ?? null,
-        medications: dto.medications ?? null,
+        bloodType: enc.bloodType ?? null,
+        allergies: enc.allergies ?? null,
+        conditions: enc.conditions ?? null,
+        medications: enc.medications ?? null,
         emergencyContactName: dto.emergencyContactName ?? null,
         emergencyContactPhone: dto.emergencyContactPhone ?? null,
         lastCheckup: dto.lastCheckup ? new Date(dto.lastCheckup) : null,
         status: dto.status ?? 'normal',
-        notes: dto.notes ?? null,
+        notes: enc.notes ?? null,
+        healthFlagsEnc: encodedFlags?.healthFlagsEnc ?? null,
+        healthFlagIndex: encodedFlags?.healthFlagIndex ?? [],
         createdBy: userId,
         updatedBy: userId,
       },
     });
+
+    return this.present(record);
   }
 }

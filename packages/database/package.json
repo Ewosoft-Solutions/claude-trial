@@ -23,6 +23,8 @@
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/scripts/seed.ts",
     "bootstrap:architect-token": "tsx prisma/scripts/bootstrap-architect-token.ts",
+    "db:backfill:health-encryption": "tsx prisma/scripts/backfill-health-encryption.ts",
+    "db:rotate:health-encryption": "tsx prisma/scripts/rotate-health-encryption.ts",
     "db:seed:dev": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/personas.ts",
     "db:seed:academics": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/academics.ts",
     "db:seed:ops": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/operational.ts",

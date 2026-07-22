@@ -127,7 +127,7 @@ export const VIEWERS: ViewerPersona[] = [
       roles: ['Architect'],
       scope: 'platform',
       permissions: set([
-        'platform.tenants',
+        'platform.tenants.read',
         'platform.monitoring',
         'analytics.advanced',
         'platform.audit',

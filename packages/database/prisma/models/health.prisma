@@ -19,10 +19,26 @@ model HealthRecord {
 
   studentId String @unique @map("student_id")
 
+  // Narrative fields. Free text, encrypted at rest (0.5.7c) — never searched;
+  // shown to authorised school staff. Search goes through the flag layer below.
   bloodType   String? @map("blood_type")
   allergies   String?
   conditions  String?
   medications String?
+
+  // Searchable flag layer (see packages/api health.enums + docs/platform-scope-plan.md §7.1).
+  //
+  // healthFlagsEnc  : encrypted JSON array of vocabulary codes — the display copy.
+  // healthFlagIndex : keyed HMAC of each code — the *searchable* copy. Opaque in
+  //                   a database dump, because the digest is keyed and the key
+  //                   lives in the app, not the database. GIN-indexed for
+  //                   array containment queries.
+  //
+  // Two columns rather than one because an HMAC cannot be reversed: the index
+  // answers "who has this flag", the encrypted copy answers "what flags does
+  // this pupil have".
+  healthFlagsEnc  String?  @map("health_flags_enc")
+  healthFlagIndex String[] @default([]) @map("health_flag_index")
 
   emergencyContactName  String? @map("emergency_contact_name")
   emergencyContactPhone String? @map("emergency_contact_phone")

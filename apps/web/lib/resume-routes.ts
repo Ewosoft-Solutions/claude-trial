@@ -56,7 +56,7 @@ export function resolveResumeTarget(
   }
   if (pathname.startsWith('/platform/tenants')) {
     return session.scope === 'platform' &&
-      session.permissions.includes('platform.tenants')
+      session.permissions.includes('platform.tenants.read')
       ? { target: state.path, modalKey: state.modalKey, restored: true }
       : { target: '/overview', restored: false };
   }

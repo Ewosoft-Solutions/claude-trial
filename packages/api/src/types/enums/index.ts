@@ -18,3 +18,6 @@ export * from './ai-mediator.enums';
 
 // MFA Enums
 export * from './mfa.enums';
+
+// Health Flag Vocabulary
+export * from './health.enums';

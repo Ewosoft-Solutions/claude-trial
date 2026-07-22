@@ -13,6 +13,7 @@ import { UserManagementService } from './services/user-management.service';
 import { EmailDomainValidationService } from './services/email-domain-validation.service';
 import { TenantAuditService } from './services/tenant-audit.service';
 import { JWTSecretRotationService } from './services/jwt-secret-rotation.service';
+import { PlatformApprovalService } from './services/platform-approval.service';
 import { CommonModule } from '../common';
 import { AuthModule } from '../auth/auth.module';
 
@@ -53,6 +54,7 @@ import { AuthModule } from '../auth/auth.module';
     EmailDomainValidationService,
     TenantAuditService,
     JWTSecretRotationService,
+    PlatformApprovalService,
   ],
   exports: [
     TenantService,

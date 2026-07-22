@@ -26,12 +26,19 @@ export enum SystemRole {
 /**
  * Platform Role Names
  *
- * Platform-level administrative roles.
+ * Platform-level administrative roles. The immediate workforce is two roles:
+ * Architect (sole authority, clearance 10) and SuperAdmin (support, 9).
+ *
+ * A `PlatformAdmin` member previously existed here with no backing — no seeded
+ * role, no clearance, no permission pool — so it granted nothing and only made
+ * a third role appear to exist. It was removed (0.5.6). When a middle tier is
+ * introduced (the future multi-manager/approver layer discussed in §7.3), add
+ * it deliberately with its own clearance level, permission pool, and facet set —
+ * do not resurrect a bare enum member.
  */
 export enum PlatformRole {
   ARCHITECT = 'Architect',
   SUPER_ADMIN = 'SuperAdmin',
-  PLATFORM_ADMIN = 'PlatformAdmin',
 }
 
 /**
@@ -151,8 +158,7 @@ export enum AccessScope {
 export function isPlatformAdminRole(roleName: string): boolean {
   return (
     roleName === PlatformRole.ARCHITECT ||
-    roleName === PlatformRole.SUPER_ADMIN ||
-    roleName === PlatformRole.PLATFORM_ADMIN
+    roleName === PlatformRole.SUPER_ADMIN
   );
 }
 

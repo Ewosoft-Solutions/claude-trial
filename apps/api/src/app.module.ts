@@ -2,6 +2,7 @@ import { Module, NestModule, MiddlewareConsumer } from '@nestjs/common';
 import { APP_INTERCEPTOR } from '@nestjs/core';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { RlsTenantInterceptor } from './common/database/rls-tenant.interceptor';
+import { RlsPlatformInterceptor } from './common/database/rls-platform.interceptor';
 import {
   envConfig,
   envValidationSchema,
@@ -120,6 +121,8 @@ import { AppController } from './app.controller';
     AppService,
     // Opens the per-request RLS scope for @TenantScoped handlers (no-op otherwise).
     { provide: APP_INTERCEPTOR, useClass: RlsTenantInterceptor },
+    // Opens the audited cross-tenant scope for @PlatformScoped handlers (no-op otherwise).
+    { provide: APP_INTERCEPTOR, useClass: RlsPlatformInterceptor },
   ],
 })
 export class AppModule implements NestModule {

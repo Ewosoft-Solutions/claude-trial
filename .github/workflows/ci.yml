@@ -79,6 +79,10 @@ jobs:
         working-directory: packages/database
         run: pnpm db:rls:check
 
+      - name: Privileged DB usage check (gate)
+        working-directory: apps/api
+        run: pnpm check:privileged-db
+
       # ── Build shared packages (needed for type-check of apps) ────────────
       - name: Build packages/database
         working-directory: packages/database

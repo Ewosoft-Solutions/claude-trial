@@ -16,7 +16,16 @@ export interface SensitiveOperation {
   operation: string;
   level: ApprovalLevel;
   requiredPermissions: string[];
+  /** Minimum clearance the *maker* (requester) must hold to raise the request. */
   requiredClearanceLevel: number;
+  /**
+   * Minimum clearance the *checker* (approver) must hold — the separation-of-
+   * duties control. When set, it must be strictly satisfied by the checker, and
+   * the checker can never be the maker (see `approveRequest`). When omitted, the
+   * checker floor falls back to `requiredClearanceLevel`, preserving the legacy
+   * single-level behaviour for school operations that predate this field.
+   */
+  requiredCheckerClearanceLevel?: number;
   timeLimitHours?: number; // Hours before auto-approval
   autoApprove?: boolean;
 }
@@ -154,7 +163,27 @@ export class MakerCheckerService {
           timeLimitHours: 24,
         },
       ],
+      // Platform: SuperAdmin (9) proposes a tenant activate/suspend; only an
+      // Architect (10), who is not the maker, may approve. This is the "act
+      // without unilateral power" control from docs/platform-scope-plan.md §7.3.
+      // An Architect acting directly never reaches this — see PlatformApprovalService.
+      [
+        'tenant.act',
+        {
+          operation: 'tenant.act',
+          level: ApprovalLevel.PLATFORM,
+          requiredPermissions: ['platform.tenants.act'],
+          requiredClearanceLevel: 9,
+          requiredCheckerClearanceLevel: 10,
+          timeLimitHours: 48,
+        },
+      ],
     ]);
+
+  /** The clearance an approver must hold for this operation. */
+  private checkerFloor(op: SensitiveOperation): number {
+    return op.requiredCheckerClearanceLevel ?? op.requiredClearanceLevel;
+  }
 
   /**
    * Check if operation requires approval (4.8)
@@ -246,6 +275,7 @@ export class MakerCheckerService {
     checkerId: string,
     checkerClearanceLevel: number,
     reason?: string,
+    options: { override?: boolean } = {},
   ): Promise<{ approved: boolean; error?: string; roleActivated?: boolean }> {
     const request = await prisma.makerCheckerRequest.findUnique({
       where: { id: approvalRequestId },
@@ -257,10 +287,23 @@ export class MakerCheckerService {
 
     this.assertPendingRequest(request);
 
+    // Separation of duties: the maker can never approve their own request.
+    // This is the whole point of maker-checker; without it the workflow is
+    // decorative. An override (platform.approvals.override) does NOT lift this —
+    // an Architect who raised a request still cannot self-approve it; a second
+    // authority must. Override only lifts the clearance floor (below).
+    if (request.makerId === checkerId) {
+      return {
+        approved: false,
+        error: 'You cannot approve your own request',
+      };
+    }
+
     const sensitiveOp = this.getSensitiveOperation(request.operation);
     if (
       sensitiveOp &&
-      checkerClearanceLevel < sensitiveOp.requiredClearanceLevel
+      !options.override &&
+      checkerClearanceLevel < this.checkerFloor(sensitiveOp)
     ) {
       return {
         approved: false,
@@ -268,7 +311,7 @@ export class MakerCheckerService {
       };
     }
 
-    const updated = await prisma.makerCheckerRequest.update({
+    await prisma.makerCheckerRequest.update({
       where: { id: approvalRequestId },
       data: {
         status: ApprovalStatus.APPROVED,
@@ -350,6 +393,6 @@ export class MakerCheckerService {
    */
   getRequiredCheckerClearanceLevel(operation: string): number | null {
     const sensitiveOp = this.getSensitiveOperation(operation);
-    return sensitiveOp?.requiredClearanceLevel || null;
+    return sensitiveOp ? this.checkerFloor(sensitiveOp) : null;
   }
 }

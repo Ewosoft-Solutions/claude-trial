@@ -23,7 +23,8 @@
    **16**, plan **Basic-256MB** (bump to Basic-1GB in D2 under load).
 2. After it provisions, open **Info** and copy both the **Internal** and
    **External** connection strings for the **owner** user. The external one
-   (`…?sslmode=require`) is what CI and the SQL step below use.
+   is what CI and the SQL step below use — append `?sslmode=verify-full`
+   (see the TLS note in Step 2).
 3. `pgvector` needs no toggle — the `learning_domain` migration runs
    `CREATE EXTENSION vector`. (If Render ever gates extensions, confirm `vector`
    is allowed.)
@@ -45,14 +46,25 @@ openssl rand -base64 64   # AUTH_RESUME_SECRET (web)
 openssl rand -hex 32      # app_runtime DB password (hex → safe in a connection URL)
 ```
 
-> **Remote connection strings need `?sslmode=require`.** Render (and most managed
-> Postgres) refuse non-TLS external connections. Prisma's *migration engine*
-> negotiates TLS automatically, so `db:deploy` works without it — but every
-> script that goes through `packages/database/src/singleton.ts` (`db:seed`,
+> **Remote connection strings need `?sslmode=verify-full`.** Render (and most
+> managed Postgres) refuse non-TLS external connections. Prisma's *migration
+> engine* negotiates TLS automatically, so `db:deploy` works without it — but
+> every script that goes through `packages/database/src/singleton.ts` (`db:seed`,
 > `db:verify`, `db:rls:proof`, `db:rls:verify`, the dev seeds) uses a raw `pg`
 > Pool, which enables TLS **only** when the URL says so. Without it they fail
 > with `P1010 … DatabaseAccessDenied` / `SSL/TLS required`. Append
-> `?sslmode=require` to the external URL for all of these.
+> `?sslmode=verify-full` to the external URL for all of these.
+>
+> **Use `verify-full`, not `require`.** `require` encrypts but accepts *any*
+> certificate, so it does not stop an active man-in-the-middle between the client
+> and the database — an attacker who can intercept the connection sees every row
+> in plaintext. `verify-full` validates the certificate chain and the hostname.
+> This is already proven against Render: the `DEMO_DB` string in Step 5 uses it
+> successfully. If a connection that worked under `require` fails under
+> `verify-full`, that is the check doing its job — resolve the trust chain rather
+> than downgrading it back. (Caveat: node-`pg` has not historically implemented
+> libpq's sslmode semantics in full, so for the raw-`pg` scripts this is the
+> correct declaration but not by itself proof of verification — see Step 4b.)
 >
 > Note also that `packages/database/.env` defines a localhost `DATABASE_URL`.
 > Forgetting the inline prefix silently targets your **local** database rather
@@ -92,8 +104,80 @@ then delete the file.
 Build the runtime connection string (same host/db as owner, `app_runtime` user):
 
 ```
-APP_RUNTIME_DATABASE_URL="postgresql://app_runtime:<hex32>@<host>:<port>/<db>?sslmode=require"
+APP_RUNTIME_DATABASE_URL="postgresql://app_runtime:<hex32>@<host>:<port>/<db>?sslmode=verify-full"
 ```
+
+## Step 4c — Read-only inspection role + connection logging (0.5.9)
+
+Least-privilege for humans: nobody needs standing **write** credentials.
+Migrations run through CI (`pnpm db:deploy` in `cd.yml`), so day-to-day
+inspection should use a role that can read but not mutate, and every connection
+should be logged. This closes the gap that platform audit cannot see — direct
+`psql` access sits entirely outside the API's audit trail (docs/platform-scope-plan.md
+§7.1 decision 3).
+
+**Create the role (as owner, out-of-band — like `app_runtime`).** Not a
+migration: on managed Postgres the owner is **not** a superuser, so it cannot
+grant `BYPASSRLS`, and an auto-applied `CREATE ROLE … BYPASSRLS` migration would
+fail on Render. Run this by hand, once:
+
+```sql
+-- As the OWNER, against the target database.
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'app_readonly') THEN
+    CREATE ROLE app_readonly NOLOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE;
+  END IF;
+END $$;
+
+-- SELECT-only, every application schema. Repeat GRANT SELECT after any migration
+-- that adds a schema (or use ALTER DEFAULT PRIVILEGES per schema for new tables).
+GRANT USAGE ON SCHEMA
+  "academic-structure","admissions","ai","audit-logging","communication","events",
+  "finance","health","hr","jwt-secrets","learning","library","profile",
+  "roles-permissions","security-policy","student-management","tenant",
+  "transportation","user-management"
+  TO app_readonly;
+
+GRANT SELECT ON ALL TABLES IN SCHEMA
+  "academic-structure","admissions","ai","audit-logging","communication","events",
+  "finance","health","hr","jwt-secrets","learning","library","profile",
+  "roles-permissions","security-policy","student-management","tenant",
+  "transportation","user-management"
+  TO app_readonly;
+
+-- Enable login out-of-band when an operator actually needs it:
+ALTER ROLE app_readonly WITH LOGIN PASSWORD '<generated>';
+```
+
+> **RLS note.** `app_readonly` is `NOBYPASSRLS`, so under `FORCE ROW LEVEL
+> SECURITY` it sees only rows its GUC allows — nothing, by default. For
+> cross-tenant inspection an operator sets the audited platform GUC on the
+> session (`options=-c%20app.is_platform%3Don`, as Step 4b does for seeding). It
+> can read across tenants but can never write — the intended "look, don't touch"
+> posture. Do **not** grant it `BYPASSRLS`.
+>
+> This is why the encryption in 0.5.7 matters independently: even a read-only
+> operator (and any backup) sees the health narrative only as `enc:v1:` ciphertext.
+
+**Connection + DDL logging.** Enable on the Postgres instance (plain settings —
+no extension, works on managed Postgres):
+
+```
+log_connections = on
+log_disconnections = on
+log_statement = 'ddl'
+```
+
+This yields who-connected-when plus every schema change. If Render offers
+`pgaudit`, enable it too for statement-level read auditing — verify availability
+at deploy time; do not block the deploy on it.
+
+**Backups.** Render automated backups + PITR export a full copy of the database
+on a schedule — a larger exposure surface than `psql`, and one DB auditing does
+not cover. Restrict who can download or restore backups to the smallest possible
+set, and treat a backup as equivalent to production data. (The 0.5.7 encryption
+is the only control that reaches inside a backup.)
 
 ## Step 4b — Seed the database
 
@@ -103,7 +187,7 @@ it. Three things the connection string must carry:
 
 | Requirement | Why |
 | --- | --- |
-| `sslmode=verify-full` | Render refuses non-TLS external connections, and the seed's raw `pg` Pool only enables TLS when the URL asks for it (Prisma's migration engine negotiates it on its own, which is why Step 3 worked without it). `verify-full` rather than `require` — pg treats them identically today but `require` weakens in pg v9. |
+| `sslmode=verify-full` | Render refuses non-TLS external connections, and the seed's raw `pg` Pool only enables TLS when the URL asks for it (Prisma's migration engine negotiates it on its own, which is why Step 3 worked without it). `verify-full` rather than `require`: Prisma honours the distinction, and `require` never verifies the certificate. Note that node-`pg` has historically not implemented libpq's sslmode semantics in full, so for the raw-`pg` scripts treat `verify-full` as the correct *declaration* and confirm actual verification behaviour rather than assuming it — the guarantee is only as good as the client. |
 | `options=-c%20app.is_platform%3Don` | Tables are `FORCE ROW LEVEL SECURITY`, so even the owner is subject to RLS, and the managed owner is **not** a superuser (unlike local/CI, where it is). Global rows (`tenant_id IS NULL`) can only be inserted through the ADR-004 platform branch. Scoped to this session only. |
 | `SEED_ARCHITECT_EMAIL` | Required in every environment; the seed has no built-in default. |
 

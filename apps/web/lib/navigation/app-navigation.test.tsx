@@ -153,7 +153,7 @@ const PLATFORM_ADMIN = makeViewer({
   clearanceLevel: 9,
   roles: ['SuperAdmin'],
   permissions: new Set<PermissionKey>([
-    'platform.tenants',
+    'platform.tenants.read',
     'platform.monitoring',
     'platform.audit',
     'platform.support',
@@ -564,7 +564,7 @@ describe('PLATFORM_NAV', () => {
       scope: 'platform',
       clearanceLevel: 7,
       roles: ['Management'],
-      permissions: new Set<PermissionKey>(['platform.tenants']),
+      permissions: new Set<PermissionKey>(['platform.tenants.read']),
     });
     const { railItems, railFooterItems } = resolveNavigation(
       PLATFORM_NAV,
