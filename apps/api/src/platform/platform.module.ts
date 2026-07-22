@@ -3,6 +3,8 @@ import { CommonModule } from '../common';
 import { AuthModule } from '../auth/auth.module';
 import { PlatformController } from './controllers/platform.controller';
 import { PlatformOverviewService } from './services/platform-overview.service';
+import { PlatformAuditQueryService } from './services/platform-audit-query.service';
+import { PlatformPolicyService } from './services/platform-policy.service';
 
 /**
  * Platform Module
@@ -14,7 +16,15 @@ import { PlatformOverviewService } from './services/platform-overview.service';
 @Module({
   imports: [CommonModule, AuthModule],
   controllers: [PlatformController],
-  providers: [PlatformOverviewService],
-  exports: [PlatformOverviewService],
+  providers: [
+    PlatformOverviewService,
+    PlatformAuditQueryService,
+    PlatformPolicyService,
+  ],
+  exports: [
+    PlatformOverviewService,
+    PlatformAuditQueryService,
+    PlatformPolicyService,
+  ],
 })
 export class PlatformModule {}

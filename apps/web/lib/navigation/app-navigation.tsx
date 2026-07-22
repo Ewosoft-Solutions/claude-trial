@@ -644,12 +644,36 @@ export const PLATFORM_NAV: NavigationConfig = {
         },
       ],
     },
-    // Analytics, Audit, Support and Billing sections were removed here (1.4):
-    // every link under them 404s today. They are Phase 2/3 features
-    // (docs/platform-scope-plan.md §5) — re-add each section when its pages
-    // land, as was done for Tenants → Approvals. Dead nav is worse than absent
-    // nav: a `platform.monitoring`-holding SuperAdmin was being shown an
-    // Analytics entry that led nowhere.
+    // Audit re-added in 2.1 — its page is now real. Analytics, Support and
+    // Billing remain removed (Phase 2/3 features, docs/platform-scope-plan.md §5);
+    // re-add each when its pages land, as done for Tenants → Approvals and here.
+    {
+      key: 'audit',
+      label: 'Audit',
+      icon: <ScrollText />,
+      href: '/platform/audit/log',
+      access: {
+        scope: 'platform',
+        anyPermission: ['platform.audit', 'platform.audit.limited'],
+      },
+      panelHeader: { icon: <ScrollText />, title: 'Audit' },
+      groups: [
+        {
+          key: 'trail',
+          items: [
+            {
+              key: 'audit-log',
+              label: 'Audit log',
+              icon: <ScrollText />,
+              href: '/platform/audit/log',
+              access: {
+                anyPermission: ['platform.audit', 'platform.audit.limited'],
+              },
+            },
+          ],
+        },
+      ],
+    },
   ],
   footer: [
     // Help (/platform/help) and the Maintenance settings item were removed (1.4)
@@ -674,6 +698,13 @@ export const PLATFORM_NAV: NavigationConfig = {
               label: 'Security',
               icon: <ShieldCheck />,
               href: '/platform/settings/security',
+              access: { anyPermission: ['platform.security'] },
+            },
+            {
+              key: 'policy-posture',
+              label: 'Policy posture',
+              icon: <ShieldCheck />,
+              href: '/platform/settings/policies',
               access: { anyPermission: ['platform.security'] },
             },
           ],

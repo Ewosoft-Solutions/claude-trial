@@ -544,16 +544,16 @@ describe('SCHOOL_NAV feature toggles', () => {
 /* ---- PLATFORM_NAV ---------------------------------------------- */
 
 describe('PLATFORM_NAV', () => {
-  // Analytics/Audit/Support/Billing sections were removed in 1.4 (every link
-  // 404'd — Phase 2/3 features). Only Tenants remains in the rail, with the
-  // Settings footer for security-permitted viewers.
+  // Analytics/Support/Billing sections were removed in 1.4 (every link 404'd —
+  // Phase 2/3 features). Tenants is live; Audit was re-added in 2.1. The
+  // Settings footer resolves for security-permitted viewers.
   it('offers the live platform sections to a broadly-permissioned admin', () => {
     const { railItems, railFooterItems } = resolveNavigation(
       PLATFORM_NAV,
       PLATFORM_ADMIN,
       '/platform/tenants',
     );
-    expect(railItems.map((i) => i.key)).toEqual(['tenants']);
+    expect(railItems.map((i) => i.key)).toEqual(['tenants', 'audit']);
     // Has platform.security, so the Settings footer resolves.
     expect(railFooterItems.map((i) => i.key)).toEqual(['platform-settings']);
   });

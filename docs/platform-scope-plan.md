@@ -3,15 +3,16 @@
 > Analysis of the platform/Architect scope against its stated purpose, and a
 > sequenced plan to make it a real platform manager. Created 2026-07-21.
 >
-> **Status (updated 2026-07-22): Phases 0, 0.5, and 1 implemented** (0.5.8
-> deliberately deferred to Phase 3.2, below). Phase 0 = the audited cross-tenant
-> seam. Phase 0.5 = Option D separation of duties (facet-split permissions,
-> SuperAdmin-proposes/Architect-disposes approvals) + the privacy decisions
-> (health-data encryption with searchable blind index, production key hard-fail,
-> read-only DB role). Phase 1 = the honest platform console — a tenant-health
-> `/overview`, its aggregation endpoint, dead-nav cleanup, and a facet-gated
-> tenant detail page. Phases 2–3 (oversight, policy, cross-tenant insight, AI)
-> remain to be built.
+> **Status (updated 2026-07-22): Phases 0, 0.5, 1, and 2.1–2.3 implemented**
+> (0.5.8 → Phase 3.2; 2.4 deferred pending billing — both below). Phase 0 = the
+> audited cross-tenant seam. Phase 0.5 = Option D separation of duties
+> (facet-split permissions, SuperAdmin-proposes/Architect-disposes approvals) +
+> the privacy decisions (health-data encryption with searchable blind index,
+> production key hard-fail, read-only DB role). Phase 1 = the honest platform
+> console (tenant-health `/overview`, dead-nav cleanup, facet-gated tenant
+> detail). Phase 2 = oversight & policy — cross-tenant audit log, cross-tenant
+> policy posture, and baseline drift detection. Phase 3 (cross-tenant insight,
+> AI) remains; Phase 2.4 (onboarding wizard) is deferred pending billing.
 >
 > Stated intent (product owner): *"The platform is meant to be a manager of all
 > tenants, able to set them up, review them, see dashboard insights on them,
@@ -687,14 +688,54 @@ never self-approve. Covered by unit tests on both services; verified live that
 the endpoints resolve, the pending queue reads end-to-end through the platform
 scope, and a mutation attempt is blocked (by step-up) before any state change.
 
-### Phase 2 — Oversight & policy
+### Phase 2 — Oversight & policy — ✅ 2.1–2.3 IMPLEMENTED 2026-07-22 (2.4 deferred)
 
-| # | Work | Size | Notes |
+| # | Work | Size | Status |
 |---|---|---|---|
-| 2.1 | Cross-tenant audit log view `/platform/audit/log` | M | |
-| 2.2 | Per-tenant policy view + platform baseline defaults | L | may need schema for baseline |
-| 2.3 | Policy drift detection across tenants | M | depends on 2.2 |
-| 2.4 | Onboarding wizard steps 2/4/5/6 per `Architect Flow.html` | L | step 6 blocked on billing schema |
+| 2.1 | Cross-tenant audit log view `/platform/audit/log` | M | ✅ done — new `@PlatformScoped` endpoint; also hardened `/audit-logs` |
+| 2.2 | Cross-tenant policy view + platform baseline | L | ✅ done — baseline-as-code, no schema needed yet |
+| 2.3 | Policy drift detection across tenants | M | ✅ done — directional drift rules, 8 unit tests |
+| 2.4 | Onboarding wizard steps 2/4/5/6 per `Architect Flow.html` | L | ⏸️ **deferred — see below** |
+
+#### Notes from implementation
+
+- **2.1 also fixed two live bugs in `AuditLogController`.** (1) Its clearance-9
+  branch read cross-tenant on the *privileged* client — unaudited, gated on
+  clearance not permission. Removed; cross-tenant audit is now
+  `GET /platform/audit` (`@PlatformScoped`, permission-gated, and the read is
+  itself audited). (2) The controller had no `PermissionGuard`/`ClearanceLevelGuard`,
+  so `req.userContext` was never populated and `@RequireClearanceLevel(7)` was
+  inert — every handler 403'd for real callers. Added `ClearanceLevelGuard`;
+  verified live a school user now reads only their own tenant's audit and a
+  platform user reads across tenants through the audited path.
+- **2.2/2.3 — baseline as code, not schema.** `platform-security-baseline.ts`
+  defines the minimum posture with directional rules (min/max/true/floor), so
+  "weaker than baseline" is unambiguous and a stricter tenant is never flagged.
+  `GET /platform/policies` (`platform.security`, Architect) returns each tenant's
+  posture + drift + a compliant/drifting summary. No policy row = maximum drift.
+  A persisted, editable baseline row is a clean later step; the drift logic
+  wouldn't change. Gating verified live (SuperAdmin 403'd — security is the
+  Architect facet); drift logic unit-tested on every direction; seeded data
+  confirmed to exercise both branches (3 compliant, 4 no-policy).
+
+#### 2.4 deferred deliberately
+
+The current single-form onboarding **works** (registers a school, invites its
+owner). The 6-step wizard from `Architect Flow.html` is a UX enhancement whose
+most valuable steps are blocked or backend-less:
+
+- **Step 6 (Plan)** — no billing domain exists at all. Hard-blocked.
+- **Steps 2 (org structure) and 5 (role preset + maker-checker matrix)** — would
+  need new *cross-tenant provisioning* flows: writing a freshly-created tenant's
+  academic structure and custom roles from the platform side. That is
+  substantial new infrastructure, effectively its own project, not a wizard skin.
+- **Step 4 (Features)** — `tenant-features.controller.ts` exists, so this step is
+  the one that is genuinely buildable now.
+
+Building the wizard today would mean stubbing a third of it against domains that
+do not exist — a dishonest UI. Deferred until billing lands and the tenant-
+provisioning flows for structure/roles are designed. Revisit alongside Phase 2.4
+billing work.
 
 ### Phase 3 — Insight & AI
 

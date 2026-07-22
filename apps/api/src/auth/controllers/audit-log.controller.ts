@@ -22,7 +22,7 @@ import {
 import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
-  // ClearanceLevelGuard,
+  ClearanceLevelGuard,
   RequireClearanceLevel,
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
@@ -36,7 +36,11 @@ import type { AuthenticatedRequest } from '../middleware';
  */
 @ApiTags(SwaggerTags.auditLogs.name)
 @Controller('audit-logs')
-@UseGuards(JwtAuthGuard, TenantContextGuard)
+// ClearanceLevelGuard both enforces @RequireClearanceLevel(7) AND populates
+// req.userContext (clearanceLevel + tenantId). Without it the decorator was
+// inert and userContext was undefined, so these handlers 403'd for everyone —
+// a pre-existing bug surfaced while hardening the cross-tenant branch (2.1).
+@UseGuards(JwtAuthGuard, TenantContextGuard, ClearanceLevelGuard)
 @ApiBearerAuth('JWT-auth')
 export class AuditLogController {
   constructor(private readonly dbService: DatabaseService) {}
@@ -72,18 +76,16 @@ export class AuditLogController {
 
     const where: any = {};
 
-    // Filter by tenant (platform admins can see all, others see only their tenant)
-    const userClearanceLevel = userContext?.clearanceLevel || 0;
-    if (userClearanceLevel < 9) {
-      // Non-admins must be scoped to their tenant
-      if (!tenantId) {
-        throw new ForbiddenException('Tenant context required');
-      }
-      where.tenantId = tenantId;
-    } else if (tenantId) {
-      // Platform admins can optionally filter by tenant
-      where.tenantId = tenantId;
+    // Strictly tenant-scoped. This endpoint is a tenant's own audit view; it no
+    // longer carries a clearance-9 "see all tenants" branch. That branch read
+    // cross-tenant on the privileged client, unaudited and gated on clearance
+    // rather than permission — the exact anti-pattern the platform scope exists
+    // to replace. Cross-tenant audit now goes through GET /platform/audit
+    // (@PlatformScoped, permission-gated, audited). See docs/platform-scope-plan.md.
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context required');
     }
+    where.tenantId = tenantId;
 
     if (eventType) {
       where.eventType = eventType;
@@ -168,14 +170,12 @@ export class AuditLogController {
   ) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
-    const userClearanceLevel = userContext?.clearanceLevel || 0;
 
-    const where: any = { id };
-
-    // Filter by tenant (platform admins can see all, others see only their tenant)
-    if (userClearanceLevel < 9) {
-      where.tenantId = tenantId;
+    // Strictly tenant-scoped — cross-tenant audit is GET /platform/audit now.
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context required');
     }
+    const where: any = { id, tenantId };
 
     const log = await this.dbService.client.auditLog.findFirst({
       where,
@@ -215,21 +215,21 @@ export class AuditLogController {
   ) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
-    const userClearanceLevel = userContext?.clearanceLevel || 0;
+
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context required');
+    }
 
     const pageNum = page ? Number(page) : 1;
     const limitNum = limit ? Number(limit) : 50;
     const skip = (pageNum - 1) * limitNum;
 
+    // Strictly tenant-scoped — cross-tenant audit is GET /platform/audit now.
     const where: any = {
       resource,
       resourceId,
+      tenantId,
     };
-
-    // Filter by tenant (platform admins can see all, others see only their tenant)
-    if (userClearanceLevel < 9 && tenantId) {
-      where.tenantId = tenantId;
-    }
 
     const [logs, total] = await Promise.all([
       this.dbService.client.auditLog.findMany({
@@ -282,20 +282,20 @@ export class AuditLogController {
   ) {
     const userContext = req.userContext;
     const tenantId = userContext?.tenantId;
-    const userClearanceLevel = userContext?.clearanceLevel || 0;
+
+    if (!tenantId) {
+      throw new ForbiddenException('Tenant context required');
+    }
 
     const pageNum = page ? Number(page) : 1;
     const limitNum = limit ? Number(limit) : 50;
     const skip = (pageNum - 1) * limitNum;
 
+    // Strictly tenant-scoped — cross-tenant audit is GET /platform/audit now.
     const where: any = {
       actorId,
+      tenantId,
     };
-
-    // Filter by tenant (platform admins can see all, others see only their tenant)
-    if (userClearanceLevel < 9 && tenantId) {
-      where.tenantId = tenantId;
-    }
 
     const [logs, total] = await Promise.all([
       this.dbService.client.auditLog.findMany({
