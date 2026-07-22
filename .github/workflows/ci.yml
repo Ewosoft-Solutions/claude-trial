@@ -66,6 +66,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=low
+
       # ── Database ──────────────────────────────────────────────────────────
       - name: Run migrations
         working-directory: packages/database
