@@ -196,10 +196,13 @@ jobs:
       # so a perfectly healthy API and a green deploy can still ship a web app
       # that cannot reach it. Nothing above would notice. This step does.
       #
-      # Both probes are unauthenticated and deliberately expect a NON-2xx status:
-      # the point is not that the endpoint succeeds, but that the Next server
-      # reached the API and forwarded *its* answer. A 5xx means the round-trip
-      # never happened — the proxy threw before it got a response.
+      # Both probes are unauthenticated. The first is a purpose-built health
+      # endpoint (`/api/health`) where the web server calls the API and reports
+      # the round-trip: 200 = reachable, 503 = it could not reach the API. The
+      # second expects a NON-2xx on purpose — the point there is not that the
+      # endpoint succeeds, but that the Next server reached the API and
+      # forwarded *its* answer (a DTO 400). A 5xx/000 on either means the web
+      # app itself is down or the round-trip never happened.
       - name: Web → API round-trip (proxy reachability)
         env:
           WEB_BASE_URL: ${{ secrets.WEB_BASE_URL }}
@@ -238,11 +241,18 @@ jobs:
           echo "Probing ${WEB_BASE_URL} …"
           failed=0
 
-          # Shared proxy path (lib/api-proxy.ts -> lib/api-client.ts). Upstream
-          # /health/records is JWT-guarded, so an authenticated-and-reachable
-          # proxy forwards 401. 500 = the fetch to the API itself threw.
-          probe GET /api/health 401 \
-            "proxied GET reaches the API and forwards its 401" || failed=1
+          # Purpose-built connectivity probe: the web server calls the API's
+          # /healthz through the same API_BASE the real proxy uses and reports
+          # the result. 200 = the round-trip works. 503 = it could not reach the
+          # API (body says why); 000/5xx = the web app itself is down.
+          if ! probe GET /api/health 200 \
+                 "web server reached the API (/api/health round-trip)"; then
+            failed=1
+            # This endpoint explains itself — surface its body verbatim.
+            echo "        /api/health said:"
+            curl -sS --max-time 15 "${WEB_BASE_URL}/api/health" \
+              | sed 's/^/          /' || true
+          fi
 
           # The login route does NOT use api-proxy — it has its own two-step
           # handler, so exercise it separately. An invalid body is rejected by
