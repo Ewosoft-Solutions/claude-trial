@@ -13,6 +13,7 @@ import { CommonModule } from './common';
 import { LinksModule } from './links/links.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantModule } from './tenant/tenant.module';
+import { PlatformModule } from './platform/platform.module';
 import { StudentModule } from './student/student.module';
 import { AcademicStructureModule } from './academic-structure/academic-structure.module';
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
@@ -95,6 +96,7 @@ import { AppController } from './app.controller';
     LinksModule,
     AuthModule,
     TenantModule,
+    PlatformModule,
     StudentModule,
     AcademicStructureModule,
     AssessmentGradingModule,

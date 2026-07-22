@@ -3,13 +3,15 @@
 > Analysis of the platform/Architect scope against its stated purpose, and a
 > sequenced plan to make it a real platform manager. Created 2026-07-21.
 >
-> **Status (updated 2026-07-22): Phase 0 and Phase 0.5 implemented, except 0.5.8
-> which is deliberately deferred to Phase 3.2 (see below).** Phase 0 = the
-> audited cross-tenant seam. Phase 0.5 = Option D separation of duties
-> (facet-split permissions, SuperAdmin-proposes/Architect-disposes approvals) +
-> the privacy decisions (health-data encryption with searchable blind index,
-> production key hard-fail, read-only DB role). Phases 1–3 (the platform
-> console, oversight, cross-tenant insight, AI) remain to be built.
+> **Status (updated 2026-07-22): Phases 0, 0.5, and 1 implemented** (0.5.8
+> deliberately deferred to Phase 3.2, below). Phase 0 = the audited cross-tenant
+> seam. Phase 0.5 = Option D separation of duties (facet-split permissions,
+> SuperAdmin-proposes/Architect-disposes approvals) + the privacy decisions
+> (health-data encryption with searchable blind index, production key hard-fail,
+> read-only DB role). Phase 1 = the honest platform console — a tenant-health
+> `/overview`, its aggregation endpoint, dead-nav cleanup, and a facet-gated
+> tenant detail page. Phases 2–3 (oversight, policy, cross-tenant insight, AI)
+> remain to be built.
 >
 > Stated intent (product owner): *"The platform is meant to be a manager of all
 > tenants, able to set them up, review them, see dashboard insights on them,
@@ -637,15 +639,36 @@ Requires a seed change and reseed (0.5.2). 0.5.7 needs a data migration
 Decision 4 (aggregates only) is not a Phase 0.5 item — it is a constraint on
 Phase 3.1, which it promotes from "evaluate rollups" to "build rollups".
 
-### Phase 1 — Make the console honest
+### Phase 1 — Make the console honest — ✅ IMPLEMENTED 2026-07-22
 
-| # | Work | Size | Notes |
+| # | Work | Size | Status |
 |---|---|---|---|
-| 1.1 | Platform `/overview` dashboard (tenant-health cut, §3) | M | needs 1.2 |
-| 1.2 | `GET /platform/overview` aggregation endpoint | M | first real `@PlatformScoped` consumer |
-| 1.3 | Enforce `platform.tenants` on tenant endpoints (alongside clearance) | S | closes the perms/enforcement divergence |
-| 1.4 | Remove or stub-with-intent the 13 dead nav links | S | dead nav is worse than absent nav |
-| 1.5 | Tenant detail page `/platform/tenants/[id]` | M | config, users, policy, recent audit |
+| 1.1 | Platform `/overview` dashboard (tenant-health cut, §3) | M | ✅ scope-branched in `overview/page.tsx`; SWR dashboard |
+| 1.2 | `GET /platform/overview` aggregation endpoint | M | ✅ new `PlatformModule`; live-verified real cross-tenant data + audit |
+| 1.3 | ~~Enforce `platform.tenants` on tenant endpoints~~ | S | ✅ done in 0.5.2/0.5.3 — facet permissions enforced |
+| 1.4 | Remove the dead nav links | S | ✅ 14 → 0 dead platform links; sections re-add per feature |
+| 1.5 | Tenant detail page `/platform/tenants/[id]` | M | ✅ facet-gated (identity vs internals); verified live |
+
+#### Notes from implementation
+
+- **1.1/1.2 — the honest cut, as designed.** The overview shows only what the
+  schema supports: tenant counts/status/type, user totals, stalled onboarding,
+  12-month growth, recent tenant-lifecycle audit. No MRR/renewals/tickets tiles
+  (no billing/support domains yet). Gated on `platform.tenants.read`, so a
+  SuperAdmin support role gets the operational view, not just Architects. First
+  real consumer of `@PlatformScoped` beyond the tenant list.
+- **1.4 — removed, not stubbed.** Analytics/Audit/Support/Billing sections and
+  the Help / Settings-Maintenance footer items all 404'd; removed with a comment
+  pointing to the re-add pattern (as Tenants→Approvals was added). A
+  `platform.monitoring`-holding SuperAdmin was being shown an Analytics entry to
+  nowhere — now every visible platform link resolves.
+- **1.5 — a users/audit tab was deliberately NOT wired.** The existing
+  `GET /tenant/:id/users` is gated on `@RequireClearanceLevel(7)`, not
+  `@PlatformScoped` — pointing the platform detail page at it would be an
+  *unaudited* cross-tenant read, the exact anti-pattern this plan exists to fix.
+  The detail page shows the facet-gated `GET /tenant/:id` (identity for `.read`,
+  internals for `.inspect`). A per-tenant users/audit view needs its own
+  `@PlatformScoped` endpoint — folded into Phase 2 (2.1 audit view).
 
 #### Security bug found and fixed during 0.5.4
 
@@ -680,6 +703,20 @@ scope, and a mutation attempt is blocked (by step-up) before any state change.
 | 3.1 | Cross-tenant analytics endpoints | L | evaluate rollups (Option C) here |
 | 3.2 | Platform AI tool registry + `PlatformAnalyticsChatService` | L | separate from tenant assistant |
 | 3.3 | At-risk / misconfigured tenant detection | M | strong AI fit; depends on 3.1 |
+
+**Phase 3.2 hard gate — carried over from 0.5.8 (deferred deliberately).** Before
+any platform AI ships, these are non-negotiable (decision 1, §7.1):
+
+- [ ] Every platform AI tool declares a required **facet** and is checked at
+      **execution time**, not session start — a SuperAdmin's assistant must be
+      unable to *call* a `metrics`/`inspect`/`finance` tool it lacks.
+- [ ] Platform AI reads only **cross-tenant rollups** (Phase 3.1 / Option C),
+      never per-pupil rows — the aggregate floor made structural, so no tool bug
+      can leak an individual.
+- [ ] The floor is enforced in the tool layer, not the prompt (a prompt
+      instruction is not a control).
+- [ ] Build 3.1 (rollups) *before* 3.2 (assistant); doing 3.2 first inverts the
+      dependency and there is nothing safe to read.
 
 ### Requires schema migration
 

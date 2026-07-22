@@ -31,7 +31,6 @@ import {
   GraduationCap,
   HeartPulse,
   House,
-  LifeBuoy,
   Palette,
   PartyPopper,
   ScrollText,
@@ -645,159 +644,31 @@ export const PLATFORM_NAV: NavigationConfig = {
         },
       ],
     },
-    {
-      key: 'analytics',
-      label: 'Analytics',
-      icon: <ChartColumn />,
-      href: '/platform/analytics',
-      access: {
-        scope: 'platform',
-        anyPermission: ['platform.monitoring', 'analytics.advanced'],
-      },
-      panelHeader: { icon: <ChartColumn />, title: 'Platform analytics' },
-      groups: [
-        {
-          key: 'health',
-          items: [
-            {
-              key: 'usage',
-              label: 'Usage',
-              icon: <ChartColumn />,
-              href: '/platform/analytics/usage',
-              access: {
-                anyPermission: ['platform.monitoring', 'analytics.advanced'],
-              },
-            },
-            {
-              key: 'performance',
-              label: 'Performance',
-              icon: <ChartColumn />,
-              href: '/platform/analytics/performance',
-              access: { anyPermission: ['platform.monitoring'] },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      key: 'audit',
-      label: 'Audit',
-      icon: <ShieldCheck />,
-      href: '/platform/audit',
-      access: {
-        scope: 'platform',
-        anyPermission: ['platform.audit', 'platform.audit.limited'],
-      },
-      panelHeader: { icon: <ShieldCheck />, title: 'Audit & security' },
-      groups: [
-        {
-          key: 'trail',
-          items: [
-            {
-              key: 'audit-log',
-              label: 'Audit log',
-              icon: <ScrollText />,
-              href: '/platform/audit/log',
-              access: {
-                anyPermission: ['platform.audit', 'platform.audit.limited'],
-              },
-            },
-            {
-              key: 'security',
-              label: 'Security',
-              icon: <ShieldCheck />,
-              href: '/platform/audit/security',
-              access: { anyPermission: ['platform.security'] },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      key: 'support',
-      label: 'Support',
-      icon: <LifeBuoy />,
-      href: '/platform/support',
-      access: {
-        scope: 'platform',
-        anyPermission: ['platform.support', 'platform.support.access'],
-      },
-      panelHeader: { icon: <LifeBuoy />, title: 'Support' },
-      groups: [
-        {
-          key: 'tickets',
-          items: [
-            {
-              key: 'queue',
-              label: 'Ticket queue',
-              icon: <LifeBuoy />,
-              href: '/platform/support/queue',
-              access: {
-                anyPermission: ['platform.support', 'platform.support.access'],
-              },
-            },
-          ],
-        },
-      ],
-    },
-    {
-      key: 'billing',
-      label: 'Billing',
-      icon: <CreditCard />,
-      href: '/platform/billing',
-      access: { scope: 'platform', anyPermission: ['platform.billing'] },
-      panelHeader: { icon: <CreditCard />, title: 'Platform billing' },
-      groups: [
-        {
-          key: 'subscriptions',
-          items: [
-            {
-              key: 'plans',
-              label: 'Plans',
-              icon: <CreditCard />,
-              href: '/platform/billing/plans',
-              access: { anyPermission: ['platform.billing'] },
-            },
-            {
-              key: 'invoices',
-              label: 'Invoices',
-              icon: <Banknote />,
-              href: '/platform/billing/invoices',
-              access: { anyPermission: ['platform.billing'] },
-            },
-          ],
-        },
-      ],
-    },
+    // Analytics, Audit, Support and Billing sections were removed here (1.4):
+    // every link under them 404s today. They are Phase 2/3 features
+    // (docs/platform-scope-plan.md §5) — re-add each section when its pages
+    // land, as was done for Tenants → Approvals. Dead nav is worse than absent
+    // nav: a `platform.monitoring`-holding SuperAdmin was being shown an
+    // Analytics entry that led nowhere.
   ],
   footer: [
-    {
-      key: 'platform-help',
-      label: 'Help',
-      icon: <CircleQuestionMark />,
-      href: '/platform/help',
-    },
+    // Help (/platform/help) and the Maintenance settings item were removed (1.4)
+    // as dead links. The Settings entry now points straight at the one platform
+    // settings page that exists — security governance.
     {
       key: 'platform-settings',
       label: 'Settings',
       icon: <Settings />,
-      href: '/platform/settings',
+      href: '/platform/settings/security',
       access: {
         scope: 'platform',
-        anyPermission: ['platform.security', 'platform.maintenance'],
+        anyPermission: ['platform.security'],
       },
       panelHeader: { icon: <Settings />, title: 'Platform settings' },
       groups: [
         {
           key: 'platform-config',
           items: [
-            {
-              key: 'maintenance',
-              label: 'Maintenance',
-              icon: <Settings />,
-              href: '/platform/settings/maintenance',
-              access: { anyPermission: ['platform.maintenance'] },
-            },
             {
               key: 'security-settings',
               label: 'Security',

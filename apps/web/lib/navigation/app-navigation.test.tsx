@@ -544,26 +544,25 @@ describe('SCHOOL_NAV feature toggles', () => {
 /* ---- PLATFORM_NAV ---------------------------------------------- */
 
 describe('PLATFORM_NAV', () => {
-  it('offers every platform section to a super-admin', () => {
-    const { railItems } = resolveNavigation(
+  // Analytics/Audit/Support/Billing sections were removed in 1.4 (every link
+  // 404'd — Phase 2/3 features). Only Tenants remains in the rail, with the
+  // Settings footer for security-permitted viewers.
+  it('offers the live platform sections to a broadly-permissioned admin', () => {
+    const { railItems, railFooterItems } = resolveNavigation(
       PLATFORM_NAV,
       PLATFORM_ADMIN,
       '/platform/tenants',
     );
-    expect(railItems.map((i) => i.key)).toEqual([
-      'tenants',
-      'analytics',
-      'audit',
-      'support',
-      'billing',
-    ]);
+    expect(railItems.map((i) => i.key)).toEqual(['tenants']);
+    // Has platform.security, so the Settings footer resolves.
+    expect(railFooterItems.map((i) => i.key)).toEqual(['platform-settings']);
   });
 
-  it('drops platform sections a scoped operator cannot reach', () => {
+  it('drops the Settings footer for an operator without platform.security', () => {
     const tenantsOnly = makeViewer({
       scope: 'platform',
-      clearanceLevel: 7,
-      roles: ['Management'],
+      clearanceLevel: 9,
+      roles: ['SuperAdmin'],
       permissions: new Set<PermissionKey>(['platform.tenants.read']),
     });
     const { railItems, railFooterItems } = resolveNavigation(
@@ -572,17 +571,20 @@ describe('PLATFORM_NAV', () => {
       '/platform/tenants',
     );
     expect(railItems.map((i) => i.key)).toEqual(['tenants']);
-    // platform-settings needs platform.security/maintenance → only help remains
-    expect(railFooterItems.map((i) => i.key)).toEqual(['platform-help']);
+    // Settings needs platform.security; Help was removed → footer is empty.
+    expect(railFooterItems.map((i) => i.key)).toEqual([]);
   });
 
   it('marks the active platform section by route', () => {
+    // /platform/tenants/all is gated on platform.tenants.read, which this
+    // viewer holds. (Approvals is gated on .act, which it does not — so it is
+    // correctly not reachable here.)
     const resolved = resolveNavigation(
       PLATFORM_NAV,
       PLATFORM_ADMIN,
-      '/platform/audit/security',
+      '/platform/tenants/all',
     );
-    expect(resolved.activeSectionKey).toBe('audit');
-    expect(resolved.activeHref).toBe('/platform/audit/security');
+    expect(resolved.activeSectionKey).toBe('tenants');
+    expect(resolved.activeHref).toBe('/platform/tenants/all');
   });
 });
