@@ -376,6 +376,21 @@ custom domain **`api.demo.schoolwithease.com`**. Copy the **service id**
 2. Env vars (Production): `NEXT_PUBLIC_API_URL=https://api.demo.schoolwithease.com`,
    `APP_CANONICAL_ORIGIN=https://demo.schoolwithease.com`,
    `AUTH_RESUME_SECRET=<Step 2>`.
+
+   > **`NEXT_PUBLIC_*` is inlined at BUILD time — changing it requires a REBUILD,
+   > not just a redeploy.** Next.js substitutes `NEXT_PUBLIC_*` values into the
+   > bundle when it builds, so editing the variable in Vercel has **no effect**
+   > on an already-built deployment. Re-running "Redeploy" against the existing
+   > build (or with the build cache on) silently keeps the old value. Trigger a
+   > fresh build: re-run the CD workflow, or Vercel → Redeploy with **"Use
+   > existing Build Cache" OFF**.
+   >
+   > `NEXT_PUBLIC_API_URL` must be a **full origin including the scheme**
+   > (`https://api.demo.schoolwithease.com`) with no trailing slash. If it is
+   > missing, scheme-less, or stale, the Next server cannot reach the API and
+   > every proxied route returns **502** — which the Step 12 smoke test reports
+   > as `GET /api/health -> 502, expected 401`. The API being healthy while the
+   > web app 502s is the signature of exactly this misconfiguration.
 3. **Disable Vercel's Git production auto-deploy** (Settings → Git → turn off
    production deployments, or set an Ignored Build Step) so the **CD workflow**
    is the single web deploy path and you don't get double deploys.
@@ -420,14 +435,50 @@ the run in the **Actions** tab.
 
 ## Step 12 — Verify (D0 acceptance gate)
 
-- `curl https://api.demo.schoolwithease.com/healthz` → `{"status":"ok"}`
-- `curl https://api.demo.schoolwithease.com/readyz` → `{"status":"ready",…}`
-  (200 only when the `app_runtime` connection + RLS self-test pass — proves
-  runtime tenant isolation is live).
+Three probes, in order — each isolates a different layer, so a failure tells you
+*where* the problem is:
+
+1. **API is alive** —
+   `curl https://api.demo.schoolwithease.com/healthz` → `{"status":"ok"}`
+2. **API is ready** —
+   `curl https://api.demo.schoolwithease.com/readyz` → `{"status":"ready",…}`
+   (200 only when the `app_runtime` connection + RLS self-test pass — proves
+   runtime tenant isolation is live).
+3. **The web can reach the API** —
+   `curl https://demo.schoolwithease.com/api/health` → `{"status":"ok","web":"up","api":"up"}`
+
+   This is the web→API round-trip: the Next server calls the API's `/healthz`
+   through the same `API_BASE` the real proxy uses, so a 200 means the app's
+   actual data path works. It is unauthenticated and exposes no tenant data —
+   safe for uptime monitoring and for a quick manual check. On failure it
+   returns **503** and says why:
+
+   | Body | Meaning | Fix |
+   | --- | --- | --- |
+   | `"api":"unreachable"` | Next server could not reach the API | `NEXT_PUBLIC_API_URL` wrong/stale → Step 8.2 (**rebuild**, not just redeploy) |
+   | `"api":"not-configured"` | `NEXT_PUBLIC_API_URL` empty at build time | Step 8.2 |
+   | `"api":"unhealthy"` + `apiStatus` | API answered, but not 200 | Check the API instance (probe 1/2) |
+
+   Steps 1–2 passing while step 3 fails is always **wiring**, never a broken
+   API.
 - Open `https://demo.schoolwithease.com`, do a login round-trip, and enroll +
   use a passkey (binds to the `demo.schoolwithease.com` RP).
 - In the Render logs, confirm:
   `✔ RLS runtime enforcement active (role 'app_runtime', bypassrls=false, GUC applied)`.
+
+### Reading a failed CD smoke test
+
+The CD `Smoke test` job runs after both deploys and probes the web app's proxy
+routes. The two failures worth recognising:
+
+| Symptom | Cause | Fix |
+| --- | --- | --- |
+| `Deploy API (Render)` never goes live → `update_failed` | API crashed on boot; most often a missing or wrong-size `ENCRYPTION_KEY` | Step 2 / Step 6 — read the *instance's* logs for the exact boot error |
+| Smoke: `GET /api/health -> 503, expected 200` (API itself healthy) | The Next server cannot reach the API — `NEXT_PUBLIC_API_URL` missing, scheme-less, or **stale because it was not rebuilt**. CD prints the endpoint's own body, which names the cause. | Step 8.2 — set the full origin, then trigger a **fresh build** (build cache off) |
+
+A 502 from the web while `api.…/healthz` returns 200 always means wiring, not a
+broken API: the smoke test checks the API first precisely so the two are
+distinguishable.
 
 ---
 
