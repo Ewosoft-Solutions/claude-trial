@@ -66,6 +66,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Audit dependencies
+        run: pnpm audit --audit-level=low
+
       # ── Database ──────────────────────────────────────────────────────────
       - name: Run migrations
         working-directory: packages/database
@@ -126,6 +129,55 @@ jobs:
       - name: Build apps/api
         working-directory: apps/api
         run: pnpm build
+
+      # Production boot smoke — catches prod-only boot gates (config validation,
+      # DI, the ENCRYPTION_KEY fail-closed check) that NODE_ENV=test never
+      # exercises. This is the class of failure that took down a Render deploy:
+      # a missing ENCRYPTION_KEY crashed the instance on boot, yet CI stayed
+      # green because it runs NODE_ENV=test. Uses the app_runtime DB CI already
+      # provisions; /healthz (liveness) only answers once every boot hook passed.
+      - name: Production boot smoke (apps/api)
+        working-directory: apps/api
+        env:
+          NODE_ENV: production
+          PORT: "3999"
+        run: |
+          set -uo pipefail
+
+          # 1) Fail-closed: production MUST refuse to boot without ENCRYPTION_KEY.
+          if timeout 60 node dist/main > /tmp/noenc.log 2>&1; then
+            echo "✖ Booted in production with NO ENCRYPTION_KEY — the boot gate is not firing."
+            cat /tmp/noenc.log
+            exit 1
+          fi
+          if ! grep -qi "ENCRYPTION_KEY" /tmp/noenc.log; then
+            echo "✖ Boot failed, but not with the expected ENCRYPTION_KEY error:"
+            cat /tmp/noenc.log
+            exit 1
+          fi
+          echo "✔ Production refuses to boot without ENCRYPTION_KEY."
+
+          # 2) Positive: boots and serves /healthz with a valid 32-byte key.
+          export ENCRYPTION_KEY="$(openssl rand -base64 32)"
+          node dist/main > /tmp/boot.log 2>&1 &
+          PID=$!
+          for _ in $(seq 1 40); do
+            if curl -fsS "http://localhost:3999/healthz" > /dev/null 2>&1; then
+              echo "✔ Production boot healthy (/healthz)."
+              kill "$PID" 2>/dev/null || true
+              exit 0
+            fi
+            if ! kill -0 "$PID" 2>/dev/null; then
+              echo "✖ API exited during production boot:"
+              cat /tmp/boot.log
+              exit 1
+            fi
+            sleep 2
+          done
+          echo "✖ Timed out waiting for /healthz in production mode:"
+          cat /tmp/boot.log
+          kill "$PID" 2>/dev/null || true
+          exit 1
 
       - name: Build apps/web
         working-directory: apps/web

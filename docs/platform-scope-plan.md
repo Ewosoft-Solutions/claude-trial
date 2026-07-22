@@ -3,16 +3,17 @@
 > Analysis of the platform/Architect scope against its stated purpose, and a
 > sequenced plan to make it a real platform manager. Created 2026-07-21.
 >
-> **Status (updated 2026-07-22): Phases 0, 0.5, 1, and 2.1–2.3 implemented**
-> (0.5.8 → Phase 3.2; 2.4 deferred pending billing — both below). Phase 0 = the
-> audited cross-tenant seam. Phase 0.5 = Option D separation of duties
-> (facet-split permissions, SuperAdmin-proposes/Architect-disposes approvals) +
-> the privacy decisions (health-data encryption with searchable blind index,
-> production key hard-fail, read-only DB role). Phase 1 = the honest platform
-> console (tenant-health `/overview`, dead-nav cleanup, facet-gated tenant
-> detail). Phase 2 = oversight & policy — cross-tenant audit log, cross-tenant
-> policy posture, and baseline drift detection. Phase 3 (cross-tenant insight,
-> AI) remains; Phase 2.4 (onboarding wizard) is deferred pending billing.
+> **Status (updated 2026-07-22): Phases 0, 0.5, 1, 2 (2.1–2.3) and 3 implemented.**
+> The only deferrals are **2.4** (onboarding wizard — pending a billing domain)
+> and the *product polish* on 3.2 (session persistence / streaming); 0.5.8's AI
+> hard gate is satisfied by 3.1/3.2. Phase 0 = the audited cross-tenant seam.
+> Phase 0.5 = Option D separation of duties + privacy (health encryption with
+> searchable blind index, production key hard-fail, read-only DB role). Phase 1 =
+> the honest console (tenant-health `/overview`, dead-nav cleanup, facet-gated
+> tenant detail). Phase 2 = oversight & policy (cross-tenant audit log, policy
+> posture, baseline drift). Phase 3 = insight & AI (cross-tenant aggregate
+> analytics, rules-based at-risk detection, and a facet-gated aggregate-only AI
+> assistant). The platform scope is now a working platform manager.
 >
 > Stated intent (product owner): *"The platform is meant to be a manager of all
 > tenants, able to set them up, review them, see dashboard insights on them,
@@ -737,27 +738,47 @@ do not exist — a dishonest UI. Deferred until billing lands and the tenant-
 provisioning flows for structure/roles are designed. Revisit alongside Phase 2.4
 billing work.
 
-### Phase 3 — Insight & AI
+### Phase 3 — Insight & AI — ✅ IMPLEMENTED 2026-07-22
 
-| # | Work | Size | Notes |
+| # | Work | Size | Status |
 |---|---|---|---|
-| 3.1 | Cross-tenant analytics endpoints | L | evaluate rollups (Option C) here |
-| 3.2 | Platform AI tool registry + `PlatformAnalyticsChatService` | L | separate from tenant assistant |
-| 3.3 | At-risk / misconfigured tenant detection | M | strong AI fit; depends on 3.1 |
+| 3.1 | Cross-tenant analytics endpoints | L | ✅ `PlatformAnalyticsService` (aggregate-only); `GET /platform/analytics` |
+| 3.2 | Platform AI tool registry + `PlatformAnalyticsChatService` | L | ✅ facet-gated tools; hard gate proven live |
+| 3.3 | At-risk / misconfigured tenant detection | M | ✅ rules-based `PlatformRiskService`; `GET /platform/risk` |
 
-**Phase 3.2 hard gate — carried over from 0.5.8 (deferred deliberately).** Before
-any platform AI ships, these are non-negotiable (decision 1, §7.1):
+**Phase 3.2 hard gate — carried over from 0.5.8 — now SATISFIED:**
 
-- [ ] Every platform AI tool declares a required **facet** and is checked at
-      **execution time**, not session start — a SuperAdmin's assistant must be
-      unable to *call* a `metrics`/`inspect`/`finance` tool it lacks.
-- [ ] Platform AI reads only **cross-tenant rollups** (Phase 3.1 / Option C),
-      never per-pupil rows — the aggregate floor made structural, so no tool bug
-      can leak an individual.
-- [ ] The floor is enforced in the tool layer, not the prompt (a prompt
-      instruction is not a control).
-- [ ] Build 3.1 (rollups) *before* 3.2 (assistant); doing 3.2 first inverts the
-      dependency and there is nothing safe to read.
+- [x] Every platform AI tool declares a required **facet**, checked at
+      **execution time** (`PlatformAnalyticsChatService.runTool`). Verified live:
+      a SuperAdmin's query had both metrics tools refused (`missing_facet`) and
+      the assistant reported the data was outside their access — it could not
+      route around the gate.
+- [x] Platform AI reads only the **aggregate surface** (`PlatformAnalyticsService`
+      / `PlatformRiskService`), never per-person. The floor is structural: no
+      tool can reach an individual record because the services never return one.
+- [x] The floor is in the **tool layer**, not the prompt — tools call only
+      aggregate services; the prompt reinforces but does not enforce.
+- [x] 3.1 (the aggregate surface) was built **before** 3.2, which reads only
+      through it.
+
+#### Notes from implementation
+
+- **3.2 is deliberately simpler than the tenant chat** — no session persistence
+  or streaming yet (product polish). The safety-critical parts are complete: the
+  per-call facet gate, aggregate-only tools, and no RLS scope spanning the LLM
+  round-trip (each tool opens its own short `runPlatform` scope). The endpoint is
+  clearance-9-gated rather than `@PlatformScoped`, precisely because the scope
+  must not span the LLM call.
+- **3.3 is rules-based, not AI** — deterministic, explainable flags (drift,
+  stalled onboarding, dormancy, suspension) an operator can trust. The AI can
+  narrate them.
+- **Follow-up:** platform AI *tool executions* are returned in the response trace
+  but not written to the audit log (the AI endpoint is clearance-gated, not
+  `@PlatformScoped`, so the interceptor does not audit it). Exposure is low
+  (aggregates only), but auditing which tools an AI session ran is a reasonable
+  later hardening. Standing verification gap, as for every `platform.metrics`
+  route: no Architect dev credential, so the HTTP happy path is unit-tested and
+  the denial path is proven live.
 
 ### Requires schema migration
 
