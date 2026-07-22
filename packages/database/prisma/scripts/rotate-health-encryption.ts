@@ -116,7 +116,7 @@ async function main() {
   // it, so we abort before touching a single row rather than corrupting the table.
   for (const r of records) {
     for (const f of NARRATIVE_FIELDS) {
-      const v = (r as Record<string, string | null>)[f];
+      const v = r[f];
       if (v?.startsWith(ENVELOPE_PREFIX)) {
         try {
           aesDecrypt(v.slice(ENVELOPE_PREFIX.length), oldKey);
@@ -136,7 +136,7 @@ async function main() {
     const patch: Record<string, unknown> = {};
 
     for (const f of NARRATIVE_FIELDS) {
-      const v = (r as Record<string, string | null>)[f];
+      const v = r[f];
       if (v !== null) patch[f] = reEnvelope(v, oldKey, newKey);
     }
 
