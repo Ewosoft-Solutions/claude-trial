@@ -42,6 +42,11 @@ This `Turborepo` has some additional tools already set for you:
 
 ### Commands
 
+Before pushing, this repository automatically runs its complete GitHub Actions
+CI job locally through Docker and `act`. See the
+[local CI guide](docs/local-ci.md) for setup, the fast development check, and
+pre-push behavior.
+
 This `Turborepo` already configured useful commands for all your apps and packages.
 
 #### Build
