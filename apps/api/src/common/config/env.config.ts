@@ -159,11 +159,33 @@ export const envValidationSchema = Joi.object({
   // Required in production: without it EncryptionService would fall back to a
   // constant-derived development key, so every "encrypted" field would be
   // readable by anyone with the source. Fail at boot rather than encrypt under
-  // an effectively public key. Base64 of exactly 32 bytes (44 chars) —
-  // generate with `openssl rand -base64 32`.
+  // an effectively public key.
+  //
+  // The real invariant is "decodes to exactly 32 bytes of key material" — the
+  // same check EncryptionService makes — not a fixed character count. Validating
+  // the decoded byte length (rather than `.length(44)`) accepts a valid key
+  // whether or not it carries base64 padding, keeps Joi and the service in lock
+  // step, and lets the error say *how* to fix it. `openssl rand -base64 32`
+  // produces a correct value (44 chars).
   ENCRYPTION_KEY: Joi.string().when('NODE_ENV', {
     is: 'production',
-    then: Joi.string().base64().length(44).required(),
+    then: Joi.string()
+      .required()
+      .custom((value: string, helpers) => {
+        if (Buffer.from(value, 'base64').length !== 32) {
+          return helpers.error('any.invalid');
+        }
+        return value;
+      })
+      .messages({
+        'any.invalid':
+          'ENCRYPTION_KEY must be a base64-encoded 32-byte key. Generate one ' +
+          'with `openssl rand -base64 32` (44 characters). A JWT-style ' +
+          '`-base64 64` value (88 chars) or a hex key is the wrong size.',
+        'any.required':
+          'ENCRYPTION_KEY is required in production. Generate one with ' +
+          '`openssl rand -base64 32`.',
+      }),
     otherwise: Joi.string().optional(),
   }),
   WEBAUTHN_RP_NAME: Joi.string().default('School With Ease'),

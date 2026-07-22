@@ -47,18 +47,23 @@ openssl rand -hex 32      # app_runtime DB password (hex → safe in a connectio
 ```
 
 > **`ENCRYPTION_KEY` is a HARD boot requirement in production — the API refuses
-> to start without it.** Use `openssl rand -base64 32` exactly: the value must be
-> **exactly 44 characters** (32 bytes, base64). A missing key, or one of any
-> other length (e.g. a 64-byte `JWT_SECRET`-shaped value, 88 chars), makes the
-> instance crash on boot with `ENCRYPTION_KEY is required in production` — which
-> surfaces as a Render `update_failed` and a failed CD run, not a clear message
-> in the deploy UI. This is deliberate fail-closed behaviour (0.5.7a): without a
-> real key the app would otherwise encrypt pupil health data under a constant,
-> effectively-public key. It is NOT enforced in `development`/`test` (so CI,
-> which runs `NODE_ENV=test`, will not catch a missing production key for you —
-> the boot smoke in CI covers the *code* path, not your Render env). Rotating the
-> key later invalidates every encrypted column; use `db:rotate:health-encryption`
-> under a maintenance window (Step 4d).
+> to start without a valid one.** The value must be a base64-encoded **32-byte**
+> key; `openssl rand -base64 32` produces exactly that (44 characters). The two
+> common mistakes both fail with a clear boot error:
+>
+> - **missing** → `ENCRYPTION_KEY is required in production`
+> - **wrong size** (a `JWT_SECRET`-shaped `-base64 64` value = 88 chars, or a hex
+>   key = 64 chars) → `ENCRYPTION_KEY must be a base64-encoded 32-byte key`
+>
+> Either surfaces as a Render `update_failed` and a failed CD run, not a clear
+> message in the deploy UI — read the *instance's* logs for the exact error. This
+> is deliberate fail-closed behaviour (0.5.7a): without a real key the app would
+> otherwise encrypt pupil health data under a constant, effectively-public key.
+> It is NOT enforced in `development`/`test`, so CI (which runs `NODE_ENV=test`)
+> cannot catch a mis-set *production* key for you — the boot smoke in CI covers
+> the code path, not your Render env. Rotating the key later invalidates every
+> encrypted column; use `db:rotate:health-encryption` under a maintenance window
+> (Step 4d).
 
 > **Remote connection strings need `?sslmode=verify-full`.** Render (and most
 > managed Postgres) refuse non-TLS external connections. Prisma's *migration
@@ -343,7 +348,7 @@ env vars on `swe-api` (dashboard → Environment):
 | `WEBAUTHN_ORIGIN` | `https://demo.schoolwithease.com` |
 | `WEBAUTHN_ALLOWED_ORIGINS` | `https://demo.schoolwithease.com` |
 | `JWT_SECRET` | from Step 2 |
-| `ENCRYPTION_KEY` | from Step 2 — **required to boot**, exactly 44 base64 chars (`openssl rand -base64 32`). A missing/malformed value crashes the instance → Render `update_failed`. |
+| `ENCRYPTION_KEY` | from Step 2 — **required to boot**, a base64-encoded 32-byte key (`openssl rand -base64 32` → 44 chars). A missing or wrong-size value crashes the instance → Render `update_failed`. Do **not** reuse a `JWT_SECRET`-style `-base64 64` value. |
 | `ANTHROPIC_API_KEY` / `VOYAGE_API_KEY` | your keys (optional; AI degrades gracefully) |
 | `STORAGE_S3_*` | from Step 7 (set now; consumed in D1) |
 
