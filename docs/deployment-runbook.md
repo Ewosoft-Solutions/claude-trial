@@ -231,6 +231,83 @@ These create accounts with well-known passwords — acceptable for synthetic dem
 data, but **rotate them before any UAT client touches the environment**, and
 never run them against production.
 
+## Step 4d — Re-seed on redeploy (when a release changes roles/permissions/policies)
+
+Step 4b is the *first* seed of an empty database. This step is the recurring
+companion: **an environment that already has data must be re-seeded whenever a
+release changes the permission catalog, roles, permission pools, or the
+sensitive-operation policies.** The CD `migrate` job (`pnpm db:deploy`) applies
+schema migrations automatically, but it does **not** run the seed — so this is a
+manual step the operator runs after such a release.
+
+Whether a release needs it: if the diff touches `packages/database/prisma/scripts/seed.ts`
+(role/pool/permission definitions) or `packages/database/src/sensitive-operations.ts`,
+re-seed. (Example: the platform permission split — `platform.tenants` became
+`platform.tenants.read`/`.act`/`.inspect` plus `platform.metrics` /
+`platform.privileges` / `platform.approvals.override`. Without a re-seed, an
+existing environment keeps the old single permission and platform roles get the
+wrong access.)
+
+**The base seed is idempotent and data-safe.** It upserts roles, pools,
+permissions, and their assignments; it does **not** touch tenant rows, user
+accounts, or seeded personas. Re-running it only reconciles the
+authorization catalog. Same connection-string requirements as Step 4b
+(`sslmode=verify-full`, `app.is_platform=on`, `SEED_ARCHITECT_EMAIL`):
+
+```bash
+# Migrations must already be applied (CD migrate job, or Step 3 manually).
+SEED_ARCHITECT_EMAIL='architect@yourdomain.com' DATABASE_URL="$DEMO_DB" \
+  pnpm --filter @workspace/database db:seed
+
+DATABASE_URL="$DEMO_DB" pnpm --filter @workspace/database db:verify
+```
+
+**Two things that will bite — do not skip:**
+
+1. **`EXPECTED_PERMISSION_COUNTS` must match the catalog.** The seed asserts the
+   total and per-array permission counts at startup and aborts on a mismatch, so
+   a release that changed permissions must have updated those numbers in the same
+   commit. If the re-seed aborts here, the code and the guard disagree — fix the
+   code, don't work around the guard. (This is a feature: it caught the platform
+   split before it wrote a single row.)
+
+2. **The seed upserts but never *prunes*.** A permission *removed* from the
+   catalog stays in the database, still attached to its pools, still granted.
+   After re-seeding, delete any now-orphaned permissions by hand. For the
+   platform split:
+
+   ```sql
+   -- As owner, with app.is_platform=on. The bundled permission was replaced by
+   -- three facets; leaving it would keep a stale level-10 grant on Architect.
+   DELETE FROM "roles-permissions".permissions WHERE name = 'platform.tenants';
+   ```
+
+   Verify the catalog is what you expect before moving on:
+
+   ```sql
+   SELECT name FROM "roles-permissions".permissions
+   WHERE name LIKE 'platform.tenants%' ORDER BY name;
+   -- expect exactly: platform.tenants.act, platform.tenants.inspect, platform.tenants.read
+   ```
+
+Do the re-seed **before** cutting traffic to the new API build: a running API
+resolves permissions from the database, so between the schema migration and the
+re-seed the platform roles are briefly on the old catalog.
+
+> **Same-release companion — health-data encryption backfill.** The release that
+> introduced the permission split also turned on at-rest encryption for health
+> narrative fields (0.5.7). New writes are enveloped automatically, but rows that
+> predate the cutover stay plaintext until backfilled. Run once, with the **same
+> `ENCRYPTION_KEY` the API uses**, after migrations:
+>
+> ```bash
+> ENCRYPTION_KEY="$API_ENCRYPTION_KEY" DATABASE_URL="$DEMO_DB" \
+>   pnpm --filter @workspace/database db:backfill:health-encryption
+> ```
+>
+> Idempotent (skips already-enveloped rows). Key rotation later uses
+> `db:rotate:health-encryption` (OLD + NEW key) under a maintenance window.
+
 ## Step 5 — Render Key Value (Redis)
 
 Render → **New → Key Value**. Name `swe-keyvalue`, region **Oregon**, plan
