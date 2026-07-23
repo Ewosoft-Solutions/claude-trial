@@ -11,12 +11,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiClient, ApiError } from '@/lib/api-client';
 import {
+  clearAuthCookie,
   COOKIE_ACCESS_TOKEN,
   COOKIE_POST_LOGIN_REDIRECT,
   COOKIE_REFRESH_TOKEN,
   isSafeRedirectPath,
-  makeClearCookie,
-  makeSetCookie,
+  setAuthCookie,
 } from '@/lib/auth-cookies';
 
 interface VerifyMfaBody {
@@ -42,7 +42,12 @@ interface SelectSchoolApiResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
-  tenantContext: { tenantId: string; profileId: string; userId: string; roleId: string };
+  tenantContext: {
+    tenantId: string;
+    profileId: string;
+    userId: string;
+    roleId: string;
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -56,7 +61,10 @@ export async function POST(req: NextRequest) {
     );
 
     if (!verifyRes.success) {
-      return NextResponse.json({ error: 'MFA verification failed' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'MFA verification failed' },
+        { status: 401 },
+      );
     }
 
     // The code was correct, but the password must be rotated before a session
@@ -67,7 +75,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (!verifyRes.token) {
-      return NextResponse.json({ error: 'MFA verification failed' }, { status: 401 });
+      return NextResponse.json(
+        { error: 'MFA verification failed' },
+        { status: 401 },
+      );
     }
 
     // Step 2 — select school (pick first available)
@@ -90,7 +101,9 @@ export async function POST(req: NextRequest) {
     );
 
     const redirectCookie = req.cookies.get(COOKIE_POST_LOGIN_REDIRECT)?.value;
-    const redirectTo = isSafeRedirectPath(redirectCookie) ? redirectCookie : undefined;
+    const redirectTo = isSafeRedirectPath(redirectCookie)
+      ? redirectCookie
+      : undefined;
 
     const response = NextResponse.json({
       success: true,
@@ -98,15 +111,19 @@ export async function POST(req: NextRequest) {
       redirectTo,
     });
 
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_ACCESS_TOKEN, selectRes.accessToken, selectRes.expiresIn),
+    setAuthCookie(
+      response,
+      COOKIE_ACCESS_TOKEN,
+      selectRes.accessToken,
+      selectRes.expiresIn,
     );
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_REFRESH_TOKEN, selectRes.refreshToken, 7 * 24 * 3600),
+    setAuthCookie(
+      response,
+      COOKIE_REFRESH_TOKEN,
+      selectRes.refreshToken,
+      7 * 24 * 3600,
     );
-    response.headers.append('Set-Cookie', makeClearCookie(COOKIE_POST_LOGIN_REDIRECT));
+    clearAuthCookie(response, COOKIE_POST_LOGIN_REDIRECT);
 
     return response;
   } catch (err) {
@@ -114,6 +131,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: err.message }, { status: err.status });
     }
     console.error('[auth/verify-mfa]', err);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 },
+    );
   }
 }

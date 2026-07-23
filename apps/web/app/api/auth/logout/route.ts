@@ -9,11 +9,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { apiClient } from '@/lib/api-client';
 import {
+  clearAuthCookie,
   COOKIE_ACCESS_TOKEN,
-  COOKIE_REFRESH_TOKEN,
   COOKIE_POST_LOGIN_REDIRECT,
+  COOKIE_REFRESH_TOKEN,
   COOKIE_SESSION_RESUME,
-  makeClearCookie,
 } from '@/lib/auth-cookies';
 import {
   buildLogoutRequest,
@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
   }
 
   const response = NextResponse.json({ success: true });
-  response.headers.append('Set-Cookie', makeClearCookie(COOKIE_ACCESS_TOKEN));
-  response.headers.append('Set-Cookie', makeClearCookie(COOKIE_REFRESH_TOKEN));
+  clearAuthCookie(response, COOKIE_ACCESS_TOKEN);
+  clearAuthCookie(response, COOKIE_REFRESH_TOKEN);
 
   const forwardedHost = req.headers
     .get('x-forwarded-host')

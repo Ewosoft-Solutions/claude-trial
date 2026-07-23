@@ -5,7 +5,7 @@
  * Implements items 3.6 and 3.7.
  */
 
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { PrismaClient } from '@workspace/database';
@@ -66,6 +66,7 @@ const PRE_AUTH_TOKEN_EXPIRY = 300;
 
 @Injectable()
 export class AuthJWTService {
+  private readonly logger = new Logger(AuthJWTService.name);
   private readonly globalSecret: string;
 
   constructor(
@@ -73,7 +74,8 @@ export class AuthJWTService {
     configService: ConfigService,
   ) {
     this.globalSecret =
-      configService.get<string>('JWT_SECRET') || 'schoolwithease-default-secret';
+      configService.get<string>('JWT_SECRET') ||
+      'schoolwithease-default-secret';
   }
 
   /**
@@ -135,6 +137,40 @@ export class AuthJWTService {
   }
 
   /**
+   * Both validators return null for "this token is not usable", which is the
+   * right contract — but it used to swallow the REASON, and the two reasons are
+   * nothing alike:
+   *
+   *   - the token is expired, malformed or signed with another key. Routine,
+   *     happens constantly, says nothing is wrong.
+   *   - the tenant's signing secret could not be READ. That is infrastructure
+   *     failing, and it reports as "invalid token" → 401 → the web client
+   *     clears its cookies and bounces to /login. A login loop with no error
+   *     anywhere, which is precisely how this cost an afternoon on demo.
+   *
+   * So: JWT verification errors stay quiet, anything else is logged loudly.
+   */
+  private explainValidationFailure(
+    error: unknown,
+    tokenType: 'access' | 'refresh',
+    tenantId: string,
+  ): void {
+    const name = error instanceof Error ? error.name : '';
+    const isJwtError =
+      name === 'JsonWebTokenError' ||
+      name === 'TokenExpiredError' ||
+      name === 'NotBeforeError';
+
+    if (isJwtError) return;
+
+    this.logger.error(
+      `Could not validate ${tokenType} token for tenant ${tenantId} — this is ` +
+        `NOT a bad token. Callers will see a 401 and treat the session as ` +
+        `expired: ${error instanceof Error ? `${error.name}: ${error.message}` : String(error)}`,
+    );
+  }
+
+  /**
    * Validate access token with school-specific secret (3.7)
    *
    * @param prisma - Prisma client instance
@@ -169,8 +205,8 @@ export class AuthJWTService {
       }
 
       return payload;
-    } catch {
-      // Token is invalid
+    } catch (error) {
+      this.explainValidationFailure(error, 'access', tenantId);
       return null;
     }
   }
@@ -210,8 +246,8 @@ export class AuthJWTService {
       }
 
       return payload;
-    } catch {
-      // Token is invalid
+    } catch (error) {
+      this.explainValidationFailure(error, 'refresh', tenantId);
       return null;
     }
   }

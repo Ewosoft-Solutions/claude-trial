@@ -9,10 +9,10 @@ import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { apiClient, ApiError } from '@/lib/api-client';
 import {
+  clearAuthCookie,
   COOKIE_ACCESS_TOKEN,
   COOKIE_REFRESH_TOKEN,
-  makeSetCookie,
-  makeClearCookie,
+  setAuthCookie,
 } from '@/lib/auth-cookies';
 import { isTerminalRefreshFailure } from '@/lib/refresh-error';
 
@@ -38,9 +38,11 @@ export async function POST() {
       success: true,
       accessExpiresAt: Date.now() + res.expiresIn * 1000,
     });
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_ACCESS_TOKEN, res.accessToken, res.expiresIn),
+    setAuthCookie(
+      response,
+      COOKIE_ACCESS_TOKEN,
+      res.accessToken,
+      res.expiresIn,
     );
 
     return response;
@@ -57,14 +59,8 @@ export async function POST() {
         { error: 'Session expired' },
         { status: 401 },
       );
-      response.headers.append(
-        'Set-Cookie',
-        makeClearCookie(COOKIE_ACCESS_TOKEN),
-      );
-      response.headers.append(
-        'Set-Cookie',
-        makeClearCookie(COOKIE_REFRESH_TOKEN),
-      );
+      clearAuthCookie(response, COOKIE_ACCESS_TOKEN);
+      clearAuthCookie(response, COOKIE_REFRESH_TOKEN);
       return response;
     }
     console.error('[auth/refresh]', err);

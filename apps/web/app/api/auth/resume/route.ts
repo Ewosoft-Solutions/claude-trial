@@ -5,7 +5,7 @@ import { apiClient, ApiError } from '@/lib/api-client';
 import {
   COOKIE_ACCESS_TOKEN,
   COOKIE_SESSION_RESUME,
-  makeClearCookie,
+  clearAuthCookie,
 } from '@/lib/auth-cookies';
 import { resolveResumeTarget } from '@/lib/resume-routes';
 import { verifyResumeState } from '@/lib/resume-state';
@@ -33,10 +33,7 @@ export async function POST() {
     ]);
     const result = resolveResumeTarget(state, me);
     const response = NextResponse.json(result);
-    response.headers.append(
-      'Set-Cookie',
-      makeClearCookie(COOKIE_SESSION_RESUME),
-    );
+    clearAuthCookie(response, COOKIE_SESSION_RESUME);
     return response;
   } catch (error) {
     if (error instanceof ApiError) {
