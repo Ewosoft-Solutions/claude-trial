@@ -15,13 +15,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiClient, ApiError, apiErrorBody } from '@/lib/api-client';
 import {
+  clearAuthCookie,
   COOKIE_ACCESS_TOKEN,
   COOKIE_POST_LOGIN_REDIRECT,
   COOKIE_REFRESH_TOKEN,
   isSafeRedirectPath,
-  makeClearCookie,
-  makeSetCookie,
-  makeSetHintCookie,
+  setAuthCookie,
+  setHintCookie,
 } from '@/lib/auth-cookies';
 
 interface LoginBody {
@@ -33,7 +33,12 @@ interface LoginBody {
 
 interface LoginApiResponse {
   success: boolean;
-  user: { id: string; email: string; firstName: string | null; lastName: string | null };
+  user: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+  };
   // Minimal school-picker shape — no role/org detail until after select-school.
   schools: Array<{
     tenantId: string;
@@ -144,7 +149,9 @@ export async function POST(req: NextRequest) {
     // Single-use post-login redirect, read from the httpOnly cookie the
     // auth middleware set (never trust a client-supplied value here either).
     const redirectCookie = req.cookies.get(COOKIE_POST_LOGIN_REDIRECT)?.value;
-    const redirectTo = isSafeRedirectPath(redirectCookie) ? redirectCookie : undefined;
+    const redirectTo = isSafeRedirectPath(redirectCookie)
+      ? redirectCookie
+      : undefined;
 
     // Set httpOnly cookies — 1 h access, 7 d refresh
     const response = NextResponse.json({
@@ -154,23 +161,28 @@ export async function POST(req: NextRequest) {
       redirectTo,
     });
 
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_ACCESS_TOKEN, selectRes.accessToken, selectRes.expiresIn),
+    // Via cookies.set, not headers.append: appending four Set-Cookie headers
+    // silently dropped the FIRST one, so the access token never reached the
+    // browser while the other three did — see the note in lib/auth-cookies.ts.
+    setAuthCookie(
+      response,
+      COOKIE_ACCESS_TOKEN,
+      selectRes.accessToken,
+      selectRes.expiresIn,
     );
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_REFRESH_TOKEN, selectRes.refreshToken, 7 * 24 * 3600),
+    setAuthCookie(
+      response,
+      COOKIE_REFRESH_TOKEN,
+      selectRes.refreshToken,
+      7 * 24 * 3600,
     );
-    response.headers.append('Set-Cookie', makeClearCookie(COOKIE_POST_LOGIN_REDIRECT));
+    clearAuthCookie(response, COOKIE_POST_LOGIN_REDIRECT);
     // Returning-user hint (readable, no credential) so the next visit can greet
     // them and offer passkey sign-in. 30-day life; persists across logout.
-    response.headers.append(
-      'Set-Cookie',
-      makeSetHintCookie(
-        { firstName: loginRes.user.firstName, email: loginRes.user.email },
-        30 * 24 * 3600,
-      ),
+    setHintCookie(
+      response,
+      { firstName: loginRes.user.firstName, email: loginRes.user.email },
+      30 * 24 * 3600,
     );
 
     return response;

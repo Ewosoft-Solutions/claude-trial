@@ -11,13 +11,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { apiClient, ApiError } from '@/lib/api-client';
 import {
+  clearAuthCookie,
   COOKIE_ACCESS_TOKEN,
   COOKIE_POST_LOGIN_REDIRECT,
   COOKIE_REFRESH_TOKEN,
   isSafeRedirectPath,
-  makeClearCookie,
-  makeSetCookie,
-  makeSetHintCookie,
+  setAuthCookie,
+  setHintCookie,
 } from '@/lib/auth-cookies';
 
 interface VerifyBody {
@@ -100,28 +100,23 @@ export async function POST(req: NextRequest) {
       redirectTo,
     });
 
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(
-        COOKIE_ACCESS_TOKEN,
-        selectRes.accessToken,
-        selectRes.expiresIn,
-      ),
+    setAuthCookie(
+      response,
+      COOKIE_ACCESS_TOKEN,
+      selectRes.accessToken,
+      selectRes.expiresIn,
     );
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_REFRESH_TOKEN, selectRes.refreshToken, 7 * 24 * 3600),
+    setAuthCookie(
+      response,
+      COOKIE_REFRESH_TOKEN,
+      selectRes.refreshToken,
+      7 * 24 * 3600,
     );
-    response.headers.append(
-      'Set-Cookie',
-      makeClearCookie(COOKIE_POST_LOGIN_REDIRECT),
-    );
-    response.headers.append(
-      'Set-Cookie',
-      makeSetHintCookie(
-        { firstName: loginRes.user.firstName, email: loginRes.user.email },
-        30 * 24 * 3600,
-      ),
+    clearAuthCookie(response, COOKIE_POST_LOGIN_REDIRECT);
+    setHintCookie(
+      response,
+      { firstName: loginRes.user.firstName, email: loginRes.user.email },
+      30 * 24 * 3600,
     );
 
     return response;

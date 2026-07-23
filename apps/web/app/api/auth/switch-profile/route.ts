@@ -22,7 +22,7 @@ import { apiClient } from '@/lib/api-client';
 import {
   COOKIE_ACCESS_TOKEN,
   COOKIE_REFRESH_TOKEN,
-  makeSetCookie,
+  setAuthCookie,
 } from '@/lib/auth-cookies';
 import {
   apiErrorResponse,
@@ -74,13 +74,17 @@ export async function POST(req: NextRequest) {
       tenantContext: result.tenantContext,
     });
 
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_ACCESS_TOKEN, result.accessToken, result.expiresIn),
+    setAuthCookie(
+      response,
+      COOKIE_ACCESS_TOKEN,
+      result.accessToken,
+      result.expiresIn,
     );
-    response.headers.append(
-      'Set-Cookie',
-      makeSetCookie(COOKIE_REFRESH_TOKEN, result.refreshToken, 7 * 24 * 3600),
+    setAuthCookie(
+      response,
+      COOKIE_REFRESH_TOKEN,
+      result.refreshToken,
+      7 * 24 * 3600,
     );
 
     return response;
