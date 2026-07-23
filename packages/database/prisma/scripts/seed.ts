@@ -3570,6 +3570,13 @@ async function seedPlatformBootstrap(
     update: {},
     create: {
       userTenantId: architectProfile.id,
+      // Denormalized from the parent user_tenant for RLS scoping. Omitting it
+      // left this row with tenant_id = NULL, which the strict user_tenant_roles
+      // policy filters out under a tenant scope — so the Architect's role never
+      // loaded, getUserPermissionContext returned null, and /auth/me answered
+      // "Session context unavailable", looping the platform login. Every other
+      // insert path already sets this; the platform bootstrap was the one gap.
+      tenantId: platformTenant.id,
       roleId: architectRoleId,
       isPrimary: true,
     },
