@@ -119,6 +119,29 @@ unrelated to RLS, but worth a decision on whether they should be.
 
 ## Stage 3 — genuinely tenant-scoped reads
 
+**Progress (2026-07-23): the login-critical slice is done.** Demo verification
+of Stages 1–2 got past the school picker and then hit `selectSchool` — the
+predicted next domino: it re-read `user_tenants` (plus the `user_tenant_roles`
+include) unscoped, and `getTenantJWTSecretInternal` read `tenant_jwt_configs`
+unscoped, which would also have failed the auth guard on _every_ authenticated
+request. Fixed:
+
+- `selectSchool` reads the profile under `withTenantScope` — scoping to the
+  _claimed_ tenant is safe because it only reveals that tenant's rows and the
+  explicit ownership check still gates token issuance.
+- `getTenantJWTSecretInternal` self-scopes its one read (same pattern as
+  `writeAuditLog`), which transparently fixes the guard, select-school signing,
+  and refresh — every caller, current and future.
+- `setDefaultProfile` reads under `withUserScope`.
+
+**Known degradation, still open:** `user_tenant_roles` has no user-scope read
+disjunct, so the `userTenantRole` include inside `withUserScope`-wrapped
+`getAvailableSchools` comes back empty on demo. Login is unaffected (the school
+picker deliberately strips roles), but `/auth/me` profile captions degrade to
+the `'Staff'` fallback. Fix belongs with the rest of Stage 3 — either a policy
+disjunct via `EXISTS` against `user_tenants`, or reading roles under the
+selected tenant's scope post-selection.
+
 The nine Class-4 files read real tenant data through the privileged client:
 `SecurityPolicyService`, `SessionPolicyService`, `SensitiveOperationPolicyService`,
 `JWTSecretService`, `PermissionService` (`class_teachers`, `enrollments`,
