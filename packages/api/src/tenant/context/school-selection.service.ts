@@ -143,6 +143,7 @@ export class SchoolSelectionService {
     const userTenant = await TenantQueriesService.getUserTenantProfile(
       prisma,
       profileId,
+      tenantId,
     );
 
     if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {

@@ -12,6 +12,7 @@ import {
   getSensitiveOperationDefinition,
   type SensitiveOperationDefinition,
 } from '@workspace/database';
+import { withTenantScope, withUserScope } from '@workspace/database/rls';
 import type {
   BiometricEnrollmentPolicy,
   CreateSensitiveOperationChangeRequestDto,
@@ -128,24 +129,32 @@ export class SensitiveOperationPolicyService {
     tenantId: string,
     userId: string,
   ): Promise<EffectiveBiometricEnrollmentPolicy> {
+    // Deliberately account-wide, so it reads under the USER scope rather than
+    // the active tenant's: the question is "do any of this user's schools
+    // require biometrics?", and answering it under one tenant's scope would
+    // report only that tenant. Migration
+    // 20260723160000_membership_derived_user_scope grants exactly this — a
+    // user may read the policy posture of schools they are an active member of.
     const [active, requiredPolicies] = await Promise.all([
       this.getBiometricEnrollmentPolicy(prisma, tenantId),
-      prisma.schoolSecurityPolicy.findMany({
-        where: {
-          biometricEnrollmentPolicy: 'require',
-          school: {
-            status: 'active',
-            userTenants: {
-              some: { userId, status: 'active', suspended: false },
+      withUserScope(prisma, userId, (tx) =>
+        tx.schoolSecurityPolicy.findMany({
+          where: {
+            biometricEnrollmentPolicy: 'require',
+            school: {
+              status: 'active',
+              userTenants: {
+                some: { userId, status: 'active', suspended: false },
+              },
             },
           },
-        },
-        select: {
-          schoolId: true,
-          school: { select: { name: true } },
-        },
-        orderBy: { school: { name: 'asc' } },
-      }),
+          select: {
+            schoolId: true,
+            school: { select: { name: true } },
+          },
+          orderBy: { school: { name: 'asc' } },
+        }),
+      ),
     ]);
 
     const requiredBy = requiredPolicies.map((entry) => ({
@@ -166,14 +175,16 @@ export class SensitiveOperationPolicyService {
     actorId: string,
   ): Promise<{ policy: BiometricEnrollmentPolicy }> {
     await this.securityPolicies.getOrCreateDefaultPolicy(prisma, tenantId);
-    const updated = await prisma.schoolSecurityPolicy.update({
-      where: { schoolId: tenantId },
-      data: {
-        biometricEnrollmentPolicy: policy,
-        updatedBy: actorId,
-      },
-      select: { biometricEnrollmentPolicy: true },
-    });
+    const updated = await withTenantScope(prisma, tenantId, actorId, (tx) =>
+      tx.schoolSecurityPolicy.update({
+        where: { schoolId: tenantId },
+        data: {
+          biometricEnrollmentPolicy: policy,
+          updatedBy: actorId,
+        },
+        select: { biometricEnrollmentPolicy: true },
+      }),
+    );
     return {
       policy: this.normalizeBiometricPolicy(updated.biometricEnrollmentPolicy),
     };
@@ -204,18 +215,21 @@ export class SensitiveOperationPolicyService {
     // switching to an "allow" tenant must not bypass another active school's
     // "require" policy.
     await this.getBiometricEnrollmentPolicy(prisma, tenantId);
-    const requiredMembership = await prisma.schoolSecurityPolicy.findFirst({
-      where: {
-        biometricEnrollmentPolicy: 'require',
-        school: {
-          status: 'active',
-          userTenants: {
-            some: { userId, status: 'active', suspended: false },
+    // Account-wide by design (see the comment above) — user scope, not tenant.
+    const requiredMembership = await withUserScope(prisma, userId, (tx) =>
+      tx.schoolSecurityPolicy.findFirst({
+        where: {
+          biometricEnrollmentPolicy: 'require',
+          school: {
+            status: 'active',
+            userTenants: {
+              some: { userId, status: 'active', suspended: false },
+            },
           },
         },
-      },
-      select: { schoolId: true },
-    });
+        select: { schoolId: true },
+      }),
+    );
     if (!requiredMembership) return;
 
     const activePasskeys = await prisma.mfaMethod.count({

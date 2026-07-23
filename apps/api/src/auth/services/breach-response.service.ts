@@ -10,6 +10,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import {
   AUDIT_ACTION,
   AUDIT_EVENT,
@@ -161,23 +162,31 @@ export class BreachResponseService {
     schoolId: string,
     options: BreachResponseOptions,
   ): Promise<void> {
-    // Get all active users in school
-    const userTenants = await prisma.userTenant.findMany({
-      where: {
-        tenantId: schoolId,
-        status: 'active',
-        suspended: false,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            isActive: true,
+    // Get all active users in school. Scoped — an unscoped read returns no
+    // one, and this is incident response: silently resetting zero passwords
+    // during a breach is the worst possible failure mode.
+    const userTenants = await withTenantScope(
+      prisma,
+      schoolId,
+      undefined,
+      (tx) =>
+        tx.userTenant.findMany({
+          where: {
+            tenantId: schoolId,
+            status: 'active',
+            suspended: false,
           },
-        },
-      },
-    });
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                isActive: true,
+              },
+            },
+          },
+        }),
+    );
 
     // Force password reset for each user
     for (const userTenant of userTenants) {
@@ -413,16 +422,19 @@ export class BreachResponseService {
     prisma: PrismaClient,
     schoolId: string,
   ): Promise<void> {
-    // Get all active profiles for school
-    const profiles = await prisma.userTenant.findMany({
-      where: {
-        tenantId: schoolId,
-        status: 'active',
-      },
-      select: {
-        id: true,
-      },
-    });
+    // Get all active profiles for school. Scoped for the same reason as
+    // forcePasswordReset: revoking zero sessions during a breach is silent.
+    const profiles = await withTenantScope(prisma, schoolId, undefined, (tx) =>
+      tx.userTenant.findMany({
+        where: {
+          tenantId: schoolId,
+          status: 'active',
+        },
+        select: {
+          id: true,
+        },
+      }),
+    );
 
     // Revoke sessions for each profile
     for (const profile of profiles) {
@@ -745,21 +757,27 @@ export class BreachResponseService {
       requiresPasswordReset: boolean;
     },
   ): Promise<void> {
-    // Get all active users in school
-    const userTenants = await prisma.userTenant.findMany({
-      where: {
-        tenantId: schoolId,
-        status: 'active',
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
+    // Get all active users in school (scoped — see forcePasswordReset).
+    const userTenants = await withTenantScope(
+      prisma,
+      schoolId,
+      undefined,
+      (tx) =>
+        tx.userTenant.findMany({
+          where: {
+            tenantId: schoolId,
+            status: 'active',
           },
-        },
-      },
-    });
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+              },
+            },
+          },
+        }),
+    );
 
     // TODO: Send notifications to users
     // For now, we'll log it

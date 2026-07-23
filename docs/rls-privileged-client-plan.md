@@ -1,6 +1,9 @@
 # Correcting the privileged-client assumption under ADR-004
 
-Status: Stages 1–2 landed 2026-07-23. Stages 3–4 open.
+Status: Stages 1–4 landed 2026-07-23. Every tenant-scoped read in `apps/api`
+now carries a scope — the unscoped-read baseline is empty — with one documented
+exception (`respondToProfileBreach`, which needs a platform-scope conversion
+rather than a scope).
 
 ## The contradiction
 
@@ -119,65 +122,119 @@ unrelated to RLS, but worth a decision on whether they should be.
 
 ## Stage 3 — genuinely tenant-scoped reads
 
-**Progress (2026-07-23): the login-critical slice is done.** Demo verification
-of Stages 1–2 got past the school picker and then hit `selectSchool` — the
-predicted next domino: it re-read `user_tenants` (plus the `user_tenant_roles`
-include) unscoped, and `getTenantJWTSecretInternal` read `tenant_jwt_configs`
-unscoped, which would also have failed the auth guard on _every_ authenticated
-request. Fixed:
+**Done: every path a request must traverse.** Verifying Stages 1–2 on demo
+walked the dominoes one at a time — picker, then select-school, then the auth
+guard — so the remaining work was traced ahead of deployment rather than
+discovered one failed login at a time.
 
-- `selectSchool` reads the profile under `withTenantScope` — scoping to the
-  _claimed_ tenant is safe because it only reveals that tenant's rows and the
-  explicit ownership check still gates token issuance.
-- `getTenantJWTSecretInternal` self-scopes its one read (same pattern as
-  `writeAuditLog`), which transparently fixes the guard, select-school signing,
-  and refresh — every caller, current and future.
-- `setDefaultProfile` reads under `withUserScope`.
+Scoped, by the scope each question actually needs:
 
-**Known degradation, still open:** `user_tenant_roles` has no user-scope read
-disjunct, so the `userTenantRole` include inside `withUserScope`-wrapped
-`getAvailableSchools` comes back empty on demo. Login is unaffected (the school
-picker deliberately strips roles), but `/auth/me` profile captions degrade to
-the `'Staff'` fallback. Fix belongs with the rest of Stage 3 — either a policy
-disjunct via `EXISTS` against `user_tenants`, or reading roles under the
-selected tenant's scope post-selection.
+| Path                                                           | Scope                | Why that one                                                                                                                                                                                        |
+| -------------------------------------------------------------- | -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `getUserTenantProfile` (every authorization decision)          | tenant               | `tenantId` is now a **required** parameter, so an unscoped call is a compile error rather than a silent empty result                                                                                |
+| `PermissionService` context checks (`own_classes`, `children`) | tenant               | Only the two DB-backed branches open a scope; `own`/`department` touch no tables and stay out of it, since this runs on every authorization decision                                                |
+| `getTenantJWTSecretInternal`                                   | tenant               | Backs the auth guard — one fix covers guard validation, signing and refresh                                                                                                                         |
+| `selectSchool`, `switchProfile`                                | claimed tenant       | Reveals only the claimed tenant's rows; the caller's ownership check still gates the outcome                                                                                                        |
+| `validateUserAccess`, `validateUserRole`                       | tenant               | Both already receive the tenant                                                                                                                                                                     |
+| `getAvailableProfiles`, `hasMultipleProfiles`                  | tenant               | Within one school by definition                                                                                                                                                                     |
+| `validatePasswordAgainstAllSchools`                            | user                 | Cross-tenant by nature, about one user, on a path with no tenant selected                                                                                                                           |
+| `SecurityPolicyService`, `SessionPolicyService`                | tenant (`school_id`) | Guard-path and `/auth/me`; one scope covers read, write and the `RETURNING` on create                                                                                                               |
+| Biometric enrolment policy checks                              | **user**             | Deliberately account-wide — passkeys are account credentials, so answering under one tenant's scope would let a user switch to a permissive school and drop a passkey another school still requires |
+| `AuditLogController` (4 handlers)                              | tenant               | Found by the new CI gate: `@PlatformScoped` opens the scope on the `app_runtime` connection, but the controller read via `dbService.client` — a _different_ connection with no GUC                  |
 
-The nine Class-4 files read real tenant data through the privileged client:
-`SecurityPolicyService`, `SessionPolicyService`, `SensitiveOperationPolicyService`,
-`JWTSecretService`, `PermissionService` (`class_teachers`, `enrollments`,
-`grades`, `assessments`, `student_guardians` for context checks),
-`ProfileSuspensionService`, `TenantValidationService`, `TenantQueriesService`,
-`UserManagementService`.
+A second defect surfaced while scoping `PermissionService`:
+`resolveClassIdFromContext` matched `enrollment` / `assessment` / `grade` on
+**id alone, with no tenant filter**, on ids supplied by the caller. RLS was
+silently carrying the correctness of an authorization check. Those lookups now
+filter `tenantId` explicitly as well — belt and braces, because this decides
+access.
 
-These all run **after** school selection, so a tenant context exists — they
-should move onto `TenantDbService.runScoped(tenantId, userId, …)`, which is what
-ADR-004 intended for them. Mostly mechanical, but each needs its guard/interceptor
-ordering checked: the scope must be open before the query, and guards currently
-run outside it.
+Migration `20260723160000_membership_derived_user_scope` adds user-scope read
+grants to `user_tenant_roles` (fixing the `/auth/me` "Staff" caption
+degradation) and `school_security_policies` (making the account-wide biometric
+check answerable). Both are `USING`-only and anchored by `EXISTS` against
+`user_tenants` rows the caller can already see.
 
-Note `PermissionService` is on the hot path for every authorization decision, so
-it wants care and its own tests.
+**The admin-tier tail is now done too.** All nine files scoped; the
+unscoped-read baseline is empty. Several of them turned out to hide a worse
+defect than "returns nothing":
 
-## Stage 4 — retire the bypass assumption
+| Site                                                     | Latent defect                                                                                                                                                                                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RoleService.validateCustomRoleCreation`                 | `Math.max(...[])` is `-Infinity`, so an unresolvable permission pool **passed** the clearance gate. Now fails closed when any requested pool does not resolve.                                                                                               |
+| `PermissionPoolService.validatePermissionPoolAssignment` | Same fail-open shape, same fix.                                                                                                                                                                                                                              |
+| `RoleService.updateRoleClearance`                        | Invisible `rolePools` make `conflictingRoles` empty, lowering a role's clearance while over-clearance pools stay attached.                                                                                                                                   |
+| `PermissionPoolService.updatePoolClearance`              | Mirror image: raising a pool's clearance above roles that still reference it.                                                                                                                                                                                |
+| Role-name and one-profile-per-role uniqueness checks     | An unscoped read finds nothing and reports the name/role as free — a uniqueness check that silently permits duplicates.                                                                                                                                      |
+| `TenantRegistrationService`                              | The requester's role id resolves to a name for `canRegisterTenant`. Unscoped it returns null and the UUID fallback is rejected — fail-closed, but it locks out exactly the clearance-8 school Owners the endpoint exists for. Now takes `requesterTenantId`. |
 
-Once Stages 1–3 land, no path depends on the privileged client bypassing RLS.
-At that point:
+Several multi-step writes were folded into a single scope, which makes them
+atomic as a side effect: role creation + pool assignment + approval request;
+profile creation + role assignment; the role-swap in `updateUserProfile`, which
+deletes before it creates and could previously leave a profile with no role.
 
-1. Repoint the auth/guard paths at `app_runtime` too, so `DATABASE_URL` is used
-   only by migrations and seeds — the state ADR-004 describes.
-2. Correct the gate that already exists rather than adding one.
-   `apps/api/scripts/check-privileged-db-usage.mjs` runs in CI and ratchets
-   privileged-client usage down — but it encodes the very assumption that broke
-   here, in its own docstring: _"the privileged Prisma connection, which Postgres
-   RLS does not constrain."_ It then allowlists `src/auth/` and `src/common/`
-   wholesale, on the grounds that they "run before a tenant context exists".
-   That allowlist is exactly why nothing flagged the login path. Once Stage 3
-   lands, narrow it — a path that runs before a tenant context exists still needs
-   _some_ scope, and "pre-tenant" is not a licence to hold an unconstrained
-   connection.
-3. Amend ADR-004 to say explicitly that no runtime connection bypasses RLS, and
-   that FORCE RLS applies to the owner — the assumption that broke here was never
-   written down, which is why it survived to production.
+Migration `20260723180000_invitation_token_scope` adds the last scope kind: the
+invitation-acceptance flow is unauthenticated (the account has no password until
+it succeeds) and pre-tenant (discovering the tenant from the token IS the
+operation), so neither existing scope can be formed. Possession of the
+high-entropy, single-use, time-limited token authorises reading exactly the row
+that token belongs to — `USING` only, so the write that accepts it runs under
+the tenant scope discovered from that row.
+
+**One deliberate exception**, still unscoped and now the only known gap:
+`BreachResponseService.respondToProfileBreach`. It is `@RequireClearanceLevel(9)`
+— platform-admin-only and genuinely cross-tenant — so the correct scope is the
+audited platform bypass. That means moving its controller to `@PlatformScoped`
+with a real permission, which is an auth-model change (clearance gate →
+permission gate) needing a seeded permission, not an RLS fix. Doing it blind
+risks locking out incident response. The school-level breach paths, which have a
+`schoolId`, are scoped.
+
+Also still dead code, and worth deleting rather than scoping:
+`ProfileSuspensionService` (no callers) and
+`TenantValidationService.validateProfile` (no callers, given a required
+`tenantId` so a future caller cannot inherit the bug).
+
+## Stage 4 — retire the bypass assumption (done)
+
+1. **ADR-004 amended.** The assumption that broke here was never written down,
+   which is why it survived to production. The amendment states plainly that no
+   runtime connection bypasses RLS, that "privileged client" means "owns the
+   pool" and never "sees everything", and that a pre-tenant path needs a
+   _different_ scope rather than no scope. It also corrects the original text's
+   claim that the owner "bypasses RLS".
+
+2. **The CI gate now catches this class.** A gate already existed —
+   `apps/api/scripts/check-privileged-db-usage.mjs` — but it encoded the very
+   assumption that failed, in its own docstring, and allowlisted `src/auth/` and
+   `src/common/` wholesale on the grounds that they "run before a tenant context
+   exists". That allowlist is exactly why nothing flagged the broken login path.
+
+   It now runs a second, narrower check: a file that reads a tenant-scoped model
+   with no visible scope marker fails the build. Comments are stripped first, so
+   doc comments and commented-out calls do not produce noise — the fastest way
+   to get a gate disabled is to make it cry wolf. Model list is generated from
+   the Prisma schema (`tenant-scoped-models.json`, 46 models). It found the
+   `AuditLogController` bug on its first run.
+
+   Deliberately file-level and heuristic: proving a given read is scoped needs
+   real dataflow analysis, and a check that is easy to reason about but
+   occasionally coarse is worth more than a precise one nobody trusts.
+
+3. **Unit tests pin the primitive** (`apps/api/src/common/database/rls-scope.spec.ts`).
+   They assert what actually makes a scope work: the GUC is set _inside_ the
+   transaction, _before_ the callback runs, and the callback receives the
+   transaction client — a query on the outer client would run on a different
+   pooled connection where the GUC was never set. Also covers scope inheritance
+   when handed a `TransactionClient`, where nesting is impossible.
+
+**Remaining for a later pass:** repointing auth/guard paths at `app_runtime` so
+`DATABASE_URL` is used only by migrations and seeds. Now unblocked — no path
+reads tenant data unscoped any more — but it is a runtime-topology change that
+wants its own deploy and its own verification, not a rider on this one. Do it
+after demo confirms the scoping work, and note the boot-time
+`RlsEnforcementService` probe already fail-closes if that connection turns out
+to be privileged.
 
 ## Local-vs-deployed divergence
 
@@ -185,5 +242,9 @@ The root cause of the whole class: **local and CI cannot reproduce it**, because
 their owner is a superuser and bypasses RLS. Every one of these bugs is invisible
 until the code runs on managed Postgres.
 
-Worth closing separately — run CI's integration suite as a non-superuser role
-against a FORCE-RLS database, so the deployed topology is what gets tested.
+Worth closing separately, and the highest-value remaining item: run CI's
+integration suite as a non-superuser role against a FORCE-RLS database, so the
+deployed topology is what gets tested. The new gate catches unscoped reads
+statically, but only topology parity catches the next variant of this — a scope
+that is opened on the wrong connection, or a policy that does not mean what its
+author thought.

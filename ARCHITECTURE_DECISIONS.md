@@ -54,6 +54,7 @@ hand, and `tenant_id`-leading indexes keep each query scoped to one tenant's
 slice. Schema-per-tenant was rejected as not scaling to "unlimited schools."
 
 Technical summary:
+
 - Every tenant-scoped table has `ENABLE`/`FORCE ROW LEVEL SECURITY` and a
   `tenant_isolation` policy: `USING`/`WITH CHECK` on
   `tenant_id = NULLIF(current_setting('app.current_tenant_id', true), '')`
@@ -65,7 +66,8 @@ Technical summary:
   `set_config('app.current_tenant_id', $1, true)` (parameterized) inside a
   per-request transaction (`PrismaTransactionService.runInTransaction`).
 - The app must connect as the non-superuser, non-BYPASSRLS `app_runtime` role
-  for policies to bite; migrations/seed run as the owner (which bypasses RLS).
+  for policies to bite; migrations/seed run as the owner. **The owner does NOT
+  bypass RLS on a managed database** — see the 2026-07-23 amendment below.
 - Child tables (enrollments, grades, etc.) carry a denormalized `tenant_id`
   (backfilled from parents) so each has a direct, indexed policy.
 - 23 tables are under RLS; isolation is proven by
@@ -76,6 +78,7 @@ Runtime cutover (2026-07-10 — provisioning + grants COMPLETE, activation is a
 per-environment env flip):
 The DB layer is enforced and proven, and `app_runtime` is now fully prepared to
 run the app:
+
 - (1) `app_runtime` has LOGIN (`rolcanlogin=true`, `rolbypassrls=false`); the
   password is set out-of-band per environment (a secret — never committed).
 - (2) The two-connection plumbing already exists: `DatabaseModule` builds a
@@ -92,8 +95,8 @@ run the app:
 - (4) Isolation verified end-to-end AS `app_runtime` (via `SET ROLE`): a
   tenant-scoped session sees only its own rows (0 cross-tenant leak), and the
   audited `app.is_platform='on'` branch sees all — so RLS bites at runtime.
-Remaining to fully flip a given environment: set the env var above and confirm
-`app.is_platform='on'` is asserted only on authorized platform endpoints.
+  Remaining to fully flip a given environment: set the env var above and confirm
+  `app.is_platform='on'` is asserted only on authorized platform endpoints.
 - (5) Boot-time guard (`RlsEnforcementService`): the API self-tests RLS at
   startup — probes the live runtime connection for a non-superuser,
   non-`BYPASSRLS` role and a working tenant GUC. Fail-closed in production (or
@@ -102,6 +105,7 @@ Remaining to fully flip a given environment: set the env var above and confirm
   `docs/database-setup.md` §6.
 
 Made durable (so new tables adhere automatically):
+
 - CI guard `db:rls:check` (`rls-coverage-check.sql`) FAILS the build if any table
   with a `tenant_id`/`school_id` column lacks RLS + a `tenant_isolation` policy.
 - `ALTER DEFAULT PRIVILEGES` auto-grants future tables to `app_runtime`.
@@ -109,5 +113,43 @@ Made durable (so new tables adhere automatically):
   to any tenant-scoped table missing one, without clobbering existing policies.
 - Convention checklist in `docs/tenant-isolation-plan.md` + `packages/database/README.md`.
 
+Amendment (2026-07-23) — no runtime connection bypasses RLS:
+The original decision carried an unstated assumption: that the owner connection
+(`DATABASE_URL`), used by auth, guards and platform code, bypasses RLS. That is
+true only where the owner is a **superuser** — local dev and CI. It is false on
+every managed Postgres, including the demo environment: the provider's owner is
+an ordinary role, and `FORCE ROW LEVEL SECURITY` applies to the table owner too.
+`BYPASSRLS` cannot be granted to fix this, because granting it requires
+superuser, which managed providers do not offer.
+
+The consequence was not theoretical. Every login failed ("not linked to an
+active school"), and every audit write was rejected — silently, because audit
+writes are wrapped in `try/catch` by design. Both were invisible in local dev
+and CI for the reason above.
+
+So, explicitly:
+
+- **No connection used at runtime bypasses RLS.** `DATABASE_URL` is not a
+  privileged escape hatch; it is an ordinary RLS-subject connection that usually
+  has no scope set. Treat "privileged client" as meaning "owns the pool", never
+  "sees everything".
+- **Every read of a tenant-scoped table must carry a scope**, one of: the
+  `@TenantScoped()` interceptor, the audited `@PlatformScoped()` bypass, or —
+  for auth paths that run before any request scope exists — `withTenantScope` /
+  `withUserScope` from `@workspace/database/rls`, which set the GUC for their
+  own statement.
+- **A pre-tenant path is not exempt.** "There is no tenant context yet" means the
+  read needs a _different_ scope, not no scope. Two exist for this: the user
+  scope (`app.current_user_id`, for a user's own membership-derived rows) and
+  the claimed-tenant scope (safe because it reveals only the claimed tenant's
+  rows while the caller's own ownership checks still gate the outcome).
+- **Seeds and migrations still run as the owner**, and still need
+  `options=-c app.is_platform=on` to write global rows — which was already true
+  and is what made the divergence visible in the first place.
+
+Enforced by `apps/api/scripts/check-privileged-db-usage.mjs`, which now fails on
+a tenant-scoped read with no visible scope, in addition to its original check.
+Full analysis and the staged remediation: `docs/rls-privileged-client-plan.md`.
+
 Date:
-2026-06-20
+2026-06-20 (amended 2026-07-23)

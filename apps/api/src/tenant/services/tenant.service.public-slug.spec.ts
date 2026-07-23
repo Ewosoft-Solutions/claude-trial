@@ -32,7 +32,13 @@ describe('TenantService.getPublicBySlug', () => {
     // Only branding fields are selected — never secrets/settings.
     expect(findUnique).toHaveBeenCalledWith({
       where: { slug: 'st-jude' },
-      select: { id: true, name: true, slug: true, schoolType: true, status: true },
+      select: {
+        id: true,
+        name: true,
+        slug: true,
+        schoolType: true,
+        status: true,
+      },
     });
   });
 

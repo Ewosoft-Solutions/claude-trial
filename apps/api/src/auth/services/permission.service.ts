@@ -7,6 +7,7 @@
 
 import { Injectable } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import {
   TenantQueriesService,
   ProfileStatus,
@@ -71,6 +72,7 @@ export class PermissionService {
     const userTenant = await TenantQueriesService.getUserTenantProfile(
       prisma,
       profileId,
+      tenantId,
     );
 
     if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {
@@ -368,24 +370,38 @@ export class PermissionService {
     const parts = permissionName.split('.');
     const contextPart = parts.at(-1) ?? undefined;
 
-    // Handle context-specific checks
+    // Handle context-specific checks.
+    //
+    // The two DB-backed branches run under the caller's tenant scope. That is
+    // load-bearing twice over: `class_teachers`, `student_guardians`,
+    // `enrollments`, `assessments` and `grades` are all FORCE RLS (so an
+    // unscoped read returns nothing and denies a legitimate user), and the
+    // lookups in `resolveClassIdFromContext` match on id ALONE — without the
+    // scope, a caller supplying another tenant's enrollment/assessment/grade id
+    // would have it resolved for them on any connection that bypasses RLS.
+    //
+    // `own` and `department` touch no tables, so they deliberately stay outside
+    // the scope: this runs on every authorization decision, and opening a
+    // transaction the branch does not need would be a real cost.
     switch (contextPart) {
       case 'own_classes':
         // Check if user owns the class
-        return this.checkOwnClassesContext(
+        return withTenantScope(
           prisma,
-          userContext,
-          context,
-          baseCheck,
+          userContext.tenantId,
+          userContext.userId,
+          (tx) =>
+            this.checkOwnClassesContext(tx, userContext, context, baseCheck),
         );
 
       case 'children':
         // Check if resource belongs to user's children
-        return this.checkChildrenContext(
+        return withTenantScope(
           prisma,
-          userContext,
-          context,
-          baseCheck,
+          userContext.tenantId,
+          userContext.userId,
+          (tx) =>
+            this.checkChildrenContext(tx, userContext, context, baseCheck),
         );
 
       case 'own':
@@ -418,7 +434,11 @@ export class PermissionService {
   ): Promise<PermissionCheckResult> {
     const classId =
       (typeof context.classId === 'string' && context.classId) ||
-      (await this.resolveClassIdFromContext(prisma, context));
+      (await this.resolveClassIdFromContext(
+        prisma,
+        context,
+        userContext.tenantId,
+      ));
 
     if (!classId) {
       return {
@@ -430,6 +450,7 @@ export class PermissionService {
 
     const isTeacherForClass = await prisma.classTeacher.findFirst({
       where: {
+        tenantId: userContext.tenantId,
         classId,
         userTenantId: userContext.profileId,
         isActive: true,
@@ -550,12 +571,17 @@ export class PermissionService {
   private async resolveClassIdFromContext(
     prisma: PrismaClient,
     context: any,
+    tenantId: string,
   ): Promise<string | null> {
     if (typeof context.classId === 'string') return context.classId;
 
+    // Every id here comes from the caller's request. Matching on id alone would
+    // resolve another tenant's row, so each lookup carries the tenant filter
+    // explicitly — belt and braces alongside the RLS scope the caller opened,
+    // because this feeds an authorization decision.
     if (typeof context.enrollmentId === 'string') {
       const enrollment = await prisma.enrollment.findFirst({
-        where: { id: context.enrollmentId },
+        where: { id: context.enrollmentId, tenantId },
         select: { classId: true },
       });
       if (enrollment?.classId) return enrollment.classId;
@@ -563,7 +589,7 @@ export class PermissionService {
 
     if (typeof context.assessmentId === 'string') {
       const assessment = await prisma.assessment.findFirst({
-        where: { id: context.assessmentId },
+        where: { id: context.assessmentId, tenantId },
         select: { classId: true },
       });
       if (assessment?.classId) return assessment.classId;
@@ -571,7 +597,7 @@ export class PermissionService {
 
     if (typeof context.gradeId === 'string') {
       const grade = await prisma.grade.findFirst({
-        where: { id: context.gradeId },
+        where: { id: context.gradeId, tenantId },
         select: { enrollment: { select: { classId: true } } },
       });
       if (grade?.enrollment?.classId) return grade.enrollment.classId;
@@ -597,9 +623,10 @@ export class PermissionService {
     tenantId: string,
     profileId: string,
   ): Promise<{ valid: boolean; error?: string }> {
-    const userTenant = await (TenantQueriesService as any).getUserTenantProfile(
+    const userTenant = await TenantQueriesService.getUserTenantProfile(
       prisma,
       profileId,
+      tenantId,
     );
 
     if (userTenant?.userId !== userId || userTenant?.tenantId !== tenantId) {

@@ -7,6 +7,7 @@
  */
 
 import { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import * as crypto from 'crypto';
 import { JWTSecretRotationReason } from '@workspace/api';
 
@@ -173,18 +174,9 @@ export class JWTSecretService {
     // decodes before it can verify). That is fine: scoping to tenant X only
     // enables an attempt to verify against X's secret — a token X did not sign
     // fails that verification, and the secret never leaves the process.
-    const read = (client: PrismaClient) =>
-      client.tenantJWTConfig.findUnique({ where: { tenantId } });
-
-    const config =
-      typeof prisma.$transaction === 'function'
-        ? await prisma.$transaction(async (tx) => {
-            await tx.$executeRaw`SELECT set_config('app.current_tenant_id', ${tenantId}, true)`;
-            return read(tx as unknown as PrismaClient);
-          })
-        : // Already inside a caller's scoped transaction (TransactionClient
-          // has no $transaction) — the caller's GUC applies.
-          await read(prisma);
+    const config = await withTenantScope(prisma, tenantId, undefined, (tx) =>
+      tx.tenantJWTConfig.findUnique({ where: { tenantId } }),
+    );
 
     if (!config) {
       throw new Error('JWT secret not configured for this tenant');

@@ -43,7 +43,11 @@ export class TenantService {
         status: true,
       },
     });
-    if (!tenant || tenant.status === 'suspended' || tenant.status === 'deleted') {
+    if (
+      !tenant ||
+      tenant.status === 'suspended' ||
+      tenant.status === 'deleted'
+    ) {
       throw new NotFoundException('School not found');
     }
     return tenant;

@@ -11,6 +11,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { Prisma, PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import {
   EnforcedBy,
   PolicyTier,
@@ -178,9 +179,14 @@ export class SecurityPolicyService {
     prisma: PrismaClient,
     schoolId: string,
   ): Promise<SecurityPolicy | null> {
-    const policy = await prisma.schoolSecurityPolicy.findUnique({
-      where: { schoolId },
-    });
+    // `school_security_policies` is FORCE RLS on `school_id` (which is the
+    // tenant id). Callers reach here from guards and from /auth/me, before the
+    // @TenantScoped interceptor opens a request scope — so scope the read here.
+    const policy = await withTenantScope(prisma, schoolId, undefined, (tx) =>
+      tx.schoolSecurityPolicy.findUnique({
+        where: { schoolId },
+      }),
+    );
 
     if (!policy) {
       return null;
@@ -277,50 +283,59 @@ export class SecurityPolicyService {
       throw new BadRequestException(`Invalid policy tier: ${tier}`);
     }
 
-    // Check if policy already exists
-    const existingPolicy = await prisma.schoolSecurityPolicy.findUnique({
-      where: { schoolId },
-    });
+    // One scope around read-then-write: the create must satisfy WITH CHECK,
+    // and its RETURNING is checked against USING as well.
+    return withTenantScope(
+      prisma,
+      schoolId,
+      enforcedByUserId ?? undefined,
+      async (tx) => {
+        // Check if policy already exists
+        const existingPolicy = await tx.schoolSecurityPolicy.findUnique({
+          where: { schoolId },
+        });
 
-    if (existingPolicy) {
-      // Update existing policy
-      const updated = await prisma.schoolSecurityPolicy.update({
-        where: { schoolId },
-        data: {
-          policyTier: tier,
-          ...tierConfig,
-          // Idle timeout is independently tenant-configurable. Changing a
-          // security tier must not silently replace an administrator's choice.
-          sessionTimeout: existingPolicy.sessionTimeout,
-          isDefault: tier === 'basic',
-          isEmergency: false,
-          enforcedBy,
-          enforcedByUserId,
-          enforcedAt: new Date(),
-          reason: reason || null,
-          updatedAt: new Date(),
-          updatedBy: enforcedByUserId,
-        },
-      });
+        if (existingPolicy) {
+          // Update existing policy
+          const updated = await tx.schoolSecurityPolicy.update({
+            where: { schoolId },
+            data: {
+              policyTier: tier,
+              ...tierConfig,
+              // Idle timeout is independently tenant-configurable. Changing a
+              // security tier must not silently replace an administrator's choice.
+              sessionTimeout: existingPolicy.sessionTimeout,
+              isDefault: tier === 'basic',
+              isEmergency: false,
+              enforcedBy,
+              enforcedByUserId,
+              enforcedAt: new Date(),
+              reason: reason || null,
+              updatedAt: new Date(),
+              updatedBy: enforcedByUserId,
+            },
+          });
 
-      return this.mapToSecurityPolicy(updated);
-    } else {
-      // Create new policy
-      const created = await prisma.schoolSecurityPolicy.create({
-        data: {
-          schoolId,
-          ...tierConfig,
-          isDefault: tier === 'basic',
-          isEmergency: false,
-          enforcedBy,
-          enforcedByUserId,
-          enforcedAt: new Date(),
-          reason: reason || null,
-        },
-      });
+          return this.mapToSecurityPolicy(updated);
+        } else {
+          // Create new policy
+          const created = await tx.schoolSecurityPolicy.create({
+            data: {
+              schoolId,
+              ...tierConfig,
+              isDefault: tier === 'basic',
+              isEmergency: false,
+              enforcedBy,
+              enforcedByUserId,
+              enforcedAt: new Date(),
+              reason: reason || null,
+            },
+          });
 
-      return this.mapToSecurityPolicy(created);
-    }
+          return this.mapToSecurityPolicy(created);
+        }
+      },
+    );
   }
 
   /**
@@ -389,43 +404,45 @@ export class SecurityPolicyService {
   ): Promise<SecurityPolicy> {
     const tierConfig = POLICY_TIERS[tier];
 
-    const existingPolicy = await prisma.schoolSecurityPolicy.findUnique({
-      where: { schoolId },
-    });
-
-    if (existingPolicy) {
-      const updated = await prisma.schoolSecurityPolicy.update({
+    return withTenantScope(prisma, schoolId, enforcedByUserId, async (tx) => {
+      const existingPolicy = await tx.schoolSecurityPolicy.findUnique({
         where: { schoolId },
-        data: {
-          policyTier: tier,
-          ...tierConfig,
-          sessionTimeout: existingPolicy.sessionTimeout,
-          isEmergency: true,
-          enforcedBy: EnforcedBy.PLATFORM_ADMIN,
-          enforcedByUserId,
-          enforcedAt: new Date(),
-          reason,
-          updatedAt: new Date(),
-          updatedBy: enforcedByUserId,
-        },
       });
 
-      return this.mapToSecurityPolicy(updated);
-    } else {
-      const created = await prisma.schoolSecurityPolicy.create({
-        data: {
-          schoolId,
-          ...tierConfig,
-          isEmergency: true,
-          enforcedBy: EnforcedBy.PLATFORM_ADMIN,
-          enforcedByUserId,
-          enforcedAt: new Date(),
-          reason,
-        },
-      });
+      if (existingPolicy) {
+        const updated = await tx.schoolSecurityPolicy.update({
+          where: { schoolId },
+          data: {
+            policyTier: tier,
+            ...tierConfig,
+            sessionTimeout: existingPolicy.sessionTimeout,
+            isEmergency: true,
+            enforcedBy: EnforcedBy.PLATFORM_ADMIN,
+            enforcedByUserId,
+            enforcedAt: new Date(),
+            reason,
+            updatedAt: new Date(),
+            updatedBy: enforcedByUserId,
+          },
+        });
 
-      return this.mapToSecurityPolicy(created);
-    }
+        return this.mapToSecurityPolicy(updated);
+      } else {
+        const created = await tx.schoolSecurityPolicy.create({
+          data: {
+            schoolId,
+            ...tierConfig,
+            isEmergency: true,
+            enforcedBy: EnforcedBy.PLATFORM_ADMIN,
+            enforcedByUserId,
+            enforcedAt: new Date(),
+            reason,
+          },
+        });
+
+        return this.mapToSecurityPolicy(created);
+      }
+    });
   }
 
   /**
@@ -441,9 +458,11 @@ export class SecurityPolicyService {
     schoolId: string,
     enforcedByUserId: string,
   ): Promise<SecurityPolicy> {
-    const policy = await prisma.schoolSecurityPolicy.findUnique({
-      where: { schoolId },
-    });
+    const policy = await withTenantScope(prisma, schoolId, undefined, (tx) =>
+      tx.schoolSecurityPolicy.findUnique({
+        where: { schoolId },
+      }),
+    );
 
     if (!policy) {
       throw new NotFoundException(

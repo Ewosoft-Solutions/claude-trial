@@ -7,6 +7,7 @@
 
 import * as bcrypt from 'bcrypt';
 import { PrismaClient } from '@workspace/database';
+import { withUserScope } from '@workspace/database/rls';
 
 /**
  * Password Policy Configuration
@@ -139,18 +140,23 @@ export class PasswordService {
     userId: string,
     password: string,
   ): Promise<PasswordValidationResult> {
-    // Get all schools user belongs to
-    const userTenants = await prisma.userTenant.findMany({
-      where: { userId },
-      include: {
-        tenant: {
-          // TODO: Include securityPolicy when security policy table is implemented
-          // include: {
-          //   securityPolicy: true,
-          // },
+    // Get all schools user belongs to. Cross-tenant by nature and asked about
+    // one user, so it reads under the user scope — the same grant the sign-in
+    // profile lookup uses (migration 20260723090000_user_tenants_self_scope).
+    // Runs on the password-reset path, where no tenant has been selected.
+    const userTenants = await withUserScope(prisma, userId, (tx) =>
+      tx.userTenant.findMany({
+        where: { userId },
+        include: {
+          tenant: {
+            // TODO: Include securityPolicy when security policy table is implemented
+            // include: {
+            //   securityPolicy: true,
+            // },
+          },
         },
-      },
-    });
+      }),
+    );
 
     if (userTenants.length === 0) {
       // No schools, use default policy

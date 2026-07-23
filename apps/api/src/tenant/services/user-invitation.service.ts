@@ -12,6 +12,11 @@ import {
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import type { PrismaClient } from '@workspace/database';
+import {
+  withInvitationTokenScope,
+  withTenantScope,
+} from '@workspace/database/rls';
 import { ProfileStatus } from '@workspace/api';
 import * as crypto from 'node:crypto';
 import * as bcrypt from 'bcrypt';
@@ -36,6 +41,24 @@ export class UserInvitationService {
     private readonly auditService: TenantAuditService,
     private readonly queueService: QueueService,
   ) {}
+
+  /**
+   * Run tenant-table work under this tenant's RLS scope.
+   *
+   * `user_tenants` and `user_tenant_roles` are FORCE RLS; `roles` is
+   * nullable-tenant, so system roles resolve unscoped but a tenant's own custom
+   * roles do not. These handlers run outside the `@TenantScoped` interceptor.
+   * See docs/rls-privileged-client-plan.md.
+   *
+   * The two unauthenticated token flows use `withInvitationTokenScope` instead
+   * — there is no tenant to scope by until the token has been resolved.
+   */
+  private scoped<T>(
+    tenantId: string,
+    fn: (tx: PrismaClient) => Promise<T>,
+  ): Promise<T> {
+    return withTenantScope(this.dbService.client, tenantId, undefined, fn);
+  }
 
   /**
    * Create user invitation
@@ -87,9 +110,14 @@ export class UserInvitationService {
       },
     });
 
-    // Prevent duplicate profile for same role in tenant
-    const existingProfileWithRole =
-      await this.dbService.client.userTenantRole.findFirst({
+    // Duplicate check + profile + role in ONE scope, and therefore one
+    // transaction. Both halves need it: unscoped, the duplicate check finds
+    // nothing and lets a second profile through, and the writes fail WITH
+    // CHECK. Sharing the transaction also means an invitation can never be
+    // left without its role.
+    const userTenant = await this.scoped(tenantId, async (tx) => {
+      // Prevent duplicate profile for same role in tenant
+      const existingProfileWithRole = await tx.userTenantRole.findFirst({
         where: {
           roleId: data.roleId,
           userTenant: {
@@ -100,35 +128,38 @@ export class UserInvitationService {
         select: { id: true },
       });
 
-    if (existingProfileWithRole) {
-      throw new ConflictException(
-        'User already has this role in the tenant (profile exists)',
-      );
-    }
+      if (existingProfileWithRole) {
+        throw new ConflictException(
+          'User already has this role in the tenant (profile exists)',
+        );
+      }
 
-    // Create user-tenant relationship with invitation
-    const userTenant = await this.dbService.client.userTenant.create({
-      data: {
-        userId: user.id,
-        tenantId,
-        status: ProfileStatus.PENDING, // Pending until invitation is accepted
-        invitationToken,
-        invitationExpiresAt,
-        addedBy: createdBy,
-      },
-    });
+      // Create user-tenant relationship with invitation
+      const profile = await tx.userTenant.create({
+        data: {
+          userId: user.id,
+          tenantId,
+          status: ProfileStatus.PENDING, // Pending until invitation is accepted
+          invitationToken,
+          invitationExpiresAt,
+          addedBy: createdBy,
+        },
+      });
 
-    // Assign single role. `tenantId` is the denormalized column RLS uses to
-    // scope user_tenant_roles (its policy has no NULL escape); it MUST be set
-    // or the assignment is invisible to any RLS-scoped read.
-    await this.dbService.client.userTenantRole.create({
-      data: {
-        userTenantId: userTenant.id,
-        tenantId,
-        roleId: data.roleId,
-        isPrimary: true,
-        assignedBy: createdBy,
-      },
+      // Assign single role. `tenantId` is the denormalized column RLS uses to
+      // scope user_tenant_roles (its policy has no NULL escape); it MUST be set
+      // or the assignment is invisible to any RLS-scoped read.
+      await tx.userTenantRole.create({
+        data: {
+          userTenantId: profile.id,
+          tenantId,
+          roleId: data.roleId,
+          isPrimary: true,
+          assignedBy: createdBy,
+        },
+      });
+
+      return profile;
     });
 
     // Enqueue invitation email dispatch. The handler (EmailQueueRegistrar)
@@ -138,10 +169,14 @@ export class UserInvitationService {
         where: { id: tenantId },
         select: { name: true },
       }),
-      this.dbService.client.role.findUnique({
-        where: { id: data.roleId },
-        select: { name: true },
-      }),
+      // `roles` is nullable-tenant: a system role resolves unscoped, a tenant's
+      // own custom role does not — and this one only labels the email.
+      this.scoped(tenantId, (tx) =>
+        tx.role.findUnique({
+          where: { id: data.roleId },
+          select: { name: true },
+        }),
+      ),
     ]);
     const recipientName =
       [data.firstName, data.lastName].filter(Boolean).join(' ') || null;
@@ -222,20 +257,28 @@ export class UserInvitationService {
    * @returns Accepted invitation
    */
   async acceptInvitation(data: AcceptInvitationDto) {
-    // Find invitation by token
-    const userTenant = await this.dbService.client.userTenant.findFirst({
-      where: {
-        invitationToken: data.token,
-        invitationExpiresAt: {
-          gt: new Date(), // Not expired
-        },
-        invitationAcceptedAt: null, // Not already accepted
-      },
-      include: {
-        user: true,
-        tenant: true,
-      },
-    });
+    // Find invitation by token. Unauthenticated and pre-tenant by nature, so it
+    // runs under the token-possession scope — the caller proves they hold this
+    // invitation, and that authorises reading exactly its row. See migration
+    // 20260723180000_invitation_token_scope.
+    const userTenant = await withInvitationTokenScope(
+      this.dbService.client,
+      data.token,
+      (tx) =>
+        tx.userTenant.findFirst({
+          where: {
+            invitationToken: data.token,
+            invitationExpiresAt: {
+              gt: new Date(), // Not expired
+            },
+            invitationAcceptedAt: null, // Not already accepted
+          },
+          include: {
+            user: true,
+            tenant: true,
+          },
+        }),
+    );
 
     if (!userTenant) {
       throw new NotFoundException('Invitation not found or expired');
@@ -256,15 +299,19 @@ export class UserInvitationService {
       },
     });
 
-    // Update user-tenant relationship
-    await this.dbService.client.userTenant.update({
-      where: { id: userTenant.id },
-      data: {
-        status: ProfileStatus.ACTIVE,
-        invitationAcceptedAt: new Date(),
-        invitationToken: null, // Clear token
-      },
-    });
+    // Update user-tenant relationship. Under the TENANT scope, taken from the
+    // row the token scope just returned — the token grant is read-only, so the
+    // write cannot ride on it.
+    await this.scoped(userTenant.tenantId, (tx) =>
+      tx.userTenant.update({
+        where: { id: userTenant.id },
+        data: {
+          status: ProfileStatus.ACTIVE,
+          invitationAcceptedAt: new Date(),
+          invitationToken: null, // Clear token
+        },
+      }),
+    );
 
     // Audit log
     await this.auditService.logUserAction({
@@ -311,14 +358,16 @@ export class UserInvitationService {
       where.invitationToken = { not: null };
     }
 
-    const rows = await this.dbService.client.userTenant.findMany({
-      where,
-      include: {
-        user: { select: { email: true, firstName: true, lastName: true } },
-        userTenantRole: { include: { role: { select: { name: true } } } },
-      },
-      orderBy: { addedAt: 'desc' },
-    });
+    const rows = await this.scoped(tenantId, (tx) =>
+      tx.userTenant.findMany({
+        where,
+        include: {
+          user: { select: { email: true, firstName: true, lastName: true } },
+          userTenantRole: { include: { role: { select: { name: true } } } },
+        },
+        orderBy: { addedAt: 'desc' },
+      }),
+    );
 
     const now = new Date();
     return rows.map((row) => {
@@ -364,23 +413,29 @@ export class UserInvitationService {
     invitationId: string,
     revokedBy: string,
   ) {
-    const invitation = await this.dbService.client.userTenant.findFirst({
-      where: { id: invitationId, tenantId },
-      include: { user: { select: { id: true, email: true } } },
-    });
+    // Check and delete share one scope, so the "already accepted?" guard cannot
+    // pass against state that changes before the delete lands.
+    const invitation = await this.scoped(tenantId, async (tx) => {
+      const row = await tx.userTenant.findFirst({
+        where: { id: invitationId, tenantId },
+        include: { user: { select: { id: true, email: true } } },
+      });
 
-    if (!invitation) {
-      throw new NotFoundException('Invitation not found');
-    }
+      if (!row) {
+        throw new NotFoundException('Invitation not found');
+      }
 
-    if (invitation.invitationAcceptedAt) {
-      throw new ConflictException(
-        'Invitation already accepted; remove the user instead',
-      );
-    }
+      if (row.invitationAcceptedAt) {
+        throw new ConflictException(
+          'Invitation already accepted; remove the user instead',
+        );
+      }
 
-    await this.dbService.client.userTenant.delete({
-      where: { id: invitation.id },
+      await tx.userTenant.delete({
+        where: { id: row.id },
+      });
+
+      return row;
     });
 
     await this.auditService.logUserAction({
@@ -404,14 +459,21 @@ export class UserInvitationService {
    * @param token - Invitation token
    */
   async getInvitationByToken(token: string) {
-    const invitation = await this.dbService.client.userTenant.findFirst({
-      where: { invitationToken: token },
-      include: {
-        user: { select: { email: true, firstName: true, lastName: true } },
-        tenant: { select: { name: true, slug: true } },
-        userTenantRole: { include: { role: { select: { name: true } } } },
-      },
-    });
+    // Unauthenticated preview, same shape as acceptInvitation: possession of
+    // the token authorises reading that one row and nothing else.
+    const invitation = await withInvitationTokenScope(
+      this.dbService.client,
+      token,
+      (tx) =>
+        tx.userTenant.findFirst({
+          where: { invitationToken: token },
+          include: {
+            user: { select: { email: true, firstName: true, lastName: true } },
+            tenant: { select: { name: true, slug: true } },
+            userTenantRole: { include: { role: { select: { name: true } } } },
+          },
+        }),
+    );
 
     if (!invitation || invitation.invitationAcceptedAt) {
       throw new NotFoundException('Invitation not found or already accepted');

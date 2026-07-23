@@ -7,6 +7,7 @@
 
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { MakerCheckerRequest, PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import { ApprovalLevel, ApprovalStatus } from '@workspace/api';
 
 /**
@@ -243,18 +244,25 @@ export class MakerCheckerService {
       ? new Date(Date.now() + sensitiveOp.timeLimitHours * 60 * 60 * 1000)
       : undefined;
 
-    const approval = await prisma.makerCheckerRequest.create({
-      data: {
-        tenantId,
-        operation,
-        level: sensitiveOp.level,
-        status: ApprovalStatus.PENDING,
-        makerId,
-        makerClearanceLevel,
-        requestData,
-        expiresAt,
-      },
-    });
+    // `maker_checker_requests` is nullable-tenant, so global rows read without
+    // a scope — but this row carries a real tenantId, so the write needs one to
+    // satisfy WITH CHECK, and `create` returns the row, whose RETURNING is
+    // checked against USING. Inherits the caller's scope when already inside
+    // one (RoleService.createCustomRole passes its transaction).
+    const approval = await withTenantScope(prisma, tenantId, makerId, (tx) =>
+      tx.makerCheckerRequest.create({
+        data: {
+          tenantId,
+          operation,
+          level: sensitiveOp.level,
+          status: ApprovalStatus.PENDING,
+          makerId,
+          makerClearanceLevel,
+          requestData,
+          expiresAt,
+        },
+      }),
+    );
 
     return approval.id;
   }
@@ -269,6 +277,11 @@ export class MakerCheckerService {
    * @param reason - Approval reason
    * @returns Approval result
    */
+  // Runs under the CALLER's RLS scope, deliberately: both callers already hold
+  // one (`PlatformApprovalService` exposes `tenantDb.client` under
+  // @PlatformScoped; `AiSettingsService` passes its runScoped transaction), and
+  // the request id alone does not identify a tenant to scope by. Passing an
+  // unscoped client here would read nothing and report "request not found".
   async approveRequest(
     prisma: PrismaClient,
     approvalRequestId: string,

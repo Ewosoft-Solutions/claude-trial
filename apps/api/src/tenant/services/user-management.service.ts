@@ -14,6 +14,8 @@ import {
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import type { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import { ProfileStatus } from '@workspace/api';
 import * as bcrypt from 'bcrypt';
 import { AUDIT_ACTION } from '../../common/audit/audit.constants';
@@ -33,6 +35,25 @@ export class UserManagementService {
     private readonly emailValidationService: EmailDomainValidationService,
     private readonly auditService: TenantAuditService,
   ) {}
+
+  /**
+   * Run tenant-table work under this tenant's RLS scope.
+   *
+   * `user_tenants` and `user_tenant_roles` are FORCE RLS and strictly
+   * tenant-scoped. These handlers run outside the `@TenantScoped` interceptor,
+   * so every read and write here carries its own scope — without it, reads
+   * return nothing and writes fail WITH CHECK, on a deployed database only.
+   * See docs/rls-privileged-client-plan.md.
+   *
+   * `users` itself has no tenant column and no policy, so user-row reads and
+   * writes deliberately stay outside these blocks.
+   */
+  private scoped<T>(
+    tenantId: string,
+    fn: (tx: PrismaClient) => Promise<T>,
+  ): Promise<T> {
+    return withTenantScope(this.dbService.client, tenantId, undefined, fn);
+  }
 
   /**
    * Create user directly (without invitation)
@@ -90,32 +111,38 @@ export class UserManagementService {
       },
     });
 
-    // Create user-tenant relationship (profile)
-    const userTenant = await this.dbService.client.userTenant.create({
-      data: {
-        userId: user.id,
-        tenantId,
-        status: ProfileStatus.ACTIVE,
-        addedBy: createdBy,
-      },
-    });
+    // Profile + role assignment share one scope, so they also share one
+    // transaction: a failure between them previously left a profile with no
+    // role, which reads as an account that exists but can do nothing.
+    const userTenant = await this.scoped(tenantId, async (tx) => {
+      const profile = await tx.userTenant.create({
+        data: {
+          userId: user.id,
+          tenantId,
+          status: ProfileStatus.ACTIVE,
+          addedBy: createdBy,
+        },
+      });
 
-    // Assign roles
-    if (data.roleIds.length > 0) {
-      await Promise.all(
-        data.roleIds.map((roleId, index) =>
-          this.dbService.client.userTenantRole.create({
-            data: {
-              userTenantId: userTenant.id,
-              tenantId, // denormalized for RLS scoping (policy has no NULL escape)
-              roleId,
-              isPrimary: index === 0, // First role is primary
-              assignedBy: createdBy,
-            },
-          }),
-        ),
-      );
-    }
+      // Assign roles
+      if (data.roleIds.length > 0) {
+        await Promise.all(
+          data.roleIds.map((roleId, index) =>
+            tx.userTenantRole.create({
+              data: {
+                userTenantId: profile.id,
+                tenantId, // denormalized for RLS scoping (policy has no NULL escape)
+                roleId,
+                isPrimary: index === 0, // First role is primary
+                assignedBy: createdBy,
+              },
+            }),
+          ),
+        );
+      }
+
+      return profile;
+    });
 
     // 6.11: Audit log
     await this.auditService.logUserAction({
@@ -201,9 +228,11 @@ export class UserManagementService {
       );
     }
 
-    // Check if user already has this role in this tenant (one profile per role)
-    const existingProfileWithRole =
-      await this.dbService.client.userTenantRole.findFirst({
+    // Check if user already has this role in this tenant (one profile per role).
+    // Scoped: unscoped this finds nothing and reports the role as free, turning
+    // the one-profile-per-role guard into a silent duplicate.
+    const existingProfileWithRole = await this.scoped(tenantId, (tx) =>
+      tx.userTenantRole.findFirst({
         where: {
           roleId: data.roleIds[0],
           userTenant: {
@@ -212,7 +241,8 @@ export class UserManagementService {
           },
         },
         select: { id: true },
-      });
+      }),
+    );
 
     if (existingProfileWithRole) {
       throw new ConflictException(
@@ -231,25 +261,29 @@ export class UserManagementService {
       throw new BadRequestException(emailValidation.error);
     }
 
-    // Create user-tenant relationship (profile)
-    const userTenant = await this.dbService.client.userTenant.create({
-      data: {
-        userId: data.userId,
-        tenantId,
-        status: ProfileStatus.ACTIVE,
-        addedBy: createdBy,
-      },
-    });
+    // Profile + its single role in one scope, so they commit together.
+    const userTenant = await this.scoped(tenantId, async (tx) => {
+      const profile = await tx.userTenant.create({
+        data: {
+          userId: data.userId,
+          tenantId,
+          status: ProfileStatus.ACTIVE,
+          addedBy: createdBy,
+        },
+      });
 
-    // Assign single role to the new profile
-    await this.dbService.client.userTenantRole.create({
-      data: {
-        userTenantId: userTenant.id,
-        tenantId, // denormalized for RLS scoping (policy has no NULL escape)
-        roleId: data.roleIds[0],
-        isPrimary: true,
-        assignedBy: createdBy,
-      },
+      // Assign single role to the new profile
+      await tx.userTenantRole.create({
+        data: {
+          userTenantId: profile.id,
+          tenantId, // denormalized for RLS scoping (policy has no NULL escape)
+          roleId: data.roleIds[0],
+          isPrimary: true,
+          assignedBy: createdBy,
+        },
+      });
+
+      return profile;
     });
 
     // 6.11: Audit log
@@ -307,41 +341,43 @@ export class UserManagementService {
       };
     }
 
-    const [profiles, total] = await Promise.all([
-      this.dbService.client.userTenant.findMany({
-        where,
-        skip,
-        take: limit,
-        include: {
-          user: {
-            select: {
-              id: true,
-              email: true,
-              firstName: true,
-              lastName: true,
-              phone: true,
-              isActive: true,
-              isVerified: true,
+    const [profiles, total] = await this.scoped(tenantId, (tx) =>
+      Promise.all([
+        tx.userTenant.findMany({
+          where,
+          skip,
+          take: limit,
+          include: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+                phone: true,
+                isActive: true,
+                isVerified: true,
+              },
             },
-          },
-          userTenantRole: {
-            include: {
-              role: {
-                select: {
-                  id: true,
-                  name: true,
-                  clearanceLevel: true,
+            userTenantRole: {
+              include: {
+                role: {
+                  select: {
+                    id: true,
+                    name: true,
+                    clearanceLevel: true,
+                  },
                 },
               },
             },
           },
-        },
-        orderBy: {
-          addedAt: 'desc',
-        },
-      }),
-      this.dbService.client.userTenant.count({ where }),
-    ]);
+          orderBy: {
+            addedAt: 'desc',
+          },
+        }),
+        tx.userTenant.count({ where }),
+      ]),
+    );
 
     return {
       data: profiles,
@@ -364,39 +400,41 @@ export class UserManagementService {
    * @returns User profile
    */
   async getUserProfile(tenantId: string, profileId: string) {
-    const profile = await this.dbService.client.userTenant.findFirst({
-      where: {
-        id: profileId,
-        tenantId,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            isActive: true,
-            isVerified: true,
-            lastLoginAt: true,
-          },
+    const profile = await this.scoped(tenantId, (tx) =>
+      tx.userTenant.findFirst({
+        where: {
+          id: profileId,
+          tenantId,
         },
-        userTenantRole: {
-          include: {
-            role: {
-              select: {
-                id: true,
-                name: true,
-                description: true,
-                clearanceLevel: true,
-                roleType: true,
+        include: {
+          user: {
+            select: {
+              id: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+              isActive: true,
+              isVerified: true,
+              lastLoginAt: true,
+            },
+          },
+          userTenantRole: {
+            include: {
+              role: {
+                select: {
+                  id: true,
+                  name: true,
+                  description: true,
+                  clearanceLevel: true,
+                  roleType: true,
+                },
               },
             },
           },
         },
-      },
-    });
+      }),
+    );
 
     if (!profile) {
       throw new NotFoundException('User profile not found');
@@ -484,74 +522,61 @@ export class UserManagementService {
     data: UpdateUserProfileDto,
     updatedBy: string,
   ) {
-    const profile = await this.dbService.client.userTenant.findFirst({
-      where: {
-        id: profileId,
-        tenantId,
-      },
-      select: { id: true, userId: true },
-    });
-
-    if (!profile) {
-      throw new NotFoundException('User profile not found');
-    }
-
-    const updateData: any = {};
-
-    if (data.status !== undefined) {
-      updateData.status = data.status;
-    }
-
-    const updatedProfile = await this.dbService.client.userTenant.update({
-      where: { id: profileId },
-      data: updateData,
-      include: {
-        user: {
-          select: {
-            id: true,
-            email: true,
-            firstName: true,
-            lastName: true,
-            phone: true,
-            isActive: true,
-          },
+    // One scope for the ownership check, the update and the role swap. The
+    // swap in particular must be atomic: it deletes the existing roles before
+    // creating the new ones, so a failure between them would leave the profile
+    // with none — an account that exists and can do nothing. The re-read at the
+    // end of this method is what the caller receives, so the update's own
+    // return value is deliberately discarded.
+    const profile = await this.scoped(tenantId, async (tx) => {
+      const existing = await tx.userTenant.findFirst({
+        where: {
+          id: profileId,
+          tenantId,
         },
-        userTenantRole: {
-          include: {
-            role: {
-              select: {
-                id: true,
-                name: true,
-                clearanceLevel: true,
-              },
-            },
-          },
-        },
-      },
-    });
-
-    // Update roles if provided
-    if (data.roleIds && data.roleIds.length > 0) {
-      // Remove existing roles
-      await this.dbService.client.userTenantRole.deleteMany({
-        where: { userTenantId: profileId },
+        select: { id: true, userId: true },
       });
 
-      // Add new roles
-      await Promise.all(
-        data.roleIds.map((roleId, index) =>
-          this.dbService.client.userTenantRole.create({
-            data: {
-              userTenantId: profileId,
-              tenantId, // denormalized for RLS scoping (policy has no NULL escape)
-              roleId,
-              isPrimary: index === 0,
-              assignedBy: updatedBy,
-            },
-          }),
-        ),
-      );
-    }
+      if (!existing) {
+        throw new NotFoundException('User profile not found');
+      }
+
+      const updateData: any = {};
+
+      if (data.status !== undefined) {
+        updateData.status = data.status;
+      }
+
+      await tx.userTenant.update({
+        where: { id: profileId },
+        data: updateData,
+      });
+
+      // Update roles if provided
+      if (data.roleIds && data.roleIds.length > 0) {
+        // Remove existing roles
+        await tx.userTenantRole.deleteMany({
+          where: { userTenantId: profileId },
+        });
+
+        // Add new roles
+        await Promise.all(
+          data.roleIds.map((roleId, index) =>
+            tx.userTenantRole.create({
+              data: {
+                userTenantId: profileId,
+                tenantId, // denormalized for RLS scoping (policy has no NULL escape)
+                roleId,
+                isPrimary: index === 0,
+                assignedBy: updatedBy,
+              },
+            }),
+          ),
+        );
+      }
+
+      return existing;
+    });
 
     // Audit log
     await this.auditService.logUserAction({
@@ -581,21 +606,28 @@ export class UserManagementService {
     profileId: string,
     deletedBy: string,
   ) {
-    const profile = await this.dbService.client.userTenant.findFirst({
-      where: {
-        id: profileId,
-        tenantId,
-      },
-      select: { id: true, userId: true },
-    });
+    // Scoped, and the check shares the delete's transaction: the tenant
+    // ownership check is the only thing standing between a profile id and its
+    // deletion, so it must not be able to pass against stale state.
+    const profile = await this.scoped(tenantId, async (tx) => {
+      const existing = await tx.userTenant.findFirst({
+        where: {
+          id: profileId,
+          tenantId,
+        },
+        select: { id: true, userId: true },
+      });
 
-    if (!profile) {
-      throw new NotFoundException('User profile not found');
-    }
+      if (!existing) {
+        throw new NotFoundException('User profile not found');
+      }
 
-    // Delete profile (cascade will handle roles)
-    await this.dbService.client.userTenant.delete({
-      where: { id: profileId },
+      // Delete profile (cascade will handle roles)
+      await tx.userTenant.delete({
+        where: { id: profileId },
+      });
+
+      return existing;
     });
 
     // Audit log

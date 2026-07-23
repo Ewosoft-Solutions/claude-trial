@@ -116,7 +116,10 @@ describe('PlatformApprovalService.approve', () => {
     });
     makerCheckerRequest.update = jest.fn().mockResolvedValue({});
 
-    const res = await service.approve({ actor: ARCHITECT, requestId: 'req-99' });
+    const res = await service.approve({
+      actor: ARCHITECT,
+      requestId: 'req-99',
+    });
 
     expect(res).toEqual({ status: 'suspended', targetTenantId: 't1' });
     expect(tenant.update).toHaveBeenCalledWith({

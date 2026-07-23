@@ -87,10 +87,33 @@ export async function withUserScope<T>(
   userId: string,
   fn: (tx: PrismaClient) => Promise<T>,
 ): Promise<T> {
+  if (!canOpenTransaction(prisma)) return fn(prisma);
+
   return prisma.$transaction(async (tx) => {
     await setUserContext(tx as unknown as PrismaClient, userId);
     return fn(tx as unknown as PrismaClient);
   });
+}
+
+/**
+ * Whether this client can open a transaction of its own.
+ *
+ * A `Prisma.TransactionClient` — what a caller passes when it has *already*
+ * opened a scope — has no `$transaction`. Nesting one is impossible, so the
+ * scope helpers run the callback directly on it and inherit the caller's
+ * context.
+ *
+ * Deliberately inherit rather than re-`set_config` inside the caller's
+ * transaction: the GUC is transaction-scoped, so overwriting it would silently
+ * change the scope of every subsequent statement in that transaction, not just
+ * the wrapped read. Inheriting is only correct if the caller scoped to the same
+ * tenant — which is the contract, since a service is called within its own
+ * request's scope.
+ */
+function canOpenTransaction(prisma: PrismaClient): boolean {
+  return (
+    typeof (prisma as { $transaction?: unknown }).$transaction === 'function'
+  );
 }
 
 /**
@@ -118,8 +141,39 @@ export async function withTenantScope<T>(
   userId: string | undefined,
   fn: (tx: PrismaClient) => Promise<T>,
 ): Promise<T> {
+  if (!canOpenTransaction(prisma)) return fn(prisma);
+
   return prisma.$transaction(async (tx) => {
     await setContext(tx as unknown as PrismaClient, tenantId, userId);
+    return fn(tx as unknown as PrismaClient);
+  });
+}
+
+/**
+ * Run `fn` in a session authorised by possession of an invitation token.
+ *
+ * For the unauthenticated invitation-acceptance flow only. There is no user yet
+ * (the account has no password until acceptance succeeds) and no tenant yet
+ * (discovering it from the token IS the operation), so neither other scope can
+ * be formed. The grant is exactly one row: the `user_tenants` row carrying this
+ * token, read-only (migration 20260723180000_invitation_token_scope).
+ *
+ * The write that accepts the invitation must run under the tenant scope taken
+ * from the row this read returns — the token grant is `USING` only.
+ *
+ * @param prisma - Prisma client to open the transaction on
+ * @param token - The invitation token presented by the caller
+ * @param fn - Work to run inside the token-scoped transaction
+ */
+export async function withInvitationTokenScope<T>(
+  prisma: PrismaClient,
+  token: string,
+  fn: (tx: PrismaClient) => Promise<T>,
+): Promise<T> {
+  if (!canOpenTransaction(prisma)) return fn(prisma);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.invitation_token', ${token}, true)`;
     return fn(tx as unknown as PrismaClient);
   });
 }

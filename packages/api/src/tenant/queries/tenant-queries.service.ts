@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import { ProfileStatus, RoleType } from '@workspace/api';
 
 /**
@@ -48,33 +49,50 @@ export class TenantQueriesService {
   }
 
   /**
-   * Get user's profile in tenant
+   * Get user's profile in tenant, with its role, pools and permission overrides.
+   *
+   * This is the read behind every authorization decision, so it runs under an
+   * explicit tenant scope: `user_tenants`, `user_tenant_roles` and
+   * `user_tenant_permissions` are all FORCE RLS and strictly tenant-scoped, and
+   * callers reach here from guards — which run before the `@TenantScoped`
+   * interceptor, so no request scope exists yet.
+   *
+   * `tenantId` is required rather than optional on purpose: an unscoped call
+   * silently returns null under RLS (denying a legitimate user) or, on a
+   * connection that does bypass RLS, returns a profile from another tenant.
+   * Making it mandatory turns both into compile errors.
    *
    * @param prisma - Prisma client instance
-   * @param userId - User ID
-   * @param tenantId - Tenant ID
+   * @param profileId - UserTenant id to load
+   * @param tenantId - Tenant the profile must belong to (RLS scope)
    * @returns UserTenant profile with roles and permissions
    */
-  static async getUserTenantProfile(prisma: PrismaClient, profileId: string) {
-    return await prisma.userTenant.findUnique({
-      where: { id: profileId },
-      include: {
-        // one-to-one role per profile
-        userTenantRole: {
-          include: {
-            role: {
-              include: {
-                // Permission pools are the single canonical source of a
-                // role's permissions (see resolveRolePoolPermissions) —
-                // the direct RolePermission join is intentionally not
-                // queried here to keep permission resolution unambiguous.
-                rolePools: {
-                  include: {
-                    pool: {
-                      include: {
-                        poolPermissions: {
-                          include: {
-                            permission: true,
+  static async getUserTenantProfile(
+    prisma: PrismaClient,
+    profileId: string,
+    tenantId: string,
+  ) {
+    return await withTenantScope(prisma, tenantId, undefined, (tx) =>
+      tx.userTenant.findUnique({
+        where: { id: profileId },
+        include: {
+          // one-to-one role per profile
+          userTenantRole: {
+            include: {
+              role: {
+                include: {
+                  // Permission pools are the single canonical source of a
+                  // role's permissions (see resolveRolePoolPermissions) —
+                  // the direct RolePermission join is intentionally not
+                  // queried here to keep permission resolution unambiguous.
+                  rolePools: {
+                    include: {
+                      pool: {
+                        include: {
+                          poolPermissions: {
+                            include: {
+                              permission: true,
+                            },
                           },
                         },
                       },
@@ -84,22 +102,22 @@ export class TenantQueriesService {
               },
             },
           },
-        },
-        userTenantPermissions: {
-          include: {
-            permission: true,
+          userTenantPermissions: {
+            include: {
+              permission: true,
+            },
+          },
+          tenant: {
+            select: {
+              id: true,
+              name: true,
+              slug: true,
+              status: true,
+            },
           },
         },
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
-            status: true,
-          },
-        },
-      },
-    });
+      }),
+    );
   }
 
   /**
@@ -197,7 +215,9 @@ export class TenantQueriesService {
     const rolePermissions = new Map<string, boolean>();
     const role = userTenant.userTenantRole?.role;
     if (role) {
-      for (const permission of TenantQueriesService.resolveRolePoolPermissions(role)) {
+      for (const permission of TenantQueriesService.resolveRolePoolPermissions(
+        role,
+      )) {
         rolePermissions.set(permission.name, true);
       }
     }
@@ -228,31 +248,45 @@ export class TenantQueriesService {
    * @param role - A Role loaded with `rolePools.pool.poolPermissions.permission`
    * @returns Deduplicated array of Permission records
    */
-  static resolveRolePoolPermissions(
-    role: {
-      clearanceLevel: number;
-      rolePools: Array<{
-        pool: {
-          poolPermissions: Array<{
-            permission: {
-              id: string;
-              name: string;
-              requiredClearanceLevel: number;
-              [key: string]: unknown;
-            };
-          }>;
-        };
-      }>;
-    },
-  ): Array<{ id: string; name: string; requiredClearanceLevel: number; [key: string]: unknown }> {
-    const byId = new Map<string, { id: string; name: string; requiredClearanceLevel: number; [key: string]: unknown }>();
+  static resolveRolePoolPermissions(role: {
+    clearanceLevel: number;
+    rolePools: Array<{
+      pool: {
+        poolPermissions: Array<{
+          permission: {
+            id: string;
+            name: string;
+            requiredClearanceLevel: number;
+            [key: string]: unknown;
+          };
+        }>;
+      };
+    }>;
+  }): Array<{
+    id: string;
+    name: string;
+    requiredClearanceLevel: number;
+    [key: string]: unknown;
+  }> {
+    const byId = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        requiredClearanceLevel: number;
+        [key: string]: unknown;
+      }
+    >();
     for (const rolePool of role.rolePools) {
       for (const poolPermission of rolePool.pool.poolPermissions) {
         // Clearance is a floor at resolution time: never issue a permission
         // whose requiredClearanceLevel exceeds the role's own clearanceLevel,
         // regardless of how the pool-role assignment got there. Guards against
         // a pool's clearance level being raised after assignment.
-        if (poolPermission.permission.requiredClearanceLevel <= role.clearanceLevel) {
+        if (
+          poolPermission.permission.requiredClearanceLevel <=
+          role.clearanceLevel
+        ) {
           byId.set(poolPermission.permission.id, poolPermission.permission);
         }
       }
@@ -319,36 +353,40 @@ export class TenantQueriesService {
    * @returns Array of roles
    */
   static async getTenantRoles(prisma: PrismaClient, tenantId: string) {
-    return prisma.role.findMany({
-      where: {
-        OR: [
-          {
-            tenantId: null,
-            roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
-          }, // System roles
-          { tenantId, roleType: RoleType.CUSTOM }, // Custom roles for this tenant
-        ],
-        isActive: true,
-      },
-      include: {
-        rolePools: {
-          include: {
-            pool: {
-              include: {
-                poolPermissions: {
-                  include: {
-                    permission: true,
+    // Scoped: the OR spans global roles (readable unscoped under the
+    // nullable-tenant policy) and this tenant's custom roles, which are not.
+    return withTenantScope(prisma, tenantId, undefined, (tx) =>
+      tx.role.findMany({
+        where: {
+          OR: [
+            {
+              tenantId: null,
+              roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+            }, // System roles
+            { tenantId, roleType: RoleType.CUSTOM }, // Custom roles for this tenant
+          ],
+          isActive: true,
+        },
+        include: {
+          rolePools: {
+            include: {
+              pool: {
+                include: {
+                  poolPermissions: {
+                    include: {
+                      permission: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-      orderBy: {
-        clearanceLevel: 'desc',
-      },
-    });
+        orderBy: {
+          clearanceLevel: 'desc',
+        },
+      }),
+    );
   }
 
   /**
