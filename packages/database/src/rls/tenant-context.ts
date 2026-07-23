@@ -94,6 +94,37 @@ export async function withUserScope<T>(
 }
 
 /**
+ * Run `fn` in a session scoped to one tenant (and optionally one user).
+ *
+ * The transaction-scoped counterpart of `withTenantContext` below: opens its
+ * own transaction because `set_config(..., true)` is transaction-scoped, so on
+ * a pooled connection the GUC would otherwise not apply to the queries that
+ * follow. The callback must use the supplied `tx`, not the outer client.
+ *
+ * Note for auth flows: it is legitimate to scope to a tenantId the caller has
+ * merely *claimed* (e.g. select-school validating a profile). The scope only
+ * reveals rows belonging to the claimed tenant — it grants nothing across
+ * tenants — and the caller's explicit ownership checks still decide the
+ * outcome before anything is issued.
+ *
+ * @param prisma - Prisma client to open the transaction on
+ * @param tenantId - Tenant to scope to
+ * @param userId - Optional user id (sets `app.current_user_id` too)
+ * @param fn - Work to run inside the scoped transaction
+ */
+export async function withTenantScope<T>(
+  prisma: PrismaClient,
+  tenantId: string,
+  userId: string | undefined,
+  fn: (tx: PrismaClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await setContext(tx as unknown as PrismaClient, tenantId, userId);
+    return fn(tx as unknown as PrismaClient);
+  });
+}
+
+/**
  * Clear tenant context.
  *
  * Resets the GUC to an empty string. With transaction-scoped context this is

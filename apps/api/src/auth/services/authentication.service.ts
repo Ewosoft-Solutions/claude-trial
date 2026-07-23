@@ -20,7 +20,7 @@ import {
   MfaMethodType,
 } from '@workspace/api';
 import { PrismaClient } from '@workspace/database';
-import { withUserScope } from '@workspace/database/rls';
+import { withTenantScope, withUserScope } from '@workspace/database/rls';
 import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { writeAuditLog } from '../../common/audit/audit-writer';
 // Local imports
@@ -892,20 +892,29 @@ export class AuthenticationService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<SchoolSelectionResponse> {
-    // Get user tenant profile by profileId and verify ownership/tenant match
-    const userTenant = await prisma.userTenant.findUnique({
-      where: { id: profileId },
-      include: {
-        user: { select: { email: true, id: true } },
-        tenant: {
-          select: { id: true, name: true, slug: true, status: true },
+    // Get user tenant profile by profileId and verify ownership/tenant match.
+    //
+    // `user_tenants` and the `user_tenant_roles` include are strictly
+    // tenant-scoped under FORCE RLS, and no request scope exists yet — minting
+    // one is what this method does. Scoping to the *claimed* tenantId is safe:
+    // it only reveals rows of the tenant being requested, and the explicit
+    // ownership check below still decides before any token is issued. See
+    // docs/rls-privileged-client-plan.md.
+    const userTenant = await withTenantScope(prisma, tenantId, userId, (tx) =>
+      tx.userTenant.findUnique({
+        where: { id: profileId },
+        include: {
+          user: { select: { email: true, id: true } },
+          tenant: {
+            select: { id: true, name: true, slug: true, status: true },
+          },
+          userTenantRole: {
+            where: { role: { isActive: true } },
+            include: { role: true },
+          },
         },
-        userTenantRole: {
-          where: { role: { isActive: true } },
-          include: { role: true },
-        },
-      },
-    });
+      }),
+    );
 
     if (userTenant?.userId !== userId || userTenant.tenantId !== tenantId) {
       throw new UnauthorizedException('Invalid profile');
@@ -1006,10 +1015,14 @@ export class AuthenticationService {
     userId: string,
     profileId: string,
   ): Promise<{ success: true; defaultProfileId: string }> {
-    const userTenant = await prisma.userTenant.findUnique({
-      where: { id: profileId },
-      select: { userId: true },
-    });
+    // Reading one's own membership row — the user-scope RLS grant covers it
+    // (migration 20260723090000_user_tenants_self_scope).
+    const userTenant = await withUserScope(prisma, userId, (tx) =>
+      tx.userTenant.findUnique({
+        where: { id: profileId },
+        select: { userId: true },
+      }),
+    );
 
     if (userTenant?.userId !== userId) {
       throw new UnauthorizedException('Invalid profile');
