@@ -1,10 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.service';
-import {
-  AUDIT_ACTION,
-  AUDIT_EVENT,
-  type AuditAction,
-} from './audit.constants';
+import { AUDIT_ACTION, AUDIT_EVENT, type AuditAction } from './audit.constants';
+import { writeAuditLog } from './audit-writer';
 
 /**
  * Platform Audit Service
@@ -155,28 +152,27 @@ export class PlatformAuditService {
     ipAddress: string | null;
     userAgent: string | null;
   }): Promise<void> {
-    try {
-      await this.dbService.client.auditLog.create({
-        data: {
-          tenantId: data.tenantId,
-          eventType: AUDIT_EVENT.SECURITY_EVENT,
-          action: data.action,
-          resource: data.resource,
-          resourceId: data.resourceId,
-          actorId: data.actorId,
-          description: data.description,
-          metadata: data.metadata as never,
-          ipAddress: data.ipAddress,
-          userAgent: data.userAgent,
-        },
-      });
-    } catch (error) {
-      // Never break the request on an audit failure, but make the gap loud:
-      // a missing platform-access record is a security-relevant event itself.
+    // Via writeAuditLog rather than `auditLog.create()`: this row is filed
+    // against the platform tenant while the caller holds no tenant scope, so
+    // the writer sets the tenant GUC for the statement itself. It logs its own
+    // failures — a missing platform-access record is a security-relevant event
+    // in its own right, and must never break the request it is recording.
+    const written = await writeAuditLog(this.dbService.client, {
+      tenantId: data.tenantId,
+      eventType: AUDIT_EVENT.SECURITY_EVENT,
+      action: data.action,
+      resource: data.resource,
+      resourceId: data.resourceId,
+      actorId: data.actorId,
+      description: data.description,
+      metadata: data.metadata,
+      ipAddress: data.ipAddress,
+      userAgent: data.userAgent,
+    });
+
+    if (!written) {
       this.logger.error(
-        `Failed to write platform audit row (${data.action}, actor ${data.actorId}): ${
-          error instanceof Error ? error.message : String(error)
-        }`,
+        `Cross-tenant access by ${data.actorId} went unrecorded (${data.action}).`,
       );
     }
   }

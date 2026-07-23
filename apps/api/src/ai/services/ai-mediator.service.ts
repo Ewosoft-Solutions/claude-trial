@@ -20,6 +20,7 @@ import {
   // ClearanceLevelHelpers,
   AIQueryType,
 } from '@workspace/api';
+import { writeAuditLog } from '../../common/audit/audit-writer';
 
 /**
  * AI Query Request
@@ -355,42 +356,40 @@ export class AIMediatorService {
       }
 
       // Create audit log entry
-      await prisma.auditLog.create({
-        data: {
-          tenantId: request.tenantId,
-          eventType: AUDIT_EVENT.AI_EVENT, // Dedicated type for AI-specific events
-          action: AUDIT_ACTION.AI_EVENT[eventTypeKey],
-          resource: 'ai_mediator',
-          resourceId: null,
-          actorId: request.userId,
-          actorProfileId: request.profileId,
-          actorRole: userContext.roleId || null,
-          actorEmail: user?.email || null,
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-          description: `AI ${request.queryType || 'general'} query: ${request.query.substring(0, 100)}${request.query.length > 100 ? '...' : ''}`,
-          metadata: {
-            query: request.query,
-            queryType: request.queryType || 'general',
-            context: request.context || {},
-            validationResult: {
-              allowed: validationResult.allowed,
-              reason: validationResult.reason,
-              requiredClearanceLevel: validationResult.requiredClearanceLevel,
-              userClearanceLevel: validationResult.userClearanceLevel,
-              requiredAccessScope: validationResult.requiredAccessScope,
-              userAccessScope: validationResult.userAccessScope,
-            },
-            responseMetadata: responseMetadata || {},
-            clearanceLevel: userContext.clearanceLevel,
-            accessScope:
-              this.permissionService.getAIMediatorContext(userContext)
-                .accessScope,
+      await writeAuditLog(prisma, {
+        tenantId: request.tenantId,
+        eventType: AUDIT_EVENT.AI_EVENT, // Dedicated type for AI-specific events
+        action: AUDIT_ACTION.AI_EVENT[eventTypeKey],
+        resource: 'ai_mediator',
+        resourceId: null,
+        actorId: request.userId,
+        actorProfileId: request.profileId,
+        actorRole: userContext.roleId || null,
+        actorEmail: user?.email || null,
+        ipAddress: ipAddress || null,
+        userAgent: userAgent || null,
+        description: `AI ${request.queryType || 'general'} query: ${request.query.substring(0, 100)}${request.query.length > 100 ? '...' : ''}`,
+        metadata: {
+          query: request.query,
+          queryType: request.queryType || 'general',
+          context: request.context || {},
+          validationResult: {
+            allowed: validationResult.allowed,
+            reason: validationResult.reason,
+            requiredClearanceLevel: validationResult.requiredClearanceLevel,
+            userClearanceLevel: validationResult.userClearanceLevel,
+            requiredAccessScope: validationResult.requiredAccessScope,
+            userAccessScope: validationResult.userAccessScope,
           },
-          status,
-          errorCode: responseMetadata?.error ? 'AI_QUERY_ERROR' : null,
-          errorMessage: responseMetadata?.error || null,
+          responseMetadata: responseMetadata || {},
+          clearanceLevel: userContext.clearanceLevel,
+          accessScope:
+            this.permissionService.getAIMediatorContext(userContext)
+              .accessScope,
         },
+        status,
+        errorCode: responseMetadata?.error ? 'AI_QUERY_ERROR' : null,
+        errorMessage: responseMetadata?.error || null,
       });
     } catch (error) {
       // Don't throw - audit logging should not break the main flow
