@@ -142,9 +142,16 @@ At that point:
 
 1. Repoint the auth/guard paths at `app_runtime` too, so `DATABASE_URL` is used
    only by migrations and seeds — the state ADR-004 describes.
-2. Add a CI gate that fails if a privileged-client call site touches a
-   tenant-scoped table, so this cannot silently regress. The inventory query used
-   to build the table above is the basis for it.
+2. Correct the gate that already exists rather than adding one.
+   `apps/api/scripts/check-privileged-db-usage.mjs` runs in CI and ratchets
+   privileged-client usage down — but it encodes the very assumption that broke
+   here, in its own docstring: _"the privileged Prisma connection, which Postgres
+   RLS does not constrain."_ It then allowlists `src/auth/` and `src/common/`
+   wholesale, on the grounds that they "run before a tenant context exists".
+   That allowlist is exactly why nothing flagged the login path. Once Stage 3
+   lands, narrow it — a path that runs before a tenant context exists still needs
+   _some_ scope, and "pre-tenant" is not a licence to hold an unconstrained
+   connection.
 3. Amend ADR-004 to say explicitly that no runtime connection bypasses RLS, and
    that FORCE RLS applies to the owner — the assumption that broke here was never
    written down, which is why it survived to production.
