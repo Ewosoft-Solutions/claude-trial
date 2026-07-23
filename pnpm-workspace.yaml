@@ -13,6 +13,9 @@ overrides:
   'brace-expansion@>=3.0.0 <5.0.7': '5.0.7'
   'esbuild@>=0.27.3 <0.28.1': '0.28.1'
   'fast-uri@>=3.0.0 <3.1.4': '3.1.4'
+  # Transitive via prisma > @prisma/dev (dev tooling; not in the deployed
+  # runtime). Advisory patched in 9.7.0.
+  'find-my-way@<9.7.0': '9.7.0'
   'js-yaml@<3.15.0': '3.15.0'
   'js-yaml@>=4.0.0 <4.3.0': '4.3.0'
   'postcss@<8.5.10': '8.5.16'
