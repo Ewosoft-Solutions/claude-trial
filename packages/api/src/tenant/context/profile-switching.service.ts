@@ -6,6 +6,7 @@
  */
 
 import { Prisma, PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import {
   TenantContext,
   Permission,
@@ -58,27 +59,38 @@ export class ProfileSwitchingService {
     userId: string,
     tenantId: string,
   ): Promise<AvailableProfile[]> {
-    const profiles = await prisma.userTenant.findMany({
-      where: {
-        userId,
-        tenantId,
-      },
-      include: {
-        userTenantRole: {
-          include: { role: true },
+    const profiles = await withTenantScope(prisma, tenantId, userId, (tx) =>
+      tx.userTenant.findMany({
+        where: {
+          userId,
+          tenantId,
         },
-        tenant: { select: { id: true, slug: true, status: true } },
-      },
-    });
+        include: {
+          userTenantRole: {
+            include: { role: true },
+          },
+          tenant: { select: { id: true, slug: true, status: true } },
+        },
+      }),
+    );
 
     return profiles
-      .map((ut: Prisma.UserTenantGetPayload<{ include: { userTenantRole: { include: { role: true } }; tenant: { select: { id: true, slug: true, status: true } } } }>) => ({
-        profileId: ut.id,
-        roleName: ut.userTenantRole?.role.name,
-        roleDescription: ut.userTenantRole?.role.description || undefined,
-        isPrimary: ut.userTenantRole?.isPrimary ?? false,
-        status: ut.status as ProfileStatus,
-      }))
+      .map(
+        (
+          ut: Prisma.UserTenantGetPayload<{
+            include: {
+              userTenantRole: { include: { role: true } };
+              tenant: { select: { id: true; slug: true; status: true } };
+            };
+          }>,
+        ) => ({
+          profileId: ut.id,
+          roleName: ut.userTenantRole?.role.name,
+          roleDescription: ut.userTenantRole?.role.description || undefined,
+          isPrimary: ut.userTenantRole?.isPrimary ?? false,
+          status: ut.status as ProfileStatus,
+        }),
+      )
       .filter((p) => p.roleName) as AvailableProfile[];
   }
 
@@ -98,17 +110,26 @@ export class ProfileSwitchingService {
     context: TenantContext,
     targetProfileId: string,
   ): Promise<TenantContext | null> {
-    // 1. Load target profile and validate ownership/tenant
-    const userTenant = await prisma.userTenant.findUnique({
-      where: { id: targetProfileId },
-      include: {
-        tenant: { select: { id: true, slug: true, status: true } },
-        userTenantRole: {
-          where: { role: { isActive: true } },
-          include: { role: true },
-        },
-      },
-    });
+    // 1. Load target profile and validate ownership/tenant.
+    // Scoped to the caller's CURRENT tenant: switching profiles is a move
+    // within one school, so a target in any other tenant must not resolve —
+    // the ownership check below then confirms it is also the caller's own.
+    const userTenant = await withTenantScope(
+      prisma,
+      context.tenantId,
+      context.userId,
+      (tx) =>
+        tx.userTenant.findUnique({
+          where: { id: targetProfileId },
+          include: {
+            tenant: { select: { id: true, slug: true, status: true } },
+            userTenantRole: {
+              where: { role: { isActive: true } },
+              include: { role: true },
+            },
+          },
+        }),
+    );
 
     if (
       !userTenant ||
@@ -203,12 +224,14 @@ export class ProfileSwitchingService {
     userId: string,
     tenantId: string,
   ): Promise<boolean> {
-    const profileCount = await prisma.userTenant.count({
-      where: {
-        userId,
-        tenantId,
-      },
-    });
+    const profileCount = await withTenantScope(prisma, tenantId, userId, (tx) =>
+      tx.userTenant.count({
+        where: {
+          userId,
+          tenantId,
+        },
+      }),
+    );
 
     return profileCount > 1;
   }

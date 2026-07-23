@@ -87,10 +87,33 @@ export async function withUserScope<T>(
   userId: string,
   fn: (tx: PrismaClient) => Promise<T>,
 ): Promise<T> {
+  if (!canOpenTransaction(prisma)) return fn(prisma);
+
   return prisma.$transaction(async (tx) => {
     await setUserContext(tx as unknown as PrismaClient, userId);
     return fn(tx as unknown as PrismaClient);
   });
+}
+
+/**
+ * Whether this client can open a transaction of its own.
+ *
+ * A `Prisma.TransactionClient` — what a caller passes when it has *already*
+ * opened a scope — has no `$transaction`. Nesting one is impossible, so the
+ * scope helpers run the callback directly on it and inherit the caller's
+ * context.
+ *
+ * Deliberately inherit rather than re-`set_config` inside the caller's
+ * transaction: the GUC is transaction-scoped, so overwriting it would silently
+ * change the scope of every subsequent statement in that transaction, not just
+ * the wrapped read. Inheriting is only correct if the caller scoped to the same
+ * tenant — which is the contract, since a service is called within its own
+ * request's scope.
+ */
+function canOpenTransaction(prisma: PrismaClient): boolean {
+  return (
+    typeof (prisma as { $transaction?: unknown }).$transaction === 'function'
+  );
 }
 
 /**
@@ -118,6 +141,8 @@ export async function withTenantScope<T>(
   userId: string | undefined,
   fn: (tx: PrismaClient) => Promise<T>,
 ): Promise<T> {
+  if (!canOpenTransaction(prisma)) return fn(prisma);
+
   return prisma.$transaction(async (tx) => {
     await setContext(tx as unknown as PrismaClient, tenantId, userId);
     return fn(tx as unknown as PrismaClient);

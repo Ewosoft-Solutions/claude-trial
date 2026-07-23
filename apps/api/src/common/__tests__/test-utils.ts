@@ -55,9 +55,28 @@ export type MockContext = {
  * ```
  */
 export function createMockContext(): MockContext {
-  return {
-    prisma: mockDeep<PrismaClient>(),
+  const prisma = mockDeep<PrismaClient>();
+
+  // Services scope their reads with `withTenantScope` / `withUserScope`, which
+  // open a transaction to hold the RLS GUC. mockDeep stubs `$transaction` to
+  // return undefined, so without this the callback never runs and every scoped
+  // read resolves to undefined — a failure mode that looks like a broken query
+  // rather than a missing mock. Run the callback against the same mock: these
+  // are unit tests of service logic, not of isolation.
+  // Typed loosely on purpose: threading the deep mock through a
+  // `PrismaClient`-typed callback makes tsc expand Prisma's recursive filter
+  // types and fail with TS2615 across every model.
+  const transaction = prisma.$transaction as unknown as {
+    mockImplementation: (fn: (arg: unknown) => unknown) => void;
   };
+  transaction.mockImplementation((arg: unknown) =>
+    typeof arg === 'function'
+      ? (arg as (tx: unknown) => unknown)(prisma)
+      : // Array form: `$transaction([p1, p2])` resolves the promises as-is.
+        Promise.all(arg as Promise<unknown>[]),
+  );
+
+  return { prisma };
 }
 
 /**

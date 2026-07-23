@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EnforcedBy } from '@workspace/api';
 import type { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 
 import { SecurityPolicyService } from './security-policy.service';
 
@@ -102,16 +103,18 @@ export class SessionPolicyService {
     }
 
     await this.securityPolicies.getOrCreateDefaultPolicy(prisma, tenantId);
-    await prisma.schoolSecurityPolicy.update({
-      where: { schoolId: tenantId },
-      data: {
-        sessionTimeout: idleTimeoutMinutes,
-        enforcedBy,
-        enforcedByUserId: actorId,
-        enforcedAt: new Date(),
-        updatedBy: actorId,
-      },
-    });
+    await withTenantScope(prisma, tenantId, actorId, (tx) =>
+      tx.schoolSecurityPolicy.update({
+        where: { schoolId: tenantId },
+        data: {
+          sessionTimeout: idleTimeoutMinutes,
+          enforcedBy,
+          enforcedByUserId: actorId,
+          enforcedAt: new Date(),
+          updatedBy: actorId,
+        },
+      }),
+    );
 
     return this.getEffectivePolicy(prisma, tenantId);
   }

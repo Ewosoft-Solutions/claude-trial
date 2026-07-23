@@ -27,6 +27,7 @@ import {
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { DatabaseService } from '../../common/database/database.service';
+import { withTenantScope } from '@workspace/database/rls';
 import type { AuthenticatedRequest } from '../middleware';
 
 /**
@@ -121,26 +122,35 @@ export class AuditLogController {
       }
     }
 
-    const [logs, total] = await Promise.all([
-      this.dbService.client.auditLog.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: {
-          timestamp: 'desc',
-        },
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
+    // `audit_logs` is FORCE RLS. This handler runs outside @TenantScoped, so
+    // the reads carry their own scope — without it they return an empty page
+    // on any deployed database. See docs/rls-privileged-client-plan.md.
+    const [logs, total] = await withTenantScope(
+      this.dbService.client,
+      tenantId,
+      userContext?.userId,
+      (tx) =>
+        Promise.all([
+          tx.auditLog.findMany({
+            where,
+            skip,
+            take: limitNum,
+            orderBy: {
+              timestamp: 'desc',
             },
-          },
-        },
-      }),
-      this.dbService.client.auditLog.count({ where }),
-    ]);
+            include: {
+              tenant: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          }),
+          tx.auditLog.count({ where }),
+        ]),
+    );
 
     return {
       data: logs,
@@ -177,18 +187,24 @@ export class AuditLogController {
     }
     const where: any = { id, tenantId };
 
-    const log = await this.dbService.client.auditLog.findFirst({
-      where,
-      include: {
-        tenant: {
-          select: {
-            id: true,
-            name: true,
-            slug: true,
+    const log = await withTenantScope(
+      this.dbService.client,
+      tenantId,
+      userContext?.userId,
+      (tx) =>
+        tx.auditLog.findFirst({
+          where,
+          include: {
+            tenant: {
+              select: {
+                id: true,
+                name: true,
+                slug: true,
+              },
+            },
           },
-        },
-      },
-    });
+        }),
+    );
 
     if (!log) {
       throw new Error('Audit log not found');
@@ -231,26 +247,32 @@ export class AuditLogController {
       tenantId,
     };
 
-    const [logs, total] = await Promise.all([
-      this.dbService.client.auditLog.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: {
-          timestamp: 'desc',
-        },
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
+    const [logs, total] = await withTenantScope(
+      this.dbService.client,
+      tenantId,
+      userContext?.userId,
+      (tx) =>
+        Promise.all([
+          tx.auditLog.findMany({
+            where,
+            skip,
+            take: limitNum,
+            orderBy: {
+              timestamp: 'desc',
             },
-          },
-        },
-      }),
-      this.dbService.client.auditLog.count({ where }),
-    ]);
+            include: {
+              tenant: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          }),
+          tx.auditLog.count({ where }),
+        ]),
+    );
 
     return {
       data: logs,
@@ -297,26 +319,32 @@ export class AuditLogController {
       tenantId,
     };
 
-    const [logs, total] = await Promise.all([
-      this.dbService.client.auditLog.findMany({
-        where,
-        skip,
-        take: limitNum,
-        orderBy: {
-          timestamp: 'desc',
-        },
-        include: {
-          tenant: {
-            select: {
-              id: true,
-              name: true,
-              slug: true,
+    const [logs, total] = await withTenantScope(
+      this.dbService.client,
+      tenantId,
+      userContext?.userId,
+      (tx) =>
+        Promise.all([
+          tx.auditLog.findMany({
+            where,
+            skip,
+            take: limitNum,
+            orderBy: {
+              timestamp: 'desc',
             },
-          },
-        },
-      }),
-      this.dbService.client.auditLog.count({ where }),
-    ]);
+            include: {
+              tenant: {
+                select: {
+                  id: true,
+                  name: true,
+                  slug: true,
+                },
+              },
+            },
+          }),
+          tx.auditLog.count({ where }),
+        ]),
+    );
 
     return {
       data: logs,

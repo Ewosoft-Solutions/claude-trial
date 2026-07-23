@@ -1,0 +1,11 @@
+[
+  "src/auth/controllers/permission-management.controller.ts  [permissionPool, role]",
+  "src/auth/controllers/role-management.controller.ts  [role]",
+  "src/auth/services/breach-response.service.ts  [userTenant]",
+  "src/auth/services/maker-checker.service.ts  [makerCheckerRequest, role]",
+  "src/auth/services/permission-pool.service.ts  [permissionPool, role]",
+  "src/auth/services/role.service.ts  [permissionPool, role]",
+  "src/tenant/services/tenant-registration.service.ts  [role]",
+  "src/tenant/services/user-invitation.service.ts  [role, userTenant, userTenantRole]",
+  "src/tenant/services/user-management.service.ts  [userTenant, userTenantRole]"
+]

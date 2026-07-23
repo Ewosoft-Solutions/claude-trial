@@ -6,6 +6,7 @@
  */
 
 import { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 
 /**
  * Tenant Validation Result
@@ -79,22 +80,24 @@ export class TenantValidationService {
     tenantId: string,
   ): Promise<TenantValidationResult> {
     try {
-      const userTenant = await prisma.userTenant.findFirst({
-        where: {
-          userId,
-          tenantId,
-        },
-        select: {
-          id: true,
-          status: true,
-          suspended: true,
-          tenant: {
-            select: {
-              status: true,
+      const userTenant = await withTenantScope(prisma, tenantId, userId, (tx) =>
+        tx.userTenant.findFirst({
+          where: {
+            userId,
+            tenantId,
+          },
+          select: {
+            id: true,
+            status: true,
+            suspended: true,
+            tenant: {
+              select: {
+                status: true,
+              },
             },
           },
-        },
-      });
+        }),
+      );
 
       if (!userTenant) {
         return {
@@ -151,21 +154,24 @@ export class TenantValidationService {
   static async validateProfile(
     prisma: PrismaClient,
     profileId: string,
+    tenantId: string,
   ): Promise<TenantValidationResult> {
     try {
-      const profile = await prisma.userTenant.findUnique({
-        where: { id: profileId },
-        select: {
-          id: true,
-          status: true,
-          suspended: true,
-          tenant: {
-            select: {
-              status: true,
+      const profile = await withTenantScope(prisma, tenantId, undefined, (tx) =>
+        tx.userTenant.findUnique({
+          where: { id: profileId },
+          select: {
+            id: true,
+            status: true,
+            suspended: true,
+            tenant: {
+              select: {
+                status: true,
+              },
             },
           },
-        },
-      });
+        }),
+      );
 
       if (!profile) {
         return {
@@ -228,19 +234,21 @@ export class TenantValidationService {
     roleName: string,
   ): Promise<TenantValidationResult> {
     try {
-      const userTenant = await prisma.userTenant.findFirst({
-        where: {
-          userId,
-          tenantId,
-        },
-        include: {
-          userTenantRole: {
-            include: {
-              role: true,
+      const userTenant = await withTenantScope(prisma, tenantId, userId, (tx) =>
+        tx.userTenant.findFirst({
+          where: {
+            userId,
+            tenantId,
+          },
+          include: {
+            userTenantRole: {
+              include: {
+                role: true,
+              },
             },
           },
-        },
-      });
+        }),
+      );
 
       if (!userTenant) {
         return {

@@ -731,8 +731,11 @@ describe('PermissionService', () => {
       );
 
       expect(result.granted).toBe(true);
+      // tenantId is filtered explicitly, not left to RLS alone: this feeds an
+      // authorization decision and the ids come from the caller's request.
       expect(mockPrisma.classTeacher.findFirst).toHaveBeenCalledWith({
         where: {
+          tenantId: 'tenant-id',
           classId: 'class-1',
           userTenantId: 'profile-id',
           isActive: true,
