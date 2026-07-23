@@ -32,6 +32,7 @@ import { PermissionService } from '../services/permission.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { RoleType, TenantQueriesService } from '@workspace/api';
 import { AuthUser } from '../decorators';
+import { withTenantScope } from '@workspace/database/rls';
 import type { RequestUser } from '../types/request-user';
 import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
 import { STEP_UP_OPERATION } from '../step-up.operations';
@@ -94,33 +95,42 @@ export class RoleManagementController {
   async getRole(@Param('id') id: string, @AuthUser() user: RequestUser) {
     const tenantId = user.tenantId;
 
-    const role = await this.dbService.client.role.findFirst({
-      where: {
-        id,
-        OR: [
-          {
-            tenantId: null,
-            roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+    // Scoped: the OR spans global roles (tenant_id IS NULL, readable either
+    // way under the nullable-tenant policy) and this tenant's custom roles,
+    // which are not. Unscoped, the custom-role arm silently matches nothing.
+    const role = await withTenantScope(
+      this.dbService.client,
+      tenantId,
+      user.userId,
+      (tx) =>
+        tx.role.findFirst({
+          where: {
+            id,
+            OR: [
+              {
+                tenantId: null,
+                roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+              },
+              { tenantId, roleType: RoleType.CUSTOM },
+            ],
           },
-          { tenantId, roleType: RoleType.CUSTOM },
-        ],
-      },
-      include: {
-        rolePools: {
           include: {
-            pool: {
+            rolePools: {
               include: {
-                poolPermissions: {
+                pool: {
                   include: {
-                    permission: true,
+                    poolPermissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
-      },
-    });
+        }),
+    );
 
     if (!role) {
       throw new Error('Role not found');

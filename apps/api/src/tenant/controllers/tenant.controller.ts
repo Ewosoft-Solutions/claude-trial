@@ -102,6 +102,7 @@ export class TenantController {
       data,
       user.userId,
       requesterRole,
+      userContext?.tenantId ?? '',
     );
   }
 

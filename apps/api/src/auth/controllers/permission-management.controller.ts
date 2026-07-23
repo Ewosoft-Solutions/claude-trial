@@ -31,6 +31,9 @@ import {
 } from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { DatabaseService } from '../../common/database/database.service';
+import { withTenantScope } from '@workspace/database/rls';
+import { AuthUser } from '../decorators';
+import type { RequestUser } from '../types/request-user';
 import { PermissionPoolService } from '../services/permission-pool.service';
 import { RoleType } from '@workspace/api';
 import type { AuthenticatedRequest } from '../middleware';
@@ -147,25 +150,37 @@ export class PermissionManagementController {
   @Get('role/:roleId')
   @ApiOperation({ summary: 'Get permissions for a role' })
   @ApiResponse({ status: 200, description: 'List of permissions for role' })
-  async getPermissionsForRole(@Param('roleId') roleId: string) {
-    const role = await this.dbService.client.role.findUnique({
-      where: { id: roleId },
-      include: {
-        rolePools: {
+  async getPermissionsForRole(
+    @Param('roleId') roleId: string,
+    @AuthUser() user: RequestUser,
+  ) {
+    // Takes the caller's tenant so a CUSTOM role resolves: `roles` is
+    // nullable-tenant, so without a scope only global roles are visible and a
+    // tenant's own role reads as "not found".
+    const role = await withTenantScope(
+      this.dbService.client,
+      user.tenantId,
+      user.userId,
+      (tx) =>
+        tx.role.findUnique({
+          where: { id: roleId },
           include: {
-            pool: {
+            rolePools: {
               include: {
-                poolPermissions: {
+                pool: {
                   include: {
-                    permission: true,
+                    poolPermissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
-      },
-    });
+        }),
+    );
 
     if (!role) {
       throw new Error('Role not found');
@@ -215,81 +230,97 @@ export class PermissionManagementController {
       throw new Error('Tenant context required');
     }
 
-    // Verify role exists and belongs to tenant
-    const role = await this.dbService.client.role.findFirst({
-      where: {
-        id: roleId,
-        OR: [
-          {
-            tenantId: null,
-            roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+    // Whole operation in one tenant scope, and therefore one transaction.
+    // Both matter: `roles` and `permission_pools` are nullable-tenant, so an
+    // unscoped read resolves global rows but silently misses this tenant's own
+    // — which would fail the "role not found" check for a legitimate custom
+    // role, and (were it not for the length check below) let a pool that could
+    // not be read slip past the clearance gate. The reassignment also deletes
+    // before it creates, so it must not be able to fail in between.
+    return withTenantScope(
+      this.dbService.client,
+      tenantId,
+      user.userId,
+      async (tx) => {
+        // Verify role exists and belongs to tenant
+        const role = await tx.role.findFirst({
+          where: {
+            id: roleId,
+            OR: [
+              {
+                tenantId: null,
+                roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+              },
+              { tenantId, roleType: RoleType.CUSTOM },
+            ],
           },
-          { tenantId, roleType: RoleType.CUSTOM },
-        ],
-      },
-    });
+        });
 
-    if (!role) {
-      throw new Error('Role not found');
-    }
+        if (!role) {
+          throw new Error('Role not found');
+        }
 
-    // Only allow assigning permission pools to custom roles
-    if (role.roleType !== RoleType.CUSTOM) {
-      throw new Error('Cannot assign permissions to system or platform roles');
-    }
+        // Only allow assigning permission pools to custom roles
+        if (role.roleType !== RoleType.CUSTOM) {
+          throw new Error(
+            'Cannot assign permissions to system or platform roles',
+          );
+        }
 
-    // Gate: no pool may exceed the target role's clearance level
-    const pools = await this.dbService.client.permissionPool.findMany({
-      where: { id: { in: data.poolIds } },
-    });
+        // Gate: no pool may exceed the target role's clearance level
+        const pools = await tx.permissionPool.findMany({
+          where: { id: { in: data.poolIds } },
+        });
 
-    if (pools.length !== data.poolIds.length) {
-      throw new Error('One or more permission pools not found');
-    }
+        if (pools.length !== data.poolIds.length) {
+          throw new Error('One or more permission pools not found');
+        }
 
-    const overClearance = pools.filter(
-      (p) => p.clearanceLevel > role.clearanceLevel,
-    );
-    if (overClearance.length > 0) {
-      throw new Error(
-        `Pools exceed role clearance level ${role.clearanceLevel}: ${overClearance.map((p) => p.name).join(', ')}`,
-      );
-    }
+        const overClearance = pools.filter(
+          (p) => p.clearanceLevel > role.clearanceLevel,
+        );
+        if (overClearance.length > 0) {
+          throw new Error(
+            `Pools exceed role clearance level ${role.clearanceLevel}: ${overClearance.map((p) => p.name).join(', ')}`,
+          );
+        }
 
-    // Replace existing pool assignments
-    await this.dbService.client.rolePermissionPool.deleteMany({
-      where: { roleId },
-    });
+        // Replace existing pool assignments
+        await tx.rolePermissionPool.deleteMany({
+          where: { roleId },
+        });
 
-    if (data.poolIds.length > 0) {
-      await this.dbService.client.rolePermissionPool.createMany({
-        data: data.poolIds.map((poolId) => ({
-          roleId,
-          poolId,
-          assignedBy: user.userId,
-        })),
-      });
-    }
+        if (data.poolIds.length > 0) {
+          await tx.rolePermissionPool.createMany({
+            data: data.poolIds.map((poolId) => ({
+              roleId,
+              poolId,
+              assignedBy: user.userId,
+            })),
+          });
+        }
 
-    // Return updated role with pool-resolved permissions
-    return this.dbService.client.role.findUnique({
-      where: { id: roleId },
-      include: {
-        rolePools: {
+        // Return updated role with pool-resolved permissions
+        return tx.role.findUnique({
+          where: { id: roleId },
           include: {
-            pool: {
+            rolePools: {
               include: {
-                poolPermissions: {
+                pool: {
                   include: {
-                    permission: true,
+                    poolPermissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
+        });
       },
-    });
+    );
   }
 
   /**

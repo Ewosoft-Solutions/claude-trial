@@ -12,6 +12,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import { AuditAction } from 'src/common';
 
 /**
@@ -55,25 +56,33 @@ export class PermissionPoolService {
     clearanceLevel: number,
     tenantId?: string,
   ): Promise<PermissionPoolWithPermissions[]> {
-    const pools = await prisma.permissionPool.findMany({
-      where: {
-        clearanceLevel: { lte: clearanceLevel },
-        OR: [
-          { tenantId: null }, // System pools
-          ...(tenantId ? [{ tenantId }] : []), // Tenant-specific pools
-        ],
-      },
-      include: {
-        poolPermissions: {
-          include: {
-            permission: true,
+    // Scoped when a tenant is in play: system pools (tenant_id IS NULL) resolve
+    // either way under the nullable-tenant policy, but the tenant-specific arm
+    // of this OR silently matches nothing without it.
+    const run = <T>(fn: (tx: PrismaClient) => Promise<T>) =>
+      tenantId ? withTenantScope(prisma, tenantId, undefined, fn) : fn(prisma);
+
+    const pools = await run((tx) =>
+      tx.permissionPool.findMany({
+        where: {
+          clearanceLevel: { lte: clearanceLevel },
+          OR: [
+            { tenantId: null }, // System pools
+            ...(tenantId ? [{ tenantId }] : []), // Tenant-specific pools
+          ],
+        },
+        include: {
+          poolPermissions: {
+            include: {
+              permission: true,
+            },
           },
         },
-      },
-      orderBy: {
-        clearanceLevel: 'desc',
-      },
-    });
+        orderBy: {
+          clearanceLevel: 'desc',
+        },
+      }),
+    );
 
     return pools.map((pool) => ({
       id: pool.id,
@@ -167,6 +176,17 @@ export class PermissionPoolService {
       },
     });
 
+    // Fail closed on any pool that did not resolve — otherwise the check below
+    // is fail-OPEN, because `Math.max(...[])` is -Infinity and never exceeds
+    // the role's clearance level. A pool hidden by RLS, or simply a bad id,
+    // would validate silently.
+    if (pools.length !== poolIds.length) {
+      return {
+        valid: false,
+        error: 'One or more permission pools were not found',
+      };
+    }
+
     // Check if any pool exceeds the role's clearance level
     const maxPoolLevel = Math.max(...pools.map((p) => p.clearanceLevel));
     if (maxPoolLevel > role?.clearanceLevel) {
@@ -250,38 +270,44 @@ export class PermissionPoolService {
       );
     }
 
-    const pool = await prisma.permissionPool.findUnique({
-      where: { id: poolId },
-      include: { rolePools: { include: { role: true } } },
-    });
-    if (!pool) {
-      throw new NotFoundException('Permission pool not found');
-    }
-    if (pool.isSystemPool || pool.tenantId !== tenantId) {
-      throw new ForbiddenException(
-        'System permission pools cannot be modified',
-      );
-    }
-
-    const conflictingRoles = pool.rolePools
-      .map((rp) => rp.role)
-      .filter((role) => role.clearanceLevel < newClearanceLevel)
-      .map((role) => ({
-        id: role.id,
-        name: role.name,
-        clearanceLevel: role.clearanceLevel,
-      }));
-
-    if (conflictingRoles.length > 0) {
-      throw new BadRequestException({
-        message: `Cannot raise pool clearance to ${newClearanceLevel}: ${conflictingRoles.length} assigned role(s) fall below it. Detach the pool from them first.`,
-        conflictingRoles,
+    // Read, check and write in one scope. The conflict check below rests on
+    // `rolePools.role` resolving: unscoped, those roles are invisible,
+    // `conflictingRoles` comes back empty, and the pool's clearance is raised
+    // above roles that still reference it.
+    return withTenantScope(prisma, tenantId, undefined, async (tx) => {
+      const pool = await tx.permissionPool.findUnique({
+        where: { id: poolId },
+        include: { rolePools: { include: { role: true } } },
       });
-    }
+      if (!pool) {
+        throw new NotFoundException('Permission pool not found');
+      }
+      if (pool.isSystemPool || pool.tenantId !== tenantId) {
+        throw new ForbiddenException(
+          'System permission pools cannot be modified',
+        );
+      }
 
-    return prisma.permissionPool.update({
-      where: { id: poolId },
-      data: { clearanceLevel: newClearanceLevel },
+      const conflictingRoles = pool.rolePools
+        .map((rp) => rp.role)
+        .filter((role) => role.clearanceLevel < newClearanceLevel)
+        .map((role) => ({
+          id: role.id,
+          name: role.name,
+          clearanceLevel: role.clearanceLevel,
+        }));
+
+      if (conflictingRoles.length > 0) {
+        throw new BadRequestException({
+          message: `Cannot raise pool clearance to ${newClearanceLevel}: ${conflictingRoles.length} assigned role(s) fall below it. Detach the pool from them first.`,
+          conflictingRoles,
+        });
+      }
+
+      return tx.permissionPool.update({
+        where: { id: poolId },
+        data: { clearanceLevel: newClearanceLevel },
+      });
     });
   }
 }

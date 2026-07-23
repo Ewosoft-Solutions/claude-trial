@@ -12,6 +12,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
+import { withTenantScope } from '@workspace/database/rls';
 import { RoleType, ClearanceLevel } from '@workspace/api';
 import { MakerCheckerService } from './maker-checker.service';
 
@@ -105,14 +106,24 @@ export class RoleService {
         };
       }
 
-      const existing = await prisma.role.findFirst({
-        where: {
-          name,
-          roleType: RoleType.CUSTOM,
-          tenantId,
-          ...(excludeRoleId ? { id: { not: excludeRoleId } } : {}),
-        },
-      });
+      // Scoped: `roles` is nullable-tenant, so the global branch above resolves
+      // without a scope, but a tenant's CUSTOM roles do not. An unscoped read
+      // here would find no existing role and report the name as free — turning
+      // a uniqueness check into a silent duplicate.
+      const existing = await withTenantScope(
+        prisma,
+        tenantId,
+        undefined,
+        (tx) =>
+          tx.role.findFirst({
+            where: {
+              name,
+              roleType: RoleType.CUSTOM,
+              tenantId,
+              ...(excludeRoleId ? { id: { not: excludeRoleId } } : {}),
+            },
+          }),
+      );
 
       if (existing) {
         return {
@@ -161,11 +172,30 @@ export class RoleService {
     }
 
     if (input.permissionPoolIds && input.permissionPoolIds.length > 0) {
-      const pools = await prisma.permissionPool.findMany({
-        where: {
-          id: { in: input.permissionPoolIds },
-        },
-      });
+      // Scoped: `permission_pools` is nullable-tenant, so global pools resolve
+      // unscoped but a tenant's own do not. The ids come from the caller.
+      const pools = await withTenantScope(
+        prisma,
+        input.tenantId,
+        undefined,
+        (tx) =>
+          tx.permissionPool.findMany({
+            where: {
+              id: { in: input.permissionPoolIds },
+            },
+          }),
+      );
+
+      // Fail closed when a requested pool did not resolve. Without this the
+      // check below is fail-OPEN: an empty `pools` makes `Math.max(...[])`
+      // return -Infinity, which is never greater than the clearance level, so
+      // an unreadable (or simply non-existent) pool would silently validate.
+      if (pools.length !== input.permissionPoolIds.length) {
+        return {
+          valid: false,
+          error: 'One or more permission pools were not found for this tenant',
+        };
+      }
 
       // Check if any pool exceeds the role's clearance level
       const maxPoolLevel = Math.max(...pools.map((p) => p.clearanceLevel));
@@ -277,84 +307,103 @@ export class RoleService {
 
     const requiresApproval = input.clearanceLevel === ClearanceLevel.MANAGEMENT;
 
-    // 3. Create role
-    const role = await prisma.role.create({
-      data: {
-        name: input.name,
-        description: input.description,
-        roleType: RoleType.CUSTOM,
-        clearanceLevel: input.clearanceLevel,
-        tenantId: input.tenantId,
-        isSystemRole: false,
-        isActive: !requiresApproval,
-        createdBy: input.createdBy,
-      },
-    });
-
-    let approvalRequestId: string | undefined;
-
-    if (requiresApproval) {
-      approvalRequestId = await this.makerCheckerService.createApprovalRequest(
-        prisma,
-        'roles.custom.level7.create',
-        input.createdBy,
-        input.creatorClearanceLevel,
-        {
-          roleId: role.id,
-          tenantId: input.tenantId,
-          clearanceLevel: input.clearanceLevel,
-        },
-        input.tenantId,
-      );
-    }
-
-    // 4. Assign permission pools (mandatory for custom roles)
-    await prisma.rolePermissionPool.createMany({
-      data: input.permissionPoolIds.map((poolId) => ({
-        roleId: role.id,
-        poolId,
-        assignedBy: input.createdBy,
-      })),
-    });
-
-    // Get permissions from pools and assign to role
-    const pools = await prisma.permissionPool.findMany({
-      where: {
-        id: { in: input.permissionPoolIds },
-      },
-      include: {
-        poolPermissions: {
-          include: {
-            permission: true,
+    // Steps 3-5 run in ONE tenant scope. Required for correctness — the writes
+    // must satisfy WITH CHECK, and `create` returns the row, whose RETURNING is
+    // checked against USING — and a welcome side effect: role creation, its
+    // pool assignment and the approval request now commit or roll back
+    // together, where previously a failure between them left a role with no
+    // pools.
+    const { approvalRequestId, roleWithRelations } = await withTenantScope(
+      prisma,
+      input.tenantId,
+      input.createdBy,
+      async (tx) => {
+        // 3. Create role
+        const role = await tx.role.create({
+          data: {
+            name: input.name,
+            description: input.description,
+            roleType: RoleType.CUSTOM,
+            clearanceLevel: input.clearanceLevel,
+            tenantId: input.tenantId,
+            isSystemRole: false,
+            isActive: !requiresApproval,
+            createdBy: input.createdBy,
           },
-        },
-      },
-    });
+        });
 
-    // Permission resolution is pools-only (see TenantQueriesService.resolveRolePoolPermissions) —
-    // direct per-permission grants are not written here. `input.permissionIds`, when present, has
-    // already been validated (clearance + pool membership) in validateCustomRoleCreation purely as
-    // an input constraint; the role's actual permissions come entirely from its assigned pools.
+        let approvalRequestId: string | undefined;
 
-    // 5. Return role with relations
-    const roleWithRelations = await prisma.role.findUnique({
-      where: { id: role.id },
-      include: {
-        rolePools: {
+        if (requiresApproval) {
+          approvalRequestId =
+            await this.makerCheckerService.createApprovalRequest(
+              tx,
+              'roles.custom.level7.create',
+              input.createdBy,
+              input.creatorClearanceLevel,
+              {
+                roleId: role.id,
+                tenantId: input.tenantId,
+                clearanceLevel: input.clearanceLevel,
+              },
+              input.tenantId,
+            );
+        }
+
+        // 4. Assign permission pools (mandatory for custom roles)
+        await tx.rolePermissionPool.createMany({
+          data: input.permissionPoolIds!.map((poolId) => ({
+            roleId: role.id,
+            poolId,
+            assignedBy: input.createdBy,
+          })),
+        });
+
+        // Get permissions from pools and assign to role
+        const pools = await tx.permissionPool.findMany({
+          where: {
+            id: { in: input.permissionPoolIds },
+          },
           include: {
-            pool: {
+            poolPermissions: {
               include: {
-                poolPermissions: {
+                permission: true,
+              },
+            },
+          },
+        });
+
+        // Permission resolution is pools-only (see TenantQueriesService.resolveRolePoolPermissions) —
+        // direct per-permission grants are not written here. `input.permissionIds`, when present, has
+        // already been validated (clearance + pool membership) in validateCustomRoleCreation purely as
+        // an input constraint; the role's actual permissions come entirely from its assigned pools.
+
+        // 5. Return role with relations
+        const roleWithRelations = await tx.role.findUnique({
+          where: { id: role.id },
+          include: {
+            rolePools: {
+              include: {
+                pool: {
                   include: {
-                    permission: true,
+                    poolPermissions: {
+                      include: {
+                        permission: true,
+                      },
+                    },
                   },
                 },
               },
             },
           },
-        },
+        });
+
+        // `pools` is read for its side effect of validating the assignment
+        // resolved; only these two are consumed by the caller.
+        void pools;
+        return { approvalRequestId, roleWithRelations };
       },
-    });
+    );
 
     return {
       role: roleWithRelations,
@@ -426,44 +475,54 @@ export class RoleService {
       );
     }
 
-    const role = await prisma.role.findFirst({
-      where: { id: roleId, tenantId, roleType: RoleType.CUSTOM },
-      include: { rolePools: { include: { pool: true } } },
-    });
-    if (!role) {
-      throw new NotFoundException('Custom role not found for this tenant');
-    }
-
-    // Actor must out-rank both the role's current and requested level, so a
-    // change cannot smuggle a role past the actor's own authority.
-    if (
-      !this.canCreateCustomRole(actorClearanceLevel, newClearanceLevel) ||
-      !this.canCreateCustomRole(actorClearanceLevel, role.clearanceLevel)
-    ) {
-      throw new ForbiddenException(
-        "Insufficient clearance to change this role's clearance level",
-      );
-    }
-
-    const conflictingPools = role.rolePools
-      .map((rp) => rp.pool)
-      .filter((pool) => pool.clearanceLevel > newClearanceLevel)
-      .map((pool) => ({
-        id: pool.id,
-        name: pool.name,
-        clearanceLevel: pool.clearanceLevel,
-      }));
-
-    if (conflictingPools.length > 0) {
-      throw new BadRequestException({
-        message: `Cannot lower role clearance to ${newClearanceLevel}: ${conflictingPools.length} assigned pool(s) exceed it. Detach them first.`,
-        conflictingPools,
+    // Read, check and write in one scope. Both statements need it (the role and
+    // its pools are tenant-scoped), and sharing one transaction also closes the
+    // read-then-write window: the pools this decision rests on cannot change
+    // between the conflict check and the update.
+    //
+    // The conflict check is why the scope matters beyond "returns nothing":
+    // pools that fail to resolve would make `conflictingPools` empty, and the
+    // clearance would be lowered while over-clearance pools stayed attached.
+    return withTenantScope(prisma, tenantId, undefined, async (tx) => {
+      const role = await tx.role.findFirst({
+        where: { id: roleId, tenantId, roleType: RoleType.CUSTOM },
+        include: { rolePools: { include: { pool: true } } },
       });
-    }
+      if (!role) {
+        throw new NotFoundException('Custom role not found for this tenant');
+      }
 
-    return prisma.role.update({
-      where: { id: roleId },
-      data: { clearanceLevel: newClearanceLevel },
+      // Actor must out-rank both the role's current and requested level, so a
+      // change cannot smuggle a role past the actor's own authority.
+      if (
+        !this.canCreateCustomRole(actorClearanceLevel, newClearanceLevel) ||
+        !this.canCreateCustomRole(actorClearanceLevel, role.clearanceLevel)
+      ) {
+        throw new ForbiddenException(
+          "Insufficient clearance to change this role's clearance level",
+        );
+      }
+
+      const conflictingPools = role.rolePools
+        .map((rp) => rp.pool)
+        .filter((pool) => pool.clearanceLevel > newClearanceLevel)
+        .map((pool) => ({
+          id: pool.id,
+          name: pool.name,
+          clearanceLevel: pool.clearanceLevel,
+        }));
+
+      if (conflictingPools.length > 0) {
+        throw new BadRequestException({
+          message: `Cannot lower role clearance to ${newClearanceLevel}: ${conflictingPools.length} assigned pool(s) exceed it. Detach them first.`,
+          conflictingPools,
+        });
+      }
+
+      return tx.role.update({
+        where: { id: roleId },
+        data: { clearanceLevel: newClearanceLevel },
+      });
     });
   }
 }

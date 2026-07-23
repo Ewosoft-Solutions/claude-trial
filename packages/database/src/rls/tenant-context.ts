@@ -150,6 +150,35 @@ export async function withTenantScope<T>(
 }
 
 /**
+ * Run `fn` in a session authorised by possession of an invitation token.
+ *
+ * For the unauthenticated invitation-acceptance flow only. There is no user yet
+ * (the account has no password until acceptance succeeds) and no tenant yet
+ * (discovering it from the token IS the operation), so neither other scope can
+ * be formed. The grant is exactly one row: the `user_tenants` row carrying this
+ * token, read-only (migration 20260723180000_invitation_token_scope).
+ *
+ * The write that accepts the invitation must run under the tenant scope taken
+ * from the row this read returns — the token grant is `USING` only.
+ *
+ * @param prisma - Prisma client to open the transaction on
+ * @param token - The invitation token presented by the caller
+ * @param fn - Work to run inside the token-scoped transaction
+ */
+export async function withInvitationTokenScope<T>(
+  prisma: PrismaClient,
+  token: string,
+  fn: (tx: PrismaClient) => Promise<T>,
+): Promise<T> {
+  if (!canOpenTransaction(prisma)) return fn(prisma);
+
+  return prisma.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT set_config('app.invitation_token', ${token}, true)`;
+    return fn(tx as unknown as PrismaClient);
+  });
+}
+
+/**
  * Clear tenant context.
  *
  * Resets the GUC to an empty string. With transaction-scoped context this is

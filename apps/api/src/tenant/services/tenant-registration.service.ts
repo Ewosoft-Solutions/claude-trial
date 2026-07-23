@@ -14,6 +14,7 @@ import {
 } from '@workspace/api';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import { withTenantScope } from '@workspace/database/rls';
 import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
 import * as bcrypt from 'bcrypt';
 
@@ -39,22 +40,38 @@ export class TenantRegistrationService {
    * @param data - Registration data
    * @param createdBy - User ID of the creator (must be platform admin or school owner)
    * @param requesterRole - Role of the requester
+   * @param requesterTenantId - Requester's own tenant, used to scope the role
+   *   lookup below (a school Owner's role is tenant-scoped)
    * @returns Created tenant
    */
   async registerTenant(
     data: RegisterTenantDto,
     createdBy: string,
     requesterRole: string,
+    requesterTenantId: string,
   ) {
     // `requesterRole` arrives from the request context as the role's UUID
     // (userContext.roleId), but canRegisterTenant/isPlatformAdminRole compare
     // against role *names* (e.g. 'Architect'). Resolve the id to a name so the
     // authorization check works. Falls back to the raw value when a name is
     // passed directly (or the id is unknown), preserving prior behaviour.
-    const resolvedRole = await this.dbService.client.role.findUnique({
-      where: { id: requesterRole },
-      select: { name: true },
-    });
+    //
+    // Scoped to the requester's own tenant: `roles` is nullable-tenant, so a
+    // platform role (tenant_id IS NULL) resolves either way, but a school
+    // Owner's role is tenant-scoped and would not. Unscoped, the lookup returns
+    // null, the fallback leaves `requesterRoleName` as a UUID,
+    // `canRegisterTenant` rejects it — fail-closed, but it locks out exactly
+    // the clearance-8 school owners the endpoint is meant to serve.
+    const resolvedRole = await withTenantScope(
+      this.dbService.client,
+      requesterTenantId,
+      createdBy,
+      (tx) =>
+        tx.role.findUnique({
+          where: { id: requesterRole },
+          select: { name: true },
+        }),
+    );
     const requesterRoleName = resolvedRole?.name ?? requesterRole;
 
     // Validate requester has permission (platform admin or school owner)

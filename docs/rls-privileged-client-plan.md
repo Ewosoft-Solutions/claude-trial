@@ -1,8 +1,9 @@
 # Correcting the privileged-client assumption under ADR-004
 
-Status: Stages 1, 2 and 4 landed 2026-07-23. Stage 3 substantially done — every
-request-critical path is scoped; an admin-tier tail of 9 files is baselined and
-enumerated below.
+Status: Stages 1–4 landed 2026-07-23. Every tenant-scoped read in `apps/api`
+now carries a scope — the unscoped-read baseline is empty — with one documented
+exception (`respondToProfileBreach`, which needs a platform-scope conversion
+rather than a scope).
 
 ## The contradiction
 
@@ -154,26 +155,45 @@ degradation) and `school_security_policies` (making the account-wide biometric
 check answerable). Both are `USING`-only and anchored by `EXISTS` against
 `user_tenants` rows the caller can already see.
 
-**Remaining: an admin-tier tail of 9 files**, frozen in
-`apps/api/scripts/unscoped-tenant-reads-baseline.json` so it can only shrink:
+**The admin-tier tail is now done too.** All nine files scoped; the
+unscoped-read baseline is empty. Several of them turned out to hide a worse
+defect than "returns nothing":
 
-- `user-management.service.ts`, `user-invitation.service.ts` — `userTenant`,
-  `userTenantRole`. Genuinely broken on a deployed database.
-- `role.service.ts`, `permission-pool.service.ts`, `maker-checker.service.ts`,
-  `role-management.controller.ts`, `permission-management.controller.ts` —
-  `roles` / `permission_pools`, which are **nullable-tenant**, so global rows
-  still resolve. System roles work; tenant-custom roles do not.
-- `breach-response.service.ts`, `tenant-registration.service.ts`.
+| Site                                                     | Latent defect                                                                                                                                                                                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `RoleService.validateCustomRoleCreation`                 | `Math.max(...[])` is `-Infinity`, so an unresolvable permission pool **passed** the clearance gate. Now fails closed when any requested pool does not resolve.                                                                                               |
+| `PermissionPoolService.validatePermissionPoolAssignment` | Same fail-open shape, same fix.                                                                                                                                                                                                                              |
+| `RoleService.updateRoleClearance`                        | Invisible `rolePools` make `conflictingRoles` empty, lowering a role's clearance while over-clearance pools stay attached.                                                                                                                                   |
+| `PermissionPoolService.updatePoolClearance`              | Mirror image: raising a pool's clearance above roles that still reference it.                                                                                                                                                                                |
+| Role-name and one-profile-per-role uniqueness checks     | An unscoped read finds nothing and reports the name/role as free — a uniqueness check that silently permits duplicates.                                                                                                                                      |
+| `TenantRegistrationService`                              | The requester's role id resolves to a name for `canRegisterTenant`. Unscoped it returns null and the UUID fallback is rejected — fail-closed, but it locks out exactly the clearance-8 school Owners the endpoint exists for. Now takes `requesterTenantId`. |
 
-Each takes a `tenantId` already, so the fix is mechanical — roughly 50 read
-sites needing the same treatment. Deliberately not rushed into this pass: the
-scripted rewrites used earlier mis-edited braces twice and needed manual repair,
-and these are admin paths rather than request-critical ones.
+Several multi-step writes were folded into a single scope, which makes them
+atomic as a side effect: role creation + pool assignment + approval request;
+profile creation + role assignment; the role-swap in `updateUserProfile`, which
+deletes before it creates and could previously leave a profile with no role.
+
+Migration `20260723180000_invitation_token_scope` adds the last scope kind: the
+invitation-acceptance flow is unauthenticated (the account has no password until
+it succeeds) and pre-tenant (discovering the tenant from the token IS the
+operation), so neither existing scope can be formed. Possession of the
+high-entropy, single-use, time-limited token authorises reading exactly the row
+that token belongs to — `USING` only, so the write that accepts it runs under
+the tenant scope discovered from that row.
+
+**One deliberate exception**, still unscoped and now the only known gap:
+`BreachResponseService.respondToProfileBreach`. It is `@RequireClearanceLevel(9)`
+— platform-admin-only and genuinely cross-tenant — so the correct scope is the
+audited platform bypass. That means moving its controller to `@PlatformScoped`
+with a real permission, which is an auth-model change (clearance gate →
+permission gate) needing a seeded permission, not an RLS fix. Doing it blind
+risks locking out incident response. The school-level breach paths, which have a
+`schoolId`, are scoped.
 
 Also still dead code, and worth deleting rather than scoping:
-`ProfileSuspensionService` (no callers at all) and
-`TenantValidationService.validateProfile` (no callers). `validateProfile` was
-given a required `tenantId` so a future caller cannot inherit the bug.
+`ProfileSuspensionService` (no callers) and
+`TenantValidationService.validateProfile` (no callers, given a required
+`tenantId` so a future caller cannot inherit the bug).
 
 ## Stage 4 — retire the bypass assumption (done)
 
@@ -208,10 +228,13 @@ given a required `tenantId` so a future caller cannot inherit the bug.
    pooled connection where the GUC was never set. Also covers scope inheritance
    when handed a `TransactionClient`, where nesting is impossible.
 
-**Not done, and dependent on the Stage 3 tail:** repointing auth/guard paths at
-`app_runtime` so `DATABASE_URL` is used only by migrations and seeds. That flip
-is only safe once no path depends on the owner connection — the 9 baselined
-files still do.
+**Remaining for a later pass:** repointing auth/guard paths at `app_runtime` so
+`DATABASE_URL` is used only by migrations and seeds. Now unblocked — no path
+reads tenant data unscoped any more — but it is a runtime-topology change that
+wants its own deploy and its own verification, not a rider on this one. Do it
+after demo confirms the scoping work, and note the boot-time
+`RlsEnforcementService` probe already fail-closes if that connection turns out
+to be privileged.
 
 ## Local-vs-deployed divergence
 

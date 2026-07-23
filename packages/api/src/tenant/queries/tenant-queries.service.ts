@@ -353,36 +353,40 @@ export class TenantQueriesService {
    * @returns Array of roles
    */
   static async getTenantRoles(prisma: PrismaClient, tenantId: string) {
-    return prisma.role.findMany({
-      where: {
-        OR: [
-          {
-            tenantId: null,
-            roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
-          }, // System roles
-          { tenantId, roleType: RoleType.CUSTOM }, // Custom roles for this tenant
-        ],
-        isActive: true,
-      },
-      include: {
-        rolePools: {
-          include: {
-            pool: {
-              include: {
-                poolPermissions: {
-                  include: {
-                    permission: true,
+    // Scoped: the OR spans global roles (readable unscoped under the
+    // nullable-tenant policy) and this tenant's custom roles, which are not.
+    return withTenantScope(prisma, tenantId, undefined, (tx) =>
+      tx.role.findMany({
+        where: {
+          OR: [
+            {
+              tenantId: null,
+              roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+            }, // System roles
+            { tenantId, roleType: RoleType.CUSTOM }, // Custom roles for this tenant
+          ],
+          isActive: true,
+        },
+        include: {
+          rolePools: {
+            include: {
+              pool: {
+                include: {
+                  poolPermissions: {
+                    include: {
+                      permission: true,
+                    },
                   },
                 },
               },
             },
           },
         },
-      },
-      orderBy: {
-        clearanceLevel: 'desc',
-      },
-    });
+        orderBy: {
+          clearanceLevel: 'desc',
+        },
+      }),
+    );
   }
 
   /**

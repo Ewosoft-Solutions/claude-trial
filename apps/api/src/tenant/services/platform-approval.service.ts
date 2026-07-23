@@ -49,8 +49,9 @@ export class PlatformApprovalService {
   /** Clearance at or above which the actor is a valid checker, so acts directly. */
   private get directActionClearance(): number {
     return (
-      this.makerChecker.getRequiredCheckerClearanceLevel(TENANT_ACT_OPERATION) ??
-      ClearanceLevel.ARCHITECT
+      this.makerChecker.getRequiredCheckerClearanceLevel(
+        TENANT_ACT_OPERATION,
+      ) ?? ClearanceLevel.ARCHITECT
     );
   }
 
@@ -66,8 +67,7 @@ export class PlatformApprovalService {
     status: TenantActStatus;
     reason?: string;
   }): Promise<
-    | { outcome: 'applied' }
-    | { outcome: 'pending'; requestId: string }
+    { outcome: 'applied' } | { outcome: 'pending'; requestId: string }
   > {
     const { actor, targetTenantId, status, reason } = params;
 
@@ -187,7 +187,10 @@ export class PlatformApprovalService {
   /** Pending tenant-action requests, newest first (for the Architect's queue). */
   async listPending() {
     const rows = await this.prisma.makerCheckerRequest.findMany({
-      where: { operation: TENANT_ACT_OPERATION, status: ApprovalStatus.PENDING },
+      where: {
+        operation: TENANT_ACT_OPERATION,
+        status: ApprovalStatus.PENDING,
+      },
       orderBy: { createdAt: 'desc' },
     });
     return rows.map((r) => {
