@@ -17,6 +17,7 @@ import {
 } from '../../common/audit/audit.constants';
 import { JWTSecretService, BreachSeverity } from '@workspace/api';
 import { SessionService } from './session.service';
+import { writeAuditLog } from '../../common/audit/audit-writer';
 // import { PasswordResetService } from './password-reset.service';
 
 /**
@@ -890,26 +891,24 @@ export class BreachResponseService {
     },
   ): Promise<void> {
     try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: schoolId,
-          eventType: AUDIT_EVENT.SECURITY_EVENT,
-          action: data.action,
-          resource: data.resource || 'breach_response',
-          resourceId: data.resourceId || null,
-          actorId: data.actorId || null,
-          actorProfileId: data.actorProfileId || null,
-          actorRole: data.actorRole || null,
-          actorEmail: data.actorEmail || null,
-          ipAddress: data.ipAddress || null,
-          userAgent: data.userAgent || null,
-          description: `Breach response: ${data.reason}`,
-          metadata: {
-            severity: data.severity || 'medium',
-            escalatedToPasswordReset: data.escalatedToPasswordReset || false,
-          },
-          status: 'success',
+      await writeAuditLog(prisma, {
+        tenantId: schoolId,
+        eventType: AUDIT_EVENT.SECURITY_EVENT,
+        action: data.action,
+        resource: data.resource || 'breach_response',
+        resourceId: data.resourceId || null,
+        actorId: data.actorId || null,
+        actorProfileId: data.actorProfileId || null,
+        actorRole: data.actorRole || null,
+        actorEmail: data.actorEmail || null,
+        ipAddress: data.ipAddress || null,
+        userAgent: data.userAgent || null,
+        description: `Breach response: ${data.reason}`,
+        metadata: {
+          severity: data.severity || 'medium',
+          escalatedToPasswordReset: data.escalatedToPasswordReset || false,
         },
+        status: 'success',
       });
     } catch (error) {
       // Don't throw - audit logging should not break the main flow

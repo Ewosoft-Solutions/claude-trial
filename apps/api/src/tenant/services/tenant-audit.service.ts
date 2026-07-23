@@ -6,6 +6,7 @@ import {
   DEFAULT_AUDIT_EVENT_TYPE,
   AuditAction,
 } from '../../common/audit/audit.constants';
+import { writeAuditLog } from '../../common/audit/audit-writer';
 
 /**
  * Tenant Audit Service
@@ -33,19 +34,17 @@ export class TenantAuditService {
       const eventType =
         data.eventType ?? AUDIT_EVENT.USER_ACTION ?? DEFAULT_AUDIT_EVENT_TYPE;
 
-      await this.dbService.client.auditLog.create({
-        data: {
-          tenantId: data.tenantId,
-          eventType,
-          action: data.action,
-          resource: 'tenant',
-          resourceId: data.tenantId,
-          actorId: data.userId,
-          description: `Tenant action: ${data.action}`,
-          metadata: data.metadata || {},
-          ipAddress: null, // Can be added from request context
-          userAgent: null, // Can be added from request context
-        },
+      await writeAuditLog(this.dbService.client, {
+        tenantId: data.tenantId,
+        eventType,
+        action: data.action,
+        resource: 'tenant',
+        resourceId: data.tenantId,
+        actorId: data.userId,
+        description: `Tenant action: ${data.action}`,
+        metadata: data.metadata || {},
+        ipAddress: null, // Can be added from request context
+        userAgent: null, // Can be added from request context
       });
     } catch (error) {
       // Don't throw - audit logging should not break the main flow
@@ -70,19 +69,17 @@ export class TenantAuditService {
       const eventType =
         data.eventType ?? AUDIT_EVENT.USER_ACTION ?? DEFAULT_AUDIT_EVENT_TYPE;
 
-      await this.dbService.client.auditLog.create({
-        data: {
-          tenantId: data.tenantId,
-          eventType,
-          action: data.action,
-          resource: 'user',
-          resourceId: data.userId,
-          actorId: data.performedBy,
-          description: `User action: ${data.action}`,
-          metadata: data.metadata || {},
-          ipAddress: null, // Can be added from request context
-          userAgent: null, // Can be added from request context
-        },
+      await writeAuditLog(this.dbService.client, {
+        tenantId: data.tenantId,
+        eventType,
+        action: data.action,
+        resource: 'user',
+        resourceId: data.userId,
+        actorId: data.performedBy,
+        description: `User action: ${data.action}`,
+        metadata: data.metadata || {},
+        ipAddress: null, // Can be added from request context
+        userAgent: null, // Can be added from request context
       });
     } catch (error) {
       // Don't throw - audit logging should not break the main flow

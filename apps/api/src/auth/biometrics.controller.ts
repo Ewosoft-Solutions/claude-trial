@@ -34,6 +34,7 @@ import {
   RenameBiometricDeviceDto,
   RemoveBiometricDeviceDto,
 } from './dto/biometrics.dto';
+import { writeAuditLog } from '../common/audit/audit-writer';
 
 @ApiTags('Biometrics')
 @Controller('auth/biometrics')
@@ -233,19 +234,17 @@ export class BiometricsController {
     description: string,
   ): Promise<void> {
     try {
-      await this.dbService.client.auditLog.create({
-        data: {
-          tenantId: user.tenantId || null,
-          eventType: AUDIT_EVENT.AUTHENTICATION,
-          action,
-          resource: 'biometric_method',
-          resourceId: methodId,
-          actorId: user.userId,
-          actorProfileId: user.profileId || null,
-          actorEmail: user.email || null,
-          description,
-          status: 'success',
-        },
+      await writeAuditLog(this.dbService.client, {
+        tenantId: user.tenantId || null,
+        eventType: AUDIT_EVENT.AUTHENTICATION,
+        action,
+        resource: 'biometric_method',
+        resourceId: methodId,
+        actorId: user.userId,
+        actorProfileId: user.profileId || null,
+        actorEmail: user.email || null,
+        description,
+        status: 'success',
       });
     } catch (auditError) {
       this.logger.error('Failed to audit biometric device change', auditError);

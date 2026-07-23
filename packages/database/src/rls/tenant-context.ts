@@ -64,6 +64,36 @@ export async function setContext(
 }
 
 /**
+ * Run `fn` in a session scoped to a single user, with no tenant context.
+ *
+ * For the pre-auth identity lookup only: between credential verification and
+ * school selection there is no tenant yet, so `app.current_tenant_id` cannot be
+ * set — discovering the user's tenants is precisely the question being asked.
+ * The `tenant_isolation` policy on `profile.user_tenants` grants a session that
+ * has proven which user it is read access to that user's own membership rows
+ * across tenants (migration 20260723090000_user_tenants_self_scope), and to
+ * nothing else. Writes are excluded from that grant.
+ *
+ * Opens its own transaction because `set_config(..., true)` is
+ * transaction-scoped; the callback must use the supplied `tx`, not the outer
+ * client, or it will run on a different pooled connection with no context.
+ *
+ * @param prisma - Prisma client to open the transaction on
+ * @param userId - The authenticated user's id
+ * @param fn - Work to run inside the user-scoped transaction
+ */
+export async function withUserScope<T>(
+  prisma: PrismaClient,
+  userId: string,
+  fn: (tx: PrismaClient) => Promise<T>,
+): Promise<T> {
+  return prisma.$transaction(async (tx) => {
+    await setUserContext(tx as unknown as PrismaClient, userId);
+    return fn(tx as unknown as PrismaClient);
+  });
+}
+
+/**
  * Clear tenant context.
  *
  * Resets the GUC to an empty string. With transaction-scoped context this is

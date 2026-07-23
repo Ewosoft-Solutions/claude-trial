@@ -1,4 +1,4 @@
-import { IsString, MinLength } from 'class-validator';
+import { IsOptional, IsString, MinLength } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class ResetPasswordDto {
@@ -11,7 +11,12 @@ export class ResetPasswordDto {
   @MinLength(8)
   newPassword: string;
 
+  // Optional in fact as well as in name: the bootstrap flow (an Architect
+  // claiming an account that has no MFA enrolled) omits it entirely. Without
+  // @IsOptional the bare @IsString rejected the omitted field outright, so the
+  // only way through was to send an empty string.
   @ApiPropertyOptional({ example: '123456', description: 'MFA code for verification (required for enhanced security)' })
+  @IsOptional()
   @IsString()
-  mfaCode?: string; // MFA code for verification (required for enhanced security)
+  mfaCode?: string;
 }

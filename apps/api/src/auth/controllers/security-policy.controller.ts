@@ -57,6 +57,7 @@ import { SensitiveOperationPolicyService } from '../services/sensitive-operation
 import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
 import { STEP_UP_OPERATION } from '../step-up.operations';
 import { Prisma } from '@workspace/database';
+import { writeAuditLog } from '../../common/audit/audit-writer';
 
 @ApiTags(SwaggerTags.securityPolicies.name)
 @Controller('security-policies')
@@ -385,23 +386,21 @@ export class SecurityPolicyController {
     resourceId: string,
     metadata: Record<string, unknown>,
   ): Promise<void> {
-    await this.dbService.client.auditLog.create({
-      data: {
-        tenantId: req.user.tenantId,
-        eventType: AUDIT_EVENT.SECURITY_EVENT,
-        action,
-        resource,
-        resourceId,
-        actorId: req.user.userId,
-        actorProfileId: req.user.profileId,
-        actorRole: req.userContext?.roleId ?? null,
-        actorEmail: req.user.email ?? null,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        description: 'Security governance policy changed',
-        metadata: JSON.parse(JSON.stringify(metadata)) as Prisma.InputJsonValue,
-        status: 'success',
-      },
+    await writeAuditLog(this.dbService.client, {
+      tenantId: req.user.tenantId,
+      eventType: AUDIT_EVENT.SECURITY_EVENT,
+      action,
+      resource,
+      resourceId,
+      actorId: req.user.userId,
+      actorProfileId: req.user.profileId,
+      actorRole: req.userContext?.roleId ?? null,
+      actorEmail: req.user.email ?? null,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      description: 'Security governance policy changed',
+      metadata: JSON.parse(JSON.stringify(metadata)) as Prisma.InputJsonValue,
+      status: 'success',
     });
   }
 }
@@ -724,23 +723,21 @@ export class PlatformSecurityPolicyController {
     metadata: Record<string, unknown>,
     tenantId?: string,
   ): Promise<void> {
-    await this.dbService.client.auditLog.create({
-      data: {
-        tenantId: tenantId ?? req.user.tenantId ?? null,
-        eventType: AUDIT_EVENT.SECURITY_EVENT,
-        action,
-        resource,
-        resourceId,
-        actorId: req.user.userId,
-        actorProfileId: req.user.profileId,
-        actorRole: req.userContext?.roleId ?? null,
-        actorEmail: req.user.email ?? null,
-        ipAddress: req.ip,
-        userAgent: req.headers['user-agent'],
-        description: 'Platform security governance policy changed',
-        metadata: JSON.parse(JSON.stringify(metadata)) as Prisma.InputJsonValue,
-        status: 'success',
-      },
+    await writeAuditLog(this.dbService.client, {
+      tenantId: tenantId ?? req.user.tenantId ?? null,
+      eventType: AUDIT_EVENT.SECURITY_EVENT,
+      action,
+      resource,
+      resourceId,
+      actorId: req.user.userId,
+      actorProfileId: req.user.profileId,
+      actorRole: req.userContext?.roleId ?? null,
+      actorEmail: req.user.email ?? null,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      description: 'Platform security governance policy changed',
+      metadata: JSON.parse(JSON.stringify(metadata)) as Prisma.InputJsonValue,
+      status: 'success',
     });
   }
 }

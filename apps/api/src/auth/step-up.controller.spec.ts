@@ -6,6 +6,14 @@ import { StepUpController } from './step-up.controller';
 import { JwtAuthGuard } from './guards';
 import { StepUpService } from './services/step-up.service';
 import type { RequestUser } from './types/request-user';
+import { writeAuditLog } from '../common/audit/audit-writer';
+
+// Audit rows go through writeAuditLog rather than `auditLog.create()` — it
+// issues a plain INSERT so RLS does not reject the RETURNING clause, and sets
+// the tenant GUC the row needs. See docs/rls-privileged-client-plan.md.
+jest.mock('../common/audit/audit-writer', () => ({
+  writeAuditLog: jest.fn().mockResolvedValue(true),
+}));
 
 describe('StepUpController', () => {
   let controller: StepUpController;
@@ -16,7 +24,7 @@ describe('StepUpController', () => {
     verifyTotp: jest.Mock;
     verifyRecoveryCode: jest.Mock;
   };
-  let auditCreate: jest.Mock;
+  const auditCreate = writeAuditLog as jest.Mock;
 
   const user: RequestUser = {
     userId: 'user-1',
@@ -34,16 +42,13 @@ describe('StepUpController', () => {
       verifyTotp: jest.fn(),
       verifyRecoveryCode: jest.fn(),
     };
-    auditCreate = jest.fn().mockResolvedValue({});
+    auditCreate.mockClear();
 
     const module: TestingModule = await Test.createTestingModule({
       controllers: [StepUpController],
       providers: [
         { provide: StepUpService, useValue: stepUpService },
-        {
-          provide: DatabaseService,
-          useValue: { client: { auditLog: { create: auditCreate } } },
-        },
+        { provide: DatabaseService, useValue: { client: {} } },
       ],
     })
       .overrideGuard(JwtAuthGuard)
@@ -89,8 +94,9 @@ describe('StepUpController', () => {
       STEP_UP_OPERATION.BIOMETRICS_REMOVE,
       'correct horse battery staple',
     );
-    expect(auditCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(auditCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
         action: 'step_up_verified',
         metadata: {
           operation: STEP_UP_OPERATION.BIOMETRICS_REMOVE,
@@ -99,7 +105,7 @@ describe('StepUpController', () => {
         },
         status: 'success',
       }),
-    });
+    );
     expect(JSON.stringify(auditCreate.mock.calls)).not.toContain(
       'correct horse battery staple',
     );
@@ -125,12 +131,13 @@ describe('StepUpController', () => {
       'passkey-challenge',
       webauthnResponse,
     );
-    expect(auditCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(auditCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
         action: 'step_up_verified',
         metadata: expect.objectContaining({ method: 'passkey' }),
       }),
-    });
+    );
   });
 
   it('verifies a TOTP fallback without writing the token to audit', async () => {
@@ -188,11 +195,12 @@ describe('StepUpController', () => {
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    expect(auditCreate).toHaveBeenCalledWith({
-      data: expect.objectContaining({
+    expect(auditCreate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
         action: 'step_up_failed',
         status: 'failure',
       }),
-    });
+    );
   });
 });

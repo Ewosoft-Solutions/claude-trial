@@ -6,134 +6,124 @@
 
 ## Status
 
-**2026-07-10: the 8 remaining roadmap chunks are all done (autonomous
-full-swing sprint, one commit per slice, all pushed to `origin/claude`).**
-The AI integration plan (Steps 1–6 + polish) was already complete; this sprint
-cleared the rest of the parked/product backlog. Details in `AI_HANDOFF.md`
-2026-07-10; each slice is its own commit:
+**2026-07-22: the platform (cross-tenant) scope is built and deployed —
+Phases 0, 0.5, 1, 2 and 3 of `docs/platform-scope-plan.md`, merged to `main`
+(PRs #11, #12, #13). The demo environment is healthy on all three layers.**
 
-1. **AI settings maker-checker** (`81329b6`) — gated mutate path for
-   `ai_settings` (BYOK encrypted at submit, dual-control approve) + admin UI.
-2. **Clearance Enforcement Gate 4** (`e46dfdc`) — update-time consistency on
-   role/pool clearance (reject-and-list), `PATCH /roles/:id/clearance` +
-   `PATCH /permissions/pool/:id/clearance`.
-3. **Step 8 sub-surfaces** (`ff044b7`, `07fb115`) — all six promoted off
-   `[...slug]`: transport routes/pickups, library loans, hr directory (derived)
-   + hr leave and events roster (new RLS-backed tables).
-4. **Step 8 test coverage** (`e1b87e6`) — service specs for the four domains.
-5. **schoolType polymorphism + feature toggles** (`6063dc3`) — real per-tenant
-   feature-toggle system gating nav; `/settings/features` now persists.
-6. **Subdomain tenant resolution** (`94ddd47`) — `{slug}.domain` → tenant via
-   middleware + public lookup; branded login.
-7. **PWA Phase 2** (`4815b42`) — manifest, service worker (offline + push),
-   installable.
-8. **app_runtime cutover** (`81294df`, ADR-004) — grants completed/audited
-   (fixed the ungranted `attendance_records`), RLS isolation proven AS
-   `app_runtime`; activation is now a per-env `APP_RUNTIME_DATABASE_URL` flip.
+The platform scope was previously "an identity without an application": `scope:
+'platform'` and twelve `platform.*` permissions existed, but `runPlatform()` had
+zero production callers, cross-tenant reads went through the *privileged* client
+(unaudited), 14 of 18 platform nav links 404'd, and `/overview` rendered the
+school dashboard for an Architect. That is now a working platform manager.
 
-Final verification (Node 22.21.1): api build + unit **234/234** + lint 0
-errors; web types/lint/build + vitest **55/55**; ui vitest **86/86**;
-db `db:rls:check` + migrate status clean. Two additive migrations
-(`20260710000000`, `…10000`) + the grants migration (`…20000`) applied to the
-dev DB.
+- **Phase 0 — audited cross-tenant seam.** `@PlatformScoped` +
+  `RlsPlatformInterceptor` is the only sanctioned cross-tenant path (audited
+  `app.is_platform` scope). The permission check lives in the *interceptor*, not
+  a guard, so refused attempts are audited rather than short-circuited.
+  `TenantService` moved off the privileged client; a CI ratchet blocks new
+  `DatabaseService` injections (29 grandfathered).
+- **Phase 0.5 — Option D separation of duties + privacy.** `platform.tenants`
+  split into `.read`/`.act`/`.inspect` (+ `metrics`/`privileges`/
+  `approvals.override`); `GET /tenant/:id` is facet-gated at the *payload*
+  level. SuperAdmin proposes, Architect disposes on `tenant.act`. Health data
+  encrypted at rest (enveloped AES) with a **keyed blind index** so flags stay
+  searchable; backfill + key-rotation scripts. Production hard-fails without a
+  valid `ENCRYPTION_KEY`.
+- **Phase 1 — honest console.** Platform `/overview` (scope branches before
+  clearance), its aggregation endpoint, dead-nav cleanup, facet-gated tenant
+  detail.
+- **Phase 2 — oversight & policy.** Cross-tenant audit log; cross-tenant policy
+  posture with baseline drift (directional rules — a *stricter* tenant is never
+  flagged).
+- **Phase 3 — insight & AI.** Aggregate-only analytics surface, rules-based
+  at-risk detection, and a facet-gated platform AI assistant. The 0.5.8 hard
+  gate is satisfied and was **proven live with a real LLM**: a SuperAdmin's
+  query had both metrics tools refused (`missing_facet`) and the assistant
+  reported the data was out of reach — it could not route around the gate.
 
----
-### Prior status (2026-07-09): AI integration plan Steps 1–6 code-complete
-See `AI_HANDOFF.md` 2026-07-09 pt. 5/4/3 and
-`docs/ai-integration-plan.md` Step 6 close-out.
+**Three real bugs were found and fixed in passing** (all pre-existing, none
+introduced by this work): `MakerCheckerService.approveRequest` allowed
+**self-approval** and gated the checker on the *maker's* clearance (affected
+existing school ops too); `AuditLogController` had a clearance-9 branch reading
+cross-tenant on the privileged client, unaudited; and that same controller had
+no guard populating `req.userContext`, so `@RequireClearanceLevel(7)` was inert
+and every handler 403'd for real callers.
 
-Step 6 added DB-backed tenant AI governance:
-- `ai_settings`, `ai_usage_monthly`, and `ai_concurrency_leases` in the `ai`
-  schema with RLS + `app_runtime` grants.
-- `AiUsageService`: feature toggles, monthly tenant token budget, quota
-  exhausted error shape, tenant concurrency cap, monthly aggregate writes, and
-  threshold alert markers.
-- Analytics + tutor chats now keep the per-user throttle and also enforce
-  tenant quota/concurrency before LLM calls; usage is recorded after completed
-  assistant turns.
-- `GET /ai/admin/usage` gated on `ai.configure` + frontend
-  `/settings/ai-usage`.
-- Hardening tests: usage service, analytics tool-permission matrix, analytics
-  + tutor prompt-injection smoke tests, and gated AI-schema RLS e2e.
-
-Verification from the Step 6 session:
-- database generate/deploy/RLS check/build ✅
-- api build ✅, api unit **185/185** ✅, api lint exits 0 (pre-existing warnings) ✅
-- web check-types/lint/build ✅, web vitest **38/38** ✅
-- `test/ai-rls.e2e-spec.ts` skips locally unless `APP_RUNTIME_DATABASE_URL` is
-  set to the real `app_runtime` role.
-
-Step 5 live acceptance from 2026-07-09 pt. 4:
-- Restarted the dev API on **3030** and confirmed `/ai/admin/usage` +
-  academic tutor routes were mapped.
-- Real-key live tutor acceptance completed with minimal paid calls:
-  grounded/cited material answer ✅, cross-lesson non-leak ✅, guided-help
-  refusal ✅, logout/login persistence ✅, assessment-window 403 ✅.
-- `apps/api/test/ai-academic-live.e2e-spec.ts` was updated for current
-  `Enrollment.termId` fixture shape and a less brittle non-leak assertion.
-- PR #1 body was refreshed with the Steps 1–6 summary and verification list.
-  The AI rollout was committed and pushed to `origin/claude` as `aaa63db`.
-
-## 2026-07-09 pt. 5 — Step 3 polish + Step 2 term context CLOSED
-
-Both remaining AI follow-ups are done (details in `AI_HANDOFF.md` pt. 5):
-- **Step 3 polish** — new dependency-free `MarkdownLite`
-  (`packages/ui/src/custom/chat/markdown-lite.tsx`) renders assistant markdown
-  (bold/italic/`code`/lists/headings + allow-listed links); large ₦ chart
-  values no longer clip via a shared `formatCompactNumber` default tick
-  formatter + wider numeric axis on `CategoryBarChart`/`TrendChart`.
-- **Step 2 term context** — new `CurrentTermService`
-  (`apps/api/src/academic-structure/services/current-term.service.ts`), and
-  `AnalyticsChatService` prepends the current-term line to the volatile system
-  block.
-
-Verification (Node 22.21.1 — the active shell defaults to v20.18.0, below the
-≥20.19 floor, so `nvm use` first): api build ✅, api unit **192/192** ✅, api
-lint 0 errors ✅; web check-types/lint/build ✅, web vitest **38/38** ✅; ui
-vitest **85/85** ✅. Committed and pushed to `origin/claude` as
-`6515df5 feat(ai): close Step 3 polish + Step 2 term context`; PR #1 updated.
+**Deploy incidents closed.** Two CD failures were diagnosed and fixed:
+`ENCRYPTION_KEY` missing/wrong-size (the new production boot gate doing its job —
+CI ran `NODE_ENV=test` so it was blind to it) and `NEXT_PUBLIC_API_URL` empty at
+build time. `/api/health` — which previously proxied student *medical records*
+despite its name — is now a real web→API connectivity probe.
 
 ## Not Closed / Follow-ups
 
-The former parked backlog is cleared. Remaining thin edges (none blocking):
+None blocking. Deliberate deferrals are recorded with reasoning in
+`docs/platform-scope-plan.md`:
 
-- **app_runtime activation per environment** — grants + role are ready and
-  isolation is proven; each env still needs `APP_RUNTIME_DATABASE_URL` set to
-  the `app_runtime` connection (password is a secret) to actually flip runtime
-  enforcement on. See ADR-004.
-- **Web push delivery backend** — the SW push handler + client `subscribeToPush`
-  ship in slice 7; VAPID signing + subscription persistence + fan-out is a
-  follow-on if push is prioritized.
-- **PWA icons** — a single `/icon.svg` covers install; add raster PNG sizes
-  (192/512, maskable) for best OS integration.
-- Live browser acceptance for the new surfaces was not run (preview is
-  TCC-blocked under `~/Documents`; changes are unit-tested + build-verified).
+- **2.4 onboarding wizard** — step 6 (Plan) has no billing domain; steps 2/5
+  need new cross-tenant *provisioning* flows. Building it now means stubbing a
+  third of it against domains that don't exist.
+- **3.2 product polish** — platform AI has no session persistence or streaming
+  yet (the tenant chat has both). Safety-critical parts are complete.
+- **Platform AI tool executions aren't audited** — returned in the response
+  trace but not written to the audit log (the AI endpoint is clearance-gated,
+  not `@PlatformScoped`, so the interceptor doesn't see it). Low exposure
+  (aggregates only), but worth closing.
+- **`app_readonly` role + Postgres connection/DDL logging** — runbook Step 4c
+  has the reviewed SQL (validated live, rolled back); not yet applied to any
+  environment. Direct `psql` access remains outside the API audit trail.
+- **Standing verification gap** — `platform.metrics`/`.inspect`/`.security` are
+  Architect-only and there is no Architect dev credential (forced rotation by
+  design), so those HTTP happy paths are unit-tested while the *denial* paths
+  are proven live.
+- **Billing and support domains don't exist** — the §3 overview design (MRR,
+  renewals, tickets) is deliberately not rendered as zeroes.
 
 ## Do Next
 
-1. Nothing is queued. Pick up new work at the user's direction, or activate the
-   `app_runtime` cutover in a target environment (ADR-004).
+1. Nothing is queued. Pick up new work at the user's direction. Natural
+   candidates: the billing domain (unblocks 2.4 and the remaining overview
+   tiles), auditing platform AI tool runs, or applying `app_readonly` in a
+   target environment.
 
 ## Read First
 
-- `AI_HANDOFF.md` — 2026-07-09 pt. 3 (Step 6), pt. 2 (Step 5), and Known Issues.
-- `docs/ai-integration-plan.md` — Step 6 close-out and Parked list.
-- `apps/api/test/ai-academic-live.e2e-spec.ts` — paid Step 5 acceptance path.
-- `apps/api/src/ai/services/ai-usage.service.ts` — tenant quota/concurrency
-  mechanics.
+- `docs/platform-scope-plan.md` — **the source of truth**: gap analysis, the
+  control-plane/data-plane decision, Option D facets, the four privacy
+  decisions, and per-item status for every phase.
+- `docs/deployment-runbook.md` — Step 4c (`app_readonly`), 4d (re-seed on
+  redeploy + health-encryption backfill), Step 8 (`NEXT_PUBLIC_*` build-time
+  inlining), Step 12 (three ordered probes + failure triage table).
+- `apps/api/src/common/database/rls-platform.interceptor.ts` — the cross-tenant
+  seam and why the permission check sits there.
+- `apps/api/src/platform/` — overview, audit query, policy/drift, analytics,
+  risk, and the facet-gated AI tool registry.
 
 ## Known Gotchas
 
-- Run node tooling under Node ≥20.19; use `corepack pnpm`.
-- `ANTHROPIC_API_KEY` is spend-capped; `VOYAGE_API_KEY` is free-tier. Avoid
-  paid loops.
-- The reliable paid tutor e2e invocation preloads `apps/api/.env` before Jest
-  setup and calls Jest directly through `pnpm exec`; otherwise the generic e2e
-  setup can fall back to a passwordless test DB URL.
-- Chat, tutor, and learning endpoints are not `@TenantScoped` on purpose:
-  long LLM/embedding calls must not sit inside 15s RLS transactions.
-- `GET /classes` still 400s on its own default query params (pre-existing).
-- E2e specs that prove RLS backstops need `APP_RUNTIME_DATABASE_URL` pointing
-  at the real `app_runtime` role.
-- `pnpm --filter @workspace/ui lint` still fails on a stale eslint symlink; UI
-  source is covered by `tsc` and web lint/build.
+- **`git push` runs the full CI locally via `act` in Docker.** Docker must be
+  running or the push is refused. It takes minutes even for docs-only changes.
+  Don't wrap the push in a compound command — a trailing `echo` masks its exit
+  code and makes a *blocked* push look successful.
+- **Use `rg`, not bash `grep`** — `grep` here is ugrep and silently finds
+  nothing in files containing emoji (e.g. `seed.ts`). `rg` output can itself be
+  mangled by emoji; fall back to `grep -a` on a specific file when it looks odd.
+- **Changing permissions?** Update `EXPECTED_PERMISSION_COUNTS` in `seed.ts` in
+  the same commit (the seed aborts otherwise), and note the seed **upserts but
+  never prunes** — a removed permission stays granted until deleted by hand.
+- **Never `next build` while `next dev` is live** — they share `apps/web/.next`
+  and it corrupts the running server. The Docker CI builds safely in isolation.
+- Dev API on **:3030**, web on **:3001**; use **:3031** for a scratch API.
+  `nest build` also conflicts with a running `nest start --watch`.
+- `apps/api/.env` is loaded by ConfigModule, so a local "missing env var" test
+  is polluted by it; real env vars take precedence over `.env`.
+- macOS has no `timeout` command (CI/act on Ubuntu does) — local reproductions
+  of CI shell steps need adjusting.
+- **Prod-only config gates are invisible to CI** (`NODE_ENV=test`). The
+  `Production boot smoke` step in `ci.yml` exists to catch them; keep it.
+- `NEXT_PUBLIC_*` is inlined at **build** time — changing it needs a rebuild,
+  not a redeploy (a plain Vercel "Redeploy" reuses the build).
+- Health-record crypto is duplicated in two DB scripts that can't import Nest;
+  a guard test in `encryption.service.spec.ts` pins the wire format. Keep them
+  in lock-step, and remember the blind index is **keyed** — rotation must
+  re-index or flag search silently breaks.

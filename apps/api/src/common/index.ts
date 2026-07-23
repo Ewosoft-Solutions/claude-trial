@@ -18,3 +18,4 @@ export * from './storage';
 export * from './academics';
 export * from './dto';
 export * from './audit/audit.constants';
+export * from './audit/audit-writer';
