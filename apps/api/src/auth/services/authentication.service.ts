@@ -20,7 +20,9 @@ import {
   MfaMethodType,
 } from '@workspace/api';
 import { PrismaClient } from '@workspace/database';
+import { withUserScope } from '@workspace/database/rls';
 import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
+import { writeAuditLog } from '../../common/audit/audit-writer';
 // Local imports
 import { PasswordService } from './password.service';
 import { LoginAttemptService } from './login-attempt.service';
@@ -310,36 +312,26 @@ export class AuthenticationService {
     const hasMfa = await MfaBaseService.hasActiveMfaMethods(prisma, user.id);
 
     // Audit: successful primary authentication
-    try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: null,
-          eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
-          resource: 'auth_login',
-          resourceId: user.id,
-          actorId: user.id,
-          actorEmail: user.email,
-          ipAddress,
-          userAgent: userAgent || null,
-          description: 'User login successful (pre-MFA)',
-          metadata: {
-            requiresMfa: hasMfa,
-          },
-          status: 'success',
-        },
-      });
-    } catch (auditError) {
-      // Audit failures should not block authentication flow
-      console.error('Failed to log authentication event', auditError);
-    }
+    await writeAuditLog(prisma, {
+      tenantId: null,
+      eventType: AUDIT_EVENT.AUTHENTICATION,
+      action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
+      resource: 'auth_login',
+      resourceId: user.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      ipAddress,
+      userAgent: userAgent || null,
+      description: 'User login successful (pre-MFA)',
+      metadata: {
+        requiresMfa: hasMfa,
+      },
+      status: 'success',
+    });
 
     // Get available schools for user
     // Note: Type definitions missing prisma parameter, but implementation requires it
-    const schools = await SchoolSelectionService.getAvailableSchools(
-      prisma,
-      user.id,
-    );
+    const schools = await this.availableSchoolsForUser(prisma, user.id);
 
     // If MFA is required, initiate verification (no pre-auth token yet)
     if (hasMfa) {
@@ -399,6 +391,26 @@ export class AuthenticationService {
       token: preAuthToken,
       requiresMfa: false,
     };
+  }
+
+  /**
+   * The user's profiles across every tenant, read under the user-scoped RLS
+   * grant (`app.current_user_id`).
+   *
+   * This question is cross-tenant by nature and is asked before a tenant has
+   * been chosen, so there is no `app.current_tenant_id` to scope it with. Under
+   * FORCE RLS on managed Postgres — where the owner connection is a normal role
+   * and bypasses nothing — an unscoped read here returns zero rows, which the
+   * web login surfaces as "not linked to an active school or platform
+   * workspace". See migration 20260723090000_user_tenants_self_scope.
+   */
+  private async availableSchoolsForUser(
+    prisma: PrismaClient,
+    userId: string,
+  ): Promise<UserSchoolProfile[]> {
+    return withUserScope(prisma, userId, (tx) =>
+      SchoolSelectionService.getAvailableSchools(tx, userId),
+    );
   }
 
   /**
@@ -548,25 +560,19 @@ export class AuthenticationService {
       },
     });
 
-    try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: null,
-          eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
-          resource: 'auth_change_password',
-          resourceId: user.id,
-          actorId: user.id,
-          actorEmail: user.email,
-          ipAddress,
-          userAgent: userAgent || null,
-          description: 'Password changed via current-password flow',
-          status: 'success',
-        },
-      });
-    } catch (auditError) {
-      console.error('Failed to log password change', auditError);
-    }
+    await writeAuditLog(prisma, {
+      tenantId: null,
+      eventType: AUDIT_EVENT.AUTHENTICATION,
+      action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
+      resource: 'auth_change_password',
+      resourceId: user.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      ipAddress,
+      userAgent: userAgent || null,
+      description: 'Password changed via current-password flow',
+      status: 'success',
+    });
 
     return {
       success: true,
@@ -621,10 +627,7 @@ export class AuthenticationService {
     }
 
     // Get available schools for user
-    const schools = await SchoolSelectionService.getAvailableSchools(
-      prisma,
-      userId,
-    );
+    const schools = await this.availableSchoolsForUser(prisma, userId);
 
     // Get user
     const user = await prisma.user.findUnique({
@@ -644,29 +647,23 @@ export class AuthenticationService {
     }
 
     // Audit: MFA verified / login completed
-    try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: null,
-          eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: AUDIT_ACTION.AUTHENTICATION.MFA_VERIFIED,
-          resource: 'auth_login',
-          resourceId: user.id,
-          actorId: user.id,
-          actorEmail: user.email,
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-          description: 'MFA challenge verified',
-          metadata: {
-            challengeId,
-            method: token ? 'totp_or_code' : 'webauthn_or_recovery',
-          },
-          status: 'success',
-        },
-      });
-    } catch (auditError) {
-      console.error('Failed to log MFA verification', auditError);
-    }
+    await writeAuditLog(prisma, {
+      tenantId: null,
+      eventType: AUDIT_EVENT.AUTHENTICATION,
+      action: AUDIT_ACTION.AUTHENTICATION.MFA_VERIFIED,
+      resource: 'auth_login',
+      resourceId: user.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      description: 'MFA challenge verified',
+      metadata: {
+        challengeId,
+        method: token ? 'totp_or_code' : 'webauthn_or_recovery',
+      },
+      status: 'success',
+    });
 
     if (user.mustChangePassword) {
       return this.passwordRotationRequiredResponse(user);
@@ -832,31 +829,22 @@ export class AuthenticationService {
       success: true,
     });
 
-    try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: null,
-          eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
-          resource: 'auth_login',
-          resourceId: user.id,
-          actorId: user.id,
-          actorEmail: user.email,
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-          description: 'Passwordless passkey login successful',
-          metadata: { challengeId, method: 'webauthn_passwordless' },
-          status: 'success',
-        },
-      });
-    } catch (auditError) {
-      console.error('Failed to log passkey login', auditError);
-    }
+    await writeAuditLog(prisma, {
+      tenantId: null,
+      eventType: AUDIT_EVENT.AUTHENTICATION,
+      action: AUDIT_ACTION.AUTHENTICATION.LOGIN,
+      resource: 'auth_login',
+      resourceId: user.id,
+      actorId: user.id,
+      actorEmail: user.email,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      description: 'Passwordless passkey login successful',
+      metadata: { challengeId, method: 'webauthn_passwordless' },
+      status: 'success',
+    });
 
-    const schools = await SchoolSelectionService.getAvailableSchools(
-      prisma,
-      user.id,
-    );
+    const schools = await this.availableSchoolsForUser(prisma, user.id);
 
     // Gated here too: a passkey login never touches the password, but the
     // assigned password stays a valid credential on the account until it is
@@ -967,30 +955,24 @@ export class AuthenticationService {
     });
 
     // Audit: authorization context selection
-    try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId,
-          eventType: AUDIT_EVENT.AUTHORIZATION,
-          action: AUDIT_ACTION.AUTHORIZATION.SELECT_SCHOOL,
-          resource: 'auth_context',
-          resourceId: tenantId,
-          actorId: userId,
-          actorProfileId: profileId,
-          actorRole: roleId || null,
-          actorEmail: userTenant.user?.email || null,
-          ipAddress: ipAddress || null,
-          userAgent: userAgent || null,
-          description: `User selected school ${userTenant.tenant.name}`,
-          metadata: {
-            roleId,
-          },
-          status: 'success',
-        },
-      });
-    } catch (auditError) {
-      console.error('Failed to log authorization event', auditError);
-    }
+    await writeAuditLog(prisma, {
+      tenantId,
+      eventType: AUDIT_EVENT.AUTHORIZATION,
+      action: AUDIT_ACTION.AUTHORIZATION.SELECT_SCHOOL,
+      resource: 'auth_context',
+      resourceId: tenantId,
+      actorId: userId,
+      actorProfileId: profileId,
+      actorRole: roleId || null,
+      actorEmail: userTenant.user?.email || null,
+      ipAddress: ipAddress || null,
+      userAgent: userAgent || null,
+      description: `User selected school ${userTenant.tenant.name}`,
+      metadata: {
+        roleId,
+      },
+      status: 'success',
+    });
 
     return {
       success: true,
@@ -1094,25 +1076,19 @@ export class AuthenticationService {
       3600, // 1 hour
     );
 
-    try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: payload.tenantId,
-          eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: AUDIT_ACTION.AUTHENTICATION.SESSION_REFRESHED,
-          resource: 'session',
-          resourceId: session.id,
-          actorId: payload.sub,
-          actorProfileId: payload.profileId,
-          actorRole: payload.roleId || null,
-          actorEmail: session.user?.email ?? null,
-          description: 'Access token refreshed',
-          status: 'success',
-        },
-      });
-    } catch (auditError) {
-      console.error('Failed to audit session refresh', auditError);
-    }
+    await writeAuditLog(prisma, {
+      tenantId: payload.tenantId,
+      eventType: AUDIT_EVENT.AUTHENTICATION,
+      action: AUDIT_ACTION.AUTHENTICATION.SESSION_REFRESHED,
+      resource: 'session',
+      resourceId: session.id,
+      actorId: payload.sub,
+      actorProfileId: payload.profileId,
+      actorRole: payload.roleId || null,
+      actorEmail: session.user?.email ?? null,
+      description: 'Access token refreshed',
+      status: 'success',
+    });
 
     return {
       accessToken,

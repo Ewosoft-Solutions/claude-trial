@@ -157,6 +157,9 @@ describe('AuthenticationService — passwordless passkey login', () => {
         },
         loginAttempt: { create: jest.fn().mockResolvedValue({}) },
         auditLog: { create: jest.fn().mockResolvedValue({}) },
+        // The profile lookup runs inside withUserScope's transaction.
+        $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+        $executeRaw: jest.fn().mockResolvedValue(0),
       };
       mfaService.verifyChallenge.mockResolvedValue(true);
       jwtService.generatePreAuthToken.mockResolvedValue('pre-auth-token');
@@ -193,6 +196,9 @@ describe('AuthenticationService — passwordless passkey login', () => {
         },
         loginAttempt: { create: jest.fn().mockResolvedValue({}) },
         auditLog: { create: jest.fn().mockResolvedValue({}) },
+        // The profile lookup runs inside withUserScope's transaction.
+        $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(prisma)),
+        $executeRaw: jest.fn().mockResolvedValue(0),
       };
       mfaService.verifyUsernamelessWebAuthnLogin.mockResolvedValue('u1');
       jwtService.generatePreAuthToken.mockResolvedValue('pre-auth-token');

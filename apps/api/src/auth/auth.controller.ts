@@ -43,7 +43,9 @@ import { AUDIT_ACTION, AUDIT_EVENT, DatabaseService } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
 import { SchoolSelectionService, type UserSchoolProfile } from '@workspace/api';
+import { withUserScope } from '@workspace/database/rls';
 import { resolveEnabledFeatures } from '../tenant/tenant-features';
+import { writeAuditLog } from '../common/audit/audit-writer';
 
 /**
  * Groups one-entry-per-profile UserSchoolProfile rows into one entry per
@@ -182,9 +184,11 @@ export class AuthController {
     // school (e.g. parent + teacher), so group these into one entry per
     // school with a nested `profiles` array rather than reporting the
     // same school once per profile under a misleading "schools" label.
-    const profiles = await SchoolSelectionService.getAvailableSchools(
-      prisma,
-      userId,
+    // Same cross-tenant, no-tenant-chosen question as login asks, so it needs
+    // the same user-scoped RLS grant — see availableSchoolsForUser in
+    // AuthenticationService and migration 20260723090000_user_tenants_self_scope.
+    const profiles = await withUserScope(prisma, userId, (tx) =>
+      SchoolSelectionService.getAvailableSchools(tx, userId),
     );
 
     // Per-school enabled feature modules, for polymorphic navigation gating.
@@ -622,22 +626,20 @@ export class AuthController {
     );
 
     try {
-      await prisma.auditLog.create({
-        data: {
-          tenantId: user.tenantId,
-          eventType: AUDIT_EVENT.AUTHENTICATION,
-          action: AUDIT_ACTION.AUTHENTICATION.LOGOUT,
-          resource: 'session',
-          actorId: user.userId,
-          actorProfileId: user.profileId,
-          actorRole: user.roleId || null,
-          description:
-            logoutDto.reason === 'idle'
-              ? 'User signed out after inactivity'
-              : 'User signed out',
-          metadata: { reason: logoutDto.reason ?? 'manual' },
-          status: 'success',
-        },
+      await writeAuditLog(prisma, {
+        tenantId: user.tenantId,
+        eventType: AUDIT_EVENT.AUTHENTICATION,
+        action: AUDIT_ACTION.AUTHENTICATION.LOGOUT,
+        resource: 'session',
+        actorId: user.userId,
+        actorProfileId: user.profileId,
+        actorRole: user.roleId || null,
+        description:
+          logoutDto.reason === 'idle'
+            ? 'User signed out after inactivity'
+            : 'User signed out',
+        metadata: { reason: logoutDto.reason ?? 'manual' },
+        status: 'success',
       });
     } catch (auditError) {
       console.error('Failed to audit logout', auditError);

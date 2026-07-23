@@ -65,13 +65,21 @@ describe('AuthenticationService — forced password rotation', () => {
     ...overrides,
   });
 
-  const buildPrisma = (user: unknown) => ({
-    user: {
-      findUnique: jest.fn().mockResolvedValue(user),
-      update: jest.fn().mockResolvedValue({}),
-    },
-    auditLog,
-  });
+  const buildPrisma = (user: unknown) => {
+    const client: Record<string, unknown> = {
+      user: {
+        findUnique: jest.fn().mockResolvedValue(user),
+        update: jest.fn().mockResolvedValue({}),
+      },
+      auditLog,
+      // The profile lookup runs inside withUserScope, which opens a
+      // transaction to hold the user-scoped RLS GUC. Run the callback against
+      // the same mock — these tests assert login's control flow, not isolation.
+      $transaction: jest.fn((fn: (tx: unknown) => unknown) => fn(client)),
+      $executeRaw: jest.fn().mockResolvedValue(0),
+    };
+    return client;
+  };
 
   describe('login', () => {
     it('issues a pre-auth token when no rotation is pending', async () => {
