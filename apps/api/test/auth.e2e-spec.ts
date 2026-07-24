@@ -45,6 +45,10 @@ d('Authentication Flow (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
+    // Listen explicitly so the server is fully accepting before any request —
+    // avoids supertest's lazy listen(0)/connect race (flaky ECONNRESET under
+    // CI load). See multi-tenant-isolation for the full note.
+    await app.listen(0);
     // Superuser handle for fixtures; the app-under-test boots non-superuser
     // under the topology-parity harness (see helpers/superuser-client).
     prisma = makeSuperuserClient();
