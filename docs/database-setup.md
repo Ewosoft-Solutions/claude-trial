@@ -32,8 +32,8 @@ Full validation + defaults live in `apps/api/src/common/config/env.config.ts`.
 
 | Var | Required | Purpose |
 |-----|----------|---------|
-| `DATABASE_URL` | **yes** | Owner connection. Used by migrations, seed, and platform/cross-tenant reads. `postgres(ql)://…`. |
-| `APP_RUNTIME_DATABASE_URL` | recommended | Restricted `app_runtime` connection for tenant-scoped requests, so **RLS enforces at runtime** (§5). When unset, tenant queries fall back to the owner connection and RLS is **bypassed** (works, but not enforced). See ADR-004. |
+| `DATABASE_URL` | **yes** | Owner connection. Migrations and seed only — the API does **not** connect with it at runtime (ADR-004 Stage 4). Still required: it is the boot RLS-probe reference and the local fallback when `APP_RUNTIME_DATABASE_URL` is unset. `postgres(ql)://…`. |
+| `APP_RUNTIME_DATABASE_URL` | recommended | Restricted `app_runtime` connection. **Both** runtime DB clients connect as this role, so **RLS enforces at runtime** (§5) — including platform/cross-tenant reads, which run through `runPlatform` (audited `app.is_platform`), never the owner. When unset, both clients fall back to the owner connection and RLS is **bypassed** (works locally where the owner is a superuser, but not enforced). See ADR-004. |
 | `DB_RLS_ENFORCED` | no | Forces the boot-time RLS self-test (§6) to **fail-closed** (refuse to boot) instead of warn. Defaults to **on in production**, off elsewhere. Set `true` to enforce in staging; `false` to opt a prod-like box out deliberately. |
 | `ENCRYPTION_KEY` | prod | AES-256-GCM key for encrypted columns (JWT/MFA secrets, BYOK AI keys). Base64 32 bytes preferred. A dev default is used if unset (NOT for prod). |
 | `JWT_SECRET` | prod | Signing secret (per-tenant JWT config may override). |

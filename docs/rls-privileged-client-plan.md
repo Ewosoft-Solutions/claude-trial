@@ -245,13 +245,20 @@ Also still dead code, and worth deleting rather than scoping:
    pooled connection where the GUC was never set. Also covers scope inheritance
    when handed a `TransactionClient`, where nesting is impossible.
 
-**Remaining for a later pass:** repointing auth/guard paths at `app_runtime` so
-`DATABASE_URL` is used only by migrations and seeds. Now unblocked — no path
-reads tenant data unscoped any more — but it is a runtime-topology change that
-wants its own deploy and its own verification, not a rider on this one. Do it
-after demo confirms the scoping work, and note the boot-time
-`RlsEnforcementService` probe already fail-closes if that connection turns out
-to be privileged.
+**Done 2026-07-24:** the auth/guard paths — in fact *all* runtime paths — now
+connect as `app_runtime`. The privileged `PRISMA_CLIENT_TOKEN` client
+(`database.module.ts`) uses `APP_RUNTIME_DATABASE_URL ?? DATABASE_URL` like the
+tenant client, so both runtime clients are the restricted role and `DATABASE_URL`
+is used only by migrations and seeds; the app holds no owner/DDL credentials.
+Low functional risk on the deployed side — Render's owner is already
+non-superuser under FORCE RLS, so runtime DML was already RLS-subject there; the
+change removes the owner credential and makes local/CI match prod. No runtime path
+needs owner privileges (the only runtime raw SQL is transaction-local
+`set_config`). Verified by the topology-parity e2e suite (which now exercises the
+exact prod shape — both clients `app_runtime`) plus the production-boot smoke; the
+boot-time `RlsEnforcementService` probe still fail-closes if the runtime role can
+bypass RLS. Local dev is unchanged: with `APP_RUNTIME_DATABASE_URL` unset the
+clients fall back to the superuser owner (RLS bypassed, as before).
 
 ## Local-vs-deployed divergence
 

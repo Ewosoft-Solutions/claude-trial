@@ -33,14 +33,19 @@ services:
       # Fail-closed RLS at runtime (ADR-004). Do not weaken in a deployed env.
       - key: DB_RLS_ENFORCED
         value: "true"
-      # Owner connection — used only by migrations/seed run OUT of band (CI).
+      # Owner connection — used by migrations/seed (run OUT of band in CI), and
+      # kept here as the boot RLS-probe reference + a local fallback. The API
+      # itself does NOT connect with it at runtime: both its clients use
+      # APP_RUNTIME_DATABASE_URL (ADR-004 Stage 4), so the app holds no
+      # owner/DDL credentials.
       - key: DATABASE_URL
         fromDatabase:
           name: swe-postgres
           property: connectionString
       # Restricted runtime role (app_runtime) — set out of band as a secret in
       # the Render dashboard AFTER creating the role (docs/database-setup.md §5).
-      # Must be non-superuser / non-BYPASSRLS or /readyz + boot self-test fail.
+      # BOTH runtime DB clients connect as this role; must be non-superuser /
+      # non-BYPASSRLS or /readyz + the boot self-test fail.
       - key: APP_RUNTIME_DATABASE_URL
         sync: false
       - key: REDIS_URL

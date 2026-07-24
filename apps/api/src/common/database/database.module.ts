@@ -88,18 +88,30 @@ export class DatabaseModule {
     ) => Promise<DatabaseModuleOptions> | DatabaseModuleOptions;
     inject?: FactoryProvider['inject'];
   }): DynamicModule {
+    // Both runtime clients connect as `app_runtime` when configured (ADR-004
+    // Stage 4): the owner `DATABASE_URL` is for migrations and seeds only, and
+    // the app holds no owner/DDL credentials at runtime. This client is the
+    // non-transaction-scoped one used by auth, guards and DatabaseService for
+    // global/self-scoping work; it is RLS-subject like the tenant client, so its
+    // reads must scope themselves (withUserScope/withTenantScope) or touch only
+    // globally-readable rows. It falls back to `DATABASE_URL` when
+    // APP_RUNTIME_DATABASE_URL is unset (local dev / pre-cutover), where the
+    // owner is typically a superuser and RLS is bypassed.
     const prismaProvider = {
       provide: PRISMA_CLIENT_TOKEN,
       useFactory: async (...args: unknown[]): Promise<PrismaClient> => {
         const config = await options.useFactory(...args);
-        return buildPrismaClient(config.databaseUrl, config);
+        return buildPrismaClient(
+          config.tenantDatabaseUrl ?? config.databaseUrl,
+          config,
+        );
       },
       inject: options.inject ?? [],
     };
 
-    // Tenant-scoped client (connects as `app_runtime` when configured) used by
-    // TenantDbService so RLS enforces isolation at runtime. Falls back to the
-    // privileged URL when APP_RUNTIME_DATABASE_URL is unset (pre-cutover).
+    // Tenant-scoped client (also `app_runtime`) used by TenantDbService, which
+    // wraps each unit of work in a transaction that sets the RLS GUCs
+    // (runScoped / runPlatform) so Postgres enforces isolation. Same fallback.
     const tenantPrismaProvider = {
       provide: TENANT_PRISMA_CLIENT_TOKEN,
       useFactory: async (...args: unknown[]): Promise<PrismaClient> => {

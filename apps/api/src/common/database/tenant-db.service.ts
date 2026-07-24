@@ -13,8 +13,11 @@ import { rlsAls, currentRlsTx } from './rls-als';
  * Because all queries in the callback run on the transaction's single pinned
  * connection, Postgres RLS enforces tenant isolation.
  *
- * Auth / guards / platform code keep using the privileged `DatabaseService`
- * client — only tenant-data services should use `TenantDbService.client`.
+ * Both this and `DatabaseService` connect as `app_runtime` (ADR-004 Stage 4);
+ * neither bypasses RLS. The split is by access pattern, not privilege: auth,
+ * guards and other non-transactional / self-scoping work use `DatabaseService`,
+ * while tenant-data services use `TenantDbService.client` so their reads run
+ * inside a `runScoped` / `runPlatform` transaction that sets the RLS GUCs.
  */
 @Injectable()
 export class TenantDbService implements OnModuleDestroy {
