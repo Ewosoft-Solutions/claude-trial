@@ -14,9 +14,12 @@ overrides:
   'esbuild@>=0.27.3 <0.28.1': '0.28.1'
   'fast-uri@>=3.0.0 <3.1.4': '3.1.4'
   # Transitive via prisma > @prisma/dev (dev tooling; not in the deployed
-  # runtime). Advisory patched in 9.7.0.
+  # runtime). Advisories patched in find-my-way 9.7.0 and valibot 1.4.2.
   'find-my-way@<9.7.0': '9.7.0'
+  'valibot@<1.4.2': '1.4.2'
   'js-yaml@<3.15.0': '3.15.0'
   'js-yaml@>=4.0.0 <4.3.0': '4.3.0'
-  'postcss@<8.5.10': '8.5.16'
+  # GHSA-r28c-9q8g-f849 (source-map path traversal) covers <=8.5.17, so the
+  # earlier <8.5.10→8.5.16 pin no longer clears it; bump the floor to 8.5.18.
+  'postcss@<8.5.18': '8.5.18'
   'sharp@<0.35.0': '0.35.3'
