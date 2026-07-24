@@ -83,7 +83,7 @@ async function proxyAcademics(
   if (disposition) responseHeaders.set('content-disposition', disposition);
 
   return attachRefreshedAccess(
-    new Response(upstream.body, {
+    new NextResponse(upstream.body, {
       status: upstream.status,
       statusText: upstream.statusText,
       headers: responseHeaders,

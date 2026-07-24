@@ -19,6 +19,8 @@ import {
   ProfileStatus,
   MfaMethodType,
 } from '@workspace/api';
+import { randomUUID } from 'node:crypto';
+
 import { PrismaClient } from '@workspace/database';
 import { withTenantScope, withUserScope } from '@workspace/database/rls';
 import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
@@ -27,7 +29,7 @@ import { writeAuditLog } from '../../common/audit/audit-writer';
 import { PasswordService } from './password.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { AuthJWTService } from './jwt.service';
-import { SessionService } from './session.service';
+import { SessionService, REFRESH_ROTATION_GRACE_MS } from './session.service';
 import { MfaService } from './mfa.service';
 import { MfaBaseService } from './mfa-base.service';
 import { AuthenticationResponseJSON } from '@simplewebauthn/server';
@@ -954,6 +956,9 @@ export class AuthenticationService {
     const expiresAt = new Date();
     expiresAt.setSeconds(expiresAt.getSeconds() + 604800); // 7 days
 
+    // Open a fresh rotation family for this login. Every refresh rotates the
+    // token within this family (preserving the absolute expiry above); a
+    // replayed retired token is detected and revokes only this family.
     await SessionService.createSession(prisma, {
       userId,
       userTenantId: profileId,
@@ -961,6 +966,7 @@ export class AuthenticationService {
       ipAddress,
       userAgent,
       expiresAt,
+      familyId: randomUUID(),
     });
 
     // Audit: authorization context selection
@@ -1048,7 +1054,12 @@ export class AuthenticationService {
   async refreshToken(
     prisma: PrismaClient,
     refreshToken: string,
-  ): Promise<{ accessToken: string; expiresIn: number }> {
+  ): Promise<{
+    accessToken: string;
+    expiresIn: number;
+    refreshToken: string;
+    refreshExpiresIn: number;
+  }> {
     // Decode (without verifying) to learn the tenant before the DB read.
     // findSessionByToken includes the RLS-scoped `user_tenants` relation, and
     // under FORCE RLS an unscoped include resolves to null — so isSessionValid
@@ -1068,7 +1079,18 @@ export class AuthenticationService {
       (tx) => SessionService.findSessionByToken(tx, refreshToken),
     );
 
-    if (!session || !SessionService.isSessionValid(session)) {
+    if (!session) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    // Reuse gate (must precede isSessionValid, which does not consider
+    // rotatedAt): this token has already been rotated away. A replay inside the
+    // grace window is an idempotent retry; outside it, a reuse attack.
+    if (session.rotatedAt) {
+      return this.replayRotatedRefresh(prisma, session, decoded.tenantId);
+    }
+
+    if (!SessionService.isSessionValid(session)) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -1083,37 +1105,164 @@ export class AuthenticationService {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Generate new access token
-    const accessToken = await this.jwtService.generateAccessToken(
-      prisma,
-      {
-        sub: payload.sub,
-        tenantId: payload.tenantId,
-        profileId: payload.profileId,
-        roleId: payload.roleId || '',
-      },
-      payload.tenantId,
-      3600, // 1 hour
+    // Rotation preserves the absolute cap: the successor refresh token expires
+    // exactly when the original session did, so refresh never slides the 7-day
+    // lifetime forward.
+    const refreshExpiresIn = Math.floor(
+      (session.expiresAt.getTime() - Date.now()) / 1000,
     );
+    if (refreshExpiresIn <= 0) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const tokenPayload = {
+      sub: payload.sub,
+      tenantId: payload.tenantId,
+      profileId: payload.profileId,
+      roleId: payload.roleId || '',
+    };
+
+    const [accessToken, newRefreshToken] = await Promise.all([
+      this.jwtService.generateAccessToken(
+        prisma,
+        tokenPayload,
+        payload.tenantId,
+        3600, // 1 hour
+      ),
+      this.jwtService.generateRefreshToken(
+        prisma,
+        tokenPayload,
+        payload.tenantId,
+        refreshExpiresIn,
+      ),
+    ]);
+
+    // Atomically claim the rotation. If we lost a concurrent race, the token is
+    // already rotated — fall through to the idempotent replay path instead of
+    // minting a second successor (or falsely tripping reuse detection).
+    const successor = await SessionService.rotateSession(
+      prisma,
+      session,
+      newRefreshToken,
+    );
+    if (!successor) {
+      const reread = await withTenantScope(
+        prisma,
+        decoded.tenantId,
+        undefined,
+        (tx) => SessionService.findSessionByToken(tx, refreshToken),
+      );
+      if (!reread) {
+        throw new UnauthorizedException('Invalid refresh token');
+      }
+      return this.replayRotatedRefresh(prisma, reread, decoded.tenantId);
+    }
 
     await writeAuditLog(prisma, {
       tenantId: payload.tenantId,
       eventType: AUDIT_EVENT.AUTHENTICATION,
-      action: AUDIT_ACTION.AUTHENTICATION.SESSION_REFRESHED,
+      action: AUDIT_ACTION.AUTHENTICATION.SESSION_ROTATED,
       resource: 'session',
-      resourceId: session.id,
+      resourceId: successor.id,
       actorId: payload.sub,
       actorProfileId: payload.profileId,
       actorRole: payload.roleId || null,
       actorEmail: session.user?.email ?? null,
-      description: 'Access token refreshed',
+      description: 'Access token refreshed; refresh token rotated',
       status: 'success',
     });
 
     return {
       accessToken,
       expiresIn: 3600,
+      refreshToken: newRefreshToken,
+      refreshExpiresIn,
     };
+  }
+
+  /**
+   * Handle a replay of an already-rotated refresh token.
+   *
+   * Within the grace window, a replay is treated as an idempotent retry (a
+   * network retry, an unload keepalive, or a tab race): we hand back the
+   * successor token we already issued plus a fresh access token, without
+   * rotating again. Outside the window — or when the family has no live
+   * successor — the replay is reuse of a retired token: revoke the whole
+   * family (this login's lineage only) and record it.
+   */
+  private async replayRotatedRefresh(
+    prisma: PrismaClient,
+    session: NonNullable<
+      Awaited<ReturnType<typeof SessionService.findSessionByToken>>
+    >,
+    tenantId: string,
+  ): Promise<{
+    accessToken: string;
+    expiresIn: number;
+    refreshToken: string;
+    refreshExpiresIn: number;
+  }> {
+    const rotatedAt = session.rotatedAt;
+    const withinGrace =
+      !!rotatedAt &&
+      Date.now() - rotatedAt.getTime() <= REFRESH_ROTATION_GRACE_MS;
+
+    const successor = session.replacedById
+      ? await SessionService.findSuccessor(prisma, session.replacedById)
+      : null;
+    const successorUsable =
+      !!successor &&
+      !successor.rotatedAt &&
+      !successor.revokedAt &&
+      successor.expiresAt.getTime() > Date.now();
+
+    if (withinGrace && successorUsable && successor) {
+      const payload = await this.jwtService.validateRefreshToken(
+        prisma,
+        successor.token,
+        tenantId,
+      );
+      if (payload) {
+        const accessToken = await this.jwtService.generateAccessToken(
+          prisma,
+          {
+            sub: payload.sub,
+            tenantId: payload.tenantId,
+            profileId: payload.profileId,
+            roleId: payload.roleId || '',
+          },
+          payload.tenantId,
+          3600,
+        );
+        const refreshExpiresIn = Math.max(
+          0,
+          Math.floor((successor.expiresAt.getTime() - Date.now()) / 1000),
+        );
+        return {
+          accessToken,
+          expiresIn: 3600,
+          refreshToken: successor.token,
+          refreshExpiresIn,
+        };
+      }
+    }
+
+    // Reuse of a retired token: revoke this login's whole rotation family.
+    await SessionService.revokeFamily(prisma, session.familyId ?? session.id);
+    await writeAuditLog(prisma, {
+      tenantId,
+      eventType: AUDIT_EVENT.AUTHENTICATION,
+      action: AUDIT_ACTION.AUTHENTICATION.TOKEN_REUSE_DETECTED,
+      resource: 'session',
+      resourceId: session.id,
+      actorId: session.userId,
+      actorProfileId: session.userTenantId,
+      actorRole: null,
+      actorEmail: session.user?.email ?? null,
+      description: 'Refresh token reuse detected; session family revoked',
+      status: 'failure',
+    });
+    throw new UnauthorizedException('Invalid refresh token');
   }
 
   /**

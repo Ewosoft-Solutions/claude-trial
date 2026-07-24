@@ -16,7 +16,9 @@ return a re-authenticated user to their work.
 ## Confirmed policy
 
 - Access tokens last **1 hour** and refresh sessions have a fixed **7-day
-  absolute lifetime**. Refresh does not rotate or extend the stored session.
+  absolute lifetime**. Refresh **rotates** the refresh token on every use (with
+  reuse detection — see below) but never **extends** the absolute lifetime: the
+  successor token inherits the original session's expiry.
 - The default inactivity threshold is **15 minutes**.
 - The configured tenant range defaults to **5–60 minutes** and is server
   enforced inside a non-configurable hard safety range of **5–120 minutes**.
@@ -46,6 +48,22 @@ Delivered:
   so an already removed session is still a successful logout.
 - The seven-day refresh token and its database session remain the absolute cap;
   no activity or access refresh extends them.
+
+### Refresh-token rotation + reuse detection (delivered)
+
+- Each refresh rotates the refresh token: a successor `Session` row is created in
+  the same rotation **family** (`familyId`), the parent is marked `rotatedAt`, and
+  the successor inherits the parent's `expiresAt` (the absolute cap never slides).
+- Replaying a just-rotated token within a short grace window returns the
+  already-issued successor (idempotent — absorbs the web layer's retries / tab
+  races). Replaying it after the window is treated as reuse: the whole family is
+  revoked and a `TOKEN_REUSE_DETECTED` audit row is written. Reuse revokes only
+  that login's lineage, not the user's other sessions.
+- Every server-side web refresh consumer persists the rotated `swe_refresh`
+  cookie (via `cookies.set`, never a second appended `Set-Cookie`), so no path
+  keeps presenting a retired token.
+- The rotation read/writes stay inside `withTenantScope`, so the `user_tenants`
+  include resolves under FORCE RLS on the deployed `app_runtime` topology.
 
 ## Workstream B — Inactivity logout ✅
 

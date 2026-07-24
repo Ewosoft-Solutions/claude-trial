@@ -158,6 +158,9 @@ describe('AuthJWTService', () => {
         {
           secret: 'test-secret-key',
           expiresIn: 604800,
+          // Unique per token so rotated refresh tokens can never byte-match and
+          // collide on the sessions.token unique key.
+          jwtid: expect.any(String),
         },
       );
     });

@@ -1,23 +1,29 @@
 import 'server-only';
 
-import type { NextRequest } from 'next/server';
+import type { NextRequest, NextResponse } from 'next/server';
 
 import { apiClient } from '@/lib/api-client';
 import {
   COOKIE_ACCESS_TOKEN,
   COOKIE_REFRESH_TOKEN,
-  makeSetCookie,
+  setAuthCookie,
 } from '@/lib/auth-cookies';
 
 interface RefreshApiResponse {
   accessToken: string;
   expiresIn: number;
+  // Refresh tokens now rotate: each refresh returns a fresh refresh token whose
+  // lifetime is the REMAINING time on the fixed 7-day session (never extended).
+  // Persist it or the next refresh replays a retired token → reuse detection.
+  refreshToken: string;
+  refreshExpiresIn: number;
 }
 
 export interface RefreshedAccess {
   accessToken: string;
-  accessExpiresAt: number;
-  setCookie: string;
+  accessMaxAge: number;
+  refreshToken: string;
+  refreshMaxAge: number;
 }
 
 /** Exchange the request's refresh cookie directly with NestJS. */
@@ -33,22 +39,44 @@ export async function refreshAccessForRequest(
     });
     return {
       accessToken: result.accessToken,
-      accessExpiresAt: Date.now() + result.expiresIn * 1000,
-      setCookie: makeSetCookie(
-        COOKIE_ACCESS_TOKEN,
-        result.accessToken,
-        result.expiresIn,
-      ),
+      accessMaxAge: result.expiresIn,
+      refreshToken: result.refreshToken,
+      refreshMaxAge: result.refreshExpiresIn,
     };
   } catch {
     return null;
   }
 }
 
+/**
+ * Persist a refreshed access + rotated refresh token onto an outgoing response.
+ *
+ * Both cookies go through `cookies.set` (Next's serializer keeps each cookie a
+ * distinct Set-Cookie header). We deliberately do NOT `headers.append('Set-Cookie',
+ * …)` twice: appending more than one Set-Cookie header on a single response drops
+ * the first (see the note in auth-cookies.ts — it caused a login loop on demo).
+ *
+ * Requires a `NextResponse` for the cookie jar; the two call sites that used to
+ * pass a bare `Response` (the SSE stream proxy and the academics binary
+ * passthrough) now construct a `NextResponse` instead.
+ */
 export function attachRefreshedAccess(
-  response: Response,
+  response: NextResponse,
   refreshed: RefreshedAccess | null,
-): Response {
-  if (refreshed) response.headers.append('Set-Cookie', refreshed.setCookie);
+): NextResponse {
+  if (refreshed) {
+    setAuthCookie(
+      response,
+      COOKIE_ACCESS_TOKEN,
+      refreshed.accessToken,
+      refreshed.accessMaxAge,
+    );
+    setAuthCookie(
+      response,
+      COOKIE_REFRESH_TOKEN,
+      refreshed.refreshToken,
+      refreshed.refreshMaxAge,
+    );
+  }
   return response;
 }
