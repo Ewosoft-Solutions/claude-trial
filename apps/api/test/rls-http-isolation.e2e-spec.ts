@@ -64,6 +64,10 @@ d('RLS HTTP isolation (vertical slice)', () => {
 
     app = moduleRef.createNestApplication();
     await app.init();
+    // Listen explicitly so the server is fully accepting before any request —
+    // avoids supertest's lazy listen(0)/connect race (flaky ECONNRESET under
+    // CI load). See multi-tenant-isolation for the full note.
+    await app.listen(0);
     server = app.getHttpServer() as Server;
     // Superuser handle for fixtures; the app-under-test boots non-superuser
     // under the topology-parity harness (see helpers/superuser-client).

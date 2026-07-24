@@ -63,6 +63,11 @@ d('Multi-Tenant Isolation — real JWT flow (e2e)', () => {
 
     app = moduleRef.createNestApplication();
     await app.init();
+    // Listen explicitly so the server is fully accepting before any request.
+    // With only app.init(), supertest lazily calls server.listen(0) on the
+    // first request, and under CI load that listen/connect race intermittently
+    // resets the connection (flaky ECONNRESET in this login-heavy beforeAll).
+    await app.listen(0);
     server = app.getHttpServer() as Server;
     // Superuser handle for fixtures; the app-under-test boots non-superuser
     // under the topology-parity harness (see helpers/superuser-client).
