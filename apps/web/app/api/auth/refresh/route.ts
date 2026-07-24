@@ -19,6 +19,10 @@ import { isTerminalRefreshFailure } from '@/lib/refresh-error';
 interface RefreshApiResponse {
   accessToken: string;
   expiresIn: number;
+  // Rotated on every refresh; persist it so the next refresh presents the
+  // current token and not a retired one (which would trip reuse detection).
+  refreshToken: string;
+  refreshExpiresIn: number;
 }
 
 export async function POST() {
@@ -38,11 +42,14 @@ export async function POST() {
       success: true,
       accessExpiresAt: Date.now() + res.expiresIn * 1000,
     });
+    setAuthCookie(response, COOKIE_ACCESS_TOKEN, res.accessToken, res.expiresIn);
+    // Persist the rotated refresh token (its Max-Age is the remaining life of
+    // the fixed 7-day session, so this never extends the absolute cap).
     setAuthCookie(
       response,
-      COOKIE_ACCESS_TOKEN,
-      res.accessToken,
-      res.expiresIn,
+      COOKIE_REFRESH_TOKEN,
+      res.refreshToken,
+      res.refreshExpiresIn,
     );
 
     return response;

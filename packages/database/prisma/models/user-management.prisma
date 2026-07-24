@@ -134,6 +134,13 @@ model Session {
   expiresAt         DateTime  @map("expires_at")
   revokedAt         DateTime? @map("revoked_at")
   createdAt         DateTime  @default(now()) @map("created_at")
+  // Refresh-token rotation lineage: every rotation of a single login shares one
+  // familyId. rotatedAt marks a token that has been superseded (distinct from
+  // revokedAt, which is logout/reuse revocation); replacedById points at the
+  // successor row so a within-grace replay can return the already-issued token.
+  familyId          String?   @map("family_id")
+  rotatedAt         DateTime? @map("rotated_at")
+  replacedById      String?   @map("replaced_by_id")
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   userTenant UserTenant @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
@@ -143,6 +150,7 @@ model Session {
   @@index([token])
   @@index([expiresAt])
   @@index([revokedAt])
+  @@index([familyId])
   @@map("sessions")
   @@schema("user-management")
 }

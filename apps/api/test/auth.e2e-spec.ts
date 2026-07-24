@@ -220,6 +220,14 @@ d('Authentication Flow (e2e)', () => {
       refreshToken = selectRes.body.refreshToken as string;
     });
 
+    /** Decode a JWT's `exp` (seconds) without verifying — for cap assertions. */
+    const jwtExp = (t: string): number =>
+      (
+        JSON.parse(
+          Buffer.from(t.split('.')[1], 'base64url').toString(),
+        ) as { exp: number }
+      ).exp;
+
     it('should issue a new access token for a valid refresh token', async () => {
       const res = await request(app.getHttpServer() as Server)
         .post('/auth/refresh')
@@ -227,6 +235,86 @@ d('Authentication Flow (e2e)', () => {
         .expect(200);
 
       expect(typeof res.body.accessToken).toBe('string');
+    });
+
+    it('rotates the refresh token — returns a new one, different from the input', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(typeof res.body.refreshToken).toBe('string');
+      expect(res.body.refreshToken).not.toBe(refreshToken);
+      expect(typeof res.body.refreshExpiresIn).toBe('number');
+    });
+
+    it('the rotated refresh token itself works on a subsequent refresh', async () => {
+      const first = await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken: first.body.refreshToken })
+        .expect(200);
+    });
+
+    it('preserves the absolute session expiry — the rotated token expires when the original did', async () => {
+      const res = await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      // Rotation must not slide the fixed 7-day lifetime: the successor's exp
+      // matches the original within sub-second rounding, never a fresh 7 days.
+      expect(
+        Math.abs(jwtExp(res.body.refreshToken) - jwtExp(refreshToken)),
+      ).toBeLessThanOrEqual(2);
+    });
+
+    it('replaying the just-rotated token within the grace window returns the same successor', async () => {
+      const first = await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      // A network retry / tab race resends the now-retired token immediately.
+      // Inside the grace window that is idempotent: hand back the same successor.
+      const replay = await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(replay.body.refreshToken).toBe(first.body.refreshToken);
+    });
+
+    it('treats a rotated token replayed after the grace window as reuse: 401 + family revoked', async () => {
+      const first = await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+      const successorToken = first.body.refreshToken as string;
+
+      // Age the retired token's rotation past the grace window (superuser handle
+      // — the app-under-test is RLS-subject under the parity topology).
+      await prisma.session.updateMany({
+        where: { token: refreshToken },
+        data: { rotatedAt: new Date(Date.now() - 60_000) },
+      });
+
+      // Replaying the retired token is now reuse: rejected, and it burns down
+      // the whole rotation family...
+      await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+
+      // ...so even the legitimate successor is revoked.
+      await request(app.getHttpServer() as Server)
+        .post('/auth/refresh')
+        .send({ refreshToken: successorToken })
+        .expect(401);
     });
 
     it('should reject an invalid refresh token', async () => {

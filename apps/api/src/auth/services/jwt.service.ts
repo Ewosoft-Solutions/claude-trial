@@ -5,6 +5,8 @@
  * Implements items 3.6 and 3.7.
  */
 
+import { randomUUID } from 'node:crypto';
+
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
@@ -130,9 +132,16 @@ export class AuthJWTService {
 
     const tokenPayload: JWTPayload = { ...payload, type: 'refresh' };
 
+    // A unique `jti` guarantees each refresh token is a distinct string even
+    // when two are signed in the same second with an identical payload — which
+    // now happens during rotation (a token and its successor share sub/tenant/
+    // profile/role and often the same `iat`). Without it, the successor's JWT
+    // could byte-match the parent's and collide on the `sessions.token` unique
+    // key. Verification ignores `jti`, so this is transparent to validation.
     return this.jwtService.signAsync(tokenPayload, {
       secret,
       expiresIn,
+      jwtid: randomUUID(),
     });
   }
 

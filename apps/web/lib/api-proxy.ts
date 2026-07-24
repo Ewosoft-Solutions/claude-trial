@@ -291,7 +291,7 @@ export async function proxyStream(
   }
 
   return attachRefreshedAccess(
-    new Response(upstream.body, { headers: SSE_HEADERS }),
+    new NextResponse(upstream.body, { headers: SSE_HEADERS }),
     refreshed,
   );
 }
