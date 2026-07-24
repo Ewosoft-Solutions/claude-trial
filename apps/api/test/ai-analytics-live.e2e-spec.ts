@@ -28,6 +28,7 @@ import { Server } from 'http';
 import { AppModule } from '../src/app.module';
 import { PasswordService } from '../src/auth/services/password.service';
 import { DatabaseService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 import { JWTSecretService } from '@workspace/api';
 
 const LIVE = process.env.AI_LIVE === '1';
@@ -220,7 +221,9 @@ d('Analytics AI live acceptance (e2e, PAID)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
     server = app.getHttpServer() as Server;
-    prisma = app.get(DatabaseService).client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    prisma = makeSuperuserClient();
 
     const tenant = await prisma.tenant.create({
       data: { name: 'AI Live School', slug: `ai-live-${ts}`, status: 'active' },
@@ -275,6 +278,7 @@ d('Analytics AI live acceptance (e2e, PAID)', () => {
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
     }
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await prisma.$disconnect();
     await app?.close();
   });
 

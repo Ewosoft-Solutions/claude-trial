@@ -17,6 +17,7 @@ import { Server } from 'http';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { DatabaseService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../src/auth/guards/tenant-context.guard';
 import { PermissionGuard } from '../src/auth/guards/permission.guard';
@@ -64,7 +65,9 @@ d('RLS HTTP isolation (vertical slice)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
     server = app.getHttpServer() as Server;
-    owner = app.get(DatabaseService).client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    owner = makeSuperuserClient();
 
     const ta = await owner.tenant.create({ data: { name: 'A', slug: slugA, status: 'active' } });
     const tb = await owner.tenant.create({ data: { name: 'B', slug: slugB, status: 'active' } });
@@ -80,7 +83,10 @@ d('RLS HTTP isolation (vertical slice)', () => {
   });
 
   afterAll(async () => {
-    if (owner) await owner.tenant.deleteMany({ where: { slug: { in: [slugA, slugB] } } });
+    if (owner) {
+      await owner.tenant.deleteMany({ where: { slug: { in: [slugA, slugB] } } });
+      await owner.$disconnect();
+    }
     if (app) await app.close();
   });
 

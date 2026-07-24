@@ -1049,19 +1049,26 @@ export class AuthenticationService {
     prisma: PrismaClient,
     refreshToken: string,
   ): Promise<{ accessToken: string; expiresIn: number }> {
-    // Find session by refresh token
-    const session = await SessionService.findSessionByToken(
-      prisma,
-      refreshToken,
-    );
-
-    if (!session || !SessionService.isSessionValid(session)) {
+    // Decode (without verifying) to learn the tenant before the DB read.
+    // findSessionByToken includes the RLS-scoped `user_tenants` relation, and
+    // under FORCE RLS an unscoped include resolves to null — so isSessionValid
+    // fails and refresh 401s on the deployed topology (invisible on a superuser
+    // owner). The tenant here is untrusted; it only scopes the lookup. Issuance
+    // is still gated by validateRefreshToken verifying the signature below.
+    const decoded = this.jwtService.decodeToken(refreshToken);
+    if (!decoded?.tenantId) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    // Decode token to get tenant ID
-    const decoded = this.jwtService.decodeToken(refreshToken);
-    if (!decoded?.tenantId) {
+    // Find session by refresh token, scoped so the user_tenants include resolves.
+    const session = await withTenantScope(
+      prisma,
+      decoded.tenantId,
+      undefined,
+      (tx) => SessionService.findSessionByToken(tx, refreshToken),
+    );
+
+    if (!session || !SessionService.isSessionValid(session)) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 

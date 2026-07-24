@@ -25,6 +25,7 @@ import {
 } from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { DatabaseService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 import { PasswordService } from '../src/auth/services/password.service';
 import { PermissionGuard } from '../src/auth/guards/permission.guard';
 import { JWTSecretService } from '@workspace/api';
@@ -63,7 +64,9 @@ d('Multi-Tenant Isolation — real JWT flow (e2e)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
     server = app.getHttpServer() as Server;
-    owner = app.get(DatabaseService).client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    owner = makeSuperuserClient();
 
     // ── Seed two isolated tenants with users, roles, and profiles ──────────
 
@@ -155,6 +158,7 @@ d('Multi-Tenant Isolation — real JWT flow (e2e)', () => {
       await owner.user.deleteMany({ where: { email: { in: [`iso-a-${ts}@example.com`, `iso-b-${ts}@example.com`] } } });
       await owner.tenantJWTConfig.deleteMany({ where: { tenantId: { in: [tenantAId, tenantBId] } } });
       await owner.tenant.deleteMany({ where: { slug: { in: [slugA, slugB] } } });
+      await owner.$disconnect();
     }
     if (app) await app.close();
   });

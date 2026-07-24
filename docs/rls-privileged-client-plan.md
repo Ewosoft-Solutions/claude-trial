@@ -255,13 +255,38 @@ to be privileged.
 
 ## Local-vs-deployed divergence
 
-The root cause of the whole class: **local and CI cannot reproduce it**, because
-their owner is a superuser and bypasses RLS. Every one of these bugs is invisible
-until the code runs on managed Postgres.
+The root cause of the whole class: **local and CI could not reproduce it**,
+because their owner is a superuser and bypasses RLS. Every one of these bugs was
+invisible until the code ran on managed Postgres.
 
-Worth closing separately, and the highest-value remaining item: run CI's
-integration suite as a non-superuser role against a FORCE-RLS database, so the
-deployed topology is what gets tested. The new gate catches unscoped reads
-statically, but only topology parity catches the next variant of this — a scope
-that is opened on the wrong connection, or a policy that does not mean what its
-author thought.
+### CI topology parity (done 2026-07-24)
+
+The e2e suite now runs under the **deployed topology**, not the local one. CI
+provisions a second non-superuser role, `app_privileged` (member of `app_runtime`,
+so it inherits the table grants), and the `Test apps/api e2e` step points the
+app-under-test's **privileged** `DATABASE_URL` at it. FORCE RLS therefore
+constrains the privileged client exactly as Render's owner does, so an unscoped
+tenant read on it returns nothing in CI too. Migrations still run as the superuser
+owner (job-level `DATABASE_URL`), and fixtures that must span tenants are seeded
+through a superuser handle (`E2E_SUPERUSER_DATABASE_URL`, via
+`apps/api/test/helpers/superuser-client.ts`) that the app never touches. Because
+the privileged and runtime URLs now differ, the boot-time `RlsEnforcementService`
+probe runs and asserts the runtime role cannot bypass RLS. The suite keeps
+jest's default per-file worker isolation (each spec file in its own process,
+which the specs' unique-slug convention already assumes) and uses small pools
+(`DB_POOL_MAX`) so the concurrent AppModule boots stay under the connection limit.
+
+**It worked on first contact.** Standing up the harness immediately caught a live
+bug the superuser owner had hidden: `POST /auth/refresh` 401'd on the deployed
+topology because `SessionService.findSessionByToken` `include`s the RLS-scoped
+`user_tenants` relation, which resolves to null with no tenant scope set — so
+`isSessionValid` failed. Fixed by decoding the token first to learn the tenant,
+then scoping the session lookup (`withTenantScope`) so the include resolves; token
+issuance is still gated by the signature check. This is exactly the "scope opened
+on the wrong connection / policy doesn't mean what its author thought" variant the
+static gate cannot see — now covered by `auth.e2e-spec.ts` running under parity.
+
+The static gate still catches unscoped reads before they merge; topology parity is
+the runtime backstop for the variants it cannot see. The remaining divergence item
+is repointing the auth/guard paths at `app_runtime` (Stage 4 tail), which parity
+CI now makes safe to verify.

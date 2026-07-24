@@ -18,6 +18,7 @@ import { INestApplication } from '@nestjs/common';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { DatabaseService, TenantDbService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 
 const HAS_APP_RUNTIME = !!process.env.APP_RUNTIME_DATABASE_URL;
 const d = HAS_APP_RUNTIME ? describe : describe.skip;
@@ -38,7 +39,10 @@ d('RLS runtime cutover (vertical slice)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
-    owner = app.get(DatabaseService).client;
+    // Seed as a superuser handle, not the app's DatabaseService client: under
+    // the topology-parity harness the app boots as non-superuser `app_runtime`,
+    // so its privileged client is RLS-subject and cannot write cross-tenant.
+    owner = makeSuperuserClient();
     tenantDb = app.get(TenantDbService);
 
     // Seed two tenants + one announcement each, as the privileged owner.
@@ -57,6 +61,7 @@ d('RLS runtime cutover (vertical slice)', () => {
   afterAll(async () => {
     if (owner) {
       await owner.tenant.deleteMany({ where: { slug: { in: [A, B] } } });
+      await owner.$disconnect();
     }
     if (app) await app.close();
   });

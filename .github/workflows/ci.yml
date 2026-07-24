@@ -79,6 +79,16 @@ jobs:
           echo "ALTER ROLE app_runtime LOGIN PASSWORD 'app_runtime_pw';" | \
             pnpm --filter @workspace/database exec prisma db execute --stdin
 
+      # A second NON-superuser role for the e2e "deployed topology" run: the
+      # app-under-test connects its *privileged* client as this role, so — like
+      # Render's owner under FORCE RLS — an unscoped privileged read returns
+      # nothing instead of silently bypassing RLS (which the superuser `postgres`
+      # would). It inherits app_runtime's table grants via role membership.
+      - name: Create app_privileged role for CI (non-superuser privileged connection)
+        run: |
+          echo "CREATE ROLE app_privileged LOGIN PASSWORD 'app_privileged_pw' NOSUPERUSER NOBYPASSRLS IN ROLE app_runtime;" | \
+            pnpm --filter @workspace/database exec prisma db execute --stdin
+
       - name: RLS coverage check (gate)
         working-directory: packages/database
         run: pnpm db:rls:check
@@ -196,8 +206,28 @@ jobs:
         working-directory: apps/api
         run: pnpm test
 
-      - name: Test apps/api e2e — RLS isolation
+      # Runs the integration suite under the DEPLOYED topology, not the local one:
+      # the app's privileged client is a non-superuser role (app_privileged) that
+      # FORCE RLS actually constrains, so an unscoped tenant read on the privileged
+      # client returns nothing here exactly as on Render — catching the class of
+      # bug that a superuser owner hides (login, audit, token refresh). Fixtures
+      # that must span tenants are seeded via the superuser handle
+      # (E2E_SUPERUSER_DATABASE_URL); the app never uses it. See
+      # docs/rls-privileged-client-plan.md ("Local-vs-deployed divergence").
+      - name: Test apps/api e2e — RLS isolation (deployed topology)
         working-directory: apps/api
+        env:
+          # Privileged client → non-superuser role (overrides the job-level owner
+          # URL, which migrations still use). Tenant client stays app_runtime
+          # (job-level APP_RUNTIME_DATABASE_URL). They differ, so the boot-time
+          # RLS-enforcement probe runs and asserts the runtime role can't bypass.
+          DATABASE_URL: postgresql://app_privileged:app_privileged_pw@localhost:5432/schoolwithease
+          E2E_SUPERUSER_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/schoolwithease
+          DB_RLS_ENFORCED: 'true'
+          # Small pools: with jest's default per-file workers, several files boot
+          # concurrently, each with two app pools + one fixture pool. Keep the
+          # total well under Postgres' connection limit.
+          DB_POOL_MAX: '3'
         run: pnpm test:e2e
         # e2e specs skip automatically when APP_RUNTIME_DATABASE_URL is not set;
         # here it IS set, so the isolation specs run for real.
