@@ -1,9 +1,10 @@
 # Correcting the privileged-client assumption under ADR-004
 
 Status: Stages 1–4 landed 2026-07-23. Every tenant-scoped read in `apps/api`
-now carries a scope — the unscoped-read baseline is empty — with one documented
-exception (`respondToProfileBreach`, which needs a platform-scope conversion
-rather than a scope).
+now carries a scope — the unscoped-read baseline is empty. The one documented
+exception, `respondToProfileBreach`, was converted to the audited
+`@PlatformScoped` cross-tenant scope on 2026-07-24 (see Stage 3, "One deliberate
+exception"); there are no remaining unscoped reads.
 
 ## The contradiction
 
@@ -181,14 +182,30 @@ high-entropy, single-use, time-limited token authorises reading exactly the row
 that token belongs to — `USING` only, so the write that accepts it runs under
 the tenant scope discovered from that row.
 
-**One deliberate exception**, still unscoped and now the only known gap:
-`BreachResponseService.respondToProfileBreach`. It is `@RequireClearanceLevel(9)`
-— platform-admin-only and genuinely cross-tenant — so the correct scope is the
-audited platform bypass. That means moving its controller to `@PlatformScoped`
-with a real permission, which is an auth-model change (clearance gate →
-permission gate) needing a seeded permission, not an RLS fix. Doing it blind
-risks locking out incident response. The school-level breach paths, which have a
-`schoolId`, are scoped.
+**One deliberate exception — resolved 2026-07-24.**
+`BreachResponseService.respondToProfileBreach` was `@RequireClearanceLevel(9)` —
+platform-admin-only and genuinely cross-tenant (the profile can be in any
+tenant), so the correct scope is the audited platform bypass, not a single-tenant
+scope. It was deferred because the conversion is an auth-model change (clearance
+gate → permission gate) needing a seeded permission, not a mechanical scope wrap,
+and getting it wrong risks locking out incident response.
+
+The `@Post('profile')` handler now runs under `@PlatformScoped(['platform.breach'])`:
+the `RlsPlatformInterceptor` enforces the permission + clearance and audits the
+attempt, then opens `app.is_platform='on'` on the `TenantDbService` client, so the
+handler reads/writes through `tenantDb.client` and the cross-tenant `user_tenants`
+read works under FORCE RLS. A new `platform.breach` permission was seeded at
+clearance **9** (not `platform.security`, which is level-10 / Architect-only), so
+the endpoint keeps its current SuperAdmin + Architect reach and stays coherent
+with the school-level breach path (also clearance 9). The audit write alone stays
+on the privileged client (via `writeAuditLog`), so it lands outside the platform
+transaction and survives a rollback — matching `PlatformAuditService`.
+
+The school-level breach paths, which carry a `schoolId`, remain clearance-gated:
+their tenant reads already self-scope with `withTenantScope(schoolId)`, and their
+writes touch non-RLS tables (`tenants`, `users`) or self-scope, so they were never
+part of this gap. The platform-wide handler (`@RequireClearanceLevel(10)`) is
+likewise unchanged.
 
 Also still dead code, and worth deleting rather than scoping:
 `ProfileSuspensionService` (no callers) and
