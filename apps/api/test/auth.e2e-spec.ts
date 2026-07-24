@@ -20,6 +20,7 @@ import {
 import { AppModule } from '../src/app.module';
 import { PasswordService } from '../src/auth/services/password.service';
 import { DatabaseService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 import { JWTSecretService } from '@workspace/api';
 import { Server } from 'http';
 
@@ -44,10 +45,13 @@ d('Authentication Flow (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
     await app.init();
-    prisma = app.get(DatabaseService).client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    prisma = makeSuperuserClient();
   });
 
   afterAll(async () => {
+    if (prisma) await prisma.$disconnect();
     await app.close();
   });
 

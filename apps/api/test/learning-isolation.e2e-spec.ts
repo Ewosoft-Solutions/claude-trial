@@ -29,6 +29,7 @@ process.env.STORAGE_LOCAL_ROOT = storageRoot;
 
 import { AppModule } from '../src/app.module';
 import { DatabaseService, TenantDbService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 import {
   EMBEDDINGS_PROVIDER,
   type EmbeddingsProvider,
@@ -147,7 +148,9 @@ d('Learning substrate isolation (Step 4 acceptance)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
-    owner = app.get(DatabaseService).client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    owner = makeSuperuserClient();
     tenantDb = app.get(TenantDbService);
     retrieval = app.get(LearningRetrievalService);
     learning = app.get(LearningService);
@@ -177,6 +180,7 @@ d('Learning substrate isolation (Step 4 acceptance)', () => {
   afterAll(async () => {
     if (owner) {
       await owner.tenant.deleteMany({ where: { slug: { in: [slugA, slugB] } } });
+      await owner.$disconnect();
     }
     if (app) await app.close();
     rmSync(storageRoot, { recursive: true, force: true });

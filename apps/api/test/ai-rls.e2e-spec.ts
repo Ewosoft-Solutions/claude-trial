@@ -9,6 +9,7 @@ import { INestApplication } from '@nestjs/common';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { DatabaseService, TenantDbService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 
 const HAS_DB = !!process.env.APP_RUNTIME_DATABASE_URL;
 const d = HAS_DB ? describe : describe.skip;
@@ -29,7 +30,9 @@ d('AI schema RLS', () => {
     app = moduleRef.createNestApplication();
     await app.init();
 
-    owner = app.get(DatabaseService).client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    owner = makeSuperuserClient();
     tenantDb = app.get(TenantDbService);
 
     const [tenantA, tenantB] = await Promise.all([
@@ -49,6 +52,7 @@ d('AI schema RLS', () => {
   afterAll(async () => {
     if (owner) {
       await owner.tenant.deleteMany({ where: { slug: { in: [slugA, slugB] } } });
+      await owner.$disconnect();
     }
     if (app) await app.close();
   });

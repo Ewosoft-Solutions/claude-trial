@@ -58,7 +58,10 @@ export class SessionService {
    * @param token - Session token
    * @returns Session or null
    */
-  static async findSessionByToken(prisma: PrismaClient, token: string) {
+  static async findSessionByToken(
+    prisma: Prisma.TransactionClient,
+    token: string,
+  ) {
     return prisma.session.findUnique({
       where: { token },
       include: {

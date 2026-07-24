@@ -39,6 +39,7 @@ import { AppModule } from '../src/app.module';
 import { PasswordService } from '../src/auth/services/password.service';
 // eslint-disable-next-line import/first
 import { DatabaseService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 // eslint-disable-next-line import/first
 import {
   EMBEDDINGS_PROVIDER,
@@ -240,7 +241,9 @@ d('Academic AI tutor live acceptance (e2e, PAID)', () => {
     app = moduleRef.createNestApplication();
     await app.init();
     server = app.getHttpServer() as Server;
-    prisma = app.get(DatabaseService).client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    prisma = makeSuperuserClient();
 
     const tenant = await prisma.tenant.create({
       data: { name: 'Tutor Live School', slug: `tutor-live-${ts}`, status: 'active' },
@@ -363,6 +366,7 @@ d('Academic AI tutor live acceptance (e2e, PAID)', () => {
       await prisma.tenant.deleteMany({ where: { id: tenantId } });
     }
     await prisma.user.deleteMany({ where: { id: { in: userIds } } });
+    await prisma.$disconnect();
     await app?.close();
     rmSync(storageRoot, { recursive: true, force: true });
   });

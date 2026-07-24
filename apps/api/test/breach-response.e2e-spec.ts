@@ -18,11 +18,11 @@ import {
 import { AppModule } from '../src/app.module';
 import { PasswordService } from '../src/auth/services/password.service';
 import { DatabaseService } from '../src/common';
+import { makeSuperuserClient } from './helpers/superuser-client';
 import { Server } from 'http';
 
 describe.skip('Breach Response System (e2e)', () => {
   let app: INestApplication;
-  let database: DatabaseService;
   let prisma: DatabaseService['client'];
   let testUser: any;
   let testTenant: any;
@@ -37,8 +37,9 @@ describe.skip('Breach Response System (e2e)', () => {
     app = moduleFixture.createNestApplication();
     await app.init();
 
-    database = app.get(DatabaseService);
-    prisma = database.client;
+    // Superuser handle for fixtures; the app-under-test boots non-superuser
+    // under the topology-parity harness (see helpers/superuser-client).
+    prisma = makeSuperuserClient();
   });
 
   afterEach(async () => {
@@ -57,6 +58,7 @@ describe.skip('Breach Response System (e2e)', () => {
   });
 
   afterAll(async () => {
+    if (prisma) await prisma.$disconnect();
     await app.close();
   });
 
