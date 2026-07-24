@@ -17,7 +17,8 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { SwaggerTags } from '../../common/swagger-tags';
 import { BreachSeverity } from '@workspace/api';
-import { DatabaseService } from '../../common';
+import { DatabaseService, TenantDbService } from '../../common';
+import { PlatformScoped } from '../decorators/platform-scoped.decorator';
 import { BreachResponseService } from '../services/breach-response.service';
 import {
   // RespondToBreachDto,
@@ -49,6 +50,7 @@ export class BreachResponseController {
   constructor(
     private readonly breachResponseService: BreachResponseService,
     private readonly dbService: DatabaseService,
+    private readonly tenantDb: TenantDbService,
   ) {}
 
   /**
@@ -109,14 +111,25 @@ export class BreachResponseController {
   @Post('profile')
   @UseGuards(StepUpGuard)
   @RequireStepUp(STEP_UP_OPERATION.BREACH_RESPONSE)
-  @RequireClearanceLevel(9) // Platform admin only
+  // Genuinely cross-tenant: the profile can be in ANY tenant, so this reads a
+  // tenant-scoped row (`user_tenants`) with no tenant known up front. Under
+  // FORCE RLS the privileged owner client returns zero rows for that read, so
+  // this runs inside the audited platform bypass instead of a clearance gate.
+  // `platform.breach` is clearance 9 (SuperAdmin + Architect); the interceptor
+  // (RlsPlatformInterceptor) enforces the permission + clearance and audits the
+  // attempt, opening `app.is_platform='on'` on the TenantDbService client.
+  @PlatformScoped(['platform.breach'])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Initiate breach response for a user profile' })
   async respondToProfileBreach(
     @Request() request: AuthenticatedRequest,
     @Body() dto: RespondToProfileBreachDto,
   ) {
-    const prisma = this.dbService.client;
+    // Read/write through the scoped client: the @PlatformScoped interceptor has
+    // opened `app.is_platform='on'` on this transaction, so the cross-tenant
+    // `user_tenants` read/update sees every tenant. The privileged
+    // `dbService.client` would NOT — it is a separate connection with no scope.
+    const prisma = this.tenantDb.client;
 
     // Get user info for audit logging
     const user = await prisma.user.findUnique({

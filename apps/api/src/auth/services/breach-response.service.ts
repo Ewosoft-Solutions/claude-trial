@@ -9,7 +9,7 @@
  */
 
 import { Injectable } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { Prisma, PrismaClient } from '@workspace/database';
 import { withTenantScope } from '@workspace/database/rls';
 import {
   AUDIT_ACTION,
@@ -17,6 +17,7 @@ import {
   AuditAction,
 } from '../../common/audit/audit.constants';
 import { JWTSecretService, BreachSeverity } from '@workspace/api';
+import { DatabaseService } from '../../common';
 import { SessionService } from './session.service';
 import { writeAuditLog } from '../../common/audit/audit-writer';
 // import { PasswordResetService } from './password-reset.service';
@@ -45,6 +46,13 @@ export interface BreachResponseOptions {
  */
 @Injectable()
 export class BreachResponseService {
+  // The privileged owner client, used ONLY to write audit rows. `writeAuditLog`
+  // opens its own transaction and self-sets the tenant GUC, so the audit row
+  // lands outside any caller-supplied scope — including the @PlatformScoped
+  // transaction the profile-breach path runs in — and survives its rollback,
+  // exactly as PlatformAuditService does. Never use it to read/write tenant data.
+  constructor(private readonly dbService: DatabaseService) {}
+
   /**
    * Respond to breach (8.1, 8.7)
    *
@@ -140,7 +148,7 @@ export class BreachResponseService {
     });
 
     // 6. Log breach response
-    await this.logBreachResponse(prisma, schoolId, {
+    await this.logBreachResponse(schoolId, {
       ...options,
       action: AUDIT_ACTION.SECURITY.BREACH.FORCE_REAUTH,
       escalatedToPasswordReset: escalateToPasswordReset,
@@ -217,7 +225,7 @@ export class BreachResponseService {
     }
 
     // Log action
-    await this.logBreachResponse(prisma, schoolId, {
+    await this.logBreachResponse(schoolId, {
       ...options,
       action: AUDIT_ACTION.SECURITY.BREACH.FORCE_PASSWORD_RESET,
       severity: 'high',
@@ -260,7 +268,7 @@ export class BreachResponseService {
     await this.enableSecurityInvestigationMode(prisma, null, options);
 
     // 7. Log platform-wide action
-    await this.logBreachResponse(prisma, null, {
+    await this.logBreachResponse(null, {
       ...options,
       action: AUDIT_ACTION.SECURITY.BREACH.PLATFORM_WIDE_RESPONSE,
       severity: 'critical',
@@ -287,14 +295,20 @@ export class BreachResponseService {
   /**
    * Profile-level breach response (8.6)
    *
-   * Respond to security breach for a specific profile.
+   * Respond to security breach for a specific profile. Genuinely cross-tenant:
+   * the profile may belong to ANY tenant, so this runs under the audited
+   * platform bypass (@PlatformScoped in the controller). `prisma` is the scoped
+   * `TenantDbService.client` — a transaction with `app.is_platform='on'` — so
+   * the `user_tenants` read/update sees every tenant under FORCE RLS. All
+   * tenant work here shares that one transaction and is therefore atomic; the
+   * audit row alone is written outside it (see logBreachResponse).
    *
-   * @param prisma - Prisma client instance
+   * @param prisma - Scoped platform-bypass transaction client
    * @param profileId - UserTenant profile ID
    * @param options - Breach response options
    */
   async respondToProfileBreach(
-    prisma: PrismaClient,
+    prisma: Prisma.TransactionClient,
     profileId: string,
     options: BreachResponseOptions,
   ): Promise<void> {
@@ -362,7 +376,7 @@ export class BreachResponseService {
     });
 
     // 6. Log breach response
-    await this.logBreachResponse(prisma, profile.tenant.id, {
+    await this.logBreachResponse(profile.tenant.id, {
       ...options,
       action: AUDIT_ACTION.SECURITY.BREACH.PROFILE_REVIEW,
       resource: 'user_tenant',
@@ -626,7 +640,7 @@ export class BreachResponseService {
    * @param options - Breach response options
    */
   private async requireStricterMFA(
-    prisma: PrismaClient,
+    prisma: Prisma.TransactionClient,
     profileId: string,
     options: BreachResponseOptions,
   ): Promise<void> {
@@ -834,7 +848,7 @@ export class BreachResponseService {
    * @param notification - Notification data
    */
   private async notifyUser(
-    prisma: PrismaClient,
+    prisma: Prisma.TransactionClient,
     userId: string,
     notification: {
       message: string;
@@ -872,7 +886,7 @@ export class BreachResponseService {
    * @returns Reset token and expiration
    */
   private async generatePasswordResetToken(
-    prisma: PrismaClient,
+    prisma: Prisma.TransactionClient,
     userId: string,
   ): Promise<{ token: string; expiresAt: Date }> {
     const crypto = await import('crypto');
@@ -884,14 +898,18 @@ export class BreachResponseService {
   }
 
   /**
-   * Log breach response
+   * Log breach response.
    *
-   * @param prisma - Prisma client instance
+   * Always writes on the privileged `dbService.client`, never the caller's
+   * client: `writeAuditLog` opens its own transaction (which a caller-supplied
+   * `Prisma.TransactionClient`, as the profile path passes, cannot nest), and
+   * the audit row must land outside the breach-response transaction so it
+   * survives a rollback. Matches PlatformAuditService.
+   *
    * @param schoolId - School ID (null for platform-wide)
    * @param data - Log data
    */
   private async logBreachResponse(
-    prisma: PrismaClient,
     schoolId: string | null,
     data: {
       action: AuditAction;
@@ -909,7 +927,7 @@ export class BreachResponseService {
     },
   ): Promise<void> {
     try {
-      await writeAuditLog(prisma, {
+      await writeAuditLog(this.dbService.client, {
         tenantId: schoolId,
         eventType: AUDIT_EVENT.SECURITY_EVENT,
         action: data.action,

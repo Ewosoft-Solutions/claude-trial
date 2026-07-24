@@ -355,7 +355,7 @@ export const SENSITIVE_OPERATION_CATALOG = [
     requiresMakerChecker: false,
     freshnessMinutes: 5,
     requiredClearanceLevel: 9,
-    requiredPermission: 'platform.security',
+    requiredPermission: 'platform.breach',
   },
   {
     operation: 'tenant.provision',

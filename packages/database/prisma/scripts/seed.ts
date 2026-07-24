@@ -246,7 +246,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 304,
+  total: 305,
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -257,7 +257,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
     SYSTEM_ADMIN_PERMISSIONS: 19,
-    PLATFORM_PERMISSIONS: 17,
+    PLATFORM_PERMISSIONS: 18,
     LIBRARY_PERMISSIONS: 7,
     TRANSPORTATION_PERMISSIONS: 8,
     CAFETERIA_PERMISSIONS: 8,
@@ -1875,6 +1875,23 @@ const PLATFORM_PERMISSIONS = [
     action: 'security',
     category: 'platform',
     requiredClearanceLevel: 10,
+  },
+  {
+    // Incident response, not settings management: this gates the cross-tenant
+    // breach-response endpoints (suspend a profile, revoke sessions, force a
+    // reset) in ANY tenant. Deliberately level 9, NOT `platform.security`
+    // (level 10 → Architect-only): breach response is operational security work
+    // a SuperAdmin must be able to run, and the school-level breach path is
+    // already reachable at clearance 9 — gating the narrower profile-level
+    // action higher would be incoherent. See docs/platform-scope-plan.md §7
+    // (Option D: SuperAdmin acts, without the Architect-only inspect/query facets).
+    name: 'platform.breach',
+    label: 'Platform Breach Response',
+    description: 'Run cross-tenant incident/breach response on a profile',
+    resource: 'platform',
+    action: 'breach',
+    category: 'platform',
+    requiredClearanceLevel: 9,
   },
   // Tenant management is split into three facets rather than one permission.
   // SuperAdmin must be able to *operate* on tenants (support work) without

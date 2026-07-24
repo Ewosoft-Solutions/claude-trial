@@ -6,7 +6,7 @@
  */
 
 import { ProfileStatus } from '@workspace/api';
-import { PrismaClient } from '@workspace/database';
+import { Prisma, PrismaClient } from '@workspace/database';
 
 /**
  * Session Creation Options
@@ -165,13 +165,18 @@ export class SessionService {
   }
 
   /**
-   * Revoke all sessions for a profile
+   * Revoke all sessions for a profile.
    *
-   * @param prisma - Prisma client instance
+   * Accepts a `Prisma.TransactionClient` (a full `PrismaClient` satisfies it) so
+   * it can run inside a caller's scope — e.g. the @PlatformScoped breach path,
+   * whose client is a transaction. `sessions` is not RLS-scoped, so it works
+   * under any client, but taking the narrower type keeps the scope intact.
+   *
+   * @param prisma - Prisma client (full or scoped transaction client)
    * @param userTenantId - UserTenant profile ID
    */
   static async revokeAllProfileSessions(
-    prisma: PrismaClient,
+    prisma: Prisma.TransactionClient,
     userTenantId: string,
   ): Promise<void> {
     await prisma.session.updateMany({
