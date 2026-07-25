@@ -18,13 +18,17 @@ import * as React from 'react';
 import { cn } from '@workspace/ui/lib/utils';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
-/** Tone → tinted background + foreground (mirrors the M5 medallions). */
+/**
+ * Tone → matching border + tinted background + foreground. The border and
+ * text share the tone colour over a soft translucent fill, e.g. the
+ * "Docs needed" / "Interview" / "Accepted" pills in the Aurora design.
+ */
 const TONE_SURFACE: Record<StateTone, string> = {
-  neutral: 'bg-accent text-muted-foreground',
-  info: 'bg-info/12 text-info',
-  success: 'bg-success/12 text-success',
-  warning: 'bg-warning/15 text-warning',
-  destructive: 'bg-destructive/12 text-destructive',
+  neutral: 'border border-border bg-muted-foreground/12 text-muted-foreground',
+  info: 'border border-info/40 bg-info/12 text-info',
+  success: 'border border-success/40 bg-success/12 text-success',
+  warning: 'border border-warning/45 bg-warning/15 text-warning',
+  destructive: 'border border-destructive/40 bg-destructive/12 text-destructive',
 };
 
 /** Tone → solid dot colour for the optional leading indicator. */

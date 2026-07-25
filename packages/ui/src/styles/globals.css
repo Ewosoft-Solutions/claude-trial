@@ -5,71 +5,75 @@
 
 @import 'tw-animate-css';
 
-@custom-variant dark (&:is(.dark *));
+/* Dark-scoped utilities (`dark:`) apply under BOTH dark themes: the new
+   Aurora dark (.dark) and the preserved flattened dark (.classic-dark). */
+@custom-variant dark (&:is(.dark *, .classic-dark *));
 
 /* ============================================================
-   SchoolWithEase — Design Tokens (Phase 1 / Milestone 2)
+   SchoolWithEase — Design Tokens (Aurora)
 
    Source of truth: design-export/ "Aurora" direction
-   (shell-themes.css `.shell[data-dir="aurora"]`). Aurora is a
-   playful neon-glass system with a light and a dark variant;
-   the values below translate that direction into stable,
-   flat color/structural roles that the shared shadcn/ui
-   components consume.
+   (shell-themes.css `.shell[data-dir="aurora"]` + aurora.css).
 
-   Theme mapping:
-     :root  → Aurora LIGHT variant
-     .dark  → Aurora DARK variant (Aurora's signature surface)
+   Aurora is a playful neon-glass system. It is now the product's
+   primary look, encoded here with its real depth (aurora gradient
+   field, glass surfaces, gradient headings, neon charts) rather
+   than the earlier flattened translation.
+
+   Theme map (next-themes `attribute="class"`):
+     :root         → Aurora LIGHT  (pure-white canvas, subtle field)
+     .dark         → Aurora DARK   (signature neon glass — DEFAULT dark)
+     .classic-dark → the previous flattened dark, preserved verbatim
+                     as an opt-in "Classic Dark" theme
 
    Token layers:
      1. BRANDABLE COLOR ROLES  — a tenant may override these to
         re-skin the product. They carry colour only.
-     2. STRUCTURAL TOKENS      — radius, typography, spacing,
+     2. AURORA DEPTH TOKENS    — gradient field, glass surfaces,
+        gradient recipes, chart glow. Consumed by the Aurora skin
+        at the bottom of this file (NOT applied under .classic-dark).
+     3. STRUCTURAL TOKENS      — radius, typography, spacing,
         elevation, layout dimensions, focus. NEVER tenant
         overridable: changing them would alter layout/behavior.
-
-   Glass/gradient field treatments from Aurora are intentionally
-   NOT encoded here — flat surface colours are used so shared
-   components render predictably. The decorative aurora field is
-   a shell-component concern (Milestone 3).
    ============================================================ */
 
 /* ------------------------------------------------------------
-   :root — Aurora LIGHT + structural tokens
+   :root — Aurora LIGHT (pure-white canvas) + structural tokens
    ------------------------------------------------------------ */
 :root {
   color-scheme: light;
 
   /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
-  /* base surfaces */
-  --background: #eceefc; /* aurora --bg (light) */
-  --foreground: #191b38; /* aurora --ink */
-  --card: #ffffff; /* aurora --surface (flattened) */
+  /* base surfaces — pure white canvas; the aurora field is a subtle
+     corner wash layered on top by the skin (not a blue base). */
+  --background: #ffffff;
+  --foreground: #191b38; /* aurora --ink (light) */
+  --card: rgba(255, 255, 255, 0.72); /* glass over the field */
   --card-foreground: #191b38;
-  --popover: #ffffff;
+  --popover: rgba(255, 255, 255, 0.97); /* legible dropdowns/dialogs */
   --popover-foreground: #191b38;
 
-  /* primary action (aurora --accent / --accent-ink) */
+  /* primary action (aurora --accent / --accent-ink, light) */
   --primary: #4f6df5;
   --primary-foreground: #ffffff;
 
-  /* muted / secondary surfaces */
-  --secondary: #e6e8fa;
+  /* muted / secondary surfaces — neutral (no blue cast) */
+  --secondary: #f2f3f7;
   --secondary-foreground: #2a2d55;
-  --muted: #e6e8fa;
+  --muted: #f2f3f7;
   --muted-foreground: #565b8c; /* between aurora --ink-2 and --ink-3 */
 
-  /* subtle hover / active surface (aurora --accent-tint flattened) */
-  --accent: #e4e8fc;
+  /* subtle hover / active surface */
+  --accent: #eef0fb;
   --accent-foreground: #2a2d55;
 
-  /* danger (aurora --neg) */
+  /* danger (aurora --neg, light) */
   --destructive: #f0506e;
   --destructive-foreground: #ffffff;
 
-  /* lines / fields / focus (aurora --line / --accent) */
-  --border: #d7d9ee;
-  --input: #d7d9ee;
+  /* lines / fields / focus */
+  --border: rgba(40, 40, 90, 0.1);
+  --input: rgba(40, 40, 90, 0.12);
   --ring: #4f6df5;
 
   /* status / semantic roles (aurora --pos / --warn / --neg / --accent-2) */
@@ -87,31 +91,70 @@
   --chart-4: #ff5fa8;
   --chart-5: #d98a25;
 
-  /* sidebar / navigation surface (aurora --panel / --nav) */
-  --sidebar: #f4f5fd;
+  /* sidebar / navigation surface (frosted glass on white) */
+  --sidebar: rgba(255, 255, 255, 0.62);
   --sidebar-foreground: #191b38;
   --sidebar-primary: #4f6df5;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #e4e8fc;
+  --sidebar-accent: #eef0fb;
   --sidebar-accent-foreground: #2a2d55;
-  --sidebar-border: #d7d9ee;
+  --sidebar-border: rgba(40, 40, 90, 0.1);
   --sidebar-ring: #4f6df5;
 
-  /* ---- 2. STRUCTURAL TOKENS (theme-independent) ---- */
+  /* ---- 2. AURORA DEPTH TOKENS (light — subtle, neutralized) ---- */
+  /* only a whisper of colour in the far corners; the canvas stays white */
+  --aurora-field:
+    radial-gradient(46% 42% at 100% 0%, rgba(120, 140, 255, 0.1) 0%, transparent 60%),
+    radial-gradient(44% 44% at 0% 100%, rgba(70, 225, 180, 0.07) 0%, transparent 60%),
+    radial-gradient(44% 44% at 100% 100%, rgba(255, 130, 190, 0.07) 0%, transparent 60%);
+  --glass-card: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.9),
+    rgba(255, 255, 255, 0.6)
+  );
+  --glass-inset:
+    0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 18px 40px -28px rgba(40, 40, 100, 0.26);
+
+  /* gradient recipes */
+  --h1-grad: linear-gradient(92deg, #4f6df5, #a855f7 55%, #ff5fa8);
+  --grad-primary: linear-gradient(120deg, #4f6df5, #7c5cff);
+  --grad-nav-active: linear-gradient(
+    110deg,
+    rgba(79, 109, 245, 0.16),
+    rgba(124, 92, 255, 0.1)
+  );
+  --grad-brand: conic-gradient(
+    from 210deg at 50% 50%,
+    #4f6df5,
+    #8c5cff,
+    #ff5fa8,
+    #12b886,
+    #4f6df5
+  );
+  --grad-info-chip: linear-gradient(150deg, rgba(79, 109, 245, 0.16), rgba(140, 92, 255, 0.1));
+
+  /* chart accents */
+  --chart-glow: rgba(79, 109, 245, 0.45);
+  --float-ink: #2a2d55;
+  --float-shadow: 0 2px 10px rgba(120, 140, 255, 0.5);
+  --dot-core: #4f6df5;
+
+  /* ---- 3. STRUCTURAL TOKENS (theme-independent) ---- */
 
   /* radius — aurora rounded direction (--radius 18px / --radius-sm 12px) */
-  --radius: 1rem;
+  --radius: 1.125rem;
 
   /* typography — font families are registered in @theme inline below
-     (they reference the app's next/font variables: --font-geist-sans /
-     --font-geist-mono), with the aurora families kept as fallback. */
+     (they reference the app's next/font variables: --font-jakarta /
+     --font-caveat / --font-geist-mono), with the aurora families kept
+     as fallback. Caveat is the display face; Plus Jakarta Sans the body. */
 
   /* weights */
   --font-weight-normal: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
-  --font-weight-display: 800;
+  --font-weight-display: 700;
 
   /* line-height / tracking (aurora body line-height 1.45) */
   --leading-tight: 1.1;
@@ -146,31 +189,131 @@
 }
 
 /* ------------------------------------------------------------
-   .dark — Aurora DARK color roles (colour only; structure
-   inherits from :root). Dark elevation overrides included.
+   .dark — Aurora DARK (signature neon glass). DEFAULT dark theme.
+   Colour + depth only; structure inherits from :root.
    ------------------------------------------------------------ */
 .dark {
   color-scheme: dark;
 
-  --background: #07060f; /* aurora --bg (dark) */
+  --background: #07060f; /* aurora --bg (dark) — flat canvas */
   --foreground: #eef0ff; /* aurora --ink */
-  --card: #14122a; /* aurora glass card (flattened) */
+  --card: rgba(255, 255, 255, 0.05); /* aurora --surface: subtle lift on flat bg */
   --card-foreground: #eef0ff;
-  --popover: #14122a;
+  --popover: #17152a; /* opaque so dropdowns/dialogs stay legible */
   --popover-foreground: #eef0ff;
 
   --primary: #5b8cff; /* aurora --accent (dark) */
   --primary-foreground: #06081f; /* aurora --accent-ink */
 
+  --secondary: rgba(255, 255, 255, 0.06);
+  --secondary-foreground: #eef0ff;
+  --muted: rgba(255, 255, 255, 0.05);
+  --muted-foreground: #aab0e6; /* aurora --ink-2/3, brightened for legibility */
+
+  --accent: rgba(255, 255, 255, 0.065);
+  --accent-foreground: #eef0ff;
+
+  --destructive: #ff6b81; /* aurora --neg (dark) */
+  --destructive-foreground: #2a0710;
+
+  --border: rgba(255, 255, 255, 0.1);
+  --input: rgba(255, 255, 255, 0.14);
+  --ring: #5b8cff;
+
+  --success: #2ee6a6;
+  --success-foreground: #06281f;
+  --warning: #ffce5c;
+  --warning-foreground: #2a1f00;
+  --info: #ff6fae; /* aurora --accent-2 (dark) */
+  --info-foreground: #2a0716;
+
+  --chart-1: #5b8cff;
+  --chart-2: #2ee6a6;
+  --chart-3: #8c5cff;
+  --chart-4: #ff6fae;
+  --chart-5: #ffce5c;
+
+  --sidebar: rgba(255, 255, 255, 0.022); /* aurora --rail-bg: near-flat over bg */
+  --sidebar-foreground: #eef0ff;
+  --sidebar-primary: #5b8cff;
+  --sidebar-primary-foreground: #06081f;
+  --sidebar-accent: rgba(255, 255, 255, 0.065);
+  --sidebar-accent-foreground: #eef0ff;
+  --sidebar-border: rgba(255, 255, 255, 0.1);
+  --sidebar-ring: #5b8cff;
+
+  /* ---- aurora depth (dark) ---- */
+  /* Flat canvas. The colourful radial field in the original mockups was
+     presentation-only backdrop AROUND the device frames, not the app. */
+  --aurora-field: none;
+  --glass-card: linear-gradient(
+    165deg,
+    rgba(255, 255, 255, 0.06),
+    rgba(255, 255, 255, 0.022)
+  );
+  --glass-inset:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 18px 40px -28px rgba(0, 0, 0, 0.6);
+
+  --h1-grad: linear-gradient(92deg, #a9c2ff, #d9b8ff 55%, #ffc2e0);
+  --grad-primary: linear-gradient(120deg, #5b8cff, #8c5cff);
+  --grad-nav-active: linear-gradient(
+    110deg,
+    rgba(91, 140, 255, 0.32),
+    rgba(140, 92, 255, 0.2)
+  );
+  --grad-brand: conic-gradient(
+    from 210deg at 50% 50%,
+    #5b8cff,
+    #8c5cff,
+    #ff6fae,
+    #2ee6a6,
+    #5b8cff
+  );
+  --grad-info-chip: linear-gradient(150deg, rgba(91, 140, 255, 0.4), rgba(140, 92, 255, 0.25));
+
+  --chart-glow: rgba(91, 140, 255, 0.85);
+  --float-ink: #ffffff;
+  --float-shadow: 0 2px 10px rgba(91, 140, 255, 0.8);
+  --dot-core: #ffffff;
+
+  /* elevation (aurora --shadow-* dark) */
+  --shadow-md: 0 10px 26px -12px rgba(0, 0, 0, 0.7);
+  --shadow-lg: 0 18px 48px -24px rgba(0, 0, 0, 0.85);
+  --shadow-card:
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 40px -24px rgba(0, 0, 0, 0.85);
+  --shadow-accent: 0 6px 22px -6px
+    color-mix(in oklab, var(--primary) 60%, transparent);
+}
+
+/* ------------------------------------------------------------
+   .classic-dark — the PREVIOUS flattened dark, preserved verbatim
+   as an opt-in theme. Self-contained opaque values; the Aurora skin
+   at the bottom of this file explicitly excludes .classic-dark, so
+   this theme keeps flat surfaces, flat CTAs and flat headings.
+   ------------------------------------------------------------ */
+.classic-dark {
+  color-scheme: dark;
+
+  --background: #07060f;
+  --foreground: #eef0ff;
+  --card: #14122a;
+  --card-foreground: #eef0ff;
+  --popover: #14122a;
+  --popover-foreground: #eef0ff;
+
+  --primary: #5b8cff;
+  --primary-foreground: #06081f;
+
   --secondary: #1e1c3a;
   --secondary-foreground: #eef0ff;
   --muted: #1a1832;
-  --muted-foreground: #8b8fc4; /* between aurora --ink-2 and --ink-3 */
+  --muted-foreground: #8b8fc4;
 
   --accent: #232145;
   --accent-foreground: #eef0ff;
 
-  --destructive: #ff6b81; /* aurora --neg (dark) */
+  --destructive: #ff6b81;
   --destructive-foreground: #2a0710;
 
   --border: #211f3a;
@@ -181,7 +324,7 @@
   --success-foreground: #06281f;
   --warning: #ffce5c;
   --warning-foreground: #2a1f00;
-  --info: #ff6fae; /* aurora --accent-2 (dark) */
+  --info: #ff6fae;
   --info-foreground: #2a0716;
 
   --chart-1: #5b8cff;
@@ -199,7 +342,28 @@
   --sidebar-border: #211f3a;
   --sidebar-ring: #5b8cff;
 
-  /* elevation (aurora --shadow-* dark) */
+  /* preserve the previous corner geometry (16px) */
+  --radius: 1rem;
+
+  /* neutralize the aurora depth so classic stays flat */
+  --aurora-field: none;
+  --glass-card: none;
+  --glass-inset: none;
+  --grad-primary: none; /* flat primary CTAs */
+  --grad-nav-active: none; /* flat active nav (falls back to bg-primary/10) */
+  --h1-grad: linear-gradient(#eef0ff, #eef0ff); /* flat headings (still Caveat) */
+  --grad-brand: conic-gradient(
+    from 210deg at 50% 50%,
+    #5b8cff,
+    #8c5cff,
+    #ff6fae,
+    #2ee6a6,
+    #5b8cff
+  ); /* keep the Ask AI accent lively */
+  --chart-glow: transparent;
+  --dot-core: #5b8cff;
+
+  /* elevation (dark) */
   --shadow-md: 0 10px 26px -12px rgba(0, 0, 0, 0.7);
   --shadow-lg: 0 18px 48px -24px rgba(0, 0, 0, 0.85);
   --shadow-card:
@@ -256,20 +420,22 @@
   --color-sidebar-ring: var(--sidebar-ring);
 
   /* radius scale (derived from --radius) */
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 6px);
+  --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
   /* typography — point Tailwind's font utilities at the app's next/font
-     variables, with the aurora design families as fallback */
+     variables, with the aurora design families as fallback. Caveat is the
+     display face (font-display / headings & stat numbers); Plus Jakarta
+     Sans is the body face (font-sans). */
   --font-sans:
-    var(--font-geist-sans), 'Plus Jakarta Sans', system-ui, -apple-system,
+    var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system,
     'Segoe UI', sans-serif;
   --font-mono:
     var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
   --font-display:
-    var(--font-geist-sans), 'Plus Jakarta Sans', system-ui, sans-serif;
+    var(--font-caveat), 'Caveat', 'Plus Jakarta Sans', system-ui, cursive;
 
   /* elevation */
   --shadow-xs: var(--shadow-xs);
@@ -298,6 +464,64 @@
 }
 
 /* ============================================================
+   AURORA SKIN — flat canvas + subtle glass cards + neon charts
+   ------------------------------------------------------------
+   Applies to the two Aurora themes (light :root + dark .dark) and is
+   explicitly excluded from .classic-dark via `html:not(.classic-dark)`.
+   Written UNLAYERED so it wins over Tailwind's `bg-*` utilities where it
+   must override a surface colour. Everything here is cosmetic depth —
+   layout/structure is unchanged.
+
+   The app background is FLAT (dark `#07060f` / light white). Dark sets
+   `--aurora-field: none`; light keeps only a whisper of corner glow. The
+   colourful radial wash in the mockups was presentation backdrop around
+   the device frames, not part of the product.
+   ============================================================ */
+
+/* --- optional whisper of colour behind the shell (light only) --- */
+html:not(.classic-dark) [data-slot='app-shell'] {
+  position: relative;
+  isolation: isolate;
+  background-color: transparent; /* let the body base colour show */
+}
+html:not(.classic-dark) [data-slot='app-shell']::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background: var(--aurora-field); /* `none` in dark → renders nothing */
+}
+/* keep the real chrome + content above the glow */
+html:not(.classic-dark) [data-slot='app-shell'] > * {
+  position: relative;
+  z-index: 1;
+}
+/* the main content region is transparent so the canvas shows behind cards */
+html:not(.classic-dark) [data-slot='app-shell'] main,
+html:not(.classic-dark) [data-slot='shell-main'] {
+  background-color: transparent;
+}
+
+/* --- subtly-lifted cards: sheen gradient + inset highlight (no blur) --- */
+html:not(.classic-dark) [data-slot='card'] {
+  background-image: var(--glass-card);
+  box-shadow: var(--glass-inset);
+}
+
+/* --- neon charts: glow on the series lines + data dots --- */
+html:not(.classic-dark) [data-chart] .recharts-area-curve,
+html:not(.classic-dark) [data-chart] .recharts-line-curve {
+  filter: drop-shadow(0 2px 7px var(--chart-glow));
+}
+html:not(.classic-dark) [data-chart] .recharts-dot {
+  filter: drop-shadow(0 0 6px var(--chart-glow));
+}
+
+/* the app is neon on dark; honour reduced-motion by never animating the
+   field (it is static anyway) — nothing to disable here, kept for intent */
+
+/* ============================================================
    TENANT BRANDING CONTRACT
    ------------------------------------------------------------
    A tenant may re-skin the product by overriding BRANDABLE
@@ -306,7 +530,7 @@
    layout dimensions, --shadow-*, spacing) — those define
    layout and behaviour and are shared across all tenants.
 
-   Override both themes for parity. Example:
+   Override every theme for parity. Example:
 
    [data-tenant="greenfield"] {
      --primary: #0f766e;
@@ -315,7 +539,9 @@
      --sidebar-primary: #0f766e;
    }
    .dark[data-tenant="greenfield"],
-   .dark [data-tenant="greenfield"] {
+   .dark [data-tenant="greenfield"],
+   .classic-dark[data-tenant="greenfield"],
+   .classic-dark [data-tenant="greenfield"] {
      --primary: #2cc9b4;
      --primary-foreground: #052420;
      --ring: #2cc9b4;

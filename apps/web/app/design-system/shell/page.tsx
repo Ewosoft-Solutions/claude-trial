@@ -46,7 +46,6 @@ import { AppShell, ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
 import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
-import { UserMenu } from '@workspace/ui/custom/shell/user-menu';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
 import {
   PageHeader,
@@ -163,8 +162,6 @@ function HeaderActions() {
       >
         <CircleQuestionMark />
       </Button>
-      <div className="mx-0.5 h-5 w-px bg-border max-md:hidden" />
-      <UserMenu user={USER} items={USER_MENU} />
     </>
   );
 }
@@ -332,6 +329,8 @@ export default function ShellPreviewPage() {
             navFooter={
               nav.activeSectionKey === 'students' ? <NavFooterCard /> : undefined
             }
+            user={USER}
+            userMenuItems={USER_MENU}
           />
         }
         inspector={<Inspector />}

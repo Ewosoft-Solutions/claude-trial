@@ -37,7 +37,6 @@ import { AppShell } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
 import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
-import { UserMenu } from '@workspace/ui/custom/shell/user-menu';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
 import { useResolvedNavigation } from '@workspace/ui/hooks/use-navigation';
 import { findActiveNavItem } from '@workspace/ui/lib/navigation';
@@ -376,13 +375,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
               />
             }
             searchAction={<AiWorkspaceLauncher />}
-            actions={
-              <>
-                <HeaderActions />
-                <div className="mx-0.5 h-5 w-px bg-border max-sm:hidden" />
-                <UserMenu user={user} items={userMenu} showTriggerLabel />
-              </>
-            }
+            actions={<HeaderActions />}
           />
         }
         sidebar={
@@ -396,6 +389,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             }
             navGroups={nav.navGroups}
             navPanels={sidebarPanels}
+            user={user}
+            userMenuItems={userMenu}
           />
         }
       >

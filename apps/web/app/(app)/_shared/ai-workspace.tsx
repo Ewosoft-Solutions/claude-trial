@@ -17,7 +17,6 @@ import useSWR from 'swr';
 import {
   AlertTriangle,
   BookOpenCheck,
-  Bot,
   CheckCircle2,
   History,
   MessageCirclePlus,
@@ -176,6 +175,18 @@ export function AiWorkspaceLauncher() {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [open]);
 
+  // ⌘J / Ctrl+J opens the assistant from anywhere.
+  React.useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key.toLowerCase() === 'j' && (event.metaKey || event.ctrlKey)) {
+        event.preventDefault();
+        setOpen((current) => !current);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, []);
+
   if (modes.length === 0) return null;
 
   const active = modes.find((mode) => mode.key === activeMode) ?? modes[0]!;
@@ -186,12 +197,19 @@ export function AiWorkspaceLauncher() {
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-[var(--radius)] border border-primary/25 bg-primary px-2 text-sm font-semibold text-primary-foreground shadow-sm shadow-primary/20 outline-none transition-colors hover:bg-primary/90 focus-visible:ring-[3px] focus-visible:ring-ring/50 md:px-3',
+          'inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-secondary px-2.5 text-[13px] font-semibold text-foreground outline-none transition-colors md:px-3',
+          'hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         )}
         aria-label="Ask AI"
       >
-        <Bot className="size-4" aria-hidden />
-        <span>Ask AI</span>
+        <span
+          aria-hidden
+          className="size-3.5 shrink-0 rounded-full [background-image:var(--grad-brand)] shadow-[0_0_8px_-1px_rgba(140,92,255,0.7)]"
+        />
+        <span>Ask&nbsp;AI</span>
+        <kbd className="ml-0.5 hidden rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground sm:inline-block [@media(pointer:coarse)]:hidden">
+          ⌘J
+        </kbd>
       </button>
 
       {open ? (
