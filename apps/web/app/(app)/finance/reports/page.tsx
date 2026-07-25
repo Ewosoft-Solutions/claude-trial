@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { Download } from 'lucide-react';
 
 import { serverApiGet } from '@/lib/server-api';
@@ -9,14 +10,15 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
+import { Skeleton } from '@workspace/ui/components/skeleton';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { Meter, type MeterTone } from '@workspace/ui/custom/data-display/meter';
 import { DonutChart } from '@workspace/ui/custom/charts/donut-chart';
+import { StatRowSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 import type { ChartSlice } from '@workspace/ui/types/chart.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
-import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
 type Paginated<T> = { data?: T[] };
 
@@ -99,17 +101,22 @@ function daysBetween(start: string | null | undefined, end: string | null | unde
   return Math.max(0, Math.round((to - from) / 86_400_000));
 }
 
-export default async function FinanceReportsPage() {
-  const [invoiceData, paymentData, studentData] = await Promise.all([
+/* ── Streaming sections ──────────────────────────────────────────────────
+   The KPI band needs invoices + payments; the chart grid needs invoices +
+   the heavy `/students?limit=1000` read. Splitting them means the stats no
+   longer wait on the student roster, and payments no longer sit on the
+   charts' critical path. Identical `serverApiGet` URLs are deduped by Next's
+   per-render request memoization, so the shared `/finance/invoices` read is
+   fetched once. */
+
+async function FinanceKpiSection() {
+  const [invoiceData, paymentData] = await Promise.all([
     serverApiGet<ApiInvoice[]>('/finance/invoices?limit=500'),
     serverApiGet<ApiPayment[]>('/finance/payments?limit=500'),
-    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
   ]);
 
   const invoices = invoiceData ?? [];
   const payments = paymentData ?? [];
-  const students = asArray(studentData);
-  const studentsById = new Map(students.map((student) => [student.id, student]));
   const invoicesById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
 
   const totalBilled = invoices.reduce((sum, invoice) => sum + Number(invoice.amountDue ?? 0), 0);
@@ -131,10 +138,20 @@ export default async function FinanceReportsPage() {
     { key: 'avgdays', label: 'Avg. days to pay', value: avgDays.toLocaleString() },
   ];
 
-  const meta: PageHeaderMeta[] = [
-    { key: 'source', label: 'live billing', emphasis: true },
-    { key: 'invoices', label: `${invoices.length} invoices` },
-  ];
+  return <StatGrid items={stats} />;
+}
+
+async function FinanceBreakdownSection() {
+  const [invoiceData, studentData] = await Promise.all([
+    serverApiGet<ApiInvoice[]>('/finance/invoices?limit=500'),
+    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
+  ]);
+
+  const invoices = invoiceData ?? [];
+  const students = asArray(studentData);
+  const studentsById = new Map(students.map((student) => [student.id, student]));
+
+  const totalBilled = invoices.reduce((sum, invoice) => sum + Number(invoice.amountDue ?? 0), 0);
 
   const statusTotals = new Map<string, number>();
   for (const invoice of invoices) {
@@ -173,11 +190,79 @@ export default async function FinanceReportsPage() {
   }));
 
   return (
+    <div className="grid gap-4 @3xl/main:grid-cols-2 @6xl/main:grid-cols-3">
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">Fee status</CardTitle>
+          <CardDescription>Share of billed fees by invoice status</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <DonutChart
+            slices={feeStatus}
+            height={240}
+            aria-label="Fee status split by billed amount"
+          />
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">Collection rate by class</CardTitle>
+          <CardDescription>Collected share of billed fees</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3.5">
+          {byClass.map((row) => (
+            <Meter key={row.label} label={row.label} value={row.value} tone={row.tone} />
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">Billing by term</CardTitle>
+          <CardDescription>Share of invoice totals by term</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3.5">
+          {byTerm.map((row) => (
+            <Meter
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              valueLabel={`${nairaFromKobo(row.amount)} · ${row.value}%`}
+            />
+          ))}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/** Placeholder for the three-card breakdown grid while it streams in. */
+function BreakdownFallback() {
+  return (
+    <div className="grid gap-4 @3xl/main:grid-cols-2 @6xl/main:grid-cols-3">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <Card key={i} className="shadow-card">
+          <CardHeader className="gap-2">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-44 max-w-full" />
+          </CardHeader>
+          <CardContent>
+            <Skeleton className="h-[240px] w-full rounded-[var(--radius-sm)]" />
+          </CardContent>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export default function FinanceReportsPage() {
+  return (
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Financial reports"
-          meta={meta}
+          meta={[{ key: 'source', label: 'live billing', emphasis: true }]}
           actions={
             <Button variant="outline" size="sm">
               <Download /> Export report
@@ -185,52 +270,13 @@ export default async function FinanceReportsPage() {
           }
         />
 
-        <StatGrid items={stats} />
+        <Suspense fallback={<StatRowSkeleton count={4} />}>
+          <FinanceKpiSection />
+        </Suspense>
 
-        <div className="grid gap-4 @3xl/main:grid-cols-2 @6xl/main:grid-cols-3">
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-base">Fee status</CardTitle>
-              <CardDescription>Share of billed fees by invoice status</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <DonutChart
-                slices={feeStatus}
-                height={240}
-                aria-label="Fee status split by billed amount"
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-base">Collection rate by class</CardTitle>
-              <CardDescription>Collected share of billed fees</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3.5">
-              {byClass.map((row) => (
-                <Meter key={row.label} label={row.label} value={row.value} tone={row.tone} />
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle className="text-base">Billing by term</CardTitle>
-              <CardDescription>Share of invoice totals by term</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-3.5">
-              {byTerm.map((row) => (
-                <Meter
-                  key={row.label}
-                  label={row.label}
-                  value={row.value}
-                  valueLabel={`${nairaFromKobo(row.amount)} · ${row.value}%`}
-                />
-              ))}
-            </CardContent>
-          </Card>
-        </div>
+        <Suspense fallback={<BreakdownFallback />}>
+          <FinanceBreakdownSection />
+        </Suspense>
       </div>
     </ShellMain>
   );

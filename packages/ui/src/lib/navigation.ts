@@ -252,7 +252,15 @@ function toRailItem(
 ): RailItem {
   const panelHref = panelHrefs[0];
   const hasPanel = panelHrefs.length > 1;
-  const directHref = panelHrefs.length === 1 ? panelHref : section.href;
+  // Route the rail straight to the section's first leaf rather than its
+  // section-root href. Section roots typically server-redirect to their
+  // default view (e.g. `/finance` → `/finance/invoices`); navigating to the
+  // root therefore costs an extra RSC round-trip that also holds the previous
+  // page on screen (there is no loading boundary during the redirect). Going
+  // direct to the leaf removes the hop and lets the destination's `loading`
+  // skeleton paint on the first request. Falls back to `section.href` for
+  // sections that expose no panel leaves (a direct rail destination).
+  const directHref = panelHref ?? section.href;
   return {
     key: section.key,
     label: section.label,

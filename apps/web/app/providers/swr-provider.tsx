@@ -19,12 +19,16 @@ import * as React from 'react';
 import { SWRConfig } from 'swr';
 
 import { jsonFetcher } from '@/lib/fetcher';
+import { abortOnUnmount } from '@/lib/swr-abort';
 
 export function SwrProvider({ children }: { children: React.ReactNode }) {
   return (
     <SWRConfig
       value={{
         fetcher: jsonFetcher,
+        // Cancel a read's HTTP request when its component unmounts (e.g. the
+        // user navigates away) so it stops holding a connection / API work.
+        use: [abortOnUnmount],
         revalidateOnFocus: true,
         revalidateOnReconnect: true,
         keepPreviousData: true,
