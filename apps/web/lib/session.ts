@@ -19,6 +19,7 @@
    visible during implementation.
    ============================================================ */
 
+import { cache } from 'react';
 import { cookies } from 'next/headers';
 import type {
   FeatureKey,
@@ -157,8 +158,13 @@ function decodeJwtExpiry(token: string | undefined): number | undefined {
  *
  * Reads the httpOnly access-token cookie and fetches /auth/me.
  * Returns null when there is no cookie or the token is invalid.
+ *
+ * Wrapped in React's `cache()` so that a single server render pass — where
+ * the (app) layout and the destination page each call `getSession()` — makes
+ * exactly one `/auth/me` round-trip, not one per caller. The cache is scoped
+ * to the request, so it never leaks a session between users or navigations.
  */
-export async function getSession(): Promise<Session | null> {
+export const getSession = cache(async (): Promise<Session | null> => {
   const cookieStore = await cookies();
   const accessToken = cookieStore.get(COOKIE_ACCESS_TOKEN)?.value;
   const refreshToken = cookieStore.get(COOKIE_REFRESH_TOKEN)?.value;
@@ -211,4 +217,4 @@ export async function getSession(): Promise<Session | null> {
     console.error('[getSession] /auth/me error:', err);
     return null;
   }
-}
+});
