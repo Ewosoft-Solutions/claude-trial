@@ -10,7 +10,14 @@ overrides:
   '@types/react-dom': '19.2.3'
   'body-parser@>=2.0.0 <2.3.0': '2.3.0'
   'brace-expansion@<1.1.16': '1.1.16'
-  'brace-expansion@>=3.0.0 <5.0.7': '5.0.7'
+  # GHSA-mh99-v99m-4gvg (DoS via unbounded expansion). The only patch is 5.0.8,
+  # but brace-expansion 5.x breaks eslint's pinned minimatch@3.x (which does
+  # `require('brace-expansion')` expecting a function). Modern minimatch paths
+  # (apps/api>@nestjs/cli>glob) take the patched 5.0.8; eslint's own minimatch@3
+  # stays on the compatible 1.1.16. Since brace-expansion is dev-tooling only
+  # (glob expansion at lint/build time, no untrusted input), the residual 1.x
+  # flag is suppressed in auditConfig below rather than force-broken.
+  'brace-expansion@>=3.0.0 <5.0.8': '5.0.8'
   'esbuild@>=0.27.3 <0.28.1': '0.28.1'
   'fast-uri@>=3.0.0 <3.1.4': '3.1.4'
   # Transitive via prisma > @prisma/dev (dev tooling; not in the deployed
@@ -23,3 +30,13 @@ overrides:
   # earlier <8.5.10→8.5.16 pin no longer clears it; bump the floor to 8.5.18.
   'postcss@<8.5.18': '8.5.18'
   'sharp@<0.35.0': '0.35.3'
+
+# Advisories with no fix compatible with a pinned dev-tooling dependency, and
+# no deployed-runtime exposure. Suppressed for the audit gate with the reason
+# recorded next to the related override above.
+auditConfig:
+  ignoreGhsas:
+    # brace-expansion GHSA-mh99-v99m-4gvg — dev-only (eslint/@nestjs glob
+    # expansion); the only patch (5.0.8) is incompatible with eslint's pinned
+    # minimatch@3. See the brace-expansion overrides above.
+    - 'GHSA-mh99-v99m-4gvg'
