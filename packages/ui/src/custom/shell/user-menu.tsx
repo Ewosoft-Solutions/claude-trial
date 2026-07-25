@@ -11,6 +11,7 @@
 import * as React from 'react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { neonAvatarColor } from '@workspace/ui/lib/avatar-color';
 import {
   Avatar,
   AvatarFallback,
@@ -56,7 +57,7 @@ function UserAvatar({
       ) : null}
       <AvatarFallback
         className="text-[11px] font-bold text-white"
-        style={{ background: user.color ?? 'var(--muted-foreground)' }}
+        style={{ background: neonAvatarColor(user.email ?? user.name) }}
       >
         {user.initials}
       </AvatarFallback>

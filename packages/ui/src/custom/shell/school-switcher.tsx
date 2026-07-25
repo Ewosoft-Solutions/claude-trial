@@ -12,6 +12,7 @@ import * as React from 'react';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { neonAvatarColor } from '@workspace/ui/lib/avatar-color';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,10 +33,12 @@ function SchoolChip({
   return (
     <span
       className={cn(
-        'grid size-[22px] shrink-0 place-items-center overflow-hidden rounded-md text-[10px] font-extrabold text-white',
+        'grid size-6 shrink-0 place-items-center overflow-hidden rounded-[7px] text-[10px] font-extrabold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]',
         className,
       )}
-      style={{ background: school.color ?? 'var(--primary)' }}
+      style={{
+        background: school.color ?? neonAvatarColor(school.id || school.name),
+      }}
       aria-hidden
     >
       {school.logoUrl ? (

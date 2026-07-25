@@ -92,145 +92,129 @@ function setup() {
   return { onDashboard, onOverview, onStudents };
 }
 
-describe('AppSidebar mobile navigation', () => {
-  it('keeps the expandable navigation active until the desktop panel breakpoint', () => {
+/** Collapse the (desktop-default) expanded sidebar into its icon rail. */
+function collapse() {
+  fireEvent.click(screen.getByRole('button', { name: 'Collapse navigation' }));
+}
+
+describe('AppSidebar — canonical collapsible navigation', () => {
+  it('renders one primary nav, opens expanded on desktop, and shows the brand', () => {
     setup();
 
-    const desktopPrimary = document.querySelector('nav[aria-label="Primary"]');
-    const desktopSecondary = document.querySelector(
-      'nav[aria-label="Secondary"]',
+    // A single primary navigation surface at every breakpoint.
+    expect(document.querySelectorAll('[data-slot="app-sidebar"]')).toHaveLength(
+      1,
     );
-    const expandable = document.querySelector('[data-slot="mobile-side-nav"]');
-
-    expect(desktopPrimary).toHaveClass('hidden', 'lg:flex');
-    expect(desktopPrimary).not.toHaveClass('md:flex');
-    expect(desktopSecondary).toHaveClass('hidden', 'lg:flex');
-    expect(expandable).toHaveClass('lg:hidden');
-    expect(expandable).not.toHaveClass('md:hidden');
-  });
-
-  it('opens the active section beside the compact rail and closes after navigation', () => {
-    const { onDashboard, onOverview } = setup();
-    const primary = screen.getByRole('navigation', {
-      name: 'Mobile primary',
-    });
-
-    const overview = within(primary).getByRole('button', { name: 'Overview' });
-    expect(overview).toHaveAttribute('aria-current', 'page');
-
-    fireEvent.click(overview);
-
-    expect(onOverview).not.toHaveBeenCalled();
-    const secondary = screen.getByRole('navigation', {
-      name: 'Mobile secondary',
-    });
-    expect(secondary).toHaveStyle({ left: 'calc(100% + 0.5px)' });
-    expect(
-      document.querySelectorAll('[data-slot="mobile-flyout-contour"]'),
-    ).toHaveLength(1);
-    expect(overview).not.toHaveAttribute('aria-current');
-    expect(
-      within(secondary).getByText('Greenfield School'),
-    ).toBeInTheDocument();
-    expect(
-      within(secondary).getByRole('button', { name: 'Dashboard' }),
-    ).toHaveAttribute('aria-current', 'page');
-    expect(within(secondary).queryByTestId('secondary-icon')).toBeNull();
-    const nestedItem = within(secondary).getByRole('button', {
-      name: 'Report cards',
-    });
-    const nestedBullet = nestedItem.querySelector(
-      '[data-slot="nav-nested-bullet"]',
+    expect(document.querySelectorAll('nav[aria-label="Primary"]')).toHaveLength(
+      1,
     );
-    expect(nestedBullet).toHaveClass(
-      'rounded-full',
-      'border',
-      'bg-transparent',
-    );
-    expect(nestedItem).toHaveStyle({
-      minHeight: '2.375rem',
-      lineHeight: '1.25rem',
-    });
-    expect(nestedItem).not.toHaveClass('ml-2', 'pl-2');
-    const groups = secondary.querySelectorAll('[data-slot="nav-group"]');
-    expect(groups).toHaveLength(2);
-    expect(groups[1]).toHaveClass('mt-2');
-
-    fireEvent.click(
-      within(secondary).getByRole('button', { name: 'Dashboard' }),
-    );
-
-    expect(onDashboard).toHaveBeenCalledOnce();
-    expect(
-      screen.queryByRole('navigation', { name: 'Mobile secondary' }),
-    ).not.toBeInTheDocument();
-    expect(overview).toHaveAttribute('aria-current', 'page');
-  });
-
-  it('closes the compact secondary panel after an outside pointer press', () => {
-    setup();
-    const primary = screen.getByRole('navigation', {
-      name: 'Mobile primary',
-    });
-
-    fireEvent.click(within(primary).getByRole('button', { name: 'Overview' }));
-    expect(
-      screen.getByRole('navigation', { name: 'Mobile secondary' }),
-    ).toBeInTheDocument();
-
-    fireEvent.pointerDown(document.body);
-
-    expect(
-      screen.queryByRole('navigation', { name: 'Mobile secondary' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('expands into labelled rows and discloses the active secondary items inline', () => {
-    setup();
-
-    fireEvent.click(screen.getByRole('button', { name: 'Expand navigation' }));
-
+    expect(screen.getByText('SchoolWithEase')).toBeInTheDocument();
+    // Expanded by default (desktop) → the collapse affordance is present.
     expect(
       screen.getByRole('button', { name: 'Collapse navigation' }),
     ).toBeInTheDocument();
-    const expandedPrimary = screen.getByRole('navigation', {
-      name: 'Mobile primary',
-    });
-    const overview = within(expandedPrimary).getByRole('button', {
-      name: 'Overview',
-    });
-    expect(overview).toHaveStyle({
-      minHeight: '2.375rem',
-      lineHeight: '1.25rem',
-    });
-    expect(overview).not.toHaveAttribute('aria-current');
+
+    // The active section discloses its items inline (accordion).
+    const primary = screen.getByRole('navigation', { name: 'Primary' });
     expect(
-      within(expandedPrimary).getByRole('button', { name: 'Dashboard' }),
+      within(primary).getByRole('button', { name: 'Dashboard' }),
     ).toHaveAttribute('aria-current', 'page');
-
-    fireEvent.click(overview);
-
-    expect(
-      within(expandedPrimary).queryByRole('button', { name: 'Dashboard' }),
-    ).not.toBeInTheDocument();
-    expect(overview).toHaveAttribute('aria-current', 'page');
   });
 
-  it('shows an inactive section panel immediately without routing', () => {
-    const { onStudents } = setup();
-    const primary = screen.getByRole('navigation', {
-      name: 'Mobile primary',
-    });
+  it('opens the active section as an opaque flyout beside the rail and closes after navigation', () => {
+    const { onDashboard, onOverview } = setup();
+    collapse();
 
-    fireEvent.click(within(primary).getByRole('button', { name: 'Students' }));
+    const primary = screen.getByRole('navigation', { name: 'Primary' });
+    const overview = within(primary).getByRole('button', { name: 'Overview' });
+    fireEvent.click(overview);
+
+    expect(onOverview).not.toHaveBeenCalled();
+    const secondary = screen.getByRole('navigation', { name: 'Secondary' });
+    expect(secondary).toHaveStyle({ left: 'calc(100% + 0.5px)' });
+    expect(
+      document.querySelectorAll('[data-slot="flyout-contour"]'),
+    ).toHaveLength(1);
+    // Opaque surface fill for legibility.
+    const fill = document
+      .querySelector('[data-slot="flyout-contour"] path')
+      ?.getAttribute('fill');
+    expect(fill).toBe('var(--popover)');
+
+    expect(within(secondary).getByText('Greenfield School')).toBeInTheDocument();
+    const dashboard = within(secondary).getByRole('button', {
+      name: 'Dashboard',
+    });
+    expect(dashboard).toHaveAttribute('aria-current', 'page');
+
+    const nestedItem = within(secondary).getByRole('button', {
+      name: 'Report cards',
+    });
+    expect(
+      nestedItem.querySelector('[data-slot="nav-nested-bullet"]'),
+    ).toBeTruthy();
+    const groups = secondary.querySelectorAll('[data-slot="nav-group"]');
+    expect(groups).toHaveLength(2);
+
+    fireEvent.click(dashboard);
+    expect(onDashboard).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole('navigation', { name: 'Secondary' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('closes the flyout after an outside pointer press', () => {
+    setup();
+    collapse();
+    fireEvent.click(
+      within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
+        'button',
+        { name: 'Overview' },
+      ),
+    );
+    expect(
+      screen.getByRole('navigation', { name: 'Secondary' }),
+    ).toBeInTheDocument();
+
+    fireEvent.pointerDown(document.body);
+    expect(
+      screen.queryByRole('navigation', { name: 'Secondary' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('shows an inactive section flyout immediately without routing', () => {
+    const { onStudents } = setup();
+    collapse();
+    fireEvent.click(
+      within(screen.getByRole('navigation', { name: 'Primary' })).getByRole(
+        'button',
+        { name: 'Students' },
+      ),
+    );
 
     expect(onStudents).not.toHaveBeenCalled();
-    const secondary = screen.getByRole('navigation', {
-      name: 'Mobile secondary',
-    });
+    const secondary = screen.getByRole('navigation', { name: 'Secondary' });
     expect(within(secondary).getByText('Students')).toBeInTheDocument();
     expect(
       within(secondary).getByRole('button', { name: 'Directory' }),
     ).toBeInTheDocument();
+  });
+
+  it('toggles the active section inline when expanded', () => {
+    setup();
+    const primary = screen.getByRole('navigation', { name: 'Primary' });
+    const overview = within(primary).getByRole('button', { name: 'Overview' });
+
+    // Active section is disclosed inline on load.
+    expect(
+      within(primary).getByRole('button', { name: 'Dashboard' }),
+    ).toBeInTheDocument();
+
+    // Clicking the active section collapses its inline panel (no routing).
+    fireEvent.click(overview);
+    expect(
+      within(primary).queryByRole('button', { name: 'Dashboard' }),
+    ).not.toBeInTheDocument();
+    expect(overview).toHaveAttribute('aria-current', 'page');
   });
 });

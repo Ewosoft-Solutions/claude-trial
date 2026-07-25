@@ -16,7 +16,7 @@ export function SectionCards() {
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Total Revenue</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+          <CardTitle className="w-fit bg-[image:var(--h1-grad)] bg-clip-text font-display text-4xl font-bold leading-none tabular-nums text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent] @[250px]/card:text-5xl">
             $1,250.00
           </CardTitle>
           <CardAction>
@@ -38,7 +38,7 @@ export function SectionCards() {
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>New Customers</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+          <CardTitle className="w-fit bg-[image:var(--h1-grad)] bg-clip-text font-display text-4xl font-bold leading-none tabular-nums text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent] @[250px]/card:text-5xl">
             1,234
           </CardTitle>
           <CardAction>
@@ -60,7 +60,7 @@ export function SectionCards() {
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Active Accounts</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+          <CardTitle className="w-fit bg-[image:var(--h1-grad)] bg-clip-text font-display text-4xl font-bold leading-none tabular-nums text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent] @[250px]/card:text-5xl">
             45,678
           </CardTitle>
           <CardAction>
@@ -80,7 +80,7 @@ export function SectionCards() {
       <Card className="@container/card">
         <CardHeader>
           <CardDescription>Growth Rate</CardDescription>
-          <CardTitle className="text-2xl font-semibold tabular-nums @[250px]/card:text-3xl">
+          <CardTitle className="w-fit bg-[image:var(--h1-grad)] bg-clip-text font-display text-4xl font-bold leading-none tabular-nums text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent] @[250px]/card:text-5xl">
             4.5%
           </CardTitle>
           <CardAction>

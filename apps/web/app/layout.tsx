@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Caveat, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
 
 import '@workspace/ui/globals.css';
 import { ThemeProvider } from './providers/theme-provider';
@@ -7,9 +7,17 @@ import { PwaRegister } from './providers/pwa-register';
 import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
 import { SessionNoticeToaster } from './providers/session-notice-toaster';
 
-const geistSans = Geist({
+// Aurora type system: Plus Jakarta Sans for body/UI, Caveat for the
+// handwritten display face (headings + big stat numbers). Applied app-wide.
+const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
-  variable: '--font-geist-sans',
+  variable: '--font-jakarta',
+  weight: ['400', '500', '600', '700', '800'],
+});
+const caveat = Caveat({
+  subsets: ['latin'],
+  variable: '--font-caveat',
+  weight: ['400', '500', '600', '700'],
 });
 const geistMono = Geist_Mono({
   subsets: ['latin'],
@@ -45,11 +53,14 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body
+        className={`${jakarta.variable} ${caveat.variable} ${geistMono.variable}`}
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="system"
           enableSystem
+          themes={['light', 'dark', 'classic-dark']}
           disableTransitionOnChange
         >
           {children}

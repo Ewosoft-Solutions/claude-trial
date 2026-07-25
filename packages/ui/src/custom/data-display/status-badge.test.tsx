@@ -14,14 +14,15 @@ describe('StatusBadge', () => {
     expect(screen.getByText('Active')).toBeInTheDocument();
   });
 
-  it('applies the neutral tone surface by default', () => {
+  it('applies the neutral tone surface (soft outline) by default', () => {
     render(<StatusBadge>Draft</StatusBadge>);
-    expect(badge()).toHaveClass('bg-accent', 'text-muted-foreground');
+    // Soft-outline pill: matching border + tinted fill + tone text.
+    expect(badge()).toHaveClass('border', 'text-muted-foreground');
   });
 
-  it('maps a semantic tone onto its status tokens', () => {
+  it('maps a semantic tone onto its status tokens (border + text)', () => {
     render(<StatusBadge tone="success">Paid</StatusBadge>);
-    expect(badge()).toHaveClass('text-success');
+    expect(badge()).toHaveClass('border-success/40', 'text-success');
     expect(badge()).not.toHaveClass('text-muted-foreground');
   });
 
