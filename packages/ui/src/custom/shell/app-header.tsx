@@ -25,11 +25,12 @@ import * as React from 'react';
 import { Search } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { ShortcutHint } from '@workspace/ui/components/shortcut-hint';
 
 export interface OmniSearchProps {
   placeholder?: string;
-  /** Keyboard hint rendered on the right, e.g. "⌘K". */
-  shortcut?: string;
+  /** Non-modifier key for the shortcut hint (rendered OS-aware). Default "K". */
+  shortcutKey?: string;
   onClick?: () => void;
   className?: string;
 }
@@ -37,7 +38,7 @@ export interface OmniSearchProps {
 /** Responsive command-palette trigger for the Aurora top bar. */
 export function OmniSearch({
   placeholder = 'Search…',
-  shortcut = '⌘K',
+  shortcutKey = 'K',
   onClick,
   className,
 }: OmniSearchProps) {
@@ -55,10 +56,11 @@ export function OmniSearch({
     >
       <Search className="size-[15px] shrink-0" aria-hidden />
       <span className="hidden truncate sm:inline">{placeholder}</span>
-      {shortcut ? (
-        <kbd className="ml-auto hidden rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground xl:inline-block [@media(pointer:coarse)]:hidden">
-          {shortcut}
-        </kbd>
+      {shortcutKey ? (
+        <ShortcutHint
+          keyName={shortcutKey}
+          className="ml-auto hidden xl:inline-flex [@media(pointer:coarse)]:hidden"
+        />
       ) : null}
     </button>
   );

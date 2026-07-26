@@ -14,6 +14,7 @@ import * as React from 'react';
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { neonAvatarColor } from '@workspace/ui/lib/avatar-color';
 import type { StatDelta, StatItem } from '@workspace/ui/types/layout.types';
 
 /** Resolve a delta's colour from its intent (falling back to direction). */
@@ -55,7 +56,11 @@ export function StatCard({ item, className }: StatCardProps) {
           {item.label}
         </span>
         {item.icon ? (
-          <span aria-hidden className="text-muted-foreground [&_svg]:size-4">
+          <span
+            aria-hidden
+            className="[&_svg]:size-4"
+            style={{ color: neonAvatarColor(item.key) }}
+          >
             {item.icon}
           </span>
         ) : null}

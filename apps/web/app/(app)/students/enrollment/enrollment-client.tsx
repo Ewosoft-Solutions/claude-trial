@@ -279,7 +279,10 @@ export function EnrollmentClient({ applicants }: Props) {
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
-                          <AvatarFallback className="text-[11px] font-semibold">
+                          <AvatarFallback
+                            seed={a.name}
+                            className="text-[11px] font-semibold"
+                          >
                             {initials(a.name)}
                           </AvatarFallback>
                         </Avatar>

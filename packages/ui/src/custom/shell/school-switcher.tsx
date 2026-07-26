@@ -12,7 +12,7 @@ import * as React from 'react';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
-import { neonAvatarColor } from '@workspace/ui/lib/avatar-color';
+import { InitialsAvatar } from '@workspace/ui/custom/data-display/initials-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,23 +31,19 @@ function SchoolChip({
   className?: string;
 }) {
   return (
-    <span
+    <InitialsAvatar
+      square
+      initials={school.initials}
+      name={school.name}
+      seed={school.id || school.name}
+      color={school.color}
+      imageUrl={school.logoUrl}
       className={cn(
-        'grid size-6 shrink-0 place-items-center overflow-hidden rounded-[7px] text-[10px] font-extrabold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]',
+        'size-8 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]',
         className,
       )}
-      style={{
-        background: school.color ?? neonAvatarColor(school.id || school.name),
-      }}
-      aria-hidden
-    >
-      {school.logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={school.logoUrl} alt="" className="size-full object-cover" />
-      ) : (
-        school.initials
-      )}
-    </span>
+      textClassName="text-xs font-extrabold"
+    />
   );
 }
 
@@ -81,17 +77,20 @@ export function SchoolSwitcher({
   const chip = (
     <>
       <SchoolChip school={active} />
-      <span className="flex min-w-0 max-w-[9rem] items-center gap-1 sm:max-w-[16rem]">
-        <span className="min-w-0 truncate font-semibold">{active.name}</span>
+      {/* role stacked over the school name (role lives here, not on the profile) */}
+      <span className="flex min-w-0 max-w-[11rem] flex-col items-start text-left leading-tight sm:max-w-[15rem]">
         {active.caption ? (
-          <span className="shrink-0 font-medium text-muted-foreground">
-            · {active.caption}
+          <span className="w-full truncate text-left text-[11px] font-medium leading-tight text-muted-foreground">
+            {active.caption}
           </span>
         ) : null}
+        <span className="w-full truncate text-left text-[13px] font-semibold leading-tight text-foreground">
+          {active.name}
+        </span>
       </span>
       {canOpenMenu ? (
         <ChevronDown
-          className="size-3.5 shrink-0 text-muted-foreground"
+          className="ml-0.5 size-3.5 shrink-0 text-muted-foreground"
           aria-hidden
         />
       ) : null}
@@ -99,8 +98,8 @@ export function SchoolSwitcher({
   );
 
   const triggerClass = cn(
-    'flex min-w-0 shrink items-center gap-2 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none',
-    'max-sm:w-full max-sm:gap-1.5 max-sm:px-1.5',
+    'flex min-w-0 shrink items-center gap-2.5 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-card py-2 pl-2 pr-2.5 text-left text-[13px] text-foreground outline-none',
+    'max-sm:gap-2 max-sm:pr-2',
     'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
     className,
   );
@@ -117,23 +116,27 @@ export function SchoolSwitcher({
       >
         {chip}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-64">
-        <DropdownMenuLabel className="text-muted-foreground">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className="w-72 p-1.5 text-left"
+      >
+        <DropdownMenuLabel className="px-2.5 py-2 text-left text-muted-foreground">
           {menuLabel}
         </DropdownMenuLabel>
         {schools.map((school) => (
           <DropdownMenuItem
             key={school.id}
             onSelect={() => onSchoolChange?.(school)}
-            className="gap-2.5"
+            className="min-h-12 gap-3 px-2.5 py-2 text-left"
           >
             <SchoolChip school={school} />
-            <span className="flex min-w-0 flex-col">
-              <span className="truncate font-medium text-foreground">
+            <span className="flex min-w-0 flex-col items-start text-left leading-tight">
+              <span className="w-full truncate text-left font-medium text-foreground">
                 {school.name}
               </span>
               {school.caption ? (
-                <span className="truncate text-xs text-muted-foreground">
+                <span className="w-full truncate text-left text-xs text-muted-foreground">
                   {school.caption}
                 </span>
               ) : null}
@@ -148,10 +151,10 @@ export function SchoolSwitcher({
             <DropdownMenuSeparator />
             <DropdownMenuItem
               onSelect={() => onAddSchool()}
-              className="gap-2.5"
+              className="min-h-12 gap-3 px-2.5 py-2 text-left"
             >
-              <span className="grid size-[22px] place-items-center rounded-md border border-dashed border-border text-muted-foreground">
-                <Plus className="size-3.5" aria-hidden />
+              <span className="grid size-8 place-items-center rounded-[7px] border border-dashed border-border text-muted-foreground">
+                <Plus className="size-4" aria-hidden />
               </span>
               <span className="font-medium">{addSchoolLabel}</span>
             </DropdownMenuItem>

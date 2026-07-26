@@ -28,6 +28,7 @@ import {
 
 import { Button } from '@workspace/ui/components/button';
 import { Label } from '@workspace/ui/components/label';
+import { ShortcutHint } from '@workspace/ui/components/shortcut-hint';
 import {
   Select,
   SelectContent,
@@ -207,9 +208,10 @@ export function AiWorkspaceLauncher() {
           className="size-3.5 shrink-0 rounded-full [background-image:var(--grad-brand)] shadow-[0_0_8px_-1px_rgba(140,92,255,0.7)]"
         />
         <span>Ask&nbsp;AI</span>
-        <kbd className="ml-0.5 hidden rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold text-muted-foreground sm:inline-block [@media(pointer:coarse)]:hidden">
-          ⌘J
-        </kbd>
+        <ShortcutHint
+          keyName="J"
+          className="ml-0.5 hidden sm:inline-flex [@media(pointer:coarse)]:hidden"
+        />
       </button>
 
       {open ? (
