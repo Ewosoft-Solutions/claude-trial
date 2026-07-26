@@ -90,13 +90,54 @@ jobs:
           RENDER_API_SERVICE: ${{ secrets.RENDER_API_SERVICE }}
         run: |
           set -euo pipefail
-          deploy_id=$(curl -fsS -X POST \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            -H "Content-Type: application/json" \
-            "https://api.render.com/v1/services/${RENDER_API_SERVICE}/deploys" \
-            -d '{"clearCache":"do_not_clear"}' | jq -r '.id')
+          # Render's create-deploy API intermittently returns 5xx / connection
+          # errors (observed 2026-07-26: a 500 on this very POST). Retry with
+          # linear backoff. A `-f` curl would abort the step on the first 5xx,
+          # so capture the status + body instead and decide per-code: retry the
+          # transient ones (5xx/429/connection), fail fast on a non-retryable
+          # status (e.g. 401/404 = bad key/service id) so a real misconfig does
+          # not burn the whole backoff budget.
+          attempts=5
+          deploy_id=""
+          for i in $(seq 1 "$attempts"); do
+            body=$(mktemp)
+            code=$(curl -sS -o "$body" -w '%{http_code}' -X POST \
+              -H "Authorization: Bearer ${RENDER_API_KEY}" \
+              -H "Content-Type: application/json" \
+              "https://api.render.com/v1/services/${RENDER_API_SERVICE}/deploys" \
+              -d '{"clearCache":"do_not_clear"}' || echo "000")
+
+            case "$code" in
+              2*)
+                deploy_id=$(jq -r '.id // empty' < "$body" 2>/dev/null || echo "")
+                rm -f "$body"
+                if [ -n "$deploy_id" ]; then
+                  echo "Render deploy created on attempt $i: $deploy_id"
+                  break
+                fi
+                echo "[$i/$attempts] HTTP $code but no deploy id in the response; retrying…"
+                ;;
+              429|5*|000)
+                echo "[$i/$attempts] transient Render API response (HTTP $code); retrying…"
+                sed 's/^/  /' < "$body" || true
+                rm -f "$body"
+                ;;
+              *)
+                echo "Render API returned HTTP $code (not retryable):"
+                cat "$body" || true
+                rm -f "$body"
+                exit 1
+                ;;
+            esac
+
+            if [ "$i" -lt "$attempts" ]; then
+              sleep $(( i * 5 ))
+            fi
+          done
+
           if [ -z "$deploy_id" ] || [ "$deploy_id" = "null" ]; then
-            echo "Failed to create a Render deploy"; exit 1
+            echo "Failed to create a Render deploy after ${attempts} attempts"
+            exit 1
           fi
           echo "Render deploy: $deploy_id"
           echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
@@ -111,11 +152,41 @@ jobs:
           # Poll up to ~20 min. `live` = success; the *_failed / canceled states
           # are terminal failures. Render's health check (/healthz) already gates
           # the cutover, so `live` means the new instance passed readiness.
-          for i in $(seq 1 80); do
-            status=$(curl -fsS \
+          #
+          # A single status GET can hit a transient 5xx / connection blip. That
+          # must NOT fail an otherwise-healthy deploy, so a `-f` curl (which
+          # aborts the step on any 5xx) is wrong here: capture the status per
+          # poll and treat an unreadable response as "unknown this round" — keep
+          # polling. Bail early only after too many *consecutive* unreadable
+          # polls (a persistent problem, e.g. a bad deploy id 404), otherwise
+          # let the overall timeout below be the backstop.
+          max_polls=80
+          max_consec_errors=8
+          consec_errors=0
+          for i in $(seq 1 "$max_polls"); do
+            body=$(mktemp)
+            code=$(curl -sS -o "$body" -w '%{http_code}' \
               -H "Authorization: Bearer ${RENDER_API_KEY}" \
               "https://api.render.com/v1/services/${RENDER_API_SERVICE}/deploys/${DEPLOY_ID}" \
-              | jq -r '.status')
+              || echo "000")
+            status=""
+            case "$code" in
+              2*) status=$(jq -r '.status // empty' < "$body" 2>/dev/null || echo "") ;;
+            esac
+            rm -f "$body"
+
+            if [ -z "$status" ]; then
+              consec_errors=$(( consec_errors + 1 ))
+              echo "[$i] status unavailable (HTTP $code) [$consec_errors/$max_consec_errors consecutive]"
+              if [ "$consec_errors" -ge "$max_consec_errors" ]; then
+                echo "Giving up: $consec_errors consecutive failed status checks (last HTTP $code)."
+                exit 1
+              fi
+              sleep 15
+              continue
+            fi
+            consec_errors=0
+
             echo "[$i] status=$status"
             case "$status" in
               live) echo "Deploy is live."; exit 0 ;;
