@@ -29,6 +29,8 @@ export default function OverviewPage() {
   const { viewer, user, schools, activeSchoolId } = useViewer();
   const schoolName =
     schools.find((s) => s.id === activeSchoolId)?.name ?? 'your school';
+  const salutationName =
+    user.firstName?.trim() || user.name.trim().split(/\s+/)[0] || user.name;
 
   const { clearanceLevel } = viewer;
 
@@ -36,7 +38,7 @@ export default function OverviewPage() {
   // platform overview, not a school dashboard. (A platform viewer has no active
   // school, so the school dashboards below would have nothing to render anyway.)
   if (viewer.scope === 'platform') {
-    return <PlatformDashboard userName={user.name} />;
+    return <PlatformDashboard userName={salutationName} />;
   }
 
   // Render per clearance level. Custom per-profile permissions may have
@@ -44,23 +46,27 @@ export default function OverviewPage() {
   // primary routing axis for the dashboard surface itself.
   // The backend enforces data access; this only selects the right UI.
   if (clearanceLevel >= 7) {
-    return <AdminDashboard userName={user.name} schoolName={schoolName} />;
+    return <AdminDashboard userName={salutationName} schoolName={schoolName} />;
   }
   if (clearanceLevel === 6) {
-    return <ITDashboard userName={user.name} />;
+    return <ITDashboard userName={salutationName} />;
   }
   if (clearanceLevel === 5) {
-    return <FinanceDashboard userName={user.name} schoolName={schoolName} />;
+    return (
+      <FinanceDashboard userName={salutationName} schoolName={schoolName} />
+    );
   }
   if (clearanceLevel === 4) {
-    return <OperationsDashboard userName={user.name} />;
+    return <OperationsDashboard userName={salutationName} />;
   }
   if (clearanceLevel === 3) {
-    return <TeacherDashboard userName={user.name} />;
+    return <TeacherDashboard userName={salutationName} />;
   }
   if (clearanceLevel === 2) {
-    return <ParentDashboard userName={user.name} schoolName={schoolName} />;
+    return (
+      <ParentDashboard userName={salutationName} schoolName={schoolName} />
+    );
   }
   // L0–L1: Student or Guest
-  return <StudentDashboard userName={user.name} />;
+  return <StudentDashboard userName={salutationName} />;
 }
