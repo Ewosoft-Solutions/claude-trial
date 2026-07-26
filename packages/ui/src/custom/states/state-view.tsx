@@ -20,9 +20,10 @@ import type {
   StateTone,
 } from '@workspace/ui/types/states.types';
 
-/** Tone → medallion colour roles (icon foreground + tinted background). */
+/** Tone → medallion colour roles (icon foreground + tinted background).
+    `neutral` uses the brand tint so empty-state icons read as neon, not grey. */
 const TONE_MEDALLION: Record<StateTone, string> = {
-  neutral: 'bg-accent text-muted-foreground',
+  neutral: 'bg-primary/10 text-primary',
   info: 'bg-info/12 text-info',
   success: 'bg-success/12 text-success',
   warning: 'bg-warning/15 text-warning',

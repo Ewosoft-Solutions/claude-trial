@@ -12,7 +12,7 @@ import * as React from 'react';
 import { Check, ChevronDown, Plus } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
-import { neonAvatarColor } from '@workspace/ui/lib/avatar-color';
+import { InitialsAvatar } from '@workspace/ui/custom/data-display/initials-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -31,23 +31,19 @@ function SchoolChip({
   className?: string;
 }) {
   return (
-    <span
+    <InitialsAvatar
+      square
+      initials={school.initials}
+      name={school.name}
+      seed={school.id || school.name}
+      color={school.color}
+      imageUrl={school.logoUrl}
       className={cn(
-        'grid size-6 shrink-0 place-items-center overflow-hidden rounded-[7px] text-[10px] font-extrabold text-white shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]',
+        'size-6 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]',
         className,
       )}
-      style={{
-        background: school.color ?? neonAvatarColor(school.id || school.name),
-      }}
-      aria-hidden
-    >
-      {school.logoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img src={school.logoUrl} alt="" className="size-full object-cover" />
-      ) : (
-        school.initials
-      )}
-    </span>
+      textClassName="text-[10px] font-extrabold"
+    />
   );
 }
 
@@ -81,13 +77,16 @@ export function SchoolSwitcher({
   const chip = (
     <>
       <SchoolChip school={active} />
-      <span className="flex min-w-0 max-w-[9rem] items-center gap-1 sm:max-w-[16rem]">
-        <span className="min-w-0 truncate font-semibold">{active.name}</span>
+      {/* role stacked over the school name (role lives here, not on the profile) */}
+      <span className="flex min-w-0 max-w-[10rem] flex-col items-start text-left leading-tight sm:max-w-[14rem]">
         {active.caption ? (
-          <span className="shrink-0 font-medium text-muted-foreground">
-            · {active.caption}
+          <span className="w-full truncate text-[11px] font-medium leading-tight text-muted-foreground">
+            {active.caption}
           </span>
         ) : null}
+        <span className="w-full truncate text-[13px] font-semibold leading-tight text-foreground">
+          {active.name}
+        </span>
       </span>
       {canOpenMenu ? (
         <ChevronDown
@@ -99,8 +98,8 @@ export function SchoolSwitcher({
   );
 
   const triggerClass = cn(
-    'flex min-w-0 shrink items-center gap-2 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-card px-2.5 py-1.5 text-[13px] text-foreground outline-none',
-    'max-sm:w-full max-sm:gap-1.5 max-sm:px-1.5',
+    'flex min-w-0 shrink items-center gap-2 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-card py-1 pl-1.5 pr-2 text-[13px] text-foreground outline-none',
+    'max-sm:gap-1.5',
     'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
     className,
   );

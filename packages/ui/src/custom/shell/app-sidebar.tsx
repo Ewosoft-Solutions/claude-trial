@@ -32,13 +32,9 @@ import {
 import { useTheme } from 'next-themes';
 
 import { cn } from '@workspace/ui/lib/utils';
-import { neonAvatarColor } from '@workspace/ui/lib/avatar-color';
+import { toTitleCase } from '@workspace/ui/lib/names';
 import { useIsMobile } from '@workspace/ui/hooks/use-mobile';
-import {
-  Avatar,
-  AvatarFallback,
-  AvatarImage,
-} from '@workspace/ui/components/avatar';
+import { InitialsAvatar } from '@workspace/ui/custom/data-display/initials-avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -322,17 +318,14 @@ function ProfileAvatar({
   className?: string;
 }) {
   return (
-    <Avatar className={cn('size-8 rounded-full', className)}>
-      {user.avatarUrl ? (
-        <AvatarImage src={user.avatarUrl} alt={user.name} />
-      ) : null}
-      <AvatarFallback
-        className="text-[11px] font-bold text-white"
-        style={{ background: neonAvatarColor(user.email ?? user.name) }}
-      >
-        {user.initials}
-      </AvatarFallback>
-    </Avatar>
+    <InitialsAvatar
+      name={user.name}
+      initials={user.initials}
+      seed={user.email ?? user.name}
+      imageUrl={user.avatarUrl}
+      className={cn('size-8', className)}
+      textClassName="text-[11px]"
+    />
   );
 }
 
@@ -355,7 +348,7 @@ function SidebarProfile({
         <ProfileAvatar user={user} className="size-9" />
         <span className="flex min-w-0 flex-col">
           <span className="truncate text-sm font-semibold text-foreground">
-            {user.name}
+            {toTitleCase(user.name)}
           </span>
           {user.email ? (
             <span className="truncate text-xs text-muted-foreground">
@@ -420,11 +413,12 @@ function SidebarProfile({
         <ProfileAvatar user={user} className="size-9" />
         <span className="flex min-w-0 flex-1 flex-col">
           <span className="truncate text-[13px] font-semibold text-foreground">
-            {user.name}
+            {toTitleCase(user.name)}
           </span>
-          {user.caption || user.email ? (
+          {/* email here — the role/persona lives in the context switcher */}
+          {user.email ? (
             <span className="truncate text-[11px] text-muted-foreground">
-              {user.caption ?? user.email}
+              {user.email}
             </span>
           ) : null}
         </span>
@@ -810,7 +804,7 @@ function Sidebar({
             viewBox={`0 0 ${shapeWidth} ${shapeHeight}`}
             className="pointer-events-none absolute inset-0 z-0 size-full overflow-visible"
           >
-            <path d={shapeFillPath} fill="var(--popover)" />
+            <path d={shapeFillPath} fill="var(--sidebar-solid)" />
             <path
               d={shapeStrokePath}
               fill="none"

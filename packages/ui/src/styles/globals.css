@@ -93,6 +93,9 @@
 
   /* sidebar / navigation surface (frosted glass on white) */
   --sidebar: rgba(255, 255, 255, 0.62);
+  /* opaque equivalent of the (translucent) sidebar surface — used where an
+     opaque fill must still read as the sidebar, e.g. the collapsed flyout. */
+  --sidebar-solid: #ffffff;
   --sidebar-foreground: #191b38;
   --sidebar-primary: #4f6df5;
   --sidebar-primary-foreground: #ffffff;
@@ -234,6 +237,7 @@
   --chart-5: #ffce5c;
 
   --sidebar: rgba(255, 255, 255, 0.022); /* aurora --rail-bg: near-flat over bg */
+  --sidebar-solid: #0b0a14; /* opaque match of the rail over the flat #07060f bg */
   --sidebar-foreground: #eef0ff;
   --sidebar-primary: #5b8cff;
   --sidebar-primary-foreground: #06081f;
@@ -334,6 +338,7 @@
   --chart-5: #ffce5c;
 
   --sidebar: #0c0a1d;
+  --sidebar-solid: #0c0a1d; /* already opaque in classic */
   --sidebar-foreground: #eef0ff;
   --sidebar-primary: #5b8cff;
   --sidebar-primary-foreground: #06081f;
@@ -488,14 +493,11 @@ html:not(.classic-dark) [data-slot='app-shell']::before {
   content: '';
   position: absolute;
   inset: 0;
-  z-index: 0;
+  z-index: -1; /* behind content, WITHOUT turning children into stacking
+                  contexts (which would trap fixed overlays like the AI
+                  workspace / account sheet rendered inside the shell). */
   pointer-events: none;
   background: var(--aurora-field); /* `none` in dark → renders nothing */
-}
-/* keep the real chrome + content above the glow */
-html:not(.classic-dark) [data-slot='app-shell'] > * {
-  position: relative;
-  z-index: 1;
 }
 /* the main content region is transparent so the canvas shows behind cards */
 html:not(.classic-dark) [data-slot='app-shell'] main,

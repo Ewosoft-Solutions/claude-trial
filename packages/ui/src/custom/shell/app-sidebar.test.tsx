@@ -135,11 +135,11 @@ describe('AppSidebar — canonical collapsible navigation', () => {
     expect(
       document.querySelectorAll('[data-slot="flyout-contour"]'),
     ).toHaveLength(1);
-    // Opaque surface fill for legibility.
+    // Opaque surface fill for legibility — matches the rail (sidebar-solid).
     const fill = document
       .querySelector('[data-slot="flyout-contour"] path')
       ?.getAttribute('fill');
-    expect(fill).toBe('var(--popover)');
+    expect(fill).toBe('var(--sidebar-solid)');
 
     expect(within(secondary).getByText('Greenfield School')).toBeInTheDocument();
     const dashboard = within(secondary).getByRole('button', {

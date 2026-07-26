@@ -4,6 +4,7 @@ import * as React from "react"
 import * as AvatarPrimitive from "@radix-ui/react-avatar"
 
 import { cn } from "@workspace/ui/lib/utils"
+import { neonAvatarColor } from "@workspace/ui/lib/avatar-color"
 
 function Avatar({
   className,
@@ -36,17 +37,35 @@ function AvatarImage({
 
 function AvatarFallback({
   className,
+  seed,
+  style,
+  children,
   ...props
-}: React.ComponentProps<typeof AvatarPrimitive.Fallback>) {
+}: React.ComponentProps<typeof AvatarPrimitive.Fallback> & {
+  /** Colour seed (email/id). Falls back to the initials text. */
+  seed?: string
+}) {
+  // Initials get a deterministic neon tint (Teams-style) unless the caller
+  // sets an explicit colour (a `bg-*` class or an inline background).
+  const hasExplicitBg =
+    /(^|\s)bg-\S/.test(className ?? "") ||
+    Boolean(style && ("background" in style || "backgroundColor" in style))
+  const seedText = seed ?? (typeof children === "string" ? children : undefined)
+  const autoColor = hasExplicitBg ? undefined : neonAvatarColor(seedText ?? "")
+
   return (
     <AvatarPrimitive.Fallback
       data-slot="avatar-fallback"
       className={cn(
-        "bg-muted flex size-full items-center justify-center rounded-full",
+        "flex size-full items-center justify-center rounded-full",
+        autoColor && "text-white",
         className
       )}
+      style={autoColor ? { background: autoColor, ...style } : style}
       {...props}
-    />
+    >
+      {children}
+    </AvatarPrimitive.Fallback>
   )
 }
 
