@@ -7,7 +7,7 @@
 
 import * as bcrypt from 'bcrypt';
 import { PrismaClient } from '@workspace/database';
-import { withUserScope } from '@workspace/database/rls';
+import { withTenantScope, withUserScope } from '@workspace/database/rls';
 
 /**
  * Password Policy Configuration
@@ -41,6 +41,19 @@ const DEFAULT_PASSWORD_POLICY: PasswordPolicy = {
 export interface PasswordValidationResult {
   valid: boolean;
   errors: string[];
+}
+
+/**
+ * The subset of the effective policy surfaced to clients so the sign-up /
+ * reset UI can render a live strength meter + requirements checklist. Kept in
+ * lock-step with the rules `validatePasswordPolicy` actually enforces.
+ */
+export interface PasswordRequirements {
+  minLength: number;
+  requireUppercase: boolean;
+  requireLowercase: boolean;
+  requireNumbers: boolean;
+  requireSpecialChars: boolean;
 }
 
 /**
@@ -124,11 +137,107 @@ export class PasswordService {
     };
   }
 
+  /** Project the effective policy to the client-facing requirement flags. */
+  static toRequirements(policy: PasswordPolicy): PasswordRequirements {
+    return {
+      minLength: policy.minLength,
+      requireUppercase: policy.requireUppercase,
+      requireLowercase: policy.requireLowercase,
+      requireNumbers: policy.requireNumbers,
+      requireSpecialChars: policy.requireSpecialChars,
+    };
+  }
+
   /**
-   * Validate password against all school policies (3.5)
+   * Resolve the effective password policy for a single school (4a).
    *
-   * User must satisfy password policy for ALL schools they belong to.
-   * This ensures password works across all schools.
+   * Reads that school's SchoolSecurityPolicy, RLS-scoped to the tenant the same
+   * way SecurityPolicyService.getSchoolPolicy does (so it works on the pre-auth
+   * reset/rotation paths). Falls back to the platform default (Basic tier) when
+   * a school has no policy row yet.
+   */
+  static async resolveEffectivePolicyForSchool(
+    prisma: PrismaClient,
+    schoolId: string,
+  ): Promise<PasswordPolicy> {
+    const row = await withTenantScope(prisma, schoolId, undefined, (tx) =>
+      tx.schoolSecurityPolicy.findUnique({
+        where: { schoolId },
+        select: {
+          passwordMinLength: true,
+          passwordRequireUppercase: true,
+          passwordRequireLowercase: true,
+          passwordRequireNumbers: true,
+          passwordRequireSpecialChars: true,
+          passwordMaxAge: true,
+          passwordPreventReuse: true,
+        },
+      }),
+    );
+    if (!row) return { ...DEFAULT_PASSWORD_POLICY };
+    return {
+      minLength: row.passwordMinLength,
+      requireUppercase: row.passwordRequireUppercase,
+      requireLowercase: row.passwordRequireLowercase,
+      requireNumbers: row.passwordRequireNumbers,
+      requireSpecialChars: row.passwordRequireSpecialChars,
+      maxAge: row.passwordMaxAge,
+      preventReuse: row.passwordPreventReuse,
+    };
+  }
+
+  /**
+   * Resolve the effective password policy for a user across ALL their schools.
+   *
+   * A password must satisfy every school the user belongs to, so their policies
+   * are combined into the STRICTEST single policy. A user with no school gets
+   * the platform default.
+   */
+  static async resolveEffectivePolicyForUser(
+    prisma: PrismaClient,
+    userId: string,
+  ): Promise<PasswordPolicy> {
+    // Cross-tenant and about one user → read under the user scope, the grant
+    // the sign-in profile lookup uses (migration 20260723090000). Runs on the
+    // reset/rotation paths, before any tenant is selected.
+    const userTenants = await withUserScope(prisma, userId, (tx) =>
+      tx.userTenant.findMany({ where: { userId }, select: { tenantId: true } }),
+    );
+    const schoolIds = [...new Set(userTenants.map((ut) => ut.tenantId))];
+    if (schoolIds.length === 0) return { ...DEFAULT_PASSWORD_POLICY };
+
+    const policies = await Promise.all(
+      schoolIds.map((id) => this.resolveEffectivePolicyForSchool(prisma, id)),
+    );
+    return policies.reduce((strictest, policy) =>
+      this.strictestPolicy(strictest, policy),
+    );
+  }
+
+  /** Combine two policies into the stricter of the two, field by field. */
+  private static strictestPolicy(
+    a: PasswordPolicy,
+    b: PasswordPolicy,
+  ): PasswordPolicy {
+    const maxAge = Math.min(a.maxAge ?? Infinity, b.maxAge ?? Infinity);
+    const preventReuse = Math.max(a.preventReuse ?? 0, b.preventReuse ?? 0);
+    return {
+      minLength: Math.max(a.minLength, b.minLength),
+      requireUppercase: a.requireUppercase || b.requireUppercase,
+      requireLowercase: a.requireLowercase || b.requireLowercase,
+      requireNumbers: a.requireNumbers || b.requireNumbers,
+      requireSpecialChars: a.requireSpecialChars || b.requireSpecialChars,
+      maxAge: Number.isFinite(maxAge) ? maxAge : undefined,
+      preventReuse: preventReuse > 0 ? preventReuse : undefined,
+    };
+  }
+
+  /**
+   * Validate a password against every school the user belongs to (3.5).
+   *
+   * The password must satisfy the strictest combination of all the user's
+   * school policies, so a forced rotation or reset can never set a password
+   * weaker than any of those schools require.
    *
    * @param prisma - Prisma client instance
    * @param userId - User ID
@@ -140,89 +249,8 @@ export class PasswordService {
     userId: string,
     password: string,
   ): Promise<PasswordValidationResult> {
-    // Get all schools user belongs to. Cross-tenant by nature and asked about
-    // one user, so it reads under the user scope — the same grant the sign-in
-    // profile lookup uses (migration 20260723090000_user_tenants_self_scope).
-    // Runs on the password-reset path, where no tenant has been selected.
-    const userTenants = await withUserScope(prisma, userId, (tx) =>
-      tx.userTenant.findMany({
-        where: { userId },
-        include: {
-          tenant: {
-            // TODO: Include securityPolicy when security policy table is implemented
-            // include: {
-            //   securityPolicy: true,
-            // },
-          },
-        },
-      }),
-    );
-
-    if (userTenants.length === 0) {
-      // No schools, use default policy
-      return this.validatePasswordPolicy(password);
-    }
-
-    // TODO: Validate against school-specific policies when security policy table is implemented
-    // For now, use default policy
-    // This will be enhanced when security policy system is implemented (Section 4a)
-
-    // Validate against strictest policy from all schools
-    let strictestPolicy: PasswordPolicy | null = null;
-
-    // TODO: When security policy is implemented, uncomment and use actual policy
-    // for (const userTenant of userTenants) {
-    //   const policy = userTenant.tenant.securityPolicy;
-    //   if (policy) {
-    //     const schoolPolicy: PasswordPolicy = {
-    //       minLength: policy.passwordMinLength || DEFAULT_PASSWORD_POLICY.minLength,
-    //       requireUppercase:
-    //         policy.passwordRequireUppercase ??
-    //         DEFAULT_PASSWORD_POLICY.requireUppercase,
-    //       requireLowercase:
-    //         policy.passwordRequireLowercase ??
-    //         DEFAULT_PASSWORD_POLICY.requireLowercase,
-    //       requireNumbers:
-    //         policy.passwordRequireNumbers ?? DEFAULT_PASSWORD_POLICY.requireNumbers,
-    //       requireSpecialChars:
-    //         policy.passwordRequireSpecialChars ??
-    //         DEFAULT_PASSWORD_POLICY.requireSpecialChars,
-    //       maxAge: policy.passwordMaxAge || DEFAULT_PASSWORD_POLICY.maxAge,
-    //       preventReuse:
-    //         policy.passwordPreventReuse || DEFAULT_PASSWORD_POLICY.preventReuse,
-    //     };
-    //
-    //     // Use strictest policy (highest requirements)
-    //     if (!strictestPolicy) {
-    //       strictestPolicy = schoolPolicy;
-    //     } else {
-    //       strictestPolicy = {
-    //         minLength: Math.max(strictestPolicy.minLength, schoolPolicy.minLength),
-    //         requireUppercase:
-    //           strictestPolicy.requireUppercase || schoolPolicy.requireUppercase,
-    //         requireLowercase:
-    //           strictestPolicy.requireLowercase || schoolPolicy.requireLowercase,
-    //         requireNumbers:
-    //           strictestPolicy.requireNumbers || schoolPolicy.requireNumbers,
-    //         requireSpecialChars:
-    //           strictestPolicy.requireSpecialChars ||
-    //           schoolPolicy.requireSpecialChars,
-    //         maxAge: Math.min(
-    //           strictestPolicy.maxAge || 999,
-    //           schoolPolicy.maxAge || 999,
-    //         ),
-    //         preventReuse: Math.max(
-    //           strictestPolicy.preventReuse || 0,
-    //           schoolPolicy.preventReuse || 0,
-    //         ),
-    //       };
-    //     }
-    //   }
-    // }
-
-    // Validate against strictest policy (default for now)
-    const effectivePolicy = strictestPolicy ?? DEFAULT_PASSWORD_POLICY;
-    return this.validatePasswordPolicy(password, effectivePolicy);
+    const policy = await this.resolveEffectivePolicyForUser(prisma, userId);
+    return this.validatePasswordPolicy(password, policy);
   }
 
   /**

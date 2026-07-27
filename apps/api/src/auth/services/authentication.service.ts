@@ -27,6 +27,7 @@ import { AUDIT_ACTION, AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { writeAuditLog } from '../../common/audit/audit-writer';
 // Local imports
 import { PasswordService } from './password.service';
+import type { PasswordRequirements } from './password.service';
 import { LoginAttemptService } from './login-attempt.service';
 import { AuthJWTService } from './jwt.service';
 import { SessionService, REFRESH_ROTATION_GRACE_MS } from './session.service';
@@ -110,6 +111,12 @@ export interface LoginResponse {
    * must call POST /auth/change-password with the current password.
    */
   mustChangePassword?: boolean;
+  /**
+   * The effective password policy (strictest across the user's schools),
+   * included ONLY when `mustChangePassword` is set so the rotation UI can show
+   * a live requirements meter. Kept in step with what the API enforces.
+   */
+  passwordPolicy?: PasswordRequirements;
   requiresMfa?: boolean;
   mfaChallengeId?: string;
   mfaMethodType?: MfaMethodType;

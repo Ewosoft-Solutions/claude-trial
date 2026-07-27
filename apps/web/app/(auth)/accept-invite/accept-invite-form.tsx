@@ -15,6 +15,11 @@ import { Button } from '@workspace/ui/components/button';
 import { Card } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
 import { PasswordInput } from '@workspace/ui/components/password-input';
+import {
+  evaluatePassword,
+  PasswordStrengthMeter,
+  type PasswordRequirements,
+} from '@workspace/ui/components/password-strength';
 import { Label } from '@workspace/ui/components/label';
 
 interface Preview {
@@ -25,6 +30,7 @@ interface Preview {
   lastName: string | null;
   tenantName: string;
   role: string | null;
+  passwordPolicy?: PasswordRequirements;
 }
 
 export function AcceptInviteForm() {
@@ -75,7 +81,12 @@ export function AcceptInviteForm() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-    if (password.length < 8) {
+    const policy = preview?.passwordPolicy;
+    if (policy && !evaluatePassword(policy, password).allMet) {
+      setError('Your password does not meet all the requirements below.');
+      return;
+    }
+    if (!policy && password.length < 8) {
       setError('Password must be at least 8 characters.');
       return;
     }
@@ -174,11 +185,17 @@ export function AcceptInviteForm() {
                 id="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="At least 8 characters"
+                placeholder={`At least ${preview.passwordPolicy?.minLength ?? 8} characters`}
                 required
-                minLength={8}
+                minLength={preview.passwordPolicy?.minLength ?? 8}
               />
             </div>
+            {preview.passwordPolicy ? (
+              <PasswordStrengthMeter
+                policy={preview.passwordPolicy}
+                value={password}
+              />
+            ) : null}
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="confirm">Confirm password</Label>
               <PasswordInput

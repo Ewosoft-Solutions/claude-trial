@@ -12,6 +12,7 @@ import {
 import { EmailDomainValidationService } from './email-domain-validation.service';
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
+import { PasswordService } from '../../auth/services/password.service';
 import type { PrismaClient } from '@workspace/database';
 import {
   withInvitationTokenScope,
@@ -483,6 +484,17 @@ export class UserInvitationService {
       !!invitation.invitationExpiresAt &&
       invitation.invitationExpiresAt < new Date();
 
+    // The invited school's effective password policy, so the set-password form
+    // can show a live requirements meter that matches what the API enforces.
+    const passwordPolicy = expired
+      ? undefined
+      : PasswordService.toRequirements(
+          await PasswordService.resolveEffectivePolicyForSchool(
+            this.dbService.client,
+            invitation.tenantId,
+          ),
+        );
+
     return {
       valid: !expired,
       expired,
@@ -493,6 +505,7 @@ export class UserInvitationService {
       tenantSlug: invitation.tenant.slug,
       role: invitation.userTenantRole?.role?.name ?? null,
       invitationExpiresAt: invitation.invitationExpiresAt,
+      passwordPolicy,
     };
   }
 
