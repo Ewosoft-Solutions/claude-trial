@@ -40,6 +40,7 @@ import type {
   LlmToolResultPart,
   LlmUsage,
 } from '../llm/llm.types';
+import { deriveSessionTitle, extractSessionTitle } from '../chat-title.util';
 
 /** Chart spec rendered by the existing packages/ui wrappers (Step 3). */
 export type AnalyticsChartSpec =
@@ -75,6 +76,8 @@ export interface AnalyticsChatEnvelope {
   data: AnalyticsToolTrace[];
   visualization: AnalyticsChartSpec | null;
   insights: string;
+  /** Concise session title for history (from the model, or a heuristic). */
+  title: string;
   usage: LlmUsage & { iterations: number; latencyMs: number };
 }
 
@@ -123,7 +126,8 @@ Answer style:
 {"type":"donut","title":"...","slices":[{"key":"active","label":"Active","value":420}]}
 \`\`\`
 or {"type":"bar"|"trend","title":"...","xKey":"...","data":[{"...":"..."}],"series":[{"key":"...","label":"..."}]}.
-Use donut for part-to-whole, bar for category comparison, trend for time series. Omit the block when a chart adds nothing.`;
+Use donut for part-to-whole, bar for category comparison, trend for time series. Omit the block when a chart adds nothing.
+- Finish your reply with one final line that names this conversation for the history list: \`#title:\` followed by a 3–6 word summary of the question (e.g. \`#title: Grade 9 attendance trend\`). Put it after any chart block; it is stripped from the shown answer. Include it even when refusing.`;
 
 @Injectable()
 export class AnalyticsChatService {
@@ -192,6 +196,7 @@ export class AnalyticsChatService {
     try {
     // ---- Session + history (short RLS scopes) --------------------------
     let sessionId: string;
+    let sessionIsNew = false;
     let history: LlmMessage[];
     try {
       const loaded = await this.tenantDb.runScoped(
@@ -213,10 +218,15 @@ export class AnalyticsChatService {
               content: params.message,
             },
           });
-          return { sessionId: session.id, messages: messages.reverse() };
+          return {
+            sessionId: session.id,
+            isNew: session.isNew,
+            messages: messages.reverse(),
+          };
         },
       );
       sessionId = loaded.sessionId;
+      sessionIsNew = loaded.isNew;
       history = loaded.messages
         .filter((m) => m.content.trim().length > 0)
         .map((m) => ({
@@ -371,7 +381,11 @@ export class AnalyticsChatService {
     const rawText = finalTurn
       ? turnText(finalTurn)
       : 'I could not complete this request within the allowed number of steps.';
-    const { insights, visualization } = this.extractChartSpec(rawText);
+    // Pull the model's `#title:` line out first (heuristic fallback if absent),
+    // then strip any chart block from what remains.
+    const { title: modelTitle, body } = extractSessionTitle(rawText);
+    const { insights, visualization } = this.extractChartSpec(body);
+    const sessionTitle = modelTitle ?? deriveSessionTitle(params.message);
     const latencyMs = Date.now() - startedAt;
 
     let messageId = '';
@@ -414,6 +428,23 @@ export class AnalyticsChatService {
       this.logger.error('Failed to persist assistant message', error as Error);
     }
 
+    // Replace the seeded heuristic title with the model's, once, for a new
+    // session. Best-effort: a title update must never fail the turn.
+    if (sessionIsNew) {
+      try {
+        await this.tenantDb.runScoped(params.tenantId, params.userId, () =>
+          this.tenantDb.client.chatSession.update({
+            where: { id: sessionId },
+            data: { title: sessionTitle },
+          }),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to update session title: ${(error as Error).message}`,
+        );
+      }
+    }
+
     await this.aiUsageService.recordUsage({
       tenantId: params.tenantId,
       userId: params.userId,
@@ -436,6 +467,7 @@ export class AnalyticsChatService {
         data: traces,
         visualization,
         insights,
+        title: sessionTitle,
         usage: { ...totalUsage, iterations, latencyMs },
       },
     };
@@ -512,7 +544,9 @@ export class AnalyticsChatService {
     }
   }
 
-  private async loadOrCreateSession(params: AnalyticsChatParams) {
+  private async loadOrCreateSession(
+    params: AnalyticsChatParams,
+  ): Promise<{ id: string; isNew: boolean }> {
     if (params.sessionId) {
       const existing = await this.tenantDb.client.chatSession.findFirst({
         where: {
@@ -524,19 +558,22 @@ export class AnalyticsChatService {
         },
         select: { id: true },
       });
-      if (existing) return existing;
+      if (existing) return { id: existing.id, isNew: false };
       // Unknown/foreign session id: fall through to a fresh session rather
       // than leaking whether the id exists for someone else.
     }
-    return this.tenantDb.client.chatSession.create({
+    // Seed with the heuristic title; the model's `#title:` line replaces it
+    // once the first reply lands (see the complete branch).
+    const created = await this.tenantDb.client.chatSession.create({
       data: {
         tenantId: params.tenantId,
         userTenantId: params.profileId,
         type: 'analytics',
-        title: params.message.slice(0, 80),
+        title: deriveSessionTitle(params.message),
       },
       select: { id: true },
     });
+    return { id: created.id, isNew: true };
   }
 
   /**
