@@ -50,6 +50,7 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 import { useViewer } from '@/app/providers/viewer-provider';
 import type { LessonSummary } from '@/lib/academics';
 import { readSseStream } from '@/lib/sse';
+import { isAbortError } from '@/lib/swr-abort';
 
 type AiMode = 'assistant' | 'tutor' | 'integrity';
 
@@ -425,11 +426,14 @@ function AssistantPane({ active }: { active: boolean }) {
   const [error, setError] = React.useState<string | null>(null);
   const [showHistory, setShowHistory] = React.useState(false);
 
+  // A superseded/unmounted read rejects with an AbortError — transient, not a
+  // real failure, so never surface it as a banner.
+  const historyError = isAbortError(sessionsError) ? undefined : sessionsError;
   const displayError =
     error ??
-    (sessionsError instanceof Error
-      ? sessionsError.message
-      : sessionsError
+    (historyError instanceof Error
+      ? historyError.message
+      : historyError
         ? 'Could not load assistant history.'
         : null);
 
@@ -831,13 +835,17 @@ function TutorPane({ active }: { active: boolean }) {
     }
   }, [lessonId, lessons]);
 
+  // AbortErrors from superseded/unmounted reads are transient — filter them so
+  // they never render as a banner.
+  const lessonsErr = isAbortError(lessonsError) ? undefined : lessonsError;
+  const historyErr = isAbortError(sessionsError) ? undefined : sessionsError;
   const displayError =
     error ??
-    (lessonsError instanceof Error
-      ? lessonsError.message
-      : sessionsError instanceof Error
-        ? sessionsError.message
-        : lessonsError || sessionsError
+    (lessonsErr instanceof Error
+      ? lessonsErr.message
+      : historyErr instanceof Error
+        ? historyErr.message
+        : lessonsErr || historyErr
           ? 'Could not load tutor data.'
           : null);
 
