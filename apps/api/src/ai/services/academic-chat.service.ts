@@ -39,6 +39,7 @@ import { LlmProviderFactory } from '../llm/llm-provider.factory';
 import { aiConfig } from '../config/ai.config';
 import type { AiConfig } from '../config/ai.config';
 import { turnText } from '../llm/llm.types';
+import { deriveSessionTitle, extractSessionTitle } from '../chat-title.util';
 import type {
   LlmAssistantTurn,
   LlmMessage,
@@ -77,6 +78,8 @@ export interface AcademicChatEnvelope {
   lessonId: string;
   answer: string;
   citations: AcademicCitation[];
+  /** Concise session title for history (from the model, or a heuristic). */
+  title: string;
   usage: LlmUsage & { latencyMs: number };
 }
 
@@ -121,7 +124,8 @@ Academic integrity (this is the point of the tool):
 
 Answer style:
 - Warm, concise, and age-appropriate. Address the student by first name when it reads naturally.
-- Lead with the explanation; keep it focused. Prefer short paragraphs and simple examples over walls of text.`;
+- Lead with the explanation; keep it focused. Prefer short paragraphs and simple examples over walls of text.
+- Finish your reply with one final line that names this study chat for the history list: \`#title:\` followed by a 3–6 word summary of the topic (e.g. \`#title: Photosynthesis light reactions\`). It is stripped from the shown answer. Include it even when declining.`;
 
 @Injectable()
 export class AcademicChatService {
@@ -256,6 +260,7 @@ export class AcademicChatService {
     // ---- Session + lesson resolution (short RLS scopes) ------------------
     let sessionId: string;
     let lessonId: string;
+    let sessionIsNew = false;
     let history: LlmMessage[];
     try {
       const loaded = await this.tenantDb.runScoped(
@@ -280,12 +285,14 @@ export class AcademicChatService {
           return {
             sessionId: session.id,
             lessonId: session.lessonId,
+            isNew: session.isNew,
             messages: messages.reverse(),
           };
         },
       );
       sessionId = loaded.sessionId;
       lessonId = loaded.lessonId;
+      sessionIsNew = loaded.isNew;
       history = loaded.messages
         .filter((m) => m.content.trim().length > 0)
         .map((m) => ({
@@ -403,7 +410,12 @@ export class AcademicChatService {
       return;
     }
 
-    const answer = turnText(finalTurn).trim();
+    // Pull the model's `#title:` line out of the reply (heuristic fallback if
+    // it is absent); `answer` is what remains and what the student sees.
+    const { title: modelTitle, body: answer } = extractSessionTitle(
+      turnText(finalTurn).trim(),
+    );
+    const sessionTitle = modelTitle ?? deriveSessionTitle(params.message);
     const latencyMs = Date.now() - startedAt;
 
     // ---- Persist the assistant reply -------------------------------------
@@ -439,6 +451,23 @@ export class AcademicChatService {
       this.logger.error('Failed to persist tutor reply', error as Error);
     }
 
+    // Replace the seeded heuristic title with the model's, once, for a new
+    // session. Best-effort: a title update must never fail the turn.
+    if (sessionIsNew) {
+      try {
+        await this.tenantDb.runScoped(params.tenantId, params.userId, () =>
+          this.tenantDb.client.chatSession.update({
+            where: { id: sessionId },
+            data: { title: sessionTitle },
+          }),
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Failed to update session title: ${(error as Error).message}`,
+        );
+      }
+    }
+
     await this.aiUsageService.recordUsage({
       tenantId: params.tenantId,
       userId: params.userId,
@@ -458,6 +487,7 @@ export class AcademicChatService {
         lessonId,
         answer,
         citations,
+        title: sessionTitle,
         usage: { ...totalUsage, latencyMs },
       },
     };
@@ -633,7 +663,7 @@ export class AcademicChatService {
 
   private async loadOrCreateSession(
     params: AcademicChatParams,
-  ): Promise<{ id: string; lessonId: string }> {
+  ): Promise<{ id: string; lessonId: string; isNew: boolean }> {
     if (params.sessionId) {
       const existing = await this.tenantDb.client.chatSession.findFirst({
         where: {
@@ -648,20 +678,26 @@ export class AcademicChatService {
       // Resuming: the session's lesson is authoritative (ignore a mismatched
       // dto.lessonId). Unknown/foreign ids fall through to a fresh session.
       if (existing?.lessonId) {
-        return { id: existing.id, lessonId: existing.lessonId };
+        return { id: existing.id, lessonId: existing.lessonId, isNew: false };
       }
     }
+    // Seed with the heuristic title; the model's `#title:` line replaces it
+    // once the first reply lands (see the complete branch).
     const created = await this.tenantDb.client.chatSession.create({
       data: {
         tenantId: params.tenantId,
         userTenantId: params.profileId,
         type: 'academic',
         lessonId: params.lessonId,
-        title: params.message.slice(0, 80),
+        title: deriveSessionTitle(params.message),
       },
       select: { id: true, lessonId: true },
     });
-    return { id: created.id, lessonId: created.lessonId ?? params.lessonId };
+    return {
+      id: created.id,
+      lessonId: created.lessonId ?? params.lessonId,
+      isNew: true,
+    };
   }
 
   /** Resolve chunk rows into citations with material titles. */

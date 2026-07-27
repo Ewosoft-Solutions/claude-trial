@@ -50,6 +50,7 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 import { useViewer } from '@/app/providers/viewer-provider';
 import type { LessonSummary } from '@/lib/academics';
 import { readSseStream } from '@/lib/sse';
+import { isAbortError } from '@/lib/swr-abort';
 
 type AiMode = 'assistant' | 'tutor' | 'integrity';
 
@@ -112,6 +113,15 @@ let nextLocalId = 0;
 function localId(): string {
   nextLocalId += 1;
   return `ai-local-${nextLocalId}`;
+}
+
+/**
+ * Placeholder history title until the model's concise summary arrives on the
+ * `complete` event. Just collapses whitespace and trims — no raw multi-line
+ * dump — then the real `#title:` summary replaces it.
+ */
+function optimisticTitle(message: string): string {
+  return message.replace(/\s+/g, ' ').trim().slice(0, 60) || 'New conversation';
 }
 
 function formatDay(value: string): string {
@@ -222,20 +232,19 @@ export function AiWorkspaceLauncher() {
           className="fixed inset-0 z-50 flex bg-background text-foreground"
         >
           <div className="flex min-h-0 w-full flex-col">
-            <header className="flex min-h-16 items-center gap-3 border-b border-border bg-card px-4 md:px-5">
+            <header className="flex min-h-14 items-center gap-3 border-b border-border bg-card px-4 md:px-5">
               <span
-                className="grid size-10 shrink-0 place-items-center rounded-[var(--radius-sm)] text-white"
+                className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] text-white transition-colors"
                 style={{ background: active.accent }}
               >
                 <ModeIcon mode={active.key} className="size-5" />
               </span>
               <div className="min-w-0">
+                {/* The active mode + its blurb now live in the top-nav tab and
+                    the pane header, so the top bar stays a clean brand line. */}
                 <h1 className="break-words text-base font-bold md:text-lg">
                   AI workspace
                 </h1>
-                <p className="break-words text-xs text-muted-foreground md:text-sm">
-                  {active.label} - {active.description}
-                </p>
               </div>
               <Button
                 type="button"
@@ -249,47 +258,40 @@ export function AiWorkspaceLauncher() {
               </Button>
             </header>
 
-            <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-              <aside className="hidden w-64 shrink-0 border-r border-border bg-sidebar p-3 md:block">
-                <nav aria-label="AI modes" className="flex flex-col gap-1">
-                  {modes.map((mode) => (
-                    <ModeButton
-                      key={mode.key}
-                      mode={mode}
-                      active={mode.key === activeMode}
-                      onClick={() => setActiveMode(mode.key)}
-                    />
-                  ))}
-                </nav>
-              </aside>
-
-              <div className="border-b border-border bg-sidebar p-2 md:hidden">
-                <div className="flex gap-1 overflow-x-auto">
-                  {modes.map((mode) => (
-                    <ModeButton
-                      key={mode.key}
-                      mode={mode}
-                      active={mode.key === activeMode}
-                      onClick={() => setActiveMode(mode.key)}
-                      compact
-                    />
-                  ))}
-                </div>
-              </div>
-
-              <main
-                className="flex min-w-0 flex-1 flex-col overflow-hidden bg-background p-3 md:p-4"
-                style={modeStyle(active.key)}
+            {/* Modes are a horizontal top nav (was a left rail): it frees the
+                left column so each pane's history list can sit beside the chat
+                at tablet+ via the pane's ListDetailLayout. */}
+            {modes.length > 1 ? (
+              <nav
+                aria-label="AI modes"
+                className="flex shrink-0 items-center gap-1 overflow-x-auto border-b border-border bg-sidebar px-2 py-1.5 md:px-4"
               >
-                {activeMode === 'assistant' ? (
-                  <AssistantPane active={open && activeMode === 'assistant'} />
-                ) : null}
-                {activeMode === 'tutor' ? (
-                  <TutorPane active={open && activeMode === 'tutor'} />
-                ) : null}
-                {activeMode === 'integrity' ? <IntegrityMonitorPane /> : null}
-              </main>
-            </div>
+                {modes.map((mode) => (
+                  <ModeTab
+                    key={mode.key}
+                    mode={mode}
+                    active={mode.key === activeMode}
+                    onClick={() => setActiveMode(mode.key)}
+                  />
+                ))}
+              </nav>
+            ) : null}
+
+            {/* @container/main drives the ListDetailLayout inside each pane:
+                history sits beside the chat once this column is @3xl (tablet+),
+                and collapses to a toggle below that. */}
+            <main
+              className="@container/main flex min-w-0 flex-1 flex-col overflow-hidden bg-background p-3 md:p-4"
+              style={modeStyle(active.key)}
+            >
+              {activeMode === 'assistant' ? (
+                <AssistantPane active={open && activeMode === 'assistant'} />
+              ) : null}
+              {activeMode === 'tutor' ? (
+                <TutorPane active={open && activeMode === 'tutor'} />
+              ) : null}
+              {activeMode === 'integrity' ? <IntegrityMonitorPane /> : null}
+            </main>
           </div>
         </div>
       ) : null}
@@ -297,49 +299,40 @@ export function AiWorkspaceLauncher() {
   );
 }
 
-function ModeButton({
+function ModeTab({
   mode,
   active,
-  compact = false,
   onClick,
 }: {
   mode: ModeMeta;
   active: boolean;
-  compact?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
+      title={mode.description}
+      aria-pressed={active}
+      style={modeStyle(mode.key)}
       className={cn(
-        'flex min-w-0 items-center gap-2 rounded-[var(--radius-sm)] border px-2.5 py-2 text-left outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50',
+        'flex shrink-0 items-center gap-2 rounded-[var(--radius-sm)] border px-2.5 py-1.5 outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50',
         active
           ? 'border-[var(--ai-accent)] bg-[color-mix(in_oklab,var(--ai-accent)_13%,transparent)] text-foreground'
           : 'border-transparent text-muted-foreground hover:bg-accent hover:text-foreground',
-        compact && 'min-w-36 shrink-0',
       )}
-      style={modeStyle(mode.key)}
-      aria-pressed={active}
     >
       <span
         className={cn(
-          'grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)]',
+          'grid size-6 shrink-0 place-items-center rounded-[var(--radius-sm)]',
           active ? 'text-white' : 'bg-muted text-muted-foreground',
         )}
         style={active ? { background: mode.accent } : undefined}
       >
-        <ModeIcon mode={mode.key} className="size-4" />
+        <ModeIcon mode={mode.key} className="size-3.5" />
       </span>
-      <span className="min-w-0">
-        <span className="block truncate text-sm font-semibold">
-          {mode.label}
-        </span>
-        {!compact ? (
-          <span className="block truncate text-xs text-muted-foreground">
-            {mode.description}
-          </span>
-        ) : null}
+      <span className="whitespace-nowrap text-sm font-semibold">
+        {mode.label}
       </span>
     </button>
   );
@@ -372,6 +365,7 @@ interface AssistantEnvelope {
   messageId: string;
   visualization: ChatChartSpec | null;
   insights: string;
+  title: string;
 }
 
 type ToolStatus = 'started' | 'completed' | 'denied' | 'error';
@@ -432,11 +426,14 @@ function AssistantPane({ active }: { active: boolean }) {
   const [error, setError] = React.useState<string | null>(null);
   const [showHistory, setShowHistory] = React.useState(false);
 
+  // A superseded/unmounted read rejects with an AbortError — transient, not a
+  // real failure, so never surface it as a banner.
+  const historyError = isAbortError(sessionsError) ? undefined : sessionsError;
   const displayError =
     error ??
-    (sessionsError instanceof Error
-      ? sessionsError.message
-      : sessionsError
+    (historyError instanceof Error
+      ? historyError.message
+      : historyError
         ? 'Could not load assistant history.'
         : null);
 
@@ -498,7 +495,7 @@ function AssistantPane({ active }: { active: boolean }) {
                   : [
                       {
                         id: sessionId,
-                        title: message.slice(0, 80),
+                        title: optimisticTitle(message),
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString(),
                       },
@@ -540,6 +537,16 @@ function AssistantPane({ active }: { active: boolean }) {
               chart: envelope.visualization,
               pending: false,
             }));
+            // Adopt the model's concise summary as the history title.
+            void mutateSessions(
+              (prev) =>
+                (prev ?? []).map((s) =>
+                  s.id === envelope.sessionId
+                    ? { ...s, title: envelope.title }
+                    : s,
+                ),
+              { revalidate: false },
+            );
           } else if (event === 'error') {
             const { message: detail } = JSON.parse(data) as { message: string };
             sawTerminalEvent = true;
@@ -765,6 +772,7 @@ interface TutorEnvelope {
   lessonId: string;
   answer: string;
   citations: Citation[];
+  title: string;
 }
 
 interface AssessmentBlock {
@@ -827,13 +835,17 @@ function TutorPane({ active }: { active: boolean }) {
     }
   }, [lessonId, lessons]);
 
+  // AbortErrors from superseded/unmounted reads are transient — filter them so
+  // they never render as a banner.
+  const lessonsErr = isAbortError(lessonsError) ? undefined : lessonsError;
+  const historyErr = isAbortError(sessionsError) ? undefined : sessionsError;
   const displayError =
     error ??
-    (lessonsError instanceof Error
-      ? lessonsError.message
-      : sessionsError instanceof Error
-        ? sessionsError.message
-        : lessonsError || sessionsError
+    (lessonsErr instanceof Error
+      ? lessonsErr.message
+      : historyErr instanceof Error
+        ? historyErr.message
+        : lessonsErr || historyErr
           ? 'Could not load tutor data.'
           : null);
 
@@ -917,7 +929,7 @@ function TutorPane({ active }: { active: boolean }) {
                   : [
                       {
                         id: parsed.sessionId,
-                        title: message.slice(0, 80),
+                        title: optimisticTitle(message),
                         lessonId: parsed.lessonId,
                         lessonTitle:
                           lessonById.get(parsed.lessonId)?.title ?? null,
@@ -946,6 +958,16 @@ function TutorPane({ active }: { active: boolean }) {
               citations: envelope.citations,
               pending: false,
             }));
+            // Adopt the model's concise summary as the history title.
+            void mutateSessions(
+              (prev) =>
+                (prev ?? []).map((s) =>
+                  s.id === envelope.sessionId
+                    ? { ...s, title: envelope.title }
+                    : s,
+                ),
+              { revalidate: false },
+            );
           } else if (event === 'error') {
             const { message: detail } = JSON.parse(data) as { message: string };
             sawTerminalEvent = true;
@@ -1446,17 +1468,19 @@ function ModePaneShell({
       className="flex min-h-0 flex-1 flex-col gap-3"
       style={modeStyle(mode)}
     >
-      <div className="flex flex-wrap items-start gap-3">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <div className="min-w-0 flex-1 basis-64">
           <div className="flex items-center gap-2">
-            <span className="grid size-8 place-items-center rounded-[var(--radius-sm)] bg-[var(--ai-accent)] text-white">
+            <span className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)] bg-[var(--ai-accent)] text-white">
               <ModeIcon mode={mode} className="size-4" />
             </span>
             <h2 className="break-words text-xl font-bold">{title}</h2>
           </div>
-          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          <p className="mt-1.5 max-w-prose text-sm leading-relaxed text-pretty text-muted-foreground">
+            {description}
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           {historyButton}
           {actionButton}
         </div>

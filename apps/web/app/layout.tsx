@@ -6,6 +6,7 @@ import { ThemeProvider } from './providers/theme-provider';
 import { PwaRegister } from './providers/pwa-register';
 import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
 import { SessionNoticeToaster } from './providers/session-notice-toaster';
+import { ThemeColorMeta } from './providers/theme-color-meta';
 
 // Aurora type system: Plus Jakarta Sans for body/UI, Caveat for the
 // handwritten display face (headings + big stat numbers). Applied app-wide.
@@ -40,7 +41,13 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#4f6df5',
+  // First-paint default by OS scheme (matches the app --background: pure white
+  // in light, flat #07060f in dark). ThemeColorMeta then refines this to the
+  // user's actually-resolved theme (incl. classic-dark) on the client.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+    { media: '(prefers-color-scheme: dark)', color: '#07060f' },
+  ],
 };
 
 const showColorSchemePreview =
@@ -64,6 +71,7 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           {children}
+          <ThemeColorMeta />
           <SessionNoticeToaster />
           {showColorSchemePreview ? <ColorScheme /> : null}
           <PwaRegister />
