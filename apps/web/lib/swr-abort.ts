@@ -17,10 +17,18 @@
        user navigates to another page.
 
    The fetcher receives the signal as a trailing `{ signal }` argument;
-   `jsonFetcher` forwards it to `authedFetch` → `fetch`. Aborted reads
-   reject with an AbortError that SWR discards as stale (a newer request
-   has superseded it, or the component is gone), so nothing flashes an
-   error. Mutations are unaffected — this only wraps the read fetcher.
+   `jsonFetcher` forwards it to `authedFetch` → `fetch`. When WE abort a
+   read (a newer request superseded it, or the component unmounted), the
+   fetch rejects with an AbortError ("signal is aborted without reason").
+   SWR does NOT reliably discard that rejection — on pane mount, a focus
+   revalidation, or a React StrictMode double-invoke it can land in SWR's
+   `error` field and surface to the user (e.g. the AI workspace showed
+   "signal is aborted without reason"). So we swallow any rejection whose
+   controller we deliberately aborted, returning a promise that never
+   settles: SWR neither records an error nor clobbers fresher data, and
+   the request that triggered the abort resolves normally. Genuine fetch
+   failures (signal not aborted) propagate unchanged. Mutations are
+   unaffected — this only wraps the read fetcher.
    ============================================================ */
 
 import * as React from 'react';
@@ -36,8 +44,16 @@ export const abortOnUnmount: Middleware =
             controllerRef.current?.abort();
             const controller = new AbortController();
             controllerRef.current = controller;
-            return (fetcher as (...a: unknown[]) => unknown)(...args, {
-              signal: controller.signal,
+            return Promise.resolve(
+              (fetcher as (...a: unknown[]) => unknown)(...args, {
+                signal: controller.signal,
+              }),
+            ).catch((error: unknown) => {
+              // A read we aborted on purpose is not a failure to report.
+              if (controller.signal.aborted) {
+                return new Promise<never>(() => {});
+              }
+              throw error;
             });
           }
         : fetcher;
