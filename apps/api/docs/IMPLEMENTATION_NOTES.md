@@ -140,11 +140,8 @@ Audit logging is currently commented out. When audit logging system is implement
 
 ### 5. Email Service
 
-Password reset email sending is currently a placeholder. Implement:
-
-- Email service integration
-- Password reset email templates
-- Send reset email in `PasswordResetService.requestPasswordReset()`
+Password reset emails use the shared email queue and the configured
+SMTP/SendGrid transport. Local development falls back to the log provider.
 
 ### 6. Session Management
 
@@ -199,9 +196,8 @@ apps/api/src/auth/
 3. Implement security policy system (Section 4a) for school-specific password policies
 4. Implement MFA system (Section 3a) for enhanced security
 5. Implement audit logging system for comprehensive logging
-6. Implement email service for password reset emails
-7. Add integration tests for all authentication flows
-8. Add end-to-end tests for authentication scenarios
+6. Add integration tests for all authentication flows
+7. Add end-to-end tests for authentication scenarios
 
 ## 📝 Notes
 

@@ -3,16 +3,22 @@ import { UnauthorizedException } from '@nestjs/common';
 import { PasswordResetService, hashResetToken } from './password-reset.service';
 import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
+import {
+  PASSWORD_RESET_EMAIL_JOB,
+  type PasswordResetEmailPayload,
+} from '../../common/email';
 
 describe('PasswordResetService — tokens are stored hashed', () => {
   let service: PasswordResetService;
+  const enqueue = jest.fn();
 
   const sha256 = (v: string) =>
     crypto.createHash('sha256').update(v).digest('hex');
 
   beforeEach(() => {
     jest.restoreAllMocks();
-    service = new PasswordResetService();
+    enqueue.mockReset();
+    service = new PasswordResetService({ enqueue } as never);
 
     jest
       .spyOn(PasswordService, 'validatePasswordAgainstAllSchools')
@@ -58,6 +64,29 @@ describe('PasswordResetService — tokens are stored hashed', () => {
       // The row must never hold anything replayable.
       expect(stored).not.toBe(token);
       expect(stored).toBe(sha256(token));
+      expect(enqueue).toHaveBeenCalledWith(
+        PASSWORD_RESET_EMAIL_JOB,
+        expect.objectContaining<Partial<PasswordResetEmailPayload>>({
+          email: 'a@b.com',
+          resetToken: token,
+        }),
+      );
+    });
+
+    it('does not enqueue mail for an unknown address', async () => {
+      const prisma = {
+        user: {
+          findUnique: jest.fn().mockResolvedValue(null),
+        },
+      };
+
+      await service.requestPasswordReset(
+        prisma as never,
+        'missing@b.com',
+        '127.0.0.1',
+      );
+
+      expect(enqueue).not.toHaveBeenCalled();
     });
   });
 
