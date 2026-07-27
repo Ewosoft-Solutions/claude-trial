@@ -14,6 +14,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
 import { Card } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
+import { PasswordInput } from '@workspace/ui/components/password-input';
 import { Label } from '@workspace/ui/components/label';
 
 interface Preview {
@@ -169,9 +170,8 @@ export function AcceptInviteForm() {
 
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="At least 8 characters"
@@ -181,9 +181,8 @@ export function AcceptInviteForm() {
             </div>
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="confirm">Confirm password</Label>
-              <Input
+              <PasswordInput
                 id="confirm"
-                type="password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 required

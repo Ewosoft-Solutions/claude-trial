@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Fingerprint } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
+import { PasswordInput } from '@workspace/ui/components/password-input';
 import { Label } from '@workspace/ui/components/label';
 import { Card } from '@workspace/ui/components/card';
 import { OtpInput } from '@workspace/ui/components/otp-input';
@@ -410,10 +411,9 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
 
             <div className="space-y-2">
               <Label htmlFor="newPassword">New password</Label>
-              <Input
+              <PasswordInput
                 id="newPassword"
                 name="newPassword"
-                type="password"
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -424,10 +424,9 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm new password</Label>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 required
                 minLength={8}
@@ -550,10 +549,9 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
             />
             <div className="space-y-2">
               <Label htmlFor="password">Password</Label>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
                 placeholder="Enter password"
@@ -621,10 +619,9 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
 
           <div className="space-y-2">
             <Label htmlFor="password">Password</Label>
-            <Input
+            <PasswordInput
               id="password"
               name="password"
-              type="password"
               autoComplete="current-password"
               required
               placeholder="••••••••"
