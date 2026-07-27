@@ -151,9 +151,7 @@ describe('PasswordService', () => {
       expect(result.valid).toBe(true);
       expect(mockPrisma.userTenant.findMany).toHaveBeenCalledWith({
         where: { userId: 'user-id' },
-        include: {
-          tenant: {},
-        },
+        select: { tenantId: true },
       });
     });
 
@@ -184,6 +182,55 @@ describe('PasswordService', () => {
       );
 
       expect(result.valid).toBe(true);
+    });
+
+    it('enforces the strictest policy across a user’s schools', async () => {
+      mockPrisma.userTenant.findMany.mockResolvedValue([
+        { tenantId: 'lenient' },
+        { tenantId: 'strict' },
+      ] as never);
+      // Lenient school: Basic (min 8, no special). Strict school: Maximum
+      // (min 16 + special). The effective policy is the stricter of the two.
+      mockPrisma.schoolSecurityPolicy.findUnique.mockImplementation(
+        (args: { where: { schoolId: string } }) =>
+          Promise.resolve(
+            args.where.schoolId === 'strict'
+              ? {
+                  passwordMinLength: 16,
+                  passwordRequireUppercase: true,
+                  passwordRequireLowercase: true,
+                  passwordRequireNumbers: true,
+                  passwordRequireSpecialChars: true,
+                  passwordMaxAge: 30,
+                  passwordPreventReuse: 20,
+                }
+              : {
+                  passwordMinLength: 8,
+                  passwordRequireUppercase: true,
+                  passwordRequireLowercase: true,
+                  passwordRequireNumbers: true,
+                  passwordRequireSpecialChars: false,
+                  passwordMaxAge: 90,
+                  passwordPreventReuse: 5,
+                },
+          ) as never,
+      );
+
+      // Satisfies the lenient school but not the strict one → rejected.
+      const weak = await PasswordService.validatePasswordAgainstAllSchools(
+        mockPrisma as PrismaClient,
+        'user-id',
+        'ValidPass123',
+      );
+      expect(weak.valid).toBe(false);
+
+      // Satisfies the strictest combination → accepted.
+      const strong = await PasswordService.validatePasswordAgainstAllSchools(
+        mockPrisma as PrismaClient,
+        'user-id',
+        'ValidPass123!@#Xyz',
+      );
+      expect(strong.valid).toBe(true);
     });
   });
 

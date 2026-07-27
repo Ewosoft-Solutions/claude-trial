@@ -6,6 +6,11 @@ import { Fingerprint } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { PasswordInput } from '@workspace/ui/components/password-input';
+import {
+  evaluatePassword,
+  PasswordStrengthMeter,
+  type PasswordRequirements,
+} from '@workspace/ui/components/password-strength';
 import { Label } from '@workspace/ui/components/label';
 import { Card } from '@workspace/ui/components/card';
 import { OtpInput } from '@workspace/ui/components/otp-input';
@@ -87,6 +92,12 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
   const [otpCode, setOtpCode] = useState('');
   const [pending, setPending] = useState<PendingCredentials | null>(null);
   const [mustRotate, setMustRotate] = useState(false);
+  // Effective policy the API sends alongside `mustChangePassword`, so the
+  // rotation step can show a live requirements meter that matches enforcement.
+  const [passwordPolicy, setPasswordPolicy] =
+    useState<PasswordRequirements | null>(null);
+  // New password mirrored into state so the strength meter updates live.
+  const [rotationPassword, setRotationPassword] = useState('');
 
   const [hint, setHint] = useState<UserHint | null>(null);
   const [passkeyReady, setPasskeyReady] = useState(false);
@@ -198,6 +209,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
         // and none will until it changes, so this is a step, not an error.
         if (data.mustChangePassword) {
           setMfa(null);
+          setPasswordPolicy(data.passwordPolicy ?? null);
           setMustRotate(true);
           return;
         }
@@ -213,6 +225,10 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
   function submitRotation(newPassword: string, confirmPassword: string) {
     if (!pending) return;
 
+    if (passwordPolicy && !evaluatePassword(passwordPolicy, newPassword).allMet) {
+      setError('Your new password does not meet all the requirements below.');
+      return;
+    }
     if (newPassword !== confirmPassword) {
       setError('The two passwords do not match.');
       return;
@@ -362,6 +378,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
         if (data.mustChangePassword) {
           setMfa(null);
           setOtpCode('');
+          setPasswordPolicy(data.passwordPolicy ?? null);
           setMustRotate(true);
           return;
         }
@@ -416,11 +433,20 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
                 name="newPassword"
                 autoComplete="new-password"
                 required
-                minLength={8}
-                placeholder="At least 8 characters"
+                minLength={passwordPolicy?.minLength ?? 8}
+                placeholder={`At least ${passwordPolicy?.minLength ?? 8} characters`}
+                value={rotationPassword}
+                onChange={(e) => setRotationPassword(e.target.value)}
                 autoFocus
               />
             </div>
+
+            {passwordPolicy ? (
+              <PasswordStrengthMeter
+                policy={passwordPolicy}
+                value={rotationPassword}
+              />
+            ) : null}
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword">Confirm new password</Label>

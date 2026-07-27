@@ -33,7 +33,11 @@ import {
   PasskeyLoginOptionsDto,
   PasskeyLoginVerifyDto,
 } from './dto';
-import { AuthenticationService } from './services/authentication.service';
+import {
+  AuthenticationService,
+  type LoginResponse,
+} from './services/authentication.service';
+import { PasswordService } from './services/password.service';
 import { PasswordResetService } from './services/password-reset.service';
 import { PermissionService } from './services/permission.service';
 import { SessionPolicyService } from './services/session-policy.service';
@@ -43,6 +47,7 @@ import { AUDIT_ACTION, AUDIT_EVENT, DatabaseService } from '../common';
 import { AuthUser } from './decorators';
 import type { RequestUser } from './types/request-user';
 import { SchoolSelectionService, type UserSchoolProfile } from '@workspace/api';
+import { PrismaClient } from '@workspace/database';
 import { withUserScope } from '@workspace/database/rls';
 import { resolveEnabledFeatures } from '../tenant/tenant-features';
 import { writeAuditLog } from '../common/audit/audit-writer';
@@ -331,13 +336,32 @@ export class AuthController {
     const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     const userAgent = req.headers['user-agent'];
 
-    return this.authenticationService.login(
+    const response = await this.authenticationService.login(
       prisma,
       loginDto.email,
       loginDto.password,
       ipAddress,
       userAgent,
     );
+    return this.withPasswordPolicy(prisma, response);
+  }
+
+  /**
+   * When a login/MFA result demands a forced rotation, attach the effective
+   * password policy so the rotation UI can render a live requirements meter.
+   * Resolved from the credential-proved user in the response — never from an
+   * unauthenticated identifier — so it cannot be used to probe a policy.
+   */
+  private async withPasswordPolicy(
+    prisma: PrismaClient,
+    response: LoginResponse,
+  ): Promise<LoginResponse> {
+    if (!response.mustChangePassword) return response;
+    const policy = await PasswordService.resolveEffectivePolicyForUser(
+      prisma,
+      response.user.id,
+    );
+    return { ...response, passwordPolicy: PasswordService.toRequirements(policy) };
   }
 
   /**
@@ -366,21 +390,24 @@ export class AuthController {
       throw new Error('Invalid challenge');
     }
 
-    return this.authenticationService.verifyMfaAndCompleteLogin({
-      prisma,
-      userId: challenge.userId,
-      challengeId: verifyMfaForLoginDto.challengeId,
-      mfa: {
-        code: verifyMfaForLoginDto.code,
-        token: verifyMfaForLoginDto.token,
-        webauthnResponse: verifyMfaForLoginDto.webauthnResponse,
-        recoveryCode: verifyMfaForLoginDto.recoveryCode,
+    const response = await this.authenticationService.verifyMfaAndCompleteLogin(
+      {
+        prisma,
+        userId: challenge.userId,
+        challengeId: verifyMfaForLoginDto.challengeId,
+        mfa: {
+          code: verifyMfaForLoginDto.code,
+          token: verifyMfaForLoginDto.token,
+          webauthnResponse: verifyMfaForLoginDto.webauthnResponse,
+          recoveryCode: verifyMfaForLoginDto.recoveryCode,
+        },
+        requestContext: {
+          ipAddress,
+          userAgent,
+        },
       },
-      requestContext: {
-        ipAddress,
-        userAgent,
-      },
-    });
+    );
+    return this.withPasswordPolicy(prisma, response);
   }
 
   /**
