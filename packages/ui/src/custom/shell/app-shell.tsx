@@ -35,6 +35,12 @@ export interface AppShellProps {
   inspector?: React.ReactNode;
   /** Optional bottom status bar. Hidden on mobile. */
   statusBar?: React.ReactNode;
+  /**
+   * Mobile navigation overlay — typically <MobileNav/>. Renders its own
+   * fixed bottom bar + drawer and is shown only below md; pair it with
+   * `mobileBottomInset` so content clears the bar.
+   */
+  mobileNav?: React.ReactNode;
   /** Main content region. */
   children: React.ReactNode;
   className?: string;
@@ -47,6 +53,7 @@ export function AppShell({
   sidebar,
   inspector,
   statusBar,
+  mobileNav,
   children,
   className,
   mobileBottomInset = '0rem',
@@ -84,6 +91,8 @@ export function AppShell({
       </div>
 
       {statusBar ? <div className="max-md:hidden">{statusBar}</div> : null}
+
+      {mobileNav}
     </div>
   );
 }
