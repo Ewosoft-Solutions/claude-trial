@@ -172,11 +172,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
             actions={
               <>
                 <RefreshButton onRefresh={refresh} refreshing={refreshing} />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                >
+                <Button variant="outline" size="sm" asChild>
                   <Link href="/reports/academic">View reports</Link>
                 </Button>
                 <Button size="sm" asChild>
@@ -200,16 +196,24 @@ export function AdminDashboard({ userName, schoolName }: Props) {
                 <CardTitle className="text-base">School at a glance</CardTitle>
                 <CardDescription>{schoolName}</CardDescription>
               </CardHeader>
-              <CardContent className="flex flex-col gap-3 text-sm">
-                <Row label="Classes" value={loading ? '—' : formatCount(s?.classes ?? 0)} />
-                <Row label="Staff" value={loading ? '—' : formatCount(s?.staff ?? 0)} />
+              <CardContent className="flex flex-col divide-y divide-border text-sm">
+                <Row
+                  label="Classes"
+                  value={loading ? '—' : formatCount(s?.classes ?? 0)}
+                />
+                <Row
+                  label="Staff"
+                  value={loading ? '—' : formatCount(s?.staff ?? 0)}
+                />
                 <Row
                   label="Announcements"
                   value={loading ? '—' : formatCount(s?.announcements ?? 0)}
                 />
                 <Row
                   label="Pending invites"
-                  value={loading ? '—' : formatCount(s?.pendingInvitations ?? 0)}
+                  value={
+                    loading ? '—' : formatCount(s?.pendingInvitations ?? 0)
+                  }
                 />
               </CardContent>
             </Card>
@@ -271,7 +275,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
 
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between py-2.5 first:pt-0 last:pb-0">
       <span className="text-muted-foreground">{label}</span>
       <span className="font-medium text-foreground">{value}</span>
     </div>

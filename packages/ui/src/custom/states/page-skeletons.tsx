@@ -28,7 +28,10 @@ import * as React from 'react';
 
 import { Skeleton } from '@workspace/ui/components/skeleton';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { SkeletonForm, SkeletonList } from '@workspace/ui/custom/states/skeletons';
+import {
+  SkeletonForm,
+  SkeletonList,
+} from '@workspace/ui/custom/states/skeletons';
 import { cn } from '@workspace/ui/lib/utils';
 
 /** Page-level busy wrapper: one polite status region per loading page. */
@@ -82,7 +85,10 @@ export function PageHeaderSkeleton({
           {Array.from({ length: actions }).map((_, i) => (
             <Skeleton
               key={i}
-              className={cn('h-9 rounded-[var(--radius-sm)]', i === 0 ? 'w-24' : 'w-32')}
+              className={cn(
+                'h-9 rounded-[var(--radius-sm)]',
+                i === 0 ? 'w-24' : 'w-32',
+              )}
             />
           ))}
         </div>
@@ -95,7 +101,8 @@ export function PageHeaderSkeleton({
 function statColumnsClass(count: number): string {
   if (count <= 1) return 'grid-cols-1';
   if (count === 2) return 'grid-cols-1 @md/main:grid-cols-2';
-  if (count === 3) return 'grid-cols-1 @md/main:grid-cols-2 @2xl/main:grid-cols-3';
+  if (count === 3)
+    return 'grid-cols-1 @md/main:grid-cols-2 @2xl/main:grid-cols-3';
   return 'grid-cols-1 @md/main:grid-cols-2 @4xl/main:grid-cols-4';
 }
 
@@ -107,9 +114,18 @@ export interface StatRowSkeletonProps {
 
 /** A KPI stat row that mirrors StatGrid (same container-query columns and
  *  StatCard shape) so it lays out identically to the real stats band. */
-export function StatRowSkeleton({ count = 4, className }: StatRowSkeletonProps) {
+export function StatRowSkeleton({
+  count = 4,
+  className,
+}: StatRowSkeletonProps) {
   return (
-    <div className={cn('grid gap-3 sm:gap-3.5', statColumnsClass(count), className)}>
+    <div
+      className={cn(
+        'grid gap-3 sm:gap-3.5',
+        statColumnsClass(count),
+        className,
+      )}
+    >
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
@@ -240,7 +256,7 @@ export interface DashboardPageSkeletonProps {
 }
 
 /** Persona dashboard: header, KPI stat row, then a main + aside grid that
- *  matches DashboardLayout's `@5xl/main:grid-cols-3` split. */
+ *  matches DashboardLayout's equal-width split. */
 export function DashboardPageSkeleton({
   stats = 4,
   mainCards = 2,
@@ -250,13 +266,13 @@ export function DashboardPageSkeleton({
     <PageSkeletonRoot>
       <PageHeaderSkeleton actions={1} />
       <StatRowSkeleton count={stats} />
-      <div className="grid grid-cols-1 gap-5 @5xl/main:grid-cols-3">
-        <div className="order-2 flex flex-col gap-5 @5xl/main:order-1 @5xl/main:col-span-2">
+      <div className="grid grid-cols-1 gap-5 @5xl/main:grid-cols-2">
+        <div className="order-2 flex flex-col gap-5 @5xl/main:order-1">
           {Array.from({ length: mainCards }).map((_, i) => (
             <BlockCardSkeleton key={i} lines={5} />
           ))}
         </div>
-        <div className="order-1 flex flex-col gap-5 @5xl/main:order-2 @5xl/main:col-span-1">
+        <div className="order-1 flex flex-col gap-5 @5xl/main:order-2">
           {Array.from({ length: asideCards }).map((_, i) => (
             <BlockCardSkeleton key={i} lines={4} compact />
           ))}
@@ -344,7 +360,10 @@ export function FormPageSkeleton({
         <div className="flex flex-col gap-5 @3xl/main:flex-row @3xl/main:gap-8">
           <div className="space-y-2 @3xl/main:w-[var(--settings-nav-width)] @3xl/main:shrink-0">
             {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton key={i} className="h-9 w-full rounded-[var(--radius-sm)]" />
+              <Skeleton
+                key={i}
+                className="h-9 w-full rounded-[var(--radius-sm)]"
+              />
             ))}
           </div>
           <div className="min-w-0 flex-1">{formCard}</div>
@@ -376,7 +395,12 @@ export function ReportPageSkeleton({
     <PageSkeletonRoot>
       <PageHeaderSkeleton actions={actions} />
       <StatRowSkeleton count={stats} />
-      <div className={cn('grid gap-4', charts > 1 ? '@4xl/main:grid-cols-2' : 'grid-cols-1')}>
+      <div
+        className={cn(
+          'grid gap-4',
+          charts > 1 ? '@4xl/main:grid-cols-2' : 'grid-cols-1',
+        )}
+      >
         {Array.from({ length: charts }).map((_, i) => (
           <div
             key={i}

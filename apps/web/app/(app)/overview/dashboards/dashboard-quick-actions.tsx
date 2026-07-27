@@ -28,7 +28,10 @@ function quickActionGridClass(columns: 1 | 2 | 3): string {
   if (columns === 2) {
     return 'grid-cols-1 @xs/quick-actions:grid-cols-2';
   }
-  return 'grid-cols-1 @xs/quick-actions:grid-cols-2 @md/quick-actions:grid-cols-3';
+  // Three across only once the card is genuinely wide; below that keep a
+  // single full-width column so labels never break mid-word in a cramped
+  // 2-of-3 layout.
+  return 'grid-cols-1 @md/quick-actions:grid-cols-3';
 }
 
 export function DashboardQuickActions({
@@ -69,7 +72,7 @@ export function DashboardQuickActions({
               >
                 {action.icon}
               </span>
-              <span className="min-w-0 break-words">{action.label}</span>
+              <span className="min-w-0">{action.label}</span>
             </Link>
           );
         })}

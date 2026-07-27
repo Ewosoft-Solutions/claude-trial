@@ -14,6 +14,11 @@ import { PrismaClient } from '@workspace/database';
 import * as crypto from 'crypto';
 import { PasswordService } from './password.service';
 import { SessionService } from './session.service';
+import { QueueService } from '../../common/queue/queue.service';
+import {
+  PASSWORD_RESET_EMAIL_JOB,
+  type PasswordResetEmailPayload,
+} from '../../common/email';
 
 /**
  * Password Reset Request
@@ -49,6 +54,8 @@ export function hashResetToken(token: string): string {
  */
 @Injectable()
 export class PasswordResetService {
+  constructor(private readonly queueService: QueueService) {}
+
   /**
    * Request password reset (3.10)
    *
@@ -71,6 +78,7 @@ export class PasswordResetService {
       select: {
         id: true,
         email: true,
+        firstName: true,
         isActive: true,
       },
     });
@@ -113,8 +121,17 @@ export class PasswordResetService {
       },
     });
 
-    // TODO: Send reset email (implement email service)
-    // await this.emailService.sendPasswordResetEmail(user.email, token);
+    // Keep delivery off the request path. The queue handler composes the
+    // public reset URL and sends it through the configured email provider.
+    this.queueService.enqueue<PasswordResetEmailPayload>(
+      PASSWORD_RESET_EMAIL_JOB,
+      {
+        email: user.email,
+        resetToken: token,
+        recipientName: user.firstName,
+        expiresAt,
+      },
+    );
 
     // Audit log
     await this.auditLogPasswordResetRequest(prisma, user.id, ipAddress);
@@ -286,6 +303,9 @@ export class PasswordResetService {
     userId: string,
     ipAddress?: string,
   ): Promise<void> {
+    void prisma;
+    void userId;
+    void ipAddress;
     // TODO: Implement audit logging
     // await prisma.auditLog.create({
     //   data: {
@@ -309,6 +329,9 @@ export class PasswordResetService {
     userId: string,
     ipAddress?: string,
   ): Promise<void> {
+    void prisma;
+    void userId;
+    void ipAddress;
     // TODO: Implement audit logging
     // await prisma.auditLog.create({
     //   data: {
