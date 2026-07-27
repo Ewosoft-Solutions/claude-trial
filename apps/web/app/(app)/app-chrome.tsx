@@ -36,6 +36,7 @@ import {
 import { AppShell } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
 import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
+import { MobileNav } from '@workspace/ui/custom/shell/mobile-nav';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
 import { useResolvedNavigation } from '@workspace/ui/hooks/use-navigation';
@@ -355,6 +356,16 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-svh w-full">
       <AppShell
+        mobileBottomInset="calc(3.5rem + env(safe-area-inset-bottom))"
+        mobileNav={
+          <MobileNav
+            railItems={nav.railItems}
+            railFooterItems={nav.railFooterItems}
+            navPanels={sidebarPanels}
+            user={user}
+            userMenuItems={userMenu}
+          />
+        }
         header={
           <AppHeader
             schoolSwitcher={
