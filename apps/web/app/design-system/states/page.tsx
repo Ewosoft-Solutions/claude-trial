@@ -2,12 +2,7 @@
 
 import Link from 'next/link';
 import * as React from 'react';
-import {
-  CalendarPlus,
-  GraduationCap,
-  RefreshCw,
-  RotateCw,
-} from 'lucide-react';
+import { CalendarPlus, RefreshCw, RotateCw } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
@@ -16,7 +11,8 @@ import { ModeToggle } from '@workspace/ui/custom/mode-toggle';
 import {
   EmptyState,
   ErrorState,
-  ForbiddenState,
+  OfflineState,
+  PermissionDeniedState,
 } from '@workspace/ui/custom/states/page-states';
 import {
   LoadingState,
@@ -235,17 +231,33 @@ export default function StatesPage() {
         </Section>
 
         <Section
-          title="Forbidden"
-          description="Deep-link / direct access to a route the viewer can’t see. Pairs with the M4 nav access model (which hides the nav entry)."
+          title="Permission denied"
+          description="Deep-link access to a route the viewer can’t use. Explains the safe reason and who can help."
         >
           <Surface>
-            <ForbiddenState
-              title="You don’t have access to Finance"
-              description="This area is limited to roles with finance clearance. Contact a school administrator if you think this is a mistake."
-              icon={<GraduationCap aria-hidden />}
+            <PermissionDeniedState
+              title="You don’t have access to this area"
+              description="Your current school profile does not include access to this page. Ask a school administrator to review your access if you need it for your work."
               primaryAction={{
-                label: 'Back to dashboard',
+                label: 'Go to overview',
                 href: '/design-system',
+              }}
+            />
+          </Surface>
+        </Section>
+
+        <Section
+          title="Offline"
+          description="A blocking state for pages that have no safe cached content to show."
+        >
+          <Surface>
+            <OfflineState
+              title="This page is unavailable offline"
+              description="Reconnect to the internet, then try loading the page again."
+              primaryAction={{
+                label: 'Try again',
+                icon: <RefreshCw aria-hidden />,
+                onClick: () => undefined,
               }}
             />
           </Surface>
