@@ -4,6 +4,35 @@ Last Updated: 2026-07-31
 
 ---
 
+## Session Summary (2026-07-31, pt. 3) — Codex: completed Aurora page states and permission-denied route
+
+**Item(s):** H2 → `in-review`. **Branch/PR:** `codex/H2-shared-states` / [PR #35](https://github.com/Ewosoft-Solutions/claude-trial/pull/35).
+
+**What changed & why**
+
+- Added explicit `PermissionDeniedState` and full-surface `OfflineState` presets over the shared Aurora `StateView`; retained `ForbiddenState` as a compatibility alias.
+- Replaced bespoke `/unauthorized` markup with the shared permission state. Copy now explains the unavailable area at a safe level, points to a school administrator, and offers overview/back recovery actions without exposing permission keys.
+- Added five component tests covering empty/action, error/retry announcement, permission denial, offline announcement, and loading/busy behavior; added permission/offline examples to the state gallery.
+
+**Verification** (what was actually run + result)
+
+- `pnpm ci:quick` — passed (database/API builds, all type checks, API/web lint; 58 pre-existing API warnings and 0 errors).
+- UI Vitest — 20 files, 120/120 tests passed.
+- Touched-file Prettier and `git diff --check` — passed.
+- Local browser reached the real login/session boundary; the protected state gallery could not be inspected without signing in, and no auth bypass was introduced.
+
+**Decisions / ADRs**
+
+- None. Authorization remains server-side; the shared components provide feedback only.
+
+**Next step (so the next agent can resume)**
+
+- Review draft PR #35, verify `/unauthorized` in an authenticated browser session, then merge and move H2 to `done` after CI/CD is green.
+
+**New gotcha** → none.
+
+---
+
 ## Session Summary (2026-07-31, pt. 2) — Codex: reconciled H1 status and permission-catalog drift
 
 **Item(s):** H1 → `in-review`. **Branch/PR:** `codex/H1-status-doc-drift` / [PR #34](https://github.com/Ewosoft-Solutions/claude-trial/pull/34).
