@@ -1,6 +1,33 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-07-31
+Last Updated: 2026-08-01
+
+---
+
+## Session Summary (2026-08-01) — Claude: P0-3 accept 7 non-owner ADRs; Phase-1 foundations unblocked
+
+**Item(s):** P0-3 → in-progress (7/12 accepted). **Branch/PR:** _pending_ (docs-only working-tree changes).
+
+**What changed & why**
+
+- Reviewed + accepted the 7 non-owner-gated ADRs — ADR-01 (Person/identity), ADR-02 (class/offering), ADR-06 (jobs/outbox), ADR-07 (delivery), ADR-08 (documents/signatures), ADR-09 (migration), ADR-12 (interop) — each flipped to `Accepted — 2026-08-01`. All read as sound, corpus/requirements-grounded, and cross-consistent.
+- This flips **F1 (Person) → ready** and confirms the design behind the already-ready `F3`/`F7`/`F8`; F2/F5 are now blocked only on F3.
+- Reconciled a doc drift: **ADR-04 is owner-gated** (Q13–16, result-publication policy) — the ADR index had mislabelled it "no owner sign-off"; corrected. So 5 ADRs stay owner-gated: ADR-03 (Q11), ADR-04 (Q13–16), ADR-05 (Q20–23), ADR-10 (Q20), ADR-11 (Q6).
+- Updated the ADR index, board (ADR table, ready-list, F1/F2/F5 + P0-3 rows, change-log), and phase-0-scope-lock P0-3 status.
+
+**Verification** (what was actually run + result)
+
+- Docs-only; no code touched. Prettier-clean on the changed action-plan docs; `pnpm ci:quick` unaffected (no `.ts`/`.tsx`).
+
+**Decisions / ADRs**
+
+- ADR-01, 02, 06, 07, 08, 09, 12 **Accepted**. ADR-03/04/05/10/11 remain owner-gated (need product-owner sign-off on Q11 / Q13–16 / Q20–23 / Q20 / Q6).
+
+**Next step (so the next agent can resume)**
+
+- **Start Phase-1 build.** Recommended first: **F3** (durable job queue + outbox + idempotency — no deps, unblocks F2/F4/F5/F9) or **F1** (Person) for a People-first vertical. Then schema = hand-written SQL migration + `db:generate` + `db:rls:check` green, per the ADR-06/ADR-01 designs.
+
+**New gotcha** → none new (branch-prefix + no-CI-gate gotchas already recorded).
 
 ---
 

@@ -1,6 +1,6 @@
 # ADR-09 — Migration source-ID + reconciliation contract
 
-- **Status:** Proposed — 2026-07-31
+- **Status:** Accepted — 2026-08-01 _(the source-ID + reconciliation contract; history scope/tolerances Q29–32 confirmed per-school at onboarding)_
 - **Deciders:** engineering + product. **Owner sign-off:** how much history moves + reconciliation tolerances + retention window ([Q29–32](../../plan/06-roadmap-and-discussion-guide.md#h--migration--launch)).
 - **Unblocks:** F2 (import platform), WB7 (migration cockpit); underwrites every "replacement-ready" claim.
 

@@ -1,6 +1,6 @@
 # ADR-02 — Class / section / offering / course-registration model
 
-- **Status:** Proposed — 2026-07-31
+- **Status:** Accepted — 2026-08-01 _(Q5 terminology config is a non-blocking display-layer confirmation)_
 - **Deciders:** engineering + product. **Owner sign-off:** confirm terminology config (class/arm/section; subject/course/module) — [Q5](../../plan/06-roadmap-and-discussion-guide.md#b--product-shape--terminology).
 - **Unblocks:** WB2 (academic structure + student lifecycle), elective election, promotion, transfer; feeds WB4 (results are per offering).
 

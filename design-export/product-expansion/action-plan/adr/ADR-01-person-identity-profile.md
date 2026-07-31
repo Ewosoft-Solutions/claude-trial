@@ -1,6 +1,6 @@
 # ADR-01 — Person / auth-identity / profile / tenant-membership separation
 
-- **Status:** Proposed — 2026-07-31
+- **Status:** Accepted — 2026-08-01
 - **Deciders:** engineering + product. **Owner sign-off:** not required (a data-model choice), but confirm the tenant-boundary reading with ADR-11.
 - **Unblocks:** F1 (Person foundation), WB1-1 (People directory), WB1-2 (staff employment), WB1-4 (guardianship), WB1-5 (role editor), and admissions conversion (WB3).
 

@@ -1,6 +1,6 @@
 # ADR-08 — Document / media platform + signature-asset security
 
-- **Status:** Proposed — 2026-07-31
+- **Status:** Accepted — 2026-08-01 _(retention periods to be confirmed with the institution/DPO, non-blocking)_
 - **Deciders:** engineering + security. **Owner sign-off:** not required (a security architecture choice); confirm retention periods with the institution/DPO.
 - **Unblocks:** F4 (document service), WB4 (authorized report signing), WB3 (admission documents), WB7 (attachment migration + checksums).
 
