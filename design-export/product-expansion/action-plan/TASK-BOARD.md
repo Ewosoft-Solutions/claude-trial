@@ -16,7 +16,7 @@ _(Everything else is `backlog`/`blocked` until its dep or ADR lands. Owner decis
 
 | ID  | Title                                                                                                                                                  | #    | Effort | Deps | Owner | Status |
 | --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------ | ---- | ----- | ------ |
-| H1  | Reconcile status-doc drift: permission counts (274/297/**305**) + fix stale "mock data" line in `AI_CONTEXT.md` + `CURRENT_PHASE.md`                   | —    | S      | —    | —     | ready  |
+| H1  | Reconcile status-doc drift: permission counts (274/297/**305**) + fix stale "mock data" line in `AI_CONTEXT.md` + `CURRENT_PHASE.md`                   | —    | S      | —    | codex | claimed |
 | H2  | Permission-denied + empty/error/loading/offline states in `packages/ui` `custom/states`; wire `unauthorized` route (replaces the legacy system "OOPS") | #115 | M      | —    | —     | ready  |
 | H3  | Remove commercial/"Pay Now"-style nags from workspace surfaces; keep billing in account settings                                                       | #116 | S      | —    | —     | ready  |
 
