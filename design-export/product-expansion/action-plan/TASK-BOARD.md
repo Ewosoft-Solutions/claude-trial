@@ -7,18 +7,18 @@
 
 ## ▶ Ready to claim right now
 
-`H1` `H2` `H3` · `ADR-01…12` (all drafted → **review→accept**, `P0-3`) · `F3` `F7` `F8`
+`H1` `H3` · `ADR-01…12` (all drafted → **review→accept**, `P0-3`) · `F3` `F7` `F8`
 _(Everything else is `backlog`/`blocked` until its dep or ADR lands. Owner decisions `P0-1/P0-2` gate the profile-specific scope.)_
 
 ---
 
 ## Hygiene (do early — unblocks trust & the states everything reuses)
 
-| ID  | Title                                                                                                                                                  | #    | Effort | Deps | Owner | Status |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------ | ---- | ----- | ------ |
-| H1  | Reconcile status-doc drift: permission counts (274/297/**305**) + fix stale "mock data" line in `AI_CONTEXT.md` + `CURRENT_PHASE.md`                   | —    | S      | —    | —     | ready  |
-| H2  | Permission-denied + empty/error/loading/offline states in `packages/ui` `custom/states`; wire `unauthorized` route (replaces the legacy system "OOPS") | #115 | M      | —    | —     | ready  |
-| H3  | Remove commercial/"Pay Now"-style nags from workspace surfaces; keep billing in account settings                                                       | #116 | S      | —    | —     | ready  |
+| ID  | Title                                                                                                                                                  | #    | Effort | Deps | Owner | Status  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------ | ---- | ----- | ------- |
+| H1  | Reconcile status-doc drift: permission counts (274/297/**305**) + fix stale "mock data" line in `AI_CONTEXT.md` + `CURRENT_PHASE.md`                   | —    | S      | —    | —     | ready   |
+| H2  | Permission-denied + empty/error/loading/offline states in `packages/ui` `custom/states`; wire `unauthorized` route (replaces the legacy system "OOPS") | #115 | M      | —    | codex | claimed |
+| H3  | Remove commercial/"Pay Now"-style nags from workspace surfaces; keep billing in account settings                                                       | #116 | S      | —    | —     | ready   |
 
 ## Phase 0 — scope-lock + ADRs (decisions before code; no feature code)
 
