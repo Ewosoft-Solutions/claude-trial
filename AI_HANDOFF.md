@@ -4,6 +4,35 @@ Last Updated: 2026-07-31
 
 ---
 
+## Session Summary (2026-07-31) — Codex: reject commercial nags without blocking school payments
+
+**Item(s):** H3 → in-review. **Branch/PR:** `codex/H3-remove-workspace-nags` / [#36](https://github.com/Ewosoft-Solutions/claude-trial/pull/36).
+
+**What changed & why**
+
+- Audited every authenticated operational route plus its shared chrome. No SchoolWithEase product-subscription or expiry nag currently ships, so there was no runtime UI to delete.
+- Added `apps/web/lib/no-commercial-workspace-nags.test.ts`, a source-level regression guard for subscription/trial expiry, upgrade/renewal, premium upsells, and the legacy `Expires … Pay Now` signature. Account/platform administration remains the permitted commercial-management boundary.
+- Pinned the important domain distinction: school fees, invoices, payment plans, and receipts are operational records, not product upsells. The guard explicitly permits real finance and student-fee surfaces.
+
+**Verification** (what was actually run + result)
+
+- `pnpm ci:quick` — passed; web lint clean, all builds/type-checks green, 58 pre-existing API warnings and 0 errors.
+- `pnpm --filter web test -- no-commercial-workspace-nags.test.ts` — 18 files / 115 tests passed, including the legacy-nag versus school-payment contract.
+- `pnpm --filter web check-types` and `pnpm --filter web lint` — passed.
+- No browser check: H3 changes enforcement only and has no rendered UI delta.
+
+**Decisions / ADRs**
+
+- None. This implements parity-matrix decision #116 (`Reject (IA)`) and the existing global-shell boundary in the target architecture.
+
+**Next step (so the next agent can resume)**
+
+- Review and merge draft PR #36; after merge, mark H3 `done`.
+
+**New gotcha** → Do not ban the literal “Pay now” globally: parent/student fee payment is a valid school workflow. Commercial intent needs expiry/subscription/upsell context, as pinned by the guard.
+
+---
+
 ## Session Summary (2026-07-31) — Claude: The legacy system parity assessment + action-plan + multi-agent workflow (docs-only)
 
 **Item(s):** new initiative bootstrapped (no board item yet — the board *is* a deliverable). **Branch/PR:** none — nothing committed/pushed this session.
