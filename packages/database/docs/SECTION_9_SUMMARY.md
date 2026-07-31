@@ -101,7 +101,7 @@
 
 - 11 system roles created
 - 11 permission pools created
-- 274 permissions created
+- 305 permissions created
 - Permission-pool assignments created
 - Role-pool assignments created
 
@@ -120,7 +120,7 @@
 - All verification checks pass
 - System roles verified (11 roles)
 - Permission pools verified (11 pools)
-- Permissions verified (274+ permissions)
+- Permissions verified (305+ permissions)
 - Assignments verified
 
 ### 9.6 Test Database Connection and Query Performance

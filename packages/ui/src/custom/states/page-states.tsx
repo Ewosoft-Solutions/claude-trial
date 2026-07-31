@@ -1,7 +1,8 @@
 'use client';
 
 /* ============================================================
-   Page / section states — EmptyState · ErrorState · ForbiddenState
+   Page / section states — EmptyState · ErrorState · PermissionDeniedState
+   · OfflineState
 
    Thin presets over StateView (state-view.tsx) that fix the tone,
    a sensible default decorative icon, and the accessibility role
@@ -9,7 +10,7 @@
    `icon={null}` to drop the medallion, or override `icon` / `tone`
    for a bespoke variant.
 
-   ForbiddenState pairs with the M4 navigation model: access
+   PermissionDeniedState pairs with the M4 navigation model: access
    filtering hides nav the viewer can't reach, while ForbiddenState
    covers the direct / deep-link case where the route is opened
    anyway. It does not enforce anything — real authorization stays
@@ -17,7 +18,7 @@
    ============================================================ */
 
 import * as React from 'react';
-import { Inbox, ShieldX, TriangleAlert } from 'lucide-react';
+import { CloudOff, Inbox, ShieldX, TriangleAlert } from 'lucide-react';
 
 import {
   StateView,
@@ -58,10 +59,36 @@ export function ErrorState({
  * permitted to see (deep link / direct navigation). Warning tone.
  * Offer a way back rather than a retry.
  */
-export function ForbiddenState({
+export function PermissionDeniedState({
   icon = <ShieldX aria-hidden />,
   tone = 'warning',
   ...props
 }: StatePresetProps) {
   return <StateView icon={icon} tone={tone} {...props} />;
 }
+
+/**
+ * Offline state — the requested surface cannot load without a network
+ * connection. Warning tone and a polite status announcement. Pair the primary
+ * action with a retry and explain whether previously loaded data is available.
+ */
+export function OfflineState({
+  icon = <CloudOff aria-hidden />,
+  tone = 'warning',
+  role = 'status',
+  'aria-live': ariaLive = 'polite',
+  ...props
+}: StatePresetProps) {
+  return (
+    <StateView
+      icon={icon}
+      tone={tone}
+      role={role}
+      aria-live={ariaLive}
+      {...props}
+    />
+  );
+}
+
+/** @deprecated Use PermissionDeniedState for clearer product language. */
+export const ForbiddenState = PermissionDeniedState;
