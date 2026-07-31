@@ -14,11 +14,11 @@ _(Everything else is `backlog`/`blocked` until its dep or ADR lands. Owner decis
 
 ## Hygiene (do early — unblocks trust & the states everything reuses)
 
-| ID  | Title                                                                                                                                                  | #    | Effort | Deps | Owner | Status  |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------ | ---- | ----- | ------- |
-| H1  | Reconcile status-doc drift: permission counts (274/297/**305**) + fix stale "mock data" line in `AI_CONTEXT.md` + `CURRENT_PHASE.md`                   | —    | S      | —    | —     | ready   |
-| H2  | Permission-denied + empty/error/loading/offline states in `packages/ui` `custom/states`; wire `unauthorized` route (replaces the legacy system "OOPS") | #115 | M      | —    | codex | claimed |
-| H3  | Remove commercial/"Pay Now"-style nags from workspace surfaces; keep billing in account settings                                                       | #116 | S      | —    | —     | ready   |
+| ID  | Title                                                                                                                                                  | #    | Effort | Deps | Owner | Status    |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ---- | ------ | ---- | ----- | --------- |
+| H1  | Reconcile status-doc drift: permission counts (274/297/**305**) + fix stale "mock data" line in `AI_CONTEXT.md` + `CURRENT_PHASE.md`                   | —    | S      | —    | —     | ready     |
+| H2  | Permission-denied + empty/error/loading/offline states in `packages/ui` `custom/states`; wire `unauthorized` route (replaces the legacy system "OOPS") | #115 | M      | —    | codex | in-review |
+| H3  | Remove commercial/"Pay Now"-style nags from workspace surfaces; keep billing in account settings                                                       | #116 | S      | —    | —     | ready     |
 
 ## Phase 0 — scope-lock + ADRs (decisions before code; no feature code)
 
@@ -93,6 +93,7 @@ _(Everything else is `backlog`/`blocked` until its dep or ADR lands. Owner decis
 
 ## Change log (board edits — newest first)
 
+- `2026-07-31` — **H2 implemented; draft PR #35 open.** Added explicit Aurora permission-denied and full-surface offline presets, state-system tests, design-system examples, and shared-state wiring for `/unauthorized`. Awaiting review/merge. _(codex)_
 - `2026-07-31` — **ADR batch 3 drafted — ALL 12 ADRs now drafted.** ADR-05 (finance subledger), ADR-12 (interop) as full ADRs; ADR-10 (GL build-vs-integrate) + ADR-11 (tenant/campus) as **owner decision-briefs**. Next: review→accept (`P0-3`); owner sign-off outstanding on ADR-03/04/05/10/11. _(claude)_
 - `2026-07-31` — **ADR batch 2 drafted** (ADR-02 class/offering, ADR-03 curriculum, ADR-04 result publication, ADR-09 migration) — `Proposed`. **9 of 12 ADRs now drafted**; only ADR-05 (finance), ADR-10 (GL build-vs-integrate, owner), ADR-11 (tenant/campus, owner), ADR-12 (interop) remain. _(claude)_
 - `2026-07-31` — **ADR batch 1 drafted** (ADR-01 person, ADR-06 job/outbox, ADR-07 delivery, ADR-08 document/signature) — `Proposed`, awaiting review/acceptance. Accepting them flips `F1`, `F4`, `F5` (and their dependents) `blocked → ready`. _(claude)_
