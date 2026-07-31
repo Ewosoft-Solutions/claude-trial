@@ -1,7 +1,7 @@
 # Requirement-Pillar Scorecard
 
 > Snapshot assessment of how the current build aligns with `requirements/`.
-> Created 2026-06-20; **refreshed 2026-07-17** after the full-swing sprint
+> Created 2026-06-20; **refreshed 2026-07-31** after the full-swing sprint
 > cleared the parked backlog (feature toggles, tenant routing, PWA Phase 2,
 > Step 8 sub-surfaces, Gate 4, AI settings maker-checker, app_runtime grants).
 > This is a point-in-time judgement — re-verify against code before relying on
@@ -10,7 +10,7 @@
 ## Headline verdict
 
 PRD Phase 1 (core platform) and the operational-module half of Phase 2 are
-**built and wired end-to-end**: real auth, RBAC on a 297-permission catalog,
+**built and wired end-to-end**: real auth, RBAC on a 305-permission catalog,
 RLS-enforced tenancy, and every major domain (academic, finance,
 communication, admissions, transport, library, health, HR/payroll, events)
 has a real backend module and at least one real frontend surface. As of
@@ -26,10 +26,10 @@ delivery backend, and live browser acceptance of the newest surfaces.
 | Pillar                             | Requirement (source)                                                                                            | Status                                            | Notes                                                                                                                                                                                                       |
 | ---------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Design system**                  | Token-driven, light/dark parity, a11y, explicit states, no per-page styling (`PRD.md` A1–A6)                    | ✅ Strong                                         | Aurora tokens, M3–M6 components, state set, chart wrappers; 72 UI tests                                                                                                                                     |
-| **Access control (model)**         | 11 clearance levels (0–10), standard roles, granular permissions, scope (`access-control.md`, `permissions.md`) | ✅ Aligned                                        | Mirrored in `packages/ui` types + nav resolver (tested); 297 permissions seeded                                                                                                                             |
+| **Access control (model)**         | 11 clearance levels (0–10), standard roles, granular permissions, scope (`access-control.md`, `permissions.md`) | ✅ Aligned                                        | Mirrored in `packages/ui` types + nav resolver (tested); 305 permissions seeded                                                                                                                             |
 | **Access control (backend)**       | RBAC, maker-checker, MFA, audit, breach response (`permissions.md`, `access-control.md`)                        | ✅ Substantial                                    | `apps/api`, DB-backed; exercised by the live frontend since Step 3                                                                                                                                          |
 | **Multi-tenancy (data)**           | Tenant isolation, hybrid DB, audit (`multi-tenant-architecture.md`)                                             | ✅ Enforced at DB                                 | RLS across 19 schemas (ENABLE/FORCE + policy), CI guard `db:rls:check`; runtime cutover to `app_runtime` role still pending (ADR-004)                                                                       |
-| **Frontend ↔ backend**             | Real data, real auth                                                                                            | ✅ Wired (2026-07-01)                             | Full auth lifecycle incl. profile switching; all module pages hit real endpoints (dev-mode mock only as fallback when `NEXT_PUBLIC_API_URL` unset)                                                          |
+| **Frontend ↔ backend**             | Real data, real auth                                                                                            | ✅ Wired (2026-07-01)                             | Full auth lifecycle incl. profile switching; module pages use backend endpoints and explicit empty/error states rather than local mock fallbacks                                                            |
 | **Domain coverage**                | Academic mgmt, admin/ops modules (`PRD.md` §4, `features-functionality.md`)                                     | ✅ Broad MVP                                      | Students/attendance/grading/finance/communication + all six Step 8 operational domains; some sub-surfaces still `[...slug]`-backed (see plan → Parked)                                                      |
 | **Polymorphism (UI)**              | Nav/UI adapts by school type (`polymorphic-design.md`, `PRD.md` §5)                                             | 🟡 Typed, not exercised                           | `schoolType` in the model; no nav branching on it; feature toggles still a mock settings page                                                                                                               |
 | **PWA / mobile**                   | Offline, push, quick actions, responsive (`mobile-web-hybrid.md`)                                               | ✅ Substantial (2026-07-10)                       | Responsive ✅; installable manifest + service worker (offline fallback, static caching, push/notificationclick handlers) + client subscribe. Web-push _delivery_ backend (VAPID) is the remaining follow-on |

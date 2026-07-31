@@ -3,8 +3,8 @@
 > **Setting up a database (local/dev/staging/prod)?** Follow
 > [`docs/database-setup.md`](../../docs/database-setup.md) — the end-to-end
 > checklist (env vars → migrate → seed → RLS check → `app_runtime` provisioning
-> → isolation proof). This file documents the *schema*; that guide documents the
-> *setup*.
+> → isolation proof). This file documents the _schema_; that guide documents the
+> _setup_.
 
 The Prisma schema is organized into multiple files by context for better maintainability and clarity.
 
@@ -40,10 +40,12 @@ The schema is split into context-based files in the `prisma/` directory:
   - **Clearance Levels:** 0-10 hierarchy (Architect=10, Guest=0)
   - **Custom Roles:** Limited to school-level clearance (0-7)
   - **Platform/System Roles:** Globally unique names
-- `Permission` - Granular permissions (274 permissions) with UI metadata
+- `Permission` - Granular permissions (305 permissions) with UI metadata
   - **Structured Metadata:** key (name), label (display), description (details)
   - **Fields:** name, label, description, resource, action, context, category
-  - **Permission Summary:** 274 permissions across 26 categories (see `packages/database/src/seed.ts` for full list)
+  - **Permission Summary:** 305 permissions across 9 persisted categories,
+    assembled from 28 catalog groups (see
+    `packages/database/prisma/scripts/seed.ts` for the enforced catalog)
 - `RolePermission` - Many-to-many: Roles have permissions
 
 ### Profile (`profile.prisma`)
