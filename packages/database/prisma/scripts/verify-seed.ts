@@ -82,7 +82,9 @@ async function verifySeedData() {
     // 3. Verify Permissions
     console.log('\n📋 Checking permissions...');
     const permissions = await prisma.permission.findMany();
-    const expectedPermissions = 298; // Base catalog + Admissions (15) + HR/Payroll (3) + AI (4) + Lessons (9) + Academics build-out (questions/taking/teacher-allocation)
+    // Keep this floor aligned with EXPECTED_PERMISSION_COUNTS.total in seed.ts.
+    // Verification allows extra legacy rows because seeding upserts but does not prune.
+    const expectedPermissions = 305;
     const actualPermissions = permissions.length;
 
     results.push({

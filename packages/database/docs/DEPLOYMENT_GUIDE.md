@@ -173,7 +173,7 @@ npm run db:seed
 
 - ✅ System roles (Architect, SuperAdmin, Owner, Management, etc.)
 - ✅ Permission pools for each clearance level (0-10)
-- ✅ 274 permissions across 26 categories
+- ✅ 305 permissions across 9 persisted categories (28 catalog groups)
 - ✅ Permission-to-pool assignments
 - ✅ Role-to-pool assignments
 
@@ -193,7 +193,7 @@ npm run db:studio
 Navigate to:
 
 - `Role` table - Should have 11 system roles
-- `Permission` table - Should have 274 permissions
+- `Permission` table - Should have at least 305 permissions
 - `PermissionPool` table - Should have 11 pools (one per clearance level)
 - `PermissionPoolPermission` table - Should have permission-pool assignments
 - `RolePermissionPool` table - Should have role-pool assignments
