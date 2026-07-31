@@ -4,6 +4,36 @@ Last Updated: 2026-07-31
 
 ---
 
+## Session Summary (2026-07-31) — Claude: P0-1 Release-1 promise (owner defaults approved)
+
+**Item(s):** P0-1 → done. **Branch/PR:** _pending_ (docs-only; working-tree changes awaiting the owner's go-ahead to branch + PR).
+
+**What changed & why**
+
+- Owner approved the recommended defaults for decision Q1–Q3, so P0-1 (the parity promise that gates profile-specific scope everywhere) is now decided.
+- Added [`design-export/product-expansion/action-plan/release-1-promise.md`](design-export/product-expansion/action-plan/release-1-promise.md): the one-page promise. Q1 → **NG K-12** is the first full profile (tertiary/TVET/international = separate scope). Q2 → "retire the legacy system" = **capability parity on the critical jobs a partner actually uses**, published as a supported/excluded matrix, adopted modularly — not menu/page parity. Q3 → **operational evidence + reconciliation outrank screenshots** for high-consequence behaviour (results/money/access/migration).
+- Includes a **profile-level supported/excluded/deferred/conditional matrix** grounded in the roadmap phases; the definitive per-partner list is P0-2's job.
+- Updated `TASK-BOARD.md` (P0-1 → done, ready-to-claim gating note, change-log) and `phase-0-scope-lock.md` (P0-1 marked decided + deliverable link).
+
+**Verification** (what was actually run + result)
+
+- Docs-only change; no code touched. `pnpm ci:quick` to be run before the PR (markdown lint/format is part of the contract).
+- No browser check applicable.
+
+**Decisions / ADRs**
+
+- P0-1 accepted (owner defaults). **Explicitly not granted:** ADR-11 (tenant/campus, Q6) and ADR-10 (GL build-vs-integrate, Q19–20) stay `blocked (owner)` — P0-1 frames them but does not decide them.
+- **Build-first sequencing (owner, 2026-08-01):** the legacy-system screenshots are our sample of what schools use; we build from those learnings + seed data to a fully-functional demo, sell on it, then tweak per school. **P0-2 resequenced** from a pre-build gate to onboarding (per-school redacted exports reconcile that school before its live cutover — the Q3 rule at go-live). Recorded in `release-1-promise.md` (new _Sequencing_ section), the P0-2 board row/section, and the Phase-0 exit gate. **Build path is unblocked; nothing waits on partner recruitment.**
+
+**Next step (so the next agent can resume)**
+
+- Owner go-ahead → branch (e.g. `claude/P0-1-release-1-promise`), run `pnpm ci:quick`, open PR for the Phase-0 docs.
+- Then start building toward the demo: accept the non-owner-gated ADRs (P0-3) to unblock `F1`/`F3`/`F4`/`F5`, and begin the `ready` foundations (`F3` jobs/outbox, `F7` search, `F8` Aurora patterns) with representative NG K-12 seed data. Owner to pick the first build target next session.
+
+**New gotcha** → none.
+
+---
+
 ## Session Summary (2026-07-31) — Codex: reject commercial nags without blocking school payments
 
 **Item(s):** H3 → done. **Branch/PR:** `codex/H3-remove-workspace-nags` / [#36](https://github.com/Ewosoft-Solutions/claude-trial/pull/36).

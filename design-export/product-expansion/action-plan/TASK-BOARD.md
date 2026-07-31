@@ -8,7 +8,7 @@
 ## ▶ Ready to claim right now
 
 `ADR-01…12` (all drafted → **review→accept**, `P0-3`) · `F3` `F7` `F8`
-_(Everything else is `backlog`/`blocked` until its dep or ADR lands. Owner decisions `P0-1/P0-2` gate the profile-specific scope.)_
+_(Everything else is `backlog`/`blocked` until its dep or ADR lands. `P0-1` **decided** (NG K-12 + supported/excluded matrix — see [`release-1-promise.md`](release-1-promise.md)); **build-first**: we build from the legacy-system screenshot learnings + seed data, so `P0-2` (design partners) is resequenced to onboarding and no longer gates the build. Owner decisions Q6/Q19–20 still gate `ADR-11`/`ADR-10`.)_
 
 ---
 
@@ -22,12 +22,12 @@ _(Everything else is `backlog`/`blocked` until its dep or ADR lands. Owner decis
 
 ## Phase 0 — scope-lock + ADRs (decisions before code; no feature code)
 
-| ID   | Title                                                                                                                       | Effort | Deps | Owner     | Status          |
-| ---- | --------------------------------------------------------------------------------------------------------------------------- | ------ | ---- | --------- | --------------- |
-| P0-1 | Confirm Release-1 school profile + contractual "retire the legacy system" definition                                        | S      | —    | **owner** | blocked (owner) |
-| P0-2 | Recruit 2 design partners; inventory their actually-used jobs; collect redacted exports (report cards/receipts/broadsheets) | M      | —    | **owner** | blocked (owner) |
-| P0-3 | Draft + accept the 12 ADRs (below)                                                                                          | L      | —    | —         | ready           |
-| P0-4 | Stand up parity/migration/acceptance scorecards (from [06 §5](../plan/06-roadmap-and-discussion-guide.md))                  | S      | —    | —         | ready           |
+| ID   | Title                                                                                                                                                         | Effort | Deps | Owner | Status  |
+| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ | ---- | ----- | ------- |
+| P0-1 | Confirm Release-1 school profile + contractual "retire the legacy system" definition ([`release-1-promise.md`](release-1-promise.md))                         | S      | —    | owner | done    |
+| P0-2 | Design-partner validation + per-school redacted exports — **resequenced to onboarding** (reconcile that school before its live cutover); not a pre-build gate | M      | —    | owner | backlog |
+| P0-3 | Draft + accept the 12 ADRs (below)                                                                                                                            | L      | —    | —     | ready   |
+| P0-4 | Stand up parity/migration/acceptance scorecards (from [06 §5](../plan/06-roadmap-and-discussion-guide.md))                                                    | S      | —    | —     | ready   |
 
 ### ADRs (see [`adr/README.md`](adr/README.md); draft now, some need P0-1 owner sign-off)
 
@@ -93,6 +93,8 @@ _(Everything else is `backlog`/`blocked` until its dep or ADR lands. Owner decis
 
 ## Change log (board edits — newest first)
 
+- `2026-08-01` — **Build-first sequencing (owner).** Legacy-system screenshots are our sample of what schools use → we build from those learnings + seed data to a fully-functional demo, sell on it, then tweak per school. **P0-2 resequenced** from a pre-build gate to **onboarding** (per-school redacted exports reconcile that school before its live cutover — the Q3 rule, applied per-school at go-live). Phase-0 exit gate + [`release-1-promise.md`](release-1-promise.md) (new _Sequencing_ section) updated. Build path is unblocked; nothing waits on partner recruitment. _(claude)_
+- `2026-07-31` — **P0-1 decided → done.** Owner approved the recommended defaults for decision Q1–Q3: **NG K-12** is the first full profile (tertiary/TVET/international = separate scope); "retire the legacy system" = **capability parity on the critical jobs a partner actually uses**, published as a supported/excluded matrix, not menu parity; **operational evidence + reconciliation outrank screenshots** for high-consequence behaviour. Deliverable: [`release-1-promise.md`](release-1-promise.md). Unblocks profile-specific scope in every workbench + P0-2's export requirement. **Still open:** ADR-10 (Q19–20) + ADR-11 (Q6) remain owner-gated; the definitive per-partner matrix awaits **P0-2**. _(claude)_
 - `2026-07-31` — **H3 approved → done.** Audited authenticated workspaces: no commercial subscription nag ships today. Added a regression guard that rejects subscription/trial/upgrade/renewal/premium nags and the legacy expiry-linked “Pay Now” signature while preserving school-fee and finance actions. PR [#36](https://github.com/Ewosoft-Solutions/claude-trial/pull/36). _(codex)_
 - `2026-07-31` — **H2 implemented; draft PR #35 open.** Added explicit Aurora permission-denied and full-surface offline presets, state-system tests, design-system examples, and shared-state wiring for `/unauthorized`. Awaiting review/merge. _(codex)_
 - `2026-07-31` — **H1 implemented; draft PR #34 open.** Current status docs now reflect the wired web/API system and active product-expansion initiative; operational permission references and verification use the enforced 305-permission catalog (9 persisted categories, 28 seed groups). Root validation aliases were restored. Awaiting review/merge. _(codex)_
