@@ -48,17 +48,17 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 
 ## Phase 1 — shared foundations (every later module reuses these)
 
-| ID  | Title                                                                                                             | #           | Effort | Deps       | Owner | Status           |
-| --- | ----------------------------------------------------------------------------------------------------------------- | ----------- | ------ | ---------- | ----- | ---------------- |
-| F1  | `Person`/identity/profile/membership separation + relationship history                                            | —           | XL     | ADR-01     | —     | ready            |
-| F2  | Shared **import & migration** platform (ImportJob/mapping/validate/commit/reconcile)                              | #26,#113    | XL     | F3, ADR-09 | —     | blocked (F3)     |
-| F3  | Durable **job queue + transactional outbox + idempotency**                                                        | —           | L      | —          | —     | ready            |
-| F4  | **Document/attachment** service (scan/classify/retain/signed URLs)                                                | #28,#110    | L      | F3         | —     | blocked (F3)     |
-| F5  | **Communication delivery** abstraction + `DeliveryAttempt` ledger (DND/cost/failure) + preferences + `SecureLink` | #97,#98,#99 | L      | F3, ADR-07 | —     | blocked (F3)     |
-| F6  | **Academic-profile + policy-version** framework (effective-dated)                                                 | —           | L      | ADR-03     | —     | blocked (ADR-03) |
-| F7  | Governed **search + saved-views + URL-state directory** pattern                                                   | #105,#27    | M      | —          | —     | ready            |
-| F8  | Shared Aurora patterns: **Directory / Workbench / Lifecycle / Policy / Approval** in `packages/ui`                | —           | M      | —          | —     | ready            |
-| F9  | Data-**export/retention/privacy** primitives (`DataExportJob`, retention)                                         | #104        | M      | F3, F4     | —     | blocked          |
+| ID  | Title                                                                                                             | #           | Effort | Deps       | Owner  | Status           |
+| --- | ----------------------------------------------------------------------------------------------------------------- | ----------- | ------ | ---------- | ------ | ---------------- |
+| F1  | `Person`/identity/profile/membership separation + relationship history                                            | —           | XL     | ADR-01     | —      | ready            |
+| F2  | Shared **import & migration** platform (ImportJob/mapping/validate/commit/reconcile)                              | #26,#113    | XL     | F3, ADR-09 | —      | blocked (F3)     |
+| F3  | Durable **job queue + transactional outbox + idempotency**                                                        | —           | L      | —          | claude | in-progress      |
+| F4  | **Document/attachment** service (scan/classify/retain/signed URLs)                                                | #28,#110    | L      | F3         | —      | blocked (F3)     |
+| F5  | **Communication delivery** abstraction + `DeliveryAttempt` ledger (DND/cost/failure) + preferences + `SecureLink` | #97,#98,#99 | L      | F3, ADR-07 | —      | blocked (F3)     |
+| F6  | **Academic-profile + policy-version** framework (effective-dated)                                                 | —           | L      | ADR-03     | —      | blocked (ADR-03) |
+| F7  | Governed **search + saved-views + URL-state directory** pattern                                                   | #105,#27    | M      | —          | —      | ready            |
+| F8  | Shared Aurora patterns: **Directory / Workbench / Lifecycle / Policy / Approval** in `packages/ui`                | —           | M      | —          | —      | ready            |
+| F9  | Data-**export/retention/privacy** primitives (`DataExportJob`, retention)                                         | #104        | M      | F3, F4     | —      | blocked          |
 
 **Phase 1 exit gate:** two unrelated domains use import + documents + jobs + delivery without custom copies; retry never duplicates a financial/result/message command; tenant + campus isolation tests pass; permissions enforced through one policy path.
 
