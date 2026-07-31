@@ -1,6 +1,6 @@
 # ADR-07 — Communication delivery-provider abstraction
 
-- **Status:** Proposed — 2026-07-31
+- **Status:** Accepted — 2026-08-01 _(the abstraction; channel contract Q24–26 stays a product decision, non-blocking)_
 - **Deciders:** engineering. **Owner sign-off:** channel _contract_ (which channels ship first) is a product decision — see [Q24–26](../../plan/06-roadmap-and-discussion-guide.md#g--communication--reporting); the _abstraction_ below is engineering's.
 - **Unblocks:** F5 (delivery ledger), WB1-3 (secure invitations), and every notification path (admissions C024, results C104/C108, attendance C048, finance).
 

@@ -1,6 +1,6 @@
 # ADR-06 — Durable job queue + transactional outbox
 
-- **Status:** Proposed — 2026-07-31
+- **Status:** Accepted — 2026-08-01
 - **Deciders:** engineering. **Owner sign-off:** not required.
 - **Unblocks:** F2 (import platform), F4 (documents), F5 (delivery), F9 (export); and every later batch job (result publication, payroll runs, reconciliation, analytics refresh).
 

@@ -1,6 +1,6 @@
 # ADR-12 — OneRoster / LTI / Ed-Fi / interop adoption scope
 
-- **Status:** Proposed — 2026-07-31
+- **Status:** Accepted — 2026-08-01 _(canonical-model + phased-adapter posture; which standards enter committed scope stays market-driven)_
 - **Deciders:** engineering + product. **Owner sign-off:** which integrations are in **committed** scope (market-driven).
 - **Unblocks:** WB9 (ecosystem, Phase 4); shapes the export side of F2/F9.
 

@@ -14,9 +14,11 @@ Answer [decision questions](../plan/06-roadmap-and-discussion-guide.md#decision-
 
 **Strategy (2026-08-01, owner):** the legacy-system screenshots already sample what these schools use, so we **build from those learnings + seed data** (as we already seed) to a fully-functional demo first, sell on the working product, then tweak per school. P0-2 therefore moves from "before we build" to **onboarding time**: when a specific school signs, recruit it as a design partner, collect its **redacted** exports (report card, receipt, broadsheet, fee schedule, debtor list, student export), and use them to **reconcile that school's real data before its live cutover** (the Q3 evidence rule). An early partner may optionally validate our seed assumptions sooner. **Deliverable (per school, at onboarding):** `partners/<name>-used-jobs.md` + a redacted-samples folder (git-ignored if sensitive). **No longer gates:** the Phase-1/2 build or the demo.
 
-## P0-3 · Draft + accept the 12 ADRs — `L`
+## P0-3 · Draft + accept the 12 ADRs — `L` — 🟡 **7/12 accepted (2026-08-01)**
 
 Draft each ADR from the recommended defaults in [04](../plan/04-target-product-and-architecture.md) + [06](../plan/06-roadmap-and-discussion-guide.md), using the [template](adr/README.md). Sequence by what unblocks Phase 1: **ADR-06 (jobs/outbox) → ADR-01 (person) → ADR-07 (delivery) → ADR-03 (curriculum) → ADR-08 (documents/signatures) → ADR-09 (migration)** first; ADR-02/04/05 before their workbenches; **ADR-10 (GL build-vs-integrate) and ADR-11 (tenant vs campus)** need the owner. **Done when:** each ADR is `Accepted` (owner-gated ones signed) and its dependent board rows flip `blocked → ready`.
+
+**Status:** **Accepted (7):** ADR-01, 02, 06, 07, 08, 09, 12 — unblocks Phase-1 foundations `F1`/`F3`/`F7`/`F8`. **Owner-gated (5):** ADR-03 (Q11, curriculum/academic), ADR-04 (Q13–16, result-publication policy), ADR-05 (Q20–23, finance), ADR-10 (Q20, GL build-vs-integrate), ADR-11 (Q6, tenant/campus). P0-3 closes when the owner signs those five.
 
 ## P0-4 · Scorecards — `S`
 
