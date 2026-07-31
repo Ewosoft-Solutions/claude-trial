@@ -1,0 +1,72 @@
+// ============================================
+// Jobs & Outbox (F3) — durable background work
+// ============================================
+// ADR-06: a Postgres-backed durable job queue + transactional outbox so that
+// long/critical work (imports, result publication, SMS/email, reconciliation)
+// runs reliably, exactly once, and observably — replacing the process-local
+// in-memory QueueService.
+//
+// Tenant-scoped with platform-level rows (tenant_id nullable, like AuditLog):
+// a platform/system job has no tenant. RLS `tenant_isolation` isolates tenant
+// rows; the audited `app.is_platform` branch lets a worker manage the global
+// queue. The tenant_id FK to tenant.tenants is declared in the migration (no
+// Prisma relation — jobs are infra, never navigated from Tenant).
+// ============================================
+
+// Job - a unit of durable, retryable, exactly-once background work
+model Job {
+  id       String  @id @default(uuid())
+  tenantId String? @map("tenant_id") // null = platform/system job
+
+  type   String // handler key, e.g. 'email.send', 'import.commit'
+  status String @default("queued") // queued | running | succeeded | failed | dead
+
+  idempotencyKey String? @map("idempotency_key") // re-enqueue with same key = no-op
+
+  payload   Json? // job input
+  progress  Int   @default(0) // 0..100
+  rowCounts Json? @map("row_counts") // {processed, failed, total} for bulk jobs
+
+  attempts    Int @default(0)
+  maxAttempts Int @default(5) @map("max_attempts")
+
+  actorId          String? @map("actor_id") // who triggered it (audit)
+  resultArtifactId String? @map("result_artifact_id") // e.g. a generated document
+  error            String? // last failure message
+
+  runAfter    DateTime  @default(now()) @map("run_after") // earliest run (backoff)
+  scheduledAt DateTime? @map("scheduled_at") // original requested schedule
+  lockedAt    DateTime? @map("locked_at") // worker lease acquired
+  lockedBy    String?   @map("locked_by") // worker id holding the lease
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, idempotencyKey])
+  @@index([tenantId])
+  @@index([status, runAfter])
+  @@map("jobs")
+  @@schema("jobs")
+}
+
+// OutboxEvent - a side-effect intent written in the SAME tx as a domain change,
+// then relayed idempotently by a worker (never lost, never a phantom effect).
+model OutboxEvent {
+  id       String  @id @default(uuid())
+  tenantId String? @map("tenant_id")
+
+  aggregate   String // e.g. 'Payment', 'ResultPublication'
+  aggregateId String @map("aggregate_id")
+  type        String // event type, e.g. 'payment.recorded'
+  payload     Json?
+
+  createdAt   DateTime  @default(now()) @map("created_at")
+  publishedAt DateTime? @map("published_at") // null = not yet relayed
+
+  @@index([tenantId])
+  @@index([publishedAt])
+  @@map("outbox_events")
+  @@schema("jobs")
+}
