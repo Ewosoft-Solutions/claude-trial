@@ -1,6 +1,29 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-07-10
+Last Updated: 2026-07-31
+
+---
+
+## Session Summary (2026-07-31) — Claude: The legacy system parity assessment + action-plan + multi-agent workflow (docs-only)
+
+**Item(s):** new initiative bootstrapped (no board item yet — the board *is* a deliverable). **Branch/PR:** none — nothing committed/pushed this session.
+
+**What changed & why**
+- **Assessment** (`design-export/product-expansion/plan/`, 9 docs): reviewed all 135 reference screenshots image-by-image (register C001–C135), grounded against the live repo (verified 71 routes · 58 models/22 files · 305 permissions/28 cats/11 pools · Aurora tokens). Thesis: **capability parity WITHOUT IA parity**; deepen a few shared aggregates (People, Admission, ResultCycle, Family/Student Account+Ledger, Engagement Delivery, Curriculum Version, Migration Job). Includes a 116-row parity matrix (07) + an Aurora design-system bridge (08).
+- **Action plan** (`design-export/product-expansion/action-plan/`): README, WORKFLOW, **TASK-BOARD** (the coordination point), BACKLOG (Phases 2–5), detailed Phase-0/Phase-1/Workbench-1(People) docs, **all 12 ADRs drafted** (`Proposed`; ADR-10/11 are owner decision-briefs), templates (work-item, session-log-entry).
+- **Multi-agent workflow**: added agent-neutral **`/AGENTS.md`** (contract, validation commands, gotchas, claim/branch rules, session-close ritual) — the file Codex reads by convention. Realiased **`CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md`** into a thin pointer to it. Moved the durable "Known Gotchas" from the Claude prompt into `AGENTS.md §7` so all agents share them.
+
+**Verification**
+- **Docs-only session — no product code, no schema, no commits, no push.** CI not run (would need a commit). Before committing these docs, run `pnpm ci:quick` (markdown format/lint is part of the contract) — I did **not** run `pnpm format:check` on the new markdown.
+- Assessment numbers were verified directly against the repo (routes/models/seed/tokens), not quoted from status docs.
+
+**Decisions / ADRs**
+- Workflow decisions made *with the user* this session: plan+workflow only (no code yet); detail near-term + backlog the rest; adopt AGENTS.md + shared board + handoff ritual; lead with Shared foundations + People. The 12 architecture ADRs are opened as `Proposed` in `action-plan/adr/` — none accepted yet.
+
+**Next step (so the next agent can resume)**
+- All 12 ADRs are drafted (`Proposed`) — next is **review→accept** (`P0-3`); accepting ADR-01/06/07/08 flips `F1/F4/F5` to `ready`. Owner input still needed on `P0-1` (Release-1 profile), `P0-2` (design partners + exports), and sign-off on **ADR-03** (academic), **ADR-05** (finance), and the **ADR-10/11** owner briefs. In parallel, any agent can claim a `ready` board item now: **`H1`** (reconcile the 274/297/305 permission-count drift + fix the stale "mock data" line in `AI_CONTEXT.md`), **`H2`** (states in `custom/states`), **`H3`**, or foundations **`F3`** (jobs/outbox), **`F7`** (directory pattern), **`F8`** (Aurora shells).
+
+**New gotcha** → none introduced; existing gotchas consolidated into `AGENTS.md §7`.
 
 ---
 
