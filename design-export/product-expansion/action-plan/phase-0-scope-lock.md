@@ -2,17 +2,17 @@
 
 **Goal:** turn the assessment into an approved parity contract + settled architecture, so **no P0 build later forces a core-table redesign**. No feature code ships in this phase. Items: `P0-1..P0-4` + `ADR-01..12` on the [board](TASK-BOARD.md).
 
-**Exit gate:** each P0 job has an owner, current artefact, target workflow, and acceptance test; source export formats + limits are known; every ADR that a Phase-1 item depends on is `Accepted`.
+**Exit gate:** each P0 job has an owner, current artefact, target workflow, and acceptance test; source-format learnings are taken from the legacy-system screenshots (real per-school exports collected at that school's onboarding — see P0-2 — **not** before the build); every ADR that a Phase-1 item depends on is `Accepted`.
 
 ---
 
-## P0-1 · Confirm Release-1 profile + "retire the legacy system" definition — owner decision, `S`
+## P0-1 · Confirm Release-1 profile + "retire the legacy system" definition — owner decision, `S` — ✅ **decided 2026-07-31**
 
-Answer [decision questions](../plan/06-roadmap-and-discussion-guide.md#decision-workshop--questions-to-settle) **1–3**: which schools Release-1 replaces end-to-end, what "retire" contractually covers, and which evidence outranks a screenshot. **Recommended default:** NG K-12 as the first full profile; guarantee the critical jobs the design partners actually use; publish a supported/excluded matrix. **Deliverable:** a one-page "Release-1 promise" committed here. **Unblocks:** ADR-11, ADR-10, and profile-specific scope in every workbench.
+Answer [decision questions](../plan/06-roadmap-and-discussion-guide.md#decision-workshop--questions-to-settle) **1–3**: which schools Release-1 replaces end-to-end, what "retire" contractually covers, and which evidence outranks a screenshot. **Recommended default:** NG K-12 as the first full profile; guarantee the critical jobs the design partners actually use; publish a supported/excluded matrix. **Deliverable:** a one-page "Release-1 promise" committed here → **[`release-1-promise.md`](release-1-promise.md)** (owner approved the defaults). **Unblocks:** profile-specific scope in every workbench + P0-2's redacted-export requirement. **Note:** ADR-11 (tenant/campus, Q6) and ADR-10 (GL build-vs-integrate, Q19–20) are separate owner decisions and stay `blocked (owner)` — P0-1 frames but does not grant them.
 
-## P0-2 · Design partners + used-job inventory + exports — owner, `M`
+## P0-2 · Design-partner validation + per-school exports — owner, `M` — **resequenced: not a pre-build gate**
 
-Recruit two partners revealing variation (see [06 §pilot](../plan/06-roadmap-and-discussion-guide.md#recommended-pilot-shape)); for each, list which the legacy system modules they actually use, and collect **redacted** exports: a report card, a receipt, a broadsheet, a fee schedule, a debtor list, a student export. **Deliverable:** `partners/<name>-used-jobs.md` + a redacted-samples folder (git-ignored if sensitive). **Why it gates:** these samples are the real acceptance fixtures + the migration source contract; building admissions/results/finance without them is guessing.
+**Strategy (2026-08-01, owner):** the legacy-system screenshots already sample what these schools use, so we **build from those learnings + seed data** (as we already seed) to a fully-functional demo first, sell on the working product, then tweak per school. P0-2 therefore moves from "before we build" to **onboarding time**: when a specific school signs, recruit it as a design partner, collect its **redacted** exports (report card, receipt, broadsheet, fee schedule, debtor list, student export), and use them to **reconcile that school's real data before its live cutover** (the Q3 evidence rule). An early partner may optionally validate our seed assumptions sooner. **Deliverable (per school, at onboarding):** `partners/<name>-used-jobs.md` + a redacted-samples folder (git-ignored if sensitive). **No longer gates:** the Phase-1/2 build or the demo.
 
 ## P0-3 · Draft + accept the 12 ADRs — `L`
 
@@ -33,5 +33,5 @@ Stand up the three tracking artefacts from [06 §5](../plan/06-roadmap-and-discu
 
 - Every board row that a Phase-1 item depends on is `Accepted`/`done`.
 - The Release-1 promise + supported/excluded matrix exists and is signed.
-- At least one partner's used-job inventory + redacted samples are in hand.
+- Source-format learnings captured from the legacy-system screenshots + representative NG K-12 seed data planned. _(Real per-school exports deferred to onboarding — see P0-2; not a pre-build gate.)_
 - `pnpm ci:quick` still green (docs-only changes shouldn't break it — but run it; markdown lint/format is part of the contract).
