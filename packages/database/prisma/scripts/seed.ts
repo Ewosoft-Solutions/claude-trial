@@ -246,7 +246,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 305,
+  total: 320,
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -276,6 +276,9 @@ const EXPECTED_PERMISSION_COUNTS = {
     HR_PAYROLL_PERMISSIONS: 3,
     AI_PERMISSIONS: 4,
     LESSONS_PERMISSIONS: 9,
+    PERSON_PERMISSIONS: 4,
+    DOCUMENT_PERMISSIONS: 6,
+    IMPORT_PERMISSIONS: 5,
   },
   clearanceLevels: { min: 0, max: 10 },
 };
@@ -3417,6 +3420,153 @@ const LESSONS_PERMISSIONS = [
   },
 ];
 
+// Person / People-directory Permissions (4) — person schema (F1 / ADR-01)
+const PERSON_PERMISSIONS = [
+  {
+    name: 'people.view',
+    label: 'View People',
+    description: 'View the people directory (contacts masked without people.view_contact)',
+    resource: 'people',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'people.view_contact',
+    label: 'View Contact Details',
+    description: 'View un-masked contact details (email/phone) of a person',
+    resource: 'people',
+    action: 'view_contact',
+    category: 'administrative',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'people.manage',
+    label: 'Manage People',
+    description: 'Create/update people, attach staff/guardian profiles, add contacts',
+    resource: 'people',
+    action: 'manage',
+    category: 'administrative',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'people.merge',
+    label: 'Merge Duplicate People',
+    description: 'Resolve a duplicate by merging one person into another (audited, reversible history)',
+    resource: 'people',
+    action: 'merge',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+];
+
+// Document / attachment + signature Permissions (6) — documents schema (F4 / ADR-08)
+const DOCUMENT_PERMISSIONS = [
+  {
+    name: 'documents.view',
+    label: 'View Documents',
+    description: 'View document metadata and non-sensitive documents',
+    resource: 'documents',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'documents.upload',
+    label: 'Upload Documents',
+    description: 'Upload a new document or a new version of an existing document',
+    resource: 'documents',
+    action: 'upload',
+    category: 'administrative',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'documents.manage',
+    label: 'Manage Documents',
+    description: 'Delete, set retention, or place a legal hold on documents',
+    resource: 'documents',
+    action: 'manage',
+    category: 'administrative',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'documents.download_sensitive',
+    label: 'Download Sensitive Documents',
+    description: 'Mint signed URLs for restricted/sensitive documents (audited)',
+    resource: 'documents',
+    action: 'download_sensitive',
+    category: 'administrative',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'signatures.manage',
+    label: 'Manage Signing Authorities',
+    description: 'Register or revoke a person’s authority to sign in a role',
+    resource: 'signatures',
+    action: 'manage',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'signatures.apply',
+    label: 'Apply a Signature',
+    description: 'Apply a signature to an artifact via an authorized SignatureUse (audited)',
+    resource: 'signatures',
+    action: 'apply',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+];
+
+// Import / migration Permissions (5) — imports schema (F2 / ADR-09)
+const IMPORT_PERMISSIONS = [
+  {
+    name: 'imports.view',
+    label: 'View Imports',
+    description: 'View import jobs, validation issues and reconciliation results',
+    resource: 'imports',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'imports.manage',
+    label: 'Manage Imports',
+    description: 'Create import jobs, map columns, validate and dry-run',
+    resource: 'imports',
+    action: 'manage',
+    category: 'administrative',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'imports.commit',
+    label: 'Commit Imports',
+    description: 'Commit a validated import idempotently (step-up required)',
+    resource: 'imports',
+    action: 'commit',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'imports.approve',
+    label: 'Approve Imports',
+    description: 'Approve a financial/grade/history import before commit (maker-checker)',
+    resource: 'imports',
+    action: 'approve',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'imports.rollback',
+    label: 'Roll Back Imports',
+    description: 'Roll back a committed import wave via its planned controlled path',
+    resource: 'imports',
+    action: 'rollback',
+    category: 'administrative',
+    requiredClearanceLevel: 8,
+  },
+];
+
 // Role to Pool mapping
 const ROLE_TO_POOL_MAPPING: Record<string, string> = {
   Architect: 'Level10_PlatformArchitect',
@@ -4091,6 +4241,9 @@ async function main() {
       HR_PAYROLL_PERMISSIONS,
       AI_PERMISSIONS,
       LESSONS_PERMISSIONS,
+      PERSON_PERMISSIONS,
+      DOCUMENT_PERMISSIONS,
+      IMPORT_PERMISSIONS,
     };
 
     const allPermissions = Object.values(permissionArrays).flat();

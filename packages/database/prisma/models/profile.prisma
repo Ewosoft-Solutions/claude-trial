@@ -52,6 +52,7 @@ model UserTenant {
   messageReadReceipts   MessageReadReceipt[] // Read receipts for messages
   guardianForStudents   StudentGuardian[]      @relation("StudentGuardianGuardian")
   defaultForUsers       User[]                 @relation("UserDefaultProfile") // Users that have set this as their sign-in default
+  person                Person?                @relation("PersonAccount") // F1: the human this account belongs to (0..1)
 
   // Multiple profiles per user+tenant (one per role) are allowed; keep an index for lookups
   @@index([userId, tenantId])

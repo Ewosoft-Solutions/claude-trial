@@ -1,0 +1,244 @@
+// ============================================
+// Person / identity / profile / membership (F1) — ADR-01
+// ============================================
+// One human as known to ONE tenant. Separates the four concerns the corpus
+// fuses today:
+//
+//   User (user-management)   — auth identity: credentials, MFA, sessions (platform)
+//     └─ UserTenant (profile) — an account at a school (membership)
+//   Person (this file)        — a human at ONE tenant; holds PII; login OPTIONAL
+//     ├─ ContactPoint         — typed, verifiable email/phone (masked by default)
+//     ├─ Address              — country-subdivision adapter (NG State/LGA …)
+//     ├─ 0..1 UserTenant link — if this human has an account here
+//     ├─ StaffProfile         — first-class employment (retire payroll-as-directory)
+//     ├─ GuardianRelationship — to a ward's Person
+//     └─ RelationshipHistory  — dated audit of profile/relationship/merge events
+//
+// Person is TENANT-SCOPED (ADR-01 option 1 + ADR-11): the same human at two
+// schools is two Persons, never cross-linked by default. tenant_id is non-null;
+// RLS `tenant_isolation` is applied in the migration (db:rls:check gates CI).
+//
+// Dedup: `sourceSystem`+`sourceId` is the stable migration key (ADR-09) AND the
+// merge anchor — a `merged` Person points at its survivor via `mergedIntoId`,
+// and every profile/relationship it owned is re-pointed to the survivor with a
+// RelationshipHistory trail (evidence preserved, never destroyed).
+// ============================================
+
+// Person - the tenant-scoped human anchor. A login (UserTenant) is optional.
+model Person {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  // Names (searchable; no longer trapped in Student.personalInfo JSONB)
+  firstName     String  @map("first_name")
+  lastName      String  @map("last_name")
+  middleName    String? @map("middle_name")
+  preferredName String? @map("preferred_name")
+
+  // Governed searchable attributes (moved out of JSONB per ADR-01). NG-first
+  // but generic: subdivision fields hold State/LGA for NG, province/region
+  // elsewhere. Religion is stored only where lawful; nullable everywhere.
+  dateOfBirth   DateTime? @map("date_of_birth") @db.Date
+  gender        String? // 'male' | 'female' | 'other' | 'undisclosed'
+  nationality   String? // ISO-3166 alpha-2, e.g. 'NG'
+  stateOfOrigin String?   @map("state_of_origin")
+  lgaOfOrigin   String?   @map("lga_of_origin")
+  religion      String?
+
+  // Genuinely tenant-extensible attributes stay JSON (with a schema per tenant).
+  attributes Json? @default("{}")
+
+  // 0..1 platform account at THIS tenant (null = a human with no login, e.g. a
+  // young student or a non-login guardian — solves the generated-password anti-
+  // pattern). Unique: an account belongs to at most one Person.
+  userTenantId String? @unique @map("user_tenant_id")
+
+  // Lifecycle + dedup
+  status       String  @default("active") // 'active' | 'merged' | 'archived'
+  mergedIntoId String? @map("merged_into_id") // survivor Person when status='merged'
+
+  // Migration provenance + idempotent-upsert key (ADR-09). Unique per tenant.
+  sourceSystem String? @map("source_system")
+  sourceId     String? @map("source_id")
+
+  // Audit
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations (within-tenant)
+  account       UserTenant?  @relation("PersonAccount", fields: [userTenantId], references: [id], onDelete: SetNull)
+  mergedInto    Person?      @relation("PersonMerge", fields: [mergedIntoId], references: [id], onDelete: SetNull)
+  mergedFrom    Person[]     @relation("PersonMerge")
+  contactPoints ContactPoint[]
+  addresses     Address[]
+  staffProfiles StaffProfile[]
+  studentProfile Student?    @relation("StudentPerson")
+  guardianships GuardianRelationship[] @relation("GuardianPerson") // this Person as a guardian
+  wardLinks     GuardianRelationship[] @relation("WardPerson") // this Person as a ward (student)
+  history       RelationshipHistory[]
+
+  @@unique([tenantId, sourceSystem, sourceId]) // idempotent migration upsert key
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([tenantId, lastName, firstName]) // directory sort/search
+  @@index([mergedIntoId])
+  @@map("persons")
+  @@schema("person")
+}
+
+// ContactPoint - a typed, verifiable channel. Masked by default on read; the
+// normalized value is indexed for dedup matching (email/phone only — never
+// health/safeguarding data).
+model ContactPoint {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  personId String @map("person_id")
+
+  kind            String // 'email' | 'phone'
+  value           String // as entered
+  valueNormalized String @map("value_normalized") // lower/e164 for matching
+  label           String? // 'home' | 'work' | 'mobile' | …
+  isPrimary       Boolean @default(false) @map("is_primary")
+
+  // Verification (a token is issued, then confirmed). Kept minimal here; the
+  // richer consent/preference model is F5's ContactPreference.
+  verifiedAt          DateTime? @map("verified_at")
+  verificationToken   String?   @map("verification_token")
+  verificationSentAt  DateTime? @map("verification_sent_at")
+  verificationExpires DateTime? @map("verification_expires")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([personId])
+  @@index([tenantId, kind, valueNormalized]) // dedup / lookup by contact
+  @@map("contact_points")
+  @@schema("person")
+}
+
+// Address - country-subdivision adapter. `subdivision` holds NG State (with
+// `lga` as the second level); `country` is ISO-3166 alpha-2.
+model Address {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  personId String @map("person_id")
+
+  kind           String  @default("home") // 'home' | 'work' | 'mailing' | …
+  line1          String
+  line2          String?
+  city           String?
+  subdivision    String? // State / Province / Region
+  subdivisionLga String? @map("subdivision_lga") // NG LGA (second-level)
+  postalCode     String? @map("postal_code")
+  country        String  @default("NG") // ISO-3166 alpha-2
+  isPrimary      Boolean @default(false) @map("is_primary")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([personId])
+  @@map("addresses")
+  @@schema("person")
+}
+
+// StaffProfile - first-class employment, so the HR directory is no longer
+// derived from StaffPayrollRecord (ADR-01: retire payroll-as-directory). A
+// person can hold more than one over time (rehire); the active one has no
+// endDate.
+model StaffProfile {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  personId String @map("person_id")
+
+  employeeNumber   String? @map("employee_number")
+  employmentStatus String  @default("active") @map("employment_status") // 'active' | 'on_leave' | 'suspended' | 'terminated'
+  employmentType   String? @map("employment_type") // 'full_time' | 'part_time' | 'contract' | 'volunteer'
+  jobTitle         String? @map("job_title")
+  department       String?
+  hireDate         DateTime? @map("hire_date")
+  endDate          DateTime? @map("end_date")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, employeeNumber])
+  @@index([tenantId])
+  @@index([personId])
+  @@index([tenantId, employmentStatus])
+  @@map("staff_profiles")
+  @@schema("person")
+}
+
+// GuardianRelationship - a guardian Person's authority over a ward's Person.
+// Person→Person (both sides are the same anchor), so a staff member who is also
+// a guardian is ONE identity with a guardian relationship — not a duplicate
+// account. Extends the legacy StudentGuardian fields (WB1-4 adds consent depth).
+model GuardianRelationship {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  guardianPersonId String @map("guardian_person_id")
+  wardPersonId     String @map("ward_person_id")
+
+  relationship    String  @default("parent") // 'parent' | 'guardian' | 'grandparent' | …
+  isPrimary       Boolean @default(false) @map("is_primary")
+  legalGuardian   Boolean @default(false) @map("legal_guardian")
+  contactPriority Int?    @map("contact_priority")
+  consentGiven    Boolean @default(false) @map("consent_given")
+
+  // Effective-dated so a relationship can end without losing history.
+  effectiveFrom DateTime  @default(now()) @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+  endedReason   String?   @map("ended_reason")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  guardian Person @relation("GuardianPerson", fields: [guardianPersonId], references: [id], onDelete: Cascade)
+  ward     Person @relation("WardPerson", fields: [wardPersonId], references: [id], onDelete: Cascade)
+
+  @@unique([guardianPersonId, wardPersonId])
+  @@index([tenantId])
+  @@index([guardianPersonId])
+  @@index([wardPersonId])
+  @@map("guardian_relationships")
+  @@schema("person")
+}
+
+// RelationshipHistory - a dated, append-only trail of what happened to a Person:
+// a profile added/removed, a relationship started/ended, a contact verified, and
+// crucially a dedup merge (both the survivor and the absorbed record log it).
+// This is the "resolve a duplicate → history preserved" evidence.
+model RelationshipHistory {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  personId String @map("person_id")
+
+  changeType String  @map("change_type") // 'profile_added' | 'profile_removed' | 'relationship_added' | 'relationship_ended' | 'contact_added' | 'contact_verified' | 'merged_from' | 'merged_into' | 'created'
+  summary    String // human-readable
+  detail     Json? // structured before/after or refs
+
+  effectiveAt DateTime @default(now()) @map("effective_at")
+  recordedBy  String?  @map("recorded_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([personId, effectiveAt])
+  @@index([changeType])
+  @@map("relationship_history")
+  @@schema("person")
+}
