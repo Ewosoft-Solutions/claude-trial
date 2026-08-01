@@ -48,7 +48,7 @@ export function OmniSearch({
       onClick={onClick}
       aria-label={placeholder}
       className={cn(
-        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius)] border border-border bg-secondary text-[13px] text-muted-foreground outline-none',
+        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius)] border border-border bg-background text-[13px] text-muted-foreground outline-none',
         'sm:w-full sm:justify-start sm:px-3',
         'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         className,

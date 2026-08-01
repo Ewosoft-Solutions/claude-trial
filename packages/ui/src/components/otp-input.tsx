@@ -125,7 +125,7 @@ export function OtpInput({
           aria-label={`Digit ${i + 1} of ${length}`}
           className={cn(
             // Base — matches the shared Input component's visual token set
-            'border-input bg-transparent dark:bg-input/30 border rounded-md shadow-xs',
+            'border-input bg-background dark:bg-input/30 border rounded-md shadow-xs',
             'text-center text-base font-semibold tabular-nums',
             'transition-[color,box-shadow] outline-none',
             // Sizing: square box that lines up with the standard h-9
