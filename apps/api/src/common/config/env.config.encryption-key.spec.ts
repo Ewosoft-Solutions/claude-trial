@@ -12,6 +12,9 @@ import { envValidationSchema } from './env.config';
 
 const BASE = {
   DATABASE_URL: 'postgresql://u:p@localhost:5432/db',
+  // Also required in production; set here so these ENCRYPTION_KEY assertions
+  // isolate the key under test rather than tripping the download-secret gate.
+  DOCUMENT_URL_SIGNING_SECRET: 'test-document-url-signing-secret-0123456789',
 };
 
 function validate(env: Record<string, unknown>) {
@@ -25,7 +28,10 @@ const key32 = crypto.randomBytes(32).toString('base64'); // 44 chars, padded
 
 describe('ENCRYPTION_KEY validation', () => {
   it('accepts a 32-byte base64 key in production', () => {
-    const { error } = validate({ NODE_ENV: 'production', ENCRYPTION_KEY: key32 });
+    const { error } = validate({
+      NODE_ENV: 'production',
+      ENCRYPTION_KEY: key32,
+    });
     expect(error).toBeUndefined();
   });
 

@@ -40,6 +40,8 @@ export interface EnvironmentConfig {
    * binaries). Relative paths resolve against the API process cwd.
    */
   STORAGE_LOCAL_ROOT: string;
+  /** HMAC key for signed short-lived document download URLs (F4 / ADR-08). */
+  DOCUMENT_URL_SIGNING_SECRET: string;
   JWT_SECRET?: string;
   AUTH_IDLE_TIMEOUT_MIN_MINUTES: number;
   AUTH_IDLE_TIMEOUT_MAX_MINUTES: number;
@@ -125,11 +127,30 @@ export const envValidationSchema = Joi.object({
     .valid('development', 'test', 'production')
     .default('development'),
   PORT: Joi.number().integer().min(1).max(65535).default(3000),
-  API_DEBUG_ERRORS: Joi.boolean()
-    .truthy('true')
-    .falsy('false')
-    .default(false),
+  API_DEBUG_ERRORS: Joi.boolean().truthy('true').falsy('false').default(false),
   STORAGE_LOCAL_ROOT: Joi.string().default('./storage'),
+  // REQUIRED in production. This HMAC key authorizes every document download,
+  // so a constant-derived default would let anyone with the source forge a
+  // signed token for any clean document — bypassing the sensitivity gate and
+  // exposing signature images (the exact ADR-08 reject). Fail at boot rather
+  // than sign under an effectively public key, exactly like ENCRYPTION_KEY
+  // below. Dev/test keep a default so local + CI work without configuration.
+  DOCUMENT_URL_SIGNING_SECRET: Joi.string().when('NODE_ENV', {
+    is: 'production',
+    then: Joi.string()
+      .required()
+      .min(32)
+      .messages({
+        'any.required':
+          'DOCUMENT_URL_SIGNING_SECRET is required in production. Generate one ' +
+          'with `openssl rand -base64 32`.',
+        'string.min':
+          'DOCUMENT_URL_SIGNING_SECRET must be at least 32 characters in production.',
+      }),
+    otherwise: Joi.string().default(
+      'dev-document-url-signing-secret-change-me',
+    ),
+  }),
   JWT_SECRET: Joi.string().optional(),
   AUTH_IDLE_TIMEOUT_MIN_MINUTES: Joi.number()
     .integer()

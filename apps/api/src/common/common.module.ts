@@ -8,6 +8,7 @@ import { AcademicsAccessService } from './academics/academics-access.service';
 import { EmailService } from './email/email.service';
 import { EmailQueueRegistrar } from './email/email-queue.registrar';
 import { PlatformAuditService } from './audit/platform-audit.service';
+import { AuditService } from './audit/audit.service';
 
 /**
  * Common Module
@@ -25,6 +26,7 @@ import { PlatformAuditService } from './audit/platform-audit.service';
     EmailService,
     EmailQueueRegistrar,
     PlatformAuditService,
+    AuditService,
   ],
   exports: [
     DatabaseModule,
@@ -35,6 +37,7 @@ import { PlatformAuditService } from './audit/platform-audit.service';
     AcademicsAccessService,
     EmailService,
     PlatformAuditService,
+    AuditService,
   ],
 })
 export class CommonModule {}

@@ -53,7 +53,7 @@ Run from repo root with **pnpm** (never npm/yarn). Turbo orchestrates; `prebuild
 | Seed integrity         | `pnpm db:verify`           | seed counts (permissions/pools) must match                                                              |
 | Local quick CI         | `pnpm ci:quick`            | `scripts/ci/run-quick-ci.mjs` — run before you push                                                     |
 
-**CI/CD:** `git push` runs the **full CI locally via `act` in Docker** (Docker must be running; takes minutes even for docs). CI (`.github/workflows/ci.yml`, Node 22): install → `pnpm audit --audit-level=low` → `db:deploy` → **`db:rls:check`** → **`check:privileged-db`** → build → lint → typecheck → test. On CI success, **CD** (`cd.yml`, `workflow_run`) migrates (owner) → deploys API (Render) → deploys Web (Vercel) → **smoke tests** (API liveness/readiness + web→API round-trip). A change is not "validated" until `pnpm ci:quick` passes locally and (for shipped code) CI is green.
+**CI/CD:** There is **no pre-push gate** — a former `act`-in-Docker pre-push was removed (it timed out under local Docker limits and blocked pushes for unrelated reasons; see [`docs/local-ci.md`](docs/local-ci.md)). `git push` needs no Docker; run `pnpm ci:quick` first (fast, no Docker), and GitHub Actions is the authoritative gate. CI (`.github/workflows/ci.yml`, Node 22): install → `pnpm audit --audit-level=low` → `db:deploy` → **`db:rls:check`** → **`check:privileged-db`** → build → lint → typecheck → test. On CI success, **CD** (`cd.yml`, `workflow_run`) migrates (owner) → deploys API (Render) → deploys Web (Vercel) → **smoke tests** (API liveness/readiness + web→API round-trip). A change is not "validated" until `pnpm ci:quick` passes locally and (for shipped code) CI is green.
 
 **A feature is DoD-complete only when its acceptance test passes AND the whole contract above is green.**
 
@@ -96,7 +96,7 @@ Because the board + `AI_HANDOFF.md` are files in git, any agent can resume anoth
 
 ## 7 · Known gotchas (agent-neutral — burned before)
 
-- **`git push` = full CI via `act` in Docker.** Docker must be running or the push is refused; it's slow even for docs. Don't wrap the push in a compound command — a trailing `echo` masks the exit code and makes a _blocked_ push look successful.
+- **No pre-push gate (`act`-in-Docker was removed).** `git push` needs no Docker and is not blocked locally; GitHub Actions runs the authoritative CI on the PR (see [`docs/local-ci.md`](docs/local-ci.md)). Still run `pnpm ci:quick` before pushing to catch the common failures in seconds.
 - **Use `rg`, not bash `grep`** — `grep` here is ugrep and silently finds nothing in files containing emoji (e.g. `seed.ts`). If `rg` output looks mangled by emoji, fall back to `grep -a` on the specific file.
 - **Changing permissions?** Update `EXPECTED_PERMISSION_COUNTS` in `packages/database/prisma/scripts/seed.ts` **in the same commit** (the seed aborts otherwise). The seed **upserts but never prunes** — a removed permission stays granted until deleted by hand.
 - **Permission groups are not categories.** The current 305-permission seed is assembled from 28 named groups but persists 9 `category` values; use `db:verify` rather than counting seed arrays when reporting categories.

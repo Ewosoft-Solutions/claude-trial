@@ -23,9 +23,10 @@
 
 // Student - Student profile at a school (linked to UserTenant)
 model Student {
-  id           String @id @default(uuid())
-  tenantId     String @map("tenant_id")
-  userTenantId String @map("user_tenant_id") // Student's profile (UserTenant)
+  id           String  @id @default(uuid())
+  tenantId     String  @map("tenant_id")
+  userTenantId String  @map("user_tenant_id") // Student's profile (UserTenant)
+  personId     String? @unique @map("person_id") // F1: the human this student profile anchors to (0..1, back-filled)
 
   // Student Identification
   studentNumber   String // e.g., "STU-2024-001", unique per tenant
@@ -58,6 +59,7 @@ model Student {
   // Relations
   tenant              Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   userTenant          UserTenant           @relation(fields: [userTenantId], references: [id], onDelete: Cascade)
+  person              Person?              @relation("StudentPerson", fields: [personId], references: [id], onDelete: SetNull)
   enrollments         Enrollment[]
   guardians           StudentGuardian[]    @relation("StudentGuardianStudent")
   attendanceRecords   AttendanceRecord[]

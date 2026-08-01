@@ -14,13 +14,17 @@
 - **Prior initiative — platform (cross-tenant) scope — is complete** (Phases 0–3 of
   `docs/platform-scope-plan.md`, PRs #11–#13). Details + deferrals are in `AI_HANDOFF.md`
   and that plan doc.
+- **Phase-1 foundations progress:** hygiene `H1`–`H3` done; `F3` (jobs/outbox) done;
+  `F1` (Person) + `F4` (Documents) + `F2` (Import) **in-review** ([PR #42](https://github.com/Ewosoft-Solutions/claude-trial/pull/42)).
+  Still `ready`: `F5` (delivery), `F7` (search), `F8` (Aurora patterns). `F6`/`F9` blocked.
+  Most ADRs accepted; 5 owner-gated (03/04/05/10/11).
 
 ## Do next
 
 1. Read [`AGENTS.md`](AGENTS.md) → read the
    [task board](design-export/product-expansion/action-plan/TASK-BOARD.md) →
-   claim a `ready` item (currently `H1`, `H2`, `H3`, the ADRs, `F3`, `F7`, `F8`),
-   set Owner + Status, branch, build to DoD, hand off.
+   claim a `ready` item (currently `F5`, `F7`, `F8`, `P0-4`), set Owner + Status,
+   branch, build to DoD, hand off. (`F1`/`F2`/`F4` are in-review under PR #42.)
 2. Owner-gated items (`P0-1`, `P0-2`, ADR-10/11) need product-owner input first.
 
 ## Read first

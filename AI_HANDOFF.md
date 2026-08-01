@@ -4,6 +4,36 @@ Last Updated: 2026-08-01
 
 ---
 
+## Session Summary (2026-08-01) — Claude: F1 + F4 + F2 Phase-1 foundations (Person, Documents, Import)
+
+**Item(s):** F1 → in-review, F4 → in-review, F2 → in-review. **Branch/PR:** `feat/phase1-foundations-f1-f2-f4` → **[PR #42](https://github.com/Ewosoft-Solutions/claude-trial/pull/42)** (open, awaiting review). No pre-push gate exists — `git push` needs no Docker; GitHub Actions runs CI on the PR, per `docs/local-ci.md`.
+
+**What changed & why**
+
+- Built the three remaining buildable Phase-1 foundations to DoD on one combined branch (owner steer: foundation-to-DoD, one branch/PR, full F2 entity set; workbench UI deferred to WB items). Build order **F1 → F4 → F2** (F4's `SigningAuthority` and F2's commit/target reuse Person; F2's source files reuse Document).
+- **F1 (ADR-01)** — new `person` schema: `Person` (tenant-scoped human anchor, `merged_into_id`, `(tenant, sourceSystem, sourceId)` unique), `ContactPoint` (+verification, masked-by-default), `Address`, `StaffProfile` (retire payroll-as-directory), `GuardianRelationship` (Person→Person), `RelationshipHistory`. Additive nullable `students.person_id` (+FK). Migration does an **RLS-safe DO-block back-fill** (one Person per legacy account + student/guardian links + history) **before** enabling RLS on the new tables. `PersonService` (CRUD/search/profiles/contacts+verification/masking) + `PersonMergeService` (dedup re-points all owned records to the survivor, marks the duplicate `merged`, writes history on **both** — evidence preserved). Cross-schema back-refs added to `UserTenant` (profile) + `Student`.
+- **F4 (ADR-08)** — new `documents` schema: `Document`/`DocumentVersion`/`DocumentType`/`SigningAuthority` (`person_id`→person via DB-FK, not a Prisma relation)/`SignatureUse`. Bytes go through the existing `StorageProvider` port (tenant-keyed); **HMAC signed short-lived download URLs** (`DocumentUrlSigner`, constant-time verify, 5-min TTL) minted only after a server-side permission check; **scan + thumbnail run as F3 jobs** (`DocumentJobRegistrar`), quarantine-until-clean (`HeuristicDocumentScanner`, EICAR-aware); signatures are governed assets (raw image never listed; use authorized per-artifact). New env `DOCUMENT_URL_SIGNING_SECRET` (dev default, grouped with storage config).
+- **F2 (ADR-09)** — new `imports` schema: **full 11-entity set** (ImportDefinition/ImportJob/SourceFile/ColumnMapping/TransformRule/ImportRow/ValidationIssue/DuplicateCandidate/ImportCommit/ReconciliationRule/ReconciliationResult). `ImportService` drives upload→map→validate→dry-run→approve→**commit (idempotent upsert on `(tenant,sourceSystem,sourceId)` into Person)**→reconcile→rollback. Dependency-free CSV parser + pure TransformRule executor. **Invalid rows go to an explicit exception queue — never committed around the good ones.** Duplicate detection vs Person source ref; count/sum/checksum reconciliation (money exact); controlled rollback. Commit/reconcile also registered as F3 handlers; controller gates commit with clearance + step-up (`DATA_BULK_IMPORT`) and maker-checker `approve` for financial/grade/history domains.
+- Permissions +15 (people.*/documents.*/signatures.*/imports.*); `EXPECTED_PERMISSION_COUNTS` 305→320. `rls-coverage-check.sql` extended to `person`/`documents`/`imports`. e2e suite set to **`--runInBand`** (see gotcha).
+
+**Verification** (what was actually run + result) — on a throwaway local Postgres (roles `app_runtime`/`app_privileged`, migrations applied via `db:deploy`)
+
+- e2e: **F1 4/4** (one-identity-two-profiles, non-login guardian, merge+history, RLS), **F4 6/6** (quarantine→clean→signed round-trip, tampered/expired token, sensitive-gate, EICAR quarantine, signature governance, RLS), **F2 4/4** (exception queue, idempotent re-run no-dups, reconcile exact, rollback, RLS), **F3 7/7**. Full serialized suite **21/21 × repeated**.
+- unit: api **444/444** (66 suites; incl. masking/signer/csv/transform), ui **120/120**, web **115/115**.
+- `db:rls:check` green (person/documents/imports covered); `db:seed` **320/320** permissions; **`pnpm ci:quick` green** (build + lint + typecheck; 0 errors).
+
+**Decisions / ADRs**
+
+- Implements accepted ADR-01 (F1), ADR-08 (F4), ADR-09 (F2). No new ADRs. Merge (F1) is clearance-7 + audited + reversible-history; maker-checker step-up on merge deferred to **WB1-6** (which owns high-risk access workflows) — noted in the controller.
+
+**Next step (so the next agent can resume)**
+
+- **[PR #42](https://github.com/Ewosoft-Solutions/claude-trial/pull/42) is open** — awaiting a **second-agent review** (L/XL items warrant it) + green GitHub Actions → merge, then flip F1/F4/F2 → `done`. After F1 merges, **WB1 (People directory)** is unblocked (needs F1+F7+F8). Separately, **[PR #43](https://github.com/Ewosoft-Solutions/claude-trial/pull/43)** adds a changed-files Prettier gate + editor format-on-save (see `docs/local-ci.md`). Follow-ups: migrate `QueueService` email callers to F3; wire F5 `SecureLink`/delivery to reuse the Document + signed-URL patterns; add non-`people` commit executors (opening_debt/grades) behind the existing dispatch.
+
+**New gotcha** → **The durable F3 `JobWorker.processOnce()` claims the oldest READY job across ALL tenants.** Any e2e spec that enqueues F3 jobs (now F4 documents + F2 imports, not just jobs.e2e) will have its jobs grabbed by a *parallel* jobs.e2e worker on the shared CI Postgres, breaking its exactly-once/mark-dead assertions. Fix applied: `apps/api` `test:e2e` runs **`--runInBand`** so each spec cleans up (tenant-cascade) before the next. If you re-parallelize, scope the jobs specs' worker to their own tenants instead.
+
+---
+
 ## Session Summary (2026-08-01) — Claude: F3 durable jobs + transactional outbox
 
 **Item(s):** F3 → done. **Branch/PR:** `feat/F3-job-outbox` / _(PR pending)_.
