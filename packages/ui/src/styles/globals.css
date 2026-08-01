@@ -44,11 +44,12 @@
   color-scheme: light;
 
   /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
-  /* base surfaces — pure white canvas; the aurora field is a subtle
-     corner wash layered on top by the skin (not a blue base). */
-  --background: #ffffff;
+  /* base surfaces — a warm almost-white canvas (faint ivory, no blue cast)
+     so the white cards lift off the page without a cool tint. Reads as an
+     understated, high-grade finish; cards stay pure white on top. */
+  --background: #f7f6f4;
   --foreground: #191b38; /* aurora --ink (light) */
-  --card: rgba(255, 255, 255, 0.72); /* glass over the field */
+  --card: #ffffff; /* pure-white surface, lifted off the warm canvas */
   --card-foreground: #191b38;
   --popover: rgba(255, 255, 255, 0.97); /* legible dropdowns/dialogs */
   --popover-foreground: #191b38;
@@ -72,7 +73,7 @@
   --destructive-foreground: #ffffff;
 
   /* lines / fields / focus */
-  --border: rgba(40, 40, 90, 0.1);
+  --border: rgba(40, 40, 90, 0.12);
   --input: rgba(40, 40, 90, 0.12);
   --ring: #4f6df5;
 
@@ -104,16 +105,15 @@
   --sidebar-border: rgba(40, 40, 90, 0.1);
   --sidebar-ring: #4f6df5;
 
-  /* ---- 2. AURORA DEPTH TOKENS (light — subtle, neutralized) ---- */
-  /* only a whisper of colour in the far corners; the canvas stays white */
-  --aurora-field:
-    radial-gradient(46% 42% at 100% 0%, rgba(120, 140, 255, 0.1) 0%, transparent 60%),
-    radial-gradient(44% 44% at 0% 100%, rgba(70, 225, 180, 0.07) 0%, transparent 60%),
-    radial-gradient(44% 44% at 100% 100%, rgba(255, 130, 190, 0.07) 0%, transparent 60%);
+  /* ---- 2. AURORA DEPTH TOKENS (light — neutralized) ---- */
+  /* no coloured field on the light canvas — a blue/pink corner wash reads
+     as a tint and undercuts the clean, high-grade finish. Depth here comes
+     purely from the warm canvas + white cards, not colour. */
+  --aurora-field: none;
   --glass-card: linear-gradient(
     165deg,
-    rgba(255, 255, 255, 0.9),
-    rgba(255, 255, 255, 0.6)
+    #ffffff,
+    rgba(255, 255, 255, 0.94)
   );
   --glass-inset:
     0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 18px 40px -28px rgba(40, 40, 100, 0.26);
