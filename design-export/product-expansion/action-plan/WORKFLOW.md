@@ -39,7 +39,7 @@ backlog ──▶ ready ──▶ claimed ──▶ in-progress ──▶ in-rev
 
 - Keep the board's Status note current (a one-liner "next step") so a hand-off mid-item is resumable.
 - Follow the **Definition of Done** (`/AGENTS.md` §5) and the item's own acceptance test.
-- Run `pnpm ci:quick` locally before pushing; `git push` runs full CI via `act` (Docker on).
+- Run `pnpm ci:quick` locally before pushing (fast, no Docker). There is **no pre-push gate** — GitHub Actions runs the authoritative CI on the PR (`docs/local-ci.md`).
 - New reusable UI → `packages/ui` first (per `AI_CONTEXT.md`), then consume in `apps/web`.
 - Schema change → hand-written SQL migration + `db:generate` + `db:rls:check` green (never casual `migrate dev`).
 
