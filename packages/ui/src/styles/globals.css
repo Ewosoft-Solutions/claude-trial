@@ -44,12 +44,12 @@
   color-scheme: light;
 
   /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
-  /* base surfaces — a warm almost-white canvas (faint ivory, no blue cast)
-     so the white cards lift off the page without a cool tint. Reads as an
-     understated, high-grade finish; cards stay pure white on top. */
-  --background: #f7f6f4;
+  /* base surfaces — a soft almost-white canvas (near-neutral, a whisper cool)
+     so the white cards lift off the page. Reads as an understated,
+     high-grade finish; cards stay pure white on top. */
+  --background: #f7f8fc;
   --foreground: #191b38; /* aurora --ink (light) */
-  --card: #ffffff; /* pure-white surface, lifted off the warm canvas */
+  --card: #ffffff; /* pure-white surface, lifted off the soft canvas */
   --card-foreground: #191b38;
   --popover: rgba(255, 255, 255, 0.97); /* legible dropdowns/dialogs */
   --popover-foreground: #191b38;
@@ -108,7 +108,7 @@
   /* ---- 2. AURORA DEPTH TOKENS (light — neutralized) ---- */
   /* no coloured field on the light canvas — a blue/pink corner wash reads
      as a tint and undercuts the clean, high-grade finish. Depth here comes
-     purely from the warm canvas + white cards, not colour. */
+     purely from the soft canvas + white cards, not colour. */
   --aurora-field: none;
   --glass-card: linear-gradient(
     165deg,
