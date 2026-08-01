@@ -7,7 +7,7 @@
 
 ## ▶ Ready to claim right now
 
-**Foundations ready to build:** `F1` (Person) · `F3` (jobs/outbox) · `F7` (search) · `F8` (Aurora patterns).
+**Foundations ready to build:** `F1` (Person) · `F2` (import) · `F4` (documents) · `F5` (delivery) · `F7` (search) · `F8` (Aurora patterns). _(`F3` jobs/outbox **done** — unblocks F2/F4/F5.)_
 _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-1-promise.md); `P0-2` resequenced to onboarding. `P0-3`: **7/12 ADRs accepted** (01/02/06/07/08/09/12) → `F1` unblocked; **5 owner-gated** — ADR-03 (Q11), ADR-04 (Q13–16), ADR-05 (Q20–23), ADR-10 (Q20), ADR-11 (Q6), so their dependents (F6, WB2/4/5, multi-campus) stay blocked until the owner signs.)_
 
 ---
@@ -51,10 +51,10 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 | ID  | Title                                                                                                             | #           | Effort | Deps       | Owner  | Status           |
 | --- | ----------------------------------------------------------------------------------------------------------------- | ----------- | ------ | ---------- | ------ | ---------------- |
 | F1  | `Person`/identity/profile/membership separation + relationship history                                            | —           | XL     | ADR-01     | —      | ready            |
-| F2  | Shared **import & migration** platform (ImportJob/mapping/validate/commit/reconcile)                              | #26,#113    | XL     | F3, ADR-09 | —      | blocked (F3)     |
-| F3  | Durable **job queue + transactional outbox + idempotency**                                                        | —           | L      | —          | claude | in-progress      |
-| F4  | **Document/attachment** service (scan/classify/retain/signed URLs)                                                | #28,#110    | L      | F3         | —      | blocked (F3)     |
-| F5  | **Communication delivery** abstraction + `DeliveryAttempt` ledger (DND/cost/failure) + preferences + `SecureLink` | #97,#98,#99 | L      | F3, ADR-07 | —      | blocked (F3)     |
+| F2  | Shared **import & migration** platform (ImportJob/mapping/validate/commit/reconcile)                              | #26,#113    | XL     | F3, ADR-09 | —      | ready            |
+| F3  | Durable **job queue + transactional outbox + idempotency**                                                        | —           | L      | —          | claude | done             |
+| F4  | **Document/attachment** service (scan/classify/retain/signed URLs)                                                | #28,#110    | L      | F3         | —      | ready            |
+| F5  | **Communication delivery** abstraction + `DeliveryAttempt` ledger (DND/cost/failure) + preferences + `SecureLink` | #97,#98,#99 | L      | F3, ADR-07 | —      | ready            |
 | F6  | **Academic-profile + policy-version** framework (effective-dated)                                                 | —           | L      | ADR-03     | —      | blocked (ADR-03) |
 | F7  | Governed **search + saved-views + URL-state directory** pattern                                                   | #105,#27    | M      | —          | —      | ready            |
 | F8  | Shared Aurora patterns: **Directory / Workbench / Lifecycle / Policy / Approval** in `packages/ui`                | —           | M      | —          | —      | ready            |
@@ -93,6 +93,7 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 
 ## Change log (board edits — newest first)
 
+- `2026-08-01` — **F3 done → F2/F4/F5 unblocked.** Durable job queue + transactional outbox + idempotency shipped (ADR-06): new `jobs` schema (`jobs.jobs`, `jobs.outbox_events`) with RLS + `app_runtime` grants + `db:rls:check` coverage; `JobService.enqueue` (atomic-with-domain, idempotent via ON CONFLICT), `OutboxService.emit`, and a `JobWorker` that claims under the audited `app.is_platform` scope and runs handlers under per-job tenant scope with handler+completion in one tx (exactly-once), retry/backoff→`dead`, stale-lock reclaim. Coexists with the legacy in-memory `QueueService`. e2e 7/7 (idempotency, exactly-once, retry→dead, tx-atomic, RLS isolation); check:privileged-db + db:rls:check + ci:quick green. _(claude)_
 - `2026-08-01` — **P0-3: 7 non-owner ADRs accepted → `F1` unblocked.** Reviewed + accepted ADR-01/02/06/07/08/09/12 (`Accepted — 2026-08-01`). Flips **F1 (Person) → ready** and confirms the design for the already-ready `F3`/`F7`/`F8`; F2/F5 now blocked only on F3. Reconciled a doc drift: **ADR-04 is owner-gated** (Q13–16 result-publication policy — the index had mislabelled it "no"), so the batch is **7/12**; **5 stay owner-gated** — ADR-03 (Q11), ADR-04 (Q13–16), ADR-05 (Q20–23), ADR-10 (Q20), ADR-11 (Q6) — keeping F6 + WB2/4/5 blocked. Phase-1 foundations `F1`/`F3`/`F7`/`F8` are now buildable. _(claude)_
 - `2026-08-01` — **Build-first sequencing (owner).** Legacy-system screenshots are our sample of what schools use → we build from those learnings + seed data to a fully-functional demo, sell on it, then tweak per school. **P0-2 resequenced** from a pre-build gate to **onboarding** (per-school redacted exports reconcile that school before its live cutover — the Q3 rule, applied per-school at go-live). Phase-0 exit gate + [`release-1-promise.md`](release-1-promise.md) (new _Sequencing_ section) updated. Build path is unblocked; nothing waits on partner recruitment. _(claude)_
 - `2026-07-31` — **P0-1 decided → done.** Owner approved the recommended defaults for decision Q1–Q3: **NG K-12** is the first full profile (tertiary/TVET/international = separate scope); "retire the legacy system" = **capability parity on the critical jobs a partner actually uses**, published as a supported/excluded matrix, not menu parity; **operational evidence + reconciliation outrank screenshots** for high-consequence behaviour. Deliverable: [`release-1-promise.md`](release-1-promise.md). Unblocks profile-specific scope in every workbench + P0-2's export requirement. **Still open:** ADR-10 (Q19–20) + ADR-11 (Q6) remain owner-gated; the definitive per-partner matrix awaits **P0-2**. _(claude)_
