@@ -191,6 +191,29 @@ d('Import & migration platform (F2)', () => {
     expect(detail.status).toBe('rolled_back');
   });
 
+  it('rollback of a delta wave deletes only what it created, never pre-existing persons', async () => {
+    const source = 'legacy-delta-rb';
+    // Wave 1 creates 2 Persons.
+    const w1 = await runPipeline(source);
+    const c1 = await inA(() => imports.commit(tenantAId, undefined, w1.jobId));
+    expect(c1.created).toBe(2);
+    expect(await personCount(source)).toBe(2);
+
+    // Wave 2, same source IDs → updates the 2 (creates 0).
+    const w2 = await runPipeline(source);
+    const c2 = await inA(() => imports.commit(tenantAId, undefined, w2.jobId));
+    expect(c2.created).toBe(0);
+    expect(c2.updated).toBe(2);
+
+    // Rolling back wave 2 must NOT delete the Persons wave 1 created.
+    const rb = await inA(() =>
+      imports.rollback(tenantAId, undefined, w2.jobId),
+    );
+    expect(rb.removed).toBe(0);
+    expect(rb.keptUpdated).toBe(2);
+    expect(await personCount(source)).toBe(2); // still there — no data loss
+  });
+
   it('isolates import jobs by tenant (RLS)', async () => {
     const { jobId } = await runPipeline('legacy-iso');
     await expect(

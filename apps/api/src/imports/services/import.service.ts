@@ -441,6 +441,16 @@ export class ImportService {
     if (!job.requiresApproval) {
       throw new BadRequestException('This import does not require approval');
     }
+    // Maker-checker: only a validated job can be approved, so the checker signs
+    // off on real results — not an unvalidated job with zero committable rows.
+    if (
+      job.status !== IMPORT_STATUS.VALIDATED &&
+      job.status !== IMPORT_STATUS.DRY_RUN
+    ) {
+      throw new ConflictException(
+        `Import must be validated before approval (current status: ${job.status})`,
+      );
+    }
     await this.client.importJob.update({
       where: { id: jobId },
       data: {
@@ -500,6 +510,7 @@ export class ImportService {
       };
 
       let personId: string;
+      const wasCreated = !existing;
       if (existing) {
         await this.client.person.update({
           where: { id: existing.id },
@@ -524,7 +535,13 @@ export class ImportService {
 
       await this.client.importRow.update({
         where: { id: row.id },
-        data: { status: 'committed', targetType: 'Person', targetId: personId },
+        data: {
+          status: 'committed',
+          targetType: 'Person',
+          targetId: personId,
+          // Only rows this wave CREATED are safe for rollback to delete.
+          targetCreated: wasCreated,
+        },
       });
     }
 
@@ -673,29 +690,42 @@ export class ImportService {
 
     const committedRows = await this.client.importRow.findMany({
       where: { importJobId: jobId, status: 'committed' },
-      select: { id: true, targetId: true, sourceId: true },
+      select: { id: true, targetId: true, sourceId: true, targetCreated: true },
     });
 
     let removed = 0;
+    let keptUpdated = 0;
     for (const row of committedRows) {
-      if (!row.targetId) continue;
-      // Only reverse Persons that carry THIS wave's source ref (created by it).
-      const person = await this.client.person.findFirst({
-        where: {
-          id: row.targetId,
-          tenantId,
-          sourceSystem: job.sourceSystem,
-          sourceId: row.sourceId,
-        },
-        select: { id: true },
-      });
-      if (person) {
-        await this.client.person.delete({ where: { id: person.id } });
-        removed++;
+      if (row.targetId && row.targetCreated) {
+        // This wave CREATED the Person → safe to delete. Match the source ref
+        // to avoid deleting a row that was since merged/re-pointed elsewhere.
+        const person = await this.client.person.findFirst({
+          where: {
+            id: row.targetId,
+            tenantId,
+            sourceSystem: job.sourceSystem,
+            sourceId: row.sourceId,
+          },
+          select: { id: true },
+        });
+        if (person) {
+          await this.client.person.delete({ where: { id: person.id } });
+          removed++;
+        }
+      } else if (row.targetId) {
+        // This wave only UPDATED a Person created by a prior wave — never delete
+        // it. Restoring the pre-update field values would need a value snapshot;
+        // that fuller un-do is deferred to WB7 (migration cockpit).
+        keptUpdated++;
       }
       await this.client.importRow.update({
         where: { id: row.id },
-        data: { status: 'valid', targetId: null, targetType: null },
+        data: {
+          status: 'valid',
+          targetId: null,
+          targetType: null,
+          targetCreated: false,
+        },
       });
     }
 
@@ -715,9 +745,9 @@ export class ImportService {
       resourceId: jobId,
       actorId: actorId ?? null,
       description: `Rolled back import ${jobId}`,
-      metadata: { removed },
+      metadata: { removed, keptUpdated },
     });
-    return { jobId, removed };
+    return { jobId, removed, keptUpdated };
   }
 
   // ---- Reads --------------------------------------------------------

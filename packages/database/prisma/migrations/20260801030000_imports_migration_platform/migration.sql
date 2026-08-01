@@ -119,6 +119,7 @@ CREATE TABLE "imports"."import_rows" (
   "status"          TEXT NOT NULL DEFAULT 'pending',
   "target_type"     TEXT,
   "target_id"       TEXT,
+  "target_created"  BOOLEAN NOT NULL DEFAULT false,
   "created_at"      TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "import_rows_pkey" PRIMARY KEY ("id")
 );

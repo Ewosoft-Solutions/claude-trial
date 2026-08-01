@@ -64,8 +64,9 @@ export class UploadDocumentDto {
   @MaxLength(255)
   filename?: string;
 
-  @ApiProperty({ description: 'File bytes, base64-encoded' })
+  @ApiProperty({ description: 'File bytes, base64-encoded (≈15 MB max)' })
   @IsBase64()
+  @MaxLength(20_000_000)
   contentBase64: string;
 
   @ApiPropertyOptional({ description: 'Migration source system' })

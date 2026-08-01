@@ -51,6 +51,30 @@ export class SignatureService {
     actorId: string | undefined,
     input: RegisterSigningAuthorityInput,
   ) {
+    // A bound signature image is a restricted asset (ADR-08): it must be
+    // classified so it can never surface in a browsable list or a
+    // non-privileged download. Enforce that on binding rather than trusting the
+    // uploader — otherwise a signature uploaded as a normal doc stays listable.
+    if (input.signatureDocumentId) {
+      const doc = await this.client.document.findFirst({
+        where: { id: input.signatureDocumentId, tenantId },
+        select: { id: true, sensitive: true, ownerType: true },
+      });
+      if (!doc) {
+        throw new NotFoundException('Signature document not found');
+      }
+      if (!doc.sensitive || doc.ownerType !== 'SignatureAsset') {
+        await this.client.document.update({
+          where: { id: doc.id },
+          data: {
+            sensitive: true,
+            visibility: 'restricted',
+            ownerType: 'SignatureAsset',
+          },
+        });
+      }
+    }
+
     const authority = await this.client.signingAuthority.upsert({
       where: {
         tenantId_personId_role: {

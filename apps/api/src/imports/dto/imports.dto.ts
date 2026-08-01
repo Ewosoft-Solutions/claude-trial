@@ -107,8 +107,9 @@ export class AttachSourceFileDto {
   @MaxLength(120)
   mime?: string;
 
-  @ApiProperty({ description: 'CSV bytes, base64-encoded' })
+  @ApiProperty({ description: 'CSV bytes, base64-encoded (≈15 MB max)' })
   @IsBase64()
+  @MaxLength(20_000_000)
   contentBase64: string;
 }
 

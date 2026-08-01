@@ -167,8 +167,9 @@ model ImportRow {
   normalizedData Json?   @map("normalized_data")
   status         String  @default("pending") // pending | valid | invalid | committed | skipped
 
-  targetType String? @map("target_type") // e.g. 'Person'
-  targetId   String? @map("target_id") // the upserted entity id
+  targetType    String?  @map("target_type") // e.g. 'Person'
+  targetId      String?  @map("target_id") // the upserted entity id
+  targetCreated Boolean  @default(false) @map("target_created") // true = this wave CREATED the target (rollback may delete it); false = updated a pre-existing one
 
   createdAt DateTime @default(now()) @map("created_at")
 

@@ -261,18 +261,27 @@ BEGIN
   ON CONFLICT ("tenant_id", "source_system", "source_id") DO NOTHING;
   GET DIAGNOSTICS n_persons = ROW_COUNT;
 
-  -- 2. Anchor each student to the Person of its account's user.
+  -- 2. Anchor each student to the Person of its account's user. On dirty legacy
+  --    data a single Person can back more than one student row, and
+  --    students.person_id is UNIQUE — so pick exactly ONE student per Person
+  --    (the earliest by id). A set-based NOT EXISTS cannot see assignments made
+  --    by the same UPDATE statement, so it would let two students take the same
+  --    Person and violate the unique index (aborting the whole migration);
+  --    DISTINCT ON resolves the winner before the write.
   UPDATE "student-management"."students" s
-  SET "person_id" = p.id
-  FROM "profile"."user_tenants" ut
-  JOIN "person"."persons" p
-    ON p.source_system = 'legacy'
-   AND p.source_id = 'user:' || ut.user_id
-   AND p.tenant_id = ut.tenant_id
-  WHERE s.user_tenant_id = ut.id
-    AND s.person_id IS NULL
-    -- guard the students.person_id unique index against a user with >1 student
-    AND NOT EXISTS (SELECT 1 FROM "student-management"."students" s2 WHERE s2.person_id = p.id);
+  SET "person_id" = m.person_id
+  FROM (
+    SELECT DISTINCT ON (p.id) s2.id AS student_id, p.id AS person_id
+    FROM "student-management"."students" s2
+    JOIN "profile"."user_tenants" ut ON ut.id = s2.user_tenant_id
+    JOIN "person"."persons" p
+      ON p.source_system = 'legacy'
+     AND p.source_id = 'user:' || ut.user_id
+     AND p.tenant_id = ut.tenant_id
+    WHERE s2.person_id IS NULL
+    ORDER BY p.id, s2.id
+  ) m
+  WHERE s.id = m.student_id;
   GET DIAGNOSTICS n_students = ROW_COUNT;
 
   -- 3. Materialise guardian relationships from the legacy StudentGuardian links.
