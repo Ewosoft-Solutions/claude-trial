@@ -41,7 +41,10 @@ export class DocumentJobRegistrar implements OnModuleInit {
   }
 
   /** Scan a version's bytes; quarantine stays until this clears it. */
-  private async scan(payload: DocumentScanPayload, ctx: JobContext): Promise<void> {
+  private async scan(
+    payload: DocumentScanPayload,
+    ctx: JobContext,
+  ): Promise<void> {
     const version = await ctx.client.documentVersion.findFirst({
       where: { id: payload.versionId, documentId: payload.documentId },
     });

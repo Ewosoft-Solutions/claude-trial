@@ -15,10 +15,7 @@ import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { parseCsv, rowToObject } from '../csv';
 import { applyTransform } from '../transforms';
 import { IMPORT_STATUS, APPROVAL_REQUIRED_DOMAINS } from '../imports.constants';
-import type {
-  CreateDefinitionDto,
-  ColumnMappingDto,
-} from '../dto/imports.dto';
+import type { CreateDefinitionDto, ColumnMappingDto } from '../dto/imports.dto';
 
 type NormalizedRow = Record<string, string | null>;
 
@@ -87,10 +84,16 @@ export class ImportService {
       },
       include: { reconciliationRules: true },
     });
-    await this.audit(tenantId, actorId, 'import.definition.create', definition.id, {
-      key: dto.key,
-      targetDomain: dto.targetDomain,
-    });
+    await this.audit(
+      tenantId,
+      actorId,
+      'import.definition.create',
+      definition.id,
+      {
+        key: dto.key,
+        targetDomain: dto.targetDomain,
+      },
+    );
     return definition;
   }
 
@@ -114,7 +117,9 @@ export class ImportService {
         definitionId: definition.id,
         sourceSystem,
         status: IMPORT_STATUS.DRAFT,
-        requiresApproval: APPROVAL_REQUIRED_DOMAINS.has(definition.targetDomain),
+        requiresApproval: APPROVAL_REQUIRED_DOMAINS.has(
+          definition.targetDomain,
+        ),
         createdBy: actorId ?? null,
       },
     });
@@ -201,7 +206,9 @@ export class ImportService {
     mappings: ColumnMappingDto[],
   ) {
     await this.getJob(tenantId, jobId);
-    await this.client.columnMapping.deleteMany({ where: { importJobId: jobId } });
+    await this.client.columnMapping.deleteMany({
+      where: { importJobId: jobId },
+    });
 
     for (const m of mappings) {
       let transformRuleId: string | null = null;
@@ -411,7 +418,11 @@ export class ImportService {
     let update = 0;
     for (const r of validRows) {
       const existing = await this.client.person.findFirst({
-        where: { tenantId, sourceSystem: job.sourceSystem, sourceId: r.sourceId },
+        where: {
+          tenantId,
+          sourceSystem: job.sourceSystem,
+          sourceId: r.sourceId,
+        },
         select: { id: true },
       });
       if (existing) update++;
@@ -569,7 +580,11 @@ export class ImportService {
   }
 
   /** Run the definition's reconciliation rules; money is exact. */
-  async reconcile(tenantId: string, actorId: string | undefined, jobId: string) {
+  async reconcile(
+    tenantId: string,
+    actorId: string | undefined,
+    jobId: string,
+  ) {
     const job = await this.getJob(tenantId, jobId);
     const rules = await this.client.reconciliationRule.findMany({
       where: { definitionId: job.definitionId },
@@ -656,7 +671,8 @@ export class ImportService {
       where: { importJobId: jobId },
     });
     if (!commit) throw new BadRequestException('Nothing to roll back');
-    if (commit.reversedAt) throw new ConflictException('Import already rolled back');
+    if (commit.reversedAt)
+      throw new ConflictException('Import already rolled back');
 
     const committedRows = await this.client.importRow.findMany({
       where: { importJobId: jobId, status: 'committed' },
@@ -755,7 +771,10 @@ export class ImportService {
     }
   }
 
-  private ensureCommittable(job: { status: string; requiresApproval: boolean }) {
+  private ensureCommittable(job: {
+    status: string;
+    requiresApproval: boolean;
+  }) {
     this.ensureValidated(job.status);
     if (job.requiresApproval && job.status !== IMPORT_STATUS.APPROVED) {
       throw new ForbiddenException(

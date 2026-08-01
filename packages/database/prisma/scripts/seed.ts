@@ -3425,7 +3425,8 @@ const PERSON_PERMISSIONS = [
   {
     name: 'people.view',
     label: 'View People',
-    description: 'View the people directory (contacts masked without people.view_contact)',
+    description:
+      'View the people directory (contacts masked without people.view_contact)',
     resource: 'people',
     action: 'view',
     category: 'administrative',
@@ -3443,7 +3444,8 @@ const PERSON_PERMISSIONS = [
   {
     name: 'people.manage',
     label: 'Manage People',
-    description: 'Create/update people, attach staff/guardian profiles, add contacts',
+    description:
+      'Create/update people, attach staff/guardian profiles, add contacts',
     resource: 'people',
     action: 'manage',
     category: 'administrative',
@@ -3452,7 +3454,8 @@ const PERSON_PERMISSIONS = [
   {
     name: 'people.merge',
     label: 'Merge Duplicate People',
-    description: 'Resolve a duplicate by merging one person into another (audited, reversible history)',
+    description:
+      'Resolve a duplicate by merging one person into another (audited, reversible history)',
     resource: 'people',
     action: 'merge',
     category: 'administrative',
@@ -3474,7 +3477,8 @@ const DOCUMENT_PERMISSIONS = [
   {
     name: 'documents.upload',
     label: 'Upload Documents',
-    description: 'Upload a new document or a new version of an existing document',
+    description:
+      'Upload a new document or a new version of an existing document',
     resource: 'documents',
     action: 'upload',
     category: 'administrative',
@@ -3492,7 +3496,8 @@ const DOCUMENT_PERMISSIONS = [
   {
     name: 'documents.download_sensitive',
     label: 'Download Sensitive Documents',
-    description: 'Mint signed URLs for restricted/sensitive documents (audited)',
+    description:
+      'Mint signed URLs for restricted/sensitive documents (audited)',
     resource: 'documents',
     action: 'download_sensitive',
     category: 'administrative',
@@ -3510,7 +3515,8 @@ const DOCUMENT_PERMISSIONS = [
   {
     name: 'signatures.apply',
     label: 'Apply a Signature',
-    description: 'Apply a signature to an artifact via an authorized SignatureUse (audited)',
+    description:
+      'Apply a signature to an artifact via an authorized SignatureUse (audited)',
     resource: 'signatures',
     action: 'apply',
     category: 'administrative',
@@ -3523,7 +3529,8 @@ const IMPORT_PERMISSIONS = [
   {
     name: 'imports.view',
     label: 'View Imports',
-    description: 'View import jobs, validation issues and reconciliation results',
+    description:
+      'View import jobs, validation issues and reconciliation results',
     resource: 'imports',
     action: 'view',
     category: 'administrative',
@@ -3550,7 +3557,8 @@ const IMPORT_PERMISSIONS = [
   {
     name: 'imports.approve',
     label: 'Approve Imports',
-    description: 'Approve a financial/grade/history import before commit (maker-checker)',
+    description:
+      'Approve a financial/grade/history import before commit (maker-checker)',
     resource: 'imports',
     action: 'approve',
     category: 'administrative',
@@ -3559,7 +3567,8 @@ const IMPORT_PERMISSIONS = [
   {
     name: 'imports.rollback',
     label: 'Roll Back Imports',
-    description: 'Roll back a committed import wave via its planned controlled path',
+    description:
+      'Roll back a committed import wave via its planned controlled path',
     resource: 'imports',
     action: 'rollback',
     category: 'administrative',

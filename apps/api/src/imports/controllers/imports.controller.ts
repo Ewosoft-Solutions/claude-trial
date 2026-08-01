@@ -50,7 +50,9 @@ export class ImportsController {
 
   @Post('definitions')
   @RequirePermissions(['imports.manage'])
-  @ApiOperation({ summary: 'Create an import definition (+ reconciliation rules)' })
+  @ApiOperation({
+    summary: 'Create an import definition (+ reconciliation rules)',
+  })
   async createDefinition(
     @Body() dto: CreateDefinitionDto,
     @Request() req: AuthenticatedRequest,
@@ -62,9 +64,17 @@ export class ImportsController {
   @Post('jobs')
   @RequirePermissions(['imports.manage'])
   @ApiOperation({ summary: 'Start an import job from a definition' })
-  async createJob(@Body() dto: CreateJobDto, @Request() req: AuthenticatedRequest) {
+  async createJob(
+    @Body() dto: CreateJobDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId, userId } = this.ctx(req);
-    return this.imports.createJob(tenantId, userId, dto.definitionKey, dto.sourceSystem);
+    return this.imports.createJob(
+      tenantId,
+      userId,
+      dto.definitionKey,
+      dto.sourceSystem,
+    );
   }
 
   @Post('jobs/:id/source-file')
@@ -100,7 +110,10 @@ export class ImportsController {
   @RequirePermissions(['imports.manage'])
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Validate rows (produces the exception queue)' })
-  async validate(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async validate(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId, userId } = this.ctx(req);
     return this.imports.validate(tenantId, userId, id);
   }
@@ -108,7 +121,9 @@ export class ImportsController {
   @Post('jobs/:id/dry-run')
   @RequirePermissions(['imports.manage'])
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Preview create/update/skip counts without writing' })
+  @ApiOperation({
+    summary: 'Preview create/update/skip counts without writing',
+  })
   async dryRun(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const { tenantId, userId } = this.ctx(req);
     return this.imports.dryRun(tenantId, userId, id);
@@ -117,7 +132,9 @@ export class ImportsController {
   @Post('jobs/:id/approve')
   @RequirePermissions(['imports.approve'], undefined, 7)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Approve a financial/grade/history import (maker-checker)' })
+  @ApiOperation({
+    summary: 'Approve a financial/grade/history import (maker-checker)',
+  })
   async approve(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const { tenantId, userId } = this.ctx(req);
     return this.imports.approve(tenantId, userId, id);
@@ -128,7 +145,9 @@ export class ImportsController {
   @UseGuards(StepUpGuard)
   @RequireStepUp(STEP_UP_OPERATION.DATA_BULK_IMPORT)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Commit the import idempotently (step-up required)' })
+  @ApiOperation({
+    summary: 'Commit the import idempotently (step-up required)',
+  })
   async commit(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const { tenantId, userId } = this.ctx(req);
     return this.imports.commit(tenantId, userId, id);
@@ -138,7 +157,10 @@ export class ImportsController {
   @RequirePermissions(['imports.commit'], undefined, 7)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Run reconciliation gates (money exact)' })
-  async reconcile(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async reconcile(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId, userId } = this.ctx(req);
     return this.imports.reconcile(tenantId, userId, id);
   }
@@ -149,14 +171,19 @@ export class ImportsController {
   @RequireStepUp(STEP_UP_OPERATION.DATA_BULK_IMPORT)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Roll back a committed import (controlled path)' })
-  async rollback(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async rollback(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId, userId } = this.ctx(req);
     return this.imports.rollback(tenantId, userId, id);
   }
 
   @Get('jobs/:id')
   @RequirePermissions(['imports.view'])
-  @ApiOperation({ summary: 'Get import job detail (status, counts, reconciliation)' })
+  @ApiOperation({
+    summary: 'Get import job detail (status, counts, reconciliation)',
+  })
   async getJob(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const { tenantId } = this.ctx(req);
     return this.imports.getJobDetail(tenantId, id);
@@ -165,7 +192,10 @@ export class ImportsController {
   @Get('jobs/:id/exceptions')
   @RequirePermissions(['imports.view'])
   @ApiOperation({ summary: 'List invalid rows + their validation issues' })
-  async exceptions(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async exceptions(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId } = this.ctx(req);
     return this.imports.listExceptions(tenantId, id);
   }

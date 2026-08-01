@@ -30,11 +30,15 @@ const PERSON_DETAIL_INCLUDE = {
   },
   guardianships: {
     where: { effectiveTo: null },
-    include: { ward: { select: { id: true, firstName: true, lastName: true } } },
+    include: {
+      ward: { select: { id: true, firstName: true, lastName: true } },
+    },
   },
   wardLinks: {
     where: { effectiveTo: null },
-    include: { guardian: { select: { id: true, firstName: true, lastName: true } } },
+    include: {
+      guardian: { select: { id: true, firstName: true, lastName: true } },
+    },
   },
 } satisfies Prisma.PersonInclude;
 
@@ -80,9 +84,15 @@ export class PersonService {
     };
   }
 
-  async create(tenantId: string, actorId: string | undefined, dto: CreatePersonDto) {
+  async create(
+    tenantId: string,
+    actorId: string | undefined,
+    dto: CreatePersonDto,
+  ) {
     if (dto.sourceId && !dto.sourceSystem) {
-      throw new BadRequestException('sourceSystem is required when sourceId is set');
+      throw new BadRequestException(
+        'sourceSystem is required when sourceId is set',
+      );
     }
 
     const person = await this.client.person.create({
@@ -135,7 +145,11 @@ export class PersonService {
     return this.projectPerson(person, canViewContact);
   }
 
-  async list(tenantId: string, query: SearchPeopleDto, canViewContact: boolean) {
+  async list(
+    tenantId: string,
+    query: SearchPeopleDto,
+    canViewContact: boolean,
+  ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 10;
     const where: Prisma.PersonWhereInput = {
@@ -227,7 +241,13 @@ export class PersonService {
         actorId,
         { staffProfileId: profile.id },
       );
-      await this.audit(tenantId, actorId, 'person.staff_profile.add', personId, {});
+      await this.audit(
+        tenantId,
+        actorId,
+        'person.staff_profile.add',
+        personId,
+        {},
+      );
       return profile;
     } catch (e) {
       if (isUniqueViolation(e)) {
@@ -280,9 +300,15 @@ export class PersonService {
         actorId,
         { guardianPersonId },
       );
-      await this.audit(tenantId, actorId, 'person.guardianship.add', guardianPersonId, {
-        wardPersonId: dto.wardPersonId,
-      });
+      await this.audit(
+        tenantId,
+        actorId,
+        'person.guardianship.add',
+        guardianPersonId,
+        {
+          wardPersonId: dto.wardPersonId,
+        },
+      );
       return rel;
     } catch (e) {
       if (isUniqueViolation(e)) {
@@ -347,9 +373,15 @@ export class PersonService {
         verificationExpires: expires,
       },
     });
-    await this.audit(tenantId, actorId, 'person.contact.verify_issue', personId, {
-      contactId,
-    });
+    await this.audit(
+      tenantId,
+      actorId,
+      'person.contact.verify_issue',
+      personId,
+      {
+        contactId,
+      },
+    );
     return { token, expiresAt: expires };
   }
 
@@ -362,7 +394,10 @@ export class PersonService {
       where: { tenantId, verificationToken: token },
     });
     if (!contact) throw new NotFoundException('Invalid verification token');
-    if (contact.verificationExpires && contact.verificationExpires < new Date()) {
+    if (
+      contact.verificationExpires &&
+      contact.verificationExpires < new Date()
+    ) {
       throw new BadRequestException('Verification token expired');
     }
     await this.client.contactPoint.update({

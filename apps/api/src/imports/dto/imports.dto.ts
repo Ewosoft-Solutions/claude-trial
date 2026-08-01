@@ -32,7 +32,9 @@ export class ReconciliationRuleDto {
   @IsIn(['count', 'sum', 'checksum', 'sample'])
   kind: 'count' | 'sum' | 'checksum' | 'sample';
 
-  @ApiPropertyOptional({ description: 'e.g. { field: "amountKobo", expected: "1500000" }' })
+  @ApiPropertyOptional({
+    description: 'e.g. { field: "amountKobo", expected: "1500000" }',
+  })
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
@@ -84,7 +86,10 @@ export class CreateJobDto {
   @MaxLength(64)
   definitionKey: string;
 
-  @ApiProperty({ example: 'legacy-system', description: 'The legacy source system for this wave' })
+  @ApiProperty({
+    example: 'legacy-system',
+    description: 'The legacy source system for this wave',
+  })
   @IsString()
   @MaxLength(120)
   sourceSystem: string;

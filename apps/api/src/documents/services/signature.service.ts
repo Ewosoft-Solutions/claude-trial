@@ -79,10 +79,16 @@ export class SignatureService {
         status: 'active',
       },
     });
-    await this.audit(tenantId, actorId, 'signing_authority.register', authority.id, {
-      personId: input.personId,
-      role: input.role,
-    });
+    await this.audit(
+      tenantId,
+      actorId,
+      'signing_authority.register',
+      authority.id,
+      {
+        personId: input.personId,
+        role: input.role,
+      },
+    );
     return authority;
   }
 
@@ -165,7 +171,9 @@ export class SignatureService {
     return this.client.signatureUse.findMany({
       where: { tenantId, artifactType, artifactId },
       include: {
-        signingAuthority: { select: { role: true, personId: true, status: true } },
+        signingAuthority: {
+          select: { role: true, personId: true, status: true },
+        },
       },
       orderBy: { appliedAt: 'desc' },
     });

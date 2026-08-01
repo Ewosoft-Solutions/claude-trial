@@ -145,25 +145,33 @@ d('Import & migration platform (F2)', () => {
     // exactly the 2 valid rows created Persons; the 2 bad rows created none
     expect(await personCount(source)).toBe(2);
 
-    const exceptions = await inA(() => imports.listExceptions(tenantAId, jobId));
+    const exceptions = await inA(() =>
+      imports.listExceptions(tenantAId, jobId),
+    );
     expect(exceptions).toHaveLength(2);
     expect(exceptions.every((r) => r.issues.length > 0)).toBe(true);
 
     // reconciliation: committed count equals valid count, exactly
-    const recon = await inA(() => imports.reconcile(tenantAId, undefined, jobId));
+    const recon = await inA(() =>
+      imports.reconcile(tenantAId, undefined, jobId),
+    );
     expect(recon.allPassed).toBe(true);
   });
 
   it('is idempotent: a re-run with the same source IDs creates no duplicates', async () => {
     const source = 'legacy-idem';
     const first = await runPipeline(source);
-    const c1 = await inA(() => imports.commit(tenantAId, undefined, first.jobId));
+    const c1 = await inA(() =>
+      imports.commit(tenantAId, undefined, first.jobId),
+    );
     expect(c1.created).toBe(2);
     expect(await personCount(source)).toBe(2);
 
     // A fresh job, same source system + same external IDs → upsert, not insert.
     const second = await runPipeline(source);
-    const c2 = await inA(() => imports.commit(tenantAId, undefined, second.jobId));
+    const c2 = await inA(() =>
+      imports.commit(tenantAId, undefined, second.jobId),
+    );
     expect(c2.created).toBe(0);
     expect(c2.updated).toBe(2);
     expect(await personCount(source)).toBe(2); // still 2 — no duplicates
@@ -185,7 +193,9 @@ d('Import & migration platform (F2)', () => {
 
   it('isolates import jobs by tenant (RLS)', async () => {
     const { jobId } = await runPipeline('legacy-iso');
-    await expect(inB(() => imports.getJobDetail(tenantBId, jobId))).rejects.toThrow();
+    await expect(
+      inB(() => imports.getJobDetail(tenantBId, jobId)),
+    ).rejects.toThrow();
 
     const seenFromB = await inB(async () => {
       const rows = await tenantDb.client.$queryRaw<CountRow[]>`

@@ -14,7 +14,13 @@ import { ImportJobRegistrar } from './jobs/import-job.registrar';
  * storage is Document (F4), heavy steps run on F3 jobs.
  */
 @Module({
-  imports: [CommonModule, JobsModule, AuthModule, TenantModule, DocumentsModule],
+  imports: [
+    CommonModule,
+    JobsModule,
+    AuthModule,
+    TenantModule,
+    DocumentsModule,
+  ],
   controllers: [ImportsController],
   providers: [ImportService, ImportJobRegistrar],
   exports: [ImportService],

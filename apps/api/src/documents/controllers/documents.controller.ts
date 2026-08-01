@@ -68,7 +68,10 @@ export class DocumentsController {
   @Post()
   @RequirePermissions(['documents.upload'])
   @ApiOperation({ summary: 'Upload a document (bytes base64-encoded)' })
-  async upload(@Body() dto: UploadDocumentDto, @Request() req: AuthenticatedRequest) {
+  async upload(
+    @Body() dto: UploadDocumentDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId, userId } = this.ctx(req);
     return this.documents.upload(tenantId, userId, {
       ownerType: dto.ownerType,
@@ -87,7 +90,9 @@ export class DocumentsController {
 
   @Get()
   @RequirePermissions(['documents.view'])
-  @ApiOperation({ summary: 'List documents for an owner (signature assets excluded)' })
+  @ApiOperation({
+    summary: 'List documents for an owner (signature assets excluded)',
+  })
   async list(
     @Query('ownerType') ownerType: string,
     @Query('ownerId') ownerId: string,
@@ -99,7 +104,9 @@ export class DocumentsController {
 
   // Static path before ':id' so it is not captured as an id.
   @Get('download')
-  @ApiOperation({ summary: 'Resolve a signed download token to the file bytes' })
+  @ApiOperation({
+    summary: 'Resolve a signed download token to the file bytes',
+  })
   async download(
     @Query('token') token: string,
     @Request() req: AuthenticatedRequest,
@@ -126,7 +133,10 @@ export class DocumentsController {
   @Get(':id/download-url')
   @RequirePermissions(['documents.view'])
   @ApiOperation({ summary: 'Mint a signed short-lived download URL' })
-  async downloadUrl(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+  async downloadUrl(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId, userId } = this.ctx(req);
     return this.documents.mintDownloadUrl(
       tenantId,
@@ -185,7 +195,9 @@ export class DocumentsController {
   @Post('signatures/apply')
   @RequirePermissions(['signatures.apply'])
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Apply a signature to an artifact via an authorized use' })
+  @ApiOperation({
+    summary: 'Apply a signature to an artifact via an authorized use',
+  })
   async applySignature(
     @Body() dto: ApplySignatureDto,
     @Request() req: AuthenticatedRequest,

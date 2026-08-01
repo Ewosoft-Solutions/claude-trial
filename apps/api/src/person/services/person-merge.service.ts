@@ -123,7 +123,11 @@ export class PersonMergeService {
     // Mark the duplicate merged.
     await client.person.update({
       where: { id: duplicateId },
-      data: { status: 'merged', mergedIntoId: survivorId, updatedBy: actorId ?? null },
+      data: {
+        status: 'merged',
+        mergedIntoId: survivorId,
+        updatedBy: actorId ?? null,
+      },
     });
 
     const detail = {
@@ -197,7 +201,9 @@ export class PersonMergeService {
     });
     for (const edge of edges) {
       const guardianPersonId =
-        edge.guardianPersonId === duplicateId ? survivorId : edge.guardianPersonId;
+        edge.guardianPersonId === duplicateId
+          ? survivorId
+          : edge.guardianPersonId;
       const wardPersonId =
         edge.wardPersonId === duplicateId ? survivorId : edge.wardPersonId;
 

@@ -81,12 +81,16 @@ export class CreatePersonDto {
   @MaxLength(120)
   religion?: string;
 
-  @ApiPropertyOptional({ description: 'Tenant-extensible attributes (schema per tenant)' })
+  @ApiPropertyOptional({
+    description: 'Tenant-extensible attributes (schema per tenant)',
+  })
   @IsOptional()
   @IsObject()
   attributes?: Record<string, unknown>;
 
-  @ApiPropertyOptional({ description: 'Link an existing account (UserTenant) as this human' })
+  @ApiPropertyOptional({
+    description: 'Link an existing account (UserTenant) as this human',
+  })
   @IsOptional()
   @IsUUID()
   userTenantId?: string;
@@ -97,7 +101,9 @@ export class CreatePersonDto {
   @MaxLength(120)
   sourceSystem?: string;
 
-  @ApiPropertyOptional({ description: 'Stable migration source id (idempotent upsert key)' })
+  @ApiPropertyOptional({
+    description: 'Stable migration source id (idempotent upsert key)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(255)
@@ -259,7 +265,9 @@ export class AddStaffProfileDto {
 }
 
 export class AddGuardianshipDto {
-  @ApiProperty({ description: 'The ward (student) Person id this person is a guardian of' })
+  @ApiProperty({
+    description: 'The ward (student) Person id this person is a guardian of',
+  })
   @IsUUID()
   wardPersonId: string;
 
@@ -297,11 +305,15 @@ export class MergePeopleDto {
   @IsUUID()
   survivorId: string;
 
-  @ApiProperty({ description: 'The duplicate Person to absorb into the survivor' })
+  @ApiProperty({
+    description: 'The duplicate Person to absorb into the survivor',
+  })
   @IsUUID()
   duplicateId: string;
 
-  @ApiPropertyOptional({ description: 'Why the duplicate is being merged (audit)' })
+  @ApiPropertyOptional({
+    description: 'Why the duplicate is being merged (audit)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(500)

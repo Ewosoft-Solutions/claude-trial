@@ -127,10 +127,7 @@ export const envValidationSchema = Joi.object({
     .valid('development', 'test', 'production')
     .default('development'),
   PORT: Joi.number().integer().min(1).max(65535).default(3000),
-  API_DEBUG_ERRORS: Joi.boolean()
-    .truthy('true')
-    .falsy('false')
-    .default(false),
+  API_DEBUG_ERRORS: Joi.boolean().truthy('true').falsy('false').default(false),
   STORAGE_LOCAL_ROOT: Joi.string().default('./storage'),
   // Dev default keeps local/CI working; production sets a strong secret. A
   // signed download URL is only a short-lived capability, minted after a

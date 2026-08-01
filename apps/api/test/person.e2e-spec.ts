@@ -16,13 +16,7 @@
  */
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import {
-  describe,
-  it,
-  expect,
-  beforeAll,
-  afterAll,
-} from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { AppModule } from '../src/app.module';
 import { TenantDbService } from '../src/common';
 import { PersonService } from '../src/person/services/person.service';
@@ -187,12 +181,17 @@ d('Person foundation (F1)', () => {
   it('isolates people by tenant (RLS): tenant B cannot see tenant A’s Person', async () => {
     const personId = await inA(() =>
       people
-        .create(tenantAId, undefined, { firstName: 'Secret', lastName: 'Person' })
+        .create(tenantAId, undefined, {
+          firstName: 'Secret',
+          lastName: 'Person',
+        })
         .then((p) => p.id),
     );
 
     // From tenant B's scope, the row is invisible (findFirst → NotFound).
-    await expect(inB(() => people.get(tenantBId, personId, true))).rejects.toThrow();
+    await expect(
+      inB(() => people.get(tenantBId, personId, true)),
+    ).rejects.toThrow();
 
     // And a raw count under B's scope sees zero of A's persons.
     const seenFromB = await inB(async () => {

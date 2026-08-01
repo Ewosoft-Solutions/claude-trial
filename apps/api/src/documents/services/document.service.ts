@@ -75,12 +75,16 @@ export class DocumentService {
     const client = this.client;
 
     const typeId = input.typeKey
-      ? (
+      ? ((
           await client.documentType.findUnique({
             where: { tenantId_key: { tenantId, key: input.typeKey } },
-            select: { id: true, defaultVisibility: true, isSignatureAsset: true },
+            select: {
+              id: true,
+              defaultVisibility: true,
+              isSignatureAsset: true,
+            },
           })
-        )?.id ?? null
+        )?.id ?? null)
       : null;
 
     const documentId = randomUUID();
@@ -163,11 +167,7 @@ export class DocumentService {
    * List documents for an owner. Signature-asset documents are **never** listed
    * (ADR-08 reject): they are reachable only via an authorized signature flow.
    */
-  async listForOwner(
-    tenantId: string,
-    ownerType: string,
-    ownerId: string,
-  ) {
+  async listForOwner(tenantId: string, ownerType: string, ownerId: string) {
     return this.client.document.findMany({
       where: {
         tenantId,
@@ -194,7 +194,12 @@ export class DocumentService {
   ) {
     const doc = await this.client.document.findFirst({
       where: { id: documentId, tenantId },
-      select: { id: true, sensitive: true, currentVersionId: true, scanStatus: true },
+      select: {
+        id: true,
+        sensitive: true,
+        currentVersionId: true,
+        scanStatus: true,
+      },
     });
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.sensitive && !canDownloadSensitive) {
@@ -236,7 +241,8 @@ export class DocumentService {
     token: string,
   ) {
     const claims = this.signer.verify(token);
-    if (!claims) throw new ForbiddenException('Invalid or expired download link');
+    if (!claims)
+      throw new ForbiddenException('Invalid or expired download link');
     if (claims.tenantId !== tenantId) {
       throw new ForbiddenException('Invalid or expired download link');
     }
@@ -250,9 +256,15 @@ export class DocumentService {
     }
 
     const object = await this.storage.get(version.objectKey);
-    await this.audit(tenantId, actorId, 'document.download', claims.documentId, {
-      versionId: version.id,
-    });
+    await this.audit(
+      tenantId,
+      actorId,
+      'document.download',
+      claims.documentId,
+      {
+        versionId: version.id,
+      },
+    );
     return {
       buffer: object.data,
       mime: version.mime,
@@ -282,14 +294,20 @@ export class DocumentService {
     return { documentId, legalHold: hold };
   }
 
-  async delete(tenantId: string, actorId: string | undefined, documentId: string) {
+  async delete(
+    tenantId: string,
+    actorId: string | undefined,
+    documentId: string,
+  ) {
     const doc = await this.client.document.findFirst({
       where: { id: documentId, tenantId },
       include: { versions: { select: { objectKey: true } } },
     });
     if (!doc) throw new NotFoundException('Document not found');
     if (doc.legalHold) {
-      throw new ConflictException('Document is under legal hold and cannot be deleted');
+      throw new ConflictException(
+        'Document is under legal hold and cannot be deleted',
+      );
     }
     // Delete rows first (cascade removes versions), then best-effort purge blobs.
     await this.client.document.delete({ where: { id: documentId } });
@@ -317,10 +335,13 @@ export class DocumentService {
     resourceId: string,
     metadata: Record<string, unknown>,
   ) {
-    const sensitive = action === 'document.download' || action === 'document.download_url';
+    const sensitive =
+      action === 'document.download' || action === 'document.download_url';
     await writeAuditLog(this.db.client, {
       tenantId,
-      eventType: sensitive ? AUDIT_EVENT.SECURITY_EVENT : AUDIT_EVENT.DATA_CHANGE,
+      eventType: sensitive
+        ? AUDIT_EVENT.SECURITY_EVENT
+        : AUDIT_EVENT.DATA_CHANGE,
       action,
       resource: 'document',
       resourceId,

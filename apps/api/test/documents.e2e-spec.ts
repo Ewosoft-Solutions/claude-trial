@@ -130,7 +130,9 @@ d('Document + signature platform (F4)', () => {
 
   it('rejects a tampered or expired download token', async () => {
     await expect(
-      inA(() => documents.resolveDownload(tenantAId, undefined, 'not.a.valid.token')),
+      inA(() =>
+        documents.resolveDownload(tenantAId, undefined, 'not.a.valid.token'),
+      ),
     ).rejects.toThrow();
 
     // A token minted for tenant B must not resolve under tenant A's scope.
@@ -240,7 +242,9 @@ d('Document + signature platform (F4)', () => {
     expect(use.status).toBe('applied');
 
     // Revoke → further application is refused.
-    await inA(() => signatures.revokeAuthority(tenantAId, undefined, authority.id));
+    await inA(() =>
+      signatures.revokeAuthority(tenantAId, undefined, authority.id),
+    );
     await expect(
       inA(() =>
         signatures.applySignature(tenantAId, undefined, {

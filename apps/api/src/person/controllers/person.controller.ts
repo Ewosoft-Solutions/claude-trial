@@ -71,15 +71,23 @@ export class PersonController {
   @Post()
   @RequirePermissions(['people.manage'])
   @ApiOperation({ summary: 'Create a person (a human; login optional)' })
-  async create(@Body() dto: CreatePersonDto, @Request() req: AuthenticatedRequest) {
+  async create(
+    @Body() dto: CreatePersonDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId, userId } = this.ctx(req);
     return this.people.create(tenantId, userId, dto);
   }
 
   @Get()
   @RequirePermissions(['people.view'])
-  @ApiOperation({ summary: 'List/search people (contacts masked without people.view_contact)' })
-  async list(@Query() query: SearchPeopleDto, @Request() req: AuthenticatedRequest) {
+  @ApiOperation({
+    summary: 'List/search people (contacts masked without people.view_contact)',
+  })
+  async list(
+    @Query() query: SearchPeopleDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
     const { tenantId } = this.ctx(req);
     return this.people.list(tenantId, query, this.canViewContact(req));
   }
@@ -118,7 +126,9 @@ export class PersonController {
 
   @Post(':id/guardianships')
   @RequirePermissions(['people.manage'])
-  @ApiOperation({ summary: 'Make this person a guardian of a ward (student) person' })
+  @ApiOperation({
+    summary: 'Make this person a guardian of a ward (student) person',
+  })
   async addGuardianship(
     @Param('id') id: string,
     @Body() dto: AddGuardianshipDto,
@@ -149,7 +159,12 @@ export class PersonController {
     @Request() req: AuthenticatedRequest,
   ) {
     const { tenantId, userId } = this.ctx(req);
-    return this.people.issueContactVerification(tenantId, userId, id, contactId);
+    return this.people.issueContactVerification(
+      tenantId,
+      userId,
+      id,
+      contactId,
+    );
   }
 
   @Post('contacts/confirm')
@@ -169,7 +184,9 @@ export class PersonController {
   // step-up is layered on in WB1-6 (which owns high-risk access workflows).
   @RequirePermissions(['people.merge'], PermissionMode.ALL, 7)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Merge a duplicate person into a survivor (history preserved)' })
+  @ApiOperation({
+    summary: 'Merge a duplicate person into a survivor (history preserved)',
+  })
   async mergePeople(
     @Body() dto: MergePeopleDto,
     @Request() req: AuthenticatedRequest,

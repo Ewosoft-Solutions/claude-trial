@@ -10,7 +10,11 @@ import {
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
-export const DOCUMENT_VISIBILITIES = ['private', 'tenant', 'restricted'] as const;
+export const DOCUMENT_VISIBILITIES = [
+  'private',
+  'tenant',
+  'restricted',
+] as const;
 
 export class UploadDocumentDto {
   @ApiProperty({ example: 'Person', description: 'Owner entity type' })
@@ -23,7 +27,9 @@ export class UploadDocumentDto {
   @MaxLength(64)
   ownerId: string;
 
-  @ApiPropertyOptional({ description: 'DocumentType key (defines default policy)' })
+  @ApiPropertyOptional({
+    description: 'DocumentType key (defines default policy)',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(64)
@@ -40,7 +46,9 @@ export class UploadDocumentDto {
   @IsIn(DOCUMENT_VISIBILITIES)
   visibility?: (typeof DOCUMENT_VISIBILITIES)[number];
 
-  @ApiPropertyOptional({ description: 'Sensitive downloads require documents.download_sensitive' })
+  @ApiPropertyOptional({
+    description: 'Sensitive downloads require documents.download_sensitive',
+  })
   @IsOptional()
   @IsBoolean()
   sensitive?: boolean;
@@ -89,7 +97,9 @@ export class RegisterSigningAuthorityDto {
   @MaxLength(120)
   role: string;
 
-  @ApiPropertyOptional({ description: 'Restricted Document holding the signature image' })
+  @ApiPropertyOptional({
+    description: 'Restricted Document holding the signature image',
+  })
   @IsOptional()
   @IsUUID()
   signatureDocumentId?: string;

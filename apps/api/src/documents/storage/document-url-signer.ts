@@ -63,7 +63,9 @@ export class DocumentUrlSigner {
   }
 
   private mac(payload: string): string {
-    return createHmac('sha256', this.secret).update(payload).digest('base64url');
+    return createHmac('sha256', this.secret)
+      .update(payload)
+      .digest('base64url');
   }
 }
 
