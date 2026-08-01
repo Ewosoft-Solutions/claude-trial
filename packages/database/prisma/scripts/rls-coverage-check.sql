@@ -20,7 +20,7 @@
 DO $guard$
 DECLARE
   app_schemas text[] := ARRAY[
-    'academic-structure','admissions','ai','audit-logging','communication','documents','events','finance',
+    'academic-structure','admissions','ai','audit-logging','communication','directory','documents','events','finance',
     'health','hr','imports','jobs','jwt-secrets','learning','library','person','profile','roles-permissions','security-policy',
     'student-management','tenant','transportation','user-management'
   ];

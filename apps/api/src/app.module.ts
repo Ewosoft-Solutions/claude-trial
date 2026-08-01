@@ -19,6 +19,7 @@ import { StudentModule } from './student/student.module';
 import { PersonModule } from './person/person.module';
 import { DocumentsModule } from './documents/documents.module';
 import { ImportsModule } from './imports/imports.module';
+import { DirectoryModule } from './directory/directory.module';
 import { AcademicStructureModule } from './academic-structure/academic-structure.module';
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
@@ -106,6 +107,7 @@ import { AppController } from './app.controller';
     PersonModule,
     DocumentsModule,
     ImportsModule,
+    DirectoryModule,
     AcademicStructureModule,
     AssessmentGradingModule,
     CommunicationModule,

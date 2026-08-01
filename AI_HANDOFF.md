@@ -4,6 +4,44 @@ Last Updated: 2026-08-01
 
 ---
 
+## Session Summary (2026-08-01) — Claude: F7 governed directory pattern (search + saved-views + URL-state) → in-review
+
+**Item(s):** F7 → **in-review**. **Branch/PR:** `feat/F7-directory-search` → PR open. Claim committed to `main` first (`board: claim F7 (claude)`), then built on the branch (one item = one branch = one PR).
+
+**What changed & why** — one reusable, governed "directory" surface every entity list reuses (kills the legacy 3-search-pages pattern #27; extends the #105 search idea), built UI-first then consumed by the Students list.
+
+- **`packages/ui` (built first):**
+  - `lib/directory-state.ts` — pure, framework-free URL⇄state (de)serializer (`q`/`page`/`size`/`sort=field:dir`/`f_*` filters/`view`), deterministic output; `cycleSort`. The single source of truth for shareable directory URLs + what a SavedView persists.
+  - `hooks/use-directory-state.ts` — `useDirectoryState`, a thin React binding (no `next/navigation` dep, like `useResolvedNavigation`): host passes the query string + an `onChange`; page-affecting changes reset to page 1; stable setter identities.
+  - `custom/tables/directory-table.tsx` — a generic, **server-driven** `DirectoryTable<TRow>`: column config, row selection + a sticky **bulk-action bar**, sortable headers (keyboard + `aria-sort`, non-colour cue), column-visibility menu, integrated loading/empty/error via `custom/states`, and `MaskedValue` for privacy-aware cells. Framed by the existing `DataTableLayout` for app-wide gutter parity; Aurora-token styled.
+- **`packages/database`:** new `directory` schema + tenant-owned **`SavedView`** (`models/directory.prisma`). Hand-written migration `20260801040000_directory_saved_views` — table + indexes + **tenant-FK cascade** + `ENABLE`/`FORCE ROW LEVEL SECURITY` + PERMISSIVE `tenant_isolation` + `app_runtime` grants (mirrors person/jobs). Added `directory` to `schema.prisma` datasource + `rls-coverage-check.sql`. `db:generate` + `db:deploy` applied locally.
+- **`apps/api` `DirectoryModule`:**
+  - `StudentDirectoryService` — the governed projection. Tenant-isolated (RLS client); an explicit `select` that **never** touches `healthInfo`/medical/safeguarding narrative (golden rule 7); contact **masked** (reuses `person.masking`) unless the caller holds `students.view.personal_info`; record-level **class-ownership** scope (reuses `AcademicsAccessService`, mirrors `StudentService.list`); server-side page/filter/sort; per-page **FeeInvoice** aggregate for a fees Meter/badge. Plus a governed **bulk CSV export** — gated `students.export`, **audited** (`directory.students.export` via `AuditService`), masking-aware; this is the in-request directory export, deliberately narrower than F9's async `DataExportJob` platform.
+  - `SavedViewService` — owner-scoped CRUD; `list` returns the caller's own views + tenant-shared ones; `update`/`remove` require ownership (shared views are read-only to non-owners); audited.
+  - Controllers `directory/students` (+`/export`) and `directory/saved-views` — full guard stack (`Jwt`+`TenantContext`+`Permission`) + `@TenantScoped`; **`TenantDbService.client` only, never `DatabaseService`**. Registered in `app.module.ts`.
+- **`apps/web`:** Students list (`/students/directory`) rewired to the pattern — server component fetches the projection using URL state (`toApiQuery` maps the UI encoding → REST) + saved views; client island uses `DirectoryTable` + `useDirectoryState` (Next router), a saved-view Select (apply → shareable URL), a Save-view dialog (personal/shared), owner-only delete, and a **bulk CSV export** download. Masked contact + Meter/StatusBadge cells. 4 route handlers under `app/api/directory/*`.
+- **No new permissions** — reuses `students.view` / `students.view.personal_info` / `students.export`, so no `EXPECTED_PERMISSION_COUNTS`/seed change (still 320).
+
+**Verification** (run + result)
+
+- **api unit 464/464** (incl. 16 new: projection masking/tenant-scope/health-exclusion/sort/filter/fees + saved-view CRUD/ownership). **ui 147** (new: `directory-state` round-trip, `useDirectoryState`, `DirectoryTable` selection→bulk-bar/masked-cell/aria-sort/empty/error/pagination). **web 120** (new: `toApiQuery` mapping).
+- **`directory.e2e-spec.ts` 4/4** — ran against real Postgres as `app_runtime` (env has `APP_RUNTIME_DATABASE_URL`): contact masking vs PII scope, RLS projection isolation (B sees total 0), SavedView RLS + owner-scoping + non-owner-mutation reject, bulk-export masking. Full AppModule booted (DI wiring confirmed).
+- **`pnpm ci:quick` green** (build + lint + typecheck; 0 errors). **`check:privileged-db` green** (no new privileged usage). **`db:rls:check` green** (`directory.saved_views` covered). **`db:verify`**: permissions 320/320 unchanged (the one failing check, "Platform Bootstrap incomplete", is the known local-DB artifact from H1, not F7). **Prettier-clean** on all touched `.ts/.tsx`.
+- Browser: the running dev server (:3001) serves `/students/directory` (compiles, auth-redirects to Sign-in cleanly). A full authenticated visual pass needs a signed-in session and the password must be entered by the owner (credential guardrail) — email pre-filled; not completed autonomously.
+- **Second-agent review (maker-checker) → CHANGES-REQUESTED → fixed (commit `3598fa9`).** It confirmed RLS/permissions/health-narrative/privileged-db are correct, but found the contact-masking guarantee bypassable **3 ways** (all in `student-directory.service.ts`): (B1) `name` fell back to the raw email for a name-less student → now falls back to `studentNumber`; (B2) free-text search always queried email → an association oracle → email search clause now gated on `canViewContact`; (B3) CSV export lacked formula/DDE-injection neutralization → now prefixes a leading `= + - @ \t \r` with `'`. Regression tests added for each; re-verified **api unit 467/467** + **directory e2e 4/4** + `check:privileged-db` + `check-types` green. Non-blocking notes deferred (shared-view default ordering is display-only; default-filter URL round-trip is a latent trap for future consumers; crafted-URL→400→empty render).
+
+**Decisions / ADRs**
+
+- **No new ADR** — F7 implements existing accepted patterns (RLS/tenant tables, permission masking, F1 `person.masking`, F3-style infra table). Notable choices recorded here: (1) bulk action = **synchronous audited CSV export** honouring masking (natural directory action, zero new permissions), scoped narrower than the F9 async export platform; (2) SavedView is **owner-scoped + tenant-shared**, stores only view definition (no record data), no FK on `owner_user_tenant_id` (profile-id string) to keep it list-reusable; (3) saved-views gated on `students.view` since students is the only F7 resource today — extend the gate as more lists adopt.
+
+**Next step (so the next agent can resume)**
+
+- Review → merge PR → flip **F7 → done**. After F7 merges, **WB1 (People directory)** needs only **F8** (Aurora shells) remaining. F7 was self-contained (F8 hadn't landed); WB1-1 can reuse this `DirectoryTable`/`useDirectoryState` directly. Follow-ups if wanted: adopt the pattern for a second resource (staff) to exercise reuse; add server-side fees sort; wire the async F9 export path for very large exports.
+
+**New gotcha** → **`packages/ui`'s own `lint` script (`eslint . --max-warnings 0`) already fails on `main`** (2 pre-existing `react/prop-types` warnings in `components/table.tsx`). It is **not** a CI gate — CI/`ci:quick` lint only `apps/api` + `apps/web`; the UI package is only `pnpm test`'d. So don't chase a "red" `pnpm --filter @workspace/ui lint`; just keep your own UI files warning-free.
+
+---
+
 ## Session Summary (2026-08-01) — Claude: F1/F4/F2 merged → done; format gate merged
 
 **Item(s):** F1, F2, F4 → **done**. **PRs:** [#42](https://github.com/Ewosoft-Solutions/claude-trial/pull/42) (foundations + second-agent-review fixes) and [#43](https://github.com/Ewosoft-Solutions/claude-trial/pull/43) (changed-files Prettier gate + editor config) both **merged to `main`**; source branches deleted.

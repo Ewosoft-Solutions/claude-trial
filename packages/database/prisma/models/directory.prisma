@@ -1,0 +1,51 @@
+// ============================================
+// Directory — saved views (F7)
+// ============================================
+// The governed "directory" pattern (server-side page/filter/sort + saved views
+// + URL-persisted state) that every entity list reuses. This file persists the
+// SAVED VIEWS: a named, replayable snapshot of a list's URL state (search +
+// filters + sort + page size). It stores NO record data — only the view
+// definition — so it is low-sensitivity, but it is still tenant-owned and
+// therefore RLS-protected (db:rls:check gates CI), and owner-scoped in the
+// service so one user's personal views stay theirs.
+//
+// tenant_id is NON-NULL (a saved view always belongs to a tenant). The FK to
+// tenant.tenants is declared in the migration (no Prisma relation — like Job:
+// infra a Tenant is never navigated from). Sharing model: a personal view is
+// visible only to its owning profile (owner_user_tenant_id); a shared view is
+// visible to the whole tenant.
+// ============================================
+
+// SavedView - a persisted, replayable directory view (search/filter/sort state)
+model SavedView {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  // The profile (UserTenant) that owns this view. Personal views are visible
+  // only to this owner; shared views (is_shared) are visible tenant-wide.
+  ownerUserTenantId String @map("owner_user_tenant_id")
+
+  // The entity list this view belongs to, e.g. "students". A future staff or
+  // finance directory reuses the same table with a different resource key.
+  resource String
+
+  name String
+
+  // Serialized directory state (q / filters / sort / pageSize). Replayed when
+  // the view is applied; deliberately schemaless so the pattern stays reusable.
+  state Json @default("{}")
+
+  isShared  Boolean @default(false) @map("is_shared")
+  isDefault Boolean @default(false) @map("is_default")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, resource])
+  @@index([tenantId, ownerUserTenantId, resource])
+  @@map("saved_views")
+  @@schema("directory")
+}
