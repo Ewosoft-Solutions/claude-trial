@@ -44,10 +44,11 @@
   color-scheme: light;
 
   /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
-  /* base surfaces — a soft almost-white canvas (near-neutral, a whisper cool)
-     so the white cards lift off the page. Reads as an understated,
-     high-grade finish; cards stay pure white on top. */
-  --background: #f7f8fc;
+  /* base surfaces — a warm almost-white canvas (faint ivory) so the white
+     cards lift off the page. Reads as an understated, high-grade finish;
+     cards stay pure white on top. Fields reference this token, so they warm
+     with it. */
+  --background: #f7f6f4;
   --foreground: #191b38; /* aurora --ink (light) */
   --card: #ffffff; /* pure-white surface, lifted off the soft canvas */
   --card-foreground: #191b38;
