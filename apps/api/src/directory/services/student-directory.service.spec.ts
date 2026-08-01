@@ -97,6 +97,44 @@ describe('StudentDirectoryService', () => {
     expect(res.data[0].contact).toContain('*');
   });
 
+  it('never falls the name column back to the email (no PII leak via name)', async () => {
+    findMany.mockResolvedValue([
+      studentRow({
+        userTenant: {
+          user: { firstName: null, lastName: null, email: 'secret@x.test' },
+        },
+      }),
+    ]);
+    // A name-less student must show the (non-PII) student number, never the
+    // email — for authorized AND unauthorized callers.
+    const unauth = await service.list('tenant-1', actor(), false, {});
+    expect(unauth.data[0].name).toBe('STU-001');
+    expect(unauth.data[0].name).not.toContain('secret@x.test');
+    const auth = await service.list('tenant-1', actor(), true, {});
+    expect(auth.data[0].name).toBe('STU-001');
+  });
+
+  it('excludes email from search unless the caller may view contact (no oracle)', async () => {
+    await service.list('tenant-1', actor(), false, { q: 'victim@x.test' });
+    const whereMasked = findMany.mock.calls[0][0].where;
+    const userOrMasked = whereMasked.OR[2].userTenant.user.OR;
+    expect(userOrMasked).not.toContainEqual(
+      expect.objectContaining({ email: expect.anything() }),
+    );
+
+    jest.clearAllMocks();
+    count.mockResolvedValue(1);
+    findMany.mockResolvedValue([studentRow()]);
+    groupBy.mockResolvedValue([]);
+    await service.list('tenant-1', actor(), true, { q: 'ada@example.test' });
+    const userOrRaw = findMany.mock.calls[0][0].where.OR[2].userTenant.user.OR;
+    expect(userOrRaw).toContainEqual(
+      expect.objectContaining({
+        email: { contains: 'ada@example.test', mode: 'insensitive' },
+      }),
+    );
+  });
+
   it('scopes every query to the tenant', async () => {
     await service.list('tenant-9', actor(), true, {});
     expect(count).toHaveBeenCalledWith(
@@ -202,6 +240,27 @@ describe('StudentDirectoryService', () => {
         'stu-1',
       ]);
       expect(result.content).toContain('"Ada, Jr Okafor"');
+    });
+
+    it('neutralizes CSV formula/DDE injection in user-controlled fields', async () => {
+      findMany.mockResolvedValue([
+        studentRow({
+          userTenant: {
+            user: {
+              firstName: '=HYPERLINK("http://evil","x")',
+              lastName: '',
+              email: 'a@b.test',
+            },
+          },
+        }),
+      ]);
+      const result = await service.export('tenant-1', 'user-1', true, [
+        'stu-1',
+      ]);
+      // The dangerous leading '=' must be prefixed with a quote so a
+      // spreadsheet treats it as text, not a formula.
+      expect(result.content).toContain(`'=HYPERLINK`);
+      expect(result.content).not.toMatch(/(^|,|")=HYPERLINK/m);
     });
   });
 });

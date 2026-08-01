@@ -93,14 +93,16 @@ export interface StudentDirectoryRow {
   };
 }
 
-function displayName(user: {
-  firstName: string | null;
-  lastName: string | null;
-  email: string;
-}): string {
-  return (
-    [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email
-  );
+/**
+ * Display name from first/last, falling back to a NON-PII value (the student
+ * number) — never the email. Falling back to email would leak contact PII into
+ * the always-visible `name` column for a name-less record, bypassing the mask.
+ */
+function displayName(
+  user: { firstName: string | null; lastName: string | null },
+  fallback: string,
+): string {
+  return [user.firstName, user.lastName].filter(Boolean).join(' ') || fallback;
 }
 
 function className(row: StudentRow): string {
@@ -164,26 +166,28 @@ export class StudentDirectoryService {
   private async buildWhere(
     tenantId: string,
     actor: AcademicsActor,
+    canViewContact: boolean,
     query: StudentDirectoryQueryDto,
   ): Promise<Prisma.StudentWhereInput> {
     const where: Prisma.StudentWhereInput = { tenantId };
     if (query.status) where.enrollmentStatus = query.status;
     if (query.gradeLevel) where.gradeLevel = query.gradeLevel;
     if (query.q) {
+      // Search only over non-PII identifiers + names. The email is included
+      // ONLY for a caller who may already see it — otherwise the search becomes
+      // an association oracle (search a known email → confirm which named
+      // student it belongs to), which would defeat the contact mask.
+      const userOr: Prisma.UserWhereInput['OR'] = [
+        { firstName: { contains: query.q, mode: 'insensitive' } },
+        { lastName: { contains: query.q, mode: 'insensitive' } },
+      ];
+      if (canViewContact) {
+        userOr.push({ email: { contains: query.q, mode: 'insensitive' } });
+      }
       where.OR = [
         { studentNumber: { contains: query.q, mode: 'insensitive' } },
         { admissionNumber: { contains: query.q, mode: 'insensitive' } },
-        {
-          userTenant: {
-            user: {
-              OR: [
-                { firstName: { contains: query.q, mode: 'insensitive' } },
-                { lastName: { contains: query.q, mode: 'insensitive' } },
-                { email: { contains: query.q, mode: 'insensitive' } },
-              ],
-            },
-          },
-        },
+        { userTenant: { user: { OR: userOr } } },
       ];
     }
     if (query.classId) {
@@ -231,7 +235,7 @@ export class StudentDirectoryService {
     return {
       id: row.id,
       studentNumber: row.studentNumber,
-      name: displayName(row.userTenant.user),
+      name: displayName(row.userTenant.user, row.studentNumber),
       gradeLevel: row.gradeLevel,
       enrollmentStatus: row.enrollmentStatus,
       className: className(row),
@@ -251,7 +255,7 @@ export class StudentDirectoryService {
   ) {
     const page = query.page ?? 1;
     const limit = query.limit ?? 25;
-    const where = await this.buildWhere(tenantId, actor, query);
+    const where = await this.buildWhere(tenantId, actor, canViewContact, query);
 
     const [total, rows] = await Promise.all([
       this.client.student.count({ where }),
@@ -364,9 +368,18 @@ export class StudentDirectoryService {
   }
 }
 
-/** RFC-4180 field escaping: quote when the value has a comma/quote/newline. */
+/**
+ * CSV field escaping. Two concerns:
+ *  1. RFC-4180: quote when the value contains a comma/quote/newline.
+ *  2. Formula/DDE injection: a spreadsheet evaluates a cell that starts with
+ *     `= + - @` (or tab/CR) as a formula — with user-controlled names this is a
+ *     data-exfiltration / command vector. Neutralize by prefixing a `'` so the
+ *     cell is treated as text. RFC quoting alone does NOT prevent this (Excel
+ *     strips the quotes, then evaluates the formula).
+ */
 function csvCell(value: string): string {
-  const needsQuote = /[",\r\n]/.test(value);
-  const escaped = value.replace(/"/g, '""');
+  const guarded = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  const needsQuote = /[",\r\n]/.test(guarded);
+  const escaped = guarded.replace(/"/g, '""');
   return needsQuote ? `"${escaped}"` : escaped;
 }
