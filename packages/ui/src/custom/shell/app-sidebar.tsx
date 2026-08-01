@@ -19,9 +19,13 @@
    ============================================================ */
 
 import * as React from 'react';
-import { ChevronDown, PanelLeftClose, PanelLeftOpen, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import {
+  CURVE_SIZE,
+  FlyoutContour,
+} from '@workspace/ui/custom/shell/flyout-contour';
 import {
   hasActiveNavItem,
   MOBILE_NAV_ROW_STYLE,
@@ -53,18 +57,24 @@ function RailBadge({ badge }: { badge: string | number }) {
    ============================================================ */
 function Sidebar({
   brandLabel = 'SchoolWithEase',
+  brandCollapsedLabel = 'SWE',
   items,
   footerItems,
   panels,
   navFooter,
+  schoolSwitcher,
   user,
   userMenuItems = [],
 }: {
   brandLabel?: string;
+  brandCollapsedLabel?: string;
   items: RailItem[];
   footerItems?: RailItem[];
   panels: Record<string, NavPanelData>;
   navFooter?: React.ReactNode;
+  /** Tenant/school context switcher, rendered under the brand. Receives the
+   *  rail's current state so it can show a chip (collapsed) or a full row. */
+  schoolSwitcher?: (expanded: boolean) => React.ReactNode;
   user?: UserProfile;
   userMenuItems?: UserMenuItem[];
 }) {
@@ -77,6 +87,9 @@ function Sidebar({
   const [flyoutSectionKey, setFlyoutSectionKey] = React.useState<string | null>(
     null,
   );
+  // The theme flyout and the section flyouts are mutually exclusive overlays;
+  // the rail owns the theme's open state so opening one closes the other.
+  const [themeOpen, setThemeOpen] = React.useState(false);
   const [expandedSectionKey, setExpandedSectionKey] = React.useState<
     string | null | undefined
   >(undefined);
@@ -101,36 +114,7 @@ function Sidebar({
   const defaultExpandedKey = activeItem?.hasPanel ? activeItem.key : null;
   const openExpandedKey =
     expandedSectionKey === undefined ? defaultExpandedKey : expandedSectionKey;
-  const flyoutCurveSize = 28;
-  const flyoutCurveReach = 40;
-  const flyoutCornerRadius = 16;
-  const flyoutTop = Math.max(0, flyoutAnchorTop - flyoutCurveSize);
-  const shapeWidth = Math.max(1, flyoutSize.width);
-  const shapeHeight = Math.max(
-    flyoutCurveSize * 2 + flyoutCornerRadius * 2,
-    flyoutSize.height,
-  );
-  const shapeFillPath = [
-    'M 0 0',
-    `C 0 ${flyoutCurveSize * 0.62} ${flyoutCurveReach * 0.4} ${flyoutCurveSize} ${flyoutCurveReach} ${flyoutCurveSize}`,
-    `H ${shapeWidth - flyoutCornerRadius}`,
-    `Q ${shapeWidth} ${flyoutCurveSize} ${shapeWidth} ${flyoutCurveSize + flyoutCornerRadius}`,
-    `V ${shapeHeight - flyoutCurveSize - flyoutCornerRadius}`,
-    `Q ${shapeWidth} ${shapeHeight - flyoutCurveSize} ${shapeWidth - flyoutCornerRadius} ${shapeHeight - flyoutCurveSize}`,
-    `H ${flyoutCurveReach}`,
-    `C ${flyoutCurveReach * 0.4} ${shapeHeight - flyoutCurveSize} 0 ${shapeHeight - flyoutCurveSize * 0.62} 0 ${shapeHeight}`,
-    'Z',
-  ].join(' ');
-  const shapeStrokePath = [
-    'M 0 0.5',
-    `C 0 ${flyoutCurveSize * 0.62} ${flyoutCurveReach * 0.4} ${flyoutCurveSize + 0.5} ${flyoutCurveReach} ${flyoutCurveSize + 0.5}`,
-    `H ${shapeWidth - flyoutCornerRadius}`,
-    `Q ${shapeWidth - 0.5} ${flyoutCurveSize + 0.5} ${shapeWidth - 0.5} ${flyoutCurveSize + flyoutCornerRadius}`,
-    `V ${shapeHeight - flyoutCurveSize - flyoutCornerRadius}`,
-    `Q ${shapeWidth - 0.5} ${shapeHeight - flyoutCurveSize - 0.5} ${shapeWidth - flyoutCornerRadius} ${shapeHeight - flyoutCurveSize - 0.5}`,
-    `H ${flyoutCurveReach}`,
-    `C ${flyoutCurveReach * 0.4} ${shapeHeight - flyoutCurveSize - 0.5} 0 ${shapeHeight - flyoutCurveSize * 0.62} 0 ${shapeHeight - 0.5}`,
-  ].join(' ');
+  const flyoutTop = Math.max(0, flyoutAnchorTop - CURVE_SIZE);
 
   React.useLayoutEffect(() => {
     if (!flyoutOpen) return;
@@ -177,9 +161,12 @@ function Sidebar({
     setExpanded((current) => !current);
     setFlyoutSectionKey(null);
     setExpandedSectionKey(undefined);
+    setThemeOpen(false);
   };
 
   const selectCompactItem = (item: RailItem, trigger: HTMLElement) => {
+    // Opening a section flyout dismisses the theme flyout (they can't coexist).
+    setThemeOpen(false);
     if (!item.hasPanel) {
       setFlyoutSectionKey(null);
       return;
@@ -324,34 +311,62 @@ function Sidebar({
         expanded ? 'w-[15.25rem]' : 'w-[var(--rail-width)]',
       )}
     >
-      {/* Brand + collapse toggle */}
-      <div
-        className={cn(
-          'flex h-12 shrink-0 items-center',
-          expanded ? 'justify-between pl-3 pr-2' : 'justify-center',
-        )}
-      >
-        {expanded ? (
+      {/* Brand — the full wordmark when expanded; the plain "SWE" text
+          placeholder logo when collapsed. The collapse/expand control is the
+          circular toggle that straddles the rail's right edge (below). */}
+      {/* Brand row matches the header height so its bottom divider lines up
+          with the top bar's bottom border. */}
+      {expanded ? (
+        <div className="flex h-[var(--header-height)] shrink-0 items-center pl-3 pr-2">
           <span className="truncate font-display text-[22px] font-bold leading-none text-foreground">
             {brandLabel}
           </span>
-        ) : null}
-        <button
-          type="button"
-          onClick={toggleExpanded}
-          className="grid size-8 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
-          aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'}
-        >
-          {expanded ? (
-            <PanelLeftClose className="size-5" aria-hidden />
-          ) : (
-            <PanelLeftOpen className="size-5" aria-hidden />
-          )}
-        </button>
-      </div>
+        </div>
+      ) : (
+        <div className="flex h-[var(--header-height)] shrink-0 items-center justify-center">
+          <span
+            className="font-display text-[22px] font-bold leading-none text-foreground"
+            title={brandLabel}
+          >
+            {brandCollapsedLabel}
+          </span>
+        </div>
+      )}
 
-      {/* Full-width divider below the toggle */}
+      {/* Collapse/expand toggle — a circular chevron at the intersection of the
+          logo column and the top bar (on the rail's right border, at the brand
+          divider / header-bottom line). */}
+      <button
+        type="button"
+        onClick={toggleExpanded}
+        aria-label={expanded ? 'Collapse navigation' : 'Expand navigation'}
+        className="absolute -right-3 top-[calc(var(--header-height)-0.75rem)] z-40 grid size-6 place-items-center rounded-full border border-border bg-sidebar text-muted-foreground shadow-sm outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
+      >
+        {expanded ? (
+          <ChevronLeft className="size-4" aria-hidden />
+        ) : (
+          <ChevronRight className="size-4" aria-hidden />
+        )}
+      </button>
+
+      {/* Full-width divider below the brand */}
       <div className="h-px w-full shrink-0 bg-border" />
+
+      {/* Tenant/school context switcher — directly under the brand. Fixed
+          height so the section doesn't jump when collapsing/expanding. */}
+      {schoolSwitcher ? (
+        <>
+          <div
+            className={cn(
+              'flex h-16 shrink-0 items-center',
+              expanded ? 'px-2' : 'justify-center',
+            )}
+          >
+            {schoolSwitcher(expanded)}
+          </div>
+          <div className="h-px w-full shrink-0 bg-border" />
+        </>
+      ) : null}
 
       {expanded ? (
         <nav
@@ -379,12 +394,20 @@ function Sidebar({
 
       <div
         className={cn(
-          'flex shrink-0 flex-col gap-1 p-2',
-          !expanded && 'items-center',
+          'flex shrink-0 flex-col gap-1 py-2',
+          expanded ? 'px-2' : 'items-center px-0',
         )}
       >
         {footerItems?.map((item) => (expanded ? expandedItem(item) : compactItem(item)))}
-        <ThemeControl expanded={expanded} />
+        <ThemeControl
+          expanded={expanded}
+          variant="curve"
+          open={themeOpen}
+          onOpenChange={(next) => {
+            setThemeOpen(next);
+            if (next) setFlyoutSectionKey(null);
+          }}
+        />
         {user ? (
           <SidebarProfile
             user={user}
@@ -407,22 +430,10 @@ function Sidebar({
             maxHeight: `calc(100% - ${flyoutTop + 8}px)`,
           }}
         >
-          <svg
-            data-slot="flyout-contour"
-            aria-hidden
-            focusable="false"
-            viewBox={`0 0 ${shapeWidth} ${shapeHeight}`}
-            className="pointer-events-none absolute inset-0 z-0 size-full overflow-visible"
-          >
-            <path d={shapeFillPath} fill="var(--sidebar-solid)" />
-            <path
-              d={shapeStrokePath}
-              fill="none"
-              stroke="var(--border)"
-              strokeWidth="1"
-              vectorEffect="non-scaling-stroke"
-            />
-          </svg>
+          <FlyoutContour
+            width={flyoutSize.width}
+            height={flyoutSize.height}
+          />
 
           <div
             data-slot="flyout-content"
@@ -474,6 +485,11 @@ export interface NavPanelHeader {
 export interface AppSidebarProps {
   /** Brand wordmark shown at the top when expanded. */
   brandLabel?: string;
+  /** Compact brand mark shown when collapsed (logo placeholder). */
+  brandCollapsedLabel?: string;
+  /** Tenant/school context switcher, rendered under the brand. Receives the
+   *  rail's current state so it can render a chip (collapsed) or a full row. */
+  schoolSwitcher?: (expanded: boolean) => React.ReactNode;
   /** Primary destinations. */
   railItems: RailItem[];
   /** Utility rail items pinned above the footer (e.g. Help). */
@@ -495,6 +511,8 @@ export interface AppSidebarProps {
 
 export function AppSidebar({
   brandLabel,
+  brandCollapsedLabel,
+  schoolSwitcher,
   railItems,
   railFooterItems,
   navHeader,
@@ -522,10 +540,12 @@ export function AppSidebar({
   return (
     <Sidebar
       brandLabel={brandLabel}
+      brandCollapsedLabel={brandCollapsedLabel}
       items={railItems}
       footerItems={railFooterItems}
       panels={panels}
       navFooter={navFooter}
+      schoolSwitcher={schoolSwitcher}
       user={user}
       userMenuItems={userMenuItems}
     />

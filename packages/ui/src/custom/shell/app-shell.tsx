@@ -71,23 +71,29 @@ export function AppShell({
         className,
       )}
     >
-      {header}
-
+      {/* The rail spans the full height on the left (top: 0), so the top bar
+          begins at the rail's right edge rather than above it. */}
       <div className="flex min-h-0 flex-1">
         {sidebar}
 
-        <main className="@container/main flex min-w-0 flex-1 flex-col bg-background pb-[var(--shell-mobile-bottom-inset)] md:pb-0">
-          {children}
-        </main>
+        <div className="flex min-w-0 flex-1 flex-col">
+          {header}
 
-        {inspector ? (
-          <aside
-            data-slot="app-inspector"
-            className="hidden w-[var(--inspector-width)] shrink-0 flex-col border-l border-border bg-sidebar xl:flex"
-          >
-            {inspector}
-          </aside>
-        ) : null}
+          <div className="flex min-h-0 flex-1">
+            <main className="@container/main flex min-w-0 flex-1 flex-col bg-background pb-[var(--shell-mobile-bottom-inset)] md:pb-0">
+              {children}
+            </main>
+
+            {inspector ? (
+              <aside
+                data-slot="app-inspector"
+                className="hidden w-[var(--inspector-width)] shrink-0 flex-col border-l border-border bg-sidebar xl:flex"
+              >
+                {inspector}
+              </aside>
+            ) : null}
+          </div>
+        </div>
       </div>
 
       {statusBar ? <div className="max-md:hidden">{statusBar}</div> : null}

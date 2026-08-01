@@ -67,6 +67,9 @@ export function OmniSearch({
 }
 
 export interface AppHeaderProps {
+  /** Brand wordmark shown on the left below md, where the rail (which carries
+   *  the brand at md+) is replaced by the mobile bottom bar. */
+  brandLabel?: string;
   /** Tenant/school switcher — typically <SchoolSwitcher/>. */
   schoolSwitcher?: React.ReactNode;
   /** Breadcrumb trail — typically <AppBreadcrumbs/>. Hidden on mobile. */
@@ -81,6 +84,7 @@ export interface AppHeaderProps {
 }
 
 export function AppHeader({
+  brandLabel = 'SchoolWithEase',
   schoolSwitcher,
   breadcrumbs,
   search,
@@ -91,11 +95,17 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-sidebar px-2.5 sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3 sm:px-4',
+        // Horizontal padding matches --content-padding so the top-bar content
+        // lines up with the page content below it.
+        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-sidebar px-[var(--content-padding)] sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3',
         className,
       )}
     >
       <div className="flex min-w-0 items-center gap-3.5 overflow-hidden">
+        {/* At md+ the rail carries the brand; below md it lives here. */}
+        <span className="truncate font-display text-[22px] font-bold leading-none text-foreground md:hidden">
+          {brandLabel}
+        </span>
         {schoolSwitcher}
         {breadcrumbs ? (
           <div className="min-w-0 overflow-hidden max-xl:hidden">

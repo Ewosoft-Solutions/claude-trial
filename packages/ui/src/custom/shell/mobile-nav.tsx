@@ -59,6 +59,9 @@ export interface MobileNavProps {
   railFooterItems?: RailItem[];
   /** Secondary panels keyed by section, for the drawer's accordion. */
   navPanels?: Record<string, NavPanelData>;
+  /** Tenant/school context switcher, rendered at the top of the drawer under
+   *  the brand. Receives `true` (the drawer is always an expanded surface). */
+  schoolSwitcher?: (expanded: boolean) => React.ReactNode;
   /** Optional card beneath the drawer nav (e.g. a progress card). */
   navFooter?: React.ReactNode;
   /** Signed-in user rendered in the drawer footer. */
@@ -221,6 +224,7 @@ export function MobileNav({
   railItems,
   railFooterItems,
   navPanels = {},
+  schoolSwitcher,
   navFooter,
   user,
   userMenuItems = [],
@@ -271,7 +275,7 @@ export function MobileNav({
             'color-mix(in oklab, var(--sidebar-solid) 94%, transparent)',
         }}
         className={cn(
-          'fixed inset-x-0 bottom-0 z-40 border-t border-border pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden',
+          'fixed inset-x-0 bottom-0 z-40 border-t border-border pb-[calc(0.5rem+env(safe-area-inset-bottom))] backdrop-blur-md md:hidden',
           className,
         )}
       >
@@ -336,6 +340,14 @@ export function MobileNav({
 
         <div className="h-px w-full shrink-0 bg-border" />
 
+        {/* Tenant/school context switcher — directly under the brand */}
+        {schoolSwitcher ? (
+          <>
+            <div className="shrink-0 px-2 py-2">{schoolSwitcher(true)}</div>
+            <div className="h-px w-full shrink-0 bg-border" />
+          </>
+        ) : null}
+
         {/* Full navigation with accordion sub-sections */}
         <nav
           aria-label="All sections"
@@ -371,7 +383,7 @@ export function MobileNav({
               onNavigate={closeDrawer}
             />
           ))}
-          <ThemeControl expanded />
+          <ThemeControl expanded variant="curve" />
           {user ? (
             <SidebarProfile user={user} items={userMenuItems} expanded />
           ) : null}
