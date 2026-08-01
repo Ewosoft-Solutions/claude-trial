@@ -77,8 +77,11 @@ describe('PlatformOverviewService.getOverview', () => {
   it('buckets growth into the last 12 months and seeds quiet months at 0', async () => {
     const { service } = build({
       tenants: [
-        { id: 't1', name: 'A', slug: 'a', status: 'active', createdAt: daysAgo(5) },
-        { id: 't2', name: 'B', slug: 'b', status: 'active', createdAt: daysAgo(5) },
+        // `now`, not daysAgo(5): in the first days of a month, "5 days ago" is
+        // the *previous* month and lands in the second-to-last bucket, so the
+        // assertion below would spuriously fail on those dates.
+        { id: 't1', name: 'A', slug: 'a', status: 'active', createdAt: new Date() },
+        { id: 't2', name: 'B', slug: 'b', status: 'active', createdAt: new Date() },
       ],
     });
 
