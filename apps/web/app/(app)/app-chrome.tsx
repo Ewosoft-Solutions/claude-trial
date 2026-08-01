@@ -280,6 +280,24 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
     [activeProfileId, profileOptions, switchProfile],
   );
 
+  // The tenant/school context switcher now lives inside the navigation menu
+  // (under the brand), so it renders in both the desktop rail and the mobile
+  // drawer with the surface's current expanded state. Only school-scoped
+  // viewers have a tenant to switch.
+  const renderSchoolSwitcher = React.useCallback(
+    (switcherExpanded: boolean) =>
+      viewer.scope === 'school' ? (
+        <SchoolSwitcher
+          schools={profileOptions}
+          activeSchoolId={activeProfileId}
+          onSchoolChange={handleProfileChange}
+          menuLabel="Schools and roles"
+          expanded={switcherExpanded}
+        />
+      ) : null,
+    [viewer.scope, profileOptions, activeProfileId, handleProfileChange],
+  );
+
   const userMenu: UserMenuItem[] = React.useMemo(
     () =>
       USER_MENU.map((item) =>
@@ -356,28 +374,19 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   return (
     <div className="h-svh w-full">
       <AppShell
-        mobileBottomInset="calc(3.5rem + env(safe-area-inset-bottom))"
+        mobileBottomInset="calc(4rem + env(safe-area-inset-bottom))"
         mobileNav={
           <MobileNav
             railItems={nav.railItems}
             railFooterItems={nav.railFooterItems}
             navPanels={sidebarPanels}
+            schoolSwitcher={renderSchoolSwitcher}
             user={user}
             userMenuItems={userMenu}
           />
         }
         header={
           <AppHeader
-            schoolSwitcher={
-              viewer.scope === 'school' ? (
-                <SchoolSwitcher
-                  schools={profileOptions}
-                  activeSchoolId={activeProfileId}
-                  onSchoolChange={handleProfileChange}
-                  menuLabel="Schools and roles"
-                />
-              ) : undefined
-            }
             breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
             search={
               <OmniSearch
@@ -391,6 +400,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         }
         sidebar={
           <AppSidebar
+            schoolSwitcher={renderSchoolSwitcher}
             railItems={nav.railItems}
             railFooterItems={nav.railFooterItems}
             navHeader={

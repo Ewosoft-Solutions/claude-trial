@@ -13,11 +13,20 @@
    ============================================================ */
 
 import * as React from 'react';
-import { ChevronDown, Monitor, Moon, Sparkles, Sun } from 'lucide-react';
+import {
+  ChevronDown,
+  EllipsisVertical,
+  Monitor,
+  Moon,
+  Sparkles,
+  Sun,
+  X,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 import { cn } from '@workspace/ui/lib/utils';
 import { toTitleCase } from '@workspace/ui/lib/names';
+import { FlyoutContour } from '@workspace/ui/custom/shell/flyout-contour';
 import { InitialsAvatar } from '@workspace/ui/custom/data-display/initials-avatar';
 import {
   DropdownMenu,
@@ -236,8 +245,258 @@ export const THEME_OPTIONS = [
   { value: 'system', label: 'System', icon: Monitor },
 ] as const;
 
-export function ThemeControl({ expanded }: { expanded: boolean }) {
+/** The theme icon that tracks the active scheme (sun in light, moon in dark). */
+function ThemeGlyph({ className }: { className?: string }) {
+  return (
+    <>
+      <Sun className={cn('dark:hidden', className)} aria-hidden />
+      <Moon className={cn('hidden dark:block', className)} aria-hidden />
+    </>
+  );
+}
+
+/** The theme option rows, shared by the collapsed flyout and the expanded
+ *  accordion. Each host supplies its own "Theme" heading. */
+function ThemeOptionList({
+  theme,
+  onSelect,
+}: {
+  theme?: string;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div role="menu" aria-label="Theme" className="flex flex-col gap-0.5">
+      {THEME_OPTIONS.map(({ value, label, icon: Icon }) => {
+        const selected = theme === value;
+        return (
+          <button
+            key={value}
+            type="button"
+            role="menuitemradio"
+            aria-checked={selected}
+            onClick={() => onSelect(value)}
+            className={cn(
+              'flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-[13px] font-medium text-muted-foreground outline-none',
+              'transition-colors hover:bg-accent hover:text-foreground',
+              'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
+              selected && 'text-foreground',
+            )}
+          >
+            <Icon className="size-4 shrink-0 opacity-80" aria-hidden />
+            <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+            {selected ? (
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-primary"
+                aria-hidden
+              />
+            ) : null}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * The theme control on the Aurora sidebar. Collapsed, it is an icon+label rail
+ * button whose menu opens as the same curved flyout the nav sections use.
+ * Expanded, it is an inline accordion — the same disclosure pattern the nav
+ * sections use inline — so the footer stays pinned to the bottom.
+ */
+function CurveThemeControl({
+  expanded,
+  open: openProp,
+  onOpenChange,
+}: {
+  expanded: boolean;
+  /** Controlled open state — lets a host make it exclusive with other overlays. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
   const { theme, setTheme } = useTheme();
+  const [openState, setOpenState] = React.useState(false);
+  const open = openProp ?? openState;
+  const setOpen = React.useCallback(
+    (value: boolean) => {
+      if (openProp === undefined) setOpenState(value);
+      onOpenChange?.(value);
+    },
+    [openProp, onOpenChange],
+  );
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  const surfaceRef = React.useRef<HTMLDivElement>(null);
+  const [size, setSize] = React.useState({ width: 184, height: 236 });
+
+  // Measure the collapsed flyout so its contour matches the content.
+  React.useLayoutEffect(() => {
+    if (!open || expanded) return;
+    const surface = surfaceRef.current;
+    if (!surface) return;
+    const measure = () => {
+      const rect = surface.getBoundingClientRect();
+      if (rect.width === 0 || rect.height === 0) return;
+      const next = {
+        width: Math.round(rect.width * 2) / 2,
+        height: Math.round(rect.height * 2) / 2,
+      };
+      setSize((current) =>
+        current.width === next.width && current.height === next.height
+          ? current
+          : next,
+      );
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(surface);
+    return () => observer.disconnect();
+  }, [open, expanded]);
+
+  // Dismiss on outside pointer / Escape.
+  React.useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: PointerEvent) => {
+      const target = event.target;
+      if (target instanceof Node && rootRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('pointerdown', onPointer);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('pointerdown', onPointer);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open, setOpen]);
+
+  const choose = (value: string) => {
+    setTheme(value);
+    setOpen(false);
+  };
+
+  /* ---- Expanded: an inline accordion, mirroring the nav sections ---- */
+  if (expanded) {
+    return (
+      <div ref={rootRef} className="w-full">
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          aria-expanded={open}
+          aria-controls="theme-accordion"
+          style={MOBILE_NAV_ROW_STYLE}
+          className={cn(
+            'group flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2 text-[13.5px] font-medium text-muted-foreground outline-none',
+            'transition-colors hover:bg-accent hover:text-foreground',
+            'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
+            'aria-expanded:bg-accent aria-expanded:text-foreground',
+          )}
+        >
+          <span className="relative grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[18px]">
+            <ThemeGlyph />
+          </span>
+          <span className="min-w-0 flex-1 truncate text-left">Theme</span>
+          <ChevronDown
+            className={cn(
+              'size-3.5 shrink-0 transition-transform',
+              open && 'rotate-180',
+            )}
+            aria-hidden
+          />
+        </button>
+        {open ? (
+          <div id="theme-accordion" className="relative mb-px ml-3 pl-1 pt-0.5">
+            <ThemeOptionList theme={theme} onSelect={choose} />
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+
+  /* ---- Collapsed: an icon+label rail button with a curved flyout ---- */
+  return (
+    <div ref={rootRef} className="relative flex w-full flex-col items-center">
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={cn(
+          'group grid h-[3.375rem] w-[calc(var(--rail-width)-0.5rem)] shrink-0 grid-rows-[2rem_auto] place-items-center gap-0.5 rounded-[var(--radius-sm)] px-0.5 py-0.5 text-muted-foreground outline-none',
+          'transition-colors hover:text-foreground',
+          'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
+          open && 'text-foreground',
+        )}
+      >
+        <span
+          className={cn(
+            'relative grid size-8 place-items-center rounded-[var(--radius-sm)] transition-colors group-hover:bg-accent [&>svg]:size-[19px]',
+            open && 'bg-accent text-foreground ring-1 ring-sidebar-ring/60',
+          )}
+        >
+          <ThemeGlyph />
+        </span>
+        <span className="w-full truncate text-center text-[10px] font-medium leading-none">
+          Theme
+        </span>
+      </button>
+      {open ? (
+        <div
+          ref={surfaceRef}
+          id="theme-flyout"
+          className="absolute bottom-0 z-40 flex w-[clamp(9.5rem,42vw,11.5rem)] flex-col"
+          style={{ left: 'calc(100% + 0.5px)' }}
+        >
+          <FlyoutContour width={size.width} height={size.height} />
+          <div className="relative z-10 my-7 flex min-h-0 flex-col overflow-hidden rounded-r-[var(--radius)] bg-transparent">
+            <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-2.5 py-2">
+              <div className="min-w-0 flex-1 truncate font-display text-lg font-bold italic leading-tight text-foreground">
+                Theme
+              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
+                aria-label="Close theme menu"
+              >
+                <X className="size-4" aria-hidden />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
+              <ThemeOptionList theme={theme} onSelect={choose} />
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function ThemeControl({
+  expanded,
+  variant = 'menu',
+  open,
+  onOpenChange,
+}: {
+  expanded: boolean;
+  /** `menu` = Radix dropdown (default); `curve` = the Aurora flyout surface. */
+  variant?: 'menu' | 'curve';
+  /** Controlled open state for the curve variant (ignored by `menu`). */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}) {
+  const { theme, setTheme } = useTheme();
+
+  if (variant === 'curve') {
+    return (
+      <CurveThemeControl
+        expanded={expanded}
+        open={open}
+        onOpenChange={onOpenChange}
+      />
+    );
+  }
 
   const trigger = expanded ? (
     <button
@@ -245,21 +504,17 @@ export function ThemeControl({ expanded }: { expanded: boolean }) {
       className="group flex h-9 w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 text-[13.5px] font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
       aria-label="Theme"
     >
-      <span className="relative grid size-[18px] shrink-0 place-items-center">
-        <Sun className="size-[18px] dark:hidden" aria-hidden />
-        <Moon className="hidden size-[18px] dark:block" aria-hidden />
-      </span>
+      <ThemeGlyph className="size-[18px] shrink-0" />
       <span className="flex-1 text-left">Theme</span>
       <ChevronDown className="size-3.5 opacity-60" aria-hidden />
     </button>
   ) : (
     <button
       type="button"
-      className="grid size-9 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
+      className="grid size-9 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50 [&>svg]:size-[18px]"
       aria-label="Theme"
     >
-      <Sun className="size-[18px] dark:hidden" aria-hidden />
-      <Moon className="hidden size-[18px] dark:block" aria-hidden />
+      <ThemeGlyph />
     </button>
   );
 
@@ -403,7 +658,10 @@ export function SidebarProfile({
             </span>
           ) : null}
         </span>
-        <ChevronDown className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+        <EllipsisVertical
+          className="size-4 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
       </DropdownMenuTrigger>
       {menu}
     </DropdownMenu>

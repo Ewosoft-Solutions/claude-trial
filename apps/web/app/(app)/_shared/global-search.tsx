@@ -362,7 +362,11 @@ export function GlobalSearch({
             const Icon = meta.icon;
             return (
               <button
-                key={`${result.kind}:${result.id}`}
+                // Key on the unique href: synthetic page ids derive from
+                // node/section keys, which are only unique within a parent, so
+                // a page reachable from two places (e.g. Attendance as a section
+                // and under Students) would otherwise collide.
+                key={`${result.kind}:${result.href}`}
                 id={`global-search-result-${index}`}
                 type="button"
                 role="option"

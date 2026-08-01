@@ -297,15 +297,28 @@ export default function ShellPreviewPage() {
     ...(activeItem ? [{ key: 'leaf', label: activeItem.label }] : []),
   ];
 
+  // The tenant switcher now lives inside the navigation menu, so it renders in
+  // both the desktop rail and the mobile drawer with the surface's state.
+  const renderSchoolSwitcher = (switcherExpanded: boolean) => (
+    <SchoolSwitcher
+      schools={SCHOOLS}
+      activeSchoolId={activeSchool}
+      onSchoolChange={(s) => setActiveSchool(s.id)}
+      onAddSchool={() => {}}
+      expanded={switcherExpanded}
+    />
+  );
+
   return (
     <div className="h-svh w-full">
       <AppShell
-        mobileBottomInset="calc(3.5rem + env(safe-area-inset-bottom))"
+        mobileBottomInset="calc(4rem + env(safe-area-inset-bottom))"
         mobileNav={
           <MobileNav
             railItems={nav.railItems}
             railFooterItems={nav.railFooterItems}
             navPanels={nav.navPanels}
+            schoolSwitcher={renderSchoolSwitcher}
             navFooter={
               nav.activeSectionKey === 'students' ? <NavFooterCard /> : undefined
             }
@@ -315,14 +328,6 @@ export default function ShellPreviewPage() {
         }
         header={
           <AppHeader
-            schoolSwitcher={
-              <SchoolSwitcher
-                schools={SCHOOLS}
-                activeSchoolId={activeSchool}
-                onSchoolChange={(s) => setActiveSchool(s.id)}
-                onAddSchool={() => {}}
-              />
-            }
             breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
             search={
               <OmniSearch placeholder="Search students, classes, records…" />
@@ -332,6 +337,7 @@ export default function ShellPreviewPage() {
         }
         sidebar={
           <AppSidebar
+            schoolSwitcher={renderSchoolSwitcher}
             railItems={nav.railItems}
             railFooterItems={nav.railFooterItems}
             navHeader={
