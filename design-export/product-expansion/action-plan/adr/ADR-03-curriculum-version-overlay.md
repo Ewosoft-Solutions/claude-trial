@@ -1,7 +1,7 @@
 # ADR-03 — Curriculum version + tenant overlay + cohort adoption
 
-- **Status:** Proposed — 2026-07-31
-- **Deciders:** engineering + **academic owner**. **Owner sign-off:** required — an academic owner approves which framework versions a tenant may activate ([Q11](../../plan/06-roadmap-and-discussion-guide.md#d--academic-scope--results)).
+- **Status:** Accepted — 2026-08-01
+- **Deciders:** engineering + **academic owner**. **Owner sign-off:** granted 2026-08-01 — owner deferred to the engineering recommendation (Option 1) and confirmed curricula do change/version over time (the NERDC 2025 cohort rollout is the live example). An academic owner still approves which framework versions a tenant may activate ([Q11](../../plan/06-roadmap-and-discussion-guide.md#d--academic-scope--results)).
 - **Unblocks:** F6 (academic-profile/policy framework), WB2 (subject catalog), WB4 (results reference a curriculum version), WB8 (curriculum coverage/outcomes).
 
 ## Context

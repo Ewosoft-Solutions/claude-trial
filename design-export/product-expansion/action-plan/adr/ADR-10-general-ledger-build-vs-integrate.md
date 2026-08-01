@@ -1,7 +1,7 @@
 # ADR-10 — General ledger: build vs integrate · **OWNER DECISION BRIEF**
 
-- **Status:** Proposed — **owner decision pending** (2026-07-31). Not draftable to "Accepted" by engineering alone.
-- **Deciders:** **product owner** (+ finance) — [Q19](../../plan/06-roadmap-and-discussion-guide.md#f--finance--accounting).
+- **Status:** Accepted — 2026-08-01.
+- **Deciders:** **product owner** (+ finance) — [Q19](../../plan/06-roadmap-and-discussion-guide.md#f--finance--accounting). **Owner decision (2026-08-01):** build an **internal double-entry general ledger AND** offer integration — _"if they don't have [an accounting tool], they use ours; if they have, they integrate."_ The app is explicitly positioned as an **auditor-grade platform** that records **every** financial transaction (operations, fees, payroll). This **supersedes the drafted Option-C recommendation** (which would have deferred an internal GL).
 - **Relationship:** **ADR-05** builds the fees/receivables **subledger** regardless of this decision. This brief is only about whether we also build a full **general ledger** (chart of accounts, journals, period locks, financial statements) **inside** SchoolWithEase or **integrate** an external accounting system.
 
 ## Context
@@ -16,20 +16,33 @@ The legacy system ships a whole accounting suite — income/expense/budget/payro
 | **B · Integrate accounting (adapter)** | Push receivables/payroll/expense summaries to the school's accountant tool via a **signed** adapter (never credential capture)                            | Fast; schools keep their accountant + tool; we focus on school-specific finance                        | Depends on the customer's system; cross-system reconciliation; per-integration work                     |
 | **C · Hybrid (recommended default)**   | Ship the excellent **fees/receivables subledger (ADR-05) now**; **integrate** a GL initially; revisit an internal GL only if validated schools require it | Fastest path to parity value; avoids premature XL build; keeps the door open                           | Some schools may still want in-product statements at Release-1                                          |
 
-## Recommendation
+## Decision — Option D (build internal GL **and** integrate)
 
-**Option C (Hybrid).** Build the receivables subledger (already committed in ADR-05), integrate accounting via a signed adapter (ADR-12), and defer an internal GL unless a committed design-partner requires bookkeeping _inside_ the platform. This matches the roadmap default and de-risks Phase 2.
+The owner chose a genuine **build + integrate** model, which the drafted brief did not offer as a single option:
 
-## What we need from the owner
+- **Build an internal, auditor-grade double-entry general ledger** — chart of accounts, journals / journal lines, accounting periods with lock/close, trial balance + financial statements. It is the **accounting backbone**: the ADR-05 receivables subledger, payroll, and operational expense/AP all **post balanced journal entries** into it. This is what makes the app usable "as an auditing platform" — flexible enough to adapt, thorough enough for a professional auditor — the owner's stated goal.
+- **Also provide a signed integration adapter** (ADR-12) to QuickBooks / Sage / Xero / Zoho for schools that already keep their books elsewhere — never credential capture. Schools with **no** accounting tool **use ours**; schools with one **integrate/export**.
+- **We are not a payment custodian** (see ADR-05): gateways settle to the school's account and accountants can post off-app cash/bank entries; the GL **records and reconciles**, it does not hold funds.
 
-1. Do the **target schools do their own accounting** in an external tool today, or do they need bookkeeping **inside** SchoolWithEase?
-2. Which accounting systems do the **design-partner schools** actually use (QuickBooks / Sage / Xero / Zoho / spreadsheets)?
-3. Is **"financial statements inside SchoolWithEase"** a Release-1 **sales requirement**, or a later differentiator?
-4. Any **regulatory/audit** obligation that forces an internal ledger?
+### Recommended sequencing (engineering — protects Release-1)
 
-## Consequences by choice
+An internal double-entry GL is an **XL** specialist domain, so commit the **architecture** now but **phase the surface** so Release-1 isn't held hostage:
 
-- **A** → a new XL bounded context (ChartOfAccount, Journal/JournalLine, AccountingPeriod, Budget, statements) with period locks + audit; pushes Release-1 out.
-- **B/C** → ADR-12 accounting adapter + reconciliation; Release-1 stays focused on receivables/payroll/inventory summaries.
+- **Release-1 (Phase 2E finance):** receivables subledger (ADR-05) + gateway/manual receipts + **double-entry journal posting** (the backbone) + trial balance + reconciliation to control totals + the **integration/export adapter**. This already gives auditor-grade recording of the fee/payment flows and a clean export path.
+- **Fast-follow (Phase 2F+):** payroll subledger, operational expense/AP capture, budgets, **period close/lock**, full financial statements (P&L, balance sheet, cash flow), depreciation — the rest of the legacy "Full Account" surface.
 
-**Blocks:** WB5's ledger scope and the Phase-2E finance boundary. Until decided, WB5 proceeds on the **ADR-05 subledger** and treats GL as out-of-scope.
+Building double-entry from day one (rather than a standalone receivables subledger bolted onto a GL later) means **no rework** when the later surface lands. If the owner wants a different Release-1 cut line, that is the one open sequencing lever.
+
+## Owner input captured
+
+- **Do target schools do their own accounting externally, or need it inside?** → **Both** must be supported; default to **ours** when they have none, **integrate** when they do.
+- **Which accounting systems do partner schools use?** → _open_ — confirm per design-partner at onboarding (drives the first integration-adapter target).
+- **Is "financial statements inside SchoolWithEase" a Release-1 sales requirement?** → Auditor-grade **recording** is a core value proposition; the full statement surface is phased (see sequencing) — confirm the Release-1 cut line.
+- **Regulatory/audit obligation forcing an internal ledger?** → _open_ — validate, but the auditing positioning already justifies the internal GL.
+
+## Consequences
+
+- A new **XL bounded context** — ChartOfAccount, Journal/JournalLine, AccountingPeriod (lock/close), Budget, financial statements — with period locks + audit trail, **plus** the ADR-12 accounting adapter + reconciliation for integrators.
+- The ADR-05 receivables subledger (and later payroll + AP) become **subledgers that post into this GL**; nothing records money without a balanced journal entry.
+- **WB5 gains internal-GL scope** (previously out-of-scope). Given the size, WB5 is expected to **split** — receivables + journal backbone first (Release-1), then the GL surface (period close / statements / payroll / AP) as a fast-follow workbench. See the board.
+- **Sequencing is the one open lever:** the double-entry backbone ships in Release-1; the full statement/close/payroll surface phases in — adjust the cut line with the owner if needed.

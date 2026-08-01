@@ -1,7 +1,7 @@
 # ADR-04 — Result publication snapshot + amendment (immutability)
 
-- **Status:** Proposed — 2026-07-31
-- **Deciders:** engineering + product. **Owner sign-off:** confirm "what makes a result published" + ranking policy + finance-coupling ([Q13–16](../../plan/06-roadmap-and-discussion-guide.md#d--academic-scope--results)).
+- **Status:** Accepted — 2026-08-01
+- **Deciders:** engineering + product. **Owner sign-off:** granted 2026-08-01 (Option 1 — "published" = an immutable snapshot; corrections via amendment; finance never silently blocks a result). Owner also requested **external verifiable anchoring (blockchain)** of published results — deferred to **[ADR-13](ADR-13-verifiable-anchored-records.md)** (results now, financial receipts later); the snapshot + checksum design here is intentionally anchor-ready ([Q13–16](../../plan/06-roadmap-and-discussion-guide.md#d--academic-scope--results)).
 - **Unblocks:** WB4 (results parity), transcripts, report-card/broadsheet artifacts, promotion input.
 
 ## Context
@@ -40,6 +40,7 @@ Configure → Open entry → Validate → Moderate → Approve → Publish (snap
 - **Constrains:** publication requires accepted policy versions (F6/ADR-03) + signatures (ADR-08) + approval — deliberately heavier than a boolean.
 - **Migration impact:** import each historical the legacy system published result as a read-only `ResultPublication` snapshot with source refs (WB7); clean corrupted grade codes via versioned scales (ADR-03/ADR-09).
 - Depends on **F6, ADR-03, ADR-06, ADR-07, ADR-08**.
+- **Future extension (owner-requested):** publish also **anchors the snapshot's checksum** to an external verifiable ledger for tamper-evident authenticity (an employer or another school verifies a transcript without trusting us) — see **[ADR-13](ADR-13-verifiable-anchored-records.md)**. Anchor **hashes only, never PII**; each publication + amendment is anchored, so the on-chain history mirrors this ADR's snapshot + amendment model. Deferred; the architecture stays anchor-ready via the checksum-addressed artifacts above.
 
 ## Validation
 

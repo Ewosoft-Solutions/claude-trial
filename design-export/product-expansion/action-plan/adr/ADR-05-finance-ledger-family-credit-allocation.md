@@ -1,8 +1,9 @@
 # ADR-05 — Finance subledger: family credit + payment allocation
 
-- **Status:** Proposed — 2026-07-31 (money-semantics choices flagged for **owner sign-off**)
-- **Deciders:** engineering + **product/finance owner** — [Q20–23](../../plan/06-roadmap-and-discussion-guide.md#f--finance--accounting).
-- **Scope note:** this ADR covers the **billing/receivables subledger** (fees, discounts, receipts, allocation, family credit). Whether we also build a full **general ledger** (chart of accounts/journals/statements) is a **separate** decision — see **ADR-10**.
+- **Status:** Accepted — 2026-08-01 (Option 1, with the owner amendments below)
+- **Deciders:** engineering + **product/finance owner** — [Q20–23](../../plan/06-roadmap-and-discussion-guide.md#f--finance--accounting). **Owner sign-off:** granted 2026-08-01.
+- **Owner amendments (2026-08-01):** (1) **We are not a payment custodian and there is no stored-value wallet** — gateways (Paystack etc.) settle payments into the **school's own account**, and accountants can **record off-app (cash/bank) payments** manually; "family credit" is an **accounts-receivable credit balance** (advance / overpayment to apply to future invoices), never money we hold. (2) **Billing is a checkout/cart** flow — parents/applicants add fee items + discounts to a cart that becomes an invoice, then pay. (3) The subledger **posts double-entry journal entries into the internal general ledger** — see **[ADR-10](ADR-10-general-ledger-build-vs-integrate.md)** (owner chose to **build** an internal auditor-grade GL + integrate, not defer it).
+- **Scope note:** this ADR covers the **billing/receivables subledger** (fees, discounts, receipts, allocation, family credit). It is a **subledger that posts into the internal general ledger** decided in **ADR-10**.
 - **Unblocks:** WB5 (Family Account + Finance), and result-visibility `FinancialHold` (ADR-04).
 
 ## Context
@@ -15,7 +16,7 @@ But the corpus shows jobs our model can't express: a parent **pays once for seve
 
 ## Open questions for the owner (recommended defaults in **bold**)
 
-- **Q20 — what does "wallet" mean?** Stored value / unapplied family credit / gateway balance / a label. **Default: model explicit _unapplied family credit_ (an accounting construct), not stored value** — avoids e-money/regulatory scope.
+- **Q20 — what does "wallet" mean?** Stored value / unapplied family credit / gateway balance / a label. **Resolved (owner, 2026-08-01): NOT a wallet and NOT stored value.** We are not a payment custodian — gateways settle to the school's account and accountants record off-app payments; model only an **unapplied-credit AR balance** (an accounting construct), which avoids all e-money / custody scope. Drop "wallet" as a product term.
 - **Q21 — at what level does money belong?** Student / **family/payer account** / sponsor. Can one payment cover several students/invoices? **Default: a payer/family account with explicit invoice-line allocations + beneficiary links; yes, one receipt allocates across siblings/invoices.**
 - **Q22 — which commands need approval?** Discount, waiver, write-off, backdated posting, refund, reversal, receipt cancellation, opening-balance adjustment. **Default: policy thresholds + separation-of-duties + immutable linked entries (reuse maker-checker/step-up).**
 - **Q23 — receipt-numbering policy?** Per tenant/campus/account/fiscal-year/channel; reusable? **Default: gap-aware, never-reused, policy-versioned sequences + reprint verification** (we already have tenant-unique receipt numbers).
@@ -34,22 +35,24 @@ Adopt **Option 1** — a receivables subledger, corrected only by reversal/contr
 Billing:  FeeItem · FeeScheduleVersion · FeeScheduleLine · ChargeAssignmentRule
           Invoice · InvoiceLine · DiscountPolicy · DiscountGrant(reversible) · Scholarship/AidAward · PaymentPlan · AccountHold
 Cash:     PaymentReceipt(money received) ─▶ PaymentAllocation(receipt → many invoices/lines/siblings)
-          UnappliedCredit · FamilyCreditAccount + CreditLedgerEntry  ("wallet" = unapplied family credit)
+          UnappliedCredit · FamilyCreditAccount + CreditLedgerEntry  (unapplied-credit AR balance; NOT stored value / not custodial)
           Refund · Chargeback · ReconciliationBatch · PaymentGateway adapter (signed idempotent webhooks)
 ```
 
 - **`Payment` evolves from one-to-one to `PaymentReceipt` + `PaymentAllocation`** — a receipt is money received into a family/payer account, then allocated across invoices/lines/beneficiaries. Overpayment lands in **`UnappliedCredit`** (no fake income).
 - **Money stays in minor units (kobo);** **posted entries are corrected by reversal/contra, never edited or deleted** (fixes C090 discounts + C096 negatives, #95); allocations cannot exceed available receipt or open balance without an explicit credit policy.
+- **Billing is a checkout/cart:** parents/applicants assemble `FeeItem`s (+ eligible `DiscountGrant`s) into a cart that becomes an `Invoice` with `InvoiceLine`s, then pay — the same model backs staff-raised invoices.
+- **Every receivables event posts balanced double-entry journal lines into the GL** (ADR-10) — invoices, receipts, allocations, discounts, credits, refunds — so the books are auditor-grade and reconcile to control totals.
 - **Discounts/refunds above thresholds require approval** (maker-checker/step-up); **financial hold ≠ enrollment status** and feeds ADR-04 result visibility only as an explicit audited decision.
 - **Opening balances** (brought-forward debt, C091) import via **ADR-09** as invoices/credits with source refs.
-- **Gateway** payments arrive via a signed adapter with **idempotent webhooks** (ADR-06 jobs) — fixes the visible gateway-failure/"Incomplete Transaction" states (C084).
+- **Gateway** payments (Paystack etc.) **settle into the school's own account**; we ingest them via a signed adapter with **idempotent webhooks** (ADR-06 jobs) and **reconcile** — we record, we do not hold funds. Accountants can also **post off-app (cash/bank) receipts** manually. Fixes the visible gateway-failure/"Incomplete Transaction" states (C084).
 
 ## Consequences
 
 - **Enables** sibling/family payment, wallet-as-unapplied-credit, reversible discounts, refunds with linked entries, opening-balance migration, and reconciliation to control totals (Phase-2E exit).
 - **Constrains:** finance mutations become append-only (reversal/contra) with approval on sensitive ops.
 - **Migration impact:** additive tables + a `Payment` refactor with back-compat; opening balances + historical payments imported with source refs (ADR-09).
-- Depends on **ADR-01** (family = Persons), **ADR-06** (webhooks/reconciliation as jobs), **ADR-09** (opening balances); **GL is ADR-10**.
+- Depends on **ADR-01** (family = Persons), **ADR-06** (webhooks/reconciliation as jobs), **ADR-09** (opening balances); **posts into the internal GL — ADR-10** (owner chose build + integrate). Financial-record verifiable anchoring is future work — **[ADR-13](ADR-13-verifiable-anchored-records.md)**.
 
 ## Validation
 

@@ -1,7 +1,7 @@
 # ADR-11 — Tenant vs campus/arm boundary · **OWNER DECISION BRIEF**
 
-- **Status:** Proposed — **owner decision pending** (2026-07-31).
-- **Deciders:** **product owner** (+ security) — [Q6](../../plan/06-roadmap-and-discussion-guide.md#b--product-shape--terminology).
+- **Status:** Accepted — 2026-08-01 (Option A).
+- **Deciders:** **product owner** (+ security) — [Q6](../../plan/06-roadmap-and-discussion-guide.md#b--product-shape--terminology). **Owner decision (2026-08-01):** Option A. Target schools run **multiple campuses under one operating school**, and the owner needs **consolidated whole-school reporting _and_ per-campus reporting**: school-owner roles see the whole school, campus managers see localised (campus-scoped) reports, and some cross-campus roles see multi-campus reports. That is exactly Option A's scope model; a school-group super-tenant (Option C) is reserved for a future franchise / group-of-independent-schools customer.
 - **Why it matters now:** this **confirms ADR-01** — whether `Person` is tenant-scoped (and campus is an org _within_ the tenant) or something else. It also sets the scope model for every workbench (a bursar scoped to "Campus A").
 
 ## Context
@@ -20,12 +20,12 @@ The legacy system runs as **one school with campuses/arms**: the corpus tenant i
 
 **Option A** — one tenant = one operating school; **campuses/arms are organizations within the tenant**, with scoped memberships (campus/department) and RLS row policies for isolation where needed. Treat a **truly independent** school as a separate tenant. Make **school-group super-tenancy (C)** an explicit _later_ decision if a franchise/group customer appears. This confirms **ADR-01's tenant-scoped `Person`** and the campus-scope in WB1-6.
 
-## What we need from the owner
+## Owner input captured (2026-08-01)
 
-1. Are the **first customers** single-school or **multi-campus groups**?
-2. Is a **franchise / group-of-schools** customer in **committed** scope for the architecture to serve now?
-3. What (if anything) is shared at **group level** — branding, consolidated reporting, shared staff pool, central admissions?
-4. Any **data-residency / contractual isolation** requirement between campuses that would force Option B?
+1. **First customers:** multi-campus — schools that operate **several campuses under one school**, not independent schools.
+2. **Franchise / group-of-independent-schools in committed scope now?** No — reserve the school-group super-tenant (Option C) as a later additive layer.
+3. **Shared at group level:** **consolidated whole-school reporting** plus per-campus reporting; **school-owner** roles span all campuses, **campus managers** are campus-scoped, some **cross-campus roles** span selected campuses.
+4. **Data-residency / contractual isolation forcing Option B?** None indicated.
 
 ## Consequences by choice
 
