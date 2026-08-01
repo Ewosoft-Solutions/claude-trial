@@ -1,0 +1,298 @@
+// ============================================
+// Import & migration platform (F2) — ADR-09
+// ============================================
+// One pipeline every bulk import reuses:
+//   upload → identify source → map → validate → resolve exceptions → dry-run →
+//   approve → commit idempotently → reconcile → sign off → (rollback)
+//
+// The whole point (ADR-09): stable source refs make a commit IDEMPOTENT (a
+// re-run upserts, never duplicates — delta loads + cutover rehearsal), and
+// reconciliation gates make "it looks migrated" provable (exact control totals
+// for money, deterministic aggregates + samples for results). Invalid rows go
+// to an explicit exception queue — valid rows are never silently committed
+// around bad ones.
+//
+// Runs on the F3 job substrate; the commit target reuses Person (F1) keyed by
+// (tenant, sourceSystem, sourceId); the uploaded file is stored + scanned via
+// the F4 Document platform. Every table is tenant-scoped with RLS.
+// ============================================
+
+// ImportDefinition - a reusable template: what domain, what shape, what rules.
+model ImportDefinition {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  key          String // unique per tenant, e.g. 'people-v1'
+  name         String
+  description  String?
+  targetDomain String  @map("target_domain") // 'people' | 'students' | 'staff' | 'guardians' | 'opening_debt' | 'grades'
+  spec         Json? // target field schema / options (e.g. { strictCommit: true })
+  active       Boolean @default(true)
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  jobs               ImportJob[]
+  transformRules     TransformRule[]
+  reconciliationRules ReconciliationRule[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("import_definitions")
+  @@schema("imports")
+}
+
+// ImportJob - one run of a definition, tracked through the lifecycle.
+model ImportJob {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  definitionId String @map("definition_id")
+
+  sourceSystem String @map("source_system") // the legacy system this wave comes from
+  status       String @default("draft")
+  // draft | uploaded | mapped | validating | validated | dry_run |
+  // awaiting_approval | approved | committing | committed | reconciling |
+  // reconciled | failed | rolled_back
+  jobId String? @map("job_id") // the F3 durable job driving an async step
+
+  requiresApproval Boolean   @default(false) @map("requires_approval")
+  approvedBy       String?   @map("approved_by")
+  approvedAt       DateTime? @map("approved_at")
+
+  rowsTotal     Int @default(0) @map("rows_total")
+  rowsValid     Int @default(0) @map("rows_valid")
+  rowsInvalid   Int @default(0) @map("rows_invalid")
+  rowsCommitted Int @default(0) @map("rows_committed")
+  rowsSkipped   Int @default(0) @map("rows_skipped")
+
+  error     String?
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  definition            ImportDefinition      @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  sourceFiles           SourceFile[]
+  mappings              ColumnMapping[]
+  rows                  ImportRow[]
+  reconciliationResults ReconciliationResult[]
+  commit                ImportCommit?
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([definitionId])
+  @@map("import_jobs")
+  @@schema("imports")
+}
+
+// SourceFile - an uploaded file for a job. Bytes live in the F4 Document
+// platform (documentId); checksum + scan status are copied here for reconcile.
+model SourceFile {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  importJobId String @map("import_job_id")
+
+  documentId String? @map("document_id") // F4 Document holding the bytes
+  filename   String
+  checksum   String
+  mime       String
+  size       Int
+  rowCount   Int    @default(0) @map("row_count")
+  scanStatus String @default("pending") @map("scan_status")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([importJobId])
+  @@map("source_files")
+  @@schema("imports")
+}
+
+// TransformRule - a reusable normalization step referenced by a mapping.
+model TransformRule {
+  id           String  @id @default(uuid())
+  tenantId     String  @map("tenant_id")
+  definitionId String? @map("definition_id")
+
+  name   String
+  type   String // 'trim' | 'lowercase' | 'uppercase' | 'date_parse' | 'number' | 'constant' | 'split' | 'lookup'
+  config Json? // e.g. { format: 'DD/MM/YYYY' } | { value: 'NG' } | { table: {...} }
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  definition ImportDefinition? @relation(fields: [definitionId], references: [id], onDelete: SetNull)
+  mappings   ColumnMapping[]
+
+  @@index([tenantId])
+  @@index([definitionId])
+  @@map("transform_rules")
+  @@schema("imports")
+}
+
+// ColumnMapping - source column → target field, optionally transformed.
+model ColumnMapping {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  importJobId String @map("import_job_id")
+
+  sourceColumn    String  @map("source_column")
+  targetField     String  @map("target_field")
+  transformRuleId String? @map("transform_rule_id")
+  required        Boolean @default(false)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  importJob     ImportJob      @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  transformRule TransformRule? @relation(fields: [transformRuleId], references: [id], onDelete: SetNull)
+
+  @@unique([importJobId, targetField])
+  @@index([tenantId])
+  @@index([importJobId])
+  @@map("column_mappings")
+  @@schema("imports")
+}
+
+// ImportRow - one row of the source, with its raw + normalized data and the
+// stable external id that makes the commit idempotent.
+model ImportRow {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  importJobId String @map("import_job_id")
+
+  rowNumber      Int     @map("row_number")
+  sourceId       String? @map("source_id") // stable external id (idempotency key)
+  rawData        Json    @map("raw_data")
+  normalizedData Json?   @map("normalized_data")
+  status         String  @default("pending") // pending | valid | invalid | committed | skipped
+
+  targetType String? @map("target_type") // e.g. 'Person'
+  targetId   String? @map("target_id") // the upserted entity id
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  importJob           ImportJob            @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  issues              ValidationIssue[]
+  duplicateCandidates DuplicateCandidate[]
+
+  @@unique([importJobId, rowNumber])
+  @@index([tenantId])
+  @@index([importJobId, status])
+  @@index([importJobId, sourceId])
+  @@map("import_rows")
+  @@schema("imports")
+}
+
+// ValidationIssue - a per-row error/warning; errors send the row to the
+// exception queue (status='invalid') and keep it out of the commit.
+model ValidationIssue {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  importRowId String @map("import_row_id")
+
+  field    String?
+  severity String // 'error' | 'warning'
+  code     String
+  message  String
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  importRow ImportRow @relation(fields: [importRowId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([importRowId])
+  @@map("validation_issues")
+  @@schema("imports")
+}
+
+// DuplicateCandidate - a suspected match against an existing entity, resolved
+// per row (merge/create_new/skip). Feeds the Person dedup (ADR-01).
+model DuplicateCandidate {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  importRowId String @map("import_row_id")
+
+  matchedEntityType String  @map("matched_entity_type")
+  matchedEntityId   String  @map("matched_entity_id")
+  score             Float?
+  resolution        String  @default("pending") // pending | merge | create_new | skip
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  importRow ImportRow @relation(fields: [importRowId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([importRowId])
+  @@map("duplicate_candidates")
+  @@schema("imports")
+}
+
+// ImportCommit - the idempotent commit record (one per job). A re-run upserts;
+// counts + reversibility make the wave provable and rollback-able.
+model ImportCommit {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  importJobId String @unique @map("import_job_id")
+
+  createdCount Int @default(0) @map("created_count")
+  updatedCount Int @default(0) @map("updated_count")
+  skippedCount Int @default(0) @map("skipped_count")
+
+  committedBy String?  @map("committed_by")
+  committedAt DateTime @default(now()) @map("committed_at")
+  reversedAt  DateTime? @map("reversed_at")
+  reversedBy  String?   @map("reversed_by")
+
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@map("import_commits")
+  @@schema("imports")
+}
+
+// ReconciliationRule - a gate the wave must pass: exact control totals for
+// money (tolerance 0), deterministic aggregates for results, sampled artifacts.
+model ReconciliationRule {
+  id           String @id @default(uuid())
+  tenantId     String @map("tenant_id")
+  definitionId String @map("definition_id")
+
+  name      String
+  kind      String // 'count' | 'sum' | 'checksum' | 'sample'
+  config    Json? // e.g. { field: 'amountKobo', expected: '1500000' }
+  tolerance String @default("0") // exact for money
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  definition ImportDefinition       @relation(fields: [definitionId], references: [id], onDelete: Cascade)
+  results    ReconciliationResult[]
+
+  @@index([tenantId])
+  @@index([definitionId])
+  @@map("reconciliation_rules")
+  @@schema("imports")
+}
+
+// ReconciliationResult - the outcome of a rule for a job (signed sign-off).
+model ReconciliationResult {
+  id          String @id @default(uuid())
+  tenantId    String @map("tenant_id")
+  importJobId String @map("import_job_id")
+  ruleId      String @map("rule_id")
+
+  expected String?
+  actual   String?
+  passed   Boolean
+  detail   Json?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  importJob ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  rule      ReconciliationRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([importJobId])
+  @@map("reconciliation_results")
+  @@schema("imports")
+}
