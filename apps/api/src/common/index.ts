@@ -19,3 +19,4 @@ export * from './academics';
 export * from './dto';
 export * from './audit/audit.constants';
 export * from './audit/audit-writer';
+export * from './audit/audit.service';

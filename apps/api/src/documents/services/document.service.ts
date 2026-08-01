@@ -8,12 +8,11 @@ import {
 } from '@nestjs/common';
 import { createHash, randomUUID } from 'node:crypto';
 import { Prisma } from '@workspace/database';
-import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import { AuditService } from '../../common/audit/audit.service';
 import { JobService } from '../../common/jobs/job.service';
 import { STORAGE_PROVIDER } from '../../common/storage/storage.types';
 import type { StorageProvider } from '../../common/storage/storage.types';
-import { writeAuditLog } from '../../common/audit/audit-writer';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { DocumentUrlSigner } from '../storage/document-url-signer';
 import { DOCUMENT_SCAN_JOB, DocumentScanPayload } from '../jobs/document-jobs';
@@ -42,17 +41,15 @@ export interface UploadDocumentInput {
 @Injectable()
 export class DocumentService {
   constructor(
-    private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
+    private readonly auditService: AuditService,
     private readonly jobs: JobService,
     private readonly signer: DocumentUrlSigner,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
   ) {}
 
   private get client(): Prisma.TransactionClient {
-    return (
-      this.tenantDb.isScoped ? this.tenantDb.client : this.db.client
-    ) as Prisma.TransactionClient;
+    return this.tenantDb.client;
   }
 
   private objectKey(
@@ -337,7 +334,7 @@ export class DocumentService {
   ) {
     const sensitive =
       action === 'document.download' || action === 'document.download_url';
-    await writeAuditLog(this.db.client, {
+    await this.auditService.write({
       tenantId,
       eventType: sensitive
         ? AUDIT_EVENT.SECURITY_EVENT

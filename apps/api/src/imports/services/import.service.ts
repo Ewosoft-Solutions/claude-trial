@@ -7,10 +7,9 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@workspace/database';
-import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { DocumentService } from '../../documents/services/document.service';
-import { writeAuditLog } from '../../common/audit/audit-writer';
+import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { parseCsv, rowToObject } from '../csv';
 import { applyTransform } from '../transforms';
@@ -41,15 +40,13 @@ const REQUIRED_FIELDS: Record<string, string[]> = {
 @Injectable()
 export class ImportService {
   constructor(
-    private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
+    private readonly auditService: AuditService,
     private readonly documents: DocumentService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
-    return (
-      this.tenantDb.isScoped ? this.tenantDb.client : this.db.client
-    ) as Prisma.TransactionClient;
+    return this.tenantDb.client;
   }
 
   // ---- Definitions --------------------------------------------------
@@ -566,7 +563,7 @@ export class ImportService {
       },
     });
 
-    await writeAuditLog(this.db.client, {
+    await this.auditService.write({
       tenantId,
       eventType: AUDIT_EVENT.SECURITY_EVENT,
       action: 'import.commit',
@@ -710,7 +707,7 @@ export class ImportService {
       where: { id: jobId },
       data: { status: IMPORT_STATUS.ROLLED_BACK, rowsCommitted: 0 },
     });
-    await writeAuditLog(this.db.client, {
+    await this.auditService.write({
       tenantId,
       eventType: AUDIT_EVENT.SECURITY_EVENT,
       action: 'import.rollback',
@@ -790,7 +787,7 @@ export class ImportService {
     resourceId: string,
     metadata: Record<string, unknown>,
   ) {
-    await writeAuditLog(this.db.client, {
+    await this.auditService.write({
       tenantId,
       eventType: AUDIT_EVENT.DATA_CHANGE,
       action,

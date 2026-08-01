@@ -5,9 +5,8 @@ import {
 } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@workspace/database';
-import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
-import { writeAuditLog } from '../../common/audit/audit-writer';
+import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 
 /**
@@ -25,14 +24,12 @@ import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 @Injectable()
 export class PersonMergeService {
   constructor(
-    private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
+    private readonly auditService: AuditService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
-    return (
-      this.tenantDb.isScoped ? this.tenantDb.client : this.db.client
-    ) as Prisma.TransactionClient;
+    return this.tenantDb.client;
   }
 
   async merge(
@@ -168,7 +165,7 @@ export class PersonMergeService {
       },
     });
 
-    await writeAuditLog(this.db.client, {
+    await this.auditService.write({
       tenantId,
       eventType: AUDIT_EVENT.SECURITY_EVENT,
       action: 'person.merge',
