@@ -6,7 +6,7 @@ Last Updated: 2026-08-01
 
 ## Session Summary (2026-08-01) — Claude: F1 + F4 + F2 Phase-1 foundations (Person, Documents, Import)
 
-**Item(s):** F1 → in-review, F4 → in-review, F2 → in-review. **Branch/PR:** `feat/phase1-foundations-f1-f2-f4` (committed; **not yet pushed** — paused before push/PR for the owner's go-ahead. No pre-push gate exists — `git push` needs no Docker; GitHub Actions runs CI on the PR, per `docs/local-ci.md`).
+**Item(s):** F1 → in-review, F4 → in-review, F2 → in-review. **Branch/PR:** `feat/phase1-foundations-f1-f2-f4` → **[PR #42](https://github.com/Ewosoft-Solutions/claude-trial/pull/42)** (open, awaiting review). No pre-push gate exists — `git push` needs no Docker; GitHub Actions runs CI on the PR, per `docs/local-ci.md`.
 
 **What changed & why**
 
@@ -28,7 +28,7 @@ Last Updated: 2026-08-01
 
 **Next step (so the next agent can resume)**
 
-- **Push the branch** (no pre-push gate; no Docker needed — GitHub Actions runs CI on the PR) → open one combined PR → get a **second-agent review** (L/XL items warrant it) → merge, then flip F1/F4/F2 → `done`. After F1 merges, **WB1 (People directory)** is unblocked (needs F1+F7+F8). Follow-ups: migrate `QueueService` email callers to F3; wire F5 `SecureLink`/delivery to reuse the Document + signed-URL patterns; add non-`people` commit executors (opening_debt/grades) behind the existing dispatch.
+- **[PR #42](https://github.com/Ewosoft-Solutions/claude-trial/pull/42) is open** — awaiting a **second-agent review** (L/XL items warrant it) + green GitHub Actions → merge, then flip F1/F4/F2 → `done`. After F1 merges, **WB1 (People directory)** is unblocked (needs F1+F7+F8). Separately, **[PR #43](https://github.com/Ewosoft-Solutions/claude-trial/pull/43)** adds a changed-files Prettier gate + editor format-on-save (see `docs/local-ci.md`). Follow-ups: migrate `QueueService` email callers to F3; wire F5 `SecureLink`/delivery to reuse the Document + signed-URL patterns; add non-`people` commit executors (opening_debt/grades) behind the existing dispatch.
 
 **New gotcha** → **The durable F3 `JobWorker.processOnce()` claims the oldest READY job across ALL tenants.** Any e2e spec that enqueues F3 jobs (now F4 documents + F2 imports, not just jobs.e2e) will have its jobs grabbed by a *parallel* jobs.e2e worker on the shared CI Postgres, breaking its exactly-once/mark-dead assertions. Fix applied: `apps/api` `test:e2e` runs **`--runInBand`** so each spec cleans up (tenant-cascade) before the next. If you re-parallelize, scope the jobs specs' worker to their own tenants instead.
 
