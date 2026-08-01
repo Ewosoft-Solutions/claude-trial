@@ -48,7 +48,10 @@ export function OtpInput({
     }
   }
 
-  function handleKeyDown(index: number, e: React.KeyboardEvent<HTMLInputElement>) {
+  function handleKeyDown(
+    index: number,
+    e: React.KeyboardEvent<HTMLInputElement>,
+  ) {
     if (e.key === 'Backspace') {
       e.preventDefault();
       if (digits[index]) {
@@ -78,13 +81,18 @@ export function OtpInput({
     if (index < length - 1) refs.current[index + 1]?.focus();
   }
 
-  function handlePaste(e: React.ClipboardEvent<HTMLInputElement>, startIndex: number) {
+  function handlePaste(
+    e: React.ClipboardEvent<HTMLInputElement>,
+    startIndex: number,
+  ) {
     e.preventDefault();
     handlePasteString(e.clipboardData.getData('text'), startIndex);
   }
 
   function handlePasteString(text: string, startIndex: number) {
-    const digits_from_paste = text.replace(/\D/g, '').slice(0, length - startIndex);
+    const digits_from_paste = text
+      .replace(/\D/g, '')
+      .slice(0, length - startIndex);
     if (!digits_from_paste) return;
 
     const next = [...digits];
@@ -94,7 +102,10 @@ export function OtpInput({
     const joined = next.join('');
     onChange(joined);
 
-    const lastFilled = Math.min(startIndex + digits_from_paste.length, length - 1);
+    const lastFilled = Math.min(
+      startIndex + digits_from_paste.length,
+      length - 1,
+    );
     refs.current[lastFilled]?.focus();
 
     if (joined.replace(/\s/g, '').length === length) onComplete?.(joined);
@@ -113,7 +124,9 @@ export function OtpInput({
       {digits.map((digit, i) => (
         <input
           key={i}
-          ref={(el) => { refs.current[i] = el; }}
+          ref={(el) => {
+            refs.current[i] = el;
+          }}
           type="text"
           inputMode="numeric"
           pattern="\d{1}"
