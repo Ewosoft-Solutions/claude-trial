@@ -4,6 +4,34 @@ Last Updated: 2026-08-01
 
 ---
 
+## Session Summary (2026-08-01) — Claude: F3 durable jobs + transactional outbox
+
+**Item(s):** F3 → done. **Branch/PR:** `feat/F3-job-outbox` / _(PR pending)_.
+
+**What changed & why**
+
+- Shipped the durable job substrate (ADR-06) that F2/F4/F5/F9 + every batch feature reuse, replacing the process-local in-memory `QueueService` (which stays for now; callers migrate later).
+- **Schema/migration:** new `jobs` Postgres schema — `jobs.jobs` (durable, retryable, exactly-once jobs; unique `(tenant_id, idempotency_key)`) + `jobs.outbox_events`. Tenant-nullable (platform rows), RLS enabled+forced with `tenant_isolation`, `app_runtime` grants. Extended `db:rls:check` coverage to the `jobs` schema.
+- **Services:** `JobService.enqueue` writes the job in the caller's RLS-scoped tx (atomic with the domain change), idempotent via `ON CONFLICT DO NOTHING` (no tx poisoning). `OutboxService.emit` writes an intent in the same tx. `JobWorker` claims the oldest ready job under the audited `app.is_platform` scope (never the privileged RLS-bypass client — `check:privileged-db` green), runs the handler under the job's own tenant scope, and commits handler side effects + the `succeeded` update in ONE tx → exactly-once for DB effects; retry+backoff→`dead`; stale-lock reclaim for crash recovery. `JobHandlerRegistry` maps type→handler; wired via `JobsModule`.
+
+**Verification** (what was actually run + result)
+
+- `apps/api/test/jobs.e2e-spec.ts` — **7/7 pass** on a throwaway pg16 (idempotency no-op, exactly-once, retry→dead, tx-atomic enqueue/outbox rollback, RLS tenant-isolation).
+- `pnpm --filter api check:privileged-db` — green. `db:rls:check` — green (jobs covered). `pnpm ci:quick` — green (0 errors).
+- CI will re-run all of this: `db:deploy` applies the migration, `db:rls:check` covers jobs, `test:e2e` runs the spec with `app_runtime`.
+
+**Decisions / ADRs**
+
+- Implements accepted ADR-06. Worker uses the sanctioned `app.is_platform` branch for the cross-tenant queue scan (not per-tenant workers, not the privileged client).
+
+**Next step (so the next agent can resume)**
+
+- Merge the F3 PR. Then pick the next foundation — `F4` (documents, needs F3 ✓ + ADR-08 ✓), `F5` (delivery, F3 ✓ + ADR-07 ✓), `F2` (import, F3 ✓ + ADR-09 ✓), or `F1` (Person). Migrate existing in-memory `QueueService` callers (email jobs) to `JobService` as a follow-up.
+
+**New gotcha** → Binding a JS `new Date()` into a `timestamp without time zone` column skews vs Postgres `now()` on a non-UTC host (job never becomes claimable). Derive time defaults from DB `now()` in SQL, not app-side Dates.
+
+---
+
 ## Session Summary (2026-08-01) — Claude: P0-3 accept 7 non-owner ADRs; Phase-1 foundations unblocked
 
 **Item(s):** P0-3 → in-progress (7/12 accepted). **Branch/PR:** _pending_ (docs-only working-tree changes).

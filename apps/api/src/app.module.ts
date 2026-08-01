@@ -10,6 +10,7 @@ import {
 } from './common/config/env.config';
 
 import { CommonModule } from './common';
+import { JobsModule } from './common/jobs/jobs.module';
 import { LinksModule } from './links/links.module';
 import { AuthModule } from './auth/auth.module';
 import { TenantModule } from './tenant/tenant.module';
@@ -93,6 +94,7 @@ import { AppController } from './app.controller';
       inject: [ConfigService],
     }),
     CommonModule,
+    JobsModule,
     LinksModule,
     AuthModule,
     TenantModule,
