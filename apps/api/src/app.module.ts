@@ -17,6 +17,7 @@ import { TenantModule } from './tenant/tenant.module';
 import { PlatformModule } from './platform/platform.module';
 import { StudentModule } from './student/student.module';
 import { PersonModule } from './person/person.module';
+import { DocumentsModule } from './documents/documents.module';
 import { AcademicStructureModule } from './academic-structure/academic-structure.module';
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
@@ -102,6 +103,7 @@ import { AppController } from './app.controller';
     PlatformModule,
     StudentModule,
     PersonModule,
+    DocumentsModule,
     AcademicStructureModule,
     AssessmentGradingModule,
     CommunicationModule,

@@ -40,6 +40,8 @@ export interface EnvironmentConfig {
    * binaries). Relative paths resolve against the API process cwd.
    */
   STORAGE_LOCAL_ROOT: string;
+  /** HMAC key for signed short-lived document download URLs (F4 / ADR-08). */
+  DOCUMENT_URL_SIGNING_SECRET: string;
   JWT_SECRET?: string;
   AUTH_IDLE_TIMEOUT_MIN_MINUTES: number;
   AUTH_IDLE_TIMEOUT_MAX_MINUTES: number;
@@ -130,6 +132,12 @@ export const envValidationSchema = Joi.object({
     .falsy('false')
     .default(false),
   STORAGE_LOCAL_ROOT: Joi.string().default('./storage'),
+  // Dev default keeps local/CI working; production sets a strong secret. A
+  // signed download URL is only a short-lived capability, minted after a
+  // server-side permission check — but the secret must still be unguessable.
+  DOCUMENT_URL_SIGNING_SECRET: Joi.string().default(
+    'dev-document-url-signing-secret-change-me',
+  ),
   JWT_SECRET: Joi.string().optional(),
   AUTH_IDLE_TIMEOUT_MIN_MINUTES: Joi.number()
     .integer()

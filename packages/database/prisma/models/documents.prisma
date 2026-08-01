@@ -1,0 +1,185 @@
+// ============================================
+// Document / media platform + signature assets (F4) — ADR-08
+// ============================================
+// Closes the corpus's sharpest security reject: signatures stored as browsable
+// image thumbnails next to contact info (C126–C128), and attachments scattered
+// with no scan/retention/access control (C039/C064/C104).
+//
+//   Document        — the LOGICAL record (what it is, who owns it, policy)
+//     └─ DocumentVersion — each stored blob (objectKey, checksum, scan status)
+//   SigningAuthority — a person's authority to sign in a role (validity-dated)
+//   SignatureUse     — a signature APPLIED to one artifact, authorized per use
+//
+// Storage is the encrypted object store behind the StorageProvider port (local
+// disk in dev, S3/R2 in prod); the DB row carries only the key. Access is a
+// signed, short-lived URL minted only after a server-side permission check;
+// nothing is served from a browsable/static path. Every table is tenant-scoped
+// (tenant_id non-null) with RLS applied in the migration.
+// ============================================
+
+// DocumentType - a tenant's catalog of document kinds + default policy.
+model DocumentType {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  key         String // e.g. 'passport_photo' | 'admission_doc' | 'report_card' | 'signature'
+  label       String
+  description String?
+
+  defaultVisibility   String  @default("private") @map("default_visibility") // 'private' | 'tenant' | 'restricted'
+  defaultRetentionDays Int?   @map("default_retention_days")
+  // A signature asset type is always restricted + sensitive and never listed in
+  // a browsable directory — the whole point of ADR-08.
+  isSignatureAsset    Boolean @default(false) @map("is_signature_asset")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  documents Document[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("document_types")
+  @@schema("documents")
+}
+
+// Document - the logical record. Its bytes live in DocumentVersion(s).
+model Document {
+  id       String  @id @default(uuid())
+  tenantId String  @map("tenant_id")
+  typeId   String? @map("type_id")
+
+  // Polymorphic owner (Person/Student/ResultPublication/SignatureAsset/…).
+  ownerType String @map("owner_type")
+  ownerId   String @map("owner_id")
+
+  title      String?
+  visibility String  @default("private") // 'private' | 'tenant' | 'restricted'
+  // Sensitive downloads require `documents.download_sensitive` and are audited.
+  sensitive  Boolean @default(false)
+
+  // Retention + legal hold (disposition runs as an F9 job later).
+  retentionPolicyId String?   @map("retention_policy_id")
+  retainUntil       DateTime? @map("retain_until")
+  legalHold         Boolean   @default(false) @map("legal_hold")
+
+  // Consent/provenance for compliance (NDPA).
+  consent    Json?
+  provenance Json?
+
+  // Derived from the current version's scan; a document is downloadable only
+  // when its current version scanned clean.
+  scanStatus       String  @default("pending") @map("scan_status")
+  currentVersionId String? @map("current_version_id")
+
+  // Migration provenance + idempotent-upsert key (ADR-09).
+  sourceSystem String? @map("source_system")
+  sourceId     String? @map("source_id")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  type     DocumentType?     @relation(fields: [typeId], references: [id], onDelete: SetNull)
+  versions DocumentVersion[]
+
+  @@unique([tenantId, sourceSystem, sourceId])
+  @@index([tenantId])
+  @@index([tenantId, ownerType, ownerId])
+  @@index([tenantId, visibility])
+  @@map("documents")
+  @@schema("documents")
+}
+
+// DocumentVersion - one stored blob. Immutable once written; a new upload is a
+// new version. Quarantined (scanStatus='pending') until the scan job clears it.
+model DocumentVersion {
+  id         String @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  documentId String @map("document_id")
+
+  versionNo Int    @map("version_no")
+  objectKey String @map("object_key") // storage key (includes tenant id)
+  checksum  String // sha256 hex of the bytes
+  mime      String
+  size      Int // bytes
+
+  scanStatus   String  @default("pending") @map("scan_status") // 'pending' | 'clean' | 'infected' | 'error'
+  scanDetail   String? @map("scan_detail")
+  thumbnailKey String? @map("thumbnail_key")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, versionNo])
+  @@unique([objectKey])
+  @@index([tenantId])
+  @@index([documentId])
+  @@index([scanStatus])
+  @@map("document_versions")
+  @@schema("documents")
+}
+
+// SigningAuthority - a person's authority to sign in a role, validity-dated.
+// `personId` references person.persons via a DB-level FK (declared in the
+// migration) rather than a Prisma relation, to keep the documents module
+// decoupled from the person model. The signature IMAGE, if any, is a restricted
+// Document — never an image in a browsable table.
+model SigningAuthority {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  personId String @map("person_id")
+
+  role                String // 'Principal' | 'Headmaster' | 'Proprietor' | …
+  signatureDocumentId String?   @map("signature_document_id") // restricted signature-image Document
+  validFrom           DateTime  @default(now()) @map("valid_from")
+  validTo             DateTime? @map("valid_to")
+  status              String    @default("active") // 'active' | 'revoked'
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  uses SignatureUse[]
+
+  @@unique([tenantId, personId, role])
+  @@index([tenantId])
+  @@index([personId])
+  @@index([tenantId, status])
+  @@map("signing_authorities")
+  @@schema("documents")
+}
+
+// SignatureUse - a signature APPLIED to a specific artifact, authorized per use
+// (audited; maker-checker/step-up for high-value artifacts is layered by the
+// consuming workbench, e.g. WB4 result publication). A signature is only ever
+// usable through one of these — it is never free to copy.
+model SignatureUse {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  signingAuthorityId String @map("signing_authority_id")
+
+  artifactType       String @map("artifact_type") // 'ResultPublication' | 'Certificate' | …
+  artifactId         String @map("artifact_id")
+  producedDocumentId String? @map("produced_document_id") // the signed artifact Document, if any
+  artifactChecksum   String? @map("artifact_checksum")
+
+  status       String  @default("applied") // 'applied' | 'revoked'
+  reason       String?
+  revokedReason String? @map("revoked_reason")
+
+  appliedBy String?  @map("applied_by")
+  appliedAt DateTime @default(now()) @map("applied_at")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  signingAuthority SigningAuthority @relation(fields: [signingAuthorityId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([signingAuthorityId])
+  @@index([tenantId, artifactType, artifactId])
+  @@map("signature_uses")
+  @@schema("documents")
+}
