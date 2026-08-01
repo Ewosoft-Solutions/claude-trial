@@ -40,6 +40,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # Full history so the changed-files format ratchet can diff against
+          # the PR base / previous push.
+          fetch-depth: 0
 
       - name: Setup Node 22
         uses: actions/setup-node@v7
@@ -65,6 +69,30 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # Ratchet gate: any .ts/.tsx a change TOUCHES must be Prettier-clean.
+      # Whole-repo `format:check` is deliberately NOT gated yet — a large
+      # pre-existing backlog would make it red on every PR (see docs/local-ci.md).
+      # This enforces formatting on new/changed code only, so it can't regress
+      # while the backlog is burned down opportunistically. Skips cleanly when
+      # there is no base to diff against or nothing relevant changed.
+      - name: Format check (changed files)
+        run: |
+          set -euo pipefail
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          ZERO="0000000000000000000000000000000000000000"
+          if [ -z "$BASE" ] || [ "$BASE" = "$ZERO" ] || ! git cat-file -e "${BASE}^{commit}" 2>/dev/null; then
+            echo "No base commit to diff against ($BASE); skipping changed-files format check."
+            exit 0
+          fi
+          FILES=$(git diff --name-only --diff-filter=ACMR "$BASE"...HEAD -- '*.ts' '*.tsx')
+          if [ -z "$FILES" ]; then
+            echo "No changed .ts/.tsx files to format-check."
+            exit 0
+          fi
+          echo "Checking Prettier formatting on changed files:"
+          echo "$FILES"
+          echo "$FILES" | xargs pnpm exec prettier --check
 
       - name: Audit dependencies
         run: pnpm audit --audit-level=low

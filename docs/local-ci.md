@@ -23,6 +23,20 @@ It mirrors the non-e2e parts of the GitHub workflow and catches the common
 failures in seconds rather than minutes. It is a convenience, not a gate;
 nothing blocks a push if you skip it.
 
+## Formatting
+
+CI enforces Prettier on a **changed-files ratchet**: the `Format check (changed
+files)` step runs `prettier --check` only on the `.ts`/`.tsx` a PR touches (diffed
+against its base). New or edited code must be formatted; the large pre-existing
+backlog is intentionally left un-gated (a whole-repo `format:check` would be red
+on every PR until it is swept). The backlog shrinks passively as files are
+touched. To flip this into a whole-repo gate later, run `pnpm format` once and
+change the step to `pnpm format:check`.
+
+Locally, `.vscode/settings.json` enables format-on-save via Prettier (install the
+recommended `esbenp.prettier-vscode` extension), so commits come out clean without
+a git hook. `pnpm format` fixes the whole repo; `pnpm format:check` reports drift.
+
 ## GitHub workflow events
 
 CI runs once when a pull request targets `main`, and once after changes land on
