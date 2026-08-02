@@ -7,7 +7,7 @@
 
 ## ▶ Ready to claim right now
 
-**Foundations ready to build:** `F6` (academic-profile/policy-version, ADR-03 ✓) · `F8` (Aurora patterns). _(`F5` **in-review** (claude) — communication delivery built to DoD on `feat/F5-communication-delivery`, PR open; F6 up next.)_ _(`F7` (search) **done** — [PR #44](https://github.com/Ewosoft-Solutions/claude-trial/pull/44) merged to `main`. `F1` Person + `F2` import + `F3` jobs/outbox + `F4` documents + `F7` all **done**. **WB1 (People directory)** now needs only **F8** remaining (F1 ✓ + F7 ✓).)_
+**Foundations ready to build:** `F6` (academic-profile/policy-version, ADR-03 ✓) · `F8` (Aurora patterns). _(`F5` **in-review** (claude) — communication delivery built to DoD on `feat/F5-communication-delivery`, PR #48 open; F6 up next.)_ _(`F7` (search) **done** — [PR #44](https://github.com/Ewosoft-Solutions/claude-trial/pull/44) merged to `main`. `F1` Person + `F2` import + `F3` jobs/outbox + `F4` documents + `F7` all **done**. **WB1 (People directory)** now needs only **F8** remaining (F1 ✓ + F7 ✓).)_
 _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-1-promise.md); `P0-2` resequenced to onboarding. `P0-3`: **all 12 core ADRs accepted** — the 5 owner-gated ones (ADR-03/04/05/10/11) signed off **2026-08-01**, so **`F6` is now `ready`** and **WB2/WB4/WB5 + multi-campus** are unblocked at the ADR layer (they still wait on their `F`-deps). Owner also requested **verifiable/blockchain anchoring** of results + receipts → drafted as **[ADR-13](adr/ADR-13-verifiable-anchored-records.md)** (hash-only, future/deferred). Note: **ADR-10 = owner chose to _build_ an internal auditor-grade GL + integrate**, expanding WB5's finance scope.)_
 
 ---
