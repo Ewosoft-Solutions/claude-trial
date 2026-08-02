@@ -68,6 +68,7 @@ Copy the checklist from `design-export/product-expansion/action-plan/templates/w
 - [ ] Empty / loading / error / offline / permission-denied states exist (use `packages/ui` `custom/states`).
 - [ ] Mobile + keyboard usable; WCAG 2.2 AA for the touched surface.
 - [ ] Import/export/migration implications addressed (if the domain has history).
+- [ ] New/changed **env vars wired in the same change** — declared in `.env.example` (commented: purpose, when required, how to generate) **and** every deploy config that reads them (`render.yaml`, Vercel) **and** the validation schema (`apps/api/src/common/config/env.config.ts`), all in parity. For boot-required/blocking secrets, hand the human the exact setup (which dashboard, key name, `openssl rand …`) and say plainly that it gates the deploy (§7).
 - [ ] Tests cover happy-path, invalid transition, **unauthorized scope**, **tenant isolation**, retry/idempotency, audit.
 - [ ] Full validation contract (§4) green; `pnpm ci:quick` passes.
 - [ ] Board updated + `AI_HANDOFF.md` session entry appended (§6).
@@ -104,7 +105,7 @@ Because the board + `AI_HANDOFF.md` are files in git, any agent can resume anoth
 - **RLS row writes in a migration need `set_config` in a DO block** — two separate statements silently update 0 rows on Render.
 - **Never `next build` while `next dev` is live** — they share `apps/web/.next` and it corrupts the running server (→ 500s; recover with `rm -rf apps/web/.next` + restart). `nest build` also conflicts with a running `nest start --watch`. Docker CI builds in isolation.
 - **Ports:** dev API **:3030**, web **:3001**; use **:3031** for a scratch API. `apps/api/.env` is loaded by ConfigModule, so a local "missing env var" test is polluted by it (real env vars take precedence).
-- **Prod-only config gates are invisible to CI** (`NODE_ENV=test`); the `Production boot smoke` CI step exists to catch them — keep it. `NEXT_PUBLIC_*` is inlined at **build** time (changing it needs a rebuild, not a redeploy).
+- **Prod-only config gates are invisible to CI** (`NODE_ENV=test`); the `Production boot smoke` CI step exists to catch them — keep it. But that smoke uses **generated** secrets, so a prod-required env var present in CI yet missing from the **deploy** env still passes CI and then crashes the Render deploy on boot (`update_failed`) — declare every prod-required var in `render.yaml` **and** set it in the Render dashboard (burned by `DOCUMENT_URL_SIGNING_SECRET`, 2026-08-02; §5 makes wiring it part of DoD). `NEXT_PUBLIC_*` is inlined at **build** time (changing it needs a rebuild, not a redeploy).
 - **Health-record crypto** is duplicated in two DB scripts that can't import Nest; a guard test in `encryption.service.spec.ts` pins the wire format. Keep them in lock-step; the blind index is **keyed**, so key rotation must re-index or flag search silently breaks.
 - **DEV nav is 10–50× slower than PROD** (measured) — don't chase phantom perf issues in `next dev`.
 
