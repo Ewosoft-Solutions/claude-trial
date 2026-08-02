@@ -91,7 +91,9 @@ export function ApprovalPanel({
               key={field.key}
               className="grid gap-1 px-3 py-2 text-[12.5px] @sm/approval:grid-cols-[10rem_1fr]"
             >
-              <dt className="font-medium text-muted-foreground">{field.label}</dt>
+              <dt className="font-medium text-muted-foreground">
+                {field.label}
+              </dt>
               <dd className="flex min-w-0 flex-wrap items-center gap-2">
                 <span className="text-muted-foreground line-through decoration-muted-foreground/50">
                   {field.before ?? '—'}

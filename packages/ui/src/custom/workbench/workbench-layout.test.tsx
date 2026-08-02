@@ -28,7 +28,11 @@ describe('WorkbenchLayout', () => {
   it('renders a tab strip and fires onTabChange', () => {
     const onTabChange = vi.fn();
     render(
-      <WorkbenchLayout tabs={TABS} activeTab="overview" onTabChange={onTabChange}>
+      <WorkbenchLayout
+        tabs={TABS}
+        activeTab="overview"
+        onTabChange={onTabChange}
+      >
         <div>content</div>
       </WorkbenchLayout>,
     );

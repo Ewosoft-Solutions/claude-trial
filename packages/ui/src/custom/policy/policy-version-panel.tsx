@@ -133,7 +133,9 @@ export function PolicyVersionPanel({
                 {selected.effectiveFrom ? (
                   <>
                     Effective {selected.effectiveFrom}
-                    {selected.effectiveTo ? ` until ${selected.effectiveTo}` : ''}
+                    {selected.effectiveTo
+                      ? ` until ${selected.effectiveTo}`
+                      : ''}
                   </>
                 ) : null}
                 {selected.effectiveFrom && selected.meta ? ' · ' : ''}
@@ -169,7 +171,9 @@ export function PolicyVersionPanel({
             </div>
           </div>
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">No versions yet.</p>
+          <p className="text-[12.5px] text-muted-foreground">
+            No versions yet.
+          </p>
         )}
       </div>
     </div>

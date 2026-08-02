@@ -90,7 +90,8 @@ export function LifecycleBar({ steps, label, className }: LifecycleBarProps) {
                   className={cn(
                     'flex size-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold tabular-nums transition-colors',
                     TONE_RING[tone],
-                    isCurrent && 'ring-2 ring-ring/45 ring-offset-1 ring-offset-background',
+                    isCurrent &&
+                      'ring-2 ring-ring/45 ring-offset-1 ring-offset-background',
                     state === 'skipped' && 'opacity-60',
                   )}
                 >
@@ -103,7 +104,11 @@ export function LifecycleBar({ steps, label, className }: LifecycleBarProps) {
                 <span
                   className={cn(
                     'h-px flex-1',
-                    isLast ? 'bg-transparent' : isDone ? 'bg-success/40' : 'bg-border',
+                    isLast
+                      ? 'bg-transparent'
+                      : isDone
+                        ? 'bg-success/40'
+                        : 'bg-border',
                   )}
                   aria-hidden
                 />

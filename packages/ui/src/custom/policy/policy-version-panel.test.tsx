@@ -5,8 +5,19 @@ import { PolicyVersionPanel } from './policy-version-panel';
 import type { PolicyVersion } from '@workspace/ui/types/patterns.types';
 
 const VERSIONS: PolicyVersion[] = [
-  { id: 'v2', label: 'NERDC 2025', effectiveFrom: '2025-09-01', isActive: false, status: 'Draft' },
-  { id: 'v1', label: 'NERDC 2020', effectiveFrom: '2020-09-01', isActive: true },
+  {
+    id: 'v2',
+    label: 'NERDC 2025',
+    effectiveFrom: '2025-09-01',
+    isActive: false,
+    status: 'Draft',
+  },
+  {
+    id: 'v1',
+    label: 'NERDC 2020',
+    effectiveFrom: '2020-09-01',
+    isActive: true,
+  },
 ];
 
 describe('PolicyVersionPanel', () => {
@@ -40,7 +51,11 @@ describe('PolicyVersionPanel', () => {
   it('activates a non-active selected version', () => {
     const onActivate = vi.fn();
     render(
-      <PolicyVersionPanel versions={VERSIONS} selectedId="v2" onActivate={onActivate} />,
+      <PolicyVersionPanel
+        versions={VERSIONS}
+        selectedId="v2"
+        onActivate={onActivate}
+      />,
     );
     fireEvent.click(screen.getByRole('button', { name: /^Activate$/ }));
     expect(onActivate).toHaveBeenCalledWith('v2');
@@ -52,13 +67,21 @@ describe('PolicyVersionPanel', () => {
         versions={VERSIONS}
         compareTitle="2020 → 2025"
         compareRows={[
-          { key: 'subjects', label: 'Subjects', before: '9', after: '11', changed: true },
+          {
+            key: 'subjects',
+            label: 'Subjects',
+            before: '9',
+            after: '11',
+            changed: true,
+          },
           { key: 'name', label: 'Name', before: 'CCA', after: 'CCA' },
         ]}
       />,
     );
     expect(screen.getByText('2020 → 2025')).toBeInTheDocument();
     expect(screen.getByText('changed')).toBeInTheDocument();
-    expect(screen.getByRole('rowheader', { name: /Subjects/ })).toBeInTheDocument();
+    expect(
+      screen.getByRole('rowheader', { name: /Subjects/ }),
+    ).toBeInTheDocument();
   });
 });

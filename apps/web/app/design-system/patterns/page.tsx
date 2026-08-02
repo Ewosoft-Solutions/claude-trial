@@ -173,7 +173,9 @@ export default function PatternsPage() {
             activeTab={peopleTab}
             onTabChange={setPeopleTab}
           >
-            <TabPanel>People · “{peopleTab}” section content goes here.</TabPanel>
+            <TabPanel>
+              People · “{peopleTab}” section content goes here.
+            </TabPanel>
           </WorkbenchLayout>
 
           <WorkbenchLayout
@@ -193,7 +195,9 @@ export default function PatternsPage() {
             activeTab={acadTab}
             onTabChange={setAcadTab}
           >
-            <TabPanel>Academics · “{acadTab}” section content goes here.</TabPanel>
+            <TabPanel>
+              Academics · “{acadTab}” section content goes here.
+            </TabPanel>
           </WorkbenchLayout>
         </div>
       </Section>
@@ -213,7 +217,10 @@ export default function PatternsPage() {
             <p className="text-[12.5px] font-semibold text-muted-foreground">
               Admission
             </p>
-            <LifecycleBar steps={ADMISSION_LIFECYCLE} label="Admission lifecycle" />
+            <LifecycleBar
+              steps={ADMISSION_LIFECYCLE}
+              label="Admission lifecycle"
+            />
           </div>
         </div>
       </Section>
@@ -249,7 +256,12 @@ export default function PatternsPage() {
                     after: 'Cultural & Creative Arts',
                     changed: true,
                   },
-                  { key: 'maths', label: 'Mathematics', before: '✓', after: '✓' },
+                  {
+                    key: 'maths',
+                    label: 'Mathematics',
+                    before: '✓',
+                    after: '✓',
+                  },
                 ]
               : undefined
           }
@@ -270,7 +282,12 @@ export default function PatternsPage() {
               reason: 'Month-end debtor reconciliation',
             }}
             fields={[
-              { key: 'scope', label: 'Export scope', before: 'Campus A', after: 'Campus A + B' },
+              {
+                key: 'scope',
+                label: 'Export scope',
+                before: 'Campus A',
+                after: 'Campus A + B',
+              },
             ]}
             stepUpRequired
             onApprove={() => undefined}
@@ -298,7 +315,12 @@ export default function PatternsPage() {
               riskTone: 'info',
             }}
             fields={[
-              { key: 'state', label: 'State', before: 'Locked', after: 'Published' },
+              {
+                key: 'state',
+                label: 'State',
+                before: 'Locked',
+                after: 'Published',
+              },
             ]}
             canApprove={false}
           />

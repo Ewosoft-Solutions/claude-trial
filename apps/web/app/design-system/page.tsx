@@ -126,10 +126,7 @@ export default function DesignSystemPage() {
           </div>
         </Section>
 
-        <Section
-          title="Badges"
-          description="Status and label tokens."
-        >
+        <Section title="Badges" description="Status and label tokens.">
           <div className="flex flex-wrap items-center gap-3">
             <Badge>Default</Badge>
             <Badge variant="secondary">Secondary</Badge>

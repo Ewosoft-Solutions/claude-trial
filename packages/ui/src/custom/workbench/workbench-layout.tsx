@@ -57,7 +57,10 @@ export function WorkbenchLayout({
   return (
     <div
       data-slot="workbench"
-      className={cn('@container/workbench flex min-w-0 flex-col gap-4', className)}
+      className={cn(
+        '@container/workbench flex min-w-0 flex-col gap-4',
+        className,
+      )}
     >
       {(title || actions) && (
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
@@ -68,7 +71,9 @@ export function WorkbenchLayout({
               </h1>
             ) : null}
             {description ? (
-              <p className="text-[12.5px] text-muted-foreground">{description}</p>
+              <p className="text-[12.5px] text-muted-foreground">
+                {description}
+              </p>
             ) : null}
           </div>
           {actions ? (
@@ -117,7 +122,10 @@ export function WorkbenchLayout({
         </TabsList>
 
         {/* Host renders only the active section; associate it for a11y. */}
-        <TabsContent value={activeTab} className="min-w-0 focus-visible:outline-none">
+        <TabsContent
+          value={activeTab}
+          className="min-w-0 focus-visible:outline-none"
+        >
           {children}
         </TabsContent>
       </Tabs>

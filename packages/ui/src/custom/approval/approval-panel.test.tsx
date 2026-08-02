@@ -15,13 +15,22 @@ describe('ApprovalPanel', () => {
     render(
       <ApprovalPanel
         request={REQUEST}
-        fields={[{ key: 'scope', label: 'Scope', before: 'Campus A', after: 'Campus A + B' }]}
+        fields={[
+          {
+            key: 'scope',
+            label: 'Scope',
+            before: 'Campus A',
+            after: 'Campus A + B',
+          },
+        ]}
       />,
     );
     expect(
       screen.getByRole('heading', { name: /Grant bursar export/ }),
     ).toBeInTheDocument();
-    expect(screen.getByText(/Month-end debtor reconciliation/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Month-end debtor reconciliation/),
+    ).toBeInTheDocument();
     expect(screen.getByText('Campus A + B')).toBeInTheDocument();
   });
 
@@ -43,7 +52,9 @@ describe('ApprovalPanel', () => {
       />,
     );
     expect(screen.getByText(/requires re-authentication/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Approve with step-up/ }));
+    fireEvent.click(
+      screen.getByRole('button', { name: /Approve with step-up/ }),
+    );
     fireEvent.click(screen.getByRole('button', { name: /Reject/ }));
     expect(onApprove).toHaveBeenCalledTimes(1);
     expect(onReject).toHaveBeenCalledTimes(1);
