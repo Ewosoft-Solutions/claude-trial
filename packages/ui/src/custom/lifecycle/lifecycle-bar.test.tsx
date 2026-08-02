@@ -36,4 +36,15 @@ describe('LifecycleBar', () => {
     expect(screen.getByText('3')).toBeInTheDocument(); // Locked (upcoming)
     expect(screen.queryByText('1')).not.toBeInTheDocument(); // Draft (done → check)
   });
+
+  it('conveys each step status to assistive tech (not just the current one)', () => {
+    render(<LifecycleBar steps={STEPS} />);
+    // The check/ordinal are decorative; done vs upcoming is announced via sr-only.
+    expect(
+      screen.getByText(/completed/, { selector: '.sr-only' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/upcoming/, { selector: '.sr-only' }),
+    ).toBeInTheDocument();
+  });
 });

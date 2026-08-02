@@ -87,6 +87,8 @@ export function WorkbenchLayout({
       {context ? (
         <div
           data-slot="workbench-context"
+          role="group"
+          aria-label="Workspace context"
           className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card/80 px-3 py-2 text-[12.5px] shadow-xs backdrop-blur supports-[backdrop-filter]:bg-card/70"
         >
           {context}

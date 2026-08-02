@@ -32,6 +32,13 @@ describe('ApprovalPanel', () => {
       screen.getByText(/Month-end debtor reconciliation/),
     ).toBeInTheDocument();
     expect(screen.getByText('Campus A + B')).toBeInTheDocument();
+    // The before→after relationship is announced (the arrow is visual-only).
+    expect(
+      screen.getByText('from', { selector: '.sr-only' }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText('to', { selector: '.sr-only' }),
+    ).toBeInTheDocument();
   });
 
   it('blocks approval and explains when the reviewer is the requester (SoD)', () => {

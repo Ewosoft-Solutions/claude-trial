@@ -95,12 +95,16 @@ export function ApprovalPanel({
                 {field.label}
               </dt>
               <dd className="flex min-w-0 flex-wrap items-center gap-2">
+                {/* sr-only "from … to …" so the before→after relationship is
+                    announced (the line-through + arrow are visual-only). */}
+                <span className="sr-only">from </span>
                 <span className="text-muted-foreground line-through decoration-muted-foreground/50">
                   {field.before ?? '—'}
                 </span>
                 <span aria-hidden className="text-muted-foreground">
                   →
                 </span>
+                <span className="sr-only"> to </span>
                 <span className="font-semibold text-foreground">
                   {field.after ?? '—'}
                 </span>

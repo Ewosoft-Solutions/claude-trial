@@ -4,6 +4,21 @@ Last Updated: 2026-08-02
 
 ---
 
+## Session Summary (2026-08-02) — Claude: F8 maker-checker review + a11y fixes (still in-review, PR #52)
+
+**Item(s):** F8 (PR #52) — a maker-checker review found 3 accessibility issues (1 moderate + 2 minor) + nits; **all addressed on `feat/F8-aurora-patterns`.** No functional bugs. ui vitest now **162** (15 on the shells), `ci:quick` + Prettier green. All changes are ARIA/`sr-only` — visually identical, so the original 3-theme visual pass still holds (no re-verify needed).
+
+- **[moderate a11y] `PolicyVersionPanel` ARIA/keyboard mismatch** — declared `role="listbox"` with `role="option"` `aria-selected` on Tab-focusable `<button>`s, but with no roving tabindex / arrow-key model, so AT was promised a listbox the keyboard didn't fulfil. Fixed: dropped `listbox`/`option`/`aria-selected` for a `role="group"` of plain toggle buttons with `aria-pressed` (matches the actual Tab-to-move / Enter-to-select UX). Test updated to assert `aria-pressed` + no listbox/option roles.
+- **[minor a11y] `LifecycleBar` announced only "current"** — the check + ordinal are both `aria-hidden`, so done-vs-upcoming was invisible to a screen reader. Added an `sr-only` status per step ("completed" / "current step" / "upcoming" / "skipped"). New test.
+- **[minor a11y] `ApprovalPanel` before→after not announced** — the `→` is `aria-hidden` and "before" is `line-through` (visual-only). Added `sr-only` "from … to …" so the change is read as a relationship. Assertion added.
+- **[nit] `WorkbenchLayout` context bar** now has `role="group" aria-label="Workspace context"`.
+
+`sr-only` was already an established `packages/ui` pattern (breadcrumb/dialog/password-strength), so no new utility was needed.
+
+**Next:** push → CI green → PR #52 ready to merge.
+
+---
+
 ## Session Summary (2026-08-02) — Claude: F8 shared Aurora workspace shells (Workbench / Lifecycle / Policy / Approval) → in-review
 
 **Item(s):** F8 → **in-review**. **Branch/PR:** `feat/F8-aurora-patterns` → PR to open. Claim committed first (`board: claim F8`), then built. Third item in the "pick up F5/F6/F7 → then F8" run (F7 already done; F5 = [PR #48](https://github.com/Ewosoft-Solutions/claude-trial/pull/48), F6 = [PR #49](https://github.com/Ewosoft-Solutions/claude-trial/pull/49)). **This completes the Phase-1 foundations (F1–F8 built).** Independent of F5/F6 — branched off `main`, pure `packages/ui` + a demo page (no DB/permissions).

@@ -53,6 +53,18 @@ function toneForState(state: LifecycleState | undefined): StateTone {
   }
 }
 
+/**
+ * Screen-reader status per step. The check / ordinal are decorative
+ * (aria-hidden), so this is how done-vs-upcoming is conveyed to assistive tech
+ * (the current step also carries aria-current="step").
+ */
+const STATUS_TEXT: Record<LifecycleState, string> = {
+  done: 'completed',
+  current: 'current step',
+  upcoming: 'upcoming',
+  skipped: 'skipped',
+};
+
 export interface LifecycleBarProps {
   steps: LifecycleStep[];
   /** Accessible name for the list, e.g. "Result lifecycle". */
@@ -121,6 +133,7 @@ export function LifecycleBar({ steps, label, className }: LifecycleBarProps) {
                 )}
               >
                 {step.label}
+                <span className="sr-only">, {STATUS_TEXT[state]}</span>
               </span>
               {step.description ? (
                 <span className="text-[11px] leading-tight text-muted-foreground break-words">

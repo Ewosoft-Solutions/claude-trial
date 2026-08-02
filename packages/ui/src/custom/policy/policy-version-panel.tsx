@@ -58,9 +58,11 @@ export function PolicyVersionPanel({
         className,
       )}
     >
-      {/* Version rail */}
+      {/* Version rail — a labelled group of toggle buttons (not a listbox: each
+          option is a normal Tab stop, so `aria-pressed` conveys selection while
+          the keyboard model matches the actual button behaviour). */}
       <div
-        role="listbox"
+        role="group"
         aria-label="Versions"
         className="flex max-h-[22rem] min-w-0 flex-col gap-1 overflow-y-auto rounded-[var(--radius-md)] bg-secondary/50 p-1"
       >
@@ -70,8 +72,7 @@ export function PolicyVersionPanel({
             <button
               key={version.id}
               type="button"
-              role="option"
-              aria-selected={active}
+              aria-pressed={active}
               onClick={() => onSelect?.(version.id)}
               className={cn(
                 'flex flex-col gap-1 rounded-[var(--radius-sm)] border px-2.5 py-2 text-left outline-none transition-colors',

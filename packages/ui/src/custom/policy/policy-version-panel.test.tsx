@@ -21,12 +21,15 @@ const VERSIONS: PolicyVersion[] = [
 ];
 
 describe('PolicyVersionPanel', () => {
-  it('lists versions and badges the active one', () => {
+  it('lists versions and marks the selected one pressed (button group, not listbox)', () => {
     render(<PolicyVersionPanel versions={VERSIONS} selectedId="v1" />);
-    expect(screen.getByRole('option', { name: /NERDC 2020/ })).toHaveAttribute(
-      'aria-selected',
+    expect(screen.getByRole('button', { name: /NERDC 2020/ })).toHaveAttribute(
+      'aria-pressed',
       'true',
     );
+    // No listbox/option roles — the rail is a labelled group of toggle buttons.
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
     expect(screen.getAllByText(/Active/).length).toBeGreaterThan(0);
   });
 
