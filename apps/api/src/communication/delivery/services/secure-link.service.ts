@@ -139,12 +139,20 @@ export class SecureLinkService {
       throw new GoneException('This link has already been used');
     }
 
-    this.enforceAccess(link, redeemer);
+    await this.enforceAccess(tenantId, link, redeemer);
 
-    await this.client.secureLink.update({
-      where: { id: link.id },
-      data: { useCount: { increment: 1 }, lastAccessedAt: new Date() },
-    });
+    // Atomically claim one use so a maxUses cap cannot be raced: a single-use
+    // link is redeemed at most once even under concurrent requests (the row lock
+    // serializes the conditional update; a loser gets 0 rows affected → Gone).
+    const claimed = await this.client.$executeRaw`
+      UPDATE "communication"."secure_links"
+      SET "use_count" = "use_count" + 1, "last_accessed_at" = now()
+      WHERE "id" = ${link.id}
+        AND ("max_uses" IS NULL OR "use_count" < "max_uses")
+    `;
+    if (claimed === 0) {
+      throw new GoneException('This link has already been used');
+    }
 
     await this.audit.write({
       tenantId,
@@ -192,23 +200,48 @@ export class SecureLinkService {
   /**
    * A leaked URL is not enough: when the link carries a required permission the
    * redeemer must hold it, and when it is bound to an audience principal the
-   * redeemer must be that principal.
+   * redeemer must be that principal. Every DENIAL is written as a security-event
+   * audit before throwing — an unauthorized attempt to open someone else's
+   * result/payment link leaves a trail (the C108 hazard this feature closes).
    */
-  private enforceAccess(
+  private async enforceAccess(
+    tenantId: string,
     link: {
+      id: string;
+      purpose: string;
+      targetType: string;
       requiredPermission: string | null;
       audiencePersonId: string | null;
       audienceProfileId: string | null;
     },
     redeemer: RedeemContext,
-  ): void {
+  ): Promise<void> {
+    const deny = async (reason: string, message: string): Promise<never> => {
+      await this.audit.write({
+        tenantId,
+        eventType: AUDIT_EVENT.SECURITY_EVENT,
+        action: 'communication.secure_link.denied',
+        resource: 'secure_link',
+        resourceId: link.id,
+        actorId: redeemer.profileId ?? null,
+        description: `secure link denied (${reason})`,
+        metadata: {
+          purpose: link.purpose,
+          targetType: link.targetType,
+          reason,
+        },
+      });
+      throw new ForbiddenException(message);
+    };
+
     if (link.requiredPermission) {
       const ctx = redeemer.userContext;
       const granted =
         !!ctx &&
         this.permissions.checkPermission(ctx, link.requiredPermission).granted;
       if (!granted) {
-        throw new ForbiddenException(
+        await deny(
+          'permission',
           'You do not have permission to open this link',
         );
       }
@@ -217,13 +250,13 @@ export class SecureLinkService {
       link.audiencePersonId &&
       link.audiencePersonId !== (redeemer.personId ?? null)
     ) {
-      throw new ForbiddenException('This link is addressed to someone else');
+      await deny('audience', 'This link is addressed to someone else');
     }
     if (
       link.audienceProfileId &&
       link.audienceProfileId !== (redeemer.profileId ?? null)
     ) {
-      throw new ForbiddenException('This link is addressed to someone else');
+      await deny('audience', 'This link is addressed to someone else');
     }
   }
 }

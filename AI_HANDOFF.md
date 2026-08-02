@@ -4,6 +4,23 @@ Last Updated: 2026-08-02
 
 ---
 
+## Session Summary (2026-08-02) — Claude: F5 maker-checker review + fixes (still in-review, PR #48)
+
+**Item(s):** F5 (PR #48) — an independent maker-checker review found 6 issues; **all addressed on `feat/F5-communication-delivery`.** e2e now **10/10** (6 + 4 new), api unit 472/472, `ci:quick` + `check:privileged-db` + Prettier green.
+
+- **[blocking] Marketing sent without opt-in** — `delivery.service.ts` suppressed only an explicit opt-out (`optedIn === false`), so a `marketing` send to a person with **no** preference row was delivered (contradicts ADR-07 "marketing = opt-in required"; NDPA). Fixed: consent gate is now category-aware — `critical` always sends, `marketing` requires `optedIn === true`, `transactional` sends unless explicitly opted out. New e2e; the existing consent test updated (its old assertion encoded the bug).
+- **[moderate] Dead job orphaned the ledger row** — `delivery-job.registrar.ts` never updated the DeliveryAttempt on provider failure, so an exhausted-retry send stayed `queued` forever and the ledger couldn't show "what failed". Fixed: on the terminal attempt (`ctx.job.attempts >= max_attempts`) the handler records `failed` + `provider_error` + error and returns (the ledger, not the job row, is the delivery source of truth — works within F3's one-tx model); non-terminal failures still rethrow for retry. New e2e.
+- **[moderate] SecureLink `maxUses` TOCTOU** — check + increment were separate, so a single-use link could be redeemed twice under concurrency. Fixed with an atomic conditional `UPDATE … WHERE use_count < max_uses` (0 rows → Gone). New e2e (sequential exhaustion).
+- **[moderate] Denied redemptions weren't audited** — `enforceAccess` threw `Forbidden` with no trail. Fixed: every denial writes a `SECURITY_EVENT` audit (`communication.secure_link.denied`) before throwing. New e2e asserts the audit row.
+- **[minor] Template vars unescaped into email HTML** — `interpolate` now HTML-escapes interpolated VALUES on the `email` channel (authored body stays intact; SMS/in-app unescaped so literal `&`/`<` survive).
+- **[minor] "No double-send" is adapter-dependent** — doc-only: the registrar/type docs already scope the guarantee to idempotency-supporting providers; dev log adapters intentionally left stateless.
+
+**Gotcha:** switching branches on the shared tree left a **stale `apps/web/.next`** referencing the F8 `patterns/page` → a phantom web typecheck error; `rm -rf apps/web/.next` fixes it (build artifacts don't follow the branch).
+
+**Next:** push the fixes → CI green → PR #48 ready to merge.
+
+---
+
 ## Session Summary (2026-08-02) — Claude: F5 communication delivery abstraction (DeliveryAttempt ledger + ContactPreference + SecureLink) → in-review
 
 **Item(s):** F5 → **in-review**. **Branch/PR:** `feat/F5-communication-delivery` → PR open. Claim committed first (`board: claim F5 (claude)`) on the branch, then built (one item = one branch = one PR). Kicked off as "pick up F5, F6, F7" — F7 was already `done` (PR #44 merged), so this session is F5; **F6 is next** (foundation-to-DoD, per the owner's chosen scope).

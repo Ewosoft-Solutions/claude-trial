@@ -53,11 +53,16 @@ export class TemplateService {
         `Template '${key}' has no published ${channel} version`,
       );
     }
+    // The template body is authored (trusted) copy; the interpolated VARIABLE
+    // VALUES may be untrusted, so escape them for the email channel (HTML) to
+    // prevent injection. SMS/in-app are plain text — escaping there would corrupt
+    // literal `&`/`<`, so only the HTML channel escapes.
+    const escapeHtml = channel === 'email';
     return {
       subject: fallback.subject
-        ? interpolate(fallback.subject, variables)
+        ? interpolate(fallback.subject, variables, escapeHtml)
         : undefined,
-      body: interpolate(fallback.body, variables),
+      body: interpolate(fallback.body, variables, escapeHtml),
       versionId: fallback.id,
     };
   }
@@ -180,13 +185,29 @@ export class TemplateService {
   }
 }
 
-/** Replace {{key}} placeholders; unknown keys become empty strings. */
+/**
+ * Replace {{key}} placeholders; unknown keys become empty strings. When
+ * `escapeHtml` is set (the email channel), interpolated VALUES are HTML-escaped
+ * so an untrusted variable cannot inject markup into the authored body.
+ */
 function interpolate(
   template: string,
   variables: Record<string, unknown>,
+  escapeHtml = false,
 ): string {
   return template.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => {
     const value = variables[key];
-    return value == null ? '' : String(value);
+    if (value == null) return '';
+    const str = String(value);
+    return escapeHtml ? escapeHtmlEntities(str) : str;
   });
+}
+
+function escapeHtmlEntities(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

@@ -372,7 +372,7 @@ d('Communication delivery (F5)', () => {
     expect(okBound.targetId).toBe('inv-9');
   });
 
-  it('consent: suppresses a non-critical campaign for an opt-out but delivers a critical notice', async () => {
+  it('consent: suppresses a non-critical campaign for an opt-out but delivers to an opted-in recipient + a critical notice', async () => {
     const campaign = await scopedA(() =>
       campaigns.create(tenantAId, 'admin', {
         name: 'Promo',
@@ -380,9 +380,12 @@ d('Communication delivery (F5)', () => {
         category: 'marketing',
       }),
     );
+    // personOptOut (optedIn=false) → suppressed; personDnd (optedIn=true) →
+    // delivered. (personNormal has no preference, so marketing to them is
+    // correctly suppressed — see the marketing opt-in test.)
     const sent = await scopedA(() =>
       campaigns.send(tenantAId, 'admin', campaign.id, {
-        recipientPersonIds: [personOptOut, personNormal],
+        recipientPersonIds: [personOptOut, personDnd],
         body: 'promo',
       }),
     );
@@ -410,6 +413,110 @@ d('Communication delivery (F5)', () => {
     );
     expect(critical.suppressed).toBe(false);
     expect(critical.status).toBe('queued');
+  });
+
+  it('requires explicit opt-in for marketing (a missing preference is not consent)', async () => {
+    // personNormal has NO preference row → a marketing send must be SUPPRESSED
+    // (opt-in required; a missing preference is not consent).
+    const noPref = await scopedA(() =>
+      delivery.send({
+        tenantId: tenantAId,
+        channel: 'sms',
+        category: 'marketing',
+        personId: personNormal,
+        body: 'promo',
+      }),
+    );
+    expect(noPref.suppressed).toBe(true);
+    expect(noPref.failureClass).toBe('no_consent');
+
+    // personDnd explicitly opted in (optedIn: true) → marketing proceeds.
+    const optedIn = await scopedA(() =>
+      delivery.send({
+        tenantId: tenantAId,
+        channel: 'sms',
+        category: 'marketing',
+        personId: personDnd,
+        body: 'promo',
+      }),
+    );
+    expect(optedIn.suppressed).toBe(false);
+    expect(optedIn.status).toBe('queued');
+  });
+
+  it('records a terminal provider failure on the ledger (dead job → failed attempt)', async () => {
+    const alwaysFail: ChannelAdapter = {
+      channel: 'sms',
+      provider: 'test-dead',
+      async send(): Promise<AdapterSendResult> {
+        throw new Error('provider down');
+      },
+    };
+    adapters.set(alwaysFail);
+
+    const { attemptId } = await scopedA(() =>
+      delivery.send({
+        tenantId: tenantAId,
+        channel: 'sms',
+        personId: personNormal,
+        body: 'x',
+      }),
+    );
+    // Force a single attempt so the first failure is terminal.
+    await owner.$executeRaw`UPDATE "jobs"."jobs" SET "max_attempts" = 1 WHERE "tenant_id" = ${tenantAId}`;
+    await worker.processOnce();
+
+    const row = await owner.$queryRaw<
+      { status: string; failure_class: string | null; error: string | null }[]
+    >`SELECT "status","failure_class","error" FROM "communication"."delivery_attempts" WHERE "id" = ${attemptId}`;
+    expect(row[0].status).toBe('failed'); // no longer orphaned as 'queued'
+    expect(row[0].failure_class).toBe('provider_error');
+    expect(row[0].error).toContain('provider down');
+  });
+
+  it('enforces single-use SecureLinks (a second redemption is Gone)', async () => {
+    const once = await scopedA(() =>
+      secureLinks.create(tenantAId, 'creator', {
+        purpose: 'result',
+        targetType: 'result_publication',
+        targetId: 'r-once',
+        ttlSeconds: 3600,
+        maxUses: 1,
+      }),
+    );
+    const first = await scopedA(() =>
+      secureLinks.redeem(tenantAId, once.token, {}),
+    );
+    expect(first.targetId).toBe('r-once');
+    await expect(
+      scopedA(() => secureLinks.redeem(tenantAId, once.token, {})),
+    ).rejects.toBeInstanceOf(GoneException);
+  });
+
+  it('audits a denied SecureLink redemption as a security event', async () => {
+    const gated = await scopedA(() =>
+      secureLinks.create(tenantAId, 'creator', {
+        purpose: 'result',
+        targetType: 'result_publication',
+        targetId: 'r-denied',
+        ttlSeconds: 3600,
+        requiredPermission: 'results.view',
+      }),
+    );
+    await expect(
+      scopedA(() =>
+        secureLinks.redeem(tenantAId, gated.token, {
+          userContext: permCtx([]),
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+
+    const audit = await owner.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "audit-logging"."audit_logs"
+      WHERE "tenant_id" = ${tenantAId}
+        AND "action" = 'communication.secure_link.denied'
+        AND "resource_id" = ${gated.id}`;
+    expect(audit[0].n).toBeGreaterThanOrEqual(1);
   });
 
   it('isolates the delivery ledger by tenant (RLS): A cannot see B attempts', async () => {

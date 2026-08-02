@@ -14,8 +14,10 @@ import type { DeliveryChannel } from '../delivery.types';
  * sent/delivered (a retry after a completed run does nothing), and the adapter
  * receives the attempt id as a provider-side idempotency key so a provider whose
  * ack timed out is not asked to transmit twice. On a provider error the handler
- * throws → F3 requeues with backoff (the ledger stays `queued`) until success or
- * the terminal dead state.
+ * rethrows so F3 retries with backoff (the ledger stays `queued`); on the final
+ * exhausted attempt it records the failure on the DeliveryAttempt (`failed` +
+ * `provider_error` + error) and returns — the ledger, not the job row, is the
+ * delivery source of truth.
  */
 @Injectable()
 export class DeliveryJobRegistrar implements OnModuleInit {
@@ -49,27 +51,55 @@ export class DeliveryJobRegistrar implements OnModuleInit {
     }
 
     const adapter = this.adapters.get(attempt.channel as DeliveryChannel);
-    const result = await adapter.send({
-      channel: attempt.channel as DeliveryChannel,
-      destination: payload.destination,
-      subject: payload.subject,
-      body: payload.body,
-      idempotencyKey: attempt.id,
-      from: payload.from,
-    });
-
     const now = new Date();
-    await ctx.client.deliveryAttempt.update({
-      where: { id: attempt.id },
-      data: {
-        status: result.status,
-        provider: result.provider,
-        providerMessageId: result.providerMessageId,
-        sentAt: now,
-        deliveredAt: result.status === 'delivered' ? now : null,
-        error: null,
-        failureClass: null,
-      },
-    });
+
+    try {
+      const result = await adapter.send({
+        channel: attempt.channel as DeliveryChannel,
+        destination: payload.destination,
+        subject: payload.subject,
+        body: payload.body,
+        idempotencyKey: attempt.id,
+        from: payload.from,
+      });
+
+      await ctx.client.deliveryAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: result.status,
+          provider: result.provider,
+          providerMessageId: result.providerMessageId,
+          attemptNo: ctx.job.attempts,
+          sentAt: now,
+          deliveredAt: result.status === 'delivered' ? now : null,
+          error: null,
+          failureClass: null,
+        },
+      });
+    } catch (err) {
+      // A provider error must land ON THE LEDGER, not just the job row. Because
+      // the handler + job completion share ONE tx, a rethrow rolls back any
+      // write here — so record the failure only when retries are EXHAUSTED (this
+      // is the terminal attempt), then return normally: the job "succeeded" at
+      // recording a `failed` DeliveryAttempt (the ledger is the delivery source
+      // of truth). Before that, rethrow so F3 retries with backoff.
+      const message = err instanceof Error ? err.message : String(err);
+      const terminal = ctx.job.attempts >= ctx.job.max_attempts;
+      if (!terminal) throw err;
+
+      this.logger.error(
+        `delivery.send: attempt ${attempt.id} failed terminally after ${ctx.job.attempts} attempt(s): ${message}`,
+      );
+      await ctx.client.deliveryAttempt.update({
+        where: { id: attempt.id },
+        data: {
+          status: 'failed',
+          failureClass: 'provider_error',
+          error: message,
+          attemptNo: ctx.job.attempts,
+          failedAt: now,
+        },
+      });
+    }
   }
 }

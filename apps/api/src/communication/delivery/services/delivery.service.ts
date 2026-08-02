@@ -60,9 +60,19 @@ export class DeliveryService {
         })
       : null;
 
-    // A non-critical send to an explicitly opted-out recipient is suppressed —
-    // but a critical (lawful/contractual) notice always proceeds.
-    if (category !== 'critical' && pref?.optedIn === false) {
+    // Consent gate, by category:
+    //  - critical      — a lawful/contractual notice always proceeds.
+    //  - marketing      — opt-IN required: suppressed unless the recipient has
+    //    EXPLICITLY opted in. A missing preference is NOT consent (NDPA).
+    //  - transactional  — opted-in by default: suppressed only on an explicit
+    //    opt-out.
+    const suppressedByConsent =
+      category === 'critical'
+        ? false
+        : category === 'marketing'
+          ? pref?.optedIn !== true
+          : pref?.optedIn === false;
+    if (suppressedByConsent) {
       return this.record(intent, channel, category, {
         destination: intent.destination ?? '',
         status: 'suppressed',
