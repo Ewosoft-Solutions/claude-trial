@@ -72,6 +72,12 @@ services:
         sync: false
       - key: ENCRYPTION_KEY
         sync: false
+      # HMAC key for signed short-lived document download URLs (F4 / ADR-08).
+      # REQUIRED in production (≥32 chars) — env validation throws at boot if
+      # unset, so the API crashes before serving /healthz and Render reports the
+      # deploy `update_failed`. Set in the dashboard: openssl rand -base64 48
+      - key: DOCUMENT_URL_SIGNING_SECRET
+        sync: false
       # AI + integrations (leave unset to degrade gracefully).
       - key: ANTHROPIC_API_KEY
         sync: false
