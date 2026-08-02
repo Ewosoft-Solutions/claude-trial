@@ -145,3 +145,276 @@ model MessageReadReceipt {
   @@map("message_read_receipts")
   @@schema("communication")
 }
+
+// ============================================
+// Communication DELIVERY layer (F5 / ADR-07)
+// ============================================
+//
+// A provider-agnostic delivery abstraction with a first-class evidence ledger.
+// No domain calls a provider SDK directly: a domain publishes a *message intent*
+// to the DeliveryService, which resolves audience → preference/consent → channel
+// → provider, records a DeliveryAttempt, and sends idempotently on the F3 job
+// substrate. This reproduces the legacy metered SMS balance + delivery log (with
+// per-message cost + DND classification) while fixing its two hazards: public
+// result URLs (→ SecureLink) and gender-label targeting (→ real consent).
+//
+// These tables follow the jobs/directory *infra* convention: a scalar
+// `tenant_id` with a DB-level FK to tenant.tenants declared in the migration
+// (no Prisma relation to Tenant/Person — a high-volume ledger is never navigated
+// from the aggregate). Intra-F5 parent/child links (template↔version,
+// campaign↔recipient) ARE Prisma relations. Every table is tenant-scoped and
+// covered by the standard PERMISSIVE tenant_isolation RLS policy (db:rls:check).
+// ============================================
+
+// ContactPreference - per-person, per-channel opt-in / consent + quiet hours.
+// This is the "richer consent/preference model" that person.ContactPoint defers
+// to. A send to a non-critical category is suppressed when opted out; a critical
+// (lawful/contractual) notice overrides opt-out but still honours a hard DND for
+// cost/UX. person_id is a scalar FK to person.persons (declared in migration).
+model ContactPreference {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  personId String @map("person_id")
+
+  channel  String // 'sms' | 'email' | 'push' | 'in_app'
+  optedIn  Boolean @default(true) @map("opted_in") // consent for non-critical sends
+  isDnd    Boolean @default(false) @map("is_dnd") // Do-Not-Disturb (metered/DND number, C107)
+
+  // Lawful-basis provenance for the opt-in state (NDPA).
+  consentSource String?   @map("consent_source") // 'self' | 'guardian' | 'import' | 'admin'
+  consentAt     DateTime? @map("consent_at")
+
+  // Quiet hours as minutes-from-midnight in the tenant's local time (null = none).
+  quietHoursStart Int? @map("quiet_hours_start")
+  quietHoursEnd   Int? @map("quiet_hours_end")
+
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([personId, channel]) // one preference row per person per channel
+  @@index([tenantId])
+  @@index([tenantId, channel])
+  @@index([personId])
+  @@map("contact_preferences")
+  @@schema("communication")
+}
+
+// MessageTemplate - a named, versioned template. The template is a stable key;
+// each TemplateVersion pins the actual body for a (channel, locale), so a
+// published result/notice always references the exact copy that was sent.
+model MessageTemplate {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  key         String // stable per-tenant identifier, e.g. 'result.published'
+  name        String
+  category    String  @default("transactional") // 'transactional' | 'critical' | 'marketing'
+  description String?
+  isActive    Boolean @default(true) @map("is_active")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  versions TemplateVersion[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@map("message_templates")
+  @@schema("communication")
+}
+
+// TemplateVersion - an immutable-once-published rendering of a template for a
+// (channel, locale). `body` uses {{var}} placeholders; `variables` documents the
+// expected keys. Only one published version per (template, channel, locale).
+model TemplateVersion {
+  id         String @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  templateId String @map("template_id")
+
+  version Int
+  channel String // 'sms' | 'email' | 'push' | 'in_app'
+  locale  String @default("en")
+  subject String? // email/push title (null for sms)
+  body    String
+  variables Json? // documented placeholder keys
+
+  status      String    @default("draft") // 'draft' | 'published' | 'archived'
+  createdBy   String?   @map("created_by")
+  publishedAt DateTime? @map("published_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  template MessageTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@unique([templateId, channel, locale, version])
+  @@index([tenantId])
+  @@index([templateId])
+  @@map("template_versions")
+  @@schema("communication")
+}
+
+// Campaign - a bulk send to a resolved audience. Fan-out creates one
+// CampaignRecipient per person; each becomes (or is suppressed instead of) a
+// DeliveryAttempt, so a campaign's cost + reach reproduce from the ledger.
+model Campaign {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  name       String
+  channel    String // 'sms' | 'email' | 'push' | 'in_app'
+  category   String @default("marketing") // consent basis for the whole campaign
+  templateId String? @map("template_id")
+
+  status String @default("draft") // 'draft' | 'scheduled' | 'sending' | 'sent' | 'cancelled'
+
+  // Audience is resolved from real relationships/permissions, never a gender label.
+  audience Json? // resolved/declarative audience descriptor
+
+  scheduledAt DateTime? @map("scheduled_at")
+  startedAt   DateTime? @map("started_at")
+  finishedAt  DateTime? @map("finished_at")
+
+  totalRecipients Int @default(0) @map("total_recipients")
+  sentCount       Int @default(0) @map("sent_count")
+  failedCount     Int @default(0) @map("failed_count")
+  suppressedCount Int @default(0) @map("suppressed_count")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  recipients CampaignRecipient[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("campaigns")
+  @@schema("communication")
+}
+
+// CampaignRecipient - one intended recipient of a campaign. `personId` is a
+// scalar FK to person.persons. Links to the DeliveryAttempt once created.
+model CampaignRecipient {
+  id         String @id @default(uuid())
+  tenantId   String @map("tenant_id")
+  campaignId String @map("campaign_id")
+
+  personId          String? @map("person_id")
+  redactedDestination String? @map("redacted_destination") // masked target for the log
+  status            String  @default("pending") // 'pending' | 'sent' | 'failed' | 'suppressed'
+  suppressReason    String? @map("suppress_reason") // 'no_consent' | 'quiet_hours' | 'no_contact' | 'dnd'
+  deliveryAttemptId String? @map("delivery_attempt_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, personId])
+  @@index([tenantId])
+  @@index([campaignId])
+  @@index([personId])
+  @@map("campaign_recipients")
+  @@schema("communication")
+}
+
+// DeliveryAttempt - THE delivery ledger (ADR-07). One row per attempt to reach a
+// recipient on a channel via a provider: status, failure classification, metered
+// cost + DND flag, redacted destination, attempt number. Reproduces the legacy
+// SMS-balance + 19,539-row delivery log with cost — and gives operators
+// "who received it, what it cost, what failed". Idempotent on (tenant, dedupe_key)
+// so a producer retry never creates a second attempt; the actual provider send
+// runs on an F3 job keyed to this row so a provider timeout + retry does not
+// double-send a confirmed delivery.
+model DeliveryAttempt {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  channel  String // 'sms' | 'email' | 'push' | 'in_app'
+  provider String @default("log") // adapter/provider that handled it
+
+  category String @default("transactional") // 'transactional' | 'critical' | 'marketing'
+
+  // Audience (scalar FKs; a ledger is never navigated from Person/UserTenant).
+  recipientPersonId  String? @map("recipient_person_id")
+  recipientProfileId String? @map("recipient_profile_id") // UserTenant id, when applicable
+  redactedDestination String @map("redacted_destination") // masked email/phone for the log
+
+  status      String  @default("queued") // queued | sent | delivered | failed | dnd_blocked | suppressed
+  failureClass String? @map("failure_class") // provider_error | invalid_destination | dnd | no_consent | rate_limited | quiet_hours
+  providerMessageId String? @map("provider_message_id")
+  error       String?
+
+  // Metered cost — the SMS-balance semantics (C105/C107). DND numbers cost more.
+  costUnits Decimal @default(0) @map("cost_units") @db.Decimal(10, 2)
+  currency  String  @default("unit")
+  dndFlag   Boolean @default(false) @map("dnd_flag")
+
+  attemptNo Int @default(1) @map("attempt_no")
+
+  // Provenance / linkage.
+  templateId    String? @map("template_id")
+  campaignId    String? @map("campaign_id")
+  secureLinkId  String? @map("secure_link_id")
+  dedupeKey     String? @map("dedupe_key") // idempotency: one attempt per (tenant, key)
+  actorId       String? @map("actor_id")
+  metadata      Json?
+
+  queuedAt    DateTime  @default(now()) @map("queued_at")
+  sentAt      DateTime? @map("sent_at")
+  deliveredAt DateTime? @map("delivered_at")
+  failedAt    DateTime? @map("failed_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([tenantId, dedupeKey])
+  @@index([tenantId])
+  @@index([tenantId, channel, status])
+  @@index([tenantId, createdAt])
+  @@index([campaignId])
+  @@index([recipientPersonId])
+  @@map("delivery_attempts")
+  @@schema("communication")
+}
+
+// SecureLink - an access-controlled, expiring, permission-checked token that
+// replaces the legacy "tokenized but effectively public" result/payment URL
+// (C108). Only the SHA-256 hash of the random token is stored; the raw token is
+// returned once at creation. Redemption requires: not expired, not revoked,
+// under maxUses AND (when set) the redeemer holds `required_permission` and/or
+// is the bound audience principal — so a leaked URL alone does not disclose a
+// child's result.
+model SecureLink {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  tokenHash   String  @map("token_hash") // sha256(rawToken), hex
+  purpose     String // 'result' | 'payment' | 'document' | 'invitation' | …
+  targetType  String  @map("target_type") // resource kind the link resolves to
+  targetId    String  @map("target_id")
+
+  // Access control on redemption.
+  requiredPermission String? @map("required_permission") // e.g. 'results.view'
+  audiencePersonId   String? @map("audience_person_id") // bind to a specific principal
+  audienceProfileId  String? @map("audience_profile_id")
+
+  expiresAt DateTime  @map("expires_at")
+  maxUses   Int?      @map("max_uses")
+  useCount  Int       @default(0) @map("use_count")
+  revokedAt DateTime? @map("revoked_at")
+
+  lastAccessedAt DateTime? @map("last_accessed_at")
+  metadata       Json?
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tokenHash])
+  @@index([tenantId])
+  @@index([tenantId, purpose])
+  @@index([targetType, targetId])
+  @@map("secure_links")
+  @@schema("communication")
+}

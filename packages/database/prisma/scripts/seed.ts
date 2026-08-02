@@ -246,14 +246,14 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 324,
+  total: 329, // 320 base + F5 communication (+5) + F6 curriculum (+4)
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
     GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
     FINANCIAL_PERMISSIONS: 16,
-    COMMUNICATION_PERMISSIONS: 13,
+    COMMUNICATION_PERMISSIONS: 18,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
     SYSTEM_ADMIN_PERMISSIONS: 19,
@@ -445,7 +445,7 @@ function validatePermissionsCatalog(
 // - Grade & Assessment (21 permissions)
 // - Attendance (9 permissions)
 // - Financial (16 permissions)
-// - Communication (13 permissions)
+// - Communication (18 permissions)
 // - Staff Management (13 permissions)
 // - Reports & Analytics (10 permissions)
 // - System Administration (18 permissions)
@@ -1306,7 +1306,7 @@ const FINANCIAL_PERMISSIONS = [
   },
 ];
 
-// Communication Permissions (13 permissions)
+// Communication Permissions (18 permissions)
 const COMMUNICATION_PERMISSIONS = [
   {
     name: 'messages.view',
@@ -1429,6 +1429,59 @@ const COMMUNICATION_PERMISSIONS = [
     action: 'edit',
     category: 'communication',
     requiredClearanceLevel: 1,
+  },
+  // F5 · communication delivery abstraction (ADR-07)
+  {
+    name: 'communication.delivery.view',
+    label: 'View Delivery Log',
+    description:
+      'View the delivery ledger + per-channel usage (the SMS balance / delivery log)',
+    resource: 'communication',
+    action: 'delivery',
+    context: 'view',
+    category: 'communication',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'communication.delivery.manage',
+    label: 'Manage Delivery + Secure Links',
+    description:
+      'Mint or revoke secure links and manage delivery configuration',
+    resource: 'communication',
+    action: 'delivery',
+    context: 'manage',
+    category: 'communication',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'communication.campaigns.manage',
+    label: 'Manage Campaigns',
+    description: 'Create and send bulk communication campaigns',
+    resource: 'communication',
+    action: 'campaigns',
+    context: 'manage',
+    category: 'communication',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'communication.templates.manage',
+    label: 'Manage Message Templates',
+    description: 'Author and publish versioned message templates',
+    resource: 'communication',
+    action: 'templates',
+    context: 'manage',
+    category: 'communication',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'communication.preferences.manage',
+    label: 'Manage Contact Preferences',
+    description: "Manage a person's channel consent, DND and quiet hours",
+    resource: 'communication',
+    action: 'preferences',
+    context: 'manage',
+    category: 'communication',
+    requiredClearanceLevel: 5,
   },
 ];
 
