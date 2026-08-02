@@ -246,7 +246,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 320,
+  total: 324,
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -279,6 +279,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     PERSON_PERMISSIONS: 4,
     DOCUMENT_PERMISSIONS: 6,
     IMPORT_PERMISSIONS: 5,
+    CURRICULUM_PERMISSIONS: 4,
   },
   clearanceLevels: { min: 0, max: 10 },
 };
@@ -3576,6 +3577,49 @@ const IMPORT_PERMISSIONS = [
   },
 ];
 
+// Curriculum Permissions (4 permissions) — F6 / ADR-03
+const CURRICULUM_PERMISSIONS = [
+  {
+    name: 'curriculum.view',
+    label: 'View Curriculum',
+    description: 'View curriculum frameworks, versions, subjects and adoptions',
+    resource: 'curriculum',
+    action: 'view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'curriculum.manage',
+    label: 'Manage Curriculum',
+    description:
+      'Author frameworks/versions/subjects/nodes, overlays and subject aliases',
+    resource: 'curriculum',
+    action: 'manage',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'curriculum.activate',
+    label: 'Activate Curriculum Version',
+    description:
+      'Approve/activate a curriculum version (academic-owner gate; provenance-checked)',
+    resource: 'curriculum',
+    action: 'activate',
+    category: 'academic',
+    requiredClearanceLevel: 8,
+  },
+  {
+    name: 'curriculum.adopt',
+    label: 'Adopt Curriculum',
+    description:
+      'Adopt a curriculum version for an entry cohort (effective-dated)',
+    resource: 'curriculum',
+    action: 'adopt',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+];
+
 // Role to Pool mapping
 const ROLE_TO_POOL_MAPPING: Record<string, string> = {
   Architect: 'Level10_PlatformArchitect',
@@ -4253,6 +4297,7 @@ async function main() {
       PERSON_PERMISSIONS,
       DOCUMENT_PERMISSIONS,
       IMPORT_PERMISSIONS,
+      CURRICULUM_PERMISSIONS,
     };
 
     const allPermissions = Object.values(permissionArrays).flat();

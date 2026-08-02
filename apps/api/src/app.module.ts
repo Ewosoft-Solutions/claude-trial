@@ -23,6 +23,7 @@ import { DirectoryModule } from './directory/directory.module';
 import { AcademicStructureModule } from './academic-structure/academic-structure.module';
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
+import { CurriculumModule } from './curriculum/curriculum.module';
 import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
 import { OverviewModule } from './overview/overview.module';
 import { AttendanceModule } from './attendance/attendance.module';
@@ -111,6 +112,7 @@ import { AppController } from './app.controller';
     AcademicStructureModule,
     AssessmentGradingModule,
     CommunicationModule,
+    CurriculumModule,
     ReportingAnalyticsModule,
     OverviewModule,
     AttendanceModule,

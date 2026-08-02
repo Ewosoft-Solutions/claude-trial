@@ -1,0 +1,318 @@
+// ============================================
+// Curriculum — academic-profile + policy-version framework (F6 / ADR-03)
+// ============================================
+//
+// A versioned, effective-dated curriculum domain that replaces the legacy
+// "single mutable subject list" (C077-C081) with real lineage:
+//
+//   CurriculumAuthority (NERDC / Cambridge / a tenant)
+//     └─ CurriculumFramework ─ CurriculumVersion (effective-dated + approval + provenance)
+//          └─ CurriculumStage ─ CurriculumSubject ─ CurriculumNode (strand/topic) ─ LearningOutcome
+//   CurriculumAdoption      — tenant/campus/programme + entry cohort + level range + version + dates
+//   TenantCurriculumOverlay — tenant edits LAYERED over an immutable national version (never mutate source)
+//   CurriculumMapping       — old ↔ canonical subject aliases (transfer + migration de-dup)
+//
+// Tenanting model (ADR-03: "national reference rows are shared read-only; still
+// tenant_id-scoped where a tenant overlay exists"):
+//   - The 7 reference tables carry a NULLABLE tenant_id. `tenant_id IS NULL` =
+//     shared NATIONAL content (immutable, seeded by the platform); a non-null
+//     tenant_id = a tenant's own custom framework. RLS lets any tenant READ
+//     national + own rows, but WRITE only its own (or platform for seeding) — so
+//     national content is immutable to tenants at the DB layer, and tenant edits
+//     must go through a TenantCurriculumOverlay.
+//   - Adoption / Overlay / Mapping are always tenant-owned (tenant_id NOT NULL).
+// The tenant_id FK to tenant.tenants is a DB-level FK (no Prisma relation),
+// mirroring the jobs/directory/communication infra convention.
+// ============================================
+
+// CurriculumAuthority - who governs a curriculum (NERDC, Cambridge, or a tenant).
+model CurriculumAuthority {
+  id       String  @id @default(uuid())
+  tenantId String? @map("tenant_id") // null = national/shared authority
+
+  name        String
+  code        String
+  kind        String  @default("national") // 'national' | 'international' | 'exam_board' | 'tenant'
+  country     String? // ISO-3166 alpha-2, e.g. 'NG'
+  description String?
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  frameworks CurriculumFramework[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("curriculum_authorities")
+  @@schema("curriculum")
+}
+
+// CurriculumFramework - a named framework under an authority (e.g. "NERDC Basic
+// Education Curriculum", "Cambridge Primary").
+model CurriculumFramework {
+  id          String  @id @default(uuid())
+  tenantId    String? @map("tenant_id")
+  authorityId String  @map("authority_id")
+
+  name        String
+  code        String
+  subjectArea String? @map("subject_area")
+  description String?
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  authority CurriculumAuthority @relation(fields: [authorityId], references: [id], onDelete: Cascade)
+  versions  CurriculumVersion[]
+
+  @@index([tenantId])
+  @@index([authorityId])
+  @@map("curriculum_frameworks")
+  @@schema("curriculum")
+}
+
+// CurriculumVersion - THE effective-dated, provenance-bearing version. This is
+// the policy-version spine: a published result / lesson cites the version in
+// force. National versions are immutable once imported; tenant edits are
+// overlays, never mutations of the source.
+model CurriculumVersion {
+  id          String  @id @default(uuid())
+  tenantId    String? @map("tenant_id")
+  frameworkId String  @map("framework_id")
+
+  versionLabel String @map("version_label") // e.g. 'NERDC 2025'
+
+  // Effective dating (Date, no time): several versions can be simultaneously
+  // valid during a cohort transition.
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+
+  approvalState       String  @default("draft") @map("approval_state") // 'draft' | 'approved' | 'active' | 'retired'
+  isNationalImmutable Boolean @default(false) @map("is_national_immutable")
+
+  // {authority|model, prompt?, source, license?, reviewer, reviewedAt}
+  provenance Json?
+
+  approvedBy  String?   @map("approved_by")
+  approvedAt  DateTime? @map("approved_at")
+  publishedAt DateTime? @map("published_at")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  framework CurriculumFramework @relation(fields: [frameworkId], references: [id], onDelete: Cascade)
+  stages    CurriculumStage[]
+  subjects  CurriculumSubject[]
+
+  @@unique([frameworkId, versionLabel])
+  @@index([tenantId])
+  @@index([frameworkId])
+  @@index([approvalState])
+  @@index([effectiveFrom, effectiveTo])
+  @@map("curriculum_versions")
+  @@schema("curriculum")
+}
+
+// CurriculumStage - a level band within a version (e.g. "Primary 1", "JSS 1").
+model CurriculumStage {
+  id        String  @id @default(uuid())
+  tenantId  String? @map("tenant_id")
+  versionId String  @map("version_id")
+
+  name      String
+  levelCode String? @map("level_code")
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  version  CurriculumVersion  @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  subjects CurriculumSubject[]
+
+  @@unique([versionId, name])
+  @@index([tenantId])
+  @@index([versionId])
+  @@map("curriculum_stages")
+  @@schema("curriculum")
+}
+
+// CurriculumSubject - a subject within a version (optionally grouped by stage).
+// canonicalName is the de-duplicated name (fixes "Cultural & Creative Arts" vs
+// "Cultural And Creative Arts"); CurriculumMapping resolves dirty aliases to it.
+model CurriculumSubject {
+  id        String  @id @default(uuid())
+  tenantId  String? @map("tenant_id")
+  versionId String  @map("version_id")
+  stageId   String? @map("stage_id")
+
+  code          String
+  name          String
+  canonicalName String? @map("canonical_name")
+  order         Int     @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  version CurriculumVersion @relation(fields: [versionId], references: [id], onDelete: Cascade)
+  stage   CurriculumStage?  @relation(fields: [stageId], references: [id], onDelete: SetNull)
+  nodes   CurriculumNode[]
+
+  @@unique([versionId, code])
+  @@index([tenantId])
+  @@index([versionId])
+  @@index([stageId])
+  @@map("curriculum_subjects")
+  @@schema("curriculum")
+}
+
+// CurriculumNode - a strand/topic tree inside a subject. Carries PROVENANCE: an
+// AI-authored or imported node cannot become published teaching content without
+// a named human reviewer (fixes C081 "Pedagogy with AI").
+model CurriculumNode {
+  id        String  @id @default(uuid())
+  tenantId  String? @map("tenant_id")
+  versionId String  @map("version_id") // denormalized for version-scoped queries
+  subjectId String  @map("subject_id")
+  parentId  String? @map("parent_id")
+
+  kind  String @default("topic") // 'strand' | 'topic' | 'subtopic'
+  title String
+  code  String?
+  order Int    @default(0)
+
+  // Provenance / review gate.
+  origin     String    @default("authored") // 'authored' | 'ai' | 'imported'
+  reviewedBy String?   @map("reviewed_by")
+  reviewedAt DateTime? @map("reviewed_at")
+  provenance Json?
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subject  CurriculumSubject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+  parent   CurriculumNode?   @relation("NodeTree", fields: [parentId], references: [id], onDelete: Cascade)
+  children CurriculumNode[]  @relation("NodeTree")
+  outcomes LearningOutcome[]
+
+  @@index([tenantId])
+  @@index([subjectId])
+  @@index([parentId])
+  @@index([versionId])
+  @@map("curriculum_nodes")
+  @@schema("curriculum")
+}
+
+// LearningOutcome - a measurable outcome cited by lessons/activities/results.
+model LearningOutcome {
+  id       String  @id @default(uuid())
+  tenantId String? @map("tenant_id")
+  nodeId   String  @map("node_id")
+
+  code      String?
+  statement String
+  order     Int     @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  node CurriculumNode @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([nodeId])
+  @@map("learning_outcomes")
+  @@schema("curriculum")
+}
+
+// ---- Tenant-owned application tables (tenant_id NOT NULL) ----
+
+// CurriculumAdoption - a tenant/campus adopts a version for an entry cohort,
+// effective-dated. Two cohorts (e.g. Primary 1 and Primary 4) can run DIFFERENT
+// versions simultaneously in one campus during the NERDC-2025 transition.
+model CurriculumAdoption {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  campusId  String? @map("campus_id")
+  programme String?
+  versionId String  @map("version_id")
+
+  entryCohort String  @map("entry_cohort") // e.g. 'Primary 1', 'JSS 1'
+  levelFrom   String? @map("level_from")
+  levelTo     String? @map("level_to")
+
+  effectiveFrom DateTime  @map("effective_from") @db.Date
+  effectiveTo   DateTime? @map("effective_to") @db.Date
+
+  status     String    @default("planned") // 'planned' | 'active' | 'superseded' | 'retired'
+  approvedBy String?   @map("approved_by")
+  approvedAt DateTime? @map("approved_at")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, entryCohort])
+  @@index([tenantId, status])
+  @@index([versionId])
+  @@map("curriculum_adoptions")
+  @@schema("curriculum")
+}
+
+// TenantCurriculumOverlay - a tenant-approved addition/edit LAYERED over an
+// immutable national version. The base version is never mutated; the overlay is
+// the tenant's delta, applied at read time by the service.
+model TenantCurriculumOverlay {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  baseVersionId String @map("base_version_id")
+
+  changeType String  @map("change_type") // 'add_subject' | 'add_node' | 'edit_outcome' | 'rename_subject' | 'hide_node'
+  targetType String? @map("target_type") // 'subject' | 'node' | 'outcome'
+  targetId   String? @map("target_id")
+  payload    Json?
+
+  status     String    @default("draft") // 'draft' | 'approved' | 'active' | 'withdrawn'
+  approvedBy String?   @map("approved_by")
+  approvedAt DateTime? @map("approved_at")
+  note       String?
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([baseVersionId])
+  @@index([tenantId, status])
+  @@map("tenant_curriculum_overlays")
+  @@schema("curriculum")
+}
+
+// CurriculumMapping - old ↔ canonical subject aliases, so a legacy/dirty name
+// ("Cultural And Creative Arts") resolves to a canonical subject on transfer or
+// migration de-dup.
+model CurriculumMapping {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  fromName       String  @map("from_name")
+  fromNormalized String  @map("from_normalized")
+  toSubjectId    String? @map("to_subject_id")
+  toCanonicalName String? @map("to_canonical_name")
+  kind           String  @default("alias") // 'alias' | 'migration'
+  note           String?
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, fromNormalized])
+  @@index([tenantId])
+  @@map("curriculum_mappings")
+  @@schema("curriculum")
+}
