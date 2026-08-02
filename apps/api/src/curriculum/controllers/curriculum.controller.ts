@@ -58,11 +58,10 @@ export class CurriculumController {
   @Get('versions')
   @RequirePermissions(['curriculum.view'])
   @ApiOperation({ summary: 'List curriculum versions (own + national)' })
-  listVersions(
-    @Query('frameworkId') frameworkId: string | undefined,
-    @Request() req: AuthenticatedRequest,
-  ) {
-    return this.curriculum.listVersions(this.ctx(req).tenantId, frameworkId);
+  listVersions(@Query('frameworkId') frameworkId: string | undefined) {
+    // Auth + tenant scope are enforced by the class guards + @TenantScoped; the
+    // read itself is RLS-scoped, so no tenantId is threaded through.
+    return this.curriculum.listVersions(frameworkId);
   }
 
   @Get('versions/:id/tree')

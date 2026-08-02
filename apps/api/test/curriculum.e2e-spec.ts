@@ -290,6 +290,75 @@ d('Curriculum framework (F6)', () => {
     expect(list[0].status).toBe('active');
   });
 
+  it('national content is immutable at the RLS layer (raw tenant update/delete is a no-op)', async () => {
+    // Even a raw app_runtime query inside a tenant scope cannot delete or reclaim
+    // a national (tenant_id NULL) row — the reference-table write policy excludes
+    // null-tenant rows, so RLS (not just the service) is the backstop.
+    const deleted = await scopedA(
+      () =>
+        tenantDb.client
+          .$executeRaw`DELETE FROM "curriculum"."curriculum_versions" WHERE "id" = ${nationalVersionId}`,
+    );
+    expect(deleted).toBe(0);
+
+    const updated = await scopedA(
+      () =>
+        tenantDb.client
+          .$executeRaw`UPDATE "curriculum"."curriculum_versions" SET "tenant_id" = ${tenantAId} WHERE "id" = ${nationalVersionId}`,
+    );
+    expect(updated).toBe(0);
+
+    const still = await owner.$queryRaw<{ tenant_id: string | null }[]>`
+      SELECT "tenant_id" FROM "curriculum"."curriculum_versions" WHERE "id" = ${nationalVersionId}`;
+    expect(still).toHaveLength(1);
+    expect(still[0].tenant_id).toBeNull(); // untouched
+  });
+
+  it('freezes a published version — content cannot change after activation', async () => {
+    const version = await scopedA(() =>
+      makeActiveVersion('frozen', '2024-09-01'),
+    );
+    await expect(
+      scopedA(() =>
+        curriculum.addSubject(tenantAId, 'actor-a', version, {
+          code: 'LATE',
+          name: 'Too late to add',
+        }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+  });
+
+  it('supersedes a prior open-ended adoption when a cohort re-adopts', async () => {
+    const v1 = await scopedA(() => makeActiveVersion('sup1', '2020-09-01'));
+    const v2 = await scopedA(() => makeActiveVersion('sup2', '2025-09-01'));
+    await scopedA(() =>
+      adoptions.adopt(tenantAId, 'actor-a', {
+        versionId: v1,
+        entryCohort: 'JSS 1',
+        campusId: 'main',
+        effectiveFrom: '2020-09-01',
+      }),
+    );
+    await scopedA(() =>
+      adoptions.adopt(tenantAId, 'actor-a', {
+        versionId: v2,
+        entryCohort: 'JSS 1',
+        campusId: 'main',
+        effectiveFrom: '2025-09-01',
+      }),
+    );
+
+    const resolved = await scopedA(() =>
+      adoptions.resolveForCohort(tenantAId, 'JSS 1', 'main', '2025-10-01'),
+    );
+    expect(resolved?.version?.id).toBe(v2);
+
+    const superseded = await owner.$queryRaw<{ n: number }[]>`
+      SELECT count(*)::int AS n FROM "curriculum"."curriculum_adoptions"
+      WHERE "tenant_id" = ${tenantAId} AND "version_id" = ${v1} AND "status" = 'superseded'`;
+    expect(superseded[0].n).toBe(1);
+  });
+
   it('isolates a tenant version from another tenant (RLS)', async () => {
     const vA = await scopedA(() => makeActiveVersion('iso', '2024-09-01'));
 

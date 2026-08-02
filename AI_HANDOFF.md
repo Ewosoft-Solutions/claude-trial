@@ -4,6 +4,22 @@ Last Updated: 2026-08-02
 
 ---
 
+## Session Summary (2026-08-02) — Claude: F6 maker-checker review + fixes (still in-review, PR #49)
+
+**Item(s):** F6 (PR #49) — a maker-checker review found 1 moderate + 4 minor issues; **all addressed on `feat/F6-academic-profile`.** e2e now **8/8** (5 + 3 new), api unit 470/470, `ci:quick` + `check:privileged-db` + `db:rls:check` + Prettier green.
+
+- **[moderate — RLS backstop] Tenants could UPDATE/DELETE national rows.** The reference tables' single `FOR ALL tenant_isolation` policy's `USING (tenant_id IS NULL …)` exposed national (null-tenant) rows to *every* command, so a raw tenant-scoped `app_runtime` query could DELETE a national row (removing it for all tenants) or UPDATE it to reclaim it — national immutability held only at the service layer, not the mandatory RLS backstop (and this pattern is earmarked for WB2/WB4 reuse). **Fixed with per-command policies:** `tenant_isolation` is now `FOR SELECT` (shared read — still the permissive policy `db:rls:check` requires) + a new `tenant_write` `FOR ALL` scoped to own+platform (national rows not writable/deletable by tenants). New e2e proves a raw tenant UPDATE/DELETE of a national row is a **no-op**. Migration edited + applied to local DB.
+- **[minor] `is_national_immutable` was dead metadata** → now a real guard: `assertWritableVersion` rejects mutation when the version is flagged immutable **or already published** (`active`/`retired`) — a published version is frozen (clone to a new draft), which also pairs with ADR-04. New e2e.
+- **[minor] Provenance gate was self-attestable** — `addNode` accepted `reviewedBy` at creation, letting an AI/imported node ship "pre-reviewed". Removed `reviewedBy` from `addNode` + the DTO: a node is created unreviewed and only cleared via the actor-stamped `reviewNode` step (existing AI-gate e2e still passes).
+- **[minor] Overlapping cohort adoptions** — `adopt()` now supersedes a prior open-ended active adoption for the same cohort+campus (status `superseded`, `effectiveTo` = new start), so `resolveForCohort` never disambiguates two open-ended adoptions. New e2e.
+- **[nit] `listVersions` dead `tenantId` param** removed (RLS scopes the read).
+
+**Reusable-pattern update:** the national-shared reference-data RLS is now **two policies** (`tenant_isolation` FOR SELECT shared-read + `tenant_write` FOR ALL own-only), not one FOR ALL — WB2/WB4 should copy this shape. `db:rls:check` only checks that a permissive `tenant_isolation` policy exists (not its command), so it passed both before and after — the write-exposure was invisible to the gate.
+
+**Next:** push the fixes → CI green → PR #49 ready to merge.
+
+---
+
 ## Session Summary (2026-08-02) — Claude: F6 academic-profile + policy-version framework (curriculum) → in-review
 
 **Item(s):** F6 → **in-review**. **Branch/PR:** `feat/F6-academic-profile` → PR to open. Claim committed first (`board: claim F6 (claude)`), then built (one item = one branch = one PR). This is the second half of a "pick up F5, F6, F7" session — F7 was already done; **F5** shipped this session as **[PR #48](https://github.com/Ewosoft-Solutions/claude-trial/pull/48)** (communication delivery); **F6** here. F6 is independent of F5 (branched off `main`), so a small board/seed merge reconcile is expected after both merge.

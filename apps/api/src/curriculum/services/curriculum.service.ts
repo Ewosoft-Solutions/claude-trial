@@ -212,7 +212,6 @@ export class CurriculumService {
       order?: number;
       origin?: string;
       provenance?: Record<string, unknown>;
-      reviewedBy?: string;
     },
   ) {
     const subject = await this.client.curriculumSubject.findFirst({
@@ -234,9 +233,12 @@ export class CurriculumService {
         code: input.code ?? null,
         order: input.order ?? 0,
         origin,
-        // An AI/imported node is unreviewed unless a reviewer is supplied.
-        reviewedBy: input.reviewedBy ?? null,
-        reviewedAt: input.reviewedBy ? new Date() : null,
+        // A node is created UNREVIEWED. An AI/imported node only becomes
+        // review-cleared via the explicit, actor-stamped reviewNode() step — a
+        // reviewer can't be self-attested at creation (keeps the activation
+        // provenance gate honest; C081).
+        reviewedBy: null,
+        reviewedAt: null,
         provenance: (input.provenance ?? undefined) as
           | Prisma.InputJsonValue
           | undefined,
@@ -337,8 +339,9 @@ export class CurriculumService {
 
   // ---- reads ----
 
-  listVersions(tenantId: string, frameworkId?: string) {
-    // RLS returns the tenant's own versions PLUS shared national (tenant_id NULL).
+  listVersions(frameworkId?: string) {
+    // RLS scopes the read: the tenant's own versions PLUS shared national
+    // (tenant_id NULL) rows — no explicit tenant filter needed here.
     return this.client.curriculumVersion.findMany({
       where: { ...(frameworkId ? { frameworkId } : {}) },
       orderBy: [{ effectiveFrom: 'desc' }],
@@ -364,17 +367,29 @@ export class CurriculumService {
   }
 
   /**
-   * Load a version and assert the caller may WRITE it — i.e. the caller owns it.
-   * National (tenant_id NULL) or another tenant's version is immutable here.
+   * Load a version and assert the caller may WRITE it. A version is writable only
+   * when the caller OWNS it (national / another tenant's is immutable — use an
+   * overlay), it is NOT flagged immutable, and it is not yet PUBLISHED: once a
+   * version is `active`/`retired` its content is frozen (you clone it to a new
+   * draft, you don't mutate it) — so a published result always references the
+   * exact content that governed it (pairs with ADR-04).
    */
   private async assertWritableVersion(tenantId: string, versionId: string) {
     const version = await this.client.curriculumVersion.findFirst({
       where: { id: versionId },
     });
     if (!version) throw new NotFoundException('Version not found');
-    if (version.tenantId !== tenantId) {
+    if (version.tenantId !== tenantId || version.isNationalImmutable) {
       throw new ForbiddenException(
         'This curriculum version is national/immutable — customize it with an overlay instead.',
+      );
+    }
+    if (
+      version.approvalState === 'active' ||
+      version.approvalState === 'retired'
+    ) {
+      throw new ForbiddenException(
+        'A published curriculum version is immutable — clone it to a new draft to change it.',
       );
     }
     return version;

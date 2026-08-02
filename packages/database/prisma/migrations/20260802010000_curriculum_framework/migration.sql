@@ -232,7 +232,16 @@ ALTER TABLE "curriculum"."tenant_curriculum_overlays" ADD CONSTRAINT "tenant_cur
 ALTER TABLE "curriculum"."curriculum_mappings" ADD CONSTRAINT "curriculum_mappings_tenant_id_fkey" FOREIGN KEY ("tenant_id") REFERENCES "tenant"."tenants"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- ---- RLS + grants ------------------------------------------------------
--- Reference tables: READ own + national(NULL) + platform; WRITE own + platform.
+-- Reference tables: national (tenant_id NULL) content is READABLE by any tenant
+-- but WRITABLE only by the platform — so a tenant cannot mutate, reclaim, or
+-- DELETE shared national rows even on a raw app_runtime query (RLS is the
+-- mandatory backstop, not just the service layer). This needs PER-COMMAND
+-- policies: a single FOR ALL `USING (tenant_id IS NULL …)` would also expose
+-- national rows to UPDATE/DELETE. So:
+--   * `tenant_isolation` FOR SELECT — shared read (own + NULL + platform); this
+--     is the PERMISSIVE tenant_isolation policy db:rls:check requires.
+--   * `tenant_write`      FOR ALL   — own + platform only (no NULL), governing
+--     INSERT/UPDATE/DELETE (its SELECT arm is redundant with tenant_isolation).
 DO $ref$
 DECLARE
   t text;
@@ -246,10 +255,18 @@ BEGIN
     EXECUTE format('ALTER TABLE %I.%I FORCE ROW LEVEL SECURITY', 'curriculum', t);
     EXECUTE format($p$
       CREATE POLICY "tenant_isolation" ON %I.%I
-        AS PERMISSIVE FOR ALL TO PUBLIC
+        AS PERMISSIVE FOR SELECT TO PUBLIC
         USING (
           tenant_id IS NULL
           OR tenant_id = current_setting('app.current_tenant_id', true)
+          OR current_setting('app.is_platform', true) = 'on'
+        )
+    $p$, 'curriculum', t);
+    EXECUTE format($p$
+      CREATE POLICY "tenant_write" ON %I.%I
+        AS PERMISSIVE FOR ALL TO PUBLIC
+        USING (
+          tenant_id = current_setting('app.current_tenant_id', true)
           OR current_setting('app.is_platform', true) = 'on'
         )
         WITH CHECK (

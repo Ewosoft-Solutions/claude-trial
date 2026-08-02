@@ -48,6 +48,25 @@ export class CurriculumAdoptionService {
     });
     if (!version) throw new NotFoundException('Curriculum version not found');
 
+    const effectiveFrom = new Date(input.effectiveFrom);
+    const status = input.status ?? 'active';
+
+    // Supersede any prior OPEN-ENDED active adoption for the same cohort+campus,
+    // closing it at the new one's start date — so `resolveForCohort` never has
+    // two open-ended active adoptions to disambiguate for one cohort.
+    if (status === 'active') {
+      await this.client.curriculumAdoption.updateMany({
+        where: {
+          tenantId,
+          entryCohort: input.entryCohort,
+          campusId: input.campusId ?? null,
+          status: 'active',
+          effectiveTo: null,
+        },
+        data: { status: 'superseded', effectiveTo: effectiveFrom },
+      });
+    }
+
     const adoption = await this.client.curriculumAdoption.create({
       data: {
         id: randomUUID(),
@@ -58,12 +77,11 @@ export class CurriculumAdoptionService {
         entryCohort: input.entryCohort,
         levelFrom: input.levelFrom ?? null,
         levelTo: input.levelTo ?? null,
-        effectiveFrom: new Date(input.effectiveFrom),
+        effectiveFrom,
         effectiveTo: input.effectiveTo ? new Date(input.effectiveTo) : null,
-        status: input.status ?? 'active',
+        status,
         approvedBy: actorId ?? null,
-        approvedAt:
-          input.status && input.status !== 'active' ? null : new Date(),
+        approvedAt: status === 'active' ? new Date() : null,
         createdBy: actorId ?? null,
       },
     });

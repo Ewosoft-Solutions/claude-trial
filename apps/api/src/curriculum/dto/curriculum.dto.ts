@@ -114,11 +114,8 @@ export class CreateNodeDto {
     string,
     unknown
   >;
-  @ApiPropertyOptional()
-  @IsOptional()
-  @IsString()
-  @MaxLength(120)
-  reviewedBy?: string;
+  // No `reviewedBy` here: a node is created unreviewed; review is the explicit,
+  // actor-stamped POST /nodes/:id/review step (keeps the provenance gate honest).
 }
 
 export class CreateOutcomeDto {
