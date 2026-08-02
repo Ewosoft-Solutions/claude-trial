@@ -4,6 +4,49 @@ Last Updated: 2026-08-02
 
 ---
 
+## Session Summary (2026-08-02) — Claude: F8 maker-checker review + a11y fixes (still in-review, PR #52)
+
+**Item(s):** F8 (PR #52) — a maker-checker review found 3 accessibility issues (1 moderate + 2 minor) + nits; **all addressed on `feat/F8-aurora-patterns`.** No functional bugs. ui vitest now **162** (15 on the shells), `ci:quick` + Prettier green. All changes are ARIA/`sr-only` — visually identical, so the original 3-theme visual pass still holds (no re-verify needed).
+
+- **[moderate a11y] `PolicyVersionPanel` ARIA/keyboard mismatch** — declared `role="listbox"` with `role="option"` `aria-selected` on Tab-focusable `<button>`s, but with no roving tabindex / arrow-key model, so AT was promised a listbox the keyboard didn't fulfil. Fixed: dropped `listbox`/`option`/`aria-selected` for a `role="group"` of plain toggle buttons with `aria-pressed` (matches the actual Tab-to-move / Enter-to-select UX). Test updated to assert `aria-pressed` + no listbox/option roles.
+- **[minor a11y] `LifecycleBar` announced only "current"** — the check + ordinal are both `aria-hidden`, so done-vs-upcoming was invisible to a screen reader. Added an `sr-only` status per step ("completed" / "current step" / "upcoming" / "skipped"). New test.
+- **[minor a11y] `ApprovalPanel` before→after not announced** — the `→` is `aria-hidden` and "before" is `line-through` (visual-only). Added `sr-only` "from … to …" so the change is read as a relationship. Assertion added.
+- **[nit] `WorkbenchLayout` context bar** now has `role="group" aria-label="Workspace context"`.
+
+`sr-only` was already an established `packages/ui` pattern (breadcrumb/dialog/password-strength), so no new utility was needed.
+
+**Next:** push → CI green → PR #52 ready to merge.
+
+---
+
+## Session Summary (2026-08-02) — Claude: F8 shared Aurora workspace shells (Workbench / Lifecycle / Policy / Approval) → in-review
+
+**Item(s):** F8 → **in-review**. **Branch/PR:** `feat/F8-aurora-patterns` → PR to open. Claim committed first (`board: claim F8`), then built. Third item in the "pick up F5/F6/F7 → then F8" run (F7 already done; F5 = [PR #48](https://github.com/Ewosoft-Solutions/claude-trial/pull/48), F6 = [PR #49](https://github.com/Ewosoft-Solutions/claude-trial/pull/49)). **This completes the Phase-1 foundations (F1–F8 built).** Independent of F5/F6 — branched off `main`, pure `packages/ui` + a demo page (no DB/permissions).
+
+**What changed & why** — codify the four reusable Aurora workspace shells beyond F7's Directory (design bridge 08), so every workbench looks like one product instead of the legacy two-visual-generations drift.
+
+- **`packages/ui/src/custom/`** (all new, presentational + controlled + data-driven — no product copy inside; consumer supplies every label):
+  - `workbench/workbench-layout.tsx` — **WorkbenchLayout**: a persistent **context bar** (the year/term/campus/entity selectors a workbench inherits — fixes C044+ re-pick-per-page) + a controlled **tab strip** (Radix `Tabs`, count badges, icons). Host owns `activeTab` + renders the active section as `children` (associated `TabsContent` for a11y).
+  - `lifecycle/lifecycle-bar.tsx` — **LifecycleBar**: an ordered status view (draft→published→locked→amended, applied→offered→accepted→enrolled). Current state = tone + **non-colour cue** (`ring` + `aria-current="step"`); done = a check; upcoming = an ordinal. Tones map to the `StatusBadge` token scale.
+  - `policy/policy-version-panel.tsx` — **PolicyVersionPanel**: a version rail (active badge + effective dates) + **clone / compare / activate**, and a before/after diff table (changed rows flagged non-visually too). The shape F6 curriculum versions + WB1-5 role policy + fee schedules reuse.
+  - `approval/approval-panel.tsx` — **ApprovalPanel**: the maker-checker surface — before→after change fields, a **separation-of-duties block** (disables Approve when `isSelfRequest`), a **step-up** notice, Approve/Reject. Approve also disabled when `canApprove=false`.
+  - `types/patterns.types.ts` — the shared contracts (`WorkbenchTab`, `LifecycleStep`, `PolicyVersion`/`PolicyCompareRow`, `ApprovalRequestMeta`/`ApprovalField`).
+- **`apps/web/app/design-system/patterns/page.tsx`** — a demo rendering **two workspaces (People + Academics) from the SAME WorkbenchLayout** (the acceptance) plus all four shells with realistic data; linked from the design-system index.
+- **Theme parity by construction:** every shell uses only Aurora **semantic tokens** (`bg-card`, `text-foreground`, `border-border`, `text-muted-foreground`, and the `info/success/warning/destructive` tone tokens) — no hardcoded colour — so light/dark/classic-dark adapt automatically, exactly like the existing `StatusBadge`/`DirectoryTable`.
+
+**Verification** (run + result)
+
+- **vitest 14/14** on the four shells (`*.test.tsx`: render, tab-change callback + `aria-selected`, `aria-current` lifecycle, activate-disabled-for-active + clone/compare/diff, SoD-disables-approve + step-up + reject). **Full `packages/ui` suite 161** green (was 147). **`ci:quick` green** (build + lint + typecheck; fixed one `SelectTrigger size` typing slip in the demo page).
+- **Visual pass across all 3 themes** on `/design-system/patterns` (dev :3001): two workspaces from one shell, lifecycle checks/rings/ordinals, policy rail + clone/compare/activate, three approval cards (High-risk + step-up, Critical **self-request → Approve disabled + SoD callout**, Review **no-permission → Approve disabled**). Screenshots captured in **dark, light, classic-dark** — all parity-correct.
+- **Gotchas hit + recorded:** (1) `/design-system` is auth-gated by middleware (only `/login`, `/forgot-password`, `/reset-password`, `/accept-invite`, `/session/resume` are public); to screenshot without entering a credential (guardrail), I made the route public **locally only and reverted it with `git checkout` — never committed**. (2) Radix `Tabs` triggers activate on **pointer-down**, not `fireEvent.click` — use `fireEvent.mouseDown` in tests (`@testing-library/user-event` isn't installed). (3) Browser-pane scrolled screenshots came back blank; a **tall viewport at scroll 0** captured the full page. (4) **Shared-working-tree collision:** a concurrent agent checked the tree out to `docs/env-example-signing-secret` mid-build; my branch + committed work were intact — recovered by `git checkout feat/F8-aurora-patterns`. Commit work promptly on shared trees.
+
+**Decisions / ADRs**
+
+- **No new ADR.** Notable choices: (1) shells are **controlled + presentational** (host owns state, no product copy) — the F7/`custom/states` convention; (2) `WorkbenchLayout` renders only the active section (`children`) inside a single `TabsContent` rather than mounting all tabs — the host decides what to fetch/mount per tab; (3) theme parity is achieved by **semantic tokens only**, so no per-theme code paths.
+
+**Next step (so the next agent can resume)**
+
+- Open the F8 PR → review → merge → flip **F8 → done**. That makes **Phase-1 foundations F1–F8 all done/in-review**, and **WB1 (People directory)** fully unblocked — WB1-1 composes `WorkbenchLayout` (People workbench) + F7 `DirectoryTable` + F1 person projection. Also newly composable: WB1-5 role editor on `PolicyVersionPanel`, WB1-6 high-risk changes on `ApprovalPanel`, F6 curriculum versions on `PolicyVersionPanel`, results lifecycle on `LifecycleBar`. `F9` (export/retention) is the last Phase-1 item still `blocked` (deps F3+F4 both done — can be flipped `ready`).
 ## Session Summary (2026-08-02) — Claude: F6 maker-checker review + fixes (still in-review, PR #49)
 
 **Item(s):** F6 (PR #49) — a maker-checker review found 1 moderate + 4 minor issues; **all addressed on `feat/F6-academic-profile`.** e2e now **8/8** (5 + 3 new), api unit 470/470, `ci:quick` + `check:privileged-db` + `db:rls:check` + Prettier green.
