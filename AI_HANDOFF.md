@@ -47,6 +47,50 @@ Last Updated: 2026-08-02
 **Next step (so the next agent can resume)**
 
 - Open the F8 PR → review → merge → flip **F8 → done**. That makes **Phase-1 foundations F1–F8 all done/in-review**, and **WB1 (People directory)** fully unblocked — WB1-1 composes `WorkbenchLayout` (People workbench) + F7 `DirectoryTable` + F1 person projection. Also newly composable: WB1-5 role editor on `PolicyVersionPanel`, WB1-6 high-risk changes on `ApprovalPanel`, F6 curriculum versions on `PolicyVersionPanel`, results lifecycle on `LifecycleBar`. `F9` (export/retention) is the last Phase-1 item still `blocked` (deps F3+F4 both done — can be flipped `ready`).
+## Session Summary (2026-08-02) — Claude: F6 maker-checker review + fixes (still in-review, PR #49)
+
+**Item(s):** F6 (PR #49) — a maker-checker review found 1 moderate + 4 minor issues; **all addressed on `feat/F6-academic-profile`.** e2e now **8/8** (5 + 3 new), api unit 470/470, `ci:quick` + `check:privileged-db` + `db:rls:check` + Prettier green.
+
+- **[moderate — RLS backstop] Tenants could UPDATE/DELETE national rows.** The reference tables' single `FOR ALL tenant_isolation` policy's `USING (tenant_id IS NULL …)` exposed national (null-tenant) rows to *every* command, so a raw tenant-scoped `app_runtime` query could DELETE a national row (removing it for all tenants) or UPDATE it to reclaim it — national immutability held only at the service layer, not the mandatory RLS backstop (and this pattern is earmarked for WB2/WB4 reuse). **Fixed with per-command policies:** `tenant_isolation` is now `FOR SELECT` (shared read — still the permissive policy `db:rls:check` requires) + a new `tenant_write` `FOR ALL` scoped to own+platform (national rows not writable/deletable by tenants). New e2e proves a raw tenant UPDATE/DELETE of a national row is a **no-op**. Migration edited + applied to local DB.
+- **[minor] `is_national_immutable` was dead metadata** → now a real guard: `assertWritableVersion` rejects mutation when the version is flagged immutable **or already published** (`active`/`retired`) — a published version is frozen (clone to a new draft), which also pairs with ADR-04. New e2e.
+- **[minor] Provenance gate was self-attestable** — `addNode` accepted `reviewedBy` at creation, letting an AI/imported node ship "pre-reviewed". Removed `reviewedBy` from `addNode` + the DTO: a node is created unreviewed and only cleared via the actor-stamped `reviewNode` step (existing AI-gate e2e still passes).
+- **[minor] Overlapping cohort adoptions** — `adopt()` now supersedes a prior open-ended active adoption for the same cohort+campus (status `superseded`, `effectiveTo` = new start), so `resolveForCohort` never disambiguates two open-ended adoptions. New e2e.
+- **[nit] `listVersions` dead `tenantId` param** removed (RLS scopes the read).
+
+**Reusable-pattern update:** the national-shared reference-data RLS is now **two policies** (`tenant_isolation` FOR SELECT shared-read + `tenant_write` FOR ALL own-only), not one FOR ALL — WB2/WB4 should copy this shape. `db:rls:check` only checks that a permissive `tenant_isolation` policy exists (not its command), so it passed both before and after — the write-exposure was invisible to the gate.
+
+**Next:** push the fixes → CI green → PR #49 ready to merge.
+
+---
+
+## Session Summary (2026-08-02) — Claude: F6 academic-profile + policy-version framework (curriculum) → in-review
+
+**Item(s):** F6 → **in-review**. **Branch/PR:** `feat/F6-academic-profile` → PR to open. Claim committed first (`board: claim F6 (claude)`), then built (one item = one branch = one PR). This is the second half of a "pick up F5, F6, F7" session — F7 was already done; **F5** shipped this session as **[PR #48](https://github.com/Ewosoft-Solutions/claude-trial/pull/48)** (communication delivery); **F6** here. F6 is independent of F5 (branched off `main`), so a small board/seed merge reconcile is expected after both merge.
+
+**What changed & why** — a versioned, effective-dated, provenance-bearing curriculum domain (ADR-03) that replaces the legacy "single mutable subject list" (C077-C081) with real lineage, so results are reproducible, the NERDC-2025 cohort rollout works, and the dirty catalog is de-duplicated.
+
+- **`packages/database` — new `curriculum` schema (`models/curriculum.prisma`, 10 models):** `CurriculumAuthority` (NERDC/Cambridge/tenant) → `CurriculumFramework` → **`CurriculumVersion`** (effective-dated `effective_from/to`, `approval_state`, `provenance`, `is_national_immutable`) → `CurriculumStage` → `CurriculumSubject` (with `canonical_name`) → `CurriculumNode` (strand/topic tree + `origin`/`reviewed_by` provenance) → `LearningOutcome`; plus `CurriculumAdoption` (tenant/campus/programme + entry cohort + level range + effective dates), `TenantCurriculumOverlay`, `CurriculumMapping` (alias). Hand-written migration `20260802010000_curriculum_framework`.
+- **Tenanting model (ADR-03 "national reference rows are shared read-only"):** the 7 reference tables carry a **NULLABLE `tenant_id`** — `NULL` = shared national content, non-null = a tenant's own framework. Two RLS shapes, both PERMISSIVE + named `tenant_isolation` (so `db:rls:check` passes): reference tables `USING (tenant_id IS NULL OR = current OR platform)` + `WITH CHECK (tenant_id = current OR platform)` — a tenant READS national but cannot WRITE it (national is immutable at the DB layer); application tables use the standard own+platform isolation. Added `curriculum` to `schema.prisma` datasource + `rls-coverage-check.sql`. Applied locally via psql + `migrate resolve --applied` (the F5 migration sits in the local DB but not on this branch, so `migrate deploy` would drift-check; CI runs it fresh).
+- **`apps/api` `CurriculumModule`:**
+  - `CurriculumService` — authoring (authority/framework/version/stage/subject/node/outcome). `assertWritableVersion` enforces **national immutability**: authoring is refused on any version the caller does not own (national or other-tenant), backed by RLS `WITH CHECK`. `activateVersion` is the **provenance gate** — refuses to publish a version with any `origin IN (ai,imported)` node lacking a `reviewed_by` (fixes C081); `reviewNode` clears it.
+  - `CurriculumAdoptionService` — `adopt` (effective-dated) + **`resolveForCohort`** (which version governs cohort C on date D) — proves two cohorts run different versions in one campus.
+  - `CurriculumOverlayService` (tenant deltas over an immutable national version), `CurriculumMappingService` (`normalizeName` unifies "&"↔"and" + strips punctuation so "Cultural And Creative Arts" ↔ "Cultural & Creative Arts" de-dup, fixes C080).
+  - 3 controllers (`curriculum`, `curriculum/adoptions`, curriculum customization) — full guard stack + `@TenantScoped`, `TenantDbService.client` only. Registered in `app.module.ts`.
+- **Permissions +4** (`curriculum.view`(3)/`manage`(7)/`activate`(8, academic-owner gate)/`adopt`(7), category `academic`; new `CURRICULUM_PERMISSIONS` array registered + `EXPECTED_PERMISSION_COUNTS`). On this branch total 320→**324**; reconciles to 329 with F5's +5 at merge.
+
+**Verification** (run + result)
+
+- **`curriculum.e2e-spec.ts` 5/5** — real Postgres as `app_runtime` (fixtures via superuser; national content created with `tenant_id NULL`). Proves the ADR-03 acceptance scenarios: (1) two cohorts (Primary 1 / Primary 4) run **different versions in one campus** on the same date, and the 2020 version's content is untouched when 2025 activates; (2) **activation refused** on an unreviewed AI node, allowed after review; (3) national content is **readable by any tenant but immutable to it** (authoring → Forbidden), overlay is the sanctioned path; (4) **RLS isolation** (a tenant version invisible to another tenant); (5) a **dirty subject name resolves to canonical** via an alias.
+- **api unit 470/470** (+ `normalizeName` unit). **`ci:quick` green** (build+lint+typecheck, 0 errors — new files clean). **`check:privileged-db` green**. **`db:rls:check` green** (all 10 curriculum tables). **`db:seed` catalog validation green** (324, 4 curriculum permissions created + pool-assigned). **Prettier-clean.** `db:verify`: the one failing check is the known "Platform Bootstrap incomplete" local artifact, not F6.
+- No browser pass — F6 is server-side foundation (its UI consumers are WB2/WB4/WB8).
+
+**Decisions / ADRs**
+
+- **No new ADR** — F6 implements accepted ADR-03. Notable choices recorded here: (1) national reference content is modeled as **nullable-`tenant_id` rows in the same tables** (not a separate global schema) with a read-shared / write-own RLS split — keeps one query path for "national + my overlays" while making national immutable to tenants at the DB; (2) authoring is **tenant-owns-the-version** only — a tenant customizes national content via `TenantCurriculumOverlay`, never by mutating the source or attaching tenant children to a national version; (3) the provenance gate is enforced at **activation** (not at node creation) so drafts can hold unreviewed AI nodes but nothing AI-generated ships unreviewed.
+
+**Next step (so the next agent can resume)**
+
+- Open the F6 PR → review → merge → flip **F6 → done** (unblocks **WB2** subject catalog, **WB4** results-reference-a-version, **WB8** curriculum coverage). Reconcile the board + `seed.ts` (`EXPECTED_PERMISSION_COUNTS`) with F5 at merge (F5 +5, F6 +4 → 329). Optional follow-ups: seed the official NERDC 2020/2025 framework versions as production reference data (ADR-03 lists this — the e2e uses fixtures); apply overlays into the read-time version tree; cite `LearningOutcome` from lessons/offerings/results (WB8/ADR-04).
 ## Session Summary (2026-08-02) — Claude: F5 maker-checker review + fixes (still in-review, PR #48)
 
 **Item(s):** F5 (PR #48) — an independent maker-checker review found 6 issues; **all addressed on `feat/F5-communication-delivery`.** e2e now **10/10** (6 + 4 new), api unit 472/472, `ci:quick` + `check:privileged-db` + Prettier green.
