@@ -59,6 +59,9 @@ export default function DesignSystemPage() {
             <Link href="/design-system/layouts">View layouts →</Link>
           </Button>
           <Button asChild variant="outline" size="sm">
+            <Link href="/design-system/patterns">View patterns →</Link>
+          </Button>
+          <Button asChild variant="outline" size="sm">
             <Link href="/design-system/shell">View app shell →</Link>
           </Button>
           <ModeToggle />
