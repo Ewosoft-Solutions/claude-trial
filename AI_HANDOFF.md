@@ -1,6 +1,56 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-01
+Last Updated: 2026-08-02
+
+---
+
+## Session Summary (2026-08-02) — Claude: F5 maker-checker review + fixes (still in-review, PR #48)
+
+**Item(s):** F5 (PR #48) — an independent maker-checker review found 6 issues; **all addressed on `feat/F5-communication-delivery`.** e2e now **10/10** (6 + 4 new), api unit 472/472, `ci:quick` + `check:privileged-db` + Prettier green.
+
+- **[blocking] Marketing sent without opt-in** — `delivery.service.ts` suppressed only an explicit opt-out (`optedIn === false`), so a `marketing` send to a person with **no** preference row was delivered (contradicts ADR-07 "marketing = opt-in required"; NDPA). Fixed: consent gate is now category-aware — `critical` always sends, `marketing` requires `optedIn === true`, `transactional` sends unless explicitly opted out. New e2e; the existing consent test updated (its old assertion encoded the bug).
+- **[moderate] Dead job orphaned the ledger row** — `delivery-job.registrar.ts` never updated the DeliveryAttempt on provider failure, so an exhausted-retry send stayed `queued` forever and the ledger couldn't show "what failed". Fixed: on the terminal attempt (`ctx.job.attempts >= max_attempts`) the handler records `failed` + `provider_error` + error and returns (the ledger, not the job row, is the delivery source of truth — works within F3's one-tx model); non-terminal failures still rethrow for retry. New e2e.
+- **[moderate] SecureLink `maxUses` TOCTOU** — check + increment were separate, so a single-use link could be redeemed twice under concurrency. Fixed with an atomic conditional `UPDATE … WHERE use_count < max_uses` (0 rows → Gone). New e2e (sequential exhaustion).
+- **[moderate] Denied redemptions weren't audited** — `enforceAccess` threw `Forbidden` with no trail. Fixed: every denial writes a `SECURITY_EVENT` audit (`communication.secure_link.denied`) before throwing. New e2e asserts the audit row.
+- **[minor] Template vars unescaped into email HTML** — `interpolate` now HTML-escapes interpolated VALUES on the `email` channel (authored body stays intact; SMS/in-app unescaped so literal `&`/`<` survive).
+- **[minor] "No double-send" is adapter-dependent** — doc-only: the registrar/type docs already scope the guarantee to idempotency-supporting providers; dev log adapters intentionally left stateless.
+
+**Gotcha:** switching branches on the shared tree left a **stale `apps/web/.next`** referencing the F8 `patterns/page` → a phantom web typecheck error; `rm -rf apps/web/.next` fixes it (build artifacts don't follow the branch).
+
+**Next:** push the fixes → CI green → PR #48 ready to merge.
+
+---
+
+## Session Summary (2026-08-02) — Claude: F5 communication delivery abstraction (DeliveryAttempt ledger + ContactPreference + SecureLink) → in-review
+
+**Item(s):** F5 → **in-review**. **Branch/PR:** `feat/F5-communication-delivery` → PR open. Claim committed first (`board: claim F5 (claude)`) on the branch, then built (one item = one branch = one PR). Kicked off as "pick up F5, F6, F7" — F7 was already `done` (PR #44 merged), so this session is F5; **F6 is next** (foundation-to-DoD, per the owner's chosen scope).
+
+**What changed & why** — a provider-agnostic delivery layer with a first-class evidence ledger (ADR-07). No domain calls a provider SDK directly; a domain publishes a *message intent* and the layer resolves audience → consent → channel → provider, records a `DeliveryAttempt`, and sends idempotently on the F3 job substrate. Reproduces the legacy metered SMS balance + delivery log (cost + DND) while fixing its two hazards (public result URLs → SecureLink; gender-label targeting → real consent).
+
+- **`packages/database` (`communication` schema, +7 tables):** `ContactPreference` (per-person/channel consent + DND + quiet-hours — the "richer model" `person.ContactPoint` explicitly deferred to), `MessageTemplate`+`TemplateVersion` (versioned copy per channel/locale), `Campaign`+`CampaignRecipient` (bulk), the **`DeliveryAttempt` ledger** (channel/provider/status/failureClass/**costUnits+dndFlag**/redactedDestination/attemptNo/dedupeKey), and **`SecureLink`** (sha256-hashed token, `requiredPermission`/audience binding, mandatory expiry, useCount/maxUses/revoked). Hand-written migration `20260802000000_communication_delivery` — tables + indexes + tenant-FK cascade + person scalar-FKs + all 7 tables `ENABLE`/`FORCE ROW LEVEL SECURITY` + PERMISSIVE `tenant_isolation` + `app_runtime` grants (infra convention: DB FK, no Prisma relation to Tenant, mirrors jobs/directory). Applied via `db:deploy`; `communication` already in `rls-coverage-check.sql` so coverage is automatic.
+- **`apps/api` `communication/delivery/`:**
+  - `DeliveryService` — the single send entry point. Resolves content (direct or template), destination (Person's primary `ContactPoint`), consent (non-critical send to an opted-out recipient is **suppressed**; a `critical` lawful/contractual notice overrides), metered cost + DND; writes the attempt **idempotently on `(tenant, dedupeKey)`** (`INSERT … ON CONFLICT DO NOTHING`, mirrors `JobService.enqueue`) and enqueues the send on **F3 jobs** keyed to the attempt id. MUST run inside `runScoped` (attempt + job commit atomically with the caller's domain change).
+  - `DeliveryJobRegistrar` — registers the durable `delivery.send` handler on the F3 registry; NO-OP if the attempt is already sent/delivered (retry-safe), passes the attempt id to the adapter as a **provider-side idempotency key** so a provider whose ack timed out is not asked to transmit twice.
+  - `ChannelAdapter` port + `DeliveryAdapterRegistry` — `EmailChannelAdapter` **delegates to the existing `EmailService`** (reuse, not duplicate); `LogSmsAdapter`/`LogPushAdapter`/`InAppChannelAdapter` for dev/CI; `.set()` lets tests swap an adapter (used by the double-send test).
+  - `SecureLinkService` (create/redeem/revoke — per-link permission via `PermissionService.checkPermission` + audience binding + expiry/revoke/maxUses; `Gone`/`Forbidden`/`NotFound`), `ContactPreferenceService`, `TemplateService` (versioned + `{{placeholder}}` render), `CampaignService` (fan-out through `DeliveryService` so consent/DND/ledger apply uniformly), `DeliveryLedgerService` (delivery log + **SMS-balance/usage reproduced from the ledger**).
+  - 5 controllers (`delivery` ledger/usage, `contact-preferences`, `secure-links`, `campaigns`, `templates`) — full guard stack + `@TenantScoped`; **`TenantDbService.client` only**. Registered in the existing `CommunicationModule` (added `JobsModule`).
+- **Permissions +5 (320→325):** `communication.delivery.view` (5), `communication.delivery.manage` (7), `communication.campaigns.manage` (7), `communication.templates.manage` (7), `communication.preferences.manage` (5). `EXPECTED_PERMISSION_COUNTS` total→325, `COMMUNICATION_PERMISSIONS`→18; seed catalog validation passed (5 created + auto-assigned to pools). SecureLink redemption enforces the **link's own** `requiredPermission` (dynamic), not a static decorator.
+- **No new prod secret** — SecureLink uses a random 256-bit token with only its sha256 hash stored (like the invitation/reset tokens), deliberately avoiding a `DOCUMENT_URL_SIGNING_SECRET`-style prod config gate.
+
+**Verification** (run + result)
+
+- **`communication-delivery.e2e-spec.ts` 6/6** — real Postgres as `app_runtime` (parity topology; fixtures via superuser `befenudu`). Proves all four ADR-07 acceptance scenarios: (1) cost+DND recorded and **usage reproduces from the ledger** (3 + 2.5 = 5.5 units); (2) idempotent on `(tenant, dedupeKey)`; (3) **provider timeout → job retry → exactly one real provider send** (attempt stays `queued` on failure, adapter dedupes on retry); (4) SecureLink **expires + permission-checked + audience-bound** (Forbidden/Gone/allow); plus campaign consent-suppress + **critical override**, and **RLS isolation** (A can't see B's attempts). Full AppModule booted (DI wiring confirmed).
+- **api unit 472/472** (incl. new `sms-cost.spec` 5/5: DND vs normal metering + redaction). **`ci:quick` green** (build+lint+typecheck, 0 errors — new files lint-clean). **`check:privileged-db` green** (no new privileged/unscoped usage). **`db:rls:check` green** (all 7 new tables covered). **`db:seed` catalog validation green** (325). **Prettier-clean** on touched `.ts`.
+- **`db:verify`**: permissions/pools/assignments pass at 325; the one failing check ("Platform Bootstrap incomplete") is the known local-DB artifact (H1), not F5.
+- No browser pass — F5 is server-side foundation (no web surface this pass, per the chosen foundation-to-DoD scope); its consumers (WB1-3 invitations, results/finance notices) are the UI later.
+
+**Decisions / ADRs**
+
+- **No new ADR** — F5 implements accepted ADR-07 (+ADR-06 job substrate, ADR-01 relationships/consent). Notable choices recorded here: (1) delivery tables follow the **jobs/directory infra convention** (scalar `tenant_id` + migration FK, no Prisma relation to Tenant; a high-volume ledger isn't navigated from the aggregate); (2) the ledger keeps only a **redacted** destination — the real destination lives in the transient job payload; (3) `tenant_id` is **NOT NULL** on all delivery tables this pass (platform-scoped broadcast for ADR-14/WB11 — nullable tenant + push registry — is a future follow-up); (4) quiet-hours deferral is implemented but **UTC-based** (columns + hook in place; a tenant-timezone refinement is a follow-up — see the "Timestamp TZ" gotcha, which bit the first draft of the e2e's expiry check).
+
+**Next step (so the next agent can resume)**
+
+- Review → merge PR → flip **F5 → done** (unblocks **WB1-3** secure invitations + **every** notification path: admissions/results/attendance/finance, and F5-gated WB3/WB6/WB11). Then **F6** (academic-profile + policy-version framework, ADR-03) — already `ready`, ADR accepted; new `curriculum` schema (Authority→Framework→Version→Stage→Subject→Node→LearningOutcome + Adoption + TenantOverlay + Mapping). Optional F5 follow-ups: wire a real SMS provider adapter (e.g. Termii) behind `SMS_PROVIDER`; route large campaign fan-out onto an F3 job (currently synchronous); resolve the redeemer's `personId` at the HTTP layer for person-bound SecureLinks; back-fill historical delivery logs as read-only ledger rows during migration (WB7).
 
 ---
 
