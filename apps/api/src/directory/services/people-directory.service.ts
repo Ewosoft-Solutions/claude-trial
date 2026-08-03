@@ -65,9 +65,91 @@ export interface PersonDetailRelation {
   isPrimary: boolean;
 }
 
+export interface PersonAddress {
+  kind: string;
+  line1: string;
+  line2: string | null;
+  city: string | null;
+  /** State / Province / Region. */
+  subdivision: string | null;
+  /** NG LGA (second-level). */
+  subdivisionLga: string | null;
+  country: string;
+  isPrimary: boolean;
+}
+
+export interface PersonContactPoint {
+  kind: string; // 'email' | 'phone'
+  /** Masked unless the caller holds `people.view_contact`. */
+  value: string;
+  label: string | null;
+  isPrimary: boolean;
+  verified: boolean;
+}
+
+export interface PersonContactPreference {
+  channel: string; // 'sms' | 'email' | 'push' | 'in_app'
+  optedIn: boolean;
+  isDnd: boolean;
+}
+
+/** A step in a known-flow lifecycle (admission / enrollment / employment). */
+export interface PersonTimelineStep {
+  key: string;
+  label: string;
+  date: string | null;
+  state: 'done' | 'current' | 'pending';
+  detail: string | null;
+}
+
+/** At-a-glance boolean signals for the header chips. */
+export interface PersonDetailFlags {
+  hasSiblings?: boolean;
+  feesOverdue?: boolean;
+  attendanceRisk?: boolean;
+  newAdmission?: boolean;
+  onLeave?: boolean;
+  /** Prospect: a sibling is already enrolled (guardian matched an existing student). */
+  siblingEnrolled?: boolean;
+}
+
+/** Student academics roll-up (needs grades/attendance view). */
+export interface AcademicsSummary {
+  attendancePercent: number | null;
+  averageGradePercent: number | null;
+  currentClasses: {
+    id: string;
+    name: string;
+    term: string | null;
+    status: string;
+    finalGrade: string | null;
+  }[];
+}
+
+/** Student finance roll-up in minor units / kobo (needs `finance.view`). */
+export interface FinanceSummary {
+  balance: number;
+  totalDue: number;
+  totalPaid: number;
+  overdueCount: number;
+  nextDueDate: string | null;
+}
+
+/** Documents roll-up (needs `documents.view`). */
+export interface DocumentsSummary {
+  count: number;
+  recent: {
+    id: string;
+    title: string;
+    type: string | null;
+    scanStatus: string;
+    createdAt: string;
+  }[];
+}
+
 /**
  * The fuller per-person projection behind the detail drawer / profile page.
- * Sections are present only when the caller holds the matching profile
+ * Sections are present only when the caller holds the matching profile / domain
  * permission (layered model, resolved at the controller); contact is masked
  * without `people.view_contact`. Health/safeguarding is never referenced.
  */
@@ -75,15 +157,34 @@ export interface PersonDetail {
   id: string;
   type: PeopleType;
   name: string;
+  preferredName: string | null;
   profiles: PeopleProfileKind[];
+  /** Student.id when this person has a student profile (for per-student tabs). */
+  studentId: string | null;
+  // Identity
+  dateOfBirth: string | null;
+  gender: string | null;
+  nationality: string | null;
+  stateOfOrigin: string | null;
+  lgaOfOrigin: string | null;
+  addresses: PersonAddress[];
+  // Contact
   email: string | null;
   phone: string | null;
   contactMasked: boolean;
+  contactPoints: PersonContactPoint[];
+  contactPreferences: PersonContactPreference[];
+  // Cross-cutting
+  timeline: PersonTimelineStep[];
+  flags: PersonDetailFlags;
+  // Role sections
   student: {
     studentNumber: string | null;
     gradeLevel: string | null;
     enrollmentStatus: string | null;
+    admissionDate: string | null;
     guardians: PersonDetailRelation[];
+    siblings: PersonDetailRelation[];
   } | null;
   staff:
     | {
@@ -92,17 +193,28 @@ export interface PersonDetail {
         department: string | null;
         employmentStatus: string;
         employmentType: string | null;
+        hireDate: string | null;
       }[]
     | null;
   /** Wards this person is a guardian of. */
   wards: PersonDetailRelation[] | null;
-  account: { status: string; email: string | null } | null;
+  account: {
+    status: string;
+    email: string | null;
+    role: string | null;
+    lastLoginAt: string | null;
+  } | null;
   prospect: {
     applyingFor: string;
     guardianName: string;
     stage: string;
     decision: string | null;
+    submittedDate: string | null;
   } | null;
+  // Cross-domain roll-ups (null when not applicable or not permitted)
+  academics: AcademicsSummary | null;
+  finance: FinanceSummary | null;
+  documents: DocumentsSummary | null;
 }
 
 export interface PeopleDirectoryResult {
@@ -187,19 +299,60 @@ type ProspectRow = Prisma.AdmissionApplicationGetPayload<{
  * both relationship directions (wards + guardians) and the full staff/account
  * detail. Health/safeguarding is still never referenced.
  */
+const RELATION_PERSON = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  preferredName: true,
+} as const;
+
 const DETAIL_SELECT = {
   id: true,
   firstName: true,
   lastName: true,
   preferredName: true,
   userTenantId: true,
+  dateOfBirth: true,
+  gender: true,
+  nationality: true,
+  stateOfOrigin: true,
+  lgaOfOrigin: true,
   contactPoints: {
     orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
     take: 20,
-    select: { kind: true, value: true },
+    select: {
+      kind: true,
+      value: true,
+      label: true,
+      isPrimary: true,
+      verifiedAt: true,
+    },
+  },
+  addresses: {
+    orderBy: [{ isPrimary: 'desc' }],
+    select: {
+      kind: true,
+      line1: true,
+      line2: true,
+      city: true,
+      subdivision: true,
+      subdivisionLga: true,
+      country: true,
+      isPrimary: true,
+    },
   },
   studentProfile: {
-    select: { studentNumber: true, gradeLevel: true, enrollmentStatus: true },
+    select: {
+      id: true,
+      studentNumber: true,
+      gradeLevel: true,
+      enrollmentStatus: true,
+      admissionDate: true,
+      enrollmentDate: true,
+      graduationDate: true,
+      withdrawalDate: true,
+      transferDate: true,
+    },
   },
   staffProfiles: {
     orderBy: { createdAt: 'desc' },
@@ -209,6 +362,7 @@ const DETAIL_SELECT = {
       department: true,
       employmentStatus: true,
       employmentType: true,
+      hireDate: true,
     },
   },
   guardianships: {
@@ -217,14 +371,7 @@ const DETAIL_SELECT = {
     select: {
       relationship: true,
       isPrimary: true,
-      ward: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          preferredName: true,
-        },
-      },
+      ward: { select: RELATION_PERSON },
     },
   },
   wardLinks: {
@@ -233,18 +380,16 @@ const DETAIL_SELECT = {
     select: {
       relationship: true,
       isPrimary: true,
-      guardian: {
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          preferredName: true,
-        },
-      },
+      guardian: { select: RELATION_PERSON },
     },
   },
   account: {
-    select: { status: true, user: { select: { email: true } } },
+    select: {
+      status: true,
+      addedAt: true,
+      user: { select: { email: true, lastLoginAt: true } },
+      userTenantRole: { select: { role: { select: { name: true } } } },
+    },
   },
 } satisfies Prisma.PersonSelect;
 
@@ -263,6 +408,10 @@ export interface PersonDetailPerms {
   staff: boolean;
   guardians: boolean;
   users: boolean;
+  /** Domain roll-up gates (Academics needs grades OR attendance view). */
+  academics: boolean;
+  finance: boolean;
+  documents: boolean;
 }
 
 function personName(row: {
@@ -335,6 +484,186 @@ function profilesOf(row: {
   if (row.staffProfiles.length > 0) profiles.push('staff');
   if (row.userTenantId) profiles.push('user');
   return profiles;
+}
+
+/* ---- Person-detail helpers ---------------------------------------------- */
+
+function iso(d: Date | null | undefined): string | null {
+  return d ? d.toISOString() : null;
+}
+
+function isRecent(d: Date | null, days = 30): boolean {
+  return !!d && Date.now() - d.getTime() < days * 24 * 60 * 60 * 1000;
+}
+
+function relationOf(
+  p: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    preferredName: string | null;
+  },
+  relationship: string,
+  isPrimary: boolean,
+): PersonDetailRelation {
+  return { id: p.id, name: personName(p), relationship, isPrimary };
+}
+
+function presentContactPoints(
+  points: {
+    kind: string;
+    value: string;
+    label: string | null;
+    isPrimary: boolean;
+    verifiedAt: Date | null;
+  }[],
+  canViewContact: boolean,
+): PersonContactPoint[] {
+  return points.map((p) => ({
+    kind: p.kind,
+    value: canViewContact ? p.value : maskContactValue(p.kind, p.value),
+    label: p.label,
+    isPrimary: p.isPrimary,
+    verified: p.verifiedAt !== null,
+  }));
+}
+
+/** The null-filled detail skeleton the two projections spread over. */
+function baseDetail(id: string, type: PeopleType, name: string): PersonDetail {
+  return {
+    id,
+    type,
+    name,
+    preferredName: null,
+    profiles: [],
+    studentId: null,
+    dateOfBirth: null,
+    gender: null,
+    nationality: null,
+    stateOfOrigin: null,
+    lgaOfOrigin: null,
+    addresses: [],
+    email: null,
+    phone: null,
+    contactMasked: false,
+    contactPoints: [],
+    contactPreferences: [],
+    timeline: [],
+    flags: {},
+    student: null,
+    staff: null,
+    wards: null,
+    account: null,
+    prospect: null,
+    academics: null,
+    finance: null,
+    documents: null,
+  };
+}
+
+/** Admission pipeline: Submitted → Interview → Decision. */
+function buildAdmissionTimeline(row: {
+  submittedDate: Date;
+  stage: string;
+  decision: string;
+}): PersonTimelineStep[] {
+  const order = ['application', 'interview', 'decision'];
+  const reached = (s: string) => order.indexOf(row.stage) >= order.indexOf(s);
+  const decided = row.decision !== 'pending';
+  return [
+    {
+      key: 'submitted',
+      label: 'Application submitted',
+      date: iso(row.submittedDate),
+      state: 'done',
+      detail: null,
+    },
+    {
+      key: 'interview',
+      label: 'Interview',
+      date: null,
+      state:
+        row.stage === 'interview'
+          ? 'current'
+          : reached('interview')
+            ? 'done'
+            : 'pending',
+      detail: null,
+    },
+    {
+      key: 'decision',
+      label: 'Decision',
+      date: null,
+      state: decided
+        ? 'done'
+        : row.stage === 'decision'
+          ? 'current'
+          : 'pending',
+      detail: decided ? row.decision : null,
+    },
+  ];
+}
+
+/** Student enrolment / staff employment lifecycle. */
+function buildPersonTimeline(row: PersonDetailRow): PersonTimelineStep[] {
+  const sp = row.studentProfile;
+  if (sp) {
+    const steps: PersonTimelineStep[] = [];
+    if (sp.admissionDate) {
+      steps.push({
+        key: 'admitted',
+        label: 'Admitted',
+        date: iso(sp.admissionDate),
+        state: 'done',
+        detail: null,
+      });
+    }
+    steps.push({
+      key: 'enrolled',
+      label: 'Enrolled',
+      date: iso(sp.enrollmentDate),
+      state: sp.enrollmentStatus === 'active' ? 'current' : 'done',
+      detail: null,
+    });
+    const exit =
+      sp.enrollmentStatus === 'graduated'
+        ? { label: 'Graduated', date: sp.graduationDate }
+        : sp.enrollmentStatus === 'withdrawn'
+          ? { label: 'Withdrawn', date: sp.withdrawalDate }
+          : sp.enrollmentStatus === 'transferred'
+            ? { label: 'Transferred', date: sp.transferDate }
+            : null;
+    if (exit) {
+      steps.push({
+        key: 'exit',
+        label: exit.label,
+        date: iso(exit.date),
+        state: 'done',
+        detail: null,
+      });
+    }
+    return steps;
+  }
+  const staff = row.staffProfiles[0];
+  if (staff) {
+    return [
+      {
+        key: 'hired',
+        label: 'Hired',
+        date: iso(staff.hireDate),
+        state: 'done',
+        detail: null,
+      },
+      {
+        key: 'current',
+        label: 'Current status',
+        date: null,
+        state: 'current',
+        detail: staff.employmentStatus,
+      },
+    ];
+  }
+  return [];
 }
 
 @Injectable()
@@ -704,23 +1033,20 @@ export class PeopleDirectoryService {
         { email: row.guardianEmail ?? null, phone: row.guardianPhone ?? null },
         canViewContact,
       );
+      const siblingEnrolled = await this.prospectSiblingEnrolled(tenantId, row);
       return {
-        id: row.id,
-        type: 'prospect',
-        name: row.applicantName,
-        profiles: [],
+        ...baseDetail(row.id, 'prospect', row.applicantName),
         email: contact.email,
         phone: contact.phone,
         contactMasked: contact.contactMasked,
-        student: null,
-        staff: null,
-        wards: null,
-        account: null,
+        timeline: buildAdmissionTimeline(row),
+        flags: { siblingEnrolled },
         prospect: {
           applyingFor: row.applyingFor,
           guardianName: row.guardianName,
           stage: row.stage,
           decision: row.decision,
+          submittedDate: iso(row.submittedDate),
         },
       };
     }
@@ -732,39 +1058,77 @@ export class PeopleDirectoryService {
     if (!row) return null;
 
     const contact = presentContacts(resolveContacts(row), canViewContact);
-    const rel = (
-      p: {
-        id: string;
-        firstName: string;
-        lastName: string;
-        preferredName: string | null;
-      },
-      relationship: string,
-      isPrimary: boolean,
-    ): PersonDetailRelation => ({
-      id: p.id,
-      name: personName(p),
-      relationship,
-      isPrimary,
-    });
+    const studentId = row.studentProfile?.id ?? null;
+
+    // Sequential — the RLS-scoped client is pinned to one connection (see
+    // listPersons); concurrent queries on it trip node-postgres.
+    const siblings = studentId ? await this.siblingsOf(tenantId, row) : [];
+    const academics =
+      studentId && perms.academics
+        ? await this.academicsSummary(studentId)
+        : null;
+    const finance =
+      studentId && perms.finance ? await this.financeSummary(studentId) : null;
+    const documents = perms.documents
+      ? await this.documentsSummary(row.id, studentId)
+      : null;
+    const contactPreferences = canViewContact
+      ? await this.client.contactPreference.findMany({
+          where: { tenantId, personId: row.id },
+          select: { channel: true, optedIn: true, isDnd: true },
+        })
+      : [];
 
     return {
       id: row.id,
       type,
       name: personName(row),
+      preferredName: row.preferredName,
       profiles: profilesOf(row),
+      studentId,
+      dateOfBirth: iso(row.dateOfBirth),
+      gender: row.gender,
+      nationality: row.nationality,
+      stateOfOrigin: row.stateOfOrigin,
+      lgaOfOrigin: row.lgaOfOrigin,
+      addresses: row.addresses.map((a) => ({
+        kind: a.kind,
+        line1: a.line1,
+        line2: a.line2,
+        city: a.city,
+        subdivision: a.subdivision,
+        subdivisionLga: a.subdivisionLga,
+        country: a.country,
+        isPrimary: a.isPrimary,
+      })),
       email: contact.email,
       phone: contact.phone,
       contactMasked: contact.contactMasked,
+      contactPoints: presentContactPoints(row.contactPoints, canViewContact),
+      contactPreferences,
+      timeline: buildPersonTimeline(row),
+      flags: {
+        hasSiblings: siblings.length > 0,
+        feesOverdue: (finance?.overdueCount ?? 0) > 0,
+        attendanceRisk:
+          academics?.attendancePercent != null &&
+          academics.attendancePercent < 85,
+        newAdmission: isRecent(row.studentProfile?.admissionDate ?? null),
+        onLeave: row.staffProfiles.some(
+          (s) => s.employmentStatus === 'on_leave',
+        ),
+      },
       student:
         perms.students && row.studentProfile
           ? {
               studentNumber: row.studentProfile.studentNumber,
               gradeLevel: row.studentProfile.gradeLevel,
               enrollmentStatus: row.studentProfile.enrollmentStatus,
+              admissionDate: iso(row.studentProfile.admissionDate),
               guardians: row.wardLinks.map((w) =>
-                rel(w.guardian, w.relationship, w.isPrimary),
+                relationOf(w.guardian, w.relationship, w.isPrimary),
               ),
+              siblings,
             }
           : null,
       staff:
@@ -775,12 +1139,13 @@ export class PeopleDirectoryService {
               department: s.department,
               employmentStatus: s.employmentStatus,
               employmentType: s.employmentType,
+              hireDate: iso(s.hireDate),
             }))
           : null,
       wards:
         perms.guardians && row.guardianships.length > 0
           ? row.guardianships.map((g) =>
-              rel(g.ward, g.relationship, g.isPrimary),
+              relationOf(g.ward, g.relationship, g.isPrimary),
             )
           : null,
       account:
@@ -788,10 +1153,180 @@ export class PeopleDirectoryService {
           ? {
               status: row.account.status,
               email: row.account.user?.email ?? null,
+              role: row.account.userTenantRole?.role?.name ?? null,
+              lastLoginAt: iso(row.account.user?.lastLoginAt ?? null),
             }
           : null,
       prospect: null,
+      academics,
+      finance,
+      documents,
     };
+  }
+
+  /** Other current wards of this student's guardians (excluding self). */
+  private async siblingsOf(
+    tenantId: string,
+    row: PersonDetailRow,
+  ): Promise<PersonDetailRelation[]> {
+    const guardianIds = row.wardLinks.map((w) => w.guardian.id);
+    if (guardianIds.length === 0) return [];
+    const links = await this.client.guardianRelationship.findMany({
+      where: {
+        tenantId,
+        effectiveTo: null,
+        guardianPersonId: { in: guardianIds },
+        wardPersonId: { not: row.id },
+      },
+      select: { ward: { select: RELATION_PERSON } },
+    });
+    const seen = new Set<string>();
+    const siblings: PersonDetailRelation[] = [];
+    for (const link of links) {
+      if (seen.has(link.ward.id)) continue;
+      seen.add(link.ward.id);
+      siblings.push(relationOf(link.ward, 'sibling', false));
+    }
+    return siblings;
+  }
+
+  /** Attendance %, average grade %, and current classes for a student. */
+  private async academicsSummary(studentId: string): Promise<AcademicsSummary> {
+    const attendance = await this.client.attendanceRecord.findMany({
+      where: { studentId },
+      select: { status: true },
+    });
+    const grades = await this.client.grade.findMany({
+      where: { enrollment: { studentId }, percentage: { not: null } },
+      select: { percentage: true },
+    });
+    const enrollments = await this.client.enrollment.findMany({
+      where: { studentId },
+      orderBy: { enrollmentDate: 'desc' },
+      take: 10,
+      select: {
+        status: true,
+        finalGrade: true,
+        class: { select: { id: true, name: true, section: true } },
+        term: { select: { name: true } },
+      },
+    });
+    const attendancePercent =
+      attendance.length > 0
+        ? Math.round(
+            (attendance.filter((a) => a.status === 'present').length /
+              attendance.length) *
+              100,
+          )
+        : null;
+    const averageGradePercent =
+      grades.length > 0
+        ? Math.round(
+            grades.reduce((sum, g) => sum + Number(g.percentage), 0) /
+              grades.length,
+          )
+        : null;
+    return {
+      attendancePercent,
+      averageGradePercent,
+      currentClasses: enrollments.map((e) => ({
+        id: e.class.id,
+        name: e.class.name ?? e.class.section,
+        term: e.term?.name ?? null,
+        status: e.status,
+        finalGrade: e.finalGrade,
+      })),
+    };
+  }
+
+  /** Fee balance (minor units), overdue count, and next due date for a student. */
+  private async financeSummary(studentId: string): Promise<FinanceSummary> {
+    const invoices = await this.client.feeInvoice.findMany({
+      where: { studentId },
+      select: {
+        amountDue: true,
+        amountPaid: true,
+        status: true,
+        dueDate: true,
+      },
+    });
+    let totalDue = 0;
+    let totalPaid = 0;
+    let overdueCount = 0;
+    let nextDueDate: Date | null = null;
+    for (const inv of invoices) {
+      totalDue += inv.amountDue;
+      totalPaid += inv.amountPaid;
+      if (inv.status === 'overdue') overdueCount += 1;
+      if (inv.amountDue > inv.amountPaid && inv.dueDate) {
+        if (!nextDueDate || inv.dueDate < nextDueDate)
+          nextDueDate = inv.dueDate;
+      }
+    }
+    return {
+      balance: totalDue - totalPaid,
+      totalDue,
+      totalPaid,
+      overdueCount,
+      nextDueDate: iso(nextDueDate),
+    };
+  }
+
+  /** Documents owned by this person (or their student profile). */
+  private async documentsSummary(
+    personId: string,
+    studentId: string | null,
+  ): Promise<DocumentsSummary> {
+    const owners: Prisma.DocumentWhereInput[] = [
+      { ownerType: 'person', ownerId: personId },
+    ];
+    if (studentId) owners.push({ ownerType: 'student', ownerId: studentId });
+    const docs = await this.client.document.findMany({
+      where: { OR: owners },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        title: true,
+        scanStatus: true,
+        createdAt: true,
+        type: { select: { label: true } },
+      },
+    });
+    return {
+      count: docs.length,
+      // Cap the embedded list; the drawer shows a few, the profile tab all.
+      recent: docs.slice(0, 25).map((d) => ({
+        id: d.id,
+        title: d.title ?? 'Untitled',
+        type: d.type?.label ?? null,
+        scanStatus: d.scanStatus,
+        createdAt: iso(d.createdAt) ?? '',
+      })),
+    };
+  }
+
+  /** Prospect at-a-glance: a sibling is already enrolled (guardian email matches). */
+  private async prospectSiblingEnrolled(
+    tenantId: string,
+    row: { guardianEmail: string | null },
+  ): Promise<boolean> {
+    if (!row.guardianEmail) return false;
+    const match = await this.client.person.findFirst({
+      where: {
+        tenantId,
+        contactPoints: {
+          some: { valueNormalized: row.guardianEmail.toLowerCase() },
+        },
+        guardianships: {
+          some: {
+            effectiveTo: null,
+            ward: { studentProfile: { isNot: null } },
+          },
+        },
+      },
+      select: { id: true },
+    });
+    return match !== null;
   }
 
   /**

@@ -119,7 +119,15 @@ describe('PeopleDirectoryController', () => {
       't1',
       'p1',
       'all',
-      { students: true, staff: false, guardians: false, users: false },
+      {
+        students: true,
+        staff: false,
+        guardians: false,
+        users: false,
+        academics: false,
+        finance: false,
+        documents: false,
+      },
       true,
     );
   });
