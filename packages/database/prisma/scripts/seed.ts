@@ -2,6 +2,7 @@ import { prisma } from '../../src/singleton.js';
 import { SENSITIVE_OPERATION_CATALOG } from '../../src/sensitive-operations.js';
 import bcrypt from 'bcrypt';
 import * as crypto from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 
 /**
  * Seed script for database initialization
@@ -4325,6 +4326,72 @@ async function seedSensitiveOperationPolicies() {
   );
 }
 
+/**
+ * Phases 1–5: the platform-level permission catalog + role grants (system roles
+ * → pools → permissions → pool-permission links → role-pool grants). All
+ * idempotent upserts; touches NO tenant/demo data and NOT the platform Architect
+ * account, so it is safe to run on every deploy. This is what `db:sync-permissions`
+ * runs in CD so new permissions + grants reach an environment without a manual
+ * reseed (see project-seed-permission-gotchas). Returns counts for logging.
+ */
+export async function syncPermissions() {
+  validatePermissionPools();
+  validateRolePoolMapping(SYSTEM_ROLES, ROLE_TO_POOL_MAPPING);
+
+  const createdRoles = await seedSystemRoles();
+  const createdPools = await seedPermissionPools();
+
+  const permissionArrays = {
+    STUDENT_PERMISSIONS,
+    ACADEMIC_MANAGEMENT_PERMISSIONS,
+    GRADE_ASSESSMENT_PERMISSIONS,
+    ATTENDANCE_PERMISSIONS,
+    FINANCIAL_PERMISSIONS,
+    COMMUNICATION_PERMISSIONS,
+    STAFF_PERMISSIONS,
+    REPORTS_PERMISSIONS,
+    SYSTEM_ADMIN_PERMISSIONS,
+    PLATFORM_PERMISSIONS,
+    LIBRARY_PERMISSIONS,
+    TRANSPORTATION_PERMISSIONS,
+    CAFETERIA_PERMISSIONS,
+    HEALTH_PERMISSIONS,
+    FACILITIES_PERMISSIONS,
+    EVENTS_PERMISSIONS,
+    SPORTS_PERMISSIONS,
+    CLUBS_PERMISSIONS,
+    PARENT_PORTAL_PERMISSIONS,
+    INVENTORY_PERMISSIONS,
+    SAFETY_PERMISSIONS,
+    COMPLIANCE_PERMISSIONS,
+    TIMETABLE_PERMISSIONS,
+    EXAMS_PERMISSIONS,
+    ADMISSIONS_PERMISSIONS,
+    HR_PAYROLL_PERMISSIONS,
+    AI_PERMISSIONS,
+    LESSONS_PERMISSIONS,
+    PERSON_PERMISSIONS,
+    GUARDIAN_PERMISSIONS,
+    DOCUMENT_PERMISSIONS,
+    IMPORT_PERMISSIONS,
+    CURRICULUM_PERMISSIONS,
+  };
+
+  const allPermissions = Object.values(permissionArrays).flat();
+
+  validatePermissionsCatalog(permissionArrays);
+
+  const createdPermissions = await upsertPermissions(allPermissions);
+  const poolPermissionCount = await assignPermissionsToPools(
+    allPermissions,
+    createdPermissions,
+    createdPools,
+  );
+  const rolePoolCount = await assignPoolsToRoles(createdRoles, createdPools);
+
+  return { createdRoles, allPermissions, poolPermissionCount, rolePoolCount };
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
@@ -4333,59 +4400,8 @@ async function main() {
     // for this environment.
     getArchitectCredentials();
 
-    validatePermissionPools();
-    validateRolePoolMapping(SYSTEM_ROLES, ROLE_TO_POOL_MAPPING);
-
-    const createdRoles = await seedSystemRoles();
-    const createdPools = await seedPermissionPools();
-
-    const permissionArrays = {
-      STUDENT_PERMISSIONS,
-      ACADEMIC_MANAGEMENT_PERMISSIONS,
-      GRADE_ASSESSMENT_PERMISSIONS,
-      ATTENDANCE_PERMISSIONS,
-      FINANCIAL_PERMISSIONS,
-      COMMUNICATION_PERMISSIONS,
-      STAFF_PERMISSIONS,
-      REPORTS_PERMISSIONS,
-      SYSTEM_ADMIN_PERMISSIONS,
-      PLATFORM_PERMISSIONS,
-      LIBRARY_PERMISSIONS,
-      TRANSPORTATION_PERMISSIONS,
-      CAFETERIA_PERMISSIONS,
-      HEALTH_PERMISSIONS,
-      FACILITIES_PERMISSIONS,
-      EVENTS_PERMISSIONS,
-      SPORTS_PERMISSIONS,
-      CLUBS_PERMISSIONS,
-      PARENT_PORTAL_PERMISSIONS,
-      INVENTORY_PERMISSIONS,
-      SAFETY_PERMISSIONS,
-      COMPLIANCE_PERMISSIONS,
-      TIMETABLE_PERMISSIONS,
-      EXAMS_PERMISSIONS,
-      ADMISSIONS_PERMISSIONS,
-      HR_PAYROLL_PERMISSIONS,
-      AI_PERMISSIONS,
-      LESSONS_PERMISSIONS,
-      PERSON_PERMISSIONS,
-      GUARDIAN_PERMISSIONS,
-      DOCUMENT_PERMISSIONS,
-      IMPORT_PERMISSIONS,
-      CURRICULUM_PERMISSIONS,
-    };
-
-    const allPermissions = Object.values(permissionArrays).flat();
-
-    validatePermissionsCatalog(permissionArrays);
-
-    const createdPermissions = await upsertPermissions(allPermissions);
-    const poolPermissionCount = await assignPermissionsToPools(
-      allPermissions,
-      createdPermissions,
-      createdPools,
-    );
-    const rolePoolCount = await assignPoolsToRoles(createdRoles, createdPools);
+    const { createdRoles, allPermissions, poolPermissionCount, rolePoolCount } =
+      await syncPermissions();
 
     await seedSensitiveOperationPolicies();
     await seedPlatformBootstrap(prisma, createdRoles);
@@ -4409,4 +4425,12 @@ async function main() {
   }
 }
 
-main();
+// Only auto-run the full seed when this file is the entrypoint. Importing
+// `syncPermissions` from it (sync-permissions.ts) must NOT trigger the full
+// seed — that bootstraps the Architect account and needs its credential env.
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  void main();
+}

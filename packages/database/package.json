@@ -22,6 +22,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/scripts/seed.ts",
+    "db:sync-permissions": "tsx prisma/scripts/sync-permissions.ts",
     "bootstrap:architect-token": "tsx prisma/scripts/bootstrap-architect-token.ts",
     "db:backfill:health-encryption": "tsx prisma/scripts/backfill-health-encryption.ts",
     "db:rotate:health-encryption": "tsx prisma/scripts/rotate-health-encryption.ts",
