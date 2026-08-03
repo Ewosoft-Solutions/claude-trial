@@ -77,6 +77,17 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL_OWNER }}
         run: pnpm db:deploy
 
+      # Idempotent permission catalog + role-pool grants. Runs as the owner role
+      # (can write platform tables) so NEW permissions + grants reach demo on
+      # every deploy — without this, a new permission ships as code but its
+      # nav/route gate stays hidden until a manual reseed (WB1 People directory,
+      # 2026-08-03). Touches no tenant/demo data or the Architect account.
+      - name: Sync permission catalog + role grants
+        working-directory: packages/database
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL_OWNER }}
+        run: pnpm db:sync-permissions
+
   deploy-api:
     name: Deploy API (Render)
     runs-on: ubuntu-latest
