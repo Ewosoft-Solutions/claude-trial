@@ -76,7 +76,7 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 
 | ID    | Title                                                                                                           | #      | Effort | Deps       | Owner | Status  |
 | ----- | --------------------------------------------------------------------------------------------------------------- | ------ | ------ | ---------- | ----- | ------- |
-| WB1-1 | Unified **People directory** (Student/Guardian/Staff/User/Prospect views)                                       | #4     | L      | F1, F7, F8 | —     | backlog |
+| WB1-1 | Unified **People directory** (Student/Guardian/Staff/User/Prospect views)                                       | #4     | L      | F1, F7, F8 | claude | claimed |
 | WB1-2 | First-class **staff employment/profile** (retire payroll-as-directory)                                          | #5     | L      | F1         | —     | backlog |
 | WB1-3 | **Invitations + activation/suspension + password reset** (secure; no generated-password)                        | #1,#13 | M      | F1, F5     | —     | backlog |
 | WB1-4 | **Guardianship** authority/priority/consent extension                                                           | #29    | M      | F1         | —     | backlog |
@@ -103,6 +103,8 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 ---
 
 ## Change log (board edits — newest first)
+
+- `2026-08-03` — **WB1-1 claimed (claude).** Building the **Unified People directory** to DoD on `feat/WB1-1-people-directory` — the first Workbench-1 feature slice (so it includes web UI, unlike the F-foundations). One `WorkbenchLayout` (F8) with person-type tabs (Students · Guardians · Staff · Users · Prospects), each rendering the F7 `DirectoryTable` over a governed **Person-centric projection** (`person` schema) — student/guardian/staff/user tabs project over `Person` (so one identity shows all its profiles — the acceptance), Prospects project over `AdmissionApplication`. Reuses the F7 `directory` module pattern: masked contact via `person.masking` unless the caller holds `people.view_contact`, explicit `select` that never touches health/safeguarding, `TenantDbService.client` only. Base gate `people.view` (F1); per-tab type permission (`students.view`/`staff.view`/`users.view`/`admissions.view` reused; **+1 new `guardians.view`** — genuinely new capability). e2e on real pg (masking · tenant isolation · per-tab projection · unauthorized scope). _(claude)_
 
 - `2026-08-02` — **F8 → done (merged to `main`).** [PR #52](https://github.com/Ewosoft-Solutions/claude-trial/pull/52) squash-merged after an independent maker-checker review (3 a11y findings fixed: `PolicyVersionPanel` `listbox`→`aria-pressed` button group; `LifecycleBar` per-step `sr-only` status; `ApprovalPanel` `sr-only` before→after) + a two-step board/seed reconcile against F5+F6. The four shared Aurora workspace shells (`WorkbenchLayout`/`LifecycleBar`/`PolicyVersionPanel`/`ApprovalPanel`) now on `main`. **This completes the Phase-1 foundations — F1–F8 all `done`.** **WB1 (People directory)** is fully unblocked (compose `WorkbenchLayout` + F7 `DirectoryTable`); `F9` is the only remaining Phase-1 item (now `ready`). _(claude)_
 - `2026-08-02` — **F9 → ready.** Its deps F3 (jobs/outbox) + F4 (documents) are done/merged, so the export/retention/privacy primitives (`DataExportJob`, retention) are now claimable. Last remaining Phase-1 foundation. _(claude)_
