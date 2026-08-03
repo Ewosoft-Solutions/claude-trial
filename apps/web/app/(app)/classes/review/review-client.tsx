@@ -60,7 +60,12 @@ function meta(
   map: Record<string, { label: string; tone: StateTone }>,
   value: string,
 ) {
-  return map[value] ?? { label: value.replace(/_/g, ' '), tone: 'neutral' as StateTone };
+  return (
+    map[value] ?? {
+      label: value.replace(/_/g, ' '),
+      tone: 'neutral' as StateTone,
+    }
+  );
 }
 
 export function AcademicReviewClient({
@@ -72,7 +77,9 @@ export function AcademicReviewClient({
 }) {
   const [items, setItems] = React.useState(initialItems);
   const [filter, setFilter] = React.useState<ReviewFilter>('pending_review');
-  const [selectedKey, setSelectedKey] = React.useState(initialItems[0]?.key ?? '');
+  const [selectedKey, setSelectedKey] = React.useState(
+    initialItems[0]?.key ?? '',
+  );
   const [mobileDetailOpen, setMobileDetailOpen] = React.useState(false);
   const [note, setNote] = React.useState('');
   const [busy, setBusy] = React.useState(false);
@@ -144,13 +151,18 @@ export function AcademicReviewClient({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(academicsApi(`learning/lessons/${selected.lesson.id}`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'published' }),
-      });
+      const res = await fetch(
+        academicsApi(`learning/lessons/${selected.lesson.id}`),
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'published' }),
+        },
+      );
       if (!res.ok) throw new Error(await readError(res));
-      replaceItem(selected.key, { lesson: (await res.json()) as LessonSummary });
+      replaceItem(selected.key, {
+        lesson: (await res.json()) as LessonSummary,
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Publish failed');
     } finally {
@@ -158,9 +170,15 @@ export function AcademicReviewClient({
     }
   }
 
-  const pendingCount = items.filter((item) => itemStatus(item) === 'pending_review').length;
-  const approvedCount = items.filter((item) => itemStatus(item) === 'approved').length;
-  const rejectedCount = items.filter((item) => itemStatus(item) === 'rejected').length;
+  const pendingCount = items.filter(
+    (item) => itemStatus(item) === 'pending_review',
+  ).length;
+  const approvedCount = items.filter(
+    (item) => itemStatus(item) === 'approved',
+  ).length;
+  const rejectedCount = items.filter(
+    (item) => itemStatus(item) === 'rejected',
+  ).length;
 
   return (
     <ShellMain className="gap-0 pb-0">
@@ -174,7 +192,10 @@ export function AcademicReviewClient({
           { key: 'rejected', label: `${rejectedCount} rejected` },
         ]}
         actions={
-          <Select value={filter} onValueChange={(value) => setFilter(value as ReviewFilter)}>
+          <Select
+            value={filter}
+            onValueChange={(value) => setFilter(value as ReviewFilter)}
+          >
             <SelectTrigger className="w-40" aria-label="Filter review queue">
               <SelectValue />
             </SelectTrigger>
@@ -240,7 +261,9 @@ export function AcademicReviewClient({
                             : item.material?.fileName}
                         </span>
                       </span>
-                      <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                      <StatusBadge tone={status.tone}>
+                        {status.label}
+                      </StatusBadge>
                     </span>
                   </button>
                 );
@@ -281,22 +304,34 @@ export function AcademicReviewClient({
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    <StatusBadge tone={meta(REVIEW_META, itemStatus(selected)).tone}>
+                    <StatusBadge
+                      tone={meta(REVIEW_META, itemStatus(selected)).tone}
+                    >
                       {meta(REVIEW_META, itemStatus(selected)).label}
                     </StatusBadge>
                     {selected.type === 'lesson' ? (
                       <StatusBadge
-                        tone={meta(LESSON_STATUS_META, selected.lesson.status).tone}
+                        tone={
+                          meta(LESSON_STATUS_META, selected.lesson.status).tone
+                        }
                       >
                         {meta(LESSON_STATUS_META, selected.lesson.status).label}
                       </StatusBadge>
                     ) : selected.material ? (
                       <StatusBadge
                         tone={
-                          meta(EXTRACTION_META, selected.material.extractionStatus).tone
+                          meta(
+                            EXTRACTION_META,
+                            selected.material.extractionStatus,
+                          ).tone
                         }
                       >
-                        {meta(EXTRACTION_META, selected.material.extractionStatus).label}
+                        {
+                          meta(
+                            EXTRACTION_META,
+                            selected.material.extractionStatus,
+                          ).label
+                        }
                       </StatusBadge>
                     ) : null}
                   </div>
@@ -317,7 +352,8 @@ export function AcademicReviewClient({
                       </div>
                     </section>
                     <p className="text-xs text-muted-foreground">
-                      Submitted {formatDateTime(selected.lesson.submittedForReviewAt)}
+                      Submitted{' '}
+                      {formatDateTime(selected.lesson.submittedForReviewAt)}
                     </p>
                   </div>
                 ) : selected.material ? (
@@ -325,13 +361,21 @@ export function AcademicReviewClient({
                     <section className="grid gap-2">
                       <h3 className="text-sm font-semibold">File</h3>
                       <div className="rounded-md border bg-muted/30 p-3 text-sm">
-                        <p className="font-medium">{selected.material.fileName}</p>
+                        <p className="font-medium">
+                          {selected.material.fileName}
+                        </p>
                         <p className="mt-1 text-muted-foreground">
-                          {selected.material.category} · {formatSize(selected.material.sizeBytes)}
+                          {selected.material.category} ·{' '}
+                          {formatSize(selected.material.sizeBytes)}
                         </p>
                       </div>
                     </section>
-                    <Button asChild variant="outline" size="sm" className="w-fit">
+                    <Button
+                      asChild
+                      variant="outline"
+                      size="sm"
+                      className="w-fit"
+                    >
                       <a
                         href={academicsApi(
                           `learning/materials/${selected.material.id}/download`,
@@ -378,14 +422,16 @@ export function AcademicReviewClient({
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => window.open(
-                        selected.type === 'lesson'
-                          ? `/classes/materials`
-                          : academicsApi(
-                              `learning/materials/${selected.material!.id}/download`,
-                            ),
-                        '_blank',
-                      )}
+                      onClick={() =>
+                        window.open(
+                          selected.type === 'lesson'
+                            ? `/classes/materials`
+                            : academicsApi(
+                                `learning/materials/${selected.material!.id}/download`,
+                              ),
+                          '_blank',
+                        )
+                      }
                     >
                       <Eye /> Preview
                     </Button>
@@ -400,7 +446,9 @@ export function AcademicReviewClient({
                     <Button
                       size="sm"
                       onClick={() => void decide('approve')}
-                      disabled={!live || busy || itemStatus(selected) === 'approved'}
+                      disabled={
+                        !live || busy || itemStatus(selected) === 'approved'
+                      }
                     >
                       <CheckCircle2 /> Approve
                     </Button>

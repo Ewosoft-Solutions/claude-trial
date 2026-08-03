@@ -83,7 +83,9 @@ function statusMeta(status: string): { label: string; tone: StateTone } {
 
 function studentName(submission: AssessmentSubmission): string {
   const user = submission.enrollment?.student?.userTenant?.user;
-  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Student';
+  return (
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') || 'Student'
+  );
 }
 
 export function AssessmentsClient({
@@ -105,23 +107,35 @@ export function AssessmentsClient({
 
   const [classId, setClassId] = React.useState(initialClasses[0]?.id ?? '');
   const [assessments, setAssessments] = React.useState(initialAssessments);
-  const [selectedId, setSelectedId] = React.useState(initialAssessments[0]?.id ?? '');
+  const [selectedId, setSelectedId] = React.useState(
+    initialAssessments[0]?.id ?? '',
+  );
   const [mobileDetailOpen, setMobileDetailOpen] = React.useState(false);
   const [draft, setDraft] = React.useState(EMPTY_DRAFT);
   const [query, setQuery] = React.useState('');
   const [paper, setPaper] = React.useState<PaperQuestion[]>([]);
   const [bank, setBank] = React.useState(initialQuestions);
-  const [questionId, setQuestionId] = React.useState(initialQuestions[0]?.id ?? '');
+  const [questionId, setQuestionId] = React.useState(
+    initialQuestions[0]?.id ?? '',
+  );
   const [questionPoints, setQuestionPoints] = React.useState('1');
-  const [submissions, setSubmissions] = React.useState<AssessmentSubmission[]>([]);
-  const [gradePoints, setGradePoints] = React.useState<Record<string, string>>({});
-  const [gradeFeedback, setGradeFeedback] = React.useState<Record<string, string>>({});
+  const [submissions, setSubmissions] = React.useState<AssessmentSubmission[]>(
+    [],
+  );
+  const [gradePoints, setGradePoints] = React.useState<Record<string, string>>(
+    {},
+  );
+  const [gradeFeedback, setGradeFeedback] = React.useState<
+    Record<string, string>
+  >({});
   const [busy, setBusy] = React.useState(false);
   const [loadingDetail, setLoadingDetail] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const selected = assessments.find((assessment) => assessment.id === selectedId) ?? null;
-  const selectedClass = initialClasses.find((cls) => cls.id === classId) ?? null;
+  const selected =
+    assessments.find((assessment) => assessment.id === selectedId) ?? null;
+  const selectedClass =
+    initialClasses.find((cls) => cls.id === classId) ?? null;
   const visibleAssessments = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
     return assessments.filter((assessment) => {
@@ -144,7 +158,8 @@ export function AssessmentsClient({
       try {
         const courseId =
           assessment.class?.course?.id ??
-          initialClasses.find((cls) => cls.id === assessment.classId)?.course?.id;
+          initialClasses.find((cls) => cls.id === assessment.classId)?.course
+            ?.id;
         const [paperRes, submissionsRes, bankRes] = await Promise.all([
           fetch(academicsApi(`assessments/${assessment.id}/questions`)),
           fetch(academicsApi(`assessments/${assessment.id}/submissions`)),
@@ -157,10 +172,12 @@ export function AssessmentsClient({
             : Promise.resolve(null),
         ]);
         if (!paperRes.ok) throw new Error(await readError(paperRes));
-        if (!submissionsRes.ok) throw new Error(await readError(submissionsRes));
+        if (!submissionsRes.ok)
+          throw new Error(await readError(submissionsRes));
         setPaper(((await paperRes.json()) as PaperQuestion[] | null) ?? []);
         setSubmissions(
-          ((await submissionsRes.json()) as AssessmentSubmission[] | null) ?? [],
+          ((await submissionsRes.json()) as AssessmentSubmission[] | null) ??
+            [],
         );
         if (bankRes?.ok) {
           const nextBank =
@@ -169,7 +186,9 @@ export function AssessmentsClient({
           setQuestionId(nextBank[0]?.id ?? '');
         }
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load assessment');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load assessment',
+        );
       } finally {
         setLoadingDetail(false);
       }
@@ -235,7 +254,9 @@ export function AssessmentsClient({
       const updated = (await res.json()) as AssessmentSummary;
       setAssessments((prev) =>
         prev.map((assessment) =>
-          assessment.id === updated.id ? { ...assessment, ...updated } : assessment,
+          assessment.id === updated.id
+            ? { ...assessment, ...updated }
+            : assessment,
         ),
       );
     } catch (err) {
@@ -250,13 +271,16 @@ export function AssessmentsClient({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(academicsApi(`assessments/${selected.id}/questions`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          questions: [{ questionId, points: Number(questionPoints || 1) }],
-        }),
-      });
+      const res = await fetch(
+        academicsApi(`assessments/${selected.id}/questions`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            questions: [{ questionId, points: Number(questionPoints || 1) }],
+          }),
+        },
+      );
       if (!res.ok) throw new Error(await readError(res));
       setPaper(((await res.json()) as PaperQuestion[] | null) ?? []);
     } catch (err) {
@@ -289,14 +313,19 @@ export function AssessmentsClient({
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch(academicsApi(`assessments/submissions/${submission.id}/grade`), {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          pointsEarned: Number(gradePoints[submission.id] ?? submission.pointsEarned ?? 0),
-          feedback: gradeFeedback[submission.id]?.trim() || undefined,
-        }),
-      });
+      const res = await fetch(
+        academicsApi(`assessments/submissions/${submission.id}/grade`),
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            pointsEarned: Number(
+              gradePoints[submission.id] ?? submission.pointsEarned ?? 0,
+            ),
+            feedback: gradeFeedback[submission.id]?.trim() || undefined,
+          }),
+        },
+      );
       if (!res.ok) throw new Error(await readError(res));
       const updated = (await res.json()) as AssessmentSubmission;
       setSubmissions((prev) =>
@@ -309,7 +338,9 @@ export function AssessmentsClient({
     }
   }
 
-  const pendingManual = submissions.filter((submission) => submission.needsManualGrading).length;
+  const pendingManual = submissions.filter(
+    (submission) => submission.needsManualGrading,
+  ).length;
 
   return (
     <ShellMain className="gap-0 pb-0">
@@ -363,8 +394,8 @@ export function AssessmentsClient({
             onValueChange={(value) => {
               setClassId(value);
               setSelectedId(
-                assessments.find((assessment) => assessment.classId === value)?.id ??
-                  '',
+                assessments.find((assessment) => assessment.classId === value)
+                  ?.id ?? '',
               );
             }}
             disabled={!hasClasses}
@@ -440,7 +471,9 @@ export function AssessmentsClient({
                           Due {formatDate(assessment.dueDate)}
                         </span>
                       </span>
-                      <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                      <StatusBadge tone={status.tone}>
+                        {status.label}
+                      </StatusBadge>
                     </span>
                   </button>
                 );
@@ -467,7 +500,10 @@ export function AssessmentsClient({
                       id="new-assessment-name"
                       value={draft.name}
                       onChange={(event) =>
-                        setDraft((prev) => ({ ...prev, name: event.target.value }))
+                        setDraft((prev) => ({
+                          ...prev,
+                          name: event.target.value,
+                        }))
                       }
                     />
                   </div>
@@ -499,7 +535,10 @@ export function AssessmentsClient({
                       min="1"
                       value={draft.maxPoints}
                       onChange={(event) =>
-                        setDraft((prev) => ({ ...prev, maxPoints: event.target.value }))
+                        setDraft((prev) => ({
+                          ...prev,
+                          maxPoints: event.target.value,
+                        }))
                       }
                     />
                   </div>
@@ -510,7 +549,10 @@ export function AssessmentsClient({
                       type="date"
                       value={draft.dueDate}
                       onChange={(event) =>
-                        setDraft((prev) => ({ ...prev, dueDate: event.target.value }))
+                        setDraft((prev) => ({
+                          ...prev,
+                          dueDate: event.target.value,
+                        }))
                       }
                     />
                   </div>
@@ -546,7 +588,9 @@ export function AssessmentsClient({
                   </div>
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="new-assessment-instructions">Instructions</Label>
+                  <Label htmlFor="new-assessment-instructions">
+                    Instructions
+                  </Label>
                   <Textarea
                     id="new-assessment-instructions"
                     value={draft.instructions}
@@ -605,13 +649,19 @@ export function AssessmentsClient({
                       <div className="grid gap-2 @3xl/main:grid-cols-[minmax(14rem,1fr)_6rem_auto] @3xl/main:items-end">
                         <div className="grid gap-1.5">
                           <Label htmlFor="bank-question">Question</Label>
-                          <Select value={questionId} onValueChange={setQuestionId}>
+                          <Select
+                            value={questionId}
+                            onValueChange={setQuestionId}
+                          >
                             <SelectTrigger id="bank-question">
                               <SelectValue placeholder="Select question" />
                             </SelectTrigger>
                             <SelectContent>
                               {bank.map((question) => (
-                                <SelectItem key={question.id} value={question.id}>
+                                <SelectItem
+                                  key={question.id}
+                                  value={question.id}
+                                >
                                   {question.text.slice(0, 80)}
                                 </SelectItem>
                               ))}
@@ -625,7 +675,9 @@ export function AssessmentsClient({
                             type="number"
                             min="0"
                             value={questionPoints}
-                            onChange={(event) => setQuestionPoints(event.target.value)}
+                            onChange={(event) =>
+                              setQuestionPoints(event.target.value)
+                            }
                           />
                         </div>
                         <Button
@@ -664,7 +716,9 @@ export function AssessmentsClient({
                         {paper.map((row) => (
                           <TableRow key={row.questionId}>
                             <TableCell className="max-w-xl whitespace-normal">
-                              <span className="break-words">{row.question.text}</span>
+                              <span className="break-words">
+                                {row.question.text}
+                              </span>
                             </TableCell>
                             <TableCell className="capitalize text-muted-foreground">
                               {row.question.style.replace('_', ' ')}
@@ -678,7 +732,9 @@ export function AssessmentsClient({
                                   variant="ghost"
                                   size="icon"
                                   aria-label="Detach question"
-                                  onClick={() => void detachQuestion(row.questionId)}
+                                  onClick={() =>
+                                    void detachQuestion(row.questionId)
+                                  }
                                   disabled={!live || busy}
                                 >
                                   <Trash2 />
@@ -712,7 +768,9 @@ export function AssessmentsClient({
                           <TableHead>Student</TableHead>
                           <TableHead>Status</TableHead>
                           <TableHead className="text-right">Score</TableHead>
-                          <TableHead className="min-w-44">Manual grade</TableHead>
+                          <TableHead className="min-w-44">
+                            Manual grade
+                          </TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -767,7 +825,9 @@ export function AssessmentsClient({
                                   />
                                   <Button
                                     size="sm"
-                                    onClick={() => void gradeSubmission(submission)}
+                                    onClick={() =>
+                                      void gradeSubmission(submission)
+                                    }
                                     disabled={!live || busy}
                                   >
                                     Save
