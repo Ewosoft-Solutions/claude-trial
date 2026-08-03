@@ -9,26 +9,30 @@ overrides:
   '@types/react': '19.2.17'
   '@types/react-dom': '19.2.3'
   'body-parser@>=2.0.0 <2.3.0': '2.3.0'
-  'brace-expansion@<1.1.16': '1.1.16'
-  # GHSA-mh99-v99m-4gvg (DoS via unbounded expansion). The only patch is 5.0.8,
-  # but brace-expansion 5.x breaks eslint's pinned minimatch@3.x (which does
-  # `require('brace-expansion')` expecting a function). Modern minimatch paths
-  # (apps/api>@nestjs/cli>glob) take the patched 5.0.8; eslint's own minimatch@3
-  # stays on the compatible 1.1.16. Since brace-expansion is dev-tooling only
-  # (glob expansion at lint/build time, no untrusted input), the residual 1.x
-  # flag is suppressed in auditConfig below rather than force-broken.
-  'brace-expansion@>=3.0.0 <5.0.8': '5.0.8'
+  # GHSA-rgw5-rvv9-x895 (unbounded expansion, bypasses the CVE-2026-14257
+  # mitigation) raised the v1 floor to 1.1.18 — a same-major patch, so eslint's
+  # pinned minimatch@3 stays compatible.
+  'brace-expansion@<1.1.18': '1.1.18'
+  # GHSA-mh99-v99m-4gvg / GHSA-rgw5-rvv9-x895 (DoS via unbounded expansion). The
+  # v4+ patch is 5.0.9, but brace-expansion 5.x breaks eslint's pinned
+  # minimatch@3.x (which does `require('brace-expansion')` expecting a function).
+  # Modern minimatch paths (apps/api>@nestjs/cli>glob) take the patched 5.0.9;
+  # eslint's own minimatch@3 stays on the compatible 1.1.18. Since
+  # brace-expansion is dev-tooling only (glob expansion at lint/build time, no
+  # untrusted input), the residual GHSA-mh99-v99m-4gvg 1.x flag is suppressed in
+  # auditConfig below rather than force-broken.
+  'brace-expansion@>=3.0.0 <5.0.9': '5.0.9'
   'esbuild@>=0.27.3 <0.28.1': '0.28.1'
-  'fast-uri@>=3.0.0 <3.1.4': '3.1.4'
+  'fast-uri@>=3.0.0 <3.1.5': '3.1.5'
   # Transitive via prisma > @prisma/dev (dev tooling; not in the deployed
   # runtime). Advisories patched in find-my-way 9.7.0 and valibot 1.4.2.
   'find-my-way@<9.7.0': '9.7.0'
   'valibot@<1.4.2': '1.4.2'
   'js-yaml@<3.15.0': '3.15.0'
   'js-yaml@>=4.0.0 <4.3.0': '4.3.0'
-  # GHSA-r28c-9q8g-f849 (source-map path traversal) covers <=8.5.17, so the
-  # earlier <8.5.10→8.5.16 pin no longer clears it; bump the floor to 8.5.18.
-  'postcss@<8.5.18': '8.5.18'
+  # GHSA-fxqj-rqcc-2cmp (incomplete fix of GHSA-6g55-p6wh-862q) covers <=8.5.22,
+  # so the earlier <8.5.18 pin no longer clears it; bump the floor to 8.5.23.
+  'postcss@<8.5.23': '8.5.23'
   'sharp@<0.35.0': '0.35.3'
 
 # Advisories with no fix compatible with a pinned dev-tooling dependency, and
