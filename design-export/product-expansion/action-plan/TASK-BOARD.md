@@ -78,8 +78,8 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 | ----- | --------------------------------------------------------------------------------------------------------------- | ------ | ------ | ---------- | ----- | ------- |
 | WB1-1 | Unified **People directory** (Student/Guardian/Staff/User/Prospect views)                                       | #4     | L      | F1, F7, F8 | claude | in-review |
 | WB1-2 | First-class **staff employment/profile** (retire payroll-as-directory)                                          | #5     | L      | F1         | —     | backlog |
-| WB1-3 | **Invitations + activation/suspension + password reset** (secure; no generated-password)                        | #1,#13 | M      | F1, F5     | —     | backlog |
-| WB1-4 | **Guardianship** authority/priority/consent extension                                                           | #29    | M      | F1         | —     | backlog |
+| WB1-3 | **Invitations + activation/suspension + password reset** (secure; no generated-password)                        | #1,#13 | M      | F1, F5     | claude | claimed |
+| WB1-4 | **Guardianship** authority/priority/consent extension                                                           | #29    | M      | F1         | claude | claimed |
 | WB1-5 | **Role editor** + `resource.action.context` matrix + permission search + presets + **effective-access preview** | #7,#8  | L      | F1, ADR-01 | —     | backlog |
 | WB1-6 | **Scope + expiry + temporary cover** + maker-checker/step-up for high-risk access changes                       | #8,#9  | L      | WB1-5      | —     | backlog |
 
@@ -103,6 +103,8 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 ---
 
 ## Change log (board edits — newest first)
+
+- `2026-08-04` — **WB1-3 + WB1-4 claimed (claude), one combined branch.** Building **secure provisioning** (WB1-3: invitation → user sets own password via an expiring **F5 `SecureLink`** + delivery via **F5 `DeliveryService`**; activation/suspension that **blocks login** + audits; admin-initiated reset; **no code path emits a plaintext password** + regression guard) and **guardianship authority/priority/consent** (WB1-4: extend F1 `GuardianRelationship` — the Person→Person model that already backs the Guardians tab — with **custody, per-category contact-consent, verification, effective range**; multiple non-parent caregivers; a **consent-aware audience resolver** so results/fee comms target by relationship+consent, never a gender label; legacy `StudentGuardian` deprecated read-only) on `feat/wb1-3-4-provisioning-guardianship`. **Full workbench UI** on the person detail (owner-chosen). **+2 permissions** planned: `users.provision` (SYSTEM_ADMIN, clearance 7) + `guardians.manage` (GUARDIAN, clearance 5) → 330→**332** (`EXPECTED_PERMISSION_COUNTS` updated same commit). _(claude)_
 
 - `2026-08-03` — **WB1-1 enhancements (owner feedback), still in-review.** Added an **"All" roster tab** (first + default; every person, gated on `people.view`; role chips + masked contact), **summary cards** (`GET /directory/people/summary` → per-tab counts for only the tabs the caller may view, rendered as a clickable F8 `StatGrid`), and a guarded **dev staff seed** (`db:seed:people`) so every tab shows data (8 staff incl. 2 contractors, 32 contact points, 4 staff-and-guardian identities). No new permissions (All reuses `people.view`; catalog stays **330**). api unit **41/41**, **e2e 7/7**, `ci:quick`+`check:privileged-db`+Prettier green. Clarified: _prospect = prospective student (admission applicant)_; _vendors/contractors/external auditors_ = `StaffProfile` `employmentType:'contract'` (engaged) or a scoped `User` (limited login) today; a dedicated external-party type is a deferred WB1-5/6 decision. _(claude)_
 
