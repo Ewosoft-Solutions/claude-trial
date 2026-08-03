@@ -32,19 +32,51 @@ function detailRow(overrides: Record<string, unknown> = {}) {
     lastName: 'Okafor',
     preferredName: null,
     userTenantId: 'ut1',
+    dateOfBirth: new Date('2010-05-01'),
+    gender: 'female',
+    nationality: 'NG',
+    stateOfOrigin: 'Lagos',
+    lgaOfOrigin: 'Ikeja',
     contactPoints: [
-      { kind: 'email', value: 'ada@example.test' },
-      { kind: 'phone', value: '08030000001' },
+      {
+        kind: 'email',
+        value: 'ada@example.test',
+        label: null,
+        isPrimary: true,
+        verifiedAt: new Date('2025-01-01'),
+      },
+      {
+        kind: 'phone',
+        value: '08030000001',
+        label: 'mobile',
+        isPrimary: false,
+        verifiedAt: null,
+      },
     ],
+    addresses: [] as unknown[],
     studentProfile: {
+      id: 'stu1',
       studentNumber: 'STU-001',
       gradeLevel: 'SS1',
       enrollmentStatus: 'active',
+      admissionDate: new Date('2024-09-01'),
+      enrollmentDate: new Date('2024-09-01'),
+      graduationDate: null,
+      withdrawalDate: null,
+      transferDate: null,
     },
     staffProfiles: [] as unknown[],
     guardianships: [] as unknown[], // this person as a guardian → wards
     wardLinks: [] as unknown[], // this person as a ward → guardians
-    account: { status: 'active', user: { email: 'ada@example.test' } },
+    account: {
+      status: 'active',
+      addedAt: new Date('2024-08-01'),
+      user: {
+        email: 'ada@example.test',
+        lastLoginAt: new Date('2026-01-01'),
+      },
+      userTenantRole: { role: { name: 'Student' } },
+    },
     ...overrides,
   };
 }
@@ -73,6 +105,13 @@ describe('PeopleDirectoryService', () => {
   const admissionFindFirst = jest.fn();
   const studentFindMany = jest.fn();
   const staffProfileFindMany = jest.fn();
+  const guardianRelFindMany = jest.fn();
+  const contactPrefFindMany = jest.fn();
+  const attendanceFindMany = jest.fn();
+  const gradeFindMany = jest.fn();
+  const enrollmentFindMany = jest.fn();
+  const feeInvoiceFindMany = jest.fn();
+  const documentFindMany = jest.fn();
   const write = jest.fn();
   const client = {
     person: {
@@ -87,6 +126,13 @@ describe('PeopleDirectoryService', () => {
     },
     student: { findMany: studentFindMany },
     staffProfile: { findMany: staffProfileFindMany },
+    guardianRelationship: { findMany: guardianRelFindMany },
+    contactPreference: { findMany: contactPrefFindMany },
+    attendanceRecord: { findMany: attendanceFindMany },
+    grade: { findMany: gradeFindMany },
+    enrollment: { findMany: enrollmentFindMany },
+    feeInvoice: { findMany: feeInvoiceFindMany },
+    document: { findMany: documentFindMany },
   };
   const service = new PeopleDirectoryService(
     { client } as never,
@@ -98,6 +144,9 @@ describe('PeopleDirectoryService', () => {
     staff: true,
     guardians: true,
     users: true,
+    academics: true,
+    finance: true,
+    documents: true,
   };
 
   beforeEach(() => {
@@ -110,6 +159,13 @@ describe('PeopleDirectoryService', () => {
     admissionFindFirst.mockResolvedValue(prospectRow());
     studentFindMany.mockResolvedValue([]);
     staffProfileFindMany.mockResolvedValue([]);
+    guardianRelFindMany.mockResolvedValue([]);
+    contactPrefFindMany.mockResolvedValue([]);
+    attendanceFindMany.mockResolvedValue([]);
+    gradeFindMany.mockResolvedValue([]);
+    enrollmentFindMany.mockResolvedValue([]);
+    feeInvoiceFindMany.mockResolvedValue([]);
+    documentFindMany.mockResolvedValue([]);
     write.mockResolvedValue(true);
   });
 
@@ -470,7 +526,15 @@ describe('PeopleDirectoryService', () => {
         't1',
         'p1',
         'all',
-        { students: true, staff: false, guardians: true, users: false },
+        {
+          students: true,
+          staff: false,
+          guardians: true,
+          users: false,
+          academics: false,
+          finance: false,
+          documents: false,
+        },
         false,
       );
       expect(res).not.toBeNull();
@@ -534,6 +598,108 @@ describe('PeopleDirectoryService', () => {
         guardianName: 'Ngozi Eze',
         decision: 'pending',
       });
+    });
+
+    it('derives siblings from the student’s shared guardians', async () => {
+      personFindFirst.mockResolvedValue(
+        detailRow({
+          wardLinks: [
+            {
+              relationship: 'parent',
+              isPrimary: true,
+              guardian: {
+                id: 'g1',
+                firstName: 'Ngozi',
+                lastName: 'Okafor',
+                preferredName: null,
+              },
+            },
+          ],
+        }),
+      );
+      guardianRelFindMany.mockResolvedValue([
+        {
+          ward: {
+            id: 'sib1',
+            firstName: 'Uche',
+            lastName: 'Okafor',
+            preferredName: null,
+          },
+        },
+      ]);
+      const res = await service.detail('t1', 'p1', 'student', allPerms, true);
+      expect(res?.student?.siblings).toEqual([
+        {
+          id: 'sib1',
+          name: 'Uche Okafor',
+          relationship: 'sibling',
+          isPrimary: false,
+        },
+      ]);
+      expect(res?.flags.hasSiblings).toBe(true);
+    });
+
+    it('gates the finance / academics / documents roll-ups on permission', async () => {
+      feeInvoiceFindMany.mockResolvedValue([
+        {
+          amountDue: 1000,
+          amountPaid: 400,
+          status: 'overdue',
+          dueDate: new Date('2026-03-01'),
+        },
+      ]);
+      attendanceFindMany.mockResolvedValue([
+        { status: 'present' },
+        { status: 'absent' },
+      ]);
+      gradeFindMany.mockResolvedValue([{ percentage: 80 }, { percentage: 90 }]);
+      documentFindMany.mockResolvedValue([
+        {
+          id: 'd1',
+          title: 'Birth cert',
+          scanStatus: 'clean',
+          createdAt: new Date('2026-01-01'),
+          type: { label: 'Birth Certificate' },
+        },
+      ]);
+
+      const ok = await service.detail('t1', 'p1', 'student', allPerms, true);
+      expect(ok?.finance).toMatchObject({ balance: 600, overdueCount: 1 });
+      expect(ok?.academics).toMatchObject({
+        attendancePercent: 50,
+        averageGradePercent: 85,
+      });
+      expect(ok?.documents?.count).toBe(1);
+      expect(ok?.flags.feesOverdue).toBe(true);
+
+      const denied = await service.detail(
+        't1',
+        'p1',
+        'student',
+        { ...allPerms, finance: false, documents: false, academics: false },
+        true,
+      );
+      expect(denied?.finance).toBeNull();
+      expect(denied?.academics).toBeNull();
+      expect(denied?.documents).toBeNull();
+    });
+
+    it('builds the admission timeline for a prospect', async () => {
+      admissionFindFirst.mockResolvedValue(
+        prospectRow({ stage: 'interview', decision: 'pending' }),
+      );
+      const res = await service.detail('t1', 'a1', 'prospect', allPerms, true);
+      expect(res?.timeline.map((s) => s.key)).toEqual([
+        'submitted',
+        'interview',
+        'decision',
+      ]);
+      expect(res?.timeline.find((s) => s.key === 'submitted')?.state).toBe(
+        'done',
+      );
+      expect(res?.timeline.find((s) => s.key === 'interview')?.state).toBe(
+        'current',
+      );
     });
   });
 
