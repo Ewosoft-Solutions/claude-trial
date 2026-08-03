@@ -147,6 +147,13 @@ export const SCHOOL_NAV: NavigationConfig = {
       ],
     },
     {
+      key: 'people',
+      label: 'People',
+      icon: <Contact />,
+      href: '/people',
+      access: { anyPermission: ['people.view'] },
+    },
+    {
       key: 'classes',
       label: 'Classes',
       icon: <BookOpen />,

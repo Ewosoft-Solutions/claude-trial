@@ -246,7 +246,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 329, // 320 base + F5 communication (+5) + F6 curriculum (+4)
+  total: 330, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1)
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -277,6 +277,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     AI_PERMISSIONS: 4,
     LESSONS_PERMISSIONS: 9,
     PERSON_PERMISSIONS: 4,
+    GUARDIAN_PERMISSIONS: 1,
     DOCUMENT_PERMISSIONS: 6,
     IMPORT_PERMISSIONS: 5,
     CURRICULUM_PERMISSIONS: 4,
@@ -3517,6 +3518,26 @@ const PERSON_PERMISSIONS = [
   },
 ];
 
+// Guardian directory Permissions (1) — person schema (WB1-1)
+// The People directory's Guardians tab is a genuinely new capability: the
+// legacy system had no first-class guardian directory (guardian data was
+// buried inside student records). This gates the Guardians view independently
+// of students/staff/users, so a front-office/comms role can see caregivers
+// without HR or academic access. Contact reveal is still gated by
+// `people.view_contact`. Guardianship authority/consent depth is WB1-4.
+const GUARDIAN_PERMISSIONS = [
+  {
+    name: 'guardians.view',
+    label: 'View Guardians',
+    description:
+      'View the guardians directory (contacts masked without people.view_contact)',
+    resource: 'guardians',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 3,
+  },
+];
+
 // Document / attachment + signature Permissions (6) — documents schema (F4 / ADR-08)
 const DOCUMENT_PERMISSIONS = [
   {
@@ -4348,6 +4369,7 @@ async function main() {
       AI_PERMISSIONS,
       LESSONS_PERMISSIONS,
       PERSON_PERMISSIONS,
+      GUARDIAN_PERMISSIONS,
       DOCUMENT_PERMISSIONS,
       IMPORT_PERMISSIONS,
       CURRICULUM_PERMISSIONS,

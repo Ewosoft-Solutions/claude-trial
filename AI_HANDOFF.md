@@ -1,6 +1,38 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-02
+Last Updated: 2026-08-03
+
+---
+
+## Session Summary (2026-08-03) — Claude: WB1-1 Unified People directory → in-review
+
+**Item(s):** WB1-1 → **in-review** (first Workbench-1 slice; unlike the F-foundations it includes web UI). **Branch/PR:** `feat/WB1-1-people-directory` → PR to open. Claim committed first (`board: claim WB1-1 (claude)`), then built.
+
+**What changed & why** — replace the legacy system's three separate directories (All-Staff / All-Users / guardians) with **one People workbench**: a single `WorkbenchLayout` (F8) whose person-type tabs each render the F7 `DirectoryTable` over a governed **Person-centric projection**, so a human who is both staff and a guardian is **one identity with two profiles** (the WB1 acceptance) instead of duplicate rows.
+
+- **`apps/api/src/directory` (extends the F7 module, same pattern):**
+  - `services/people-directory.service.ts` — `PeopleDirectoryService`. `list(tenantId, type, canViewContact, query)` projects **student/guardian/staff/user over the F1 `Person`** anchor and **prospect over `AdmissionApplication`** (a prospect isn't a Person until admitted). Each row carries `profiles[]` (every profile the identity holds — the badge that makes the acceptance visible on any tab), a per-tab `primary`/`secondary`/`status`, and a `contact` **masked via `person.masking` unless `people.view_contact`**. An explicit `PERSON_SELECT` that **never** touches `healthInfo`/medical/safeguarding (those live on `Student`/`HealthRecord`). Contact resolves to a primary `ContactPoint`, else the login email. Per-tab existence filters (`studentProfile isNot null` / `staffProfiles some` / `guardianships some effectiveTo:null` / `account isNot null`); search excludes the contact index unless the caller may view contact (no association oracle, mirrors F7). `export(...)` is a per-tab audited (`directory.people.export`) masking-aware CSV with the same formula/DDE-injection guard as F7. `TenantDbService.client` only (no `DatabaseService` — `check:privileged-db` clean).
+  - `controllers/people-directory.controller.ts` — `/directory/people`. Base gate **`people.view`** (workbench); each tab additionally enforces its **type permission server-side** (`TYPE_PERMISSION`: student→`students.view`, guardian→`guardians.view`, staff→`staff.view`, user→`users.view`, prospect→`admissions.view`) via an in-handler `checkPermissions` → 403 (not hidden UI). Contact reveal via `people.view_contact`.
+  - `saved-views.controller.ts` — gate broadened to **ANY of `students.view`/`people.view`** so People-workbench viewers can own the new `people-<type>` saved-view resources (views hold no record data). `dto/directory.dto.ts` — `PeopleDirectoryQueryDto` (+`type`), `BulkExportPeopleDto`, `people-<type>` resources.
+- **Permissions +1:** `guardians.view` (clearance 3, administrative) — a **genuinely new capability** (the legacy system had no first-class guardian directory). `EXPECTED_PERMISSION_COUNTS` **329→330** in the same commit; seed run confirms 330 (1 created, guardians.view fanned to 8 pools). Prospects **reuse** `admissions.view`; contact reuses `people.view_contact` — no other new permissions.
+- **`apps/web/app/(app)/people/`** — the People workbench: `page.tsx` (server: parses `?tab=`, resolves per-tab authorization from the session, fetches the active tab + its `people-<type>` saved views), `people-workbench-client.tsx` (`WorkbenchLayout` with 5 tabs — tabs the viewer lacks are **disabled**; the active tab renders `DirectoryTable` with per-tab columns, profile chips under the name, distinct `StatusBadge` per lifecycle so account-enable is never conflated with enrollment/employment — the C026 bug — debounced search, status filter, saved views + save/delete, bulk CSV export, and a `PermissionDeniedState` for a directly-linked tab you can't see), `people-config.ts` (tab/permission map + directory-state⇄REST query), `layout.tsx` (`requirePermission('people.view')`), `loading.tsx`. Proxy routes `app/api/directory/people/{route,export/route}.ts`. New **People** nav section (`/people`, gated `people.view`).
+
+**Verification** (run + result)
+
+- **`pnpm ci:quick` green** (build + lint + typecheck across packages; 0 errors). **`pnpm check:privileged-db` green** (29 grandfathered, no new). **`pnpm db:rls:check` green** (no new tables — WB1-1 is projection + UI over existing F1/admissions schemas). **Prettier `--check` green** on all changed/new `.ts/.tsx`. **`pnpm db:seed` → 330** permissions in sync (no count mismatch).
+- **api unit 37/37** on `src/directory` — new `people-directory.service.spec.ts` (never-selects-health, mask/raw contact, contact fallback, **one-identity-all-profiles**, staff/guardian/user projection, per-type existence filter, search-oracle guard, prospect projection, export CSV+audit+injection-guard) + `people-directory.controller.spec.ts` (**refuses a tab lacking the type permission**, defaults to student, prospect→admissions.view, canViewContact wiring, export enforcement).
+- **e2e `people-directory.e2e-spec.ts` 6/6 on real Postgres as `app_runtime`** — masking with/without `people.view_contact`; **one identity with BOTH staff + guardian profiles**; student tab over `Person←Student`; prospect tab over `AdmissionApplication` with masked guardian contact; **RLS tenant isolation across all five tabs** (+ raw `person.persons` invisible under B's scope); audited masking-aware export.
+- **HTTP:** scratch API (:3031) mapped `GET /directory/people` + `POST /directory/people/export`; unauth request → **401 "No token provided"** (guard stack enforced at the boundary). **Web:** `/people` unauth → **307 → /login** (route compiles + runs, auth gate works). **Authenticated visual pass is owner-gated** — per the credential guardrail I did not enter the dev password (F7 precedent); the owner can sign in (owner@sunrise.test) to eyeball the tabs/masking.
+
+**Decisions / ADRs**
+
+- **No new ADR.** Notable choices: (1) the four person tabs project **`Person`** (not the per-domain tables) so cross-profile badges + the acceptance work on any tab; the deep fee/class Students list stays at `/students/directory` (F7) — the People workbench is the identity+relationship surface. (2) Prospects are **`AdmissionApplication`** (raw applicant/guardian strings, not yet a Person) — the honest mapping; the tab reuses `admissions.view`. (3) Per-tab permission is enforced **in the controller handler** (single endpoint, `type`-parameterized) + covered by a controller unit spec; the service stays a pure projection (matches F7). (4) People **export is gated on the tab's view permission** (audited + masking-aware) rather than inventing five `.export` permissions — documented governance choice for the unified directory. (5) **Campus scope** (WB1 scenario "sees only their campus") is **not** in WB1-1 — no Campus model exists yet; tenant isolation (RLS) is today's boundary and campus/expiry scope is WB1-6.
+
+**Next step (so the next agent can resume)**
+
+- Open the WB1-1 PR → review → merge → flip **WB1-1 → done** (first Workbench-1 slice landed; the three legacy directories replaced by one). Then the remaining WB1 items are separate branches: **WB1-2** first-class staff employment, **WB1-3** secure invitations, **WB1-4** guardianship depth, **WB1-5** role editor (`PolicyVersionPanel`), **WB1-6** scope/expiry + maker-checker (`ApprovalPanel`). Owner: to eyeball the workbench, run the normal dev servers (API :3030, web :3001) and sign in — the visual pass is the only owner-gated DoD item.
+
+**New gotcha** → Prettier's file globber treats a route-group segment like `app/(app)/people/**` as a glob group and finds no files (silently skipping them). Run Prettier from **inside** the `(app)/…` directory (e.g. `cd app/(app)/people && npx prettier --check "*.tsx"`) so the changed-files format gate actually covers route-group files.
 
 ---
 
