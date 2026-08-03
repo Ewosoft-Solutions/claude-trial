@@ -1,6 +1,22 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-03
+Last Updated: 2026-08-04
+
+---
+
+## Session Summary (2026-08-04) — Claude: WB1-1 → done — board + handoff reconcile (bookkeeping)
+
+**Item(s):** WB1-1 → **done**. Bookkeeping-only reconcile (no code): the board still showed WB1-1 `in-review` and this log had no entries for the #54/#56 follow-ups, though all are merged to `main`. An independent completeness review (verdict **COMPLETE-WITH-GAPS**) prompted this fix.
+
+**What actually shipped (the merged reality):** WB1-1 is on `main` across **[#53](https://github.com/Ewosoft-Solutions/claude-trial/pull/53)** (`a8eea44`, directory + tabs) + **[#54](https://github.com/Ewosoft-Solutions/claude-trial/pull/54)** (`08395d0`, cards-as-selector, per-table filters, phone, **detail drawer + profile**) + **[#56](https://github.com/Ewosoft-Solutions/claude-trial/pull/56)** (`c0639ce`, **Person 360** — tabbed detail + cross-domain roll-ups), with deps #57 (security floors) / #58 (CD permission-catalog sync) also merged. Reviewer re-ran the merged code: **unit 58/58**, **e2e 7/7** (masking ± contact scope, one-identity-two-profiles, RLS tenant isolation across tabs, All-tab + summary counts, audited masked export), `check:privileged-db` + `db:rls:check` green. Permission catalog **330** (`guardians.view`).
+
+- **DoD met (per review):** server-side per-tab permission (`assertCanViewType` on list/export/detail); contact masking via `people.view_contact`; explicit `select` that never touches health/safeguarding; tenant/RLS isolation, no privileged client; the **person 360 detail route** (relationship timeline + academics/finance/documents/people domain tabs, each profile/permission-gated) — the UI-spec item my earlier slice hadn't built, delivered by #54/#56; empty/loading/error/permission-denied states; audited CSV export with formula-injection guard.
+- **Deferred gaps (not blockers, recorded):** (1) **campus scope** — acceptance "a scoped admin sees only their campus" is unmet because no `Campus` model exists yet (ADR-11 accepted, not built); tenant RLS is today's boundary → **WB1-6**. (2) **HTTP guard-stack RBAC-denial e2e** — denial proven at controller-unit level; full request-through-guards 403 test tracked as **F2-fu1** (backlog). (3) minor DTO doc drift (`PeopleDirectoryQueryDto.type` docs say default `student`; controller defaults to `all`).
+- **Board:** WB1-1 row → `done`; change-log entry added; stale intro blurb reconciled (329→330, "next slice" now WB1-2…WB1-6). **Workbench-1 status: 1 of 6 done** (WB1-2…WB1-6 `backlog`).
+
+**Process note / gotcha (durable):** this reconcile also cleaned up after a **shared-working-tree multi-agent collision** — several sessions shared one working tree + repo, and a parallel from-scratch WB1-1 rebuild this line of work produced was **superseded and discarded** (its `feat/WB1-1-people-directory` branch no longer exists) once the canonical #53/#54/#56 implementation merged. The board/handoff doc entries from that parallel work had been squash-bundled into #53, which is why they were on `main` describing a smaller implementation. **Lesson: one working tree per agent — never share a tree + branch across concurrent sessions.**
+
+**Next:** WB1 proper continues with **WB1-2** (first-class staff employment on `Employment`, retiring payroll-as-directory) → WB1-3 (secure invitations) → WB1-4 (guardianship depth) → WB1-5 (role editor) → WB1-6 (scope/expiry + maker-checker, incl. campus scope).
 
 ---
 
