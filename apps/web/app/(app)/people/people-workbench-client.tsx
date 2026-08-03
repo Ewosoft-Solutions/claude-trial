@@ -301,7 +301,11 @@ export function PeopleWorkbenchClient({
   currentProfileId,
   permissions,
   authorized,
-  summary,
+  // Default to `{}` at the boundary: the type says non-null, but a server page
+  // that forgot to coalesce could still hand us `undefined` at runtime — the
+  // crash this whole guard-the-boundary rule came from. (See the `summary?.[…]`
+  // reads below for the same defence at each access site.)
+  summary = {},
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();

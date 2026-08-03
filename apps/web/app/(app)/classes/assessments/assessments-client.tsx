@@ -162,7 +162,7 @@ export function AssessmentsClient({
         setSubmissions(
           ((await submissionsRes.json()) as AssessmentSubmission[] | null) ?? [],
         );
-        if (bankRes && bankRes.ok) {
+        if (bankRes?.ok) {
           const nextBank =
             ((await bankRes.json()) as QuestionSummary[] | null) ?? [];
           setBank(nextBank);

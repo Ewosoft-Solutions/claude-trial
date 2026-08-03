@@ -140,7 +140,7 @@ export function AcademicReviewClient({
   }
 
   async function publishLesson() {
-    if (!selected || selected.type !== 'lesson' || !live) return;
+    if (selected?.type !== 'lesson' || !live) return;
     setBusy(true);
     setError(null);
     try {

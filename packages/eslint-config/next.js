@@ -6,6 +6,7 @@ import pluginReact from "eslint-plugin-react";
 import globals from "globals";
 import pluginNext from "@next/eslint-plugin-next";
 import { config as baseConfig } from "./base.js";
+import { defensiveAccessConfig } from "./defensive-access.js";
 
 /**
  * A custom ESLint configuration for libraries that use Next.js.
@@ -46,4 +47,5 @@ export const nextJsConfig = [
       "react/react-in-jsx-scope": "off",
     },
   },
+  ...defensiveAccessConfig,
 ];

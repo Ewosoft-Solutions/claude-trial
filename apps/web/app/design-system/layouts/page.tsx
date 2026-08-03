@@ -400,7 +400,7 @@ function FormDemo() {
     const email = (document.getElementById('f-email') as HTMLInputElement)?.value.trim();
     const next: ValidationItem[] = [];
     if (!name) next.push({ key: 'n', fieldId: 'f-name', message: 'Student name is required.' });
-    if (!email || !email.includes('@'))
+    if (!email?.includes('@'))
       next.push({ key: 'e', fieldId: 'f-email', message: 'Enter a valid guardian email.' });
     setAutoFocus(true);
     setItems(next);

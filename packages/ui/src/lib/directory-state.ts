@@ -186,7 +186,7 @@ export function cycleSort(
   current: DirectorySort | null,
   field: string,
 ): DirectorySort | null {
-  if (!current || current.field !== field) return { field, dir: 'asc' };
+  if (current?.field !== field) return { field, dir: 'asc' };
   if (current.dir === 'asc') return { field, dir: 'desc' };
   return null;
 }

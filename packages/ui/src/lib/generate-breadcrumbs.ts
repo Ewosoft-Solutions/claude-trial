@@ -51,7 +51,7 @@ export function generateBreadcrumbs(
 
       // Update href with actual params if it contains dynamic segments
       let href = config.href || currentPath;
-      if (config.href && config.href.includes('[')) {
+      if (config.href?.includes('[')) {
         href = replaceDynamicSegments(config.href, params);
       }
 

@@ -18,7 +18,7 @@ import { getSession } from './session';
  */
 export async function requirePermission(permission: string): Promise<void> {
   const session = await getSession();
-  if (!session || !session.permissions.includes(permission as never)) {
+  if (!session?.permissions.includes(permission as never)) {
     redirect('/unauthorized');
   }
 }
