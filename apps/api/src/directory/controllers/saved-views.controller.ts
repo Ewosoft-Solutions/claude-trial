@@ -13,6 +13,8 @@ import {
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 
+import { PermissionMode } from '@workspace/api';
+
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { TenantContextGuard } from '../../auth/guards/tenant-context.guard';
 import {
@@ -30,9 +32,10 @@ import {
 
 /**
  * Saved views for the directory pattern (F7). Owner-scoped personal views plus
- * tenant-shared ones. Gated on the resource's view permission — `students.view`
- * today, since students is the only resource that has adopted F7; extend the
- * gate as more lists opt in.
+ * tenant-shared ones. Views hold no record data (just replayable list state),
+ * so the gate is ANY directory-view permission — `students.view` (the F7 list)
+ * or `people.view` (the WB1-1 People workbench, whose tabs use `people-<type>`
+ * resources). The actual record governance lives in the projection services.
  */
 @ApiTags('Directory')
 @Controller('directory/saved-views')
@@ -54,7 +57,7 @@ export class SavedViewsController {
   }
 
   @Get()
-  @RequirePermissions(['students.view'])
+  @RequirePermissions(['students.view', 'people.view'], PermissionMode.ANY)
   @ApiOperation({ summary: 'List saved views for a resource (own + shared)' })
   async list(
     @Query() query: ListSavedViewsDto,
@@ -65,7 +68,7 @@ export class SavedViewsController {
   }
 
   @Post()
-  @RequirePermissions(['students.view'])
+  @RequirePermissions(['students.view', 'people.view'], PermissionMode.ANY)
   @ApiOperation({ summary: 'Save the current directory view' })
   async create(
     @Body() dto: CreateSavedViewDto,
@@ -76,7 +79,7 @@ export class SavedViewsController {
   }
 
   @Patch(':id')
-  @RequirePermissions(['students.view'])
+  @RequirePermissions(['students.view', 'people.view'], PermissionMode.ANY)
   @ApiOperation({ summary: 'Update a saved view you own' })
   async update(
     @Param('id') id: string,
@@ -88,7 +91,7 @@ export class SavedViewsController {
   }
 
   @Delete(':id')
-  @RequirePermissions(['students.view'])
+  @RequirePermissions(['students.view', 'people.view'], PermissionMode.ANY)
   @ApiOperation({ summary: 'Delete a saved view you own' })
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const { tenantId, userId, profileId } = this.ctx(req);

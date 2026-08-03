@@ -84,7 +84,7 @@ function ValidationDemo() {
         message: 'Student name is required.',
       });
     }
-    if (!email || !email.includes('@')) {
+    if (!email?.includes('@')) {
       next.push({
         key: 'email',
         fieldId: 'vs-email',

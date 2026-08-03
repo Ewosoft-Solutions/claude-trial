@@ -18,7 +18,7 @@ import { getSession } from './session';
  */
 export async function requirePermission(permission: string): Promise<void> {
   const session = await getSession();
-  if (!session || !session.permissions.includes(permission as never)) {
+  if (!session?.permissions.includes(permission as never)) {
     redirect('/unauthorized');
   }
 }
@@ -27,7 +27,9 @@ export async function requirePermission(permission: string): Promise<void> {
  * Asserts the viewer has at least one of the listed permissions.
  * Redirects to /unauthorized if none are present.
  */
-export async function requireAnyPermission(permissions: string[]): Promise<void> {
+export async function requireAnyPermission(
+  permissions: string[],
+): Promise<void> {
   const session = await getSession();
   if (!session) {
     redirect('/unauthorized');

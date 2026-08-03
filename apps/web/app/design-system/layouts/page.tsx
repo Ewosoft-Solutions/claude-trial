@@ -54,7 +54,10 @@ import {
 } from '@workspace/ui/custom/layouts/settings-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { ValidationSummary } from '@workspace/ui/custom/states/validation-summary';
-import type { StatItem, SettingsNavItem } from '@workspace/ui/types/layout.types';
+import type {
+  StatItem,
+  SettingsNavItem,
+} from '@workspace/ui/types/layout.types';
 import type { ValidationItem } from '@workspace/ui/types/states.types';
 
 /* ---------------------------------- data --------------------------------- */
@@ -90,19 +93,74 @@ const STATS: StatItem[] = [
 ];
 
 const STUDENTS = [
-  { id: 's1', name: 'Maya Okafor', klass: '11B', guardian: 'A. Okafor', status: 'Active' },
-  { id: 's2', name: 'Liam Chen', klass: '10A', guardian: 'R. Chen', status: 'Active' },
-  { id: 's3', name: 'Aisha Bello', klass: '11B', guardian: 'F. Bello', status: 'Suspended' },
-  { id: 's4', name: 'Noah Adeyemi', klass: '9C', guardian: 'G. Adeyemi', status: 'Active' },
-  { id: 's5', name: 'Sara Mensah', klass: '10A', guardian: 'P. Mensah', status: 'Active' },
+  {
+    id: 's1',
+    name: 'Maya Okafor',
+    klass: '11B',
+    guardian: 'A. Okafor',
+    status: 'Active',
+  },
+  {
+    id: 's2',
+    name: 'Liam Chen',
+    klass: '10A',
+    guardian: 'R. Chen',
+    status: 'Active',
+  },
+  {
+    id: 's3',
+    name: 'Aisha Bello',
+    klass: '11B',
+    guardian: 'F. Bello',
+    status: 'Suspended',
+  },
+  {
+    id: 's4',
+    name: 'Noah Adeyemi',
+    klass: '9C',
+    guardian: 'G. Adeyemi',
+    status: 'Active',
+  },
+  {
+    id: 's5',
+    name: 'Sara Mensah',
+    klass: '10A',
+    guardian: 'P. Mensah',
+    status: 'Active',
+  },
 ];
 
 const SETTINGS_SECTIONS = [
-  { key: 'general', label: 'General', description: 'Name, type, timezone', icon: <SlidersHorizontal /> },
-  { key: 'people', label: 'People & roles', description: 'Members, permissions', icon: <Users /> },
-  { key: 'billing', label: 'Billing', description: 'Plan & invoices', icon: <CreditCard /> },
-  { key: 'security', label: 'Security', description: 'Access, sessions', icon: <Shield /> },
-  { key: 'notifications', label: 'Notifications', description: 'Email & in-app', icon: <Bell /> },
+  {
+    key: 'general',
+    label: 'General',
+    description: 'Name, type, timezone',
+    icon: <SlidersHorizontal />,
+  },
+  {
+    key: 'people',
+    label: 'People & roles',
+    description: 'Members, permissions',
+    icon: <Users />,
+  },
+  {
+    key: 'billing',
+    label: 'Billing',
+    description: 'Plan & invoices',
+    icon: <CreditCard />,
+  },
+  {
+    key: 'security',
+    label: 'Security',
+    description: 'Access, sessions',
+    icon: <Shield />,
+  },
+  {
+    key: 'notifications',
+    label: 'Notifications',
+    description: 'Email & in-app',
+    icon: <Bell />,
+  },
 ];
 
 type TableState = 'data' | 'loading' | 'empty';
@@ -138,7 +196,12 @@ function DashboardDemo() {
             <CardContent className="grid grid-cols-2 gap-2.5">
               {['Add student', 'Add staff', 'Send notice', 'View reports'].map(
                 (a) => (
-                  <Button key={a} variant="outline" size="sm" className="justify-start">
+                  <Button
+                    key={a}
+                    variant="outline"
+                    size="sm"
+                    className="justify-start"
+                  >
                     {a}
                   </Button>
                 ),
@@ -150,14 +213,16 @@ function DashboardDemo() {
               <CardTitle className="text-base">Recent activity</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
-              {['₦240k fees collected', 'New admission: J. Cole', 'Term reports published'].map(
-                (a) => (
-                  <div key={a} className="flex items-center gap-2.5">
-                    <span className="size-1.5 rounded-full bg-primary" />
-                    <span className="text-muted-foreground">{a}</span>
-                  </div>
-                ),
-              )}
+              {[
+                '₦240k fees collected',
+                'New admission: J. Cole',
+                'Term reports published',
+              ].map((a) => (
+                <div key={a} className="flex items-center gap-2.5">
+                  <span className="size-1.5 rounded-full bg-primary" />
+                  <span className="text-muted-foreground">{a}</span>
+                </div>
+              ))}
             </CardContent>
           </Card>
         </>
@@ -225,9 +290,7 @@ function ListDetailDemo() {
                 aria-current={s.id === selected ? 'true' : undefined}
                 className={
                   'flex w-full flex-col gap-0.5 px-4 py-3 text-left outline-none transition-colors focus-visible:ring-[3px] focus-visible:ring-ring/50 ' +
-                  (s.id === selected
-                    ? 'bg-secondary'
-                    : 'hover:bg-accent/50')
+                  (s.id === selected ? 'bg-secondary' : 'hover:bg-accent/50')
                 }
               >
                 <span className="text-sm font-medium text-foreground">
@@ -246,7 +309,9 @@ function ListDetailDemo() {
           <div className="p-5">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-bold text-foreground">{active.name}</h3>
+                <h3 className="text-lg font-bold text-foreground">
+                  {active.name}
+                </h3>
                 <p className="text-[12.5px] text-muted-foreground">
                   Class {active.klass} · Guardian {active.guardian}
                 </p>
@@ -376,7 +441,9 @@ function TableDemo() {
                 <TableCell>{s.guardian}</TableCell>
                 <TableCell>
                   <Badge
-                    variant={s.status === 'Active' ? 'secondary' : 'destructive'}
+                    variant={
+                      s.status === 'Active' ? 'secondary' : 'destructive'
+                    }
                   >
                     {s.status}
                   </Badge>
@@ -396,12 +463,25 @@ function FormDemo() {
 
   const onSubmit: React.FormEventHandler<HTMLFormElement> = (e) => {
     e.preventDefault();
-    const name = (document.getElementById('f-name') as HTMLInputElement)?.value.trim();
-    const email = (document.getElementById('f-email') as HTMLInputElement)?.value.trim();
+    const name = (
+      document.getElementById('f-name') as HTMLInputElement
+    )?.value.trim();
+    const email = (
+      document.getElementById('f-email') as HTMLInputElement
+    )?.value.trim();
     const next: ValidationItem[] = [];
-    if (!name) next.push({ key: 'n', fieldId: 'f-name', message: 'Student name is required.' });
-    if (!email || !email.includes('@'))
-      next.push({ key: 'e', fieldId: 'f-email', message: 'Enter a valid guardian email.' });
+    if (!name)
+      next.push({
+        key: 'n',
+        fieldId: 'f-name',
+        message: 'Student name is required.',
+      });
+    if (!email?.includes('@'))
+      next.push({
+        key: 'e',
+        fieldId: 'f-email',
+        message: 'Enter a valid guardian email.',
+      });
     setAutoFocus(true);
     setItems(next);
   };
@@ -493,17 +573,19 @@ function SettingsDemo() {
             with <code>aria-current</code>.
           </p>
           <div className="divide-y divide-border rounded-[var(--radius-sm)] border border-border">
-            {['Display name', 'Institution type', 'Default timezone'].map((row) => (
-              <div
-                key={row}
-                className="flex items-center justify-between gap-3 px-3.5 py-3"
-              >
-                <span className="text-sm text-foreground">{row}</span>
-                <Button variant="ghost" size="sm">
-                  Edit
-                </Button>
-              </div>
-            ))}
+            {['Display name', 'Institution type', 'Default timezone'].map(
+              (row) => (
+                <div
+                  key={row}
+                  className="flex items-center justify-between gap-3 px-3.5 py-3"
+                >
+                  <span className="text-sm text-foreground">{row}</span>
+                  <Button variant="ghost" size="sm">
+                    Edit
+                  </Button>
+                </div>
+              ),
+            )}
           </div>
         </CardContent>
       </Card>
