@@ -6,7 +6,7 @@ Last Updated: 2026-08-03
 
 ## Session Summary (2026-08-03) — Claude: WB1-1 Unified People directory → in-review
 
-**Item(s):** WB1-1 → **in-review** (first Workbench-1 slice; unlike the F-foundations it includes web UI). **Branch/PR:** `feat/WB1-1-people-directory` → PR to open. Claim committed first (`board: claim WB1-1 (claude)`), then built.
+**Item(s):** WB1-1 → **in-review** (first Workbench-1 slice; unlike the F-foundations it includes web UI). **Branch/PR:** `feat/WB1-1-people-directory` → [PR #53](https://github.com/Ewosoft-Solutions/claude-trial/pull/53). Claim committed first (`board: claim WB1-1 (claude)`), then built.
 
 **What changed & why** — replace the legacy system's three separate directories (All-Staff / All-Users / guardians) with **one People workbench**: a single `WorkbenchLayout` (F8) whose person-type tabs each render the F7 `DirectoryTable` over a governed **Person-centric projection**, so a human who is both staff and a guardian is **one identity with two profiles** (the WB1 acceptance) instead of duplicate rows.
 
