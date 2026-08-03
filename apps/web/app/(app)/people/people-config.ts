@@ -10,6 +10,7 @@ import {
 } from '@workspace/ui/lib/directory-state';
 
 export const PEOPLE_TYPES = [
+  'all',
   'student',
   'guardian',
   'staff',
@@ -24,6 +25,9 @@ export type PeopleType = (typeof PEOPLE_TYPES)[number];
  * the server refuses (the server is still the authority — golden rule 5).
  */
 export const TYPE_PERMISSION: Record<PeopleType, string> = {
+  // The unified roster is gated on the workbench permission itself; the
+  // type-specific detail still sits behind each dedicated tab's permission.
+  all: 'people.view',
   student: 'students.view',
   guardian: 'guardians.view',
   staff: 'staff.view',
@@ -32,6 +36,7 @@ export const TYPE_PERMISSION: Record<PeopleType, string> = {
 };
 
 export const TAB_LABEL: Record<PeopleType, string> = {
+  all: 'All people',
   student: 'Students',
   guardian: 'Guardians',
   staff: 'Staff',
@@ -43,7 +48,7 @@ export function parseType(raw: string | string[] | undefined): PeopleType {
   const value = Array.isArray(raw) ? raw[0] : raw;
   return (PEOPLE_TYPES as readonly string[]).includes(value ?? '')
     ? (value as PeopleType)
-    : 'student';
+    : 'all';
 }
 
 /**

@@ -270,6 +270,35 @@ describe('PeopleDirectoryService', () => {
     expect(res.data[0].contact).toContain('*');
   });
 
+  it('lists every person on the All tab with no profile-existence filter', async () => {
+    await service.list('t1', 'all', true, {});
+    expect(personFindMany.mock.calls[0][0].where).toEqual({
+      tenantId: 't1',
+      status: 'active',
+    });
+    const res = await service.list('t1', 'all', true, {});
+    // Coarse type + account status; the full role set is in `profiles`.
+    expect(res.data[0]).toMatchObject({ primary: 'Student', status: 'active' });
+    expect(res.data[0].profiles).toEqual(['student', 'user']);
+  });
+
+  it('summary counts each requested type (all + person tabs + prospect)', async () => {
+    personCount.mockReset();
+    personCount.mockResolvedValueOnce(26).mockResolvedValueOnce(8);
+    admissionCount.mockResolvedValueOnce(7);
+    const res = await service.summary('t1', ['all', 'student', 'prospect']);
+    expect(res).toEqual({ all: 26, student: 8, prospect: 7 });
+    // 'all' counts every person, no profile filter.
+    expect(personCount.mock.calls[0][0].where).toEqual({
+      tenantId: 't1',
+      status: 'active',
+    });
+    // 'student' counts via the existence filter.
+    expect(personCount.mock.calls[1][0].where.studentProfile).toEqual({
+      isNot: null,
+    });
+  });
+
   describe('export', () => {
     it('produces per-type CSV, honours masking, and writes an audit row', async () => {
       const result = await service.export('t1', 'staff', 'u1', false, ['p1']);

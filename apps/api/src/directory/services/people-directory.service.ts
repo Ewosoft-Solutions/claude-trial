@@ -190,6 +190,11 @@ export class PeopleDirectoryService {
     const status = query.status;
 
     switch (type) {
+      case 'all':
+        // The unified roster: every person, no profile-existence filter. Gated
+        // on `people.view` alone; the type-specific DETAIL still lives behind
+        // each dedicated tab's permission.
+        break;
       case 'student':
         where.studentProfile = status
           ? { is: { enrollmentStatus: status } }
@@ -293,11 +298,18 @@ export class PeopleDirectoryService {
           : 'secondary';
         break;
       case 'user':
+      case 'all':
+        // A coarse "type" label; the full role set is in `profiles`. The status
+        // chip shows account state (null for a person with no login).
         primary = row.studentProfile
           ? 'Student'
           : staff?.jobTitle
             ? 'Staff'
-            : '—';
+            : row.guardianships.length > 0
+              ? 'Guardian'
+              : row.userTenantId
+                ? 'User'
+                : '—';
         secondary = '—';
         status = row.account?.status ?? null;
         break;
@@ -457,6 +469,30 @@ export class PeopleDirectoryService {
   }
 
   /**
+   * Per-tab record counts for the summary cards. Counts only the `types` the
+   * caller is authorized for (resolved at the controller), so a card is never
+   * shown for a tab the caller can't open. Counts run sequentially — one pinned
+   * RLS-transaction connection (see listPersons).
+   */
+  async summary(
+    tenantId: string,
+    types: PeopleType[],
+  ): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {};
+    for (const type of types) {
+      counts[type] =
+        type === 'prospect'
+          ? await this.client.admissionApplication.count({
+              where: { tenantId },
+            })
+          : await this.client.person.count({
+              where: this.personWhere(tenantId, type, false, {}),
+            });
+    }
+    return counts;
+  }
+
+  /**
    * Export the selected rows of a tab as CSV. A governed bulk action: gated on
    * the tab's type permission at the controller, honours the same masking as
    * the list, and is AUDITED as a data export.
@@ -538,6 +574,11 @@ const HEADERS: Record<
   PeopleType,
   { primaryHeader: string; secondaryHeader: string; statusHeader: string }
 > = {
+  all: {
+    primaryHeader: 'Type',
+    secondaryHeader: '',
+    statusHeader: 'Account status',
+  },
   student: {
     primaryHeader: 'Student number',
     secondaryHeader: 'Grade',

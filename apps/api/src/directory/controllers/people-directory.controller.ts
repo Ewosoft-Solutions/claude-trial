@@ -36,12 +36,25 @@ import {
  * `admissions.view` (a prospect IS an admission application).
  */
 const TYPE_PERMISSION: Record<PeopleType, string> = {
+  // The unified roster is gated on the workbench permission itself; the
+  // type-specific DETAIL still lives behind each dedicated tab's permission.
+  all: 'people.view',
   student: 'students.view',
   guardian: 'guardians.view',
   staff: 'staff.view',
   user: 'users.view',
   prospect: 'admissions.view',
 };
+
+/** The person-type tabs, in display order (the unified roster first). */
+const PEOPLE_TABS: PeopleType[] = [
+  'all',
+  'student',
+  'guardian',
+  'staff',
+  'user',
+  'prospect',
+];
 
 /**
  * Governed **People** directory (WB1-1). One server-side surface the People
@@ -91,16 +104,35 @@ export class PeopleDirectoryController {
   @RequirePermissions(['people.view'])
   @ApiOperation({
     summary:
-      'Governed People directory tab (type=student|guardian|staff|user|prospect; contact masked without people.view_contact)',
+      'Governed People directory tab (type=all|student|guardian|staff|user|prospect; contact masked without people.view_contact)',
   })
   async list(
     @Query() query: PeopleDirectoryQueryDto,
     @Request() req: AuthenticatedRequest,
   ) {
     const { tenantId } = this.ctx(req);
-    const type = query.type ?? 'student';
+    const type = query.type ?? 'all';
     this.assertCanViewType(req, type);
     return this.directory.list(tenantId, type, this.canViewContact(req), query);
+  }
+
+  @Get('summary')
+  @RequirePermissions(['people.view'])
+  @ApiOperation({
+    summary:
+      'Per-tab record counts for the summary cards (only tabs the caller may view)',
+  })
+  async summary(@Request() req: AuthenticatedRequest) {
+    const { tenantId } = this.ctx(req);
+    // Only count tabs the caller is authorized for, so a card is never shown
+    // for a tab they can't open.
+    const allowed = PEOPLE_TABS.filter(
+      (type) =>
+        this.permissionService.checkPermissions(req.userContext!, [
+          TYPE_PERMISSION[type],
+        ]).granted,
+    );
+    return this.directory.summary(tenantId, allowed);
   }
 
   @Post('export')

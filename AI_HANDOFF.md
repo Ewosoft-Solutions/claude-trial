@@ -4,6 +4,21 @@ Last Updated: 2026-08-03
 
 ---
 
+## Session Summary (2026-08-03, pt. 3) — Claude: WB1-1 owner-requested enhancements — All tab, summary cards, staff seed (still in-review, PR #53)
+
+**Item(s):** WB1-1 (PR #53) — owner feedback while reviewing: (1) seed staff so the Staff tab isn't empty; (2) an **"All" tab first** showing every person; (3) **summary cards** for at-a-glance counts; plus two questions answered (prospect = prospective student / admission applicant; vendors/contractors/external auditors → today a `StaffProfile` with `employmentType:'contract'` for engaged parties, or a scoped `User` for limited-login outsiders — a dedicated external-party type is a deferred decision). All on `feat/WB1-1-people-directory`; api unit **41/41**, e2e **7/7**, `ci:quick` + `check:privileged-db` + Prettier green. **No new permissions** (the All tab reuses `people.view`), so the catalog stays **330**.
+
+- **"All" roster tab (first, default).** New `all` person-type across the DTO (`PEOPLE_TYPES`), service (`personWhere` → no profile filter; `projectPerson` → coarse type + account status), controller (`TYPE_PERMISSION.all = 'people.view'`, list default is now `all`), and web config/client. Gated on `people.view` alone — it shows identity + role chips + masked contact, while the type-specific DETAIL still sits behind each dedicated tab's permission. Also fixes the earlier "default tab could deny an authorized user" nit cleanly: the default is now `all`, which everyone with `people.view` can open. New saved-view resource `people-all`.
+- **Summary cards.** New `GET /directory/people/summary` (`PeopleDirectoryService.summary`) returns per-tab counts for ONLY the tabs the caller is authorized for (a card is never shown for a denied tab). The web page fetches it (even when the active tab is denied) and renders a clickable `StatGrid` (F8/`custom/layouts/stat-grid`) above the table; tab badges now show these counts too.
+- **Dev staff seed.** New guarded dev seed `packages/database/prisma/scripts/dev/people-directory.ts` (+ `db:seed:people`) adds `StaffProfile`s + `ContactPoint`s to existing dev persons — incl. **4 people who are both staff AND guardians** (live one-identity-two-profiles) and **2 contractors** (`employmentType:'contract'`: an External Auditor + a Music Tutor — the honest "engaged external party" path). Idempotent: skips persons that already have the rows; `employeeNumber` derived from the person id so re-runs can't collide on `@@unique([tenantId, employeeNumber])`. Dev DB now: 8 staff, 32 contact points.
+- **Tests:** service spec +All-projection +summary (unit 41); controller spec default→`all` + summary-only-authorized-tabs; e2e +"All returns every person & summary counts each tab" (7/7 on real pg).
+
+**Verification:** `pnpm ci:quick` green; `pnpm check:privileged-db` green (no new privileged/unscoped access — the summary counts use `TenantDbService.client`); api unit **41/41**; **e2e 7/7** on real Postgres as `app_runtime`; Prettier-clean; dev seed idempotent (re-run adds 0). Authenticated visual pass (the cards + populated tabs) still owner-gated — sign in as `owner@sunrise.test` at `/people`; the dev DB now has data on every tab (Users 26 · Students 8 · Guardians · Staff 8 · Prospects 7 · All 26).
+
+**Next:** review → merge → WB1-1 `done`. A dedicated **external-party / vendor** person type (if wanted beyond `employmentType:'contract'`) is a small follow-up needing a permission + governance decision — flag for WB1-5/6 (scoped, expiring access).
+
+---
+
 ## Session Summary (2026-08-03, pt. 2) — Claude: WB1-1 independent review + fixes (still in-review, PR #53)
 
 **Item(s):** WB1-1 (PR #53) — an independent maker-checker reviewer re-ran the full suite (unit 37/37, e2e 6/6, `check:privileged-db`/`db:rls:check` green, seed 330 verified) and returned **APPROVE-WITH-NITS**: security-critical governance (server-side per-tab permission, masking, no health leak, tenant/RLS isolation, CSV-injection, saved-view ownership) all confirmed test-proven; **1 moderate correctness bug** + minors/nits, nothing blocking. Fixes applied on `feat/WB1-1-people-directory`; directory unit now **38/38**, e2e still **6/6**, typecheck/prettier/privileged-db green.

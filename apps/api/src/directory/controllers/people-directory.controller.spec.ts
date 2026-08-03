@@ -10,6 +10,7 @@ import { PeopleDirectoryController } from './people-directory.controller';
 describe('PeopleDirectoryController', () => {
   const list = jest.fn();
   const exportRows = jest.fn();
+  const summaryFn = jest.fn();
   const checkPermissions = jest.fn();
 
   function makeController(grantedPermissions: string[]) {
@@ -19,7 +20,7 @@ describe('PeopleDirectoryController', () => {
       }),
     );
     return new PeopleDirectoryController(
-      { list, export: exportRows } as never,
+      { list, export: exportRows, summary: summaryFn } as never,
       { checkPermissions } as never,
     );
   }
@@ -42,10 +43,10 @@ describe('PeopleDirectoryController', () => {
     expect(list).not.toHaveBeenCalled();
   });
 
-  it('serves a tab the caller is authorized for, defaulting to student', async () => {
-    const controller = makeController(['people.view', 'students.view']);
+  it('defaults to the All roster (gated on people.view alone)', async () => {
+    const controller = makeController(['people.view']); // no per-type perms
     await controller.list({}, req);
-    expect(list).toHaveBeenCalledWith('t1', 'student', false, {});
+    expect(list).toHaveBeenCalledWith('t1', 'all', false, {});
   });
 
   it('maps prospect → admissions.view and staff → staff.view', async () => {
@@ -80,5 +81,12 @@ describe('PeopleDirectoryController', () => {
       controller.export({ type: 'staff', ids: ['p1'] }, req),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(exportRows).not.toHaveBeenCalled();
+  });
+
+  it('summary counts only the tabs the caller may view', async () => {
+    // people.view (→ all) + students.view, but NOT staff/users/guardians/admissions.
+    const controller = makeController(['people.view', 'students.view']);
+    await controller.summary(req);
+    expect(summaryFn).toHaveBeenCalledWith('t1', ['all', 'student']);
   });
 });

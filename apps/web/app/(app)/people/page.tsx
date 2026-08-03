@@ -45,6 +45,12 @@ export default async function PeopleWorkbenchPage({
   // without a wasted 403 round-trip.
   const authorized = has('people.view') && has(TYPE_PERMISSION[type]);
 
+  // Summary counts are gated on `people.view` alone, so fetch them even when the
+  // active tab is denied (the cards then show the tabs the caller CAN open).
+  const summaryPromise = serverApiGet<Record<string, number>>(
+    '/directory/people/summary',
+  );
+
   const [directory, savedViews] = authorized
     ? await Promise.all([
         serverApiGet<DirectoryResponse>(
@@ -55,6 +61,8 @@ export default async function PeopleWorkbenchPage({
         ),
       ])
     : [null, null];
+
+  const summary = (await summaryPromise) ?? {};
 
   const schoolName =
     session?.schools.find((school) => school.id === session.defaultSchoolId)
@@ -70,6 +78,7 @@ export default async function PeopleWorkbenchPage({
       currentProfileId={session?.activeProfileId ?? null}
       permissions={permissions}
       authorized={authorized}
+      summary={summary}
     />
   );
 }

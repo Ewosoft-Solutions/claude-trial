@@ -256,6 +256,30 @@ d('Unified People directory (WB1-1)', () => {
     expect(rawFromB).toBe(0);
   });
 
+  it('the All tab returns every active person, and summary counts each tab', async () => {
+    const all = await inA(() => people.list(tenantAId, 'all', true, {}));
+    // Both the staff+guardian identity and the student appear on the roster.
+    expect(all.data.find((r) => r.id === combinedId)).toBeDefined();
+    expect(all.data.find((r) => r.id === studentPersonId)).toBeDefined();
+
+    const summary = await inA(() =>
+      people.summary(tenantAId, [
+        'all',
+        'student',
+        'guardian',
+        'staff',
+        'user',
+        'prospect',
+      ]),
+    );
+    // Tenant A fixtures: combined (staff+guardian), its ward, the student; +1 admission.
+    expect(summary.all).toBe(3);
+    expect(summary.student).toBe(1);
+    expect(summary.guardian).toBe(1);
+    expect(summary.staff).toBe(1);
+    expect(summary.prospect).toBe(1);
+  });
+
   it('exports the selected staff rows as CSV, honouring masking + audit', async () => {
     const masked = await inA(() =>
       people.export(tenantAId, 'staff', 'owner', false, [combinedId]),

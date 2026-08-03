@@ -38,6 +38,7 @@ export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
  * prospect becomes a Person only on admission).
  */
 export const PEOPLE_TYPES = [
+  'all',
   'student',
   'guardian',
   'staff',
@@ -58,6 +59,7 @@ export type PeopleDirectorySortField =
  */
 export const DIRECTORY_RESOURCES = [
   'students',
+  'people-all',
   'people-student',
   'people-guardian',
   'people-staff',

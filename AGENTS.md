@@ -26,6 +26,7 @@ Context you should skim once per machine: `AI_CONTEXT.md` (product/stack/persona
 6. **High-risk changes are workflows** — reuse `MakerCheckerRequest` + `SensitiveOperationPolicy` + step-up; never silently mutate a posted receipt, published result, or role grant.
 7. **No secret/PII leakage.** Contact data masked by default; health/safeguarding narrative stays encrypted + non-indexed (see the health crypto note in §7).
 8. **Definition of Done is the DoD in §5 — a rendered page is not "done".**
+9. **Defend the render against absent data.** Anything crossing a trust boundary — `serverApiGet`/API responses, component props, route & search params, destructured objects — can arrive `undefined`, `null`, empty, or missing keys. Reach through it with optional chaining and nullish defaults **at that boundary** (`summary?.[type]`, `rows ?? []`, `{ data = {} }`) so an unexpected shape renders an empty/error state, never a `TypeError` that white-screens the route. Guard the boundary, not every internal access — blanket `?.` on values your own logic guarantees only hides real bugs.
 
 ## 3 · Repo map (orient fast)
 

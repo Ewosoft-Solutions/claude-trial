@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   Bookmark,
   Briefcase,
+  Contact,
   Download,
   GraduationCap,
   Search,
@@ -38,7 +39,9 @@ import {
 } from '@workspace/ui/components/select';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { WorkbenchLayout } from '@workspace/ui/custom/workbench/workbench-layout';
+import type { StatItem } from '@workspace/ui/types/layout.types';
 import {
   DirectoryTable,
   MaskedValue,
@@ -90,6 +93,7 @@ const PROFILE_LABEL: Record<PeopleProfileKind, string> = {
 };
 
 const TAB_ICON: Record<PeopleType, React.ReactNode> = {
+  all: <Contact />,
   student: <GraduationCap />,
   guardian: <Users />,
   staff: <Briefcase />,
@@ -99,10 +103,19 @@ const TAB_ICON: Record<PeopleType, React.ReactNode> = {
 
 /** Status value → chip label + tone, per tab. Distinct badges per lifecycle —
  *  never conflates account-enable with enrollment/employment (the C026 bug). */
+const ACCOUNT_STATUS_META: Record<string, { label: string; tone: StateTone }> =
+  {
+    active: { label: 'Active', tone: 'success' },
+    pending: { label: 'Pending', tone: 'info' },
+    inactive: { label: 'Inactive', tone: 'neutral' },
+    suspended: { label: 'Suspended', tone: 'destructive' },
+  };
+
 const STATUS_META: Record<
   PeopleType,
   Record<string, { label: string; tone: StateTone }>
 > = {
+  all: ACCOUNT_STATUS_META,
   student: {
     active: { label: 'Active', tone: 'success' },
     inactive: { label: 'Inactive', tone: 'neutral' },
@@ -117,12 +130,7 @@ const STATUS_META: Record<
     suspended: { label: 'Suspended', tone: 'warning' },
     terminated: { label: 'Terminated', tone: 'destructive' },
   },
-  user: {
-    active: { label: 'Active', tone: 'success' },
-    pending: { label: 'Pending', tone: 'info' },
-    inactive: { label: 'Inactive', tone: 'neutral' },
-    suspended: { label: 'Suspended', tone: 'destructive' },
-  },
+  user: ACCOUNT_STATUS_META,
   guardian: {
     primary: { label: 'Primary contact', tone: 'info' },
     secondary: { label: 'Secondary', tone: 'neutral' },
@@ -137,6 +145,7 @@ const STATUS_META: Record<
 
 /** Per-tab status filter options (guardian has no status filter). */
 const STATUS_OPTIONS: Record<PeopleType, string[]> = {
+  all: [],
   student: [
     'active',
     'inactive',
@@ -219,7 +228,7 @@ function columnsFor(type: PeopleType): DirectoryColumn<PeopleRow>[] {
         ? 'Priority'
         : type === 'prospect'
           ? 'Decision'
-          : type === 'user'
+          : type === 'user' || type === 'all'
             ? 'Account'
             : type === 'staff'
               ? 'Employment'
@@ -241,6 +250,10 @@ function columnsFor(type: PeopleType): DirectoryColumn<PeopleRow>[] {
   });
 
   switch (type) {
+    case 'all':
+      // The unified roster: identity + role chips (under the name) + account
+      // state + contact. Type-specific detail lives on the dedicated tabs.
+      return [name, status, contact];
     case 'student':
       return [
         name,
@@ -275,6 +288,8 @@ interface Props {
   currentProfileId: string | null;
   permissions: string[];
   authorized: boolean;
+  /** Per-tab record counts for the summary cards (only authorized tabs). */
+  summary: Record<string, number>;
 }
 
 export function PeopleWorkbenchClient({
@@ -286,6 +301,7 @@ export function PeopleWorkbenchClient({
   currentProfileId,
   permissions,
   authorized,
+  summary,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -336,13 +352,26 @@ export function PeopleWorkbenchClient({
     label: TAB_LABEL[type],
     icon: TAB_ICON[type],
     disabled: !has(TYPE_PERMISSION[type]),
-    badge: type === activeType ? total : undefined,
+    badge: summary?.[type],
   }));
 
   function switchTab(key: string) {
     if (key === activeType) return;
     router.replace(`${pathname}?tab=${key}`, { scroll: false });
   }
+
+  // Summary cards — one per authorized tab, clickable to switch. The counts come
+  // from the server (only tabs the caller may view), so a card is never shown
+  // for a denied tab.
+  const statItems: StatItem[] = PEOPLE_TYPES.filter(
+    (type) => summary?.[type] !== undefined,
+  ).map((type) => ({
+    key: type,
+    label: TAB_LABEL[type],
+    value: (summary?.[type] ?? 0).toLocaleString(),
+    icon: TAB_ICON[type],
+    onSelect: () => switchTab(type),
+  }));
 
   const appliedView = savedViews.find((v) => v.id === state.viewId) ?? null;
   const ownsAppliedView =
@@ -534,7 +563,12 @@ export function PeopleWorkbenchClient({
         activeTab={activeType}
         onTabChange={switchTab}
       >
-        {body}
+        <div className="flex flex-col gap-4">
+          {statItems.length > 0 ? (
+            <StatGrid items={statItems} minTileWidth={150} />
+          ) : null}
+          {body}
+        </div>
       </WorkbenchLayout>
     </ShellMain>
   );
