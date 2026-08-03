@@ -274,7 +274,6 @@ interface Props {
   savedViews: DirectorySavedView[];
   currentProfileId: string | null;
   permissions: string[];
-  canViewContact: boolean;
   authorized: boolean;
 }
 

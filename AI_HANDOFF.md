@@ -4,6 +4,19 @@ Last Updated: 2026-08-03
 
 ---
 
+## Session Summary (2026-08-03, pt. 2) — Claude: WB1-1 independent review + fixes (still in-review, PR #53)
+
+**Item(s):** WB1-1 (PR #53) — an independent maker-checker reviewer re-ran the full suite (unit 37/37, e2e 6/6, `check:privileged-db`/`db:rls:check` green, seed 330 verified) and returned **APPROVE-WITH-NITS**: security-critical governance (server-side per-tab permission, masking, no health leak, tenant/RLS isolation, CSV-injection, saved-view ownership) all confirmed test-proven; **1 moderate correctness bug** + minors/nits, nothing blocking. Fixes applied on `feat/WB1-1-people-directory`; directory unit now **38/38**, e2e still **6/6**, typecheck/prettier/privileged-db green.
+
+- **[moderate — fixed] Staff tab status filter ⇄ display mismatch.** `personWhere` matched a person if ANY `StaffProfile` had the filtered status (`some: { employmentStatus }`), but the SELECT showed the most-recent profile unfiltered — so a rehire (multiple StaffProfiles) could match on an old stint yet render the newer stint's different status. Fixed with `personSelect(type, status)`: on the Staff tab with a status filter, the selected `staffProfiles` is narrowed to that status (`where: { employmentStatus }`, still most-recent-of-matching), so the chip agrees with the filter. New regression unit test. (Impact was low today — 0 StaffProfiles in dev — but this projection is exactly what WB1-2 will rebuild on `Employment`.)
+- **[minor — fixed] Default tab could deny an authorized user.** `/people` with no `?tab=` always defaulted to `student`, so a user with `staff.view` but not `students.view` saw the denied state. Added `firstAllowedType(permissions)` — the server now defaults to the first tab the caller can actually see.
+- **[nit — fixed] Prospect export audit resource** was `person`; now `admission_application` for the prospect tab.
+- **[nit — fixed] Dead `canViewContact` prop** removed from the client `Props` + page (masking is driven by `row.contactMasked`).
+- **[accepted, not changed]** contact search doesn't cover the login-email fallback / space-in-phone (only affects callers who already hold `people.view_contact`); guardian tab ignores a direct-API `status` (UI sends none); saved-views ANY-gate lets a `people.view`-only user CRUD their OWN `students` views (owner-only, no record data). Documented as deliberate.
+- **[pre-existing infra, not WB1-1] pg `DeprecationWarning: client already executing a query`** (raised by the owner): fires once per process from the app's shared RLS interactive-transaction / JobWorker machinery booted by any e2e — **`directory.e2e-spec.ts` (F7) emits it identically**, so it predates WB1-1 and is benign (tests pass, results correct). Still hardened the People service to not contribute: `list`/`listProspects` now run `count` then `findMany` **sequentially** (a `runScoped` unit of work is pinned to one interactive-tx connection, so `Promise.all` gained no parallelism and tripped the concurrent-query pattern). Fully silencing it repo-wide is a separate job/RLS-infra cleanup, out of scope for this feature branch.
+
+---
+
 ## Session Summary (2026-08-03) — Claude: WB1-1 Unified People directory → in-review
 
 **Item(s):** WB1-1 → **in-review** (first Workbench-1 slice; unlike the F-foundations it includes web UI). **Branch/PR:** `feat/WB1-1-people-directory` → [PR #53](https://github.com/Ewosoft-Solutions/claude-trial/pull/53). Claim committed first (`board: claim WB1-1 (claude)`), then built.

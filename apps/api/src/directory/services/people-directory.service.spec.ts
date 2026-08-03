@@ -158,6 +158,21 @@ describe('PeopleDirectoryService', () => {
     });
   });
 
+  it('narrows the selected staff employment to the status filter (chip matches filter)', async () => {
+    await service.list('t1', 'staff', true, { status: 'active' });
+    expect(personFindMany.mock.calls[0][0].select.staffProfiles.where).toEqual({
+      employmentStatus: 'active',
+    });
+
+    // Without a status filter the most-recent employment is shown unfiltered.
+    jest.clearAllMocks();
+    personFindMany.mockResolvedValue([personRow()]);
+    await service.list('t1', 'staff', true, {});
+    expect(
+      personFindMany.mock.calls[0][0].select.staffProfiles.where,
+    ).toBeUndefined();
+  });
+
   it('projects the guardian tab with ward summary + contact priority', async () => {
     personFindMany.mockResolvedValue([
       personRow({

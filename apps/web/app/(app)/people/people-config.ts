@@ -46,6 +46,20 @@ export function parseType(raw: string | string[] | undefined): PeopleType {
     : 'student';
 }
 
+/**
+ * The first tab the caller may view, given their permissions — used to pick the
+ * default tab so a user with (say) `staff.view` but not `students.view` doesn't
+ * land on the denied Students tab when no `?tab=` is present.
+ */
+export function firstAllowedType(
+  permissions: readonly string[],
+): PeopleType | null {
+  return (
+    PEOPLE_TYPES.find((type) => permissions.includes(TYPE_PERMISSION[type])) ??
+    null
+  );
+}
+
 const SORT_FIELDS = new Set(['name', 'createdAt']);
 
 /**

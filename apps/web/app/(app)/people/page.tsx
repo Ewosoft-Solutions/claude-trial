@@ -1,6 +1,11 @@
 import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
-import { parseType, toApiQuery, TYPE_PERMISSION } from './people-config';
+import {
+  firstAllowedType,
+  parseType,
+  toApiQuery,
+  TYPE_PERMISSION,
+} from './people-config';
 import {
   PeopleWorkbenchClient,
   type DirectorySavedView,
@@ -24,11 +29,16 @@ export default async function PeopleWorkbenchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const search = await searchParams;
-  const type = parseType(search.tab);
-
   const session = await getSession();
   const has = (permission: string) =>
     session?.permissions.includes(permission as never) ?? false;
+  const permissions = [...(session?.permissions ?? [])] as string[];
+
+  // An explicit `?tab=` wins; otherwise default to the first tab the caller can
+  // see, so an authorized user never lands on a denied tab.
+  const type = search.tab
+    ? parseType(search.tab)
+    : (firstAllowedType(permissions) ?? 'student');
 
   // The workbench gate is enforced in layout.tsx; here we resolve whether the
   // ACTIVE tab is permitted so we can render the denied state (not a blank/500)
@@ -58,10 +68,7 @@ export default async function PeopleWorkbenchPage({
       schoolName={schoolName}
       savedViews={savedViews ?? []}
       currentProfileId={session?.activeProfileId ?? null}
-      permissions={[...(session?.permissions ?? [])] as string[]}
-      canViewContact={
-        directory?.meta.canViewContact ?? has('people.view_contact')
-      }
+      permissions={permissions}
       authorized={authorized}
     />
   );

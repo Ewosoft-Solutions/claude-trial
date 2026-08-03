@@ -319,6 +319,33 @@ export class PeopleDirectoryService {
     };
   }
 
+  /**
+   * The row select. For the Staff tab with a status filter, narrow the SELECTED
+   * employment to that status so the rendered chip matches the filter — a person
+   * with more than one `StaffProfile` (a rehire, per person.prisma) could
+   * otherwise be matched on an old stint yet shown with the most-recent stint's
+   * (different) status. The payload shape is identical to `PERSON_SELECT`.
+   */
+  private personSelect(type: PeopleType, status?: string) {
+    if (type === 'staff' && status) {
+      return {
+        ...PERSON_SELECT,
+        staffProfiles: {
+          where: { employmentStatus: status },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: {
+            employeeNumber: true,
+            jobTitle: true,
+            department: true,
+            employmentStatus: true,
+          },
+        },
+      } satisfies Prisma.PersonSelect;
+    }
+    return PERSON_SELECT;
+  }
+
   private async listPersons(
     tenantId: string,
     type: PeopleType,
@@ -329,16 +356,18 @@ export class PeopleDirectoryService {
     const limit = query.limit ?? 25;
     const where = this.personWhere(tenantId, type, canViewContact, query);
 
-    const [total, rows] = await Promise.all([
-      this.client.person.count({ where }),
-      this.client.person.findMany({
-        where,
-        select: PERSON_SELECT,
-        orderBy: this.personOrderBy(query),
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-    ]);
+    // Sequential, not Promise.all: `runScoped` pins the unit of work to one
+    // interactive-transaction connection, so two concurrent queries on it trip
+    // node-postgres' "client already executing a query" deprecation (and gain no
+    // real parallelism on a single connection).
+    const total = await this.client.person.count({ where });
+    const rows = (await this.client.person.findMany({
+      where,
+      select: this.personSelect(type, query.status),
+      orderBy: this.personOrderBy(query),
+      skip: (page - 1) * limit,
+      take: limit,
+    })) as PersonRow[];
 
     return {
       data: rows.map((row) => this.projectPerson(row, type, canViewContact)),
@@ -396,16 +425,15 @@ export class PeopleDirectoryService {
         ? [{ applicantName: dir }]
         : [{ submittedDate: dir }];
 
-    const [total, rows] = await Promise.all([
-      this.client.admissionApplication.count({ where }),
-      this.client.admissionApplication.findMany({
-        where,
-        select: PROSPECT_SELECT,
-        orderBy,
-        skip: (page - 1) * limit,
-        take: limit,
-      }),
-    ]);
+    // Sequential (see listPersons): one pinned RLS-transaction connection.
+    const total = await this.client.admissionApplication.count({ where });
+    const rows = await this.client.admissionApplication.findMany({
+      where,
+      select: PROSPECT_SELECT,
+      orderBy,
+      skip: (page - 1) * limit,
+      take: limit,
+    });
 
     return {
       data: rows.map((row) => this.projectProspect(row, canViewContact)),
@@ -486,7 +514,7 @@ export class PeopleDirectoryService {
       tenantId,
       eventType: AUDIT_EVENT.DATA_CHANGE,
       action: 'directory.people.export',
-      resource: 'person',
+      resource: type === 'prospect' ? 'admission_application' : 'person',
       actorId: actorId ?? null,
       description: `Exported ${rows.length} ${type} row(s) from the People directory`,
       metadata: {
