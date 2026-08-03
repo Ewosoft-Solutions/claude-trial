@@ -120,6 +120,10 @@ export class PeopleDirectoryController {
       staff: has('staff.view'),
       guardians: has('guardians.view'),
       users: has('users.view'),
+      // Domain roll-up gates: Academics needs grades OR attendance view.
+      academics: has('grades.view') || has('attendance.view'),
+      finance: has('finance.view'),
+      documents: has('documents.view'),
     };
   }
 
