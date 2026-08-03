@@ -40,6 +40,7 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
@@ -129,6 +130,13 @@ export interface DirectoryTableProps<TRow> {
   selectable?: boolean;
   bulkActions?: DirectoryBulkAction[];
 
+  /**
+   * Make each row activatable (opens a detail view). Clicking the selection
+   * checkbox or a sort header never triggers this — only the row body does.
+   * Keyboard: the row is focusable and responds to Enter/Space.
+   */
+  onRowClick?: (row: TRow) => void;
+
   loading?: boolean;
   /** Error message; when set the table body is replaced by an ErrorState. */
   error?: React.ReactNode;
@@ -161,6 +169,7 @@ export function DirectoryTable<TRow>({
   onSortChange,
   selectable = false,
   bulkActions = [],
+  onRowClick,
   loading = false,
   error,
   onRetry,
@@ -231,6 +240,11 @@ export function DirectoryTable<TRow>({
 
   const isEmpty = !loading && !error && rows.length === 0;
   const hideableColumns = columns.filter((c) => c.hideable !== false);
+  const anyHidden = hideableColumns.some((c) => hidden[c.id]);
+  const anyVisible = hideableColumns.some((c) => !hidden[c.id]);
+  const showAllColumns = () => setHidden({});
+  const hideAllColumns = () =>
+    setHidden(Object.fromEntries(hideableColumns.map((c) => [c.id, true])));
   const colSpan = visibleColumns.length + (selectable ? 1 : 0);
 
   const sortState = (columnId: string): 'ascending' | 'descending' | 'none' => {
@@ -278,6 +292,25 @@ export function DirectoryTable<TRow>({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  disabled={!anyHidden}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    showAllColumns();
+                  }}
+                >
+                  Show all
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={!anyVisible}
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    hideAllColumns();
+                  }}
+                >
+                  Hide all
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 {hideableColumns.map((c) => (
                   <DropdownMenuCheckboxItem
@@ -473,13 +506,41 @@ export function DirectoryTable<TRow>({
           {rows.map((row) => {
             const id = getRowId(row);
             const isSelected = selected.has(id);
+            const clickable = Boolean(onRowClick);
             return (
               <TableRow
                 key={id}
                 data-state={isSelected ? 'selected' : undefined}
+                className={cn(clickable && 'cursor-pointer')}
+                tabIndex={clickable ? 0 : undefined}
+                aria-label={
+                  clickable && getRowLabel
+                    ? `View ${getRowLabel(row)}`
+                    : undefined
+                }
+                onClick={clickable ? () => onRowClick?.(row) : undefined}
+                onKeyDown={
+                  clickable
+                    ? (e) => {
+                        // Only when the row itself is focused — never when the
+                        // event bubbled up from the checkbox or a cell control.
+                        if (
+                          e.target === e.currentTarget &&
+                          (e.key === 'Enter' || e.key === ' ')
+                        ) {
+                          e.preventDefault();
+                          onRowClick?.(row);
+                        }
+                      }
+                    : undefined
+                }
               >
                 {selectable ? (
-                  <TableCell className="w-10">
+                  <TableCell
+                    className="w-10"
+                    // Selecting a row must never open the detail view.
+                    onClick={(e) => e.stopPropagation()}
+                  >
                     <Checkbox
                       checked={isSelected}
                       onCheckedChange={(v) => toggleRow(id, v === true)}

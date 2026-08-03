@@ -3,31 +3,20 @@
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
-  Bookmark,
   Briefcase,
   Contact,
   Download,
   GraduationCap,
   Search,
-  Trash2,
   UserCog,
   UserPlus,
   Users,
+  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import { Checkbox } from '@workspace/ui/components/checkbox';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
@@ -53,21 +42,16 @@ import {
   PermissionDeniedState,
 } from '@workspace/ui/custom/states/page-states';
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
-import type { DirectoryState } from '@workspace/ui/lib/directory-state';
-import type { WorkbenchTab } from '@workspace/ui/types/patterns.types';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
-import {
-  PEOPLE_TYPES,
-  TAB_LABEL,
-  TYPE_PERMISSION,
-  type PeopleType,
-} from './people-config';
+import { PEOPLE_TYPES, TAB_LABEL, type PeopleType } from './people-config';
+import { PersonDetailDrawer } from './person-detail-drawer';
 
 export interface PeopleRow {
   id: string;
   name: string;
-  contact: string;
+  email: string | null;
+  phone: string | null;
   contactMasked: boolean;
   profiles: PeopleProfileKind[];
   primary: string;
@@ -75,12 +59,10 @@ export interface PeopleRow {
   status: string | null;
 }
 
-export interface DirectorySavedView {
-  id: string;
-  name: string;
-  state: Partial<DirectoryState>;
-  isShared: boolean;
-  ownerUserTenantId?: string;
+/** Distinct filter option lists resolved server-side (per tenant). */
+export interface PeopleFacets {
+  grades: string[];
+  departments: string[];
 }
 
 type PeopleProfileKind = 'student' | 'guardian' | 'staff' | 'user';
@@ -92,7 +74,7 @@ const PROFILE_LABEL: Record<PeopleProfileKind, string> = {
   user: 'User',
 };
 
-const TAB_ICON: Record<PeopleType, React.ReactNode> = {
+const TYPE_ICON: Record<PeopleType, React.ReactNode> = {
   all: <Contact />,
   student: <GraduationCap />,
   guardian: <Users />,
@@ -143,9 +125,9 @@ const STATUS_META: Record<
   },
 };
 
-/** Per-tab status filter options (guardian has no status filter). */
+/** Per-tab status/priority filter options (now filled for every tab). */
 const STATUS_OPTIONS: Record<PeopleType, string[]> = {
-  all: [],
+  all: ['active', 'pending', 'inactive', 'suspended'],
   student: [
     'active',
     'inactive',
@@ -156,8 +138,18 @@ const STATUS_OPTIONS: Record<PeopleType, string[]> = {
   ],
   staff: ['active', 'on_leave', 'suspended', 'terminated'],
   user: ['active', 'pending', 'inactive', 'suspended'],
-  guardian: [],
+  guardian: ['primary', 'secondary'],
   prospect: ['pending', 'accepted', 'waitlisted', 'rejected'],
+};
+
+/** The label the status filter carries on each tab. */
+const STATUS_FILTER_LABEL: Record<PeopleType, string> = {
+  all: 'Account',
+  student: 'Enrollment',
+  staff: 'Employment',
+  user: 'Account',
+  guardian: 'Priority',
+  prospect: 'Decision',
 };
 
 function initials(name: string): string {
@@ -207,6 +199,23 @@ function NameCell({ row }: { row: PeopleRow }) {
   );
 }
 
+/** The contact cell: primary email + phone, each masked-aware. */
+function ContactCell({ row }: { row: PeopleRow }) {
+  if (!row.email && !row.phone) {
+    return <span className="text-muted-foreground">—</span>;
+  }
+  return (
+    <div className="flex flex-col gap-0.5 text-sm">
+      {row.email ? (
+        <MaskedValue value={row.email} masked={row.contactMasked} />
+      ) : null}
+      {row.phone ? (
+        <MaskedValue value={row.phone} masked={row.contactMasked} />
+      ) : null}
+    </div>
+  );
+}
+
 /** Build the column set for a tab. All read the same PeopleRow shape. */
 function columnsFor(type: PeopleType): DirectoryColumn<PeopleRow>[] {
   const name: DirectoryColumn<PeopleRow> = {
@@ -218,7 +227,7 @@ function columnsFor(type: PeopleType): DirectoryColumn<PeopleRow>[] {
   const contact: DirectoryColumn<PeopleRow> = {
     id: 'contact',
     header: 'Contact',
-    cell: (r) => <MaskedValue value={r.contact} masked={r.contactMasked} />,
+    cell: (r) => <ContactCell row={r} />,
     hideable: true,
   };
   const status: DirectoryColumn<PeopleRow> = {
@@ -251,8 +260,6 @@ function columnsFor(type: PeopleType): DirectoryColumn<PeopleRow>[] {
 
   switch (type) {
     case 'all':
-      // The unified roster: identity + role chips (under the name) + account
-      // state + contact. Type-specific detail lives on the dedicated tabs.
       return [name, status, contact];
     case 'student':
       return [
@@ -279,17 +286,121 @@ function columnsFor(type: PeopleType): DirectoryColumn<PeopleRow>[] {
   }
 }
 
+/** A single toolbar filter dropdown. */
+interface FilterDef {
+  key: 'status' | 'role' | 'grade' | 'department' | 'hasContact';
+  label: string;
+  allLabel: string;
+  options: { value: string; label: string }[];
+}
+
+/** The filters a given tab offers (status/priority + the tab-specific extras). */
+function filtersFor(type: PeopleType, facets: PeopleFacets): FilterDef[] {
+  const defs: FilterDef[] = [];
+
+  const statusOptions = STATUS_OPTIONS[type];
+  if (statusOptions.length > 0) {
+    const label = STATUS_FILTER_LABEL[type];
+    defs.push({
+      key: 'status',
+      label,
+      allLabel: `All ${label.toLowerCase()}`,
+      options: statusOptions.map((s) => ({
+        value: s,
+        label: STATUS_META[type][s]?.label ?? s,
+      })),
+    });
+  }
+
+  if (type === 'all') {
+    defs.push({
+      key: 'role',
+      label: 'Role',
+      allLabel: 'All roles',
+      options: [
+        { value: 'student', label: 'Students' },
+        { value: 'guardian', label: 'Guardians' },
+        { value: 'staff', label: 'Staff' },
+        { value: 'user', label: 'Users' },
+      ],
+    });
+  }
+
+  if (type === 'student' && facets.grades.length > 0) {
+    defs.push({
+      key: 'grade',
+      label: 'Grade',
+      allLabel: 'All grades',
+      options: facets.grades.map((g) => ({ value: g, label: g })),
+    });
+  }
+
+  if (type === 'staff' && facets.departments.length > 0) {
+    defs.push({
+      key: 'department',
+      label: 'Department',
+      allLabel: 'All departments',
+      options: facets.departments.map((d) => ({ value: d, label: d })),
+    });
+  }
+
+  if (type !== 'prospect') {
+    defs.push({
+      key: 'hasContact',
+      label: 'Contact',
+      allLabel: 'Any contact',
+      options: [
+        { value: 'true', label: 'Has contact' },
+        { value: 'false', label: 'No contact' },
+      ],
+    });
+  }
+
+  return defs;
+}
+
+function FilterSelect({
+  def,
+  value,
+  onChange,
+}: {
+  def: FilterDef;
+  value: string | undefined;
+  onChange: (value: string | null) => void;
+}) {
+  return (
+    <Select
+      value={value ?? 'all'}
+      onValueChange={(v) => onChange(v === 'all' ? null : v)}
+    >
+      <SelectTrigger
+        className="w-[9.5rem]"
+        aria-label={`Filter by ${def.label.toLowerCase()}`}
+      >
+        <SelectValue placeholder={def.label} />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="all">{def.allLabel}</SelectItem>
+        {def.options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 interface Props {
   activeType: PeopleType;
   rows: PeopleRow[];
   total: number;
   schoolName: string;
-  savedViews: DirectorySavedView[];
-  currentProfileId: string | null;
-  permissions: string[];
   authorized: boolean;
   /** Per-tab record counts for the summary cards (only authorized tabs). */
-  summary: Record<string, number>;
+  summary?: Record<string, number>;
+  /** Distinct grade / department option lists for the filters. */
+  facets?: PeopleFacets;
 }
 
 export function PeopleWorkbenchClient({
@@ -297,24 +408,13 @@ export function PeopleWorkbenchClient({
   rows,
   total,
   schoolName,
-  savedViews,
-  currentProfileId,
-  permissions,
   authorized,
-  // Default to `{}` at the boundary: the type says non-null, but a server page
-  // that forgot to coalesce could still hand us `undefined` at runtime — the
-  // crash this whole guard-the-boundary rule came from. (See the `summary?.[…]`
-  // reads below for the same defence at each access site.)
   summary = {},
+  facets = { grades: [], departments: [] },
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-
-  const has = React.useCallback(
-    (permission: string) => permissions.includes(permission),
-    [permissions],
-  );
 
   // Directory state lives in the URL alongside `tab`; re-attach the tab on every
   // state change so the active projection is preserved through filter/sort/page.
@@ -351,39 +451,36 @@ export function PeopleWorkbenchClient({
     return () => clearTimeout(id);
   }, [term, state.q, setQuery]);
 
-  const tabs: WorkbenchTab[] = PEOPLE_TYPES.map((type) => ({
-    key: type,
-    label: TAB_LABEL[type],
-    icon: TAB_ICON[type],
-    disabled: !has(TYPE_PERMISSION[type]),
-    badge: summary?.[type],
-  }));
-
   function switchTab(key: string) {
     if (key === activeType) return;
     router.replace(`${pathname}?tab=${key}`, { scroll: false });
   }
 
-  // Summary cards — one per authorized tab, clickable to switch. The counts come
-  // from the server (only tabs the caller may view), so a card is never shown
-  // for a denied tab.
+  // Summary cards double as the TYPE SELECTOR (the tab strip is retired). One
+  // per authorized tab; the active tab's card is highlighted.
   const statItems: StatItem[] = PEOPLE_TYPES.filter(
     (type) => summary?.[type] !== undefined,
   ).map((type) => ({
     key: type,
     label: TAB_LABEL[type],
     value: (summary?.[type] ?? 0).toLocaleString(),
-    icon: TAB_ICON[type],
+    icon: TYPE_ICON[type],
+    active: type === activeType,
     onSelect: () => switchTab(type),
   }));
 
-  const appliedView = savedViews.find((v) => v.id === state.viewId) ?? null;
-  const ownsAppliedView =
-    !!appliedView &&
-    !!currentProfileId &&
-    appliedView.ownerUserTenantId === currentProfileId;
+  // Row drill-in.
+  const [openId, setOpenId] = React.useState<string | null>(null);
 
-  const resource = `people-${activeType}`;
+  const filters = filtersFor(activeType, facets);
+  const activeFilterCount = Object.values(state.filters).filter(Boolean).length;
+  const hasActiveFilters = activeFilterCount > 0 || !!state.q;
+
+  function clearFilters() {
+    setTerm('');
+    // Reset q + filters in one commit, preserving sort + page size.
+    applyView(null, { sort: state.sort, pageSize: state.pageSize });
+  }
 
   async function handleExport(ids: string[]) {
     try {
@@ -410,21 +507,6 @@ export function PeopleWorkbenchClient({
     }
   }
 
-  async function deleteAppliedView() {
-    if (!appliedView) return;
-    try {
-      const res = await fetch(`/api/directory/saved-views/${appliedView.id}`, {
-        method: 'DELETE',
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      toast.success('View deleted');
-      applyView(null, {});
-      router.refresh();
-    } catch {
-      toast.error('Could not delete this view');
-    }
-  }
-
   const bulkActions: DirectoryBulkAction[] = [
     {
       id: 'export',
@@ -434,13 +516,10 @@ export function PeopleWorkbenchClient({
     },
   ];
 
-  const statusOptions = STATUS_OPTIONS[activeType];
-  const statusValue = state.filters.status ?? 'all';
-
   const body = !authorized ? (
     <PermissionDeniedState
       title={`You can't view ${TAB_LABEL[activeType].toLowerCase()}`}
-      description="Your role doesn't include this directory. Pick a tab you have access to, or ask an administrator."
+      description="Your role doesn't include this directory. Pick a card you have access to, or ask an administrator."
     />
   ) : (
     <DirectoryTable<PeopleRow>
@@ -459,12 +538,13 @@ export function PeopleWorkbenchClient({
       onSortChange={toggleSort}
       selectable
       bulkActions={bulkActions}
+      onRowClick={(r) => setOpenId(r.id)}
       caption={`${TAB_LABEL[activeType]} directory`}
       emptyState={
         <EmptyState
           compact
           title={`No ${TAB_LABEL[activeType].toLowerCase()} match this view`}
-          description="Adjust the search or filters, or clear the saved view to see everyone."
+          description="Adjust the search or filters to see more."
         />
       }
       toolbar={
@@ -487,70 +567,23 @@ export function PeopleWorkbenchClient({
             />
           </div>
 
-          {statusOptions.length > 0 ? (
-            <Select
-              value={statusValue}
-              onValueChange={(v) => setFilter('status', v === 'all' ? null : v)}
-            >
-              <SelectTrigger
-                className="w-[9.5rem]"
-                aria-label="Filter by status"
-              >
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All statuses</SelectItem>
-                {statusOptions.map((s) => (
-                  <SelectItem key={s} value={s}>
-                    {STATUS_META[activeType][s]?.label ?? s}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : null}
+          {filters.map((def) => (
+            <FilterSelect
+              key={def.key}
+              def={def}
+              value={state.filters[def.key]}
+              onChange={(v) => setFilter(def.key, v)}
+            />
+          ))}
 
-          <Select
-            value={state.viewId ?? 'none'}
-            onValueChange={(v) => {
-              if (v === 'none') {
-                applyView(null, {});
-                return;
-              }
-              const view = savedViews.find((sv) => sv.id === v);
-              if (view) applyView(view.id, view.state);
-            }}
-          >
-            <SelectTrigger className="w-[10rem]" aria-label="Saved views">
-              <Bookmark className="size-3.5" aria-hidden />
-              <SelectValue placeholder="Saved views" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">
-                All {TAB_LABEL[activeType].toLowerCase()}
-              </SelectItem>
-              {savedViews.map((v) => (
-                <SelectItem key={v.id} value={v.id}>
-                  {v.name}
-                  {v.isShared ? ' · shared' : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-
-          <SaveViewButton
-            state={state}
-            resource={resource}
-            onSaved={applyView}
-          />
-
-          {ownsAppliedView ? (
+          {hasActiveFilters ? (
             <Button
               variant="ghost"
               size="sm"
-              onClick={deleteAppliedView}
-              aria-label="Delete this saved view"
+              onClick={clearFilters}
+              aria-label="Clear search and filters"
             >
-              <Trash2 aria-hidden />
+              <X aria-hidden /> Clear
             </Button>
           ) : null}
         </>
@@ -563,9 +596,8 @@ export function PeopleWorkbenchClient({
       <WorkbenchLayout
         title="People"
         description={`One identity per person across ${schoolName} — students, guardians, staff, users and prospects.`}
-        tabs={tabs}
+        tabs={[]}
         activeTab={activeType}
-        onTabChange={switchTab}
       >
         <div className="flex flex-col gap-4">
           {statItems.length > 0 ? (
@@ -574,103 +606,15 @@ export function PeopleWorkbenchClient({
           {body}
         </div>
       </WorkbenchLayout>
+
+      <PersonDetailDrawer
+        personId={openId}
+        type={activeType}
+        onOpenChange={(open) => {
+          if (!open) setOpenId(null);
+        }}
+        onOpenPerson={(id) => setOpenId(id)}
+      />
     </ShellMain>
-  );
-}
-
-/** "Save current view" — a small dialog capturing a name + share toggle. */
-function SaveViewButton({
-  state,
-  resource,
-  onSaved,
-}: {
-  state: DirectoryState;
-  resource: string;
-  onSaved: (viewId: string | null, viewState: Partial<DirectoryState>) => void;
-}) {
-  const router = useRouter();
-  const [open, setOpen] = React.useState(false);
-  const [name, setName] = React.useState('');
-  const [shared, setShared] = React.useState(false);
-  const [saving, setSaving] = React.useState(false);
-
-  const viewState: Partial<DirectoryState> = {
-    q: state.q,
-    filters: state.filters,
-    sort: state.sort,
-    pageSize: state.pageSize,
-  };
-
-  async function save() {
-    if (!name.trim()) return;
-    setSaving(true);
-    try {
-      const res = await fetch('/api/directory/saved-views', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          resource,
-          name: name.trim(),
-          state: viewState,
-          isShared: shared,
-        }),
-      });
-      if (!res.ok) throw new Error(String(res.status));
-      const created = (await res.json()) as { id: string };
-      toast.success('View saved');
-      setOpen(false);
-      setName('');
-      setShared(false);
-      onSaved(created.id, viewState);
-      router.refresh();
-    } catch {
-      toast.error('Could not save this view');
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Bookmark aria-hidden /> Save view
-        </Button>
-      </DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Save current view</DialogTitle>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-2">
-            <Label htmlFor="view-name">View name</Label>
-            <Input
-              id="view-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Owing — active"
-              autoFocus
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={shared}
-              onCheckedChange={(v) => setShared(v === true)}
-            />
-            Share with everyone at this school
-          </label>
-        </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="outline" size="sm">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button size="sm" onClick={save} disabled={saving || !name.trim()}>
-            Save view
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }

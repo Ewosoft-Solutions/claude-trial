@@ -5,6 +5,8 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
+  Param,
   Post,
   Query,
   Request,
@@ -21,10 +23,14 @@ import {
 import { PermissionService } from '../../auth/services/permission.service';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import type { AuthenticatedRequest } from '../../auth/middleware/multi-layer-security.middleware';
-import { PeopleDirectoryService } from '../services/people-directory.service';
+import {
+  PeopleDirectoryService,
+  type PersonDetailPerms,
+} from '../services/people-directory.service';
 import {
   BulkExportPeopleDto,
   PeopleDirectoryQueryDto,
+  PEOPLE_TYPES,
   type PeopleType,
 } from '../dto';
 
@@ -100,6 +106,23 @@ export class PeopleDirectoryController {
     );
   }
 
+  /**
+   * Which per-profile detail sections the caller may see. The layered model:
+   * the detail endpoint already required `people.view` + the tab's type
+   * permission; each SECTION is additionally gated on its profile permission.
+   */
+  private sectionPerms(req: AuthenticatedRequest): PersonDetailPerms {
+    const has = (permission: string) =>
+      this.permissionService.checkPermissions(req.userContext!, [permission])
+        .granted;
+    return {
+      students: has('students.view'),
+      staff: has('staff.view'),
+      guardians: has('guardians.view'),
+      users: has('users.view'),
+    };
+  }
+
   @Get()
   @RequirePermissions(['people.view'])
   @ApiOperation({
@@ -135,6 +158,17 @@ export class PeopleDirectoryController {
     return this.directory.summary(tenantId, allowed);
   }
 
+  @Get('facets')
+  @RequirePermissions(['people.view'])
+  @ApiOperation({
+    summary:
+      'Distinct grade-levels + departments for the Students / Staff filter dropdowns',
+  })
+  async facets(@Request() req: AuthenticatedRequest) {
+    const { tenantId } = this.ctx(req);
+    return this.directory.facets(tenantId);
+  }
+
   @Post('export')
   @HttpCode(HttpStatus.OK)
   @RequirePermissions(['people.view'])
@@ -154,5 +188,34 @@ export class PeopleDirectoryController {
       this.canViewContact(req),
       dto.ids,
     );
+  }
+
+  // Declared after the static `summary` / `facets` GETs so `:id` never shadows
+  // them (Express matches in registration order).
+  @Get(':id')
+  @RequirePermissions(['people.view'])
+  @ApiOperation({
+    summary:
+      'Full person detail for the drawer / profile page (sections gated by profile permission; contact masked without people.view_contact)',
+  })
+  async detail(
+    @Param('id') id: string,
+    @Query('type') rawType: string | undefined,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const { tenantId } = this.ctx(req);
+    const type = (PEOPLE_TYPES as readonly string[]).includes(rawType ?? '')
+      ? (rawType as PeopleType)
+      : 'all';
+    this.assertCanViewType(req, type);
+    const detail = await this.directory.detail(
+      tenantId,
+      id,
+      type,
+      this.sectionPerms(req),
+      this.canViewContact(req),
+    );
+    if (!detail) throw new NotFoundException('Person not found');
+    return detail;
   }
 }

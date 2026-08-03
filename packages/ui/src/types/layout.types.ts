@@ -44,6 +44,12 @@ export interface StatItem {
   href?: string;
   /** Make the whole tile a button (alternative to `href`). */
   onSelect?: () => void;
+  /**
+   * Mark this tile as the current selection (for interactive tiles used as a
+   * selector, e.g. the People directory type cards). Adds a highlight ring +
+   * `aria-current`.
+   */
+  active?: boolean;
 }
 
 /** A destination in the SettingsLayout section nav. */

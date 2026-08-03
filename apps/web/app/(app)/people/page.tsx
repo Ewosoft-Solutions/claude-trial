@@ -8,7 +8,7 @@ import {
 } from './people-config';
 import {
   PeopleWorkbenchClient,
-  type DirectorySavedView,
+  type PeopleFacets,
   type PeopleRow,
 } from './people-workbench-client';
 
@@ -45,24 +45,22 @@ export default async function PeopleWorkbenchPage({
   // without a wasted 403 round-trip.
   const authorized = has('people.view') && has(TYPE_PERMISSION[type]);
 
-  // Summary counts are gated on `people.view` alone, so fetch them even when the
-  // active tab is denied (the cards then show the tabs the caller CAN open).
+  // Summary counts + filter facets are gated on `people.view` alone, so fetch
+  // them even when the active tab is denied (the cards then show the tabs the
+  // caller CAN open).
   const summaryPromise = serverApiGet<Record<string, number>>(
     '/directory/people/summary',
   );
+  const facetsPromise = serverApiGet<PeopleFacets>('/directory/people/facets');
 
-  const [directory, savedViews] = authorized
-    ? await Promise.all([
-        serverApiGet<DirectoryResponse>(
-          `/directory/people?${toApiQuery(search, type)}`,
-        ),
-        serverApiGet<DirectorySavedView[]>(
-          `/directory/saved-views?resource=people-${type}`,
-        ),
-      ])
-    : [null, null];
+  const directory = authorized
+    ? await serverApiGet<DirectoryResponse>(
+        `/directory/people?${toApiQuery(search, type)}`,
+      )
+    : null;
 
   const summary = (await summaryPromise) ?? {};
+  const facets = (await facetsPromise) ?? { grades: [], departments: [] };
 
   const schoolName =
     session?.schools.find((school) => school.id === session.defaultSchoolId)
@@ -74,11 +72,9 @@ export default async function PeopleWorkbenchPage({
       rows={directory?.data ?? []}
       total={directory?.pagination.total ?? 0}
       schoolName={schoolName}
-      savedViews={savedViews ?? []}
-      currentProfileId={session?.activeProfileId ?? null}
-      permissions={permissions}
       authorized={authorized}
       summary={summary}
+      facets={facets}
     />
   );
 }
