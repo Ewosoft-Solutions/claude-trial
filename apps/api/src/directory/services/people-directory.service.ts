@@ -36,8 +36,11 @@ export interface PeopleDirectoryRow {
   /** Person.id for the four person tabs; AdmissionApplication.id for prospects. */
   id: string;
   name: string;
-  /** Contact — masked unless the caller holds `people.view_contact`. */
-  contact: string;
+  /** Primary email — masked unless the caller holds `people.view_contact`. */
+  email: string | null;
+  /** Primary phone — masked unless the caller holds `people.view_contact`. */
+  phone: string | null;
+  /** True when email/phone were redacted (caller lacks `people.view_contact`). */
   contactMasked: boolean;
   /**
    * Every profile this ONE identity holds — the "one person, many roles" view
@@ -51,6 +54,55 @@ export interface PeopleDirectoryRow {
   secondary: string;
   /** Raw status key for the tab (client maps to a tone); null when N/A. */
   status: string | null;
+}
+
+/** A cross-linkable related person (a ward, or a guardian). */
+export interface PersonDetailRelation {
+  id: string;
+  name: string;
+  /** e.g. 'parent' | 'guardian', or the priority for a ward's guardian. */
+  relationship: string;
+  isPrimary: boolean;
+}
+
+/**
+ * The fuller per-person projection behind the detail drawer / profile page.
+ * Sections are present only when the caller holds the matching profile
+ * permission (layered model, resolved at the controller); contact is masked
+ * without `people.view_contact`. Health/safeguarding is never referenced.
+ */
+export interface PersonDetail {
+  id: string;
+  type: PeopleType;
+  name: string;
+  profiles: PeopleProfileKind[];
+  email: string | null;
+  phone: string | null;
+  contactMasked: boolean;
+  student: {
+    studentNumber: string | null;
+    gradeLevel: string | null;
+    enrollmentStatus: string | null;
+    guardians: PersonDetailRelation[];
+  } | null;
+  staff:
+    | {
+        employeeNumber: string | null;
+        jobTitle: string | null;
+        department: string | null;
+        employmentStatus: string;
+        employmentType: string | null;
+      }[]
+    | null;
+  /** Wards this person is a guardian of. */
+  wards: PersonDetailRelation[] | null;
+  account: { status: string; email: string | null } | null;
+  prospect: {
+    applyingFor: string;
+    guardianName: string;
+    stage: string;
+    decision: string | null;
+  } | null;
 }
 
 export interface PeopleDirectoryResult {
@@ -78,8 +130,10 @@ const PERSON_SELECT = {
   createdAt: true,
   userTenantId: true,
   contactPoints: {
+    // Ordered primary-first so the first email/phone we encounter is the one to
+    // show. Bounded — a person rarely has more than a couple of each.
     orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
-    take: 1,
+    take: 20,
     select: { kind: true, value: true },
   },
   studentProfile: {
@@ -128,6 +182,89 @@ type ProspectRow = Prisma.AdmissionApplicationGetPayload<{
   select: typeof PROSPECT_SELECT;
 }>;
 
+/**
+ * The richer per-person select behind the detail drawer / profile page — adds
+ * both relationship directions (wards + guardians) and the full staff/account
+ * detail. Health/safeguarding is still never referenced.
+ */
+const DETAIL_SELECT = {
+  id: true,
+  firstName: true,
+  lastName: true,
+  preferredName: true,
+  userTenantId: true,
+  contactPoints: {
+    orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }],
+    take: 20,
+    select: { kind: true, value: true },
+  },
+  studentProfile: {
+    select: { studentNumber: true, gradeLevel: true, enrollmentStatus: true },
+  },
+  staffProfiles: {
+    orderBy: { createdAt: 'desc' },
+    select: {
+      employeeNumber: true,
+      jobTitle: true,
+      department: true,
+      employmentStatus: true,
+      employmentType: true,
+    },
+  },
+  guardianships: {
+    where: { effectiveTo: null },
+    orderBy: [{ isPrimary: 'desc' }],
+    select: {
+      relationship: true,
+      isPrimary: true,
+      ward: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+        },
+      },
+    },
+  },
+  wardLinks: {
+    where: { effectiveTo: null },
+    orderBy: [{ isPrimary: 'desc' }],
+    select: {
+      relationship: true,
+      isPrimary: true,
+      guardian: {
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+        },
+      },
+    },
+  },
+  account: {
+    select: { status: true, user: { select: { email: true } } },
+  },
+} satisfies Prisma.PersonSelect;
+
+type PersonDetailRow = Prisma.PersonGetPayload<{
+  select: typeof DETAIL_SELECT;
+}>;
+
+/**
+ * Which per-profile detail sections the caller may see — the layered model:
+ * the endpoint requires `people.view` + the active tab's type permission, and
+ * each SECTION is included only when the caller also holds that profile's
+ * permission. Resolved at the controller.
+ */
+export interface PersonDetailPerms {
+  students: boolean;
+  staff: boolean;
+  guardians: boolean;
+  users: boolean;
+}
+
 function personName(row: {
   firstName: string;
   lastName: string;
@@ -147,18 +284,51 @@ function guardianName(g: {
   return [g.firstName, g.lastName].filter(Boolean).join(' ') || 'Ward';
 }
 
-/** Resolve the row's display contact: a primary ContactPoint, else the login email. */
-function resolveContact(
-  row: PersonRow,
-): { kind: string; value: string } | null {
-  const point = row.contactPoints[0];
-  if (point) return { kind: point.kind, value: point.value };
-  const email = row.account?.user?.email;
-  if (email) return { kind: 'email', value: email };
-  return null;
+/**
+ * Resolve the row's display email + phone from its (primary-first) contact
+ * points, falling back to the login email when there's no email contact point.
+ */
+function resolveContacts(row: {
+  contactPoints: { kind: string; value: string }[];
+  account?: { user: { email: string } | null } | null;
+}): { email: string | null; phone: string | null } {
+  let email: string | null = null;
+  let phone: string | null = null;
+  for (const cp of row.contactPoints) {
+    if (cp.kind === 'email') email ??= cp.value;
+    else if (cp.kind === 'phone') phone ??= cp.value;
+  }
+  email ??= row.account?.user?.email ?? null;
+  return { email, phone };
 }
 
-function profilesOf(row: PersonRow): PeopleProfileKind[] {
+/** Apply the contact mask (or not) to a resolved email/phone pair. */
+function presentContacts(
+  contacts: { email: string | null; phone: string | null },
+  canViewContact: boolean,
+): { email: string | null; phone: string | null; contactMasked: boolean } {
+  const has = !!contacts.email || !!contacts.phone;
+  return {
+    email: contacts.email
+      ? canViewContact
+        ? contacts.email
+        : maskContactValue('email', contacts.email)
+      : null,
+    phone: contacts.phone
+      ? canViewContact
+        ? contacts.phone
+        : maskContactValue('phone', contacts.phone)
+      : null,
+    contactMasked: has && !canViewContact,
+  };
+}
+
+function profilesOf(row: {
+  studentProfile: unknown | null;
+  guardianships: unknown[];
+  staffProfiles: unknown[];
+  userTenantId: string | null;
+}): PeopleProfileKind[] {
   const profiles: PeopleProfileKind[] = [];
   if (row.studentProfile) profiles.push('student');
   if (row.guardianships.length > 0) profiles.push('guardian');
@@ -191,28 +361,49 @@ export class PeopleDirectoryService {
 
     switch (type) {
       case 'all':
-        // The unified roster: every person, no profile-existence filter. Gated
-        // on `people.view` alone; the type-specific DETAIL still lives behind
-        // each dedicated tab's permission.
+        // The unified roster: no profile-existence filter. Optional filters:
+        // `status` = account status; `role` = holds that profile.
+        if (status) where.account = { is: { status } };
+        if (query.role === 'student') where.studentProfile = { isNot: null };
+        else if (query.role === 'guardian')
+          where.guardianships = { some: { effectiveTo: null } };
+        else if (query.role === 'staff') where.staffProfiles = { some: {} };
+        else if (query.role === 'user') where.userTenantId = { not: null };
         break;
-      case 'student':
-        where.studentProfile = status
-          ? { is: { enrollmentStatus: status } }
-          : { isNot: null };
+      case 'student': {
+        const student: Prisma.StudentWhereInput = {};
+        if (status) student.enrollmentStatus = status;
+        if (query.grade) student.gradeLevel = query.grade;
+        where.studentProfile =
+          Object.keys(student).length > 0 ? { is: student } : { isNot: null };
         break;
-      case 'staff':
-        where.staffProfiles = {
-          some: status ? { employmentStatus: status } : {},
+      }
+      case 'staff': {
+        const staff: Prisma.StaffProfileWhereInput = {};
+        if (status) staff.employmentStatus = status;
+        if (query.department) staff.department = query.department;
+        where.staffProfiles = { some: staff };
+        break;
+      }
+      case 'guardian': {
+        // A current caregiver: an open-ended guardian relationship. On this tab
+        // the `status` filter means PRIORITY (primary contact vs. secondary).
+        const link: Prisma.GuardianRelationshipWhereInput = {
+          effectiveTo: null,
         };
+        if (status === 'primary') link.isPrimary = true;
+        else if (status === 'secondary') link.isPrimary = false;
+        where.guardianships = { some: link };
         break;
-      case 'guardian':
-        // A current caregiver: an open-ended guardian relationship.
-        where.guardianships = { some: { effectiveTo: null } };
-        break;
+      }
       case 'user':
         where.account = status ? { is: { status } } : { isNot: null };
         break;
     }
+
+    // Has-contact filter — applies to every person tab (not prospects).
+    if (query.hasContact === 'true') where.contactPoints = { some: {} };
+    else if (query.hasContact === 'false') where.contactPoints = { none: {} };
 
     if (query.q) {
       // Search names + the tab's non-PII identifier. The contact index is added
@@ -269,7 +460,7 @@ export class PeopleDirectoryService {
     type: PeopleType,
     canViewContact: boolean,
   ): PeopleDirectoryRow {
-    const contact = resolveContact(row);
+    const contact = presentContacts(resolveContacts(row), canViewContact);
     const staff = row.staffProfiles[0];
     const wards = row.guardianships.map((g) => guardianName(g.ward));
 
@@ -318,12 +509,9 @@ export class PeopleDirectoryService {
     return {
       id: row.id,
       name: personName(row),
-      contact: contact
-        ? canViewContact
-          ? contact.value
-          : maskContactValue(contact.kind, contact.value)
-        : '—',
-      contactMasked: !!contact && !canViewContact,
+      email: contact.email,
+      phone: contact.phone,
+      contactMasked: contact.contactMasked,
       profiles: profilesOf(row),
       primary,
       secondary,
@@ -394,20 +582,16 @@ export class PeopleDirectoryService {
     row: ProspectRow,
     canViewContact: boolean,
   ): PeopleDirectoryRow {
-    const raw = row.guardianEmail
-      ? { kind: 'email', value: row.guardianEmail }
-      : row.guardianPhone
-        ? { kind: 'phone', value: row.guardianPhone }
-        : null;
+    const contact = presentContacts(
+      { email: row.guardianEmail ?? null, phone: row.guardianPhone ?? null },
+      canViewContact,
+    );
     return {
       id: row.id,
       name: row.applicantName,
-      contact: raw
-        ? canViewContact
-          ? raw.value
-          : maskContactValue(raw.kind, raw.value)
-        : '—',
-      contactMasked: !!raw && !canViewContact,
+      email: contact.email,
+      phone: contact.phone,
+      contactMasked: contact.contactMasked,
       profiles: [],
       primary: row.applyingFor,
       secondary: row.guardianName,
@@ -466,6 +650,148 @@ export class PeopleDirectoryService {
       return this.listProspects(tenantId, canViewContact, query);
     }
     return this.listPersons(tenantId, type, canViewContact, query);
+  }
+
+  /**
+   * Distinct grade-levels + departments for the tenant, to populate the
+   * Students/Staff filter dropdowns. Tenant-scoped by RLS.
+   */
+  async facets(
+    tenantId: string,
+  ): Promise<{ grades: string[]; departments: string[] }> {
+    const grades = await this.client.student.findMany({
+      where: { tenantId, gradeLevel: { not: null } },
+      distinct: ['gradeLevel'],
+      select: { gradeLevel: true },
+      orderBy: { gradeLevel: 'asc' },
+    });
+    const departments = await this.client.staffProfile.findMany({
+      where: { tenantId, department: { not: null } },
+      distinct: ['department'],
+      select: { department: true },
+      orderBy: { department: 'asc' },
+    });
+    return {
+      grades: grades
+        .map((g) => g.gradeLevel)
+        .filter((v): v is string => v !== null),
+      departments: departments
+        .map((d) => d.department)
+        .filter((v): v is string => v !== null),
+    };
+  }
+
+  /**
+   * The fuller per-person projection behind the detail drawer / profile page.
+   * Returns null when the id isn't found in the caller's tenant (RLS-scoped).
+   * Each section is included only when `perms` grants it; contact is masked
+   * without `people.view_contact`.
+   */
+  async detail(
+    tenantId: string,
+    id: string,
+    type: PeopleType,
+    perms: PersonDetailPerms,
+    canViewContact: boolean,
+  ): Promise<PersonDetail | null> {
+    if (type === 'prospect') {
+      const row = await this.client.admissionApplication.findFirst({
+        where: { tenantId, id },
+        select: PROSPECT_SELECT,
+      });
+      if (!row) return null;
+      const contact = presentContacts(
+        { email: row.guardianEmail ?? null, phone: row.guardianPhone ?? null },
+        canViewContact,
+      );
+      return {
+        id: row.id,
+        type: 'prospect',
+        name: row.applicantName,
+        profiles: [],
+        email: contact.email,
+        phone: contact.phone,
+        contactMasked: contact.contactMasked,
+        student: null,
+        staff: null,
+        wards: null,
+        account: null,
+        prospect: {
+          applyingFor: row.applyingFor,
+          guardianName: row.guardianName,
+          stage: row.stage,
+          decision: row.decision,
+        },
+      };
+    }
+
+    const row = (await this.client.person.findFirst({
+      where: { tenantId, id },
+      select: DETAIL_SELECT,
+    })) as PersonDetailRow | null;
+    if (!row) return null;
+
+    const contact = presentContacts(resolveContacts(row), canViewContact);
+    const rel = (
+      p: {
+        id: string;
+        firstName: string;
+        lastName: string;
+        preferredName: string | null;
+      },
+      relationship: string,
+      isPrimary: boolean,
+    ): PersonDetailRelation => ({
+      id: p.id,
+      name: personName(p),
+      relationship,
+      isPrimary,
+    });
+
+    return {
+      id: row.id,
+      type,
+      name: personName(row),
+      profiles: profilesOf(row),
+      email: contact.email,
+      phone: contact.phone,
+      contactMasked: contact.contactMasked,
+      student:
+        perms.students && row.studentProfile
+          ? {
+              studentNumber: row.studentProfile.studentNumber,
+              gradeLevel: row.studentProfile.gradeLevel,
+              enrollmentStatus: row.studentProfile.enrollmentStatus,
+              guardians: row.wardLinks.map((w) =>
+                rel(w.guardian, w.relationship, w.isPrimary),
+              ),
+            }
+          : null,
+      staff:
+        perms.staff && row.staffProfiles.length > 0
+          ? row.staffProfiles.map((s) => ({
+              employeeNumber: s.employeeNumber,
+              jobTitle: s.jobTitle,
+              department: s.department,
+              employmentStatus: s.employmentStatus,
+              employmentType: s.employmentType,
+            }))
+          : null,
+      wards:
+        perms.guardians && row.guardianships.length > 0
+          ? row.guardianships.map((g) =>
+              rel(g.ward, g.relationship, g.isPrimary),
+            )
+          : null,
+      account:
+        perms.users && row.account
+          ? {
+              status: row.account.status,
+              email: row.account.user?.email ?? null,
+            }
+          : null,
+      prospect: null,
+    };
   }
 
   /**
@@ -528,7 +854,8 @@ export class PeopleDirectoryService {
       secondaryHeader,
       statusHeader,
       'Profiles',
-      'Contact',
+      'Email',
+      'Phone',
     ];
     const lines = [
       header.map(csvCell).join(','),
@@ -539,7 +866,8 @@ export class PeopleDirectoryService {
           r.secondary,
           r.status ?? '',
           r.profiles.join(' / '),
-          r.contact,
+          r.email ?? '',
+          r.phone ?? '',
         ]
           .map(csvCell)
           .join(','),

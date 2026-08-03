@@ -93,7 +93,13 @@ export function toApiQuery(
     api.set('sort', state.sort.field);
     api.set('dir', state.sort.dir);
   }
-  const status = state.filters.status;
+  // Per-table filters (F7 `f_*` state keys → REST params). `status` doubles as
+  // the guardian tab's priority and the all-tab's account status.
+  const { status, role, grade, department, hasContact } = state.filters;
   if (status) api.set('status', status);
+  if (role) api.set('role', role);
+  if (grade) api.set('grade', grade);
+  if (department) api.set('department', department);
+  if (hasContact) api.set('hasContact', hasContact);
   return api.toString();
 }

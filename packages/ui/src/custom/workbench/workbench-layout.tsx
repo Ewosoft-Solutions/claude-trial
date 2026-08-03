@@ -35,6 +35,11 @@ export interface WorkbenchLayoutProps {
    * (year/term/campus/entity). Sticks below the heading; omit for none.
    */
   context?: React.ReactNode;
+  /**
+   * Section tabs. Pass an empty array for a single-section workspace (e.g. the
+   * People directory, where the summary cards are the selector) — the tab strip
+   * is then omitted entirely and `children` renders directly under the heading.
+   */
   tabs: WorkbenchTab[];
   activeTab: string;
   onTabChange?: (key: string) => void;
@@ -95,42 +100,46 @@ export function WorkbenchLayout({
         </div>
       ) : null}
 
-      <Tabs
-        value={activeTab}
-        onValueChange={onTabChange}
-        className="flex min-w-0 flex-col gap-4"
-      >
-        <TabsList className="w-full justify-start overflow-x-auto">
-          {tabs.map((tab) => (
-            <TabsTrigger
-              key={tab.key}
-              value={tab.key}
-              disabled={tab.disabled}
-              className="gap-1.5"
-            >
-              {tab.icon ? (
-                <span aria-hidden className="[&_svg]:size-4">
-                  {tab.icon}
-                </span>
-              ) : null}
-              {tab.label}
-              {tab.badge != null ? (
-                <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10.5px] font-semibold text-muted-foreground tabular-nums">
-                  {tab.badge}
-                </span>
-              ) : null}
-            </TabsTrigger>
-          ))}
-        </TabsList>
-
-        {/* Host renders only the active section; associate it for a11y. */}
-        <TabsContent
+      {tabs.length > 0 ? (
+        <Tabs
           value={activeTab}
-          className="min-w-0 focus-visible:outline-none"
+          onValueChange={onTabChange}
+          className="flex min-w-0 flex-col gap-4"
         >
-          {children}
-        </TabsContent>
-      </Tabs>
+          <TabsList className="w-full justify-start overflow-x-auto">
+            {tabs.map((tab) => (
+              <TabsTrigger
+                key={tab.key}
+                value={tab.key}
+                disabled={tab.disabled}
+                className="gap-1.5"
+              >
+                {tab.icon ? (
+                  <span aria-hidden className="[&_svg]:size-4">
+                    {tab.icon}
+                  </span>
+                ) : null}
+                {tab.label}
+                {tab.badge != null ? (
+                  <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10.5px] font-semibold text-muted-foreground tabular-nums">
+                    {tab.badge}
+                  </span>
+                ) : null}
+              </TabsTrigger>
+            ))}
+          </TabsList>
+
+          {/* Host renders only the active section; associate it for a11y. */}
+          <TabsContent
+            value={activeTab}
+            className="min-w-0 focus-visible:outline-none"
+          >
+            {children}
+          </TabsContent>
+        </Tabs>
+      ) : (
+        <div className="flex min-w-0 flex-col gap-4">{children}</div>
+      )}
     </div>
   );
 }

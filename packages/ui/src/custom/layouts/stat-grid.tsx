@@ -93,19 +93,31 @@ export function StatCard({ item, className }: StatCardProps) {
     'min-w-0 rounded-[var(--radius)] border border-border bg-card p-3 text-left shadow-xs sm:p-4',
     interactive &&
       'outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50',
+    item.active && 'border-ring bg-accent/50 ring-1 ring-ring',
     className,
   );
+  const current = item.active ? ('true' as const) : undefined;
 
   if (item.href) {
     return (
-      <a href={item.href} onClick={item.onSelect} className={base}>
+      <a
+        href={item.href}
+        onClick={item.onSelect}
+        className={base}
+        aria-current={current}
+      >
         {body}
       </a>
     );
   }
   if (item.onSelect) {
     return (
-      <button type="button" onClick={item.onSelect} className={base}>
+      <button
+        type="button"
+        onClick={item.onSelect}
+        className={base}
+        aria-pressed={item.active}
+      >
         {body}
       </button>
     );

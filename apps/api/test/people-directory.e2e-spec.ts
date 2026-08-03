@@ -180,10 +180,10 @@ d('Unified People directory (WB1-1)', () => {
     const row = masked.data.find((r) => r.id === combinedId);
     expect(row).toBeDefined();
     expect(row!.contactMasked).toBe(true);
-    expect(row!.contact).not.toBe(combinedEmail);
+    expect(row!.email).not.toBe(combinedEmail);
 
     const unmasked = await inA(() => people.list(tenantAId, 'staff', true, {}));
-    expect(unmasked.data.find((r) => r.id === combinedId)!.contact).toBe(
+    expect(unmasked.data.find((r) => r.id === combinedId)!.email).toBe(
       combinedEmail,
     );
   });
@@ -228,10 +228,10 @@ d('Unified People directory (WB1-1)', () => {
     expect(row!.primary).toBe('JSS1');
     expect(row!.status).toBe('pending');
     expect(row!.contactMasked).toBe(true);
-    expect(row!.contact).not.toBe(prospectEmail);
+    expect(row!.email).not.toBe(prospectEmail);
 
     const raw = await inA(() => people.list(tenantAId, 'prospect', true, {}));
-    expect(raw.data.find((r) => r.id === admissionId)!.contact).toBe(
+    expect(raw.data.find((r) => r.id === admissionId)!.email).toBe(
       prospectEmail,
     );
   });

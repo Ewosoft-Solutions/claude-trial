@@ -8,7 +8,10 @@ function personRow(overrides: Record<string, unknown> = {}) {
     preferredName: null,
     createdAt: new Date('2026-01-01'),
     userTenantId: 'ut1',
-    contactPoints: [{ kind: 'email', value: 'ada@example.test' }],
+    contactPoints: [
+      { kind: 'email', value: 'ada@example.test' },
+      { kind: 'phone', value: '08030000001' },
+    ],
     studentProfile: {
       studentNumber: 'STU-001',
       gradeLevel: 'SS1',
@@ -16,6 +19,31 @@ function personRow(overrides: Record<string, unknown> = {}) {
     },
     staffProfiles: [] as unknown[],
     guardianships: [] as unknown[],
+    account: { status: 'active', user: { email: 'ada@example.test' } },
+    ...overrides,
+  };
+}
+
+/** A row shaped like the richer DETAIL_SELECT payload (both relation sides). */
+function detailRow(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'p1',
+    firstName: 'Ada',
+    lastName: 'Okafor',
+    preferredName: null,
+    userTenantId: 'ut1',
+    contactPoints: [
+      { kind: 'email', value: 'ada@example.test' },
+      { kind: 'phone', value: '08030000001' },
+    ],
+    studentProfile: {
+      studentNumber: 'STU-001',
+      gradeLevel: 'SS1',
+      enrollmentStatus: 'active',
+    },
+    staffProfiles: [] as unknown[],
+    guardianships: [] as unknown[], // this person as a guardian → wards
+    wardLinks: [] as unknown[], // this person as a ward → guardians
     account: { status: 'active', user: { email: 'ada@example.test' } },
     ...overrides,
   };
@@ -39,27 +67,49 @@ function prospectRow(overrides: Record<string, unknown> = {}) {
 describe('PeopleDirectoryService', () => {
   const personCount = jest.fn();
   const personFindMany = jest.fn();
+  const personFindFirst = jest.fn();
   const admissionCount = jest.fn();
   const admissionFindMany = jest.fn();
+  const admissionFindFirst = jest.fn();
+  const studentFindMany = jest.fn();
+  const staffProfileFindMany = jest.fn();
   const write = jest.fn();
   const client = {
-    person: { count: personCount, findMany: personFindMany },
+    person: {
+      count: personCount,
+      findMany: personFindMany,
+      findFirst: personFindFirst,
+    },
     admissionApplication: {
       count: admissionCount,
       findMany: admissionFindMany,
+      findFirst: admissionFindFirst,
     },
+    student: { findMany: studentFindMany },
+    staffProfile: { findMany: staffProfileFindMany },
   };
   const service = new PeopleDirectoryService(
     { client } as never,
     { write } as never,
   );
 
+  const allPerms = {
+    students: true,
+    staff: true,
+    guardians: true,
+    users: true,
+  };
+
   beforeEach(() => {
     jest.clearAllMocks();
     personCount.mockResolvedValue(1);
     personFindMany.mockResolvedValue([personRow()]);
+    personFindFirst.mockResolvedValue(detailRow());
     admissionCount.mockResolvedValue(1);
     admissionFindMany.mockResolvedValue([prospectRow()]);
+    admissionFindFirst.mockResolvedValue(prospectRow());
+    studentFindMany.mockResolvedValue([]);
+    staffProfileFindMany.mockResolvedValue([]);
     write.mockResolvedValue(true);
   });
 
@@ -79,12 +129,13 @@ describe('PeopleDirectoryService', () => {
     }
   });
 
-  it('returns raw contact + student projection when the caller may view PII', async () => {
+  it('returns raw email + phone + student projection when the caller may view PII', async () => {
     const res = await service.list('t1', 'student', true, {});
     expect(res.meta).toEqual({ canViewContact: true, type: 'student' });
     expect(res.data[0]).toMatchObject({
       name: 'Ada Okafor',
-      contact: 'ada@example.test',
+      email: 'ada@example.test',
+      phone: '08030000001',
       contactMasked: false,
       primary: 'STU-001',
       secondary: 'SS1',
@@ -94,17 +145,20 @@ describe('PeopleDirectoryService', () => {
     expect(res.data[0].profiles).toEqual(['student', 'user']);
   });
 
-  it('masks the contact when the caller lacks the contact scope', async () => {
+  it('masks both email and phone when the caller lacks the contact scope', async () => {
     const res = await service.list('t1', 'student', false, {});
     expect(res.data[0].contactMasked).toBe(true);
-    expect(res.data[0].contact).not.toBe('ada@example.test');
-    expect(res.data[0].contact).toContain('*');
+    expect(res.data[0].email).not.toBe('ada@example.test');
+    expect(res.data[0].email).toContain('*');
+    expect(res.data[0].phone).not.toBe('08030000001');
+    expect(res.data[0].phone).toContain('*');
   });
 
-  it('falls contact back to the login email only when no ContactPoint exists', async () => {
+  it('falls email back to the login email only when no ContactPoint exists', async () => {
     personFindMany.mockResolvedValue([personRow({ contactPoints: [] })]);
     const res = await service.list('t1', 'user', true, {});
-    expect(res.data[0].contact).toBe('ada@example.test');
+    expect(res.data[0].email).toBe('ada@example.test');
+    expect(res.data[0].phone).toBeNull();
   });
 
   it('shows every profile a single identity holds (staff + guardian acceptance)', async () => {
@@ -266,8 +320,8 @@ describe('PeopleDirectoryService', () => {
       contactMasked: true,
       profiles: [],
     });
-    expect(res.data[0].contact).not.toBe('ngozi@example.test');
-    expect(res.data[0].contact).toContain('*');
+    expect(res.data[0].email).not.toBe('ngozi@example.test');
+    expect(res.data[0].email).toContain('*');
   });
 
   it('lists every person on the All tab with no profile-existence filter', async () => {
@@ -299,12 +353,198 @@ describe('PeopleDirectoryService', () => {
     });
   });
 
+  describe('filters', () => {
+    it('student: grade narrows studentProfile (combined with status)', async () => {
+      await service.list('t1', 'student', true, { grade: 'SS1' });
+      expect(personFindMany.mock.calls[0][0].where.studentProfile).toEqual({
+        is: { gradeLevel: 'SS1' },
+      });
+
+      jest.clearAllMocks();
+      personFindMany.mockResolvedValue([personRow()]);
+      await service.list('t1', 'student', true, {
+        status: 'active',
+        grade: 'SS1',
+      });
+      expect(personFindMany.mock.calls[0][0].where.studentProfile).toEqual({
+        is: { enrollmentStatus: 'active', gradeLevel: 'SS1' },
+      });
+    });
+
+    it('staff: department narrows staffProfiles', async () => {
+      await service.list('t1', 'staff', true, { department: 'Science' });
+      expect(personFindMany.mock.calls[0][0].where.staffProfiles).toEqual({
+        some: { department: 'Science' },
+      });
+    });
+
+    it('guardian: status filters by contact priority', async () => {
+      await service.list('t1', 'guardian', true, { status: 'primary' });
+      expect(personFindMany.mock.calls[0][0].where.guardianships).toEqual({
+        some: { effectiveTo: null, isPrimary: true },
+      });
+
+      jest.clearAllMocks();
+      personFindMany.mockResolvedValue([personRow()]);
+      await service.list('t1', 'guardian', true, { status: 'secondary' });
+      expect(personFindMany.mock.calls[0][0].where.guardianships).toEqual({
+        some: { effectiveTo: null, isPrimary: false },
+      });
+    });
+
+    it('all: role filters by profile existence, status by account status', async () => {
+      await service.list('t1', 'all', true, {
+        role: 'staff',
+        status: 'active',
+      });
+      const where = personFindMany.mock.calls[0][0].where;
+      expect(where.staffProfiles).toEqual({ some: {} });
+      expect(where.account).toEqual({ is: { status: 'active' } });
+    });
+
+    it('has-contact filters on contact-point presence', async () => {
+      await service.list('t1', 'all', true, { hasContact: 'true' });
+      expect(personFindMany.mock.calls[0][0].where.contactPoints).toEqual({
+        some: {},
+      });
+
+      jest.clearAllMocks();
+      personFindMany.mockResolvedValue([personRow()]);
+      await service.list('t1', 'all', true, { hasContact: 'false' });
+      expect(personFindMany.mock.calls[0][0].where.contactPoints).toEqual({
+        none: {},
+      });
+    });
+  });
+
+  describe('facets', () => {
+    it('returns distinct non-null grades + departments', async () => {
+      studentFindMany.mockResolvedValue([
+        { gradeLevel: 'JSS1' },
+        { gradeLevel: 'SS1' },
+      ]);
+      staffProfileFindMany.mockResolvedValue([
+        { department: 'Science' },
+        { department: 'Admin' },
+      ]);
+      const res = await service.facets('t1');
+      expect(res).toEqual({
+        grades: ['JSS1', 'SS1'],
+        departments: ['Science', 'Admin'],
+      });
+      expect(studentFindMany.mock.calls[0][0]).toMatchObject({
+        where: { tenantId: 't1', gradeLevel: { not: null } },
+        distinct: ['gradeLevel'],
+      });
+    });
+  });
+
+  describe('detail', () => {
+    it('includes only the permitted sections, masking contact', async () => {
+      personFindFirst.mockResolvedValue(
+        detailRow({
+          staffProfiles: [
+            {
+              employeeNumber: 'EMP-1',
+              jobTitle: 'Teacher',
+              department: 'Science',
+              employmentStatus: 'active',
+              employmentType: 'full_time',
+            },
+          ],
+          wardLinks: [
+            {
+              relationship: 'parent',
+              isPrimary: true,
+              guardian: {
+                id: 'g1',
+                firstName: 'Ngozi',
+                lastName: 'Okafor',
+                preferredName: null,
+              },
+            },
+          ],
+        }),
+      );
+      const res = await service.detail(
+        't1',
+        'p1',
+        'all',
+        { students: true, staff: false, guardians: true, users: false },
+        false,
+      );
+      expect(res).not.toBeNull();
+      expect(res?.staff).toBeNull(); // staff.view not granted
+      expect(res?.account).toBeNull(); // users.view not granted
+      expect(res?.student).not.toBeNull(); // students.view granted
+      expect(res?.student?.guardians).toEqual([
+        {
+          id: 'g1',
+          name: 'Ngozi Okafor',
+          relationship: 'parent',
+          isPrimary: true,
+        },
+      ]);
+      expect(res?.contactMasked).toBe(true);
+      expect(res?.email).toContain('*');
+    });
+
+    it('projects a guardian’s wards when permitted', async () => {
+      personFindFirst.mockResolvedValue(
+        detailRow({
+          studentProfile: null,
+          guardianships: [
+            {
+              relationship: 'parent',
+              isPrimary: true,
+              ward: {
+                id: 'w1',
+                firstName: 'Kless',
+                lastName: 'Okafor',
+                preferredName: null,
+              },
+            },
+          ],
+        }),
+      );
+      const res = await service.detail('t1', 'p1', 'guardian', allPerms, true);
+      expect(res?.wards).toEqual([
+        {
+          id: 'w1',
+          name: 'Kless Okafor',
+          relationship: 'parent',
+          isPrimary: true,
+        },
+      ]);
+      expect(res?.email).toBe('ada@example.test');
+    });
+
+    it('returns null when the id is not found', async () => {
+      personFindFirst.mockResolvedValue(null);
+      const res = await service.detail('t1', 'missing', 'all', allPerms, true);
+      expect(res).toBeNull();
+    });
+
+    it('projects prospect detail from AdmissionApplication', async () => {
+      const res = await service.detail('t1', 'a1', 'prospect', allPerms, true);
+      expect(admissionFindFirst).toHaveBeenCalled();
+      expect(res?.type).toBe('prospect');
+      expect(res?.prospect).toMatchObject({
+        applyingFor: 'JSS1',
+        guardianName: 'Ngozi Eze',
+        decision: 'pending',
+      });
+    });
+  });
+
   describe('export', () => {
     it('produces per-type CSV, honours masking, and writes an audit row', async () => {
       const result = await service.export('t1', 'staff', 'u1', false, ['p1']);
       expect(result.mimeType).toBe('text/csv');
       const [header] = result.content.split('\r\n');
-      expect(header).toBe('Name,Role,Department,Employment,Profiles,Contact');
+      expect(header).toBe(
+        'Name,Role,Department,Employment,Profiles,Email,Phone',
+      );
       expect(result.content).not.toContain('ada@example.test'); // masked
       expect(write).toHaveBeenCalledWith(
         expect.objectContaining({

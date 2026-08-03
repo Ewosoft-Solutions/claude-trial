@@ -142,12 +142,40 @@ export class PeopleDirectoryQueryDto extends PaginationDto {
 
   @ApiPropertyOptional({
     description:
-      'Filter by the tab-appropriate status (enrollment / employment / account / decision).',
+      'Filter by the tab-appropriate status (enrollment / employment / account / decision; on the guardian tab: priority = primary|secondary).',
   })
   @IsOptional()
   @IsString()
   @MaxLength(40)
   status?: string;
+
+  @ApiPropertyOptional({
+    description: 'All-people tab: filter to people holding this profile.',
+    enum: ['student', 'guardian', 'staff', 'user'],
+  })
+  @IsOptional()
+  @IsIn(['student', 'guardian', 'staff', 'user'])
+  role?: 'student' | 'guardian' | 'staff' | 'user';
+
+  @ApiPropertyOptional({ description: 'Student tab: filter by grade level.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  grade?: string;
+
+  @ApiPropertyOptional({ description: 'Staff tab: filter by department.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  department?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by whether the person has any contact point on file.',
+    enum: ['true', 'false'],
+  })
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  hasContact?: 'true' | 'false';
 }
 
 export class BulkExportPeopleDto {
