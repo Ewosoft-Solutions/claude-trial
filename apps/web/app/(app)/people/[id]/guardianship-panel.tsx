@@ -879,7 +879,7 @@ function EndDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button
-        variant="ghost"
+        variant="outline"
         size="sm"
         className="text-destructive hover:bg-destructive/10 hover:text-destructive"
         onClick={() => setOpen(true)}
