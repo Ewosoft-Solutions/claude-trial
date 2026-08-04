@@ -752,32 +752,37 @@ export class PeopleDirectoryService {
         ],
       }));
       const or: Prisma.PersonWhereInput[] = [{ AND: nameMatch }];
-      if (type === 'student') {
-        or.push({
-          studentProfile: {
-            is: { studentNumber: { contains: q, mode: 'insensitive' } },
-          },
-        });
-      }
-      if (type === 'staff') {
-        or.push({
-          staffProfiles: {
-            some: {
-              employeeNumber: { contains: q, mode: 'insensitive' },
+      // `match=name` restricts to names only — used by the name picker, where
+      // matching a hidden email/identifier would surface people whose visible
+      // name does not contain the query (e.g. every ".test" email matches "te").
+      if (query.match !== 'name') {
+        if (type === 'student') {
+          or.push({
+            studentProfile: {
+              is: { studentNumber: { contains: q, mode: 'insensitive' } },
             },
-          },
-        });
-      }
-      if (canViewContact) {
-        or.push({
-          contactPoints: {
-            some: {
-              valueNormalized: {
-                contains: q.toLowerCase(),
+          });
+        }
+        if (type === 'staff') {
+          or.push({
+            staffProfiles: {
+              some: {
+                employeeNumber: { contains: q, mode: 'insensitive' },
               },
             },
-          },
-        });
+          });
+        }
+        if (canViewContact) {
+          or.push({
+            contactPoints: {
+              some: {
+                valueNormalized: {
+                  contains: q.toLowerCase(),
+                },
+              },
+            },
+          });
+        }
       }
       where.OR = or;
     }

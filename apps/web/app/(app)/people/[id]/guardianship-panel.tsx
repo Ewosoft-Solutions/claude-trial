@@ -663,7 +663,7 @@ function PersonSearch({
     const t = setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/directory/people?type=all&q=${encodeURIComponent(q)}&limit=8`,
+          `/api/directory/people?type=all&match=name&q=${encodeURIComponent(q)}&limit=8`,
           { cache: 'no-store' },
         );
         const data = (await res.json()) as {

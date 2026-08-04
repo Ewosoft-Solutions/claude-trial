@@ -370,6 +370,17 @@ describe('PeopleDirectoryService', () => {
     });
   });
 
+  it('match=name searches names ONLY — no contact index even with the contact scope', async () => {
+    await service.list('t1', 'all', true, { q: 'te', match: 'name' } as never);
+    const or = personFindMany.mock.calls[0][0].where.OR;
+    // A picker shows names only, so a hidden ".test" email must never match.
+    expect(or).not.toContainEqual(
+      expect.objectContaining({ contactPoints: expect.anything() }),
+    );
+    // Still matches the name.
+    expect(or.some((c: Record<string, unknown>) => 'AND' in c)).toBe(true);
+  });
+
   it('scopes every query to the tenant', async () => {
     await service.list('tenant-9', 'student', true, {});
     expect(personCount).toHaveBeenCalledWith(
