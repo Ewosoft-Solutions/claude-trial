@@ -16,7 +16,7 @@ Last Updated: 2026-08-04
 
 **Verification (final):** `pnpm ci:quick` green · `check:privileged-db` green (29 grandfathered, no new) · `db:rls:check` green · api unit **536** · web **138** · **e2e 10/10** on real pg (incl. the new index-backstop + admin-reset tests) · permissions **332** · Prettier-clean.
 
-**Next:** WB1-3/WB1-4 are `done` (PR #60 merged, CI green). Merge H4 plan PR #61 (its board conflict from #60 is resolved, and #61 also carries the WB1-3/4 → `done` board flip); WB1-6 owns the deferred maker-checker/step-up on these actions; design the attendance initiative in a later session.
+**Next:** WB1-3/WB1-4 are `done` (PR #60 merged, CI green). Merge H4 plan PR #61 (its board conflict from #60 is resolved, and #61 also carries the WB1-3/4 → `done` board flip **and** the WB1-2/WB1-5 → `ready` reconciliation). **Next build session** (owner-queued): **WB1-2** (first-class staff employment/profile on `Employment`, retire payroll-as-directory — dep F1 ✓) and **WB1-5** (role editor + `resource.action.context` matrix + effective-access preview — deps F1 + ADR-01 ✓), both now `ready`; claim each (`board: claim <ID>`) before coding per `WORKFLOW.md`. **WB1-6** (scope/expiry + temporary cover + maker-checker/step-up, incl. the deferred WB1-1 **campus-scope** + the WB1-3/4 maker-checker) stays `backlog` — **dep WB1-5**, so it follows WB1-5, not parallel. Also: design the check-in/out attendance initiative in a later session.
 
 ---
 
