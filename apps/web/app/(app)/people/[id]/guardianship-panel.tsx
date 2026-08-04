@@ -688,14 +688,15 @@ function PersonSearch({
         autoComplete="off"
       />
       {/* Fixed-height results area so the dialog does not resize as matches
-          load, clear, or come back empty. */}
-      <div className="h-52 overflow-y-auto rounded-md border border-border bg-card/30 p-1">
+          load, clear, or come back empty. No border/background — otherwise it
+          reads as a second input the user might try to type into. */}
+      <div className="h-52 overflow-y-auto">
         {q.length < 2 ? (
-          <p className="p-2 text-xs text-muted-foreground">
+          <p className="px-1 py-2 text-xs text-muted-foreground">
             Type at least 2 characters to search.
           </p>
         ) : searching ? (
-          <p className="flex items-center gap-1.5 p-2 text-xs text-muted-foreground">
+          <p className="flex items-center gap-1.5 px-1 py-2 text-xs text-muted-foreground">
             <Loader2 className="size-3 animate-spin" aria-hidden /> Searching…
           </p>
         ) : results.length > 0 ? (
@@ -713,7 +714,7 @@ function PersonSearch({
             ))}
           </ul>
         ) : (
-          <p className="p-2 text-xs text-muted-foreground">No matches.</p>
+          <p className="px-1 py-2 text-xs text-muted-foreground">No matches.</p>
         )}
       </div>
     </div>
