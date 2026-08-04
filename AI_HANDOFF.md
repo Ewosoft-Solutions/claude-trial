@@ -4,9 +4,9 @@ Last Updated: 2026-08-04
 
 ---
 
-## Session Summary (2026-08-04, pt. 2) — Claude: WB1-3 + WB1-4 reviewed → done (+ UX refinements)
+## Session Summary (2026-08-04, pt. 2) — Claude: WB1-3 + WB1-4 reviewed → in-review (done on merge) (+ UX refinements)
 
-**Item(s):** WB1-3 + WB1-4 → **done** (on `feat/wb1-3-4-provisioning-guardianship`, [PR #60](https://github.com/Ewosoft-Solutions/claude-trial/pull/60), pending the human merge). An **independent maker-checker review** (cold second pass, ran the full suite itself) returned **APPROVE-WITH-NITS** — all acceptance items verified, zero blocking.
+**Item(s):** WB1-3 + WB1-4 → **in-review** (on `feat/wb1-3-4-provisioning-guardianship`, [PR #60](https://github.com/Ewosoft-Solutions/claude-trial/pull/60); CI-pending, flip to `done` on CI-green + human merge). An **independent maker-checker review** (cold second pass, ran the full suite itself) returned **APPROVE-WITH-NITS** — all acceptance items verified, zero blocking; all findings applied.
 
 **Corrections applied before marking done:**
 - **(moderate) single-primary concurrency backstop** — the exactly-one-primary-per-ward invariant was app-only (two concurrent promotions could race to two primaries). Added a **partial unique index** `guardian_relationships_one_primary_per_ward` (`WHERE is_primary AND effective_to IS NULL`, migration `20260804140000` with a DO-block dedup of any pre-existing dupes), reordered create/update to **demote-before-promote** (so the happy path never transiently violates it — both writes share the runScoped tx), and the loser of a real race now gets a clean **409** (`isPrimaryConflict`). e2e proves the index rejects a 2nd active primary.
@@ -16,7 +16,7 @@ Last Updated: 2026-08-04
 
 **Verification (final):** `pnpm ci:quick` green · `check:privileged-db` green (29 grandfathered, no new) · `db:rls:check` green · api unit **536** · web **138** · **e2e 10/10** on real pg (incl. the new index-backstop + admin-reset tests) · permissions **332** · Prettier-clean.
 
-**Next:** human review + **merge PR #60** (board already flips WB1-3/WB1-4 → `done`); merge H4 plan PR #61; WB1-6 owns the deferred maker-checker/step-up on these actions; design the attendance initiative in a later session.
+**Next:** human review + **merge PR #60**, then flip WB1-3/WB1-4 → `done` (board holds them at `in-review` until CI-green + merge); merge H4 plan PR #61; WB1-6 owns the deferred maker-checker/step-up on these actions; design the attendance initiative in a later session.
 
 ---
 
