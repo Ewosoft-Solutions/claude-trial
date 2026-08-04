@@ -3,6 +3,7 @@ import { getPersonDetail } from './get-detail';
 import { PersonProfileShell, ProfileMissing } from './profile-shell';
 import { PersonOverview } from '../person-detail-ui';
 import { AccountAccessPanel } from './account-access-panel';
+import { StaffEmploymentPanel } from './staff-employment-panel';
 
 export default async function PersonOverviewPage({
   params,
@@ -28,6 +29,14 @@ export default async function PersonOverviewPage({
   // Persons with a login, so the panel does not apply to them.
   const showAccountPanel = has('users.view') && detail.type !== 'prospect';
 
+  // The interactive employment panel shows to staff-viewers on a staff person
+  // (or the Staff tab); the management actions inside are additionally gated
+  // server-side on staff.create / staff.edit / staff.delete.
+  const showEmploymentPanel =
+    has('staff.view') &&
+    detail.type !== 'prospect' &&
+    (type === 'staff' || detail.profiles.includes('staff'));
+
   return (
     <PersonProfileShell
       detail={detail}
@@ -36,6 +45,18 @@ export default async function PersonOverviewPage({
     >
       <PersonOverview
         detail={detail}
+        employmentSlot={
+          showEmploymentPanel ? (
+            <StaffEmploymentPanel
+              personId={detail.id}
+              perms={{
+                create: has('staff.create'),
+                edit: has('staff.edit'),
+                delete: has('staff.delete'),
+              }}
+            />
+          ) : undefined
+        }
         accountSlot={
           showAccountPanel ? (
             <AccountAccessPanel

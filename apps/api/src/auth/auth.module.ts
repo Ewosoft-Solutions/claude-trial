@@ -43,6 +43,8 @@ import {
 import {
   PermissionService,
   RoleService,
+  RoleTemplateService,
+  EffectiveAccessService,
   PermissionPoolService,
   MakerCheckerService,
   PlatformOversightService,
@@ -99,6 +101,8 @@ import {
     // Authorization services
     PermissionService,
     RoleService,
+    RoleTemplateService,
+    EffectiveAccessService,
     PermissionPoolService,
     MakerCheckerService,
     PlatformOversightService,
@@ -127,6 +131,8 @@ import {
     // Authorization services
     PermissionService,
     RoleService,
+    RoleTemplateService,
+    EffectiveAccessService,
     PermissionPoolService,
     MakerCheckerService,
     PlatformOversightService,

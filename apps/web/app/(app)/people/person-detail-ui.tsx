@@ -474,13 +474,17 @@ export function StatTiles({
 
 /** Roll-up tiles → contact → identity → role fields → lifecycle.
  *  `accountSlot`, when provided, replaces the static read-only Account section
- *  (the interactive WB1-3 account panel on the full profile page). */
+ *  (the interactive WB1-3 account panel on the full profile page).
+ *  `employmentSlot` likewise replaces the static Employment section with the
+ *  interactive WB1-2 staff-employment panel. */
 export function PersonOverview({
   detail,
   accountSlot,
+  employmentSlot,
 }: {
   detail: PersonDetail;
   accountSlot?: React.ReactNode;
+  employmentSlot?: React.ReactNode;
 }) {
   const rollups: {
     key: string;
@@ -547,22 +551,23 @@ export function PersonOverview({
         </Section>
       ) : null}
 
-      {detail.staff && detail.staff.length > 0 ? (
-        <Section title="Employment">
-          <DetailGrid>
-            <Field label="Role" value={detail.staff[0]?.jobTitle} />
-            <Field label="Department" value={detail.staff[0]?.department} />
-            <Field
-              label="Status"
-              value={humanize(detail.staff[0]?.employmentStatus ?? '')}
-            />
-            <Field
-              label="Hired"
-              value={formatDate(detail.staff[0]?.hireDate ?? null)}
-            />
-          </DetailGrid>
-        </Section>
-      ) : null}
+      {employmentSlot ??
+        (detail.staff && detail.staff.length > 0 ? (
+          <Section title="Employment">
+            <DetailGrid>
+              <Field label="Role" value={detail.staff[0]?.jobTitle} />
+              <Field label="Department" value={detail.staff[0]?.department} />
+              <Field
+                label="Status"
+                value={humanize(detail.staff[0]?.employmentStatus ?? '')}
+              />
+              <Field
+                label="Hired"
+                value={formatDate(detail.staff[0]?.hireDate ?? null)}
+              />
+            </DetailGrid>
+          </Section>
+        ) : null)}
 
       {accountSlot ??
         (detail.account ? (

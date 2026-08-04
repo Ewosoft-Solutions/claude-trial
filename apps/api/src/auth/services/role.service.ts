@@ -28,6 +28,11 @@ export interface CreateCustomRoleInput {
   permissionIds?: string[];
   createdBy: string;
   creatorClearanceLevel: number;
+  // WB1-5: the scope descriptor the editor captured (explained by the
+  // effective-access evaluator; enforced in WB1-6) + the preset it was built
+  // from (provenance for the preview). Shape: { type, value?, label? }.
+  scope?: object | null;
+  templateKey?: string | null;
 }
 
 export interface CreateCustomRoleResult {
@@ -329,6 +334,8 @@ export class RoleService {
             isSystemRole: false,
             isActive: !requiresApproval,
             createdBy: input.createdBy,
+            scope: (input.scope ?? undefined) as never,
+            templateKey: input.templateKey ?? undefined,
           },
         });
 

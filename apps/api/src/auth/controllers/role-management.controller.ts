@@ -25,10 +25,18 @@ import {
 } from '@nestjs/swagger';
 import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { RequireClearanceLevel } from '../guards/clearance-level.guard';
+import {
+  RequireClearanceLevel,
+  ClearanceLevelGuard,
+} from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { RoleService, CreateCustomRoleInput } from '../services/role.service';
 import { PermissionService } from '../services/permission.service';
+import { RoleTemplateService } from '../services/role-template.service';
+import {
+  EffectiveAccessService,
+  ScopeDescriptor,
+} from '../services/effective-access.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { RoleType, TenantQueriesService } from '@workspace/api';
 import { AuthUser } from '../decorators';
@@ -46,11 +54,29 @@ export class CreateCustomRoleDto {
   clearanceLevel: number;
   permissionPoolIds: string[];
   permissionIds?: string[];
+  // WB1-5: optional scope descriptor + the template this role was built from.
+  scope?: ScopeDescriptor | null;
+  templateKey?: string | null;
 }
 
 /** Gate 4: change a custom role's clearance level. */
 export class UpdateRoleClearanceDto {
   clearanceLevel: number;
+}
+
+/** WB1-5: preview the effective access of a role the editor is assembling. */
+export class PreviewRoleDto {
+  clearanceLevel: number;
+  poolIds: string[];
+  scope?: ScopeDescriptor | null;
+  templateKey?: string | null;
+  name?: string | null;
+}
+
+/** WB1-5: ask whether a role would allow one permission (optionally in a scope). */
+export class ExplainAccessDto {
+  permission: string;
+  targetScope?: ScopeDescriptor | null;
 }
 
 /**
@@ -60,12 +86,19 @@ export class UpdateRoleClearanceDto {
  */
 @ApiTags(SwaggerTags.roles.name)
 @Controller('roles')
-@UseGuards(JwtAuthGuard, TenantContextGuard)
+// ClearanceLevelGuard is a no-op where no @RequireClearanceLevel is set (it
+// allows when the metadata is absent), so getRoles/getRole keep their existing
+// open-to-tenant behaviour while the management + effective-access reads below
+// are actually enforced at clearance 7 (WB1-5 review: those reads exposed the
+// permission matrix + holder emails ungated).
+@UseGuards(JwtAuthGuard, TenantContextGuard, ClearanceLevelGuard)
 @ApiBearerAuth('JWT-auth')
 export class RoleManagementController {
   constructor(
     private readonly roleService: RoleService,
     private readonly permissionService: PermissionService,
+    private readonly roleTemplateService: RoleTemplateService,
+    private readonly effectiveAccess: EffectiveAccessService,
     private readonly dbService: DatabaseService,
   ) {}
 
@@ -81,6 +114,51 @@ export class RoleManagementController {
     return TenantQueriesService.getTenantRoles(
       this.dbService.client,
       user.tenantId,
+    );
+  }
+
+  /**
+   * WB1-5 · Role templates the editor builds from (shared system + tenant).
+   *
+   * GET /roles/templates — declared before `:id` so it is not captured by it.
+   */
+  @Get('templates')
+  @RequireClearanceLevel(7) // Management: the role editor is a management surface
+  @ApiOperation({ summary: 'List role templates (presets) for the editor' })
+  @ApiResponse({
+    status: 200,
+    description: 'Role templates with resolved pools',
+  })
+  async getTemplates(@AuthUser() user: RequestUser) {
+    return this.roleTemplateService.list(this.dbService.client, user.tenantId);
+  }
+
+  /**
+   * WB1-5 · Effective-access PREVIEW for a draft the editor is assembling —
+   * the "explain access before you save" surface. Management (7) only, like
+   * create.
+   *
+   * POST /roles/preview
+   */
+  @Post('preview')
+  @HttpCode(HttpStatus.OK)
+  @RequireClearanceLevel(7)
+  @ApiOperation({ summary: 'Preview a draft role’s effective access' })
+  @ApiResponse({ status: 200, description: 'Effective access (matrix + SoD)' })
+  async previewRole(
+    @Body() data: PreviewRoleDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    return this.effectiveAccess.evaluateDraft(
+      this.dbService.client,
+      user.tenantId,
+      {
+        clearanceLevel: data.clearanceLevel,
+        poolIds: data.poolIds ?? [],
+        scope: data.scope ?? null,
+        templateKey: data.templateKey ?? null,
+        name: data.name ?? null,
+      },
     );
   }
 
@@ -199,9 +277,74 @@ export class RoleManagementController {
       permissionIds: data.permissionIds,
       createdBy: user.userId,
       creatorClearanceLevel: userClearanceLevel,
+      scope: data.scope ?? null,
+      templateKey: data.templateKey ?? null,
     };
 
     return this.roleService.createCustomRole(prisma, input);
+  }
+
+  /**
+   * WB1-5 · Effective access of an EXISTING role — the matrix + SoD + sensitive
+   * capabilities, each with its source pool and a plain-language reason.
+   *
+   * GET /roles/:id/effective-access
+   */
+  @Get(':id/effective-access')
+  @RequireClearanceLevel(7) // reveals the full permission matrix
+  @ApiOperation({ summary: 'Explain a role’s effective access' })
+  @ApiResponse({ status: 200, description: 'Effective access' })
+  async effectiveAccessForRole(
+    @Param('id') id: string,
+    @AuthUser() user: RequestUser,
+  ) {
+    return this.effectiveAccess.evaluateRole(
+      this.dbService.client,
+      user.tenantId,
+      id,
+    );
+  }
+
+  /**
+   * WB1-5 · Ask whether a role allows one permission (optionally in a target
+   * scope) — the per-permission "Allowed / Denied + why" of the preview.
+   *
+   * POST /roles/:id/explain
+   */
+  @Post(':id/explain')
+  @HttpCode(HttpStatus.OK)
+  @RequireClearanceLevel(7)
+  @ApiOperation({ summary: 'Explain one access decision for a role' })
+  @ApiResponse({ status: 200, description: 'Allow/deny + reason' })
+  async explainRoleAccess(
+    @Param('id') id: string,
+    @Body() data: ExplainAccessDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    return this.effectiveAccess.explainRole(
+      this.dbService.client,
+      user.tenantId,
+      id,
+      { permission: data.permission, targetScope: data.targetScope ?? null },
+    );
+  }
+
+  /**
+   * WB1-5 · Who currently holds this role — the "who's affected" view before a
+   * change.
+   *
+   * GET /roles/:id/affected
+   */
+  @Get(':id/affected')
+  @RequireClearanceLevel(7) // exposes holder identities/emails
+  @ApiOperation({ summary: 'Profiles that currently hold this role' })
+  @ApiResponse({ status: 200, description: 'Affected profiles' })
+  async affectedByRole(@Param('id') id: string, @AuthUser() user: RequestUser) {
+    return this.effectiveAccess.whoIsAffected(
+      this.dbService.client,
+      user.tenantId,
+      id,
+    );
   }
 
   /**
