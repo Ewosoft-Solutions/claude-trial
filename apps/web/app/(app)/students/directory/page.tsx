@@ -1,5 +1,8 @@
+import { cookies } from 'next/headers';
+
 import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
+import { PAGE_SIZE_COOKIE, normalizePageSize } from '@/lib/page-size';
 import { toApiQuery } from './directory-query';
 import {
   StudentDirectoryClient,
@@ -24,7 +27,9 @@ export default async function StudentDirectoryPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const search = await searchParams;
-  const apiQuery = toApiQuery(search);
+  const cookieStore = await cookies();
+  const pageSize = normalizePageSize(cookieStore.get(PAGE_SIZE_COOKIE)?.value);
+  const apiQuery = toApiQuery(search, pageSize);
 
   const [session, directory, savedViews] = await Promise.all([
     getSession(),
@@ -55,6 +60,7 @@ export default async function StudentDirectoryPage({
       canViewContact={
         directory?.meta.canViewContact ?? has('students.view.personal_info')
       }
+      defaultPageSize={pageSize}
     />
   );
 }

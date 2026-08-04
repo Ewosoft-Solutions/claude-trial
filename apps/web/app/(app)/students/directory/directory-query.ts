@@ -18,13 +18,18 @@ export const FILTER_TO_PARAM: Record<string, string> = {
  */
 export function toApiQuery(
   search: Record<string, string | string[] | undefined>,
+  /** Preferred page size (saved cookie) when the URL carries no `size`. */
+  defaultPageSize = DEFAULT_DIRECTORY_STATE.pageSize,
 ): string {
   const incoming = new URLSearchParams();
   for (const [key, value] of Object.entries(search)) {
     if (typeof value === 'string') incoming.set(key, value);
     else if (Array.isArray(value) && value[0]) incoming.set(key, value[0]);
   }
-  const state = parseDirectoryState(incoming, DEFAULT_DIRECTORY_STATE);
+  const state = parseDirectoryState(incoming, {
+    ...DEFAULT_DIRECTORY_STATE,
+    pageSize: defaultPageSize,
+  });
 
   const api = new URLSearchParams();
   api.set('page', String(state.page));

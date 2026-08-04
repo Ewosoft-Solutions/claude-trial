@@ -42,6 +42,8 @@ import {
   PermissionDeniedState,
 } from '@workspace/ui/custom/states/page-states';
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
+
+import { DEFAULT_PAGE_SIZE, writePageSizePreference } from '@/lib/page-size';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
 import { PEOPLE_TYPES, TAB_LABEL, type PeopleType } from './people-config';
@@ -401,6 +403,8 @@ interface Props {
   summary?: Record<string, number>;
   /** Distinct grade / department option lists for the filters. */
   facets?: PeopleFacets;
+  /** The user's saved rows-per-page preference (from the cookie). */
+  defaultPageSize?: number;
 }
 
 export function PeopleWorkbenchClient({
@@ -411,6 +415,7 @@ export function PeopleWorkbenchClient({
   authorized,
   summary = {},
   facets = { grades: [], departments: [] },
+  defaultPageSize = DEFAULT_PAGE_SIZE,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -439,8 +444,21 @@ export function PeopleWorkbenchClient({
   } = useDirectoryState({
     searchParams: searchParams.toString(),
     onChange,
-    defaults: React.useMemo(() => ({ pageSize: 25 }), []),
+    defaults: React.useMemo(
+      () => ({ pageSize: defaultPageSize }),
+      [defaultPageSize],
+    ),
   });
+
+  // Changing the page size updates the URL AND remembers the choice for every
+  // other table (cookie), so the preference follows the user across the app.
+  const changePageSize = React.useCallback(
+    (size: number) => {
+      writePageSizePreference(size);
+      setPageSize(size);
+    },
+    [setPageSize],
+  );
 
   // Debounced search (snappy typing, one request per pause).
   const [term, setTerm] = React.useState(state.q);
@@ -533,7 +551,7 @@ export function PeopleWorkbenchClient({
       page={state.page}
       pageSize={state.pageSize}
       onPageChange={setPage}
-      onPageSizeChange={setPageSize}
+      onPageSizeChange={changePageSize}
       sort={state.sort}
       onSortChange={toggleSort}
       selectable

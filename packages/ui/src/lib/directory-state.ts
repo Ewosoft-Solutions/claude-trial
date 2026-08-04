@@ -57,7 +57,9 @@ export interface SavedView {
 export const DEFAULT_DIRECTORY_STATE: DirectoryState = {
   q: '',
   page: 1,
-  pageSize: 25,
+  // Compact default so long lists don't dominate the viewport (esp. mobile); a
+  // user's chosen size is remembered per-browser (apps/web/lib/page-size.ts).
+  pageSize: 10,
   sort: null,
   filters: {},
   viewId: null,

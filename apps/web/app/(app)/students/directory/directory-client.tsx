@@ -38,6 +38,8 @@ import {
 } from '@workspace/ui/custom/tables/directory-table';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
+
+import { DEFAULT_PAGE_SIZE, writePageSizePreference } from '@/lib/page-size';
 import type { DirectoryState } from '@workspace/ui/lib/directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
@@ -108,6 +110,8 @@ interface Props {
   currentProfileId: string | null;
   canExport: boolean;
   canViewContact: boolean;
+  /** The user's saved rows-per-page preference (from the cookie). */
+  defaultPageSize?: number;
 }
 
 export function StudentDirectoryClient({
@@ -117,6 +121,7 @@ export function StudentDirectoryClient({
   savedViews,
   currentProfileId,
   canExport,
+  defaultPageSize = DEFAULT_PAGE_SIZE,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -129,7 +134,10 @@ export function StudentDirectoryClient({
     [router, pathname],
   );
 
-  const defaults = React.useMemo(() => ({ pageSize: 25 }), []);
+  const defaults = React.useMemo(
+    () => ({ pageSize: defaultPageSize }),
+    [defaultPageSize],
+  );
   const {
     state,
     setPage,
@@ -143,6 +151,15 @@ export function StudentDirectoryClient({
     onChange,
     defaults,
   });
+
+  // Persist the chosen size (cookie) so every table remembers it app-wide.
+  const changePageSize = React.useCallback(
+    (size: number) => {
+      writePageSizePreference(size);
+      setPageSize(size);
+    },
+    [setPageSize],
+  );
 
   // Debounced search: keep typing snappy without a request per keystroke.
   const [term, setTerm] = React.useState(state.q);
@@ -321,7 +338,7 @@ export function StudentDirectoryClient({
           page={state.page}
           pageSize={state.pageSize}
           onPageChange={setPage}
-          onPageSizeChange={setPageSize}
+          onPageSizeChange={changePageSize}
           sort={state.sort}
           onSortChange={toggleSort}
           selectable
