@@ -37,9 +37,12 @@ export default async function PeopleWorkbenchPage({
     session?.permissions.includes(permission as never) ?? false;
   const permissions = [...(session?.permissions ?? [])] as string[];
 
-  // The user's saved rows-per-page preference; used for the SSR fetch and passed
-  // to the client so the first paint matches (no flash / hydration mismatch).
-  const pageSize = normalizePageSize(cookieStore.get(PAGE_SIZE_COOKIE)?.value);
+  // The user's saved rows-per-page preference: the per-ACCOUNT value (follows
+  // them across devices) wins, then the local cookie mirror, then the default.
+  // Used for the SSR fetch and passed to the client (no flash / mismatch).
+  const pageSize = normalizePageSize(
+    session?.defaultPageSize ?? cookieStore.get(PAGE_SIZE_COOKIE)?.value,
+  );
 
   // An explicit `?tab=` wins; otherwise default to the first tab the caller can
   // see, so an authorized user never lands on a denied tab.

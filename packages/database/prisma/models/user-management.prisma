@@ -58,6 +58,13 @@ model User {
   // never blocks deleting it, it just clears the preference.
   defaultUserTenantId String? @map("default_user_tenant_id")
 
+  // UI Preferences
+  // Preferred table rows-per-page, so every directory opens at the user's chosen
+  // size on any device/login (the per-account source of truth; a cookie mirrors
+  // it locally for a fast first paint). Set via PATCH /auth/preferences.
+  // Nullable = not set → the app default (10) applies.
+  defaultPageSize Int? @map("default_page_size")
+
   // Audit Fields
   createdBy String?  @map("created_by")
   updatedBy String?  @map("updated_by")

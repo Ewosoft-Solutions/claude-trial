@@ -36,9 +36,27 @@ export function readPageSizePreference(): number {
   return normalizePageSize(match?.[1]);
 }
 
-/** Client: persist the page-size preference (1 year, all paths). */
+/** Client: mirror the page-size preference to a cookie (1 year, all paths). */
 export function writePageSizePreference(size: number): void {
   if (typeof document === 'undefined') return;
   const value = normalizePageSize(size);
   document.cookie = `${PAGE_SIZE_COOKIE}=${value}; path=/; max-age=31536000; samesite=lax`;
+}
+
+/**
+ * Client: save the page-size preference everywhere — the cookie (instant, local)
+ * AND the per-account record (durable, cross-device). The cookie write is
+ * synchronous so the next SSR paint is correct immediately; the account PATCH is
+ * best-effort (a failure just means this browser keeps the cookie value).
+ */
+export function savePageSizePreference(size: number): void {
+  const value = normalizePageSize(size);
+  writePageSizePreference(value);
+  void fetch('/api/auth/preferences', {
+    method: 'PATCH',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ defaultPageSize: value }),
+  }).catch(() => {
+    /* best-effort: the cookie already holds the preference on this browser */
+  });
 }

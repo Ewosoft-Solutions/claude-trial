@@ -39,7 +39,7 @@ import {
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 
-import { DEFAULT_PAGE_SIZE, writePageSizePreference } from '@/lib/page-size';
+import { DEFAULT_PAGE_SIZE, savePageSizePreference } from '@/lib/page-size';
 import type { DirectoryState } from '@workspace/ui/lib/directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
@@ -152,10 +152,11 @@ export function StudentDirectoryClient({
     defaults,
   });
 
-  // Persist the chosen size (cookie) so every table remembers it app-wide.
+  // Save the chosen size to the cookie + the account, so it follows the user
+  // across every table and every device.
   const changePageSize = React.useCallback(
     (size: number) => {
-      writePageSizePreference(size);
+      savePageSizePreference(size);
       setPageSize(size);
     },
     [setPageSize],

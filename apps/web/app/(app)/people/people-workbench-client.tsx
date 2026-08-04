@@ -43,7 +43,7 @@ import {
 } from '@workspace/ui/custom/states/page-states';
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 
-import { DEFAULT_PAGE_SIZE, writePageSizePreference } from '@/lib/page-size';
+import { DEFAULT_PAGE_SIZE, savePageSizePreference } from '@/lib/page-size';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
 import { PEOPLE_TYPES, TAB_LABEL, type PeopleType } from './people-config';
@@ -450,11 +450,12 @@ export function PeopleWorkbenchClient({
     ),
   });
 
-  // Changing the page size updates the URL AND remembers the choice for every
-  // other table (cookie), so the preference follows the user across the app.
+  // Changing the page size updates the URL AND saves the choice (cookie + the
+  // per-account record), so the preference follows the user across every table
+  // and every device.
   const changePageSize = React.useCallback(
     (size: number) => {
-      writePageSizePreference(size);
+      savePageSizePreference(size);
       setPageSize(size);
     },
     [setPageSize],

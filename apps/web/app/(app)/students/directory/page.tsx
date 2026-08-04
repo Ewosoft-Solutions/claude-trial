@@ -27,12 +27,15 @@ export default async function StudentDirectoryPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const search = await searchParams;
-  const cookieStore = await cookies();
-  const pageSize = normalizePageSize(cookieStore.get(PAGE_SIZE_COOKIE)?.value);
+  const [session, cookieStore] = await Promise.all([getSession(), cookies()]);
+
+  // Per-account preference wins (cross-device), then the local cookie, then 10.
+  const pageSize = normalizePageSize(
+    session?.defaultPageSize ?? cookieStore.get(PAGE_SIZE_COOKIE)?.value,
+  );
   const apiQuery = toApiQuery(search, pageSize);
 
-  const [session, directory, savedViews] = await Promise.all([
-    getSession(),
+  const [directory, savedViews] = await Promise.all([
     serverApiGet<DirectoryResponse>(`/directory/students?${apiQuery}`),
     serverApiGet<DirectorySavedView[]>(
       '/directory/saved-views?resource=students',

@@ -2,6 +2,7 @@ export * from './login.dto';
 export * from './select-school.dto';
 export * from './set-default-profile.dto';
 export * from './update-account.dto';
+export * from './update-preferences.dto';
 export * from './refresh-token.dto';
 export * from './logout.dto';
 export * from './request-password-reset.dto';
