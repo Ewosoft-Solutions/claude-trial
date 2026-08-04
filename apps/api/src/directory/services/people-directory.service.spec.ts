@@ -355,6 +355,21 @@ describe('PeopleDirectoryService', () => {
     );
   });
 
+  it('tokenises a multi-word query so each word matches a name field', async () => {
+    await service.list('t1', 'all', false, { q: 'grace ade' });
+    const or = personFindMany.mock.calls[0][0].where.OR;
+    // The name match is an AND of per-token ORs — so "grace ade" matches
+    // firstName "Grace" AND lastName "Adeyemi" (the space-in-query bug fix).
+    const andEntry = or.find((c: Record<string, unknown>) => 'AND' in c);
+    expect(andEntry.AND).toHaveLength(2);
+    expect(andEntry.AND[0].OR).toContainEqual({
+      firstName: { contains: 'grace', mode: 'insensitive' },
+    });
+    expect(andEntry.AND[1].OR).toContainEqual({
+      lastName: { contains: 'ade', mode: 'insensitive' },
+    });
+  });
+
   it('scopes every query to the tenant', async () => {
     await service.list('tenant-9', 'student', true, {});
     expect(personCount).toHaveBeenCalledWith(
