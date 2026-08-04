@@ -275,13 +275,13 @@ export function GuardianshipPanel({
           ) : null}
           {isGuardian ? (
             <RelGroup
-              heading="Wards"
+              heading="Children / dependents"
               rels={asGuardian}
               nameOf={(g) => g.wardName}
               // These rows are this person's WARDS → show the ward's role
               // (the inverse), so "Amara · Child" not "Amara · Parent".
               roleLabel={wardRoleLabel}
-              emptyText="No wards recorded."
+              emptyText="No children / dependents recorded."
               canManage={canManage}
               onChanged={load}
             />

@@ -669,7 +669,7 @@ export function PersonPeople({
         </Section>
       ) : null}
       {wards.length > 0 ? (
-        <Section title="Wards">
+        <Section title="Children / dependents">
           <RelationList
             relations={wards}
             href={relationHref}
