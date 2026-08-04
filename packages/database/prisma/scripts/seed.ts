@@ -4419,6 +4419,108 @@ export async function syncPermissions() {
   return { createdRoles, allPermissions, poolPermissionCount, rolePoolCount };
 }
 
+/**
+ * WB1-5 · System role templates — shared presets (tenant_id NULL) an admin
+ * builds a scoped custom role from. Each references SYSTEM permission-pool names
+ * (from PERMISSION_POOLS) resolved to ids per tenant when applied. Idempotent:
+ * upserts by (tenant_id NULL, key). Not counted by db:verify (not a permission).
+ */
+const SYSTEM_ROLE_TEMPLATES = [
+  {
+    key: 'bursar',
+    name: 'Bursar',
+    description:
+      'Finance office: fees, invoices, payments and financial reports for the school (or a campus).',
+    category: 'Finance',
+    clearanceLevel: 5,
+    permissionPoolNames: ['Level5_Finance'],
+    sensitive: true,
+  },
+  {
+    key: 'registrar',
+    name: 'Registrar',
+    description:
+      'Admissions and student records: enrolments, transfers and operational records.',
+    category: 'Operations',
+    clearanceLevel: 4,
+    permissionPoolNames: ['Level4_Operations'],
+    sensitive: false,
+  },
+  {
+    key: 'teacher',
+    name: 'Teacher',
+    description:
+      'Classroom access: their own classes, students, grades and attendance.',
+    category: 'Academic',
+    clearanceLevel: 3,
+    permissionPoolNames: ['Level3_Teacher'],
+    sensitive: false,
+  },
+  {
+    key: 'form_teacher',
+    name: 'Form teacher',
+    description:
+      'A teacher with pastoral responsibility for a form/class (same base access, scoped to their class).',
+    category: 'Academic',
+    clearanceLevel: 3,
+    permissionPoolNames: ['Level3_Teacher'],
+    sensitive: false,
+  },
+  {
+    key: 'it_support',
+    name: 'IT support',
+    description: 'Technical maintenance and account support across the school.',
+    category: 'Support',
+    clearanceLevel: 6,
+    permissionPoolNames: ['Level6_ITSupport'],
+    sensitive: true,
+  },
+];
+
+async function seedRoleTemplates() {
+  let created = 0;
+  let updated = 0;
+  for (const t of SYSTEM_ROLE_TEMPLATES) {
+    const existing = await prisma.roleTemplate.findFirst({
+      where: { tenantId: null, key: t.key },
+      select: { id: true },
+    });
+    if (existing) {
+      await prisma.roleTemplate.update({
+        where: { id: existing.id },
+        data: {
+          name: t.name,
+          description: t.description,
+          category: t.category,
+          clearanceLevel: t.clearanceLevel,
+          permissionPoolNames: t.permissionPoolNames,
+          sensitive: t.sensitive,
+          isSystemTemplate: true,
+        },
+      });
+      updated += 1;
+    } else {
+      await prisma.roleTemplate.create({
+        data: {
+          tenantId: null,
+          key: t.key,
+          name: t.name,
+          description: t.description,
+          category: t.category,
+          clearanceLevel: t.clearanceLevel,
+          permissionPoolNames: t.permissionPoolNames,
+          sensitive: t.sensitive,
+          isSystemTemplate: true,
+        },
+      });
+      created += 1;
+    }
+  }
+  console.log(
+    `  ✓ Role templates: ${created} created, ${updated} updated (${SYSTEM_ROLE_TEMPLATES.length} total)`,
+  );
+}
+
 async function main() {
   console.log('🌱 Starting database seed...\n');
 
@@ -4431,6 +4533,7 @@ async function main() {
       await syncPermissions();
 
     await seedSensitiveOperationPolicies();
+    await seedRoleTemplates();
     await seedPlatformBootstrap(prisma, createdRoles);
 
     console.log('\n✨ Seed completed successfully!');

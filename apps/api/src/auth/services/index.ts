@@ -13,6 +13,8 @@ export * from './mfa.service';
 export * from './step-up.service';
 export * from './permission.service';
 export * from './role.service';
+export * from './role-template.service';
+export * from './effective-access.service';
 export * from './permission-pool.service';
 export * from './maker-checker.service';
 export * from './platform-oversight.service';

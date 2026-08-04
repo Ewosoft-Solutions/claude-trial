@@ -5,7 +5,16 @@
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { apiClient } from '@/lib/api-client';
-import { apiErrorResponse, bearerAuthHeaders } from '@/lib/api-proxy';
+import {
+  apiErrorResponse,
+  bearerAuthHeaders,
+  proxyPost,
+} from '@/lib/api-proxy';
+
+/** POST /api/roles → NestJS POST /roles (create a custom role, WB1-5). */
+export async function POST(req: NextRequest) {
+  return proxyPost(req, '/roles', { status: 201 });
+}
 
 export async function GET(req: NextRequest) {
   try {

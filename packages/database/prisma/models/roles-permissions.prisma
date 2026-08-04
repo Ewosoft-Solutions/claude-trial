@@ -39,6 +39,16 @@ model Role {
   tenantId       String? @map("tenant_id") // Null for platform/system roles, required for custom roles
   isActive       Boolean @default(true) @map("is_active")
 
+  // WB1-5 · Scope descriptor captured by the role editor (e.g. a campus). The
+  // effective-access evaluator EXPLAINS this ("Scope: Campus A" → a cross-scope
+  // action is denied); actual row-level scope ENFORCEMENT + expiry land in WB1-6
+  // (which its declared dependency is). Shape: { type, value?, label? }.
+  scope Json? @map("scope")
+
+  // WB1-5 · The role template this custom role was built from (provenance for
+  // "Source: Bursar template"), when created via a preset.
+  templateKey String? @map("template_key")
+
   // Audit Fields
   createdBy String?  @map("created_by")
   updatedBy String?  @map("updated_by")
@@ -175,5 +185,43 @@ model MakerCheckerRequest {
   @@index([operation])
   @@index([status])
   @@map("maker_checker_requests")
+  @@schema("roles-permissions")
+}
+
+// RoleTemplate (WB1-5) - a named preset that seeds a custom role: a clearance
+// level + the permission pools it inherits + a plain-language category, so an
+// admin builds "Bursar" or "Form teacher" from a starting point instead of 305
+// checkboxes. System templates (tenant_id NULL) are shared national presets
+// (readable by every tenant); a tenant may add its own. Mirrors the nullable-
+// tenant shared-read RLS of `roles`/`permission_pools`.
+model RoleTemplate {
+  id       String  @id @default(uuid())
+  tenantId String? @map("tenant_id") // NULL = shared system template
+
+  key            String // stable identifier, e.g. 'bursar' (unique per scope)
+  name           String
+  description    String?
+  category       String? // 'Finance' | 'Academic' | 'Operations' | 'Leadership' | 'Support'
+  clearanceLevel Int     @map("clearance_level") // 0-7 (custom-role ceiling)
+
+  // The SYSTEM permission-pool names this template grants (pools are resolved to
+  // ids per tenant when the template is applied). Stored by name so a template
+  // is portable across tenants.
+  permissionPoolNames String[] @map("permission_pool_names")
+
+  // Grants money / security / PII-sensitive access — surfaced in the editor so
+  // the admin knows a preset carries high-risk capability.
+  sensitive Boolean @default(false)
+
+  isSystemTemplate Boolean @default(true) @map("is_system_template")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([category])
+  @@map("role_templates")
   @@schema("roles-permissions")
 }

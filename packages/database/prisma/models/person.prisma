@@ -152,11 +152,22 @@ model Address {
 // StaffProfile - first-class employment, so the HR directory is no longer
 // derived from StaffPayrollRecord (ADR-01: retire payroll-as-directory). A
 // person can hold more than one over time (rehire); the active one has no
-// endDate.
+// endDate. WB1-2 makes it a MANAGED domain — created/updated/disabled through
+// StaffEmploymentService independent of any payroll run — and adds the
+// employment depth a real HR record needs: a reporting line (self-relation),
+// qualifications (child rows), a loose link to the login profile, and migration
+// source keys so a payroll-derived directory can be back-filled idempotently.
 model StaffProfile {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
   personId String @map("person_id")
+
+  // The login profile this employment is tied to, when the staff member has an
+  // account. A LOOSE reference (no FK), matching the HR domain convention
+  // (StaffPayrollRecord.staffUserTenantId) — the authoritative human anchor is
+  // `person` (F1), which itself 0..1-links a UserTenant; this just records which
+  // account a specific employment corresponds to when a person holds several.
+  userTenantId String? @map("user_tenant_id")
 
   employeeNumber   String? @map("employee_number")
   employmentStatus String  @default("active") @map("employment_status") // 'active' | 'on_leave' | 'suspended' | 'terminated'
@@ -165,18 +176,62 @@ model StaffProfile {
   department       String?
   hireDate         DateTime? @map("hire_date")
   endDate          DateTime? @map("end_date")
+  endReason        String?   @map("end_reason") // why employment ended (disable)
+
+  // Reporting line — self-relation to the manager's employment record. SetNull
+  // so ending a manager's employment doesn't cascade-delete their reports.
+  reportsToStaffProfileId String? @map("reports_to_staff_profile_id")
+
+  // Migration provenance + idempotent-upsert key: 'payroll' back-fill uses the
+  // originating staff_user_tenant_id as sourceId so re-running never duplicates.
+  sourceSystem String? @map("source_system")
+  sourceId     String? @map("source_id")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  person         Person               @relation(fields: [personId], references: [id], onDelete: Cascade)
+  reportsTo      StaffProfile?        @relation("StaffReportsTo", fields: [reportsToStaffProfileId], references: [id], onDelete: SetNull)
+  directReports  StaffProfile[]       @relation("StaffReportsTo")
+  qualifications StaffQualification[]
+
+  @@unique([tenantId, employeeNumber])
+  @@unique([tenantId, sourceSystem, sourceId], map: "staff_profiles_source_key") // idempotent back-fill key
+  @@index([tenantId])
+  @@index([personId])
+  @@index([tenantId, employmentStatus])
+  @@index([reportsToStaffProfileId])
+  @@map("staff_profiles")
+  @@schema("person")
+}
+
+// StaffQualification - a staff member's academic/professional qualification
+// (degree, teaching licence, certification). A child of StaffProfile so it
+// travels with the employment record; an optional documentId links proof stored
+// in the F4 document service. Tenant-scoped + RLS (person schema).
+model StaffQualification {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  staffProfileId String @map("staff_profile_id")
+
+  qualificationType String? @map("qualification_type") // 'degree' | 'diploma' | 'certificate' | 'license' | 'other'
+  title             String // e.g. 'B.Sc Mathematics', 'TRCN Teaching Licence'
+  institution       String?
+  fieldOfStudy      String? @map("field_of_study")
+  awardedYear       Int?    @map("awarded_year")
+  documentId        String? @map("document_id") // optional F4 Document holding proof
 
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  staffProfile StaffProfile @relation(fields: [staffProfileId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, employeeNumber])
   @@index([tenantId])
-  @@index([personId])
-  @@index([tenantId, employmentStatus])
-  @@map("staff_profiles")
+  @@index([staffProfileId])
+  @@map("staff_qualifications")
   @@schema("person")
 }
 
