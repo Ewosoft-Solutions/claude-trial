@@ -100,6 +100,10 @@ export const AUDIT_ACTION = {
     USER_INVITATION_CREATED: 'user_invitation_created',
     USER_INVITATION_ACCEPTED: 'user_invitation_accepted',
     USER_INVITATION_REVOKED: 'user_invitation_revoked',
+    // WB1-3: admin-initiated password reset (the other provisioning lifecycle
+    // events — invite/resend/suspend/reactivate — are audited via AuditService
+    // with `provisioning.account.*` actions, not this typed logUserAction set).
+    USER_PASSWORD_RESET_ISSUED: 'user_password_reset_issued',
   },
   PASSWORD_RESET: {
     PASSWORD_RESET_REQUESTED: 'password_reset_requested',
@@ -160,6 +164,7 @@ export const AUDIT_ACTION_VALUES = [
   AUDIT_ACTION.USER_MANAGEMENT.USER_PROFILE_UPDATED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_PROFILE_DELETED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_CREATED,
+  AUDIT_ACTION.USER_MANAGEMENT.USER_PASSWORD_RESET_ISSUED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_ACCEPTED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_REVOKED,
   // Password reset

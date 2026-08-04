@@ -130,6 +130,16 @@ export class PeopleDirectoryQueryDto extends PaginationDto {
   @MaxLength(200)
   q?: string;
 
+  @ApiPropertyOptional({
+    enum: ['all', 'name'],
+    default: 'all',
+    description:
+      "Search scope for `q`: 'all' (names + identifier + contact index for callers who may view contact) or 'name' (first/last/preferred name ONLY — for a name picker where matching a hidden email would be confusing).",
+  })
+  @IsOptional()
+  @IsIn(['all', 'name'])
+  match?: 'all' | 'name';
+
   @ApiPropertyOptional({ enum: PEOPLE_DIRECTORY_SORT_FIELDS })
   @IsOptional()
   @IsIn(PEOPLE_DIRECTORY_SORT_FIELDS as unknown as string[])

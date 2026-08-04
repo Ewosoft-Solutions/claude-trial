@@ -183,7 +183,12 @@ model StaffProfile {
 // GuardianRelationship - a guardian Person's authority over a ward's Person.
 // Person→Person (both sides are the same anchor), so a staff member who is also
 // a guardian is ONE identity with a guardian relationship — not a duplicate
-// account. Extends the legacy StudentGuardian fields (WB1-4 adds consent depth).
+// account. This is the go-forward caregiver model (WB1-4): the legacy
+// `StudentGuardian` (student→account, Father/Mother/Both) is deprecated and kept
+// read-only for back-compat. WB1-4 adds real-world caregiver depth beyond a
+// gender label — authority, per-category contact consent, and verification — so
+// results/fee comms can target by relationship + consent, and a school can model
+// multiple non-parent caregivers (grandparent, aunt, court-appointed guardian).
 model GuardianRelationship {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
@@ -191,11 +196,34 @@ model GuardianRelationship {
   guardianPersonId String @map("guardian_person_id")
   wardPersonId     String @map("ward_person_id")
 
-  relationship    String  @default("parent") // 'parent' | 'guardian' | 'grandparent' | …
+  relationship    String  @default("parent") // 'parent' | 'guardian' | 'grandparent' | 'aunt_uncle' | 'sibling' | 'foster' | 'other'
   isPrimary       Boolean @default(false) @map("is_primary")
   legalGuardian   Boolean @default(false) @map("legal_guardian")
   contactPriority Int?    @map("contact_priority")
-  consentGiven    Boolean @default(false) @map("consent_given")
+  consentGiven    Boolean @default(false) @map("consent_given") // legacy overall flag; superseded by the per-category consent below
+
+  // WB1-4 · Authority — what this caregiver is permitted to do for the ward.
+  custodyType         String? @map("custody_type") // 'full' | 'joint' | 'partial' | 'none' | 'visitation'
+  canPickup           Boolean @default(false) @map("can_pickup") // may collect the child
+  canAuthorizeMedical Boolean @default(false) @map("can_authorize_medical") // may authorise treatment
+  isEmergencyContact  Boolean @default(false) @map("is_emergency_contact") // reachable for emergencies regardless of consent
+  isBillingContact    Boolean @default(false) @map("is_billing_contact") // receives/authorises fee matters
+
+  // WB1-4 · Per-category contact consent. Operational categories default ON for
+  // a caregiver (a guardian expects results/attendance/fee comms) and can be
+  // turned off; EMERGENCY comms always reach an emergency contact regardless of
+  // these (enforced in code as a `critical` send). These supersede `consentGiven`.
+  consentResults    Boolean @default(true) @map("consent_results")
+  consentFinance    Boolean @default(true) @map("consent_finance")
+  consentAttendance Boolean @default(true) @map("consent_attendance")
+  consentGeneral    Boolean @default(true) @map("consent_general")
+
+  // WB1-4 · Verification — proof of the caregiver claim (custody papers, ID
+  // check, in-person). A relationship can exist unverified but is flagged so the
+  // office can chase evidence; sensitive authority should require verification.
+  verifiedAt         DateTime? @map("verified_at")
+  verifiedBy         String?   @map("verified_by")
+  verificationMethod String?   @map("verification_method") // 'document' | 'in_person' | 'id_check' | 'existing_record'
 
   // Effective-dated so a relationship can end without losing history.
   effectiveFrom DateTime  @default(now()) @map("effective_from")
@@ -213,6 +241,7 @@ model GuardianRelationship {
   @@index([tenantId])
   @@index([guardianPersonId])
   @@index([wardPersonId])
+  @@index([wardPersonId, effectiveTo], map: "guardian_relationships_ward_active_idx")
   @@map("guardian_relationships")
   @@schema("person")
 }

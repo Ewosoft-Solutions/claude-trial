@@ -76,13 +76,19 @@ const SORT_FIELDS = new Set(['name', 'createdAt']);
 export function toApiQuery(
   search: Record<string, string | string[] | undefined>,
   type: PeopleType,
+  /** The caller's preferred page size (from the saved cookie) used when the URL
+   *  carries no explicit `size`, so SSR fetches the same count the client shows. */
+  defaultPageSize = DEFAULT_DIRECTORY_STATE.pageSize,
 ): string {
   const incoming = new URLSearchParams();
   for (const [key, value] of Object.entries(search)) {
     if (typeof value === 'string') incoming.set(key, value);
     else if (Array.isArray(value) && value[0]) incoming.set(key, value[0]);
   }
-  const state = parseDirectoryState(incoming, DEFAULT_DIRECTORY_STATE);
+  const state = parseDirectoryState(incoming, {
+    ...DEFAULT_DIRECTORY_STATE,
+    pageSize: defaultPageSize,
+  });
 
   const api = new URLSearchParams();
   api.set('type', type);

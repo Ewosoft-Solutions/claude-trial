@@ -177,7 +177,11 @@ export function availableTabs(detail: PersonDetail): DetailTab[] {
     (detail.student?.guardians.length ?? 0) > 0 ||
     (detail.student?.siblings.length ?? 0) > 0 ||
     (detail.wards?.length ?? 0) > 0;
-  if (hasPeople) tabs.push('people');
+  // Students and guardians always get the People tab so guardianships can be
+  // managed even before the first relationship exists (WB1-4).
+  const guardianshipRelevant =
+    detail.profiles.includes('student') || detail.profiles.includes('guardian');
+  if (hasPeople || guardianshipRelevant) tabs.push('people');
   if (detail.academics) tabs.push('academics');
   if (detail.finance) tabs.push('finance');
   if (detail.documents && detail.documents.count > 0) tabs.push('documents');
@@ -187,6 +191,54 @@ export function availableTabs(detail: PersonDetail): DetailTab[] {
 export function humanize(value: string): string {
   const s = value.replace(/_/g, ' ');
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * Caregiver relationships are DIRECTIONAL. The value stored on a
+ * GuardianRelationship is always the GUARDIAN's kinship to the ward
+ * (e.g. 'parent' = "the guardian is the ward's parent"). So the SAME value must
+ * be labelled differently depending on whose page you're on:
+ *   • on a ward's page, listing their guardians → the guardian's role ("Parent")
+ *   • on a guardian's page, listing their wards  → the ward's role, i.e. the
+ *     INVERSE ("Child") — otherwise "Amara · Parent" reads as if Amara is the
+ *     parent, not Multi.
+ * `label` is the guardian-side term (also the dropdown option); `wardLabel` is
+ * the inverse, ward-side term. Keep `value`s in step with RELATIONSHIP_TYPES in
+ * apps/api/src/person/dto/guardianship.dto.ts.
+ */
+export const GUARDIAN_RELATIONSHIPS: {
+  value: string;
+  label: string;
+  wardLabel: string;
+}[] = [
+  { value: 'mother', label: 'Mother', wardLabel: 'Child' },
+  { value: 'father', label: 'Father', wardLabel: 'Child' },
+  { value: 'parent', label: 'Parent', wardLabel: 'Child' },
+  { value: 'step_parent', label: 'Step-parent', wardLabel: 'Stepchild' },
+  { value: 'grandparent', label: 'Grandparent', wardLabel: 'Grandchild' },
+  { value: 'sibling', label: 'Sibling', wardLabel: 'Sibling' },
+  { value: 'aunt_uncle', label: 'Aunt / uncle', wardLabel: 'Niece / nephew' },
+  { value: 'cousin', label: 'Cousin', wardLabel: 'Cousin' },
+  { value: 'guardian', label: 'Guardian', wardLabel: 'Ward' },
+  { value: 'caregiver', label: 'Caregiver', wardLabel: 'Dependent' },
+  { value: 'foster_parent', label: 'Foster parent', wardLabel: 'Foster child' },
+  { value: 'other_relative', label: 'Other relative', wardLabel: 'Relative' },
+  { value: 'other', label: 'Other', wardLabel: 'Dependent' },
+];
+
+const RELATIONSHIP_BY_VALUE = new Map(
+  GUARDIAN_RELATIONSHIPS.map((r) => [r.value, r]),
+);
+
+/** The GUARDIAN's role toward the ward (e.g. 'parent' → 'Parent'). */
+export function guardianRoleLabel(value: string): string {
+  return RELATIONSHIP_BY_VALUE.get(value)?.label ?? humanize(value);
+}
+
+/** The WARD's role toward the guardian — the inverse (e.g. 'parent' → 'Child').
+ *  Unknown kinships fall back to 'Ward' (they are, after all, a ward). */
+export function wardRoleLabel(value: string): string {
+  return RELATIONSHIP_BY_VALUE.get(value)?.wardLabel ?? 'Ward';
 }
 
 export function initials(name: string): string {

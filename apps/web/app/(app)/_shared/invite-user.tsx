@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 
+import { checkEmail, checkName } from '@/lib/input-validation';
+
 interface Role {
   id: string;
   name: string;
@@ -87,8 +89,22 @@ export function InviteUser({
     ? `${typeof window !== 'undefined' ? window.location.origin : ''}/accept-invite?token=${created.invitationToken}`
     : '';
 
+  // Validate typed inputs by type: email is required + well-formed; first/last
+  // name are optional but, when given, must look like names. Errors only show
+  // once a field has content (the button stays disabled until the form is valid).
+  const emailErr = email.trim() ? checkEmail(email).error : null;
+  const firstErr = firstName.trim()
+    ? checkName(firstName, 'First name').error
+    : null;
+  const lastErr = lastName.trim()
+    ? checkName(lastName, 'Last name').error
+    : null;
+  const canSubmit =
+    !!email.trim() && !emailErr && !firstErr && !lastErr && !!roleId;
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!canSubmit) return;
     setError(null);
     setSubmitting(true);
     try {
@@ -103,7 +119,8 @@ export function InviteUser({
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || 'Failed to create invitation');
+      if (!res.ok)
+        throw new Error(body?.error || 'Failed to create invitation');
       setCreated(body as CreatedInvite);
       onInvited?.();
     } catch (err) {
@@ -134,7 +151,11 @@ export function InviteUser({
         <div className="flex items-center gap-2">
           <Input readOnly value={acceptUrl} className="font-mono text-xs" />
           <Button type="button" size="sm" variant="outline" onClick={copyLink}>
-            {copied ? <Check className="size-4" /> : <Copy className="size-4" />}
+            {copied ? (
+              <Check className="size-4" />
+            ) : (
+              <Copy className="size-4" />
+            )}
             {copied ? 'Copied' : 'Copy'}
           </Button>
         </div>
@@ -172,7 +193,14 @@ export function InviteUser({
             onChange={(e) => setEmail(e.target.value)}
             placeholder="person@school.edu"
             required
+            aria-invalid={emailErr ? true : undefined}
+            aria-describedby={emailErr ? 'invite-email-err' : undefined}
           />
+          {emailErr ? (
+            <p id="invite-email-err" className="text-xs text-destructive">
+              {emailErr}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="invite-first">First name</Label>
@@ -180,7 +208,14 @@ export function InviteUser({
             id="invite-first"
             value={firstName}
             onChange={(e) => setFirstName(e.target.value)}
+            aria-invalid={firstErr ? true : undefined}
+            aria-describedby={firstErr ? 'invite-first-err' : undefined}
           />
+          {firstErr ? (
+            <p id="invite-first-err" className="text-xs text-destructive">
+              {firstErr}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="invite-last">Last name</Label>
@@ -188,7 +223,14 @@ export function InviteUser({
             id="invite-last"
             value={lastName}
             onChange={(e) => setLastName(e.target.value)}
+            aria-invalid={lastErr ? true : undefined}
+            aria-describedby={lastErr ? 'invite-last-err' : undefined}
           />
+          {lastErr ? (
+            <p id="invite-last-err" className="text-xs text-destructive">
+              {lastErr}
+            </p>
+          ) : null}
         </div>
         <div className="flex flex-col gap-1.5 sm:col-span-2">
           <Label htmlFor="invite-role">Role</Label>
@@ -214,11 +256,7 @@ export function InviteUser({
       ) : null}
 
       <div>
-        <Button
-          type="submit"
-          size="sm"
-          disabled={submitting || !email.trim() || !roleId}
-        >
+        <Button type="submit" size="sm" disabled={submitting || !canSubmit}>
           <Send className="size-4" />
           {submitting ? 'Sending…' : 'Create invitation'}
         </Button>

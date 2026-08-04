@@ -86,6 +86,9 @@ export interface Session {
    *  preferences › Schools & roles) — the stored preference, not necessarily active
    *  right now. Undefined when the user hasn't set one. */
   defaultProfileId?: string;
+  /** Preferred table rows-per-page (per-account UI preference). Undefined when
+   *  the user hasn't set one → the app default applies. */
+  defaultPageSize?: number;
   sessionPolicy: SessionLifecyclePolicy;
   biometricEnrollment: {
     policy: 'require' | 'allow' | 'forbid';
@@ -119,6 +122,7 @@ interface MeResponse {
   defaultSchoolId?: string;
   activeProfileId?: string;
   defaultProfileId?: string;
+  defaultPageSize?: number;
   schools: Array<{
     id: string;
     name: string;
@@ -189,6 +193,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
       defaultSchoolId: me.defaultSchoolId,
       activeProfileId: me.activeProfileId,
       defaultProfileId: me.defaultProfileId,
+      defaultPageSize: me.defaultPageSize,
       sessionPolicy: me.sessionPolicy,
       biometricEnrollment: me.biometricEnrollment,
       accessExpiresAt: me.accessExpiresAt,
