@@ -36,6 +36,7 @@ export default async function PersonPeoplePage({
         <PersonPeople
           detail={detail}
           relationHref={(rid) => `/people/${rid}`}
+          hideGuardianships={showGuardianship}
         />
         {showGuardianship ? (
           <GuardianshipPanel

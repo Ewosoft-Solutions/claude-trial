@@ -28,9 +28,11 @@ import {
   ageFrom,
   formatDate,
   formatMinor,
+  guardianRoleLabel,
   humanize,
   initials,
   profileLabel,
+  wardRoleLabel,
   type PersonContactPoint,
   type PersonContactPreference,
   type PersonDetail,
@@ -340,10 +342,13 @@ export function RelationRow({
   relation,
   href,
   onSelect,
+  labelFor,
 }: {
   relation: PersonRelation;
   href?: string;
   onSelect?: (id: string) => void;
+  /** Map the raw relationship to a display label (direction-aware). */
+  labelFor?: (relationship: string) => string;
 }) {
   const inner = (
     <>
@@ -360,7 +365,7 @@ export function RelationRow({
           {relation.name}
         </span>
         <span className="truncate text-xs text-muted-foreground">
-          {humanize(relation.relationship)}
+          {(labelFor ?? humanize)(relation.relationship)}
         </span>
       </div>
       {relation.isPrimary ? (
@@ -399,11 +404,14 @@ export function RelationList({
   relations,
   href,
   onSelect,
+  labelFor,
 }: {
   label?: string;
   relations: PersonRelation[];
   href?: (id: string) => string;
   onSelect?: (id: string) => void;
+  /** Direction-aware relationship label (e.g. wardRoleLabel for a wards list). */
+  labelFor?: (relationship: string) => string;
 }) {
   if (relations.length === 0) return null;
   return (
@@ -417,6 +425,7 @@ export function RelationList({
           relation={r}
           href={href ? href(r.id) : undefined}
           onSelect={onSelect}
+          labelFor={labelFor}
         />
       ))}
     </div>
@@ -598,26 +607,46 @@ export function PersonOverview({
 }
 
 /** Guardians + siblings + wards. `relationHref` (profile Links) OR `onSelect`
- *  (drawer buttons) drives the cross-navigation. */
+ *  (drawer buttons) drives the cross-navigation.
+ *
+ *  Relationship labels are direction-aware: a guardian is shown by THEIR role
+ *  ("Parent"), a ward by the INVERSE ("Child") — so "Amara · Child" reads as
+ *  "Amara is this person's child", never "Amara is the parent".
+ *
+ *  `hideGuardianships` drops the Guardians + Wards sections (keeping Siblings)
+ *  when a richer guardianship panel is rendered alongside, to avoid listing the
+ *  same people twice. */
 export function PersonPeople({
   detail,
   relationHref,
   onSelect,
+  hideGuardianships = false,
 }: {
   detail: PersonDetail;
   relationHref?: (id: string) => string;
   onSelect?: (id: string) => void;
+  hideGuardianships?: boolean;
 }) {
-  const guardians = detail.student?.guardians ?? [];
+  const guardians = hideGuardianships ? [] : (detail.student?.guardians ?? []);
   const siblings = detail.student?.siblings ?? [];
-  const wards = detail.wards ?? [];
-  if (guardians.length + siblings.length + wards.length === 0) {
+  const wards = hideGuardianships ? [] : (detail.wards ?? []);
+
+  // "No related people" only when the person genuinely has none; when the
+  // guardians/wards are merely hidden (shown by the guardianship panel) and
+  // there are no siblings, render nothing here rather than a false empty state.
+  const hasAnyRelation =
+    (detail.student?.guardians?.length ?? 0) +
+      (detail.student?.siblings?.length ?? 0) +
+      (detail.wards?.length ?? 0) >
+    0;
+  if (!hasAnyRelation) {
     return (
       <p className="text-sm text-muted-foreground">
         No related people on file.
       </p>
     );
   }
+  if (guardians.length + siblings.length + wards.length === 0) return null;
   return (
     <div className="flex flex-col gap-6">
       {guardians.length > 0 ? (
@@ -626,6 +655,7 @@ export function PersonPeople({
             relations={guardians}
             href={relationHref}
             onSelect={onSelect}
+            labelFor={guardianRoleLabel}
           />
         </Section>
       ) : null}
@@ -644,6 +674,7 @@ export function PersonPeople({
             relations={wards}
             href={relationHref}
             onSelect={onSelect}
+            labelFor={wardRoleLabel}
           />
         </Section>
       ) : null}

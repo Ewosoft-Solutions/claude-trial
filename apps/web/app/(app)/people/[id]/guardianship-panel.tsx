@@ -41,7 +41,13 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { isSearchable } from '@/lib/input-validation';
 
 import { Section } from '../person-detail-ui';
-import { humanize, initials } from '../person-detail.types';
+import {
+  GUARDIAN_RELATIONSHIPS,
+  guardianRoleLabel,
+  humanize,
+  initials,
+  wardRoleLabel,
+} from '../person-detail.types';
 
 /** A small initials avatar for a person, so rows/dialogs are easy to confirm. */
 function PersonAvatar({
@@ -116,28 +122,6 @@ interface GuardForm {
   consentFinance: boolean;
   consentAttendance: boolean;
   consentGeneral: boolean;
-}
-
-// Closed caregiver-relationship list (keep in step with RELATIONSHIP_TYPES in
-// apps/api/src/person/dto/guardianship.dto.ts). Kinship label only — legal
-// authority is the separate "Legal guardian" toggle.
-const RELATIONSHIPS: { value: string; label: string }[] = [
-  { value: 'mother', label: 'Mother' },
-  { value: 'father', label: 'Father' },
-  { value: 'parent', label: 'Parent' },
-  { value: 'step_parent', label: 'Step-parent' },
-  { value: 'grandparent', label: 'Grandparent' },
-  { value: 'sibling', label: 'Sibling' },
-  { value: 'aunt_uncle', label: 'Aunt / uncle' },
-  { value: 'cousin', label: 'Cousin' },
-  { value: 'guardian', label: 'Guardian' },
-  { value: 'foster_parent', label: 'Foster parent' },
-  { value: 'other_relative', label: 'Other relative' },
-  { value: 'other', label: 'Other' },
-];
-
-function relationshipLabel(value: string): string {
-  return RELATIONSHIPS.find((r) => r.value === value)?.label ?? humanize(value);
 }
 
 const CUSTODY = ['full', 'joint', 'partial', 'none', 'visitation'];
@@ -282,6 +266,8 @@ export function GuardianshipPanel({
               heading="Guardians of this person"
               rels={asWard}
               nameOf={(g) => g.guardianName}
+              // These rows are the ward's GUARDIANS → show the guardian's role.
+              roleLabel={guardianRoleLabel}
               emptyText="No guardians recorded."
               canManage={canManage}
               onChanged={load}
@@ -292,6 +278,9 @@ export function GuardianshipPanel({
               heading="Wards"
               rels={asGuardian}
               nameOf={(g) => g.wardName}
+              // These rows are this person's WARDS → show the ward's role
+              // (the inverse), so "Amara · Child" not "Amara · Parent".
+              roleLabel={wardRoleLabel}
               emptyText="No wards recorded."
               canManage={canManage}
               onChanged={load}
@@ -307,6 +296,7 @@ function RelGroup({
   heading,
   rels,
   nameOf,
+  roleLabel,
   emptyText,
   canManage,
   onChanged,
@@ -314,6 +304,8 @@ function RelGroup({
   heading: string;
   rels: Guardianship[];
   nameOf: (g: Guardianship) => string;
+  /** Direction-aware relationship label for the rows in this group. */
+  roleLabel: (relationship: string) => string;
   emptyText: string;
   canManage: boolean;
   onChanged: () => Promise<void> | void;
@@ -331,6 +323,7 @@ function RelGroup({
             key={g.id}
             g={g}
             name={nameOf(g)}
+            roleLabel={roleLabel}
             canManage={canManage}
             onChanged={onChanged}
           />
@@ -343,11 +336,13 @@ function RelGroup({
 function GuardRow({
   g,
   name,
+  roleLabel,
   canManage,
   onChanged,
 }: {
   g: Guardianship;
   name: string;
+  roleLabel: (relationship: string) => string;
   canManage: boolean;
   onChanged: () => Promise<void> | void;
 }) {
@@ -365,7 +360,7 @@ function GuardRow({
               {name}
             </span>
             <span className="text-xs text-muted-foreground">
-              {relationshipLabel(g.relationship)}
+              {roleLabel(g.relationship)}
             </span>
             {g.isPrimary ? (
               <StatusBadge tone="info" dot>
@@ -412,7 +407,12 @@ function GuardRow({
 
       {canManage ? (
         <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
-          <EditGuardianDialog g={g} name={name} onDone={onChanged} />
+          <EditGuardianDialog
+            g={g}
+            name={name}
+            roleLabel={roleLabel}
+            onDone={onChanged}
+          />
           {!g.verified ? <VerifyDialog id={g.id} onDone={onChanged} /> : null}
           <EndDialog id={g.id} onDone={onChanged} />
         </div>
@@ -470,7 +470,7 @@ function AuthorityConsentFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {RELATIONSHIPS.map((r) => (
+            {GUARDIAN_RELATIONSHIPS.map((r) => (
               <SelectItem key={r.value} value={r.value}>
                 {r.label}
               </SelectItem>
@@ -529,10 +529,12 @@ function AuthorityConsentFields({
 function EditGuardianDialog({
   g,
   name,
+  roleLabel,
   onDone,
 }: {
   g: Guardianship;
   name: string;
+  roleLabel: (relationship: string) => string;
   onDone: () => Promise<void> | void;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -557,7 +559,7 @@ function EditGuardianDialog({
             Authority and per-category contact consent.
           </DialogDescription>
         </DialogHeader>
-        <PersonIdentity name={name} sub={relationshipLabel(g.relationship)} />
+        <PersonIdentity name={name} sub={roleLabel(g.relationship)} />
         <AuthorityConsentFields form={form} set={set} />
         <DialogFooter>
           <DialogClose asChild>
