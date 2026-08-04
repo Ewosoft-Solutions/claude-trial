@@ -216,11 +216,12 @@ describe('GuardianshipService', () => {
         wardPersonId: 'w1',
         isPrimary: true,
       });
+      // On create the new row does not exist yet, so all the ward's current
+      // primaries are demoted (no id exclusion) before it is inserted.
       expect(t.relUpdateMany).toHaveBeenCalledWith({
         where: {
           tenantId: 't1',
           wardPersonId: 'w1',
-          id: { not: 'rel1' },
           effectiveTo: null,
           isPrimary: true,
         },

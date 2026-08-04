@@ -100,10 +100,9 @@ export const AUDIT_ACTION = {
     USER_INVITATION_CREATED: 'user_invitation_created',
     USER_INVITATION_ACCEPTED: 'user_invitation_accepted',
     USER_INVITATION_REVOKED: 'user_invitation_revoked',
-    // WB1-3 account provisioning lifecycle
-    USER_INVITATION_RESENT: 'user_invitation_resent',
-    USER_ACCOUNT_SUSPENDED: 'user_account_suspended',
-    USER_ACCOUNT_REACTIVATED: 'user_account_reactivated',
+    // WB1-3: admin-initiated password reset (the other provisioning lifecycle
+    // events — invite/resend/suspend/reactivate — are audited via AuditService
+    // with `provisioning.account.*` actions, not this typed logUserAction set).
     USER_PASSWORD_RESET_ISSUED: 'user_password_reset_issued',
   },
   PASSWORD_RESET: {
@@ -165,9 +164,6 @@ export const AUDIT_ACTION_VALUES = [
   AUDIT_ACTION.USER_MANAGEMENT.USER_PROFILE_UPDATED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_PROFILE_DELETED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_CREATED,
-  AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_RESENT,
-  AUDIT_ACTION.USER_MANAGEMENT.USER_ACCOUNT_SUSPENDED,
-  AUDIT_ACTION.USER_MANAGEMENT.USER_ACCOUNT_REACTIVATED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_PASSWORD_RESET_ISSUED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_ACCEPTED,
   AUDIT_ACTION.USER_MANAGEMENT.USER_INVITATION_REVOKED,

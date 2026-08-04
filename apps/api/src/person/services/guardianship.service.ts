@@ -184,6 +184,14 @@ export class GuardianshipService {
     await this.ensureActivePerson(tenantId, dto.wardPersonId);
 
     try {
+      // At most one primary contact per ward ("the old #1 steps down"). Demote
+      // any existing primary BEFORE creating this one — with the partial unique
+      // index backstop, doing it after would transiently have two primaries and
+      // fail. Both writes share the request's runScoped transaction, so a later
+      // failure rolls the demotion back too.
+      if (dto.isPrimary === true) {
+        await this.demotePrimaries(tenantId, dto.wardPersonId);
+      }
       const created = await this.client.guardianRelationship.create({
         data: {
           id: randomUUID(),
@@ -208,11 +216,6 @@ export class GuardianshipService {
         },
         include: GUARDIAN_INCLUDE,
       });
-      // At most one primary contact per ward: promoting this one demotes any
-      // other current primary (the "the old #1 steps down" rule).
-      if (created.isPrimary) {
-        await this.demoteOtherPrimaries(tenantId, dto.wardPersonId, created.id);
-      }
       await this.recordHistory(
         tenantId,
         dto.guardianPersonId,
@@ -236,6 +239,11 @@ export class GuardianshipService {
       });
       return this.project(created);
     } catch (e) {
+      if (isPrimaryConflict(e)) {
+        throw new ConflictException(
+          'Another primary contact was set at the same time — reload and try again.',
+        );
+      }
       if (isUniqueViolation(e)) {
         throw new ConflictException(
           'This guardian is already linked to this ward',
@@ -283,35 +291,49 @@ export class GuardianshipService {
       data.consentGeneral = dto.consentGeneral;
     }
 
-    const updated = await this.client.guardianRelationship.update({
-      where: { id },
-      data,
-      include: GUARDIAN_INCLUDE,
-    });
-    // Promoting this relationship to primary demotes any other current primary
-    // for the same ward (exactly one primary contact).
-    if (dto.isPrimary === true) {
-      await this.demoteOtherPrimaries(tenantId, before.wardPersonId, id);
+    try {
+      // Promoting to primary demotes any OTHER current primary first (so the
+      // partial unique index is never transiently violated); both writes share
+      // the request transaction.
+      if (dto.isPrimary === true) {
+        await this.demotePrimaries(tenantId, before.wardPersonId, id);
+      }
+      const updated = await this.client.guardianRelationship.update({
+        where: { id },
+        data,
+        include: GUARDIAN_INCLUDE,
+      });
+      await this.audit(tenantId, actorId, 'guardianship.update', id, {
+        changed: Object.keys(data),
+      });
+      return this.project(updated);
+    } catch (e) {
+      if (isPrimaryConflict(e)) {
+        throw new ConflictException(
+          'Another primary contact was set at the same time — reload and try again.',
+        );
+      }
+      throw e;
     }
-    await this.audit(tenantId, actorId, 'guardianship.update', id, {
-      changed: Object.keys(data),
-    });
-    return this.project(updated);
   }
 
-  /** Clear `isPrimary` on every OTHER active guardianship of this ward. */
-  private async demoteOtherPrimaries(
+  /**
+   * Clear `isPrimary` on the ward's active guardianships. Pass `exceptId` to
+   * keep one (the row being promoted, on update); omit it before creating a new
+   * primary (that row does not exist yet).
+   */
+  private async demotePrimaries(
     tenantId: string,
     wardPersonId: string,
-    keepId: string,
+    exceptId?: string,
   ) {
     await this.client.guardianRelationship.updateMany({
       where: {
         tenantId,
         wardPersonId,
-        id: { not: keepId },
         effectiveTo: null,
         isPrimary: true,
+        ...(exceptId ? { id: { not: exceptId } } : {}),
       },
       data: { isPrimary: false },
     });
@@ -459,4 +481,17 @@ function isUniqueViolation(e: unknown): boolean {
   return (
     e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002'
   );
+}
+
+/** A P2002 raised by the one-primary-per-ward partial unique index (a concurrent
+ *  primary-promotion race), as opposed to the guardian↔ward pair uniqueness. */
+function isPrimaryConflict(e: unknown): boolean {
+  if (
+    !(e instanceof Prisma.PrismaClientKnownRequestError) ||
+    e.code !== 'P2002'
+  )
+    return false;
+  const target = e.meta?.target;
+  const s = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return s.includes('one_primary_per_ward');
 }

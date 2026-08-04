@@ -38,8 +38,13 @@ import type {
  *                    user chooses the new password).
  *
  * Delivery goes through the F5 `DeliveryService` (consent-aware, cost/DND
- * ledgered) and every token is governed as a `SecureLink` (hashed at rest,
- * revocable, audited). Account/user-row persistence is delegated to
+ * ledgered) and every token is mirrored as a `SecureLink` (hashed-at-rest,
+ * expiring, audited governance record). NOTE: redemption itself is resolved by
+ * the existing stores — `UserTenant.invitationToken` (accept-invite page) and
+ * `User.passwordResetToken` (reset-password page); the operative revoke paths
+ * are `revokeInvitation` (deletes the pending profile) and clearing/overwriting
+ * that token, not revoking the SecureLink alone. Account/user-row persistence is
+ * delegated to
  * `UserInvitationService` (which holds the grandfathered privileged client for
  * the RLS-covered, tenant-global `users` table); everything else runs on the
  * request's tenant-scoped client. Must be called inside a `@TenantScoped`
@@ -382,7 +387,8 @@ export class AccountProvisioningService {
     return this.getState(tenantId, personId);
   }
 
-  /** Reactivate a suspended account (restores to its pre-suspension status). */
+  /** Reactivate a suspended account — back to ACTIVE if the invite was accepted,
+   *  else PENDING (the only meaningful prior states). */
   async reactivate(tenantId: string, actorId: string, personId: string) {
     const person = await this.loadPerson(tenantId, personId);
     const account = person.account;

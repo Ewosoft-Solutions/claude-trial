@@ -25,6 +25,7 @@ import { INestApplication } from '@nestjs/common';
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import request from 'supertest';
 import * as bcrypt from 'bcrypt';
+import { randomUUID } from 'node:crypto';
 
 import { AppModule } from '../src/app.module';
 import { TenantDbService } from '../src/common';
@@ -301,6 +302,38 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
     expect(ut?.suspensionReason).toBeNull();
   });
 
+  it('admin reset issues a hashed, redeemable reset token (+ SecureLink)', async () => {
+    const person = await owner.person.findUnique({
+      where: { id: inviteePersonId },
+      select: { userTenantId: true },
+    });
+    const ut = await owner.userTenant.findUnique({
+      where: { id: person!.userTenantId! },
+      select: { userId: true },
+    });
+    // Clear any prior token so we assert on this issuance.
+    await owner.user.update({
+      where: { id: ut!.userId },
+      data: { passwordResetToken: null, passwordResetExpiresAt: null },
+    });
+
+    await inA(() =>
+      provisioning.sendPasswordReset(tenantAId, actorId, inviteePersonId),
+    );
+
+    const user = await owner.user.findUnique({
+      where: { id: ut!.userId },
+      select: { passwordResetToken: true, passwordResetExpiresAt: true },
+    });
+    // The same hashed shape the canonical /reset-password resolver reads.
+    expect(user?.passwordResetToken).toHaveLength(64); // sha256 hex
+    expect(user?.passwordResetExpiresAt!.getTime()).toBeGreaterThan(Date.now());
+    const links = await owner.secureLink.count({
+      where: { tenantId: tenantAId, purpose: 'password_reset' },
+    });
+    expect(links).toBeGreaterThanOrEqual(1);
+  });
+
   /* ---- WB1-4 · guardianship authority / priority / consent ------------- */
 
   it('records two guardians with distinct authority; primary is exclusive', async () => {
@@ -353,6 +386,39 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
     await inA(() =>
       guardianships.update(tenantAId, actorId, rel1Id, { isPrimary: true }),
     );
+  });
+
+  it('DB backstop: the partial unique index rejects a 2nd active primary', async () => {
+    // Insert straight through the superuser client (bypassing the service's
+    // demote) to prove the index — not just app code — guarantees one primary.
+    const ward2 = await owner.person.create({
+      data: {
+        tenantId: tenantAId,
+        firstName: 'Solo',
+        lastName: 'Ward',
+        status: 'active',
+      },
+    });
+    await owner.guardianRelationship.create({
+      data: {
+        id: randomUUID(),
+        tenantId: tenantAId,
+        guardianPersonId: g1,
+        wardPersonId: ward2.id,
+        isPrimary: true,
+      },
+    });
+    await expect(
+      owner.guardianRelationship.create({
+        data: {
+          id: randomUUID(),
+          tenantId: tenantAId,
+          guardianPersonId: g2,
+          wardPersonId: ward2.id,
+          isPrimary: true,
+        },
+      }),
+    ).rejects.toThrow(); // unique violation on guardian_relationships_one_primary_per_ward
   });
 
   it('resolves comms audience by relationship + consent, never a gender label', async () => {
