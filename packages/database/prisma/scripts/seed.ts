@@ -247,7 +247,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 330, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1)
+  total: 332, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1)
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -257,7 +257,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     COMMUNICATION_PERMISSIONS: 18,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
-    SYSTEM_ADMIN_PERMISSIONS: 19,
+    SYSTEM_ADMIN_PERMISSIONS: 20,
     PLATFORM_PERMISSIONS: 18,
     LIBRARY_PERMISSIONS: 7,
     TRANSPORTATION_PERMISSIONS: 8,
@@ -278,7 +278,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     AI_PERMISSIONS: 4,
     LESSONS_PERMISSIONS: 9,
     PERSON_PERMISSIONS: 4,
-    GUARDIAN_PERMISSIONS: 1,
+    GUARDIAN_PERMISSIONS: 2,
     DOCUMENT_PERMISSIONS: 6,
     IMPORT_PERMISSIONS: 5,
     CURRICULUM_PERMISSIONS: 4,
@@ -1822,6 +1822,20 @@ const SYSTEM_ADMIN_PERMISSIONS = [
     description: 'Add new users to the system',
     resource: 'users',
     action: 'create',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    // WB1-3: account provisioning lifecycle — invite (user sets own password via
+    // an expiring F5 SecureLink; no plaintext password is ever emitted),
+    // resend/revoke an invite, suspend (blocks login) / reactivate, and send an
+    // admin-initiated password-reset link. Security-sensitive → clearance 7.
+    name: 'users.provision',
+    label: 'Provision Accounts',
+    description:
+      'Invite users, activate/suspend accounts, and send password-reset links (no plaintext password is ever emitted)',
+    resource: 'users',
+    action: 'provision',
     category: 'administrative',
     requiredClearanceLevel: 7,
   },
@@ -3536,6 +3550,19 @@ const GUARDIAN_PERMISSIONS = [
     action: 'view',
     category: 'administrative',
     requiredClearanceLevel: 3,
+  },
+  {
+    // WB1-4: manage caregiver relationships — authority (custody/pickup/medical/
+    // emergency/billing), per-category contact consent, verification, and the
+    // effective-dated end. Clearance 5 (administrative), distinct from the read.
+    name: 'guardians.manage',
+    label: 'Manage Guardianships',
+    description:
+      'Create/update/verify/end guardian relationships and set authority, priority, and contact consent',
+    resource: 'guardians',
+    action: 'manage',
+    category: 'administrative',
+    requiredClearanceLevel: 5,
   },
 ];
 

@@ -1,6 +1,39 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-03
+Last Updated: 2026-08-04
+
+---
+
+## Session Summary (2026-08-04) — Claude: WB1-3 (secure provisioning) + WB1-4 (guardianship authority/consent) → in-review
+
+**Item(s):** WB1-3 + WB1-4 → **in-review** (one combined branch/PR, owner-chosen). **Branch:** `feat/wb1-3-4-provisioning-guardianship` (based off `main`). Claim committed first (`board: claim WB1-3 + WB1-4 (claude)`), then built to DoD with full workbench UI.
+
+**What changed & why**
+
+- **WB1-3 — provision users the safe way (retires C034 generated-password-via-SMS/email).** New `apps/api/src/provisioning` module: `AccountProvisioningService` + `AccountProvisioningController` at **`/directory/people/:personId/account`** — `GET` state; `POST` `invite` / `resend-invite` / `suspend` / `reactivate` / `reset-password`, all gated **`users.provision`** (new, clearance 7).
+  - **Invite** delegates account/user/role creation to the existing `UserInvitationService.createInvitation` (which holds the grandfathered privileged client for the RLS-covered, tenant-global `users` table — so **no new `DatabaseService` injection**), passing new options `{ skipLegacyEmail: true, invitationToken }`. It mints an expiring **F5 `SecureLink`** (`purpose:'invitation'`, hashed at rest, `maxUses:1`) over the **same** raw token it also writes to `UserTenant.invitationToken`, so the **existing accept-invite page** resolves it unchanged; delivery goes through the **F5 `DeliveryService`** (`critical` category, cost/DND ledgered) instead of the legacy `INVITATION_EMAIL_JOB`. Links the new account to the `Person`.
+  - **Accept** stays the existing route — the user sets their **own** password. **No code path emits a plaintext password** (unit-guarded + e2e-proven).
+  - **Suspend** sets `status='suspended'` + `suspended=true` (the exact flags `authentication.service.ts:934` refuses a login on) + revokes live profile sessions (best-effort) + audits; **reactivate** restores (to active if the invite was accepted, else pending).
+  - **Reset** reuses `User.passwordResetToken` (new `UserInvitationService.issueAdminPasswordReset`, privileged client) so the existing `/reset-password` page resolves it, governs it as a `password_reset` SecureLink, and delivers via F5.
+  - New audit actions: `USER_INVITATION_RESENT` / `USER_ACCOUNT_SUSPENDED` / `USER_ACCOUNT_REACTIVATED` / `USER_PASSWORD_RESET_ISSUED`. `SecureLinkService.create` gained an optional caller-supplied `token` (shared-token, hashed once).
+- **WB1-4 — real caregiver relationships (beyond Father/Mother/Both, C049).** Extended F1 `GuardianRelationship` (the Person→Person model already backing the People-directory Guardians tab) with **custody type, canPickup / canAuthorizeMedical / isEmergencyContact / isBillingContact, per-category consent (results / finance / attendance / general), and verification (verifiedAt/By/method)** — additive migration `20260804000000_guardianship_authority_consent` (nullable/defaulted columns + a ward-active index; **RLS unchanged** — the table was already ENABLE+FORCE from F1). New `GuardianshipService` + `/guardianships` controller: list (by ward/guardian), create, update, verify, end (effective-dated), and **`resolveAudience(tenantId, wardPersonId, category)`** — the comms recipient list **by relationship + consent** (emergency ignores per-category consent), gated `guardians.view` / **`guardians.manage`** (new, clearance 5). Legacy `StudentGuardian` marked **deprecated read-only**.
+- **Full workbench UI** on the person detail (`apps/web/app/(app)/people/[id]`): an **Account & access** panel (Overview) with invite (role picker + optional email dialog) / resend / suspend (reason) / reactivate / reset, and a **Guardianship** panel (People tab) listing guardians/wards with authority + consent badges and add (person search) / edit / verify / end dialogs — both client components with loading/error/empty/permission-denied states, `sonner` toasts, keyboard-navigable Radix dialogs. Proxy routes under `app/api/directory/people/[id]/account/*` and `app/api/guardianships/*`. The People tab is now always reachable for students/guardians so the first guardian can be added.
+- **+2 permissions** (`users.provision`, `guardians.manage`) → **330→332**; `EXPECTED_PERMISSION_COUNTS.total` + `SYSTEM_ADMIN_PERMISSIONS` (19→20) + `GUARDIAN_PERMISSIONS` (1→2) updated in the same commit; seed verifies 332.
+
+**Verification** (run + result)
+
+- **`pnpm ci:quick` green** (build + lint + typecheck across packages). **`pnpm check:privileged-db` green** (29 grandfathered, no new). **`pnpm db:rls:check` green** (no new tables; migration additive). **`pnpm db:seed` → 332**. `pnpm db:verify` 7/8 — the only miss is the pre-existing **platform-bootstrap** state on the local DB (architect account hasn't claimed a password), unrelated to this change; all permission/pool/role checks pass at 332.
+- **api unit 531/531** (+17 new: `guardianship.service.spec` 11, `account-provisioning.service.spec` 6 incl. the no-plaintext-password guard). **web unit 120/120.**
+- **e2e `provisioning-guardianship.e2e-spec.ts` 8/8 on real Postgres (app_runtime):** invite → pending + SecureLink (hashed) + DeliveryAttempt + no password; accept → user sets own password → active; suspend flags + reactivate; two guardians with distinct authority/priority; **audience by relationship+consent** (finance excludes the opted-out grandparent, emergency returns only the emergency contact, general returns both); verify + effective-dated end drop from active + audience; **RLS tenant isolation**; **HTTP 401** at the guard boundary.
+- **Prettier-clean** on all touched `.ts/.tsx`. Authenticated visual pass **owner-gated** (credential guardrail; WB1-1 precedent) — sign in as `owner@sunrise.test` at `/people/<id>` to eyeball the Account & Guardianship panels; the routes compile (build green) and unauth-redirect.
+
+**Decisions / ADRs**
+
+- **No new ADR.** Notable choices: (1) **evolve, don't fork** — reuse the mature invitation creation + accept page + RLS token scope, adding F5 delivery + SecureLink governance over the *same* token (shared-token via a hashed-once `SecureLinkService.create({token})`), rather than a parallel invite flow; (2) user-row writes stay on the **grandfathered** privileged client so `check:privileged-db` stays at 29; (3) **login-block via state** — suspend sets the flags the existing login guard already reads (enforcement point unchanged), and the e2e asserts those flags + the 401 boundary; (4) guardianship built on **F1 `GuardianRelationship`**, not the legacy `StudentGuardian` (the workbench-people spec text predates F1; the F1 model comment already reserved "WB1-4 adds consent depth"); (5) maker-checker / step-up on these actions is **deferred to WB1-6** (per the workbench plan) — WB1-3/4 use permission + audit + login-block.
+
+**Next step (so the next agent can resume)**
+
+- Open the combined PR → independent review → merge → WB1-3 + WB1-4 `done`. Follow-ups (not blocking): wire results/fee comms to call `GuardianshipService.resolveAudience` (the resolver exists + is tested; consumers are WB4/WB5); a tenant-timezone refinement for F5 quiet-hours (pre-existing); the pre-existing platform-bootstrap `db:verify` miss is a local-DB artifact, not a seed regression.
 
 ---
 

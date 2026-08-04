@@ -463,8 +463,16 @@ export function StatTiles({
 
 /* ---- Composite: Overview + People (shared drawer/profile content) ------- */
 
-/** Roll-up tiles → contact → identity → role fields → lifecycle. */
-export function PersonOverview({ detail }: { detail: PersonDetail }) {
+/** Roll-up tiles → contact → identity → role fields → lifecycle.
+ *  `accountSlot`, when provided, replaces the static read-only Account section
+ *  (the interactive WB1-3 account panel on the full profile page). */
+export function PersonOverview({
+  detail,
+  accountSlot,
+}: {
+  detail: PersonDetail;
+  accountSlot?: React.ReactNode;
+}) {
   const rollups: {
     key: string;
     label: string;
@@ -547,19 +555,20 @@ export function PersonOverview({ detail }: { detail: PersonDetail }) {
         </Section>
       ) : null}
 
-      {detail.account ? (
-        <Section title="Account">
-          <DetailGrid>
-            <Field label="Status" value={humanize(detail.account.status)} />
-            <Field label="Role" value={detail.account.role} />
-            <Field label="Login email" value={detail.account.email} />
-            <Field
-              label="Last login"
-              value={formatDate(detail.account.lastLoginAt)}
-            />
-          </DetailGrid>
-        </Section>
-      ) : null}
+      {accountSlot ??
+        (detail.account ? (
+          <Section title="Account">
+            <DetailGrid>
+              <Field label="Status" value={humanize(detail.account.status)} />
+              <Field label="Role" value={detail.account.role} />
+              <Field label="Login email" value={detail.account.email} />
+              <Field
+                label="Last login"
+                value={formatDate(detail.account.lastLoginAt)}
+              />
+            </DetailGrid>
+          </Section>
+        ) : null)}
 
       {detail.prospect ? (
         <Section title="Application">

@@ -26,6 +26,14 @@ export interface CreateSecureLinkInput {
   audienceProfileId?: string;
   maxUses?: number;
   metadata?: Record<string, unknown>;
+  /**
+   * A caller-supplied raw token. Normally omitted (a CSPRNG token is minted).
+   * Provisioning (WB1-3) supplies the same token it also writes to the existing
+   * invitation / password-reset store, so one token is governed here (hashed at
+   * rest, revocable, audited) yet still resolvable by the existing accept-invite
+   * / reset-password pages. Never logged; only its hash is stored.
+   */
+  token?: string;
 }
 
 export interface RedeemContext {
@@ -72,7 +80,7 @@ export class SecureLinkService {
     actorId: string | undefined,
     input: CreateSecureLinkInput,
   ): Promise<{ id: string; token: string; expiresAt: Date }> {
-    const token = randomBytes(32).toString('hex');
+    const token = input.token ?? randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + input.ttlSeconds * 1000);
     const link = await this.client.secureLink.create({
       data: {

@@ -177,7 +177,11 @@ export function availableTabs(detail: PersonDetail): DetailTab[] {
     (detail.student?.guardians.length ?? 0) > 0 ||
     (detail.student?.siblings.length ?? 0) > 0 ||
     (detail.wards?.length ?? 0) > 0;
-  if (hasPeople) tabs.push('people');
+  // Students and guardians always get the People tab so guardianships can be
+  // managed even before the first relationship exists (WB1-4).
+  const guardianshipRelevant =
+    detail.profiles.includes('student') || detail.profiles.includes('guardian');
+  if (hasPeople || guardianshipRelevant) tabs.push('people');
   if (detail.academics) tabs.push('academics');
   if (detail.finance) tabs.push('finance');
   if (detail.documents && detail.documents.count > 0) tabs.push('documents');
