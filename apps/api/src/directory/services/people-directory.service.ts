@@ -734,41 +734,55 @@ export class PeopleDirectoryService {
     if (query.hasContact === 'true') where.contactPoints = { some: {} };
     else if (query.hasContact === 'false') where.contactPoints = { none: {} };
 
-    if (query.q) {
-      // Search names + the tab's non-PII identifier. The contact index is added
-      // ONLY for a caller who may already see contact — otherwise the search
-      // becomes an association oracle that defeats the mask (mirrors F7).
-      const or: Prisma.PersonWhereInput[] = [
-        { firstName: { contains: query.q, mode: 'insensitive' } },
-        { lastName: { contains: query.q, mode: 'insensitive' } },
-        { preferredName: { contains: query.q, mode: 'insensitive' } },
-      ];
-      if (type === 'student') {
-        or.push({
-          studentProfile: {
-            is: { studentNumber: { contains: query.q, mode: 'insensitive' } },
-          },
-        });
-      }
-      if (type === 'staff') {
-        or.push({
-          staffProfiles: {
-            some: {
-              employeeNumber: { contains: query.q, mode: 'insensitive' },
+    const q = query.q?.trim();
+    if (q) {
+      // Tokenise the query so each word must match SOME name field: "Grace Ade"
+      // matches firstName "Grace" AND lastName "Adeyemi". A single-field
+      // `contains` on the whole string only ever matched one word, so anything
+      // past the first space returned nothing. Identifiers + the contact index
+      // still match the whole query. The contact index is added ONLY for a
+      // caller who may already see contact — otherwise search becomes an
+      // association oracle that defeats the mask (mirrors F7).
+      const tokens = q.split(/\s+/);
+      const nameMatch: Prisma.PersonWhereInput[] = tokens.map((t) => ({
+        OR: [
+          { firstName: { contains: t, mode: 'insensitive' } },
+          { lastName: { contains: t, mode: 'insensitive' } },
+          { preferredName: { contains: t, mode: 'insensitive' } },
+        ],
+      }));
+      const or: Prisma.PersonWhereInput[] = [{ AND: nameMatch }];
+      // `match=name` restricts to names only — used by the name picker, where
+      // matching a hidden email/identifier would surface people whose visible
+      // name does not contain the query (e.g. every ".test" email matches "te").
+      if (query.match !== 'name') {
+        if (type === 'student') {
+          or.push({
+            studentProfile: {
+              is: { studentNumber: { contains: q, mode: 'insensitive' } },
             },
-          },
-        });
-      }
-      if (canViewContact) {
-        or.push({
-          contactPoints: {
-            some: {
-              valueNormalized: {
-                contains: query.q.toLowerCase(),
+          });
+        }
+        if (type === 'staff') {
+          or.push({
+            staffProfiles: {
+              some: {
+                employeeNumber: { contains: q, mode: 'insensitive' },
               },
             },
-          },
-        });
+          });
+        }
+        if (canViewContact) {
+          or.push({
+            contactPoints: {
+              some: {
+                valueNormalized: {
+                  contains: q.toLowerCase(),
+                },
+              },
+            },
+          });
+        }
       }
       where.OR = or;
     }

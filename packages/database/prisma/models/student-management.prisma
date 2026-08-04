@@ -135,6 +135,11 @@ model Enrollment {
 }
 
 // StudentGuardian - Links guardians (UserTenant) to students
+// DEPRECATED (WB1-4) — legacy student→account caregiver link (Father/Mother/
+// Both). Superseded by person.GuardianRelationship (Person→Person), which the
+// People-directory Guardians tab and guardianship management now use. Kept
+// read-only for back-compat with older student records; do not add new
+// authority/consent fields here — extend GuardianRelationship instead.
 model StudentGuardian {
   id                 String  @id @default(uuid())
   tenantId           String  @map("tenant_id")

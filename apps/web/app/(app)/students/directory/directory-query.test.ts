@@ -3,8 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { toApiQuery } from './directory-query';
 
 describe('toApiQuery', () => {
-  it('defaults to page 1 / limit 25 for an empty URL', () => {
-    expect(toApiQuery({})).toBe('page=1&limit=25');
+  it('defaults to page 1 / limit 10 for an empty URL', () => {
+    expect(toApiQuery({})).toBe('page=1&limit=10');
+  });
+
+  it('honours a caller-supplied default page size (the saved preference)', () => {
+    expect(toApiQuery({}, 25)).toBe('page=1&limit=25');
   });
 
   it('maps q / page / size / sort into the projection query', () => {

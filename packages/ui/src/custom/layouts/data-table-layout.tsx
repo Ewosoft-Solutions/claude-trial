@@ -108,7 +108,11 @@ export function DataTableLayout({
           // gutter while leaving the base px-2 inter-column rhythm intact, so
           // every table framed by this layout and every DataCard table shares
           // one gutter across the app.
-          <div className="overflow-x-auto [&_:is(th,td):first-child]:pl-4 [&_:is(th,td):last-child]:pr-4 sm:[&_:is(th,td):first-child]:pl-6 sm:[&_:is(th,td):last-child]:pr-6">
+          //
+          // `touch-pan-x`: on touch devices this container only claims HORIZONTAL
+          // pans, so a vertical swipe over a wide table scrolls the PAGE instead
+          // of being trapped by the table's horizontal overflow.
+          <div className="touch-pan-x overflow-x-auto [&_:is(th,td):first-child]:pl-4 [&_:is(th,td):last-child]:pr-4 sm:[&_:is(th,td):first-child]:pl-6 sm:[&_:is(th,td):last-child]:pr-6">
             {children}
           </div>
         )}

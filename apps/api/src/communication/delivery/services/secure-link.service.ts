@@ -26,6 +26,14 @@ export interface CreateSecureLinkInput {
   audienceProfileId?: string;
   maxUses?: number;
   metadata?: Record<string, unknown>;
+  /**
+   * A caller-supplied raw token. Normally omitted (a CSPRNG token is minted).
+   * Provisioning (WB1-3) supplies the same token it also writes to the existing
+   * invitation / password-reset store, so one token is governed here (hashed at
+   * rest, revocable, audited) yet still resolvable by the existing accept-invite
+   * / reset-password pages. Never logged; only its hash is stored.
+   */
+  token?: string;
 }
 
 export interface RedeemContext {
@@ -50,6 +58,12 @@ export interface RedeemedLink {
  * expired/revoked/exhausted) AND the redeemer to satisfy its access rules
  * (required permission and/or bound audience) — so a leaked URL alone discloses
  * nothing.
+ *
+ * NOTE: a link can be created with a caller-supplied `token` (WB1-3 invite /
+ * reset) so it MIRRORS a token that also lives in another store; in that case
+ * the other store (e.g. UserTenant.invitationToken) is the operative redemption
+ * path and revoking this SecureLink alone would not block it. For result/payment
+ * links (the primary use) this SecureLink IS the redemption check.
  */
 @Injectable()
 export class SecureLinkService {
@@ -72,7 +86,7 @@ export class SecureLinkService {
     actorId: string | undefined,
     input: CreateSecureLinkInput,
   ): Promise<{ id: string; token: string; expiresAt: Date }> {
-    const token = randomBytes(32).toString('hex');
+    const token = input.token ?? randomBytes(32).toString('hex');
     const expiresAt = new Date(Date.now() + input.ttlSeconds * 1000);
     const link = await this.client.secureLink.create({
       data: {

@@ -1,5 +1,8 @@
+import { cookies } from 'next/headers';
+
 import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
+import { PAGE_SIZE_COOKIE, normalizePageSize } from '@/lib/page-size';
 import {
   firstAllowedType,
   parseType,
@@ -29,10 +32,17 @@ export default async function PeopleWorkbenchPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const search = await searchParams;
-  const session = await getSession();
+  const [session, cookieStore] = await Promise.all([getSession(), cookies()]);
   const has = (permission: string) =>
     session?.permissions.includes(permission as never) ?? false;
   const permissions = [...(session?.permissions ?? [])] as string[];
+
+  // The user's saved rows-per-page preference: the per-ACCOUNT value (follows
+  // them across devices) wins, then the local cookie mirror, then the default.
+  // Used for the SSR fetch and passed to the client (no flash / mismatch).
+  const pageSize = normalizePageSize(
+    session?.defaultPageSize ?? cookieStore.get(PAGE_SIZE_COOKIE)?.value,
+  );
 
   // An explicit `?tab=` wins; otherwise default to the first tab the caller can
   // see, so an authorized user never lands on a denied tab.
@@ -55,7 +65,7 @@ export default async function PeopleWorkbenchPage({
 
   const directory = authorized
     ? await serverApiGet<DirectoryResponse>(
-        `/directory/people?${toApiQuery(search, type)}`,
+        `/directory/people?${toApiQuery(search, type, pageSize)}`,
       )
     : null;
 
@@ -75,6 +85,7 @@ export default async function PeopleWorkbenchPage({
       authorized={authorized}
       summary={summary}
       facets={facets}
+      defaultPageSize={pageSize}
     />
   );
 }

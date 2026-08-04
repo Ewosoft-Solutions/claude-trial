@@ -47,7 +47,7 @@ describe('useDirectoryState', () => {
   it('setPage keeps the rest of the state and does not reset', () => {
     const { current, onChange } = setup('q=lee&sort=name:asc');
     act(() => current().setPage(4));
-    expect(onChange).toHaveBeenLastCalledWith('q=lee&sort=name%3Aasc&page=4');
+    expect(onChange).toHaveBeenLastCalledWith('q=lee&sort=name&page=4');
   });
 
   it('toggleSort cycles asc -> desc -> cleared', () => {
@@ -81,7 +81,7 @@ describe('useDirectoryState', () => {
       }),
     );
     expect(onChange).toHaveBeenLastCalledWith(
-      'view=owing-view&f_status=owing&sort=fees%3Adesc',
+      'view=owing-view&f_status=owing&sort=-fees',
     );
   });
 

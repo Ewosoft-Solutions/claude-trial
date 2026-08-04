@@ -25,6 +25,7 @@ import {
   SelectSchoolDto,
   SetDefaultProfileDto,
   UpdateAccountDto,
+  UpdatePreferencesDto,
   RefreshTokenDto,
   LogoutDto,
   RequestPasswordResetDto,
@@ -170,6 +171,7 @@ export class AuthController {
         lastName: true,
         phone: true,
         defaultUserTenantId: true,
+        defaultPageSize: true,
       },
     });
 
@@ -248,6 +250,9 @@ export class AuthController {
        *  preferences › Schools & roles), distinct from activeProfileId — this is the
        *  stored preference, not necessarily the one live right now. */
       defaultProfileId: dbUser.defaultUserTenantId ?? undefined,
+      /** Preferred table rows-per-page (per-account UI preference); the web
+       *  uses it as the default page size across every directory. */
+      defaultPageSize: dbUser.defaultPageSize ?? undefined,
       schools: scope === 'school' ? schoolsWithFeatures : [],
       sessionPolicy,
       biometricEnrollment: {
@@ -324,6 +329,36 @@ export class AuthController {
   }
 
   /**
+   * Update UI preferences (Account & preferences).
+   *
+   * PATCH /auth/preferences
+   *
+   * Per-account preferences that follow the user across devices/logins — today
+   * the preferred table page size. Nullable/absent fields are left unchanged.
+   */
+  @Patch('preferences')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Update the current user UI preferences' })
+  async updatePreferences(
+    @Body() dto: UpdatePreferencesDto,
+    @AuthUser() user: RequestUser,
+  ) {
+    const updated = await this.dbService.client.user.update({
+      where: { id: user.userId },
+      data: {
+        ...(dto.defaultPageSize !== undefined
+          ? { defaultPageSize: dto.defaultPageSize }
+          : {}),
+        updatedBy: user.userId,
+      },
+      select: { defaultPageSize: true },
+    });
+    return { success: true, preferences: updated };
+  }
+
+  /**
    * Login (3.2, 3a.9)
    *
    * POST /auth/login
@@ -361,7 +396,10 @@ export class AuthController {
       prisma,
       response.user.id,
     );
-    return { ...response, passwordPolicy: PasswordService.toRequirements(policy) };
+    return {
+      ...response,
+      passwordPolicy: PasswordService.toRequirements(policy),
+    };
   }
 
   /**

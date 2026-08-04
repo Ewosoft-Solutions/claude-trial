@@ -13,6 +13,7 @@ import { EmailDomainValidationService } from './email-domain-validation.service'
 import { TenantAuditService } from './tenant-audit.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { PasswordService } from '../../auth/services/password.service';
+import { hashResetToken } from '../../auth/services/password-reset.service';
 import type { PrismaClient } from '@workspace/database';
 import {
   withInvitationTokenScope,
@@ -73,6 +74,21 @@ export class UserInvitationService {
     tenantId: string,
     data: CreateInvitationDto,
     createdBy: string,
+    options?: {
+      /**
+       * Skip the legacy in-queue invitation email. WB1-3 provisioning delivers
+       * the invite through the F5 DeliveryService (consent-aware, ledgered) and
+       * governs the token as a SecureLink, so it suppresses the legacy path to
+       * avoid a double send.
+       */
+      skipLegacyEmail?: boolean;
+      /**
+       * A token minted by the caller (WB1-3: the same raw token it governs as an
+       * F5 SecureLink), so one token is both governed and resolvable by the
+       * existing accept-invite page. Omitted → a fresh token is generated.
+       */
+      invitationToken?: string;
+    },
   ) {
     // Validate email domain if tenant has email domain configured
     const emailValidation =
@@ -91,8 +107,10 @@ export class UserInvitationService {
       select: { id: true },
     });
 
-    // Generate invitation token
-    const invitationToken = this.generateInvitationToken();
+    // Generate invitation token (or adopt the caller's — WB1-3 shares the
+    // SecureLink's raw token so the two stores resolve the same invite).
+    const invitationToken =
+      options?.invitationToken ?? this.generateInvitationToken();
     const expirationHours = data.expirationHours || 168; // Default: 7 days
     const invitationExpiresAt = new Date();
     invitationExpiresAt.setHours(
@@ -181,14 +199,16 @@ export class UserInvitationService {
     ]);
     const recipientName =
       [data.firstName, data.lastName].filter(Boolean).join(' ') || null;
-    this.queueService.enqueue<InvitationEmailPayload>(INVITATION_EMAIL_JOB, {
-      email: data.email.toLowerCase(),
-      invitationToken,
-      tenantName: tenant?.name ?? 'your school',
-      roleName: role?.name ?? null,
-      recipientName,
-      expiresAt: invitationExpiresAt,
-    });
+    if (!options?.skipLegacyEmail) {
+      this.queueService.enqueue<InvitationEmailPayload>(INVITATION_EMAIL_JOB, {
+        email: data.email.toLowerCase(),
+        invitationToken,
+        tenantName: tenant?.name ?? 'your school',
+        roleName: role?.name ?? null,
+        recipientName,
+        expiresAt: invitationExpiresAt,
+      });
+    }
 
     // Audit log
     await this.auditService.logUserAction({
@@ -205,10 +225,63 @@ export class UserInvitationService {
 
     return {
       id: userTenant.id,
+      userId: user.id,
       invitationToken,
       invitationExpiresAt,
       email: data.email,
+      roleName: role?.name ?? null,
+      tenantName: tenant?.name ?? null,
+      recipientName,
     };
+  }
+
+  /**
+   * Issue an admin-initiated password reset for a profile's account (WB1-3).
+   *
+   * Sets the same hashed, expiring `passwordResetToken` the self-service flow
+   * uses, so the existing `/reset-password` page resolves it — but returns the
+   * raw token to the caller (provisioning), which delivers it through the F5
+   * DeliveryService and governs it as a SecureLink. No password is ever
+   * generated or transmitted: the user still chooses their own.
+   *
+   * User-row writes stay on the grandfathered privileged client here (the
+   * `users` table is RLS-covered and global to all tenants); the caller resolves
+   * the profile under its own tenant scope first and passes the resolved userId.
+   */
+  async issueAdminPasswordReset(
+    tenantId: string,
+    userId: string,
+    performedBy: string,
+  ): Promise<{ token: string; expiresAt: Date }> {
+    const user = await this.dbService.client.user.findFirst({
+      where: { id: userId, isActive: true },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException('Account not found or inactive');
+    }
+
+    const token = this.generateInvitationToken();
+    const expiresAt = new Date();
+    expiresAt.setHours(expiresAt.getHours() + 1); // 1 hour, matches self-service
+
+    await this.dbService.client.user.update({
+      where: { id: userId },
+      data: {
+        passwordResetToken: hashResetToken(token),
+        passwordResetExpiresAt: expiresAt,
+      },
+    });
+
+    await this.auditService.logUserAction({
+      action: AUDIT_ACTION.USER_MANAGEMENT.USER_PASSWORD_RESET_ISSUED,
+      tenantId,
+      userId,
+      performedBy,
+      metadata: { adminInitiated: true },
+    });
+
+    return { token, expiresAt };
   }
 
   /**
