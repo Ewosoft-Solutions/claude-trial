@@ -4,6 +4,22 @@ Last Updated: 2026-08-04
 
 ---
 
+## Session Summary (2026-08-04, pt. 2) — Claude: WB1-3 + WB1-4 reviewed → done (+ UX refinements)
+
+**Item(s):** WB1-3 + WB1-4 → **done** (on `feat/wb1-3-4-provisioning-guardianship`, [PR #60](https://github.com/Ewosoft-Solutions/claude-trial/pull/60), pending the human merge). An **independent maker-checker review** (cold second pass, ran the full suite itself) returned **APPROVE-WITH-NITS** — all acceptance items verified, zero blocking.
+
+**Corrections applied before marking done:**
+- **(moderate) single-primary concurrency backstop** — the exactly-one-primary-per-ward invariant was app-only (two concurrent promotions could race to two primaries). Added a **partial unique index** `guardian_relationships_one_primary_per_ward` (`WHERE is_primary AND effective_to IS NULL`, migration `20260804140000` with a DO-block dedup of any pre-existing dupes), reordered create/update to **demote-before-promote** (so the happy path never transiently violates it — both writes share the runScoped tx), and the loser of a real race now gets a clean **409** (`isPrimaryConflict`). e2e proves the index rejects a 2nd active primary.
+- **(nits)** dropped 3 unused audit constants (the events are audited via `AuditService` `provisioning.account.*`; kept `USER_PASSWORD_RESET_ISSUED`); corrected the SecureLink docstring (it mirrors/governs — redemption resolves via `UserTenant.invitationToken` / `User.passwordResetToken`) + the reactivate docstring; added e2e for admin-reset token issuance.
+
+**Also this session — UX refinements on the WB1-3/4 surfaces** (all in PR #60): people search fixes (multi-word tokenised + `match=name` name-only picker so `.test` emails stop matching "te"), a shared **input-validation** module + validated invite/guardian inputs (broader initiative = board **H4**, plan [PR #61](https://github.com/Ewosoft-Solutions/claude-trial/pull/61)), guardian-panel design polish (avatars, capitalised names app-wide, theme-blue consent pills, Edit/End icons + End danger, spacing/alignment), table UX (**mobile vertical scroll** via `touch-pan-x`, default **10** rows, clean **`sort=-name`** URLs with legacy back-compat, page-size preference saved to a **cookie AND per-account** `User.default_page_size` via `/auth/preferences` + `/auth/me`), **direction-aware caregiver labels** (guardian-side "Parent" vs ward-side "Child"; wards section renamed "Children / dependents"; de-duped vs the panel), and a first-class **`caregiver`** relationship (househelp). A **check-in/out attendance** system was flagged for a future session (board change-log + memory).
+
+**Verification (final):** `pnpm ci:quick` green · `check:privileged-db` green (29 grandfathered, no new) · `db:rls:check` green · api unit **536** · web **138** · **e2e 10/10** on real pg (incl. the new index-backstop + admin-reset tests) · permissions **332** · Prettier-clean.
+
+**Next:** human review + **merge PR #60** (board already flips WB1-3/WB1-4 → `done`); merge H4 plan PR #61; WB1-6 owns the deferred maker-checker/step-up on these actions; design the attendance initiative in a later session.
+
+---
+
 ## Session Summary (2026-08-04) — Claude: WB1-3 (secure provisioning) + WB1-4 (guardianship authority/consent) → in-review
 
 **Item(s):** WB1-3 + WB1-4 → **in-review** (one combined branch/PR, owner-chosen). **Branch:** `feat/wb1-3-4-provisioning-guardianship` (based off `main`). Claim committed first (`board: claim WB1-3 + WB1-4 (claude)`), then built to DoD with full workbench UI.
