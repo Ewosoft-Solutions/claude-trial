@@ -58,6 +58,12 @@ export interface RedeemedLink {
  * expired/revoked/exhausted) AND the redeemer to satisfy its access rules
  * (required permission and/or bound audience) — so a leaked URL alone discloses
  * nothing.
+ *
+ * NOTE: a link can be created with a caller-supplied `token` (WB1-3 invite /
+ * reset) so it MIRRORS a token that also lives in another store; in that case
+ * the other store (e.g. UserTenant.invitationToken) is the operative redemption
+ * path and revoking this SecureLink alone would not block it. For result/payment
+ * links (the primary use) this SecureLink IS the redemption check.
  */
 @Injectable()
 export class SecureLinkService {

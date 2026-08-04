@@ -32,6 +32,7 @@ import { TenantDbService } from '../src/common';
 import { GuardianshipService } from '../src/person/services/guardianship.service';
 import { AccountProvisioningService } from '../src/provisioning/services/account-provisioning.service';
 import { UserInvitationService } from '../src/tenant/services/user-invitation.service';
+import { PasswordResetService } from '../src/auth/services/password-reset.service';
 import { makeSuperuserClient } from './helpers/superuser-client';
 
 const HAS_APP_RUNTIME = !!process.env.APP_RUNTIME_DATABASE_URL;
@@ -48,6 +49,7 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
   let guardianships: GuardianshipService;
   let provisioning: AccountProvisioningService;
   let invitations: UserInvitationService;
+  let passwordReset: PasswordResetService;
 
   const stamp = Date.now();
   const A = `prov-a-${stamp}`;
@@ -85,6 +87,7 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
     guardianships = app.get(GuardianshipService);
     provisioning = app.get(AccountProvisioningService);
     invitations = app.get(UserInvitationService);
+    passwordReset = app.get(PasswordResetService);
 
     const [ta, tb] = await Promise.all([
       owner.tenant.create({
@@ -332,6 +335,37 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
       where: { tenantId: tenantAId, purpose: 'password_reset' },
     });
     expect(links).toBeGreaterThanOrEqual(1);
+  });
+
+  it('an admin-issued reset token redeems through the canonical reset flow', async () => {
+    const person = await owner.person.findUnique({
+      where: { id: inviteePersonId },
+      select: { userTenantId: true },
+    });
+    const ut = await owner.userTenant.findUnique({
+      where: { id: person!.userTenantId! },
+      select: { userId: true },
+    });
+
+    // Issue the same admin reset the provisioning service issues, but capture
+    // the raw token so we can exercise the actual redemption end-to-end.
+    const { token } = await invitations.issueAdminPasswordReset(
+      tenantAId,
+      ut!.userId,
+      actorId,
+    );
+
+    const newPassword = 'AdminReset@Pass9';
+    await passwordReset.resetPassword(owner as never, token, newPassword);
+
+    const user = await owner.user.findUnique({
+      where: { id: ut!.userId },
+      select: { passwordHash: true, passwordResetToken: true },
+    });
+    // The admin-issued token set the password the *user* chose, and was
+    // single-use (consumed on redemption).
+    expect(await bcrypt.compare(newPassword, user!.passwordHash!)).toBe(true);
+    expect(user?.passwordResetToken).toBeNull();
   });
 
   /* ---- WB1-4 · guardianship authority / priority / consent ------------- */
