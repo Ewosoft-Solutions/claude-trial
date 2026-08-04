@@ -404,11 +404,7 @@ function GuardRow({
             {consentOn.length === 0 ? (
               <span className="text-[11px] text-muted-foreground">none</span>
             ) : (
-              consentOn.map((k) => (
-                <StatusBadge key={k} tone="success" dot>
-                  {k}
-                </StatusBadge>
-              ))
+              consentOn.map((k) => <ConsentPill key={k}>{k}</ConsentPill>)
             )}
           </div>
         </div>
@@ -428,6 +424,16 @@ function GuardRow({
 function Tag({ children }: { children: React.ReactNode }) {
   return (
     <span className="inline-flex items-center rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-muted-foreground">
+      {children}
+    </span>
+  );
+}
+
+/** A consent pill in the theme's primary blue (mirrors StatusBadge markup). */
+function ConsentPill({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-primary/40 bg-primary/12 px-2 py-0.5 text-xs font-semibold text-primary">
+      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-primary" />
       {children}
     </span>
   );
