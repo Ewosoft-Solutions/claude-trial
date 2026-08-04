@@ -102,12 +102,18 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
     });
     actorId = actor.id;
 
-    // A seeded system role to grant the invited account.
-    const role = await owner.role.findFirst({
-      where: { tenantId: null, isActive: true },
-      select: { id: true },
+    // A tenant-scoped role to grant the invited account. Created here (not read
+    // from the seed) so the suite is self-contained — CI migrates the e2e DB but
+    // does not seed it. Cascades away with tenant A.
+    const role = await owner.role.create({
+      data: {
+        name: `Prov Role ${stamp}`,
+        roleType: 'custom',
+        clearanceLevel: 3,
+        tenantId: tenantAId,
+        isActive: true,
+      },
     });
-    if (!role) throw new Error('no seeded system role — run pnpm db:seed');
     roleId = role.id;
 
     // A person to invite (no account yet) + an email contact to invite to.
