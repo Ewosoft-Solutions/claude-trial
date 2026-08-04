@@ -19,6 +19,7 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 | H1  | Reconcile status-doc drift: permission counts (274/297/**305**) + fix stale "mock data" line in `AI_CONTEXT.md` + `CURRENT_PHASE.md`                   | —    | S      | —    | codex | done   |
 | H2  | Permission-denied + empty/error/loading/offline states in `packages/ui` `custom/states`; wire `unauthorized` route (replaces the legacy system "OOPS") | #115 | M      | —    | codex | done   |
 | H3  | Remove commercial/"Pay Now"-style nags from workspace surfaces; keep billing in account settings                                                       | #116 | S      | —    | codex | done   |
+| H4  | **Input-validation hardening** — validate every input by field _type_, client + server ([`docs/input-validation-plan.md`](../../../docs/input-validation-plan.md)); ~230 unbounded server strings + ~45 unvalidated web surfaces | — | L | — | — | proposed (Phase 0 partial in PR #60) |
 
 ## Phase 0 — scope-lock + ADRs (decisions before code; no feature code)
 
@@ -103,6 +104,8 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 ---
 
 ## Change log (board edits — newest first)
+
+- `2026-08-04` — **H4 added — input-validation hardening (proposed).** A caregiver search accepting `??` surfaced a systemic gap: ~45 web input surfaces with almost no client validation, and ~230 unbounded/unpatterned server strings (439 `@IsString` vs 206 `@MaxLength`, 5 `@Matches`). Plan of record: [`docs/input-validation-plan.md`](../../../docs/input-validation-plan.md) — validate by field _type_ (name/email/phone/amount/…), client (instant feedback) + server (authoritative), one canonical rule table, shared web `lib/input-validation.ts` module (seeded in PR #60) + composed API decorators, phased rollout (identity/security → records → money/sensitive → academics/ops) + a CI guard against new unbounded strings. _(claude)_
 
 - `2026-08-04` — **WB1-1 → done (merged to `main`).** The Unified People directory shipped across **[PR #53](https://github.com/Ewosoft-Solutions/claude-trial/pull/53)** (`a8eea44`, directory + tabs) + **[#54](https://github.com/Ewosoft-Solutions/claude-trial/pull/54)** (`08395d0`, cards-as-selector, per-table filters, phone, detail drawer + profile) + **[#56](https://github.com/Ewosoft-Solutions/claude-trial/pull/56)** (`c0639ce`, **Person 360** — tabbed detail drawer + profile + cross-domain roll-ups). An independent completeness review verdict is **COMPLETE-WITH-GAPS** (merged code: unit **58/58**, e2e **7/7**, `check:privileged-db` + `db:rls:check` green). Delivered: five/six person-type tabs incl. **All** roster + summary cards; **one identity, many profiles**; masked contact via `people.view_contact`; per-tab permission enforced server-side; **person 360 detail route** (relationship timeline + academics/finance/documents/people domain tabs, each profile/permission-gated); audited masking-aware CSV export; **+1 `guardians.view`** (catalog **330**). **Deferred gaps (not blockers):** campus scope (acceptance "scoped admin sees only their campus" — no `Campus` model yet → **WB1-6**); HTTP guard-stack RBAC-denial e2e (tracked as **F2-fu1**); minor DTO doc drift (`type` default). This is the **first Workbench-1 slice done**; **WB1-2…WB1-6 remain `backlog`** (Workbench-1 ≈ 1/6). _(claude)_
 
