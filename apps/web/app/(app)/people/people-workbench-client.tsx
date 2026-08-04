@@ -186,7 +186,7 @@ function NameCell({ row }: { row: PeopleRow }) {
         </AvatarFallback>
       </Avatar>
       <div className="flex min-w-0 flex-col">
-        <span className="break-words font-medium text-foreground">
+        <span className="break-words font-medium capitalize text-foreground">
           {row.name}
         </span>
         {row.profiles.length > 0 ? (

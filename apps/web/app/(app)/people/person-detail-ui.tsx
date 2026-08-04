@@ -356,7 +356,7 @@ export function RelationRow({
         </AvatarFallback>
       </Avatar>
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-sm font-medium text-foreground">
+        <span className="truncate text-sm font-medium capitalize text-foreground">
           {relation.name}
         </span>
         <span className="truncate text-xs text-muted-foreground">

@@ -12,13 +12,14 @@
  */
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Loader2, Plus, ShieldCheck } from 'lucide-react';
+import { Ban, Loader2, Pencil, Plus, ShieldCheck } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Textarea } from '@workspace/ui/components/textarea';
 import { Checkbox } from '@workspace/ui/components/checkbox';
+import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import {
   Dialog,
   DialogClose,
@@ -40,7 +41,41 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { isSearchable } from '@/lib/input-validation';
 
 import { Section } from '../person-detail-ui';
-import { humanize } from '../person-detail.types';
+import { humanize, initials } from '../person-detail.types';
+
+/** A small initials avatar for a person, so rows/dialogs are easy to confirm. */
+function PersonAvatar({
+  name,
+  className,
+}: {
+  name: string;
+  className?: string;
+}) {
+  return (
+    <Avatar className={className ?? 'size-8'}>
+      <AvatarFallback seed={name} className="text-[10px] font-semibold">
+        {initials(name)}
+      </AvatarFallback>
+    </Avatar>
+  );
+}
+
+/** Avatar + name + subtitle chip — a "who am I looking at" confirmation row. */
+function PersonIdentity({ name, sub }: { name: string; sub?: string }) {
+  return (
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card/40 p-2.5">
+      <PersonAvatar name={name} className="size-9 shrink-0" />
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-sm font-medium capitalize text-foreground">
+          {name}
+        </span>
+        {sub ? (
+          <span className="truncate text-xs text-muted-foreground">{sub}</span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 
 export interface Guardianship {
   id: string;
@@ -321,53 +356,67 @@ function GuardRow({
   ).filter((k) => g.consent[k]);
 
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card/40 p-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-medium text-foreground">{name}</span>
-        <span className="text-xs text-muted-foreground">
-          {relationshipLabel(g.relationship)}
-        </span>
-        {g.isPrimary ? (
-          <StatusBadge tone="info" dot>
-            Primary contact
-          </StatusBadge>
-        ) : null}
-        {g.verified ? (
-          <StatusBadge tone="success" dot>
-            Verified
-          </StatusBadge>
-        ) : (
-          <StatusBadge tone="warning" dot>
-            Unverified
-          </StatusBadge>
-        )}
-      </div>
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-3">
+      <div className="flex items-start gap-3">
+        <PersonAvatar name={name} className="mt-0.5 size-9 shrink-0" />
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-medium capitalize text-foreground">
+              {name}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {relationshipLabel(g.relationship)}
+            </span>
+            {g.isPrimary ? (
+              <StatusBadge tone="info" dot>
+                Primary contact
+              </StatusBadge>
+            ) : null}
+            {g.verified ? (
+              <StatusBadge tone="success" dot>
+                Verified
+              </StatusBadge>
+            ) : (
+              <StatusBadge tone="warning" dot>
+                Unverified
+              </StatusBadge>
+            )}
+          </div>
 
-      <div className="flex flex-wrap gap-1.5">
-        {g.legalGuardian ? <Tag>Legal guardian</Tag> : null}
-        {g.custodyType ? <Tag>Custody: {g.custodyType}</Tag> : null}
-        {g.canPickup ? <Tag>Pickup</Tag> : null}
-        {g.canAuthorizeMedical ? <Tag>Medical</Tag> : null}
-        {g.isEmergencyContact ? <Tag>Emergency</Tag> : null}
-        {g.isBillingContact ? <Tag>Billing</Tag> : null}
-      </div>
+          {g.legalGuardian ||
+          g.custodyType ||
+          g.canPickup ||
+          g.canAuthorizeMedical ||
+          g.isEmergencyContact ||
+          g.isBillingContact ? (
+            <div className="flex flex-wrap gap-1.5">
+              {g.legalGuardian ? <Tag>Legal guardian</Tag> : null}
+              {g.custodyType ? <Tag>Custody: {g.custodyType}</Tag> : null}
+              {g.canPickup ? <Tag>Pickup</Tag> : null}
+              {g.canAuthorizeMedical ? <Tag>Medical</Tag> : null}
+              {g.isEmergencyContact ? <Tag>Emergency</Tag> : null}
+              {g.isBillingContact ? <Tag>Billing</Tag> : null}
+            </div>
+          ) : null}
 
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-[11px] text-muted-foreground">Consent:</span>
-        {consentOn.length === 0 ? (
-          <span className="text-[11px] text-muted-foreground">none</span>
-        ) : (
-          consentOn.map((k) => (
-            <StatusBadge key={k} tone="neutral" dot>
-              {k}
-            </StatusBadge>
-          ))
-        )}
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-muted-foreground">Consent:</span>
+            {consentOn.length === 0 ? (
+              <span className="text-[11px] text-muted-foreground">none</span>
+            ) : (
+              consentOn.map((k) => (
+                <StatusBadge key={k} tone="success" dot>
+                  {k}
+                </StatusBadge>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {canManage ? (
-        <div className="flex flex-wrap gap-2 pt-1">
-          <EditGuardianDialog g={g} onDone={onChanged} />
+        <div className="flex flex-wrap items-center gap-2 border-t border-border pt-2.5">
+          <EditGuardianDialog g={g} name={name} onDone={onChanged} />
           {!g.verified ? <VerifyDialog id={g.id} onDone={onChanged} /> : null}
           <EndDialog id={g.id} onDone={onChanged} />
         </div>
@@ -445,7 +494,7 @@ function AuthorityConsentFields({
       </div>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Authority
         </legend>
         {toggle('isPrimary', 'Primary contact (only one per ward)')}
@@ -457,7 +506,7 @@ function AuthorityConsentFields({
       </fieldset>
 
       <fieldset className="flex flex-col gap-2">
-        <legend className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <legend className="mb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Contact consent (emergency always allowed)
         </legend>
         {toggle('consentResults', 'Results')}
@@ -473,9 +522,11 @@ function AuthorityConsentFields({
 
 function EditGuardianDialog({
   g,
+  name,
   onDone,
 }: {
   g: Guardianship;
+  name: string;
   onDone: () => Promise<void> | void;
 }) {
   const [open, setOpen] = React.useState(false);
@@ -491,15 +542,16 @@ function EditGuardianDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        Edit
+        <Pencil aria-hidden /> Edit
       </Button>
       <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit guardianship</DialogTitle>
           <DialogDescription>
-            Authority, contact priority, and per-category consent.
+            Authority and per-category contact consent.
           </DialogDescription>
         </DialogHeader>
+        <PersonIdentity name={name} sub={relationshipLabel(g.relationship)} />
         <AuthorityConsentFields form={form} set={set} />
         <DialogFooter>
           <DialogClose asChild>
@@ -575,9 +627,19 @@ function AddGuardianDialog({
         </DialogHeader>
 
         {guardian ? (
-          <div className="flex items-center justify-between rounded-lg border border-border bg-card/40 p-2.5">
-            <span className="text-sm font-medium">{guardian.name}</span>
-            <Button variant="ghost" size="sm" onClick={() => setGuardian(null)}>
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <PersonAvatar name={guardian.name} className="size-8 shrink-0" />
+              <span className="truncate text-sm font-medium capitalize text-foreground">
+                {guardian.name}
+              </span>
+            </div>
+            <Button
+              variant="link"
+              size="sm"
+              className="h-auto shrink-0 p-0 font-medium"
+              onClick={() => setGuardian(null)}
+            >
               Change
             </Button>
           </div>
@@ -713,9 +775,10 @@ function PersonSearch({
                 <button
                   type="button"
                   onClick={() => onPick(r)}
-                  className="w-full rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40"
+                  className="flex w-full items-center gap-2.5 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40"
                 >
-                  {r.name}
+                  <PersonAvatar name={r.name} className="size-7 shrink-0" />
+                  <span className="truncate capitalize">{r.name}</span>
                 </button>
               </li>
             ))}
@@ -815,8 +878,13 @@ function EndDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        End
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+        onClick={() => setOpen(true)}
+      >
+        <Ban aria-hidden /> End
       </Button>
       <DialogContent>
         <DialogHeader>

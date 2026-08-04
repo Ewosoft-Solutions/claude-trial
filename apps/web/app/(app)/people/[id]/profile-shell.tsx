@@ -52,7 +52,7 @@ export function PersonProfileShell({
           <AvatarLightbox name={detail.name} />
           <div className="flex min-w-0 flex-col gap-2">
             <div className="min-w-0">
-              <h1 className="font-display text-[26px] font-bold leading-tight text-foreground">
+              <h1 className="font-display text-[26px] font-bold capitalize leading-tight text-foreground">
                 {detail.name}
               </h1>
               <p className="text-sm text-muted-foreground">
