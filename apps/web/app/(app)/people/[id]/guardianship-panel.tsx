@@ -37,6 +37,8 @@ import {
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
+import { isSearchable } from '@/lib/input-validation';
+
 import { Section } from '../person-detail-ui';
 import { humanize } from '../person-detail.types';
 
@@ -649,7 +651,9 @@ function PersonSearch({
 
   React.useEffect(() => {
     const q = term.trim();
-    if (q.length < 2) {
+    // Only search once the query carries real signal (≥2 letters/digits) — so
+    // punctuation-only input like "??" waits rather than firing an empty search.
+    if (!isSearchable(q)) {
       setResults([]);
       setSearching(false);
       return;
@@ -691,9 +695,9 @@ function PersonSearch({
           load, clear, or come back empty. No border/background — otherwise it
           reads as a second input the user might try to type into. */}
       <div className="h-52 overflow-y-auto">
-        {q.length < 2 ? (
+        {!isSearchable(q) ? (
           <p className="px-1 py-2 text-xs text-muted-foreground">
-            Type at least 2 characters to search.
+            Type at least 2 letters to search.
           </p>
         ) : searching ? (
           <p className="flex items-center gap-1.5 px-1 py-2 text-xs text-muted-foreground">
