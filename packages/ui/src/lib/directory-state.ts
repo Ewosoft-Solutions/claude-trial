@@ -90,18 +90,34 @@ function parseIntParam(raw: string | null, fallback: number): number {
   return Number.isFinite(n) && n >= 1 ? n : fallback;
 }
 
-/** Parse `field:dir` into a DirectorySort; unknown dir falls back to `asc`. */
+/**
+ * Parse a sort param into a DirectorySort.
+ *
+ * Canonical form is a `-` prefix for descending (`sort=-name`), plain field for
+ * ascending (`sort=name`) — chosen because `-` is not percent-encoded, so the
+ * URL stays clean (no `%3A`). The legacy `field:dir` form is still accepted so
+ * older shared links and saved views keep working.
+ */
 export function parseSort(raw: string | null): DirectorySort | null {
   if (!raw) return null;
-  const idx = raw.lastIndexOf(':');
-  const field = idx >= 0 ? raw.slice(0, idx) : raw;
-  const dir = idx >= 0 ? raw.slice(idx + 1) : 'asc';
-  if (!field) return null;
-  return { field, dir: dir === 'desc' ? 'desc' : 'asc' };
+  // Legacy `field:dir`.
+  const colon = raw.lastIndexOf(':');
+  if (colon >= 0) {
+    const field = raw.slice(0, colon);
+    if (!field) return null;
+    return { field, dir: raw.slice(colon + 1) === 'desc' ? 'desc' : 'asc' };
+  }
+  // Canonical: leading `-` = descending.
+  if (raw.startsWith('-')) {
+    const field = raw.slice(1);
+    return field ? { field, dir: 'desc' } : null;
+  }
+  return { field: raw, dir: 'asc' };
 }
 
 export function serializeSort(sort: DirectorySort | null): string | null {
-  return sort ? `${sort.field}:${sort.dir}` : null;
+  if (!sort) return null;
+  return sort.dir === 'desc' ? `-${sort.field}` : sort.field;
 }
 
 function sortsEqual(a: DirectorySort | null, b: DirectorySort | null): boolean {

@@ -6,6 +6,7 @@ import {
   parseDirectoryState,
   parseSort,
   serializeDirectoryState,
+  serializeSort,
   type DirectoryState,
 } from './directory-state';
 
@@ -68,9 +69,10 @@ describe('serializeDirectoryState', () => {
       filters: { status: 'active', grade: 'SS1' },
       viewId: 'v1',
     });
-    // deterministic ordering: view, q, filters (sorted), sort, page, size
+    // deterministic ordering: view, q, filters (sorted), sort, page, size.
+    // Sort is the clean `-field`/`field` form (asc here) — no `%3A`.
     expect(qs).toBe(
-      'view=v1&q=ada&f_grade=SS1&f_status=active&sort=name%3Aasc&page=2&size=50',
+      'view=v1&q=ada&f_grade=SS1&f_status=active&sort=name&page=2&size=50',
     );
   });
 
@@ -98,11 +100,22 @@ describe('serializeDirectoryState', () => {
 });
 
 describe('parseSort', () => {
-  it('parses field:dir and defaults an unknown dir to asc', () => {
+  it('parses the canonical -field (desc) / field (asc) forms', () => {
+    expect(parseSort('-name')).toEqual({ field: 'name', dir: 'desc' });
+    expect(parseSort('name')).toEqual({ field: 'name', dir: 'asc' });
+    expect(parseSort('-')).toBeNull();
+    expect(parseSort('')).toBeNull();
+  });
+
+  it('still accepts the legacy field:dir form (old links / saved views)', () => {
     expect(parseSort('name:desc')).toEqual({ field: 'name', dir: 'desc' });
     expect(parseSort('name:sideways')).toEqual({ field: 'name', dir: 'asc' });
-    expect(parseSort('name')).toEqual({ field: 'name', dir: 'asc' });
-    expect(parseSort('')).toBeNull();
+  });
+
+  it('serializeSort emits the clean form', () => {
+    expect(serializeSort({ field: 'name', dir: 'desc' })).toBe('-name');
+    expect(serializeSort({ field: 'name', dir: 'asc' })).toBe('name');
+    expect(serializeSort(null)).toBeNull();
   });
 });
 
