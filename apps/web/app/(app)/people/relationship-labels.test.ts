@@ -16,8 +16,13 @@ describe('directional caregiver labels', () => {
     expect(wardRoleLabel('father')).toBe('Child');
     expect(wardRoleLabel('grandparent')).toBe('Grandchild');
     expect(wardRoleLabel('guardian')).toBe('Ward');
+    expect(wardRoleLabel('caregiver')).toBe('Dependent');
     expect(wardRoleLabel('foster_parent')).toBe('Foster child');
     expect(wardRoleLabel('sibling')).toBe('Sibling');
+  });
+
+  it('caregiver (non-kin, e.g. a househelp) is a first-class relationship', () => {
+    expect(guardianRoleLabel('caregiver')).toBe('Caregiver');
   });
 
   it('unknown kinships fall back sensibly', () => {

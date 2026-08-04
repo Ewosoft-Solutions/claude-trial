@@ -220,6 +220,7 @@ export const GUARDIAN_RELATIONSHIPS: {
   { value: 'aunt_uncle', label: 'Aunt / uncle', wardLabel: 'Niece / nephew' },
   { value: 'cousin', label: 'Cousin', wardLabel: 'Cousin' },
   { value: 'guardian', label: 'Guardian', wardLabel: 'Ward' },
+  { value: 'caregiver', label: 'Caregiver', wardLabel: 'Dependent' },
   { value: 'foster_parent', label: 'Foster parent', wardLabel: 'Foster child' },
   { value: 'other_relative', label: 'Other relative', wardLabel: 'Relative' },
   { value: 'other', label: 'Other', wardLabel: 'Dependent' },

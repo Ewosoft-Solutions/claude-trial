@@ -30,6 +30,10 @@ export const RELATIONSHIP_TYPES = [
   'aunt_uncle',
   'cousin',
   'guardian',
+  // A non-kin engaged caregiver (e.g. a househelp / nanny) who collects the
+  // child — registered as a Person, typically with canPickup + a photo, and a
+  // future check-in/out attendance identity (see the attendance-system note).
+  'caregiver',
   'foster_parent',
   'other_relative',
   'other',
