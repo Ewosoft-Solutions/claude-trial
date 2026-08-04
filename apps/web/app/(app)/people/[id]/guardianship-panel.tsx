@@ -84,6 +84,28 @@ interface GuardForm {
   consentGeneral: boolean;
 }
 
+// Closed caregiver-relationship list (keep in step with RELATIONSHIP_TYPES in
+// apps/api/src/person/dto/guardianship.dto.ts). Kinship label only — legal
+// authority is the separate "Legal guardian" toggle.
+const RELATIONSHIPS: { value: string; label: string }[] = [
+  { value: 'mother', label: 'Mother' },
+  { value: 'father', label: 'Father' },
+  { value: 'parent', label: 'Parent' },
+  { value: 'step_parent', label: 'Step-parent' },
+  { value: 'grandparent', label: 'Grandparent' },
+  { value: 'sibling', label: 'Sibling' },
+  { value: 'aunt_uncle', label: 'Aunt / uncle' },
+  { value: 'cousin', label: 'Cousin' },
+  { value: 'guardian', label: 'Guardian' },
+  { value: 'foster_parent', label: 'Foster parent' },
+  { value: 'other_relative', label: 'Other relative' },
+  { value: 'other', label: 'Other' },
+];
+
+function relationshipLabel(value: string): string {
+  return RELATIONSHIPS.find((r) => r.value === value)?.label ?? humanize(value);
+}
+
 const CUSTODY = ['full', 'joint', 'partial', 'none', 'visitation'];
 const VERIFY_METHODS = ['document', 'in_person', 'id_check', 'existing_record'];
 
@@ -312,7 +334,7 @@ function GuardRow({
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium text-foreground">{name}</span>
         <span className="text-xs text-muted-foreground">
-          {humanize(g.relationship)}
+          {relationshipLabel(g.relationship)}
         </span>
         {g.contactPriority ? (
           <span className="text-[11px] text-muted-foreground">
@@ -400,12 +422,21 @@ function AuthorityConsentFields({
       <div className="grid grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="g-rel">Relationship</Label>
-          <Input
-            id="g-rel"
-            value={form.relationship}
-            onChange={(e) => set('relationship', e.target.value)}
-            placeholder="parent"
-          />
+          <Select
+            value={form.relationship || 'parent'}
+            onValueChange={(v) => set('relationship', v)}
+          >
+            <SelectTrigger id="g-rel">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {RELATIONSHIPS.map((r) => (
+                <SelectItem key={r.value} value={r.value}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="g-prio">Contact priority</Label>

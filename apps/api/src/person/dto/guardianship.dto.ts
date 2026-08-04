@@ -17,6 +17,28 @@ import {
  * medical, emergency, billing), per-category contact consent, and verification.
  */
 
+/**
+ * The caregiver relationship to the ward — a closed list so the data stays
+ * clean and reportable (no free-text ambiguity). Kinship label only; legal
+ * authority is the separate `legalGuardian` flag. Keep in step with the web
+ * `RELATIONSHIPS` list in guardianship-panel.tsx.
+ */
+export const RELATIONSHIP_TYPES = [
+  'mother',
+  'father',
+  'parent',
+  'step_parent',
+  'grandparent',
+  'sibling',
+  'aunt_uncle',
+  'cousin',
+  'guardian',
+  'foster_parent',
+  'other_relative',
+  'other',
+] as const;
+export type RelationshipType = (typeof RELATIONSHIP_TYPES)[number];
+
 export const CUSTODY_TYPES = [
   'full',
   'joint',
@@ -45,11 +67,10 @@ export type ConsentCategory = (typeof CONSENT_CATEGORIES)[number];
 
 /** Fields shared by create + update (all optional on update). */
 class GuardianshipAuthorityFields {
-  @ApiPropertyOptional({ example: 'parent' })
+  @ApiPropertyOptional({ enum: RELATIONSHIP_TYPES, example: 'parent' })
   @IsOptional()
-  @IsString()
-  @MaxLength(64)
-  relationship?: string;
+  @IsIn(RELATIONSHIP_TYPES)
+  relationship?: RelationshipType;
 
   @ApiPropertyOptional({ description: 'Primary caregiver for the ward' })
   @IsOptional()
