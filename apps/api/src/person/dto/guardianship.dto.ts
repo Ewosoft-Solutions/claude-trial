@@ -2,13 +2,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
   IsIn,
-  IsInt,
   IsOptional,
   IsString,
   IsUUID,
-  Max,
   MaxLength,
-  Min,
 } from 'class-validator';
 
 /**
@@ -81,17 +78,6 @@ class GuardianshipAuthorityFields {
   @IsOptional()
   @IsBoolean()
   legalGuardian?: boolean;
-
-  @ApiPropertyOptional({
-    description: 'Lower number = contacted first (1 = primary)',
-    minimum: 1,
-    maximum: 99,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Max(99)
-  contactPriority?: number;
 
   @ApiPropertyOptional({ enum: CUSTODY_TYPES })
   @IsOptional()

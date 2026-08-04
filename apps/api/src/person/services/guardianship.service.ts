@@ -193,7 +193,6 @@ export class GuardianshipService {
           relationship: dto.relationship ?? 'parent',
           isPrimary: dto.isPrimary ?? false,
           legalGuardian: dto.legalGuardian ?? false,
-          contactPriority: dto.contactPriority ?? null,
           custodyType: dto.custodyType ?? null,
           canPickup: dto.canPickup ?? false,
           canAuthorizeMedical: dto.canAuthorizeMedical ?? false,
@@ -209,6 +208,11 @@ export class GuardianshipService {
         },
         include: GUARDIAN_INCLUDE,
       });
+      // At most one primary contact per ward: promoting this one demotes any
+      // other current primary (the "the old #1 steps down" rule).
+      if (created.isPrimary) {
+        await this.demoteOtherPrimaries(tenantId, dto.wardPersonId, created.id);
+      }
       await this.recordHistory(
         tenantId,
         dto.guardianPersonId,
@@ -255,9 +259,6 @@ export class GuardianshipService {
     if (dto.relationship !== undefined) data.relationship = dto.relationship;
     if (dto.isPrimary !== undefined) data.isPrimary = dto.isPrimary;
     if (dto.legalGuardian !== undefined) data.legalGuardian = dto.legalGuardian;
-    if (dto.contactPriority !== undefined) {
-      data.contactPriority = dto.contactPriority;
-    }
     if (dto.custodyType !== undefined) data.custodyType = dto.custodyType;
     if (dto.canPickup !== undefined) data.canPickup = dto.canPickup;
     if (dto.canAuthorizeMedical !== undefined) {
@@ -287,10 +288,33 @@ export class GuardianshipService {
       data,
       include: GUARDIAN_INCLUDE,
     });
+    // Promoting this relationship to primary demotes any other current primary
+    // for the same ward (exactly one primary contact).
+    if (dto.isPrimary === true) {
+      await this.demoteOtherPrimaries(tenantId, before.wardPersonId, id);
+    }
     await this.audit(tenantId, actorId, 'guardianship.update', id, {
       changed: Object.keys(data),
     });
     return this.project(updated);
+  }
+
+  /** Clear `isPrimary` on every OTHER active guardianship of this ward. */
+  private async demoteOtherPrimaries(
+    tenantId: string,
+    wardPersonId: string,
+    keepId: string,
+  ) {
+    await this.client.guardianRelationship.updateMany({
+      where: {
+        tenantId,
+        wardPersonId,
+        id: { not: keepId },
+        effectiveTo: null,
+        isPrimary: true,
+      },
+      data: { isPrimary: false },
+    });
   }
 
   async verify(

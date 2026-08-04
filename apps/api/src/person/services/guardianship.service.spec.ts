@@ -5,6 +5,7 @@ function makeService() {
   const personFindFirst = jest.fn();
   const relCreate = jest.fn();
   const relUpdate = jest.fn();
+  const relUpdateMany = jest.fn();
   const relFindFirst = jest.fn();
   const relFindMany = jest.fn();
   const historyCreate = jest.fn();
@@ -14,6 +15,7 @@ function makeService() {
     guardianRelationship: {
       create: relCreate,
       update: relUpdate,
+      updateMany: relUpdateMany,
       findFirst: relFindFirst,
       findMany: relFindMany,
     },
@@ -28,6 +30,7 @@ function makeService() {
     personFindFirst,
     relCreate,
     relUpdate,
+    relUpdateMany,
     relFindFirst,
     relFindMany,
     historyCreate,
@@ -176,13 +179,13 @@ describe('GuardianshipService', () => {
     it('only writes the fields provided', async () => {
       const t = makeService();
       t.relFindFirst.mockResolvedValue(relRow());
-      t.relUpdate.mockResolvedValue(relRow({ contactPriority: 2 }));
+      t.relUpdate.mockResolvedValue(relRow({ custodyType: 'joint' }));
       await t.service.update('t1', 'actor', 'rel1', {
-        contactPriority: 2,
+        custodyType: 'joint',
         consentFinance: false,
       });
       const data = t.relUpdate.mock.calls[0][0].data;
-      expect(data).toEqual({ contactPriority: 2, consentFinance: false });
+      expect(data).toEqual({ custodyType: 'joint', consentFinance: false });
       expect(t.write.mock.calls[0][0].action).toBe('guardianship.update');
     });
 
@@ -194,6 +197,65 @@ describe('GuardianshipService', () => {
       await expect(
         t.service.update('t1', 'actor', 'rel1', { isPrimary: true }),
       ).rejects.toThrow(/ended/i);
+    });
+  });
+
+  describe('exactly one primary contact per ward', () => {
+    it('creating a primary demotes any other current primary for the ward', async () => {
+      const t = makeService();
+      t.personFindFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve(
+          persons[where.id]
+            ? { id: where.id, status: persons[where.id] }
+            : null,
+        ),
+      );
+      t.relCreate.mockResolvedValue(relRow({ isPrimary: true }));
+      await t.service.create('t1', 'actor', {
+        guardianPersonId: 'g1',
+        wardPersonId: 'w1',
+        isPrimary: true,
+      });
+      expect(t.relUpdateMany).toHaveBeenCalledWith({
+        where: {
+          tenantId: 't1',
+          wardPersonId: 'w1',
+          id: { not: 'rel1' },
+          effectiveTo: null,
+          isPrimary: true,
+        },
+        data: { isPrimary: false },
+      });
+    });
+
+    it('does NOT demote others when the new relationship is not primary', async () => {
+      const t = makeService();
+      t.personFindFirst.mockImplementation(({ where }: any) =>
+        Promise.resolve({ id: where.id, status: 'active' }),
+      );
+      t.relCreate.mockResolvedValue(relRow({ isPrimary: false }));
+      await t.service.create('t1', 'actor', {
+        guardianPersonId: 'g1',
+        wardPersonId: 'w1',
+      });
+      expect(t.relUpdateMany).not.toHaveBeenCalled();
+    });
+
+    it('promoting via update demotes the previous primary', async () => {
+      const t = makeService();
+      t.relFindFirst.mockResolvedValue(relRow({ isPrimary: false }));
+      t.relUpdate.mockResolvedValue(relRow({ isPrimary: true }));
+      await t.service.update('t1', 'actor', 'rel1', { isPrimary: true });
+      expect(t.relUpdateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            wardPersonId: 'w1',
+            id: { not: 'rel1' },
+            isPrimary: true,
+          }),
+          data: { isPrimary: false },
+        }),
+      );
     });
   });
 

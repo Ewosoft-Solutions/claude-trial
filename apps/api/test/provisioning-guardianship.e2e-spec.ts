@@ -303,7 +303,7 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
 
   /* ---- WB1-4 · guardianship authority / priority / consent ------------- */
 
-  it('records two guardians with distinct authority + contact priority', async () => {
+  it('records two guardians with distinct authority; primary is exclusive', async () => {
     const r1 = await inA(() =>
       guardianships.create(tenantAId, actorId, {
         guardianPersonId: g1,
@@ -311,7 +311,6 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
         relationship: 'mother',
         isPrimary: true,
         legalGuardian: true,
-        contactPriority: 1,
         isEmergencyContact: true,
         canPickup: true,
       }),
@@ -321,7 +320,6 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
         guardianPersonId: g2,
         wardPersonId: wardId,
         relationship: 'grandparent',
-        contactPriority: 2,
         consentFinance: false, // opts out of fee comms
         isEmergencyContact: false,
       }),
@@ -338,7 +336,23 @@ d('Provisioning (WB1-3) + Guardianship (WB1-4)', () => {
     expect(list[0]!.isPrimary).toBe(true);
     expect(list[0]!.legalGuardian).toBe(true);
     expect(list[1]!.relationship).toBe('grandparent');
-    expect(list[1]!.contactPriority).toBe(2);
+    expect(list[1]!.isPrimary).toBe(false);
+
+    // Promote the grandparent to primary → the mother is demoted (exactly one).
+    await inA(() =>
+      guardianships.update(tenantAId, actorId, rel2Id, { isPrimary: true }),
+    );
+    const after = await inA(() =>
+      guardianships.list(tenantAId, { wardPersonId: wardId }),
+    );
+    const byId = Object.fromEntries(after.map((g) => [g.id, g]));
+    expect(byId[rel2Id]!.isPrimary).toBe(true);
+    expect(byId[rel1Id]!.isPrimary).toBe(false);
+
+    // Restore the mother as primary for the remaining audience assertions.
+    await inA(() =>
+      guardianships.update(tenantAId, actorId, rel1Id, { isPrimary: true }),
+    );
   });
 
   it('resolves comms audience by relationship + consent, never a gender label', async () => {

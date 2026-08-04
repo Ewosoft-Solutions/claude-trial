@@ -70,7 +70,6 @@ export interface Guardianship {
 
 interface GuardForm {
   relationship: string;
-  contactPriority: string;
   isPrimary: boolean;
   legalGuardian: boolean;
   custodyType: string;
@@ -112,7 +111,6 @@ const VERIFY_METHODS = ['document', 'in_person', 'id_check', 'existing_record'];
 function emptyForm(): GuardForm {
   return {
     relationship: 'parent',
-    contactPriority: '',
     isPrimary: false,
     legalGuardian: false,
     custodyType: '',
@@ -130,7 +128,6 @@ function emptyForm(): GuardForm {
 function formFrom(g: Guardianship): GuardForm {
   return {
     relationship: g.relationship,
-    contactPriority: g.contactPriority?.toString() ?? '',
     isPrimary: g.isPrimary,
     legalGuardian: g.legalGuardian,
     custodyType: g.custodyType ?? '',
@@ -146,14 +143,8 @@ function formFrom(g: Guardianship): GuardForm {
 }
 
 function toPayload(f: GuardForm): Record<string, unknown> {
-  const priority = f.contactPriority.trim()
-    ? Number(f.contactPriority)
-    : undefined;
   return {
     relationship: f.relationship || 'parent',
-    ...(priority && Number.isFinite(priority)
-      ? { contactPriority: priority }
-      : {}),
     isPrimary: f.isPrimary,
     legalGuardian: f.legalGuardian,
     ...(f.custodyType ? { custodyType: f.custodyType } : {}),
@@ -336,14 +327,9 @@ function GuardRow({
         <span className="text-xs text-muted-foreground">
           {relationshipLabel(g.relationship)}
         </span>
-        {g.contactPriority ? (
-          <span className="text-[11px] text-muted-foreground">
-            #{g.contactPriority}
-          </span>
-        ) : null}
         {g.isPrimary ? (
           <StatusBadge tone="info" dot>
-            Primary
+            Primary contact
           </StatusBadge>
         ) : null}
         {g.verified ? (
@@ -419,37 +405,23 @@ function AuthorityConsentFields({
 
   return (
     <div className="flex flex-col gap-4 py-2">
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="g-rel">Relationship</Label>
-          <Select
-            value={form.relationship || 'parent'}
-            onValueChange={(v) => set('relationship', v)}
-          >
-            <SelectTrigger id="g-rel">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {RELATIONSHIPS.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="g-prio">Contact priority</Label>
-          <Input
-            id="g-prio"
-            type="number"
-            min={1}
-            max={99}
-            value={form.contactPriority}
-            onChange={(e) => set('contactPriority', e.target.value)}
-            placeholder="1"
-          />
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="g-rel">Relationship</Label>
+        <Select
+          value={form.relationship || 'parent'}
+          onValueChange={(v) => set('relationship', v)}
+        >
+          <SelectTrigger id="g-rel">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {RELATIONSHIPS.map((r) => (
+              <SelectItem key={r.value} value={r.value}>
+                {r.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <div className="flex flex-col gap-1.5">
@@ -476,7 +448,7 @@ function AuthorityConsentFields({
         <legend className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Authority
         </legend>
-        {toggle('isPrimary', 'Primary caregiver')}
+        {toggle('isPrimary', 'Primary contact (only one per ward)')}
         {toggle('legalGuardian', 'Legal guardian')}
         {toggle('canPickup', 'May collect the child')}
         {toggle('canAuthorizeMedical', 'May authorise medical treatment')}
