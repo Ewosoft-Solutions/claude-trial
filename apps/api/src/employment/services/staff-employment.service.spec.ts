@@ -49,6 +49,43 @@ describe('StaffEmploymentService', () => {
     expect(staffCreate).not.toHaveBeenCalled();
   });
 
+  it('audits a created employment (command path: mutation → audit)', async () => {
+    const { service, personFindFirst, staffCreate, write } = makeService();
+    personFindFirst.mockResolvedValue({
+      id: 'p1',
+      status: 'active',
+      firstName: 'Bola',
+      lastName: 'Bursar',
+    });
+    staffCreate.mockResolvedValue({
+      id: 'e1',
+      employeeNumber: null,
+      jobTitle: 'Bursar',
+      department: null,
+      employmentType: null,
+      employmentStatus: 'active',
+      hireDate: null,
+      endDate: null,
+      endReason: null,
+      sourceSystem: null,
+      reportsTo: null,
+      _count: { directReports: 0 },
+      qualifications: [],
+    });
+
+    const result = await service.create('t1', 'actor', 'p1', {
+      jobTitle: 'Bursar',
+    });
+    expect(result.id).toBe('e1');
+    expect(write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'employment.create',
+        resource: 'staff_profile',
+        actorId: 'actor',
+      }),
+    );
+  });
+
   it('rejects an employment that reports to itself', async () => {
     const { service, staffFindFirst } = makeService();
     // loadEmployment lookup succeeds…

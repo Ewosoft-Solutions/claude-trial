@@ -161,10 +161,15 @@ export class EffectiveAccessService {
       templateKey: string | null;
     },
   ): EffectiveAccess {
-    // permission name -> { entry, sourcePool }. First pool that grants it wins
-    // as the attributed source (lowest-level pool listed first is fine).
+    // permission name -> { entry, sourcePool }. The first pool that grants a
+    // permission is credited as its source; sort by clearance ascending first so
+    // that attribution is DETERMINISTIC (the lowest-level pool wins) regardless
+    // of the order the caller passed the pools in.
+    const orderedPools = [...pools].sort(
+      (a, b) => a.clearanceLevel - b.clearanceLevel,
+    );
     const byName = new Map<string, AccessEntry>();
-    for (const pool of pools) {
+    for (const pool of orderedPools) {
       for (const pp of pool.poolPermissions) {
         const perm = pp.permission;
         if (perm.requiredClearanceLevel > clearanceLevel) continue; // floor

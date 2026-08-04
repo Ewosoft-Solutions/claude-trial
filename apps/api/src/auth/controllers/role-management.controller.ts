@@ -25,7 +25,10 @@ import {
 } from '@nestjs/swagger';
 import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
-import { RequireClearanceLevel } from '../guards/clearance-level.guard';
+import {
+  RequireClearanceLevel,
+  ClearanceLevelGuard,
+} from '../guards/clearance-level.guard';
 import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { RoleService, CreateCustomRoleInput } from '../services/role.service';
 import { PermissionService } from '../services/permission.service';
@@ -83,7 +86,12 @@ export class ExplainAccessDto {
  */
 @ApiTags(SwaggerTags.roles.name)
 @Controller('roles')
-@UseGuards(JwtAuthGuard, TenantContextGuard)
+// ClearanceLevelGuard is a no-op where no @RequireClearanceLevel is set (it
+// allows when the metadata is absent), so getRoles/getRole keep their existing
+// open-to-tenant behaviour while the management + effective-access reads below
+// are actually enforced at clearance 7 (WB1-5 review: those reads exposed the
+// permission matrix + holder emails ungated).
+@UseGuards(JwtAuthGuard, TenantContextGuard, ClearanceLevelGuard)
 @ApiBearerAuth('JWT-auth')
 export class RoleManagementController {
   constructor(
@@ -115,6 +123,7 @@ export class RoleManagementController {
    * GET /roles/templates — declared before `:id` so it is not captured by it.
    */
   @Get('templates')
+  @RequireClearanceLevel(7) // Management: the role editor is a management surface
   @ApiOperation({ summary: 'List role templates (presets) for the editor' })
   @ApiResponse({
     status: 200,
@@ -282,6 +291,7 @@ export class RoleManagementController {
    * GET /roles/:id/effective-access
    */
   @Get(':id/effective-access')
+  @RequireClearanceLevel(7) // reveals the full permission matrix
   @ApiOperation({ summary: 'Explain a role’s effective access' })
   @ApiResponse({ status: 200, description: 'Effective access' })
   async effectiveAccessForRole(
@@ -303,6 +313,7 @@ export class RoleManagementController {
    */
   @Post(':id/explain')
   @HttpCode(HttpStatus.OK)
+  @RequireClearanceLevel(7)
   @ApiOperation({ summary: 'Explain one access decision for a role' })
   @ApiResponse({ status: 200, description: 'Allow/deny + reason' })
   async explainRoleAccess(
@@ -325,6 +336,7 @@ export class RoleManagementController {
    * GET /roles/:id/affected
    */
   @Get(':id/affected')
+  @RequireClearanceLevel(7) // exposes holder identities/emails
   @ApiOperation({ summary: 'Profiles that currently hold this role' })
   @ApiResponse({ status: 200, description: 'Affected profiles' })
   async affectedByRole(@Param('id') id: string, @AuthUser() user: RequestUser) {

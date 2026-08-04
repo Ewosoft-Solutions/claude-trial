@@ -158,8 +158,8 @@ export function RolesManager({
               return (
                 <TableRow
                   key={role.id}
-                  className="cursor-pointer"
-                  onClick={() => setPreviewRole(role)}
+                  className={canManage ? 'cursor-pointer' : undefined}
+                  onClick={canManage ? () => setPreviewRole(role) : undefined}
                 >
                   <TableCell>
                     <div className="flex min-w-0 flex-col">
