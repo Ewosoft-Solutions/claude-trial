@@ -488,7 +488,7 @@ function EditGuardianDialog({
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         Edit
       </Button>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit guardianship</DialogTitle>
           <DialogDescription>
@@ -561,7 +561,7 @@ function AddGuardianDialog({
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden /> Add guardian
       </Button>
-      <DialogContent>
+      <DialogContent className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add a guardian</DialogTitle>
           <DialogDescription>
@@ -643,32 +643,40 @@ function PersonSearch({
     [],
   );
   const [searching, setSearching] = React.useState(false);
+  // Only the newest request may write state — a slow response for an earlier
+  // term must never overwrite the results the user is now looking at.
+  const seq = React.useRef(0);
 
   React.useEffect(() => {
-    if (term.trim().length < 2) {
+    const q = term.trim();
+    if (q.length < 2) {
       setResults([]);
+      setSearching(false);
       return;
     }
+    const mySeq = ++seq.current;
+    setSearching(true);
     const t = setTimeout(async () => {
-      setSearching(true);
       try {
         const res = await fetch(
-          `/api/directory/people?type=all&q=${encodeURIComponent(term)}&limit=8`,
+          `/api/directory/people?type=all&q=${encodeURIComponent(q)}&limit=8`,
           { cache: 'no-store' },
         );
         const data = (await res.json()) as {
           data?: { id: string; name: string }[];
         };
+        if (mySeq !== seq.current) return; // superseded by a newer search
         setResults((data.data ?? []).filter((r) => r.id !== excludeId));
       } catch {
-        setResults([]);
+        if (mySeq === seq.current) setResults([]);
       } finally {
-        setSearching(false);
+        if (mySeq === seq.current) setSearching(false);
       }
     }, 300);
     return () => clearTimeout(t);
   }, [term, excludeId]);
 
+  const q = term.trim();
   return (
     <div className="flex flex-col gap-2 py-2">
       <Label htmlFor="g-search">Search people</Label>
@@ -677,28 +685,37 @@ function PersonSearch({
         value={term}
         onChange={(e) => setTerm(e.target.value)}
         placeholder="Name…"
+        autoComplete="off"
       />
-      {searching ? (
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Loader2 className="size-3 animate-spin" aria-hidden /> Searching…
-        </span>
-      ) : results.length > 0 ? (
-        <ul className="flex max-h-48 flex-col gap-1 overflow-y-auto">
-          {results.map((r) => (
-            <li key={r.id}>
-              <button
-                type="button"
-                onClick={() => onPick(r)}
-                className="w-full rounded-md border border-border bg-card/40 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40"
-              >
-                {r.name}
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : term.trim().length >= 2 ? (
-        <span className="text-xs text-muted-foreground">No matches.</span>
-      ) : null}
+      {/* Fixed-height results area so the dialog does not resize as matches
+          load, clear, or come back empty. */}
+      <div className="h-52 overflow-y-auto rounded-md border border-border bg-card/30 p-1">
+        {q.length < 2 ? (
+          <p className="p-2 text-xs text-muted-foreground">
+            Type at least 2 characters to search.
+          </p>
+        ) : searching ? (
+          <p className="flex items-center gap-1.5 p-2 text-xs text-muted-foreground">
+            <Loader2 className="size-3 animate-spin" aria-hidden /> Searching…
+          </p>
+        ) : results.length > 0 ? (
+          <ul className="flex flex-col gap-1">
+            {results.map((r) => (
+              <li key={r.id}>
+                <button
+                  type="button"
+                  onClick={() => onPick(r)}
+                  className="w-full rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40"
+                >
+                  {r.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="p-2 text-xs text-muted-foreground">No matches.</p>
+        )}
+      </div>
     </div>
   );
 }
