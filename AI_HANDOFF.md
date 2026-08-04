@@ -6,7 +6,7 @@ Last Updated: 2026-08-04
 
 ## Session Summary (2026-08-04, pt. 3) — Claude: WB1-2 (staff employment) + WB1-5 (role editor) built to DoD → in-review
 
-**Item(s):** WB1-2 + WB1-5 → **in-review**. **Branch:** `feat/wb1-2-5-staff-employment-role-editor` (one combined branch, owner-chosen; PR not yet opened — pending owner go-ahead to push).
+**Item(s):** WB1-2 + WB1-5 → **in-review**. **Branch/PR:** `feat/wb1-2-5-staff-employment-role-editor` / [PR #63](https://github.com/Ewosoft-Solutions/claude-trial/pull/63) (one combined branch, owner-chosen; pushed + PR opened on owner go-ahead).
 
 **What changed & why**
 
