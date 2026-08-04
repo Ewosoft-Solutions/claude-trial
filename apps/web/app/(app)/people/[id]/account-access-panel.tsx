@@ -37,6 +37,8 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
+import { checkEmail } from '@/lib/input-validation';
+
 import { Section, DetailGrid, Field } from '../person-detail-ui';
 import { formatDate } from '../person-detail.types';
 
@@ -295,6 +297,9 @@ function InviteDialog({
   const [roles, setRoles] = React.useState<Role[] | null>(null);
   const [roleId, setRoleId] = React.useState('');
   const [email, setEmail] = React.useState('');
+  // Email is optional (defaults to the person's contact), but if supplied it
+  // must be well-formed — the server rejects a bad address anyway.
+  const emailErr = email.trim() ? checkEmail(email).error : null;
 
   React.useEffect(() => {
     if (!open || roles) return;
@@ -355,7 +360,14 @@ function InviteDialog({
               placeholder="Defaults to the person's email on file"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              aria-invalid={emailErr ? true : undefined}
+              aria-describedby={emailErr ? 'invite-email-err' : undefined}
             />
+            {emailErr ? (
+              <p id="invite-email-err" className="text-xs text-destructive">
+                {emailErr}
+              </p>
+            ) : null}
           </div>
         </div>
         <DialogFooter>
@@ -366,11 +378,11 @@ function InviteDialog({
           </DialogClose>
           <Button
             size="sm"
-            disabled={busy || !roleId}
+            disabled={busy || !roleId || !!emailErr}
             onClick={async () => {
               const ok = await act(
                 'invite',
-                { roleId, ...(email ? { email } : {}) },
+                { roleId, ...(email.trim() ? { email: email.trim() } : {}) },
                 'Invitation sent',
               );
               if (ok) setOpen(false);
