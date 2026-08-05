@@ -247,10 +247,10 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 337, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2)
+  total: 339, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2)
   arrays: {
     STUDENT_PERMISSIONS: 15,
-    ACADEMIC_MANAGEMENT_PERMISSIONS: 23,
+    ACADEMIC_MANAGEMENT_PERMISSIONS: 25,
     GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
     FINANCIAL_PERMISSIONS: 16,
@@ -642,6 +642,30 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
       'Create and edit stages, year levels, streams, class sections and subject offerings (campus-scoped)',
     resource: 'academics',
     action: 'structure.manage',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+  {
+    // WB2-2: join students to what they study — section enrollment (K-12),
+    // per-course registration (tertiary), electives over offerings, and teacher
+    // assignment to offerings. Viewing is a low bar; managing is campus-scoped
+    // via the WB1-6 AccessScopeService.
+    name: 'academics.enrollment.view',
+    label: 'View Enrollment',
+    description:
+      'View student enrollment, course registration, electives and teacher assignments',
+    resource: 'academics',
+    action: 'enrollment.view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'academics.enrollment.manage',
+    label: 'Manage Enrollment',
+    description:
+      'Enroll students into sections, register courses, set electives and assign teachers to offerings (campus-scoped)',
+    resource: 'academics',
+    action: 'enrollment.manage',
     category: 'academic',
     requiredClearanceLevel: 7,
   },

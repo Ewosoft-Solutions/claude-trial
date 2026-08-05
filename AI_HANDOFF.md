@@ -4,6 +4,33 @@ Last Updated: 2026-08-05
 
 ---
 
+## Session Summary (2026-08-05) — Claude: WB2-1 merged (done); WB2-2 built to DoD → in-review
+
+**Item(s):** **WB2-1 → `done`** (merged [PR #68](https://github.com/Ewosoft-Solutions/claude-trial/pull/68) → `fb671f4`; board flipped on `main`). **WB2-2 → `in-review`** (branch `feat/wb2-2-enrollment`; claim landed on `main` first).
+
+**What changed & why**
+
+- **WB2-2 · Enrollment + per-course registration + electives + teacher assignment** — joins a Student to what they study the way the tenant's academic profile demands, **additive** over the legacy `Enrollment`(→ labeled-bag Class) / `ClassTeacher`:
+  - **Domain (`packages/database`):** 5 new tenant-owned models (own+platform RLS; migration `20260805040000_enrollment_registration`; external refs = DB-level FKs, no Prisma relation, F6 convention) — `academic-structure.AcademicProfile` (`enrollmentModel: 'class'|'course'`, effective-dated, `isDefault`; **falls back to `Tenant.schoolType`** — nursery/primary/secondary→class, university/college/training_institute→course), `academic-structure.OfferingTeacher` (teacher `UserTenant` → `SubjectOffering`), `student-management.SectionEnrollment` (K-12: Student→`ClassSection`), `student-management.CourseRegistration` (tertiary: Student→`SubjectOffering`), `student-management.StudentSubjectElection` (elective → offering).
+  - **API (`apps/api/src/academic-structure`):** `EnrollmentService` + `EnrollmentController` at `/academics/enrollment/*` — **`TenantDbService`-only** (check:privileged-db green), command path permission→validation→mutation→**audit**→state, **campus-scoped** via the WB1-6 `AccessScopeService` (section/offering `campusId`). The headline is `resolveStudentSubjects(studentId)`: reads the active `AcademicProfile.enrollmentModel` (fallback schoolType) and resolves student→subjects **through offerings** — K-12: the section's NON-elective offerings (`source:'core'`) + the student's elected offerings (`source:'elective'`); tertiary: their registrations (`source:'registered'`). `enrollmentModelForSchoolType()` is the pure fallback (unit-tested). Registered in `AcademicStructureModule`.
+  - **Permissions:** `academics.enrollment.view` (clr 3) + `.manage` (clr 7); `ACADEMIC_MANAGEMENT_PERMISSIONS` 23→25, total 337→**339**; re-seeded + `db:verify` 339/11.
+  - **Web (`apps/web`):** `/academics/enrollment` (`page.tsx` gated `academics.enrollment.view` + `enrollment-manager.tsx`) — an active-model banner, an enroll-into-section form (student/section/year selects, K-12), and a **student-subjects resolver view** (pick a student → the resolved subjects grouped by source). Dedicated `/api/academics/enrollment/[...path]` proxy + nav entry.
+
+**Verification run + result**
+
+- api typecheck ✔ · web tsc ✔ · api lint **0 errors** · web new files lint-clean · nav test 28/28 ✔
+- `check:privileged-db` ✔ · `db:rls:check` ✔ (5 new tables) · `db:verify` **339 / 11 pools**
+- api unit **582/582** (+ enrollment schoolType 3) · web unit **138/138**
+- **e2e 7/7 on real pg** (`enrollment.e2e-spec.ts`): schoolType fallback · K-12 section-enroll resolves student→subjects (core) · elective references an offering (non-elective rejected) + joins as `elective` · teacher→offering · tertiary per-course registration resolves · **campus-scope deny/allow** · RLS isolation + HTTP 401. **The e2e caught a real resolver bug** — elective offerings on a section were counted as `core`; fixed by filtering core to `isElective:false`.
+- grep-guard: **no label parsing** (enrollment references ids; subjects resolve via stored `subjectLabel` through offerings)
+- **Deferred:** isolated `next build`/`nest build` → CI (a `next dev` :3001 + api dev :3030 were live — the shared-`.next`/`dist` gotcha). Authenticated visual pass owner-gated.
+
+**What's next**
+
+- Open the WB2-2 PR → independent review → merge → WB2-2 `done`. That flips **WB2-3** (student lifecycle: registration · transfer · withdrawal · graduation, effective-dated history) `backlog → ready` (deps WB2-2 + F1). Note: `gh pr merge --squash` was classifier-blocked for #68 this session — the owner may need to merge.
+
+---
+
 ## Session Summary (2026-08-05) — Claude: WB1-6 landed (merged); WB2-1 built to DoD → in-review
 
 **Item(s):** **WB1-6 → `done`** (merged [PR #67](https://github.com/Ewosoft-Solutions/claude-trial/pull/67) → `0d9261d`, Workbench-1 6/6). **WB2-1 → `in-review`** (branch `feat/wb2-1-academic-structure`; claim + WB1-6-done board commit landed on `main` first).

@@ -173,3 +173,93 @@ model StudentGuardian {
   @@map("student_guardians")
   @@schema("student-management")
 }
+
+// ============================================
+// WB2-2 · Enrollment / registration / election (over the WB2-1 structure)
+// ============================================
+// Joins a Student to what they study, the way the tenant's AcademicProfile
+// demands — ADDITIVE over the legacy Enrollment(→ labeled-bag Class):
+//   • SectionEnrollment (K-12)     — Student joins a ClassSection; the section's
+//                                     SubjectOfferings are their subject set.
+//   • CourseRegistration (tertiary)— Student registers per SubjectOffering.
+//   • StudentSubjectElection (C036)— a K-12 elective CHOICE over an OFFERING
+//                                     (never a free-text subject).
+// All reference the WB2-1 structure by id (DB-level FKs, validated in-service —
+// F6 convention); tenant-owned with own+platform RLS.
+// ============================================
+
+// SectionEnrollment - K-12: a Student enrolled in a ClassSection for an academic year.
+model SectionEnrollment {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  studentId      String @map("student_id")
+  classSectionId String @map("class_section_id") // academic-structure.class_sections(id)
+  academicYearId String @map("academic_year_id")
+
+  status     String    @default("active") // 'active' | 'transferred' | 'withdrawn' | 'completed'
+  enrolledAt DateTime  @default(now()) @map("enrolled_at")
+  endedAt    DateTime? @map("ended_at")
+  endReason  String?   @map("end_reason")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([studentId, classSectionId, academicYearId])
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([classSectionId])
+  @@index([status])
+  @@index([tenantId, classSectionId])
+  @@map("section_enrollments")
+  @@schema("student-management")
+}
+
+// CourseRegistration - tertiary/TVET: a Student registered for a SubjectOffering.
+model CourseRegistration {
+  id                String @id @default(uuid())
+  tenantId          String @map("tenant_id")
+  studentId         String @map("student_id")
+  subjectOfferingId String @map("subject_offering_id") // academic-structure.subject_offerings(id)
+
+  status       String    @default("registered") // 'registered' | 'dropped' | 'completed'
+  registeredAt DateTime  @default(now()) @map("registered_at")
+  endedAt      DateTime? @map("ended_at")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([studentId, subjectOfferingId])
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([subjectOfferingId])
+  @@index([status])
+  @@map("course_registrations")
+  @@schema("student-management")
+}
+
+// StudentSubjectElection - C036: a K-12 elective CHOICE over an OFFERING (isElective).
+model StudentSubjectElection {
+  id                String @id @default(uuid())
+  tenantId          String @map("tenant_id")
+  studentId         String @map("student_id")
+  subjectOfferingId String @map("subject_offering_id")
+
+  status    String   @default("elected") // 'elected' | 'withdrawn'
+  electedAt DateTime @default(now()) @map("elected_at")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([studentId, subjectOfferingId])
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([subjectOfferingId])
+  @@map("student_subject_elections")
+  @@schema("student-management")
+}
