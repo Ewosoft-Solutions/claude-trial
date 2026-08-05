@@ -67,6 +67,13 @@ export interface SchoolSwitcherProps {
    * full-width row (chip + role/name + kebab) for the expanded rail.
    */
   expanded?: boolean;
+  /**
+   * Which side the switch menu opens on. Defaults to `'right'` in the
+   * sidebar rail (menu opens beside the narrow rail) and `'bottom'` for the
+   * standalone chip. Force `'bottom'` inside a left-anchored mobile drawer,
+   * where `'right'` would push the menu off-screen.
+   */
+  menuSide?: 'right' | 'bottom';
   className?: string;
 }
 
@@ -78,6 +85,7 @@ export function SchoolSwitcher({
   addSchoolLabel = 'Add school',
   menuLabel = 'Switch school',
   expanded,
+  menuSide,
   className,
 }: SchoolSwitcherProps) {
   const active = schools.find((s) => s.id === activeSchoolId) ?? schools[0];
@@ -86,13 +94,15 @@ export function SchoolSwitcher({
 
   const inSidebar = expanded !== undefined;
   const canOpenMenu = schools.length > 1 || Boolean(onAddSchool);
+  const resolvedSide = menuSide ?? (inSidebar ? 'right' : 'bottom');
 
   const menuContent = (
     <DropdownMenuContent
       align="start"
-      side={inSidebar ? 'right' : 'bottom'}
-      sideOffset={inSidebar ? 8 : 6}
-      className="w-72 p-1.5 text-left"
+      side={resolvedSide}
+      sideOffset={resolvedSide === 'right' ? 8 : 6}
+      collisionPadding={8}
+      className="w-80 max-w-[calc(100vw-1rem)] p-1.5 text-left"
     >
       <DropdownMenuLabel className="px-2.5 py-2 text-left text-muted-foreground">
         {menuLabel}

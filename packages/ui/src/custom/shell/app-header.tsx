@@ -26,6 +26,8 @@ import { Search } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
 import { ShortcutHint } from '@workspace/ui/components/shortcut-hint';
+import { InitialsAvatar } from '@workspace/ui/custom/data-display/initials-avatar';
+import type { SchoolOption } from '@workspace/ui/types/shell.types';
 
 export interface OmniSearchProps {
   placeholder?: string;
@@ -70,6 +72,10 @@ export interface AppHeaderProps {
   /** Brand wordmark shown on the left below md, where the rail (which carries
    *  the brand at md+) is replaced by the mobile bottom bar. */
   brandLabel?: string;
+  /** Active school. When set, the mobile top bar leads with the school's
+   *  logo/initials chip + name (the customer's identity owns the space),
+   *  instead of the product wordmark. */
+  school?: SchoolOption;
   /** Tenant/school switcher — typically <SchoolSwitcher/>. */
   schoolSwitcher?: React.ReactNode;
   /** Breadcrumb trail — typically <AppBreadcrumbs/>. Hidden on mobile. */
@@ -85,6 +91,7 @@ export interface AppHeaderProps {
 
 export function AppHeader({
   brandLabel = 'SchoolWithEase',
+  school,
   schoolSwitcher,
   breadcrumbs,
   search,
@@ -102,10 +109,31 @@ export function AppHeader({
       )}
     >
       <div className="flex min-w-0 items-center gap-3.5 overflow-hidden">
-        {/* At md+ the rail carries the brand; below md it lives here. */}
-        <span className="truncate font-display text-[22px] font-bold leading-none text-foreground md:hidden">
-          {brandLabel}
-        </span>
+        {/* At md+ the rail carries the brand; below md it lives here. When a
+            school is active, lead with the school's logo/initials chip + name
+            (the customer's identity owns the space) — same lockup as the nav
+            switcher. Otherwise fall back to the product wordmark. */}
+        {school ? (
+          <div className="flex min-w-0 items-center gap-2 md:hidden">
+            <InitialsAvatar
+              square
+              initials={school.initials}
+              name={school.name}
+              seed={school.id || school.name}
+              color={school.color}
+              imageUrl={school.logoUrl}
+              className="size-8 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]"
+              textClassName="text-[11px] font-extrabold"
+            />
+            <span className="truncate text-[14px] font-semibold leading-tight text-foreground">
+              {school.name}
+            </span>
+          </div>
+        ) : (
+          <span className="truncate font-display text-[22px] font-bold leading-none text-foreground md:hidden">
+            {brandLabel}
+          </span>
+        )}
         {schoolSwitcher}
         {breadcrumbs ? (
           <div className="min-w-0 overflow-hidden max-xl:hidden">
