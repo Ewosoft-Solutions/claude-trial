@@ -4,6 +4,37 @@ Last Updated: 2026-08-05
 
 ---
 
+## Session Summary (2026-08-05) — Claude: WB1-6 landed (merged); WB2-1 built to DoD → in-review
+
+**Item(s):** **WB1-6 → `done`** (merged [PR #67](https://github.com/Ewosoft-Solutions/claude-trial/pull/67) → `0d9261d`, Workbench-1 6/6). **WB2-1 → `in-review`** (branch `feat/wb2-1-academic-structure`; claim + WB1-6-done board commit landed on `main` first).
+
+**What changed & why**
+
+- **Landed WB1-6 to unblock WB2-1.** Opened PR #67, ran an independent review of the whole diff (maker-checker SoD · step-up · per-route permission guards · campus-scope enforcement · grant expiry on the live authz path · RLS on `campuses` + the shared-catalog two-policy tightening · audit · no privileged client — all sound). One nit found + fixed on the branch: `RequestGrantDto.scope` was a nested object without `@ValidateNested()`/`@Type()`, so class-validator didn't descend into it (the service re-validates scope, so defense-in-depth not a hole). CI green (5m30s) → squash-merged. `Campus` + `AccessScopeService` are now on `main`.
+
+- **WB2-1 · ADR-02 structured academic model** (retires the labeled-bag `Class`/`Course` + name-parsing; **additive** over the legacy tables):
+  - **Domain (`packages/database`):** 5 new `academic-structure` models — `Stage → YearLevel → ClassSection` (on a `Campus`) ← `Stream`, plus `SubjectOffering` (an F6 `CurriculumSubject` offered to a section in an academic year/optional term). F6 tenanting convention: `tenant_id NOT NULL` + DB-level FKs (no Prisma relation to Tenant/Campus/curriculum); `curriculumSubjectId` is a soft ref to `curriculum.curriculum_subjects` (validated in-service). `displayLabel` is **COMPOSED** from the dimensions and stored — **never parsed** (the whole point: "SS1 SCIENCE" vs "SS1 ARTS" are two rows sharing a YearLevel, differing only by Stream). Migration `20260805030000_academic_structure_model` (hand-written, additive, idempotent; RLS ENABLE+FORCE + PERMISSIVE `tenant_isolation` + grants on all 5 tables), applied locally via `db execute` + `migrate resolve --applied`.
+  - **API (`apps/api/src/academic-structure`):** new `AcademicStructureModelService` (CRUD for the 5 entities + `getCampusStructure` tree read) — **`TenantDbService`-only, no `DatabaseService`** (check:privileged-db green); command path permission→validation→mutation→**audit**→state; `composeSectionLabel()` builds the stored label. New `AcademicStructureModelController` at `/academics/structure/*`, view routes gated `academics.structure.view`, mutations `academics.structure.manage`. **Campus scope ENFORCED** via WB1-6 `AccessScopeService.assertWithinScope` on section/offering writes (the actor carries `grantScope` from `userContext`). DTOs with class-validator (`@ValidateNested`+`@Type` for nested). Registered in `AcademicStructureModule`.
+  - **Permissions:** `academics.structure.view` (clr 3) + `.manage` (clr 7) added to `ACADEMIC_MANAGEMENT_PERMISSIONS`; `EXPECTED_PERMISSION_COUNTS` bumped array 21→23 + total 335→**337**; re-seeded + `db:verify` 337/11 pools.
+  - **Web (`apps/web`):** guided **class-builder** at `/academics/structure` (`page.tsx` server-gated on `academics.structure.view` + `structure-builder.tsx` client) — a structured campus→year→stream→section picker with a **live composed-label preview** that replaces free-text class names, plus building-block create forms (stage/year-level/stream), a sections list grouped by campus, empty/permission-denied states, and sonner toasts. Dedicated `/api/academics/structure/[...path]` proxy (more specific than the generic academics catch-all, whose ALLOWED_ROOTS wouldn't reach this controller). Nav entry under Classes gated on `academics.structure.view`.
+
+**Verification run + result**
+
+- api typecheck ✔ · web tsc ✔ · api lint **0 errors** (62 pre-existing baseline warnings) · web new files lint-clean · nav test 28/28 ✔
+- `check:privileged-db` ✔ (no new `DatabaseService`) · `db:rls:check` ✔ (5 new tables covered) · `db:verify` **337 / 11 pools** (the one failing check — Platform Bootstrap architect profile — is pre-existing/environmental, unrelated to this change, and not a CI gate)
+- api unit **574/574** (+4 label-composition) · web unit **138/138**
+- **e2e 8/8 on real pg** (`academic-structure-model.e2e-spec.ts`): SS1 SCIENCE vs SS1 ARTS = two distinct rows without parsing · composed unstreamed label + dedupe · subject offering + dedupe · **campus-scope deny/allow** · RLS tenant isolation · HTTP 401
+- grep-guard: **no label parsing** in WB2-1 code (only `.join(' ')` composition)
+- **Deferred:** the isolated `next build`/`nest build` → CI — a `next dev` (:3001) and the api dev server (:3030) were live locally (shared-`.next`/`dist` corruption gotcha). Authenticated visual pass owner-gated (credential guardrail; WB1-1..1-6 precedent).
+
+**What's next**
+
+- Open the WB2-1 PR → independent review → merge → WB2-1 `done`. That flips **WB2-2** (enrollment + per-course registration + electives + teacher assignment) `backlog → ready` (its deps WB2-1 + F6 are then met). `SubjectOffering` is the anchor WB2-2 hangs enrollment/teacher-assignment/electives on.
+
+**New gotcha:** `prisma db execute` takes `--file` **alone** (it reads the datasource from `prisma.config.ts`); passing `--file` **and** `--schema` together errors with "Script input, only 1 must be provided" and silently runs nothing — mirror `db:rls:check`'s invocation (`--file` only).
+
+---
+
 ## Session Summary (2026-08-05) — Claude: WB1-6 built to DoD → in-review; WB2 kickstarted
 
 **Item(s):** **WB1-6 → in-review** ([PR #67](https://github.com/Ewosoft-Solutions/claude-trial/pull/67), branch `feat/wb1-6-scope-expiry-maker-checker`). **WB2 → detailed + WB2-1 `ready`** (planning). Claim committed first (`board: claim WB1-6`).

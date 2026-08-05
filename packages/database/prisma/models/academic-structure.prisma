@@ -242,3 +242,175 @@ model ClassTeacher {
   @@map("class_teachers")
   @@schema("academic-structure")
 }
+
+// ============================================
+// WB2-1 · ADR-02 structured academic model (additive over legacy Class/Course)
+// ============================================
+//
+// Stores the class structure as DIMENSIONS — campus · stage · year · stream ·
+// section — never a parsed label. "SS1 SCIENCE" and "SS1 ARTS" are two
+// ClassSection rows sharing a YearLevel and differing only by Stream; no code
+// path derives stage / year / stream from a display string. `displayLabel` is
+// COMPOSED by the service from the dimensions and STORED (stable display +
+// export), never re-parsed to recover structure. SubjectOffering links an F6
+// CurriculumSubject to a section in an academic year/term — the anchor WB2-2
+// hangs enrollment / teacher-assignment / electives on.
+//
+// Tenanting (F6 convention — mirrors curriculum's application tables): every
+// table carries tenant_id NOT NULL; external references (tenant, campus,
+// academic year/term, curriculum subject) are plain id fields with DB-level FKs
+// added in the migration and validated in-service — NOT Prisma relations — so a
+// shared/national CurriculumSubject and the cross-schema tenant.campuses row are
+// referenced without coupling those models here. The new models relate to EACH
+// OTHER via Prisma for ergonomic nested reads. RLS: own + platform on every
+// table (db:rls:check). ClassSection.campusId is the target the WB1-6
+// AccessScopeService enforces.
+// ============================================
+
+// Stage - a curriculum level band (e.g. "Senior Secondary" = SSS). School-wide.
+model Stage {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  name   String // e.g. "Senior Secondary"
+  code   String // short code, unique per tenant (e.g. "SSS")
+  order  Int    @default(0)
+  status String @default("active") // 'active' | 'inactive'
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  yearLevels YearLevel[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([status])
+  @@map("stages")
+  @@schema("academic-structure")
+}
+
+// YearLevel - a year within a stage (e.g. "SS1" under "SSS").
+model YearLevel {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  stageId  String @map("stage_id")
+
+  name   String // e.g. "SS1"
+  code   String // unique per tenant (e.g. "SS1")
+  order  Int    @default(0)
+  status String @default("active") // 'active' | 'inactive'
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  stage         Stage          @relation(fields: [stageId], references: [id], onDelete: Cascade)
+  classSections ClassSection[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([stageId])
+  @@index([status])
+  @@map("year_levels")
+  @@schema("academic-structure")
+}
+
+// Stream - a pathway / arm-of-study (e.g. "Science", "Arts", "Commercial").
+// The dimension that distinguishes SS1 SCIENCE from SS1 ARTS — a structured row,
+// not a substring of a class name.
+model Stream {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  name   String // e.g. "Science"
+  code   String // unique per tenant (e.g. "SCI")
+  order  Int    @default(0)
+  status String @default("active") // 'active' | 'inactive'
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  classSections ClassSection[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([status])
+  @@map("streams")
+  @@schema("academic-structure")
+}
+
+// ClassSection - the concrete arm a student sits in: a (campus, year level,
+// stream?) triple plus a section name. Belongs to a Campus (the WB1-6 scope
+// target). `displayLabel` is composed by the service and stored, never parsed.
+model ClassSection {
+  id          String  @id @default(uuid())
+  tenantId    String  @map("tenant_id")
+  campusId    String  @map("campus_id") // tenant.campuses(id) — DB FK, WB1-6 scope target
+  yearLevelId String  @map("year_level_id")
+  streamId    String? @map("stream_id")
+
+  name         String // the arm, e.g. "A", "Gold"
+  displayLabel String @map("display_label") // COMPOSED from the dimensions + stored; never re-parsed
+  capacity     Int    @default(30)
+  status       String @default("active") // 'active' | 'archived'
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  yearLevel        YearLevel         @relation(fields: [yearLevelId], references: [id], onDelete: Cascade)
+  stream           Stream?           @relation(fields: [streamId], references: [id], onDelete: SetNull)
+  subjectOfferings SubjectOffering[]
+
+  // One arm per (campus, year level, stream, name). NULL stream (an unstreamed
+  // junior class) is de-duplicated by an in-service check (Postgres treats NULL
+  // as distinct in a unique index).
+  @@unique([tenantId, campusId, yearLevelId, streamId, name])
+  @@index([tenantId])
+  @@index([campusId])
+  @@index([yearLevelId])
+  @@index([streamId])
+  @@index([status])
+  @@map("class_sections")
+  @@schema("academic-structure")
+}
+
+// SubjectOffering - an F6 CurriculumSubject offered to a ClassSection in an
+// academic year (optionally a term). The anchor WB2-2 hangs enrollment /
+// teacher-assignment / electives on. `curriculumSubjectId` is a soft reference
+// to curriculum.curriculum_subjects (nullable-tenant, may be shared national
+// content) validated in-service — same convention as CurriculumAdoption.
+model SubjectOffering {
+  id             String  @id @default(uuid())
+  tenantId       String  @map("tenant_id")
+  classSectionId String  @map("class_section_id")
+  academicYearId String  @map("academic_year_id") // academic-structure.academic_years(id) — DB FK
+  termId         String? @map("term_id") // academic-structure.terms(id) — DB FK, null = year-long
+
+  curriculumSubjectId String @map("curriculum_subject_id") // soft ref → curriculum.curriculum_subjects(id)
+  subjectLabel        String @map("subject_label") // subject name resolved at creation, stored for display/export
+
+  isElective Boolean @default(false) @map("is_elective")
+  status     String  @default("active") // 'active' | 'archived'
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  classSection ClassSection @relation(fields: [classSectionId], references: [id], onDelete: Cascade)
+
+  @@unique([classSectionId, curriculumSubjectId, termId])
+  @@index([tenantId])
+  @@index([classSectionId])
+  @@index([academicYearId])
+  @@index([curriculumSubjectId])
+  @@map("subject_offerings")
+  @@schema("academic-structure")
+}
