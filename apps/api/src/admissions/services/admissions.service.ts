@@ -45,14 +45,35 @@ import type {
   ConvertToStudentDto,
 } from '../dto/admissions.dto';
 
-/** Stages an admin may move to via the generic advance action (the terminal
- *  ones have dedicated transitions that stamp their timestamps + decision). */
+/** Stages the generic advance action may move TO (the offer/accept/reject/
+ *  convert transitions are the only way to reach the decision/terminal stages). */
 const ADVANCEABLE_STAGES = new Set([
   'enquiry',
   'applied',
   'screening',
   'interview',
   'withdrawn',
+]);
+
+/** Stages the generic advance action may move FROM. A decision has been taken
+ *  (or the file is terminal) once past these, so advance may not regress an
+ *  offer/acceptance/rejection/enrolment — that would let a lower-clearance
+ *  `admissions.review` holder undo a higher-clearance decision. */
+const ADVANCE_SOURCE_STAGES = new Set([
+  'enquiry',
+  'applied',
+  'screening',
+  'interview',
+]);
+
+/** Stages an offer may be made FROM (pre-decision, or re-offering an open
+ *  offer to amend it) — never from an accepted / enrolled / closed file. */
+const OFFERABLE_FROM_STAGES = new Set([
+  'enquiry',
+  'applied',
+  'screening',
+  'interview',
+  'offer',
 ]);
 
 /** Split a full name into first/last for the F1 Person (last word = surname). */
@@ -248,12 +269,23 @@ export class AdmissionsService {
     actorId: string,
   ) {
     const app = await this.assertApplication(tenantId, id);
-    if (app.stage === 'enrolled') {
-      throw new BadRequestException('This application has already enrolled.');
+    // Source-state validation: advance moves through the PRE-decision pipeline
+    // only. Once a decision is taken (offer/accepted/rejected/enrolled) or the
+    // file is withdrawn, advance may not regress it — that path is what let a
+    // clearance-7 actor undo a clearance-8 decision.
+    if (!ADVANCE_SOURCE_STAGES.has(app.stage)) {
+      throw new BadRequestException(
+        `Cannot advance a '${app.stage}' application — use the dedicated offer / accept / reject / convert action.`,
+      );
     }
     if (!ADVANCEABLE_STAGES.has(dto.toStage)) {
       throw new BadRequestException(
         `Use the dedicated action to reach '${dto.toStage}' (offer / accept / reject / convert).`,
+      );
+    }
+    if (dto.toStage === app.stage) {
+      throw new BadRequestException(
+        `The application is already at '${app.stage}'.`,
       );
     }
     const updated = await this.client.admissionApplication.update({
@@ -318,7 +350,9 @@ export class AdmissionsService {
     actorId: string,
   ) {
     const app = await this.assertApplication(tenantId, id);
-    if (['enrolled', 'rejected', 'withdrawn'].includes(app.stage)) {
+    // Offer only from a pre-decision stage (or re-offer an open offer) — never
+    // re-offer an already-accepted/closed file.
+    if (!OFFERABLE_FROM_STAGES.has(app.stage)) {
       throw new BadRequestException(
         `Cannot offer a place on a '${app.stage}' application.`,
       );
@@ -337,7 +371,8 @@ export class AdmissionsService {
         targetClassSectionId:
           dto.targetClassSectionId ?? app.targetClassSectionId,
         academicYearId: dto.academicYearId ?? app.academicYearId,
-        notes: dto.note ?? app.notes,
+        // The transition note lives on the stage event only — it must not
+        // clobber the application's running admissions notes.
         updatedBy: actorId,
       },
     });
@@ -395,7 +430,9 @@ export class AdmissionsService {
     actorId: string,
   ) {
     const app = await this.assertApplication(tenantId, id);
-    if (['enrolled', 'rejected'].includes(app.stage)) {
+    // Reject from any live stage (including rescinding an offer/acceptance),
+    // never a closed file.
+    if (['enrolled', 'rejected', 'withdrawn'].includes(app.stage)) {
       throw new BadRequestException(
         `Cannot reject a '${app.stage}' application.`,
       );
@@ -406,7 +443,7 @@ export class AdmissionsService {
         stage: 'rejected',
         decision: 'rejected',
         decisionAt: new Date(),
-        notes: dto.note ?? app.notes,
+        // Transition note stays on the stage event; don't clobber notes.
         updatedBy: actorId,
       },
     });
@@ -478,6 +515,10 @@ export class AdmissionsService {
     // provisioned via WB1-3) + a UserTenant. The email is a placeholder that is
     // globally unique (application id is a uuid) — the Student schema requires a
     // UserTenant, so a profile shell is created even for a login-less pupil.
+    // `suggestStudentNumber` is read-then-insert (not locked); the
+    // `@@unique([tenantId, studentNumber])` on Student is the backstop, so a
+    // concurrent double-conversion fails on the constraint rather than
+    // duplicating — acceptable at admissions volume.
     const { studentNumber } =
       await this.lifecycle.suggestStudentNumber(tenantId);
     const email = `${studentNumber.toLowerCase()}.${id}@student.noreply.local`;

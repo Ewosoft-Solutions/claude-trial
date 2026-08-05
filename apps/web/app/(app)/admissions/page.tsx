@@ -38,6 +38,10 @@ export default async function AdmissionsPage() {
     );
   }
 
+  // The offer/convert target pickers need sections + years, which are gated by
+  // `academics.structure.view` + `schedules.view` respectively — a caller with
+  // only admissions permissions gets empty pickers (handled gracefully below),
+  // so offering/converting effectively also requires those read scopes.
   const [applications, sections, years] = await Promise.all([
     serverApiGet<Application[]>('/admissions/applications'),
     serverApiGet<SectionOption[]>('/academics/structure/sections'),

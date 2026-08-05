@@ -27,8 +27,9 @@ model AdmissionApplication {
   submittedDate DateTime @default(now()) @map("submitted_date") @db.Date
 
   // WB3-1: a real pipeline stage machine (was strings-only application|interview|
-  // decision). Broadened to enquiry | applied | screening | interview | offer |
-  // accepted | enrolled | rejected | withdrawn. Legacy values still validate.
+  // decision). Superseded by enquiry | applied | screening | interview | offer |
+  // accepted | enrolled | rejected | withdrawn — the old 'application'/'decision'
+  // defaults are dropped (this replaces the stub; no production rows carry them).
   stage    String @default("applied")
   decision String @default("pending") // pending | accepted | waitlisted | rejected
 

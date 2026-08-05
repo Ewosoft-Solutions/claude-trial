@@ -222,7 +222,8 @@ export function AdmissionsPipeline({
   }
 
   const stage = detail?.stage;
-  const terminal = stage === 'enrolled' || stage === 'rejected';
+  const terminal =
+    stage === 'enrolled' || stage === 'rejected' || stage === 'withdrawn';
 
   return (
     <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.4fr]">

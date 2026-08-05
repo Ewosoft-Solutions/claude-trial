@@ -277,6 +277,40 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it('advance cannot regress a decided/terminal application (no undoing a reject)', async () => {
+    // A rejected application cannot be advanced back into the pipeline — this is
+    // the stage-machine + privilege-boundary fix (advance is clearance-review
+    // level; reject is a higher-clearance decision).
+    const rejected = await makeApplication('regress');
+    await inA(() =>
+      admissions.reject(tenantAId, rejected.id, { note: 'Below bar' }, actorId),
+    );
+    await expect(
+      inA(() =>
+        admissions.advanceStage(
+          tenantAId,
+          rejected.id,
+          { toStage: 'screening' },
+          actorId,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // …and an offered application cannot be regressed by advance either.
+    const offered = await makeApplication('offered');
+    await inA(() => admissions.makeOffer(tenantAId, offered.id, {}, actorId));
+    await expect(
+      inA(() =>
+        admissions.advanceStage(
+          tenantAId,
+          offered.id,
+          { toStage: 'interview' },
+          actorId,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
   it('convert is refused before acceptance', async () => {
     await expect(
       inA(() =>
