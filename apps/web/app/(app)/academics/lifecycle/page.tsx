@@ -42,7 +42,10 @@ export default async function StudentLifecyclePage() {
   const [sections, years, studentsRaw] = await Promise.all([
     serverApiGet<SectionOption[]>('/academics/structure/sections'),
     serverApiGet<YearOption[]>('/academic-years'),
-    serverApiGet<unknown>('/students?limit=200'),
+    // /students caps `limit` at 100 (PaginationDto @Max(100)); a higher value is
+    // rejected 400 and serverApiGet returns null, blanking the picker. 100 is the
+    // max the endpoint allows — a searchable picker is the real fix past 100.
+    serverApiGet<unknown>('/students?limit=100'),
   ]);
 
   return (

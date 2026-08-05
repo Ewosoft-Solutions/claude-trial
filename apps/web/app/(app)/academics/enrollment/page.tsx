@@ -45,7 +45,9 @@ export default async function EnrollmentPage() {
     serverApiGet<ResolvedModel>('/academics/enrollment/profiles/resolve'),
     serverApiGet<SectionOption[]>('/academics/structure/sections'),
     serverApiGet<YearOption[]>('/academic-years'),
-    serverApiGet<unknown>('/students?limit=200'),
+    // /students caps `limit` at 100 (PaginationDto @Max(100)); a higher value is
+    // rejected 400 and serverApiGet returns null, blanking the picker.
+    serverApiGet<unknown>('/students?limit=100'),
   ]);
 
   return (
