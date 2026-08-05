@@ -367,7 +367,9 @@ d(
       );
       expect(scopedSections.length).toBeGreaterThan(0);
       expect(scopedSections.every((s) => s.campusId === campus1Id)).toBe(true);
-      expect(scopedSections.some((s) => s.id === campus2Section.id)).toBe(false);
+      expect(scopedSections.some((s) => s.id === campus2Section.id)).toBe(
+        false,
+      );
 
       const askingCampus2 = await inA(() =>
         structure.listClassSections(tenantAId, campus1Actor, {

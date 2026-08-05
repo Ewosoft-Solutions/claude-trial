@@ -604,9 +604,7 @@ export class AcademicStructureModelService {
         ...(query.academicYearId
           ? { academicYearId: query.academicYearId }
           : {}),
-        ...(clampCampusId
-          ? { classSection: { campusId: clampCampusId } }
-          : {}),
+        ...(clampCampusId ? { classSection: { campusId: clampCampusId } } : {}),
       },
       orderBy: [{ subjectLabel: 'asc' }],
     });

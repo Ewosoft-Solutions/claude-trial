@@ -51,7 +51,12 @@ interface SeedTenant {
   };
   campuses: { code: string; name: string; isPrimary?: boolean }[];
   stages: { code: string; name: string; order: number }[];
-  yearLevels: { code: string; name: string; stageCode: string; order: number }[];
+  yearLevels: {
+    code: string;
+    name: string;
+    stageCode: string;
+    order: number;
+  }[];
   streams: { code: string; name: string; order: number }[];
   /** F6 curriculum subjects offered (a minimal chain is created to hold them). */
   subjects: { code: string; name: string }[];
@@ -121,10 +126,28 @@ const GREENFIELD: SeedTenant = {
   ],
   sections: [
     { key: 'jss2a-main', campusCode: 'MAIN', yearLevelCode: 'JSS2', name: 'A' },
-    { key: 'sss1sci-main', campusCode: 'MAIN', yearLevelCode: 'SSS1', streamCode: 'SCI', name: 'A' },
-    { key: 'sss1art-main', campusCode: 'MAIN', yearLevelCode: 'SSS1', streamCode: 'ART', name: 'A' },
+    {
+      key: 'sss1sci-main',
+      campusCode: 'MAIN',
+      yearLevelCode: 'SSS1',
+      streamCode: 'SCI',
+      name: 'A',
+    },
+    {
+      key: 'sss1art-main',
+      campusCode: 'MAIN',
+      yearLevelCode: 'SSS1',
+      streamCode: 'ART',
+      name: 'A',
+    },
     { key: 'jss2a-lake', campusCode: 'LAKE', yearLevelCode: 'JSS2', name: 'A' },
-    { key: 'sss1sci-lake', campusCode: 'LAKE', yearLevelCode: 'SSS1', streamCode: 'SCI', name: 'A' },
+    {
+      key: 'sss1sci-lake',
+      campusCode: 'LAKE',
+      yearLevelCode: 'SSS1',
+      streamCode: 'SCI',
+      name: 'A',
+    },
   ],
   offerings: [
     { key: 'jss2-mth', sectionKey: 'jss2a-main', subjectCode: 'MTH' },
@@ -132,14 +155,23 @@ const GREENFIELD: SeedTenant = {
     { key: 'jss2-sci', sectionKey: 'jss2a-main', subjectCode: 'SCI' },
     { key: 'sss1-mth', sectionKey: 'sss1sci-main', subjectCode: 'MTH' },
     { key: 'sss1-eng', sectionKey: 'sss1sci-main', subjectCode: 'ENG' },
-    { key: 'sss1-eco', sectionKey: 'sss1sci-main', subjectCode: 'ECO', isElective: true },
+    {
+      key: 'sss1-eco',
+      sectionKey: 'sss1sci-main',
+      subjectCode: 'ECO',
+      isElective: true,
+    },
     { key: 'lake-mth', sectionKey: 'sss1sci-lake', subjectCode: 'MTH' },
     { key: 'lake-eco', sectionKey: 'sss1sci-lake', subjectCode: 'ECO' },
   ],
   teacherAssignments: ['jss2-mth', 'jss2-sci', 'sss1-mth'],
   academicProfiles: [
     { name: 'K-12 (class enrollment)', model: 'class', isDefault: true },
-    { name: 'Lakeside course registration', campusCode: 'LAKE', model: 'course' },
+    {
+      name: 'Lakeside course registration',
+      campusCode: 'LAKE',
+      model: 'course',
+    },
   ],
   sectionEnrollments: [
     { studentNumber: 'STU-DEV-001', sectionKey: 'jss2a-main' },
@@ -183,7 +215,9 @@ const SUNRISE: SeedTenant = {
     { key: 'p5-soc', sectionKey: 'p5a', subjectCode: 'SOC' },
   ],
   teacherAssignments: ['p5-num', 'p5-lit'],
-  academicProfiles: [{ name: 'Primary (class enrollment)', model: 'class', isDefault: true }],
+  academicProfiles: [
+    { name: 'Primary (class enrollment)', model: 'class', isDefault: true },
+  ],
   sectionEnrollments: [
     { studentNumber: 'STU-DEV-001', sectionKey: 'p5a' },
     { studentNumber: 'STU-DEV-104', sectionKey: 'p5a' },
@@ -215,11 +249,17 @@ function composeSectionLabel(
 }
 
 async function tenantIdBySlug(slug: string): Promise<string | null> {
-  const t = await prisma.tenant.findFirst({ where: { slug }, select: { id: true } });
+  const t = await prisma.tenant.findFirst({
+    where: { slug },
+    select: { id: true },
+  });
   return t?.id ?? null;
 }
 
-async function ensureAcademicYear(tenantId: string, name: string): Promise<string> {
+async function ensureAcademicYear(
+  tenantId: string,
+  name: string,
+): Promise<string> {
   const existing = await prisma.academicYear.findFirst({
     where: { tenantId, name },
     select: { id: true },
@@ -289,14 +329,22 @@ async function ensureDimension(
 }
 
 /** Minimal F6 curriculum chain (authority → framework → version) for a tenant. */
-async function ensureCurriculumVersion(tenantId: string, slug: string): Promise<string> {
+async function ensureCurriculumVersion(
+  tenantId: string,
+  slug: string,
+): Promise<string> {
   const authority =
     (await prisma.curriculumAuthority.findFirst({
       where: { tenantId, code: `${slug}-CUR` },
       select: { id: true },
     })) ??
     (await prisma.curriculumAuthority.create({
-      data: { tenantId, name: 'School Curriculum', code: `${slug}-CUR`, kind: 'tenant' },
+      data: {
+        tenantId,
+        name: 'School Curriculum',
+        code: `${slug}-CUR`,
+        kind: 'tenant',
+      },
       select: { id: true },
     }));
   const framework =
@@ -305,14 +353,22 @@ async function ensureCurriculumVersion(tenantId: string, slug: string): Promise<
       select: { id: true },
     })) ??
     (await prisma.curriculumFramework.create({
-      data: { tenantId, authorityId: authority.id, name: 'Core Framework', code: `${slug}-FW` },
+      data: {
+        tenantId,
+        authorityId: authority.id,
+        name: 'Core Framework',
+        code: `${slug}-FW`,
+      },
       select: { id: true },
     }));
   // Match the DB unique key (frameworkId, versionLabel) so a re-run resolves the
   // exact version rather than "whichever findFirst returns" for the framework.
   const version =
     (await prisma.curriculumVersion.findFirst({
-      where: { frameworkId: framework.id, versionLabel: CURRICULUM_VERSION_LABEL },
+      where: {
+        frameworkId: framework.id,
+        versionLabel: CURRICULUM_VERSION_LABEL,
+      },
       select: { id: true },
     })) ??
     (await prisma.curriculumVersion.create({
@@ -417,7 +473,14 @@ async function ensureOfferingTeacher(
   });
   if (existing) return;
   await prisma.offeringTeacher.create({
-    data: { tenantId, subjectOfferingId, userTenantId, role: 'teacher', isActive: true, assignedBy: CREATED_BY },
+    data: {
+      tenantId,
+      subjectOfferingId,
+      userTenantId,
+      role: 'teacher',
+      isActive: true,
+      assignedBy: CREATED_BY,
+    },
   });
 }
 
@@ -434,11 +497,22 @@ async function ensureAcademicProfile(
   });
   if (existing) return;
   await prisma.academicProfile.create({
-    data: { tenantId, campusId, name, enrollmentModel, isDefault, status: 'active', createdBy: CREATED_BY },
+    data: {
+      tenantId,
+      campusId,
+      name,
+      enrollmentModel,
+      isDefault,
+      status: 'active',
+      createdBy: CREATED_BY,
+    },
   });
 }
 
-async function studentIdByNumber(tenantId: string, studentNumber: string): Promise<string | null> {
+async function studentIdByNumber(
+  tenantId: string,
+  studentNumber: string,
+): Promise<string | null> {
   const s = await prisma.student.findFirst({
     where: { tenantId, studentNumber },
     select: { id: true },
@@ -446,8 +520,14 @@ async function studentIdByNumber(tenantId: string, studentNumber: string): Promi
   return s?.id ?? null;
 }
 
-async function teacherProfileId(tenantId: string, email: string): Promise<string | null> {
-  const user = await prisma.user.findFirst({ where: { email }, select: { id: true } });
+async function teacherProfileId(
+  tenantId: string,
+  email: string,
+): Promise<string | null> {
+  const user = await prisma.user.findFirst({
+    where: { email },
+    select: { id: true },
+  });
   if (!user) return null;
   const profile = await prisma.userTenant.findFirst({
     where: { userId: user.id, tenantId },
@@ -516,7 +596,13 @@ async function ensureCampusRegistrar(
   await prisma.userTenantRole.upsert({
     where: { userTenantId: profile.id },
     update: { roleId, tenantId, isPrimary: true, scope },
-    create: { userTenantId: profile.id, roleId, tenantId, isPrimary: true, scope },
+    create: {
+      userTenantId: profile.id,
+      roleId,
+      tenantId,
+      isPrimary: true,
+      scope,
+    },
   });
 }
 
@@ -524,19 +610,34 @@ async function ensureCampusRegistrar(
 
 async function applyTenant(cfg: SeedTenant): Promise<string> {
   const tenantId = await tenantIdBySlug(cfg.slug);
-  if (!tenantId) return `⏭  ${cfg.slug}: tenant not found — run db:seed:dev first. Skipped.`;
+  if (!tenantId)
+    return `⏭  ${cfg.slug}: tenant not found — run db:seed:dev first. Skipped.`;
 
-  const academicYearId = await ensureAcademicYear(tenantId, cfg.academicYearName);
+  const academicYearId = await ensureAcademicYear(
+    tenantId,
+    cfg.academicYearName,
+  );
 
   const campusIds = new Map<string, { id: string; name: string }>();
   for (const c of cfg.campuses) {
-    const id = await ensureCampus(tenantId, c.code, c.name, Boolean(c.isPrimary));
+    const id = await ensureCampus(
+      tenantId,
+      c.code,
+      c.name,
+      Boolean(c.isPrimary),
+    );
     campusIds.set(c.code, { id, name: c.name });
   }
 
   const stageIds = new Map<string, string>();
   for (const s of cfg.stages) {
-    stageIds.set(s.code, await ensureDimension('stage', tenantId, s.code, { name: s.name, order: s.order }));
+    stageIds.set(
+      s.code,
+      await ensureDimension('stage', tenantId, s.code, {
+        name: s.name,
+        order: s.order,
+      }),
+    );
   }
 
   const yearLevels = new Map<string, { id: string; name: string }>();
@@ -551,7 +652,10 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
 
   const streams = new Map<string, { id: string; name: string }>();
   for (const s of cfg.streams) {
-    const id = await ensureDimension('stream', tenantId, s.code, { name: s.name, order: s.order });
+    const id = await ensureDimension('stream', tenantId, s.code, {
+      name: s.name,
+      order: s.order,
+    });
     streams.set(s.code, { id, name: s.name });
   }
 
@@ -559,7 +663,12 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
   const versionId = await ensureCurriculumVersion(tenantId, cfg.slug);
   const subjects = new Map<string, { id: string; name: string }>();
   for (const sub of cfg.subjects) {
-    const id = await ensureCurriculumSubject(tenantId, versionId, sub.code, sub.name);
+    const id = await ensureCurriculumSubject(
+      tenantId,
+      versionId,
+      sub.code,
+      sub.name,
+    );
     subjects.set(sub.code, { id, name: sub.name });
   }
 
@@ -571,8 +680,20 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
     const stream = sec.streamCode
       ? mustGet(streams, sec.streamCode, 'stream')
       : null;
-    const label = composeSectionLabel(year.name, stream?.name ?? null, sec.name);
-    const id = await ensureSection(tenantId, campus.id, year.id, stream?.id ?? null, sec.name, label, sec.capacity ?? 40);
+    const label = composeSectionLabel(
+      year.name,
+      stream?.name ?? null,
+      sec.name,
+    );
+    const id = await ensureSection(
+      tenantId,
+      campus.id,
+      year.id,
+      stream?.id ?? null,
+      sec.name,
+      label,
+      sec.capacity ?? 40,
+    );
     sectionIds.set(sec.key, id);
   }
 
@@ -581,7 +702,14 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
   for (const off of cfg.offerings) {
     const sectionId = mustGet(sectionIds, off.sectionKey, 'section');
     const subject = mustGet(subjects, off.subjectCode, 'subject');
-    const id = await ensureOffering(tenantId, sectionId, academicYearId, subject.id, subject.name, Boolean(off.isElective));
+    const id = await ensureOffering(
+      tenantId,
+      sectionId,
+      academicYearId,
+      subject.id,
+      subject.name,
+      Boolean(off.isElective),
+    );
     offeringIds.set(off.key, id);
   }
 
@@ -600,8 +728,16 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
 
   // Academic profiles (tenant default + per-campus overrides).
   for (const p of cfg.academicProfiles) {
-    const campusId = p.campusCode ? (campusIds.get(p.campusCode)?.id ?? null) : null;
-    await ensureAcademicProfile(tenantId, campusId, p.name, p.model, Boolean(p.isDefault));
+    const campusId = p.campusCode
+      ? (campusIds.get(p.campusCode)?.id ?? null)
+      : null;
+    await ensureAcademicProfile(
+      tenantId,
+      campusId,
+      p.name,
+      p.model,
+      Boolean(p.isDefault),
+    );
   }
 
   // Section enrollments (class model).
@@ -621,7 +757,14 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
     });
     if (!existing) {
       await prisma.sectionEnrollment.create({
-        data: { tenantId, studentId, classSectionId: sectionId, academicYearId, status: 'active', createdBy: CREATED_BY },
+        data: {
+          tenantId,
+          studentId,
+          classSectionId: sectionId,
+          academicYearId,
+          status: 'active',
+          createdBy: CREATED_BY,
+        },
       });
     }
     enrolled++;
@@ -639,7 +782,13 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
     });
     if (!existing) {
       await prisma.courseRegistration.create({
-        data: { tenantId, studentId, subjectOfferingId: offeringId, status: 'registered', createdBy: CREATED_BY },
+        data: {
+          tenantId,
+          studentId,
+          subjectOfferingId: offeringId,
+          status: 'registered',
+          createdBy: CREATED_BY,
+        },
       });
     }
     registered++;
@@ -657,7 +806,13 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
     });
     if (!existing) {
       await prisma.studentSubjectElection.create({
-        data: { tenantId, studentId, subjectOfferingId: offeringId, status: 'elected', createdBy: CREATED_BY },
+        data: {
+          tenantId,
+          studentId,
+          subjectOfferingId: offeringId,
+          status: 'elected',
+          createdBy: CREATED_BY,
+        },
       });
     }
     elected++;
@@ -668,7 +823,12 @@ async function applyTenant(cfg: SeedTenant): Promise<string> {
   if (cfg.registrar) {
     const campus = campusIds.get(cfg.registrar.campusCode);
     if (campus) {
-      await ensureCampusRegistrar(tenantId, cfg.registrar, campus.id, campus.name);
+      await ensureCampusRegistrar(
+        tenantId,
+        cfg.registrar,
+        campus.id,
+        campus.name,
+      );
       registrarNote = `\n     ↳ ${cfg.registrar.email} (Management, scope=${campus.name}) / ${DEV_PASSWORD}`;
     }
   }
