@@ -14,7 +14,9 @@ import {
   IsString,
   MaxLength,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 
 /** The scope a grant (or campus target) is bound to. */
 export class ScopeDescriptorDto {
@@ -51,6 +53,8 @@ export class RequestGrantDto {
 
   /** Optional campus/global scope. Absent = unscoped (global). */
   @IsOptional()
+  @ValidateNested()
+  @Type(() => ScopeDescriptorDto)
   scope?: ScopeDescriptorDto | null;
 
   /** ISO-8601 expiry for a temporary cover. Absent = permanent. */
