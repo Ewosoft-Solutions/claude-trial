@@ -82,7 +82,7 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 | WB1-3 | **Invitations + activation/suspension + password reset** (secure; no generated-password)                        | #1,#13 | M      | F1, F5     | claude | done      |
 | WB1-4 | **Guardianship** authority/priority/consent extension                                                           | #29    | M      | F1         | claude | done      |
 | WB1-5 | **Role editor** + `resource.action.context` matrix + permission search + presets + **effective-access preview** | #7,#8  | L      | F1, ADR-01 | claude | done      |
-| WB1-6 | **Scope + expiry + temporary cover** + maker-checker/step-up for high-risk access changes                       | #8,#9  | L      | WB1-5      | claude | in-review |
+| WB1-6 | **Scope + expiry + temporary cover** + maker-checker/step-up for high-risk access changes                       | #8,#9  | L      | WB1-5      | claude | done |
 
 **Workbench-1 acceptance:** a staff member who is also a guardian uses **one** identity with two profiles; a bursar posts payments for Campus A but can't export Campus B debtors; a substitute gets 5-day class access that auto-expires; an admin can explain effective access (inheritance/override/scope/expiry). _(from [06 §Acceptance](../plan/06-roadmap-and-discussion-guide.md#acceptance-scenarios-that-matter))_
 
@@ -90,7 +90,7 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 
 | ID    | Title                                                                                                            | #           | Effort | Deps                          | Owner | Status  |
 | ----- | -------------------------------------------------------------------------------------------------------------- | ----------- | ------ | ----------------------------- | ----- | ------- |
-| WB2-1 | Academic **structure model** (ADR-02: campus·stage·year·stream·section + offerings; **label stored, not parsed**) | #36,#37,#38 | XL     | F6, ADR-02/03, **Campus (WB1-6)** | —     | ready   |
+| WB2-1 | Academic **structure model** (ADR-02: campus·stage·year·stream·section + offerings; **label stored, not parsed**) | #36,#37,#38 | XL     | F6, ADR-02/03, **Campus (WB1-6)** | claude | claimed |
 | WB2-2 | **Enrollment** + per-course registration + electives + teacher assignment (profile selects which)                | #30         | L      | WB2-1, F6                     | —     | backlog |
 | WB2-3 | Student **lifecycle**: registration · transfer · withdrawal · graduation (durable, effective-dated history)      | #31,#32     | L      | WB2-2, F1                     | —     | backlog |
 | WB2-4 | **Promotion workbench** (year rollover: preview + exceptions, on F3 jobs + maker-checker commit)                 | #58         | L      | WB2-3                         | —     | backlog |
@@ -115,6 +115,8 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 ---
 
 ## Change log (board edits — newest first)
+
+- `2026-08-05` — **WB1-6 → `done` (merged); WB2-1 claimed (claude).** [PR #67](https://github.com/Ewosoft-Solutions/claude-trial/pull/67) squash-merged to `main` as `0d9261d`, **CI green on the merge run** (5m30s) — gate met (CI-green **+** merged), so **WB1-6 flips to `done` → Workbench-1 is 6/6 complete.** Independent review before merge confirmed every surface (maker-checker SoD · step-up · per-route permission guards · campus-scope enforcement via `AccessScopeService` · grant expiry on the live authz path · RLS on `campuses` + the shared-catalog two-policy tightening · audit on every mutation · no privileged client); one nit found + applied — `RequestGrantDto.scope` was a nested object without `@ValidateNested()`/`@Type()`, so class-validator didn't descend into it (the service re-validates scope, so defense-in-depth, not a hole) — committed on the branch before merge. With `Campus` + `AccessScopeService` now on `main`, **WB2-1 is fully unblocked and claimed (claude)** — branch `feat/wb2-1-academic-structure`; building the ADR-02 structured model (Stage · YearLevel · Stream · ClassSection[campus-scoped] + SubjectOffering linking F6 `CurriculumSubject`), `displayLabel` **stored not parsed**, `+2` permissions (`academics.structure.view`/`.manage`), campus scope enforced through the WB1-6 primitive. _(claude)_
 
 - `2026-08-05` — **WB2 kickstarted → detailed; WB2-1 `ready`.** With `F1`+`F6` `done` and ADR-02/03 accepted, Workbench-2 (academic structure + student lifecycle) is now detailed into cards ([`workbench-academic.md`](workbench-academic.md)) and added to the board as **WB2-1..WB2-4**. **WB2-1** (the ADR-02 structured model — campus·stage·year·stream·section + offerings, label stored not parsed) flips to **`ready`**: its hard deps (`F6`, ADR-02/03) are done, and its one new dep — **`Campus`** — lands with WB1-6 (in-review, complete). WB2-2/3/4 stay `backlog` (chained on WB2-1). Note the **cross-workbench link**: WB1-6's `Campus` + `AccessScopeService` are what make the ADR-02 model's campus dimension real — WB2 is where campus scope becomes visible on academic rows, closing Workbench-1 scenario 2 end-to-end. _(claude)_
 
