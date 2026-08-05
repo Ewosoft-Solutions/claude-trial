@@ -208,7 +208,10 @@ export function AiWorkspaceLauncher() {
         type="button"
         onClick={() => setOpen(true)}
         className={cn(
-          'inline-flex h-9 shrink-0 items-center gap-2 rounded-full border border-border bg-secondary px-2.5 text-[13px] font-semibold text-foreground outline-none transition-colors md:px-3',
+          // Icon-only circle on mobile (frees top-bar width for the school
+          // name); expands to the labelled pill from sm up.
+          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-secondary text-[13px] font-semibold text-foreground outline-none transition-colors',
+          'sm:w-auto sm:justify-start sm:gap-2 sm:px-2.5 md:px-3',
           'hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         )}
         aria-label="Ask AI"
@@ -217,7 +220,7 @@ export function AiWorkspaceLauncher() {
           aria-hidden
           className="size-3.5 shrink-0 rounded-full [background-image:var(--grad-brand)] shadow-[0_0_8px_-1px_rgba(140,92,255,0.7)]"
         />
-        <span>Ask&nbsp;AI</span>
+        <span className="hidden sm:inline">Ask&nbsp;AI</span>
         <ShortcutHint
           keyName="J"
           className="ml-0.5 hidden sm:inline-flex [@media(pointer:coarse)]:hidden"

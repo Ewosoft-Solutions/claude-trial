@@ -311,12 +311,22 @@ function Sidebar({
         expanded ? 'w-[15.25rem]' : 'w-[var(--rail-width)]',
       )}
     >
-      {/* Brand — the full wordmark when expanded; the plain "SWE" text
-          placeholder logo when collapsed. The collapse/expand control is the
-          circular toggle that straddles the rail's right edge (below). */}
-      {/* Brand row matches the header height so its bottom divider lines up
-          with the top bar's bottom border. */}
-      {expanded ? (
+      {/* Lead the rail with the CUSTOMER's identity — the school lockup (logo
+          chip + role/name + switch). The product wordmark is demoted to a
+          small signature in the footer. Fall back to the wordmark here only
+          when there's no school (e.g. platform-scoped viewers). The lead row
+          matches the header height so its bottom divider lines up with the top
+          bar's bottom border. */}
+      {schoolSwitcher ? (
+        <div
+          className={cn(
+            'flex h-[var(--header-height)] shrink-0 items-center',
+            expanded ? 'px-2' : 'justify-center',
+          )}
+        >
+          {schoolSwitcher(expanded)}
+        </div>
+      ) : expanded ? (
         <div className="flex h-[var(--header-height)] shrink-0 items-center pl-3 pr-2">
           <span className="truncate font-display text-[22px] font-bold leading-none text-foreground">
             {brandLabel}
@@ -349,36 +359,25 @@ function Sidebar({
         )}
       </button>
 
-      {/* Full-width divider below the brand */}
+      {/* Full-width divider below the lead */}
       <div className="h-px w-full shrink-0 bg-border" />
-
-      {/* Tenant/school context switcher — directly under the brand. Fixed
-          height so the section doesn't jump when collapsing/expanding. */}
-      {schoolSwitcher ? (
-        <>
-          <div
-            className={cn(
-              'flex h-16 shrink-0 items-center',
-              expanded ? 'px-2' : 'justify-center',
-            )}
-          >
-            {schoolSwitcher(expanded)}
-          </div>
-          <div className="h-px w-full shrink-0 bg-border" />
-        </>
-      ) : null}
 
       {expanded ? (
         <nav
           aria-label="Primary"
-          className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto overscroll-contain px-2 py-2"
+          // pt aligns the first nav item with the page title ("Good morning…"),
+          // which sits --content-padding below the top bar; the -1px accounts
+          // for the divider between the lead row and the nav.
+          className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto overscroll-contain px-2 pb-2 pt-[calc(var(--content-padding)_-_1px)]"
         >
           {items.map(expandedItem)}
         </nav>
       ) : (
         <nav
           aria-label="Primary"
-          className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain py-2"
+          // pt matches the expanded rail so the first icon aligns with the
+          // page title level (see the note above).
+          className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto overscroll-contain pb-2 pt-[calc(var(--content-padding)_-_1px)]"
         >
           {items.map(compactItem)}
         </nav>
@@ -398,7 +397,9 @@ function Sidebar({
           expanded ? 'px-2' : 'items-center px-0',
         )}
       >
-        {footerItems?.map((item) => (expanded ? expandedItem(item) : compactItem(item)))}
+        {footerItems?.map((item) =>
+          expanded ? expandedItem(item) : compactItem(item),
+        )}
         <ThemeControl
           expanded={expanded}
           variant="curve"
@@ -415,6 +416,15 @@ function Sidebar({
             expanded={expanded}
           />
         ) : null}
+        {/* Product signature — demoted from the top of the rail to a small,
+            muted line at the foot (only when the school leads above). */}
+        {expanded && schoolSwitcher ? (
+          <div className="pt-1 text-center">
+            <span className="font-display text-[15px] leading-tight text-muted-foreground/70">
+              {brandLabel}
+            </span>
+          </div>
+        ) : null}
       </div>
 
       {/* Collapsed flyout submenu (opaque) */}
@@ -430,10 +440,7 @@ function Sidebar({
             maxHeight: `calc(100% - ${flyoutTop + 8}px)`,
           }}
         >
-          <FlyoutContour
-            width={flyoutSize.width}
-            height={flyoutSize.height}
-          />
+          <FlyoutContour width={flyoutSize.width} height={flyoutSize.height} />
 
           <div
             data-slot="flyout-content"

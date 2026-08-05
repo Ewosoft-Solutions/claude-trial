@@ -31,7 +31,11 @@ export function RefreshButton({
   return (
     <Button
       type="button"
-      variant="outline"
+      // Icon-only: `ghost` (no border box) so the control reads as a single
+      // spinning glyph — an outlined square around the circular refresh icon
+      // looked like two stacked buttons, the box static while the icon rotated.
+      // Labelled: keep `outline` so it still reads as a proper button.
+      variant={label ? 'outline' : 'ghost'}
       size={label ? 'sm' : 'icon-sm'}
       onClick={onRefresh}
       disabled={refreshing}

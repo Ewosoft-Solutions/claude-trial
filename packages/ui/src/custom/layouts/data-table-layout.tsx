@@ -109,10 +109,12 @@ export function DataTableLayout({
           // every table framed by this layout and every DataCard table shares
           // one gutter across the app.
           //
-          // `touch-pan-x`: on touch devices this container only claims HORIZONTAL
-          // pans, so a vertical swipe over a wide table scrolls the PAGE instead
-          // of being trapped by the table's horizontal overflow.
-          <div className="touch-pan-x overflow-x-auto [&_:is(th,td):first-child]:pl-4 [&_:is(th,td):last-child]:pr-4 sm:[&_:is(th,td):first-child]:pl-6 sm:[&_:is(th,td):last-child]:pr-6">
+          // `touch-pan-x touch-pan-y`: allow BOTH axes so a horizontal swipe
+          // pans the wide table while a vertical swipe scrolls the PAGE. Using
+          // `touch-pan-x` alone sets `touch-action: pan-x`, which makes the
+          // browser swallow vertical swipes that begin on the table — trapping
+          // the page's scroll on touch devices.
+          <div className="touch-pan-x touch-pan-y overflow-x-auto [&_:is(th,td):first-child]:pl-4 [&_:is(th,td):last-child]:pr-4 sm:[&_:is(th,td):first-child]:pl-6 sm:[&_:is(th,td):last-child]:pr-6">
             {children}
           </div>
         )}

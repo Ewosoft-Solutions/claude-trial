@@ -154,16 +154,18 @@ function responsiveColumnClass(
   columns: 1 | 2 | 3 | 4,
   compact: boolean,
 ): string {
+  // Mobile shows TWO columns (the tiles are compact and there's ample width);
+  // a single stat still spans the row on its own.
   if (columns === 1) return 'grid-cols-1';
-  if (columns === 2) return 'grid-cols-1 @md/main:grid-cols-2';
+  if (columns === 2) return 'grid-cols-2';
   if (columns === 3) {
     return compact
-      ? 'grid-cols-1 @md/main:grid-cols-2 @xl/main:grid-cols-3'
-      : 'grid-cols-1 @md/main:grid-cols-2 @2xl/main:grid-cols-3';
+      ? 'grid-cols-2 @xl/main:grid-cols-3'
+      : 'grid-cols-2 @2xl/main:grid-cols-3';
   }
   return compact
-    ? 'grid-cols-1 @md/main:grid-cols-2 @3xl/main:grid-cols-4'
-    : 'grid-cols-1 @md/main:grid-cols-2 @4xl/main:grid-cols-4';
+    ? 'grid-cols-2 @3xl/main:grid-cols-4'
+    : 'grid-cols-2 @4xl/main:grid-cols-4';
 }
 
 export function StatGrid({

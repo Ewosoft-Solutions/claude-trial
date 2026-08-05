@@ -59,9 +59,14 @@ export interface MobileNavProps {
   railFooterItems?: RailItem[];
   /** Secondary panels keyed by section, for the drawer's accordion. */
   navPanels?: Record<string, NavPanelData>;
-  /** Tenant/school context switcher, rendered at the top of the drawer under
-   *  the brand. Receives `true` (the drawer is always an expanded surface). */
-  schoolSwitcher?: (expanded: boolean) => React.ReactNode;
+  /** Tenant/school context switcher, rendered at the top of the drawer.
+   *  Receives `true` (the drawer is always an expanded surface) and a
+   *  `menuSide` hint of `'bottom'` so the switch menu drops down inside the
+   *  drawer instead of opening off the right edge. */
+  schoolSwitcher?: (
+    expanded: boolean,
+    menuSide?: 'right' | 'bottom',
+  ) => React.ReactNode;
   /** Optional card beneath the drawer nav (e.g. a progress card). */
   navFooter?: React.ReactNode;
   /** Signed-in user rendered in the drawer footer. */
@@ -290,7 +295,9 @@ export function MobileNav({
               key={item.key}
               href={item.href}
               onSelect={item.onSelect}
-              onPrefetch={item.hasPanel ? item.onPanelPrefetch : item.onPrefetch}
+              onPrefetch={
+                item.hasPanel ? item.onPanelPrefetch : item.onPrefetch
+              }
               active={Boolean(item.active)}
               className={TAB_CLASS}
             >
@@ -322,11 +329,27 @@ export function MobileNav({
         style={{ backgroundColor: 'var(--sidebar-solid)' }}
         className="flex w-[min(20rem,88vw)] flex-col gap-0 border-r border-border p-0 sm:max-w-[min(20rem,88vw)]"
       >
-        {/* Brand + close */}
-        <div className="flex h-14 shrink-0 items-center justify-between pl-4 pr-2">
-          <SheetTitle className="truncate font-display text-[22px] font-bold leading-none text-foreground">
-            {brandLabel}
-          </SheetTitle>
+        {/* Lead with the CUSTOMER's identity — the school lockup (same as the
+            desktop rail); the product wordmark is demoted to a small footer
+            signature. The dialog keeps an accessible (sr-only) title. */}
+        <SheetTitle className="sr-only">Navigation</SheetTitle>
+        <SheetDescription className="sr-only">
+          Browse all sections and account options.
+        </SheetDescription>
+        <div className="flex h-[var(--header-height)] shrink-0 items-center gap-2 px-2">
+          <div className="min-w-0 flex-1">
+            {schoolSwitcher ? (
+              schoolSwitcher(true, 'bottom')
+            ) : (
+              <span className="truncate pl-2 font-display text-[22px] font-bold leading-none text-foreground">
+                {brandLabel}
+              </span>
+            )}
+          </div>
+          {/* Divider separating the switcher (and its kebab) from the close
+              "X", so the two read as distinct controls rather than two
+              adjacent menu icons. */}
+          <div className="h-6 w-px shrink-0 bg-border" aria-hidden />
           <SheetClose
             className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
             aria-label="Close navigation"
@@ -334,24 +357,16 @@ export function MobileNav({
             <X className="size-5" aria-hidden />
           </SheetClose>
         </div>
-        <SheetDescription className="sr-only">
-          Browse all sections and account options.
-        </SheetDescription>
 
         <div className="h-px w-full shrink-0 bg-border" />
-
-        {/* Tenant/school context switcher — directly under the brand */}
-        {schoolSwitcher ? (
-          <>
-            <div className="shrink-0 px-2 py-2">{schoolSwitcher(true)}</div>
-            <div className="h-px w-full shrink-0 bg-border" />
-          </>
-        ) : null}
 
         {/* Full navigation with accordion sub-sections */}
         <nav
           aria-label="All sections"
-          className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto overscroll-contain px-2 py-2"
+          // pt aligns the first nav item with the page title ("Good morning…"),
+          // which sits --content-padding below the top bar; the -1px accounts
+          // for the divider between the header row and the nav.
+          className="flex min-h-0 flex-1 flex-col gap-px overflow-y-auto overscroll-contain px-2 pb-2 pt-[calc(var(--content-padding)_-_1px)]"
         >
           {railItems.map((item) => (
             <DrawerSection
@@ -386,6 +401,15 @@ export function MobileNav({
           <ThemeControl expanded variant="curve" />
           {user ? (
             <SidebarProfile user={user} items={userMenuItems} expanded />
+          ) : null}
+          {/* Product signature — demoted from the top of the drawer to a small,
+              muted line at the foot (only when the school leads above). */}
+          {schoolSwitcher ? (
+            <div className="pt-1 text-center">
+              <span className="font-display text-[15px] leading-tight text-muted-foreground/70">
+                {brandLabel}
+              </span>
+            </div>
           ) : null}
         </div>
       </SheetContent>

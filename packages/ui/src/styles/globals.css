@@ -111,13 +111,10 @@
      as a tint and undercuts the clean, high-grade finish. Depth here comes
      purely from the soft canvas + white cards, not colour. */
   --aurora-field: none;
-  --glass-card: linear-gradient(
-    165deg,
-    #ffffff,
-    rgba(255, 255, 255, 0.94)
-  );
+  --glass-card: linear-gradient(165deg, #ffffff, rgba(255, 255, 255, 0.94));
   --glass-inset:
-    0 1px 0 rgba(255, 255, 255, 0.8) inset, 0 18px 40px -28px rgba(40, 40, 100, 0.26);
+    0 1px 0 rgba(255, 255, 255, 0.8) inset,
+    0 18px 40px -28px rgba(40, 40, 100, 0.26);
 
   /* gradient recipes */
   --h1-grad: linear-gradient(92deg, #4f6df5, #a855f7 55%, #ff5fa8);
@@ -135,7 +132,11 @@
     #12b886,
     #4f6df5
   );
-  --grad-info-chip: linear-gradient(150deg, rgba(79, 109, 245, 0.16), rgba(140, 92, 255, 0.1));
+  --grad-info-chip: linear-gradient(
+    150deg,
+    rgba(79, 109, 245, 0.16),
+    rgba(140, 92, 255, 0.1)
+  );
 
   /* chart accents */
   --chart-glow: rgba(79, 109, 245, 0.45);
@@ -201,7 +202,12 @@
 
   --background: #07060f; /* aurora --bg (dark) — flat canvas */
   --foreground: #eef0ff; /* aurora --ink */
-  --card: rgba(255, 255, 255, 0.05); /* aurora --surface: subtle lift on flat bg */
+  --card: rgba(
+    255,
+    255,
+    255,
+    0.05
+  ); /* aurora --surface: subtle lift on flat bg */
   --card-foreground: #eef0ff;
   --popover: #17152a; /* opaque so dropdowns/dialogs stay legible */
   --popover-foreground: #eef0ff;
@@ -237,7 +243,12 @@
   --chart-4: #ff6fae;
   --chart-5: #ffce5c;
 
-  --sidebar: rgba(255, 255, 255, 0.022); /* aurora --rail-bg: near-flat over bg */
+  --sidebar: rgba(
+    255,
+    255,
+    255,
+    0.022
+  ); /* aurora --rail-bg: near-flat over bg */
   --sidebar-solid: #0b0a14; /* opaque match of the rail over the flat #07060f bg */
   --sidebar-foreground: #eef0ff;
   --sidebar-primary: #5b8cff;
@@ -257,7 +268,8 @@
     rgba(255, 255, 255, 0.022)
   );
   --glass-inset:
-    0 1px 0 rgba(255, 255, 255, 0.05) inset, 0 18px 40px -28px rgba(0, 0, 0, 0.6);
+    0 1px 0 rgba(255, 255, 255, 0.05) inset,
+    0 18px 40px -28px rgba(0, 0, 0, 0.6);
 
   --h1-grad: linear-gradient(92deg, #a9c2ff, #d9b8ff 55%, #ffc2e0);
   --grad-primary: linear-gradient(120deg, #5b8cff, #8c5cff);
@@ -274,7 +286,11 @@
     #2ee6a6,
     #5b8cff
   );
-  --grad-info-chip: linear-gradient(150deg, rgba(91, 140, 255, 0.4), rgba(140, 92, 255, 0.25));
+  --grad-info-chip: linear-gradient(
+    150deg,
+    rgba(91, 140, 255, 0.4),
+    rgba(140, 92, 255, 0.25)
+  );
 
   --chart-glow: rgba(91, 140, 255, 0.85);
   --float-ink: #ffffff;
@@ -357,7 +373,10 @@
   --glass-inset: none;
   --grad-primary: none; /* flat primary CTAs */
   --grad-nav-active: none; /* flat active nav (falls back to bg-primary/10) */
-  --h1-grad: linear-gradient(#eef0ff, #eef0ff); /* flat headings (still Caveat) */
+  --h1-grad: linear-gradient(
+    #eef0ff,
+    #eef0ff
+  ); /* flat headings (still Caveat) */
   --grad-brand: conic-gradient(
     from 210deg at 50% 50%,
     #5b8cff,

@@ -285,7 +285,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   // drawer with the surface's current expanded state. Only school-scoped
   // viewers have a tenant to switch.
   const renderSchoolSwitcher = React.useCallback(
-    (switcherExpanded: boolean) =>
+    (switcherExpanded: boolean, menuSide?: 'right' | 'bottom') =>
       viewer.scope === 'school' ? (
         <SchoolSwitcher
           schools={profileOptions}
@@ -293,6 +293,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
           onSchoolChange={handleProfileChange}
           menuLabel="Schools and roles"
           expanded={switcherExpanded}
+          menuSide={menuSide}
         />
       ) : null,
     [viewer.scope, profileOptions, activeProfileId, handleProfileChange],
@@ -387,6 +388,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         }
         header={
           <AppHeader
+            school={viewer.scope === 'school' ? activeSchool : undefined}
             breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
             search={
               <OmniSearch
