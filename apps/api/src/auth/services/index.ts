@@ -12,6 +12,7 @@ export * from './mfa-webauthn.service';
 export * from './mfa.service';
 export * from './step-up.service';
 export * from './permission.service';
+export * from './access-scope.service';
 export * from './role.service';
 export * from './role-template.service';
 export * from './effective-access.service';

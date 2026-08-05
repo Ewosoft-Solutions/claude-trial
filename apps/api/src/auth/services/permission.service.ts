@@ -14,6 +14,11 @@ import {
   ClearanceLevelHelpers,
   AccessScope,
 } from '@workspace/api';
+import {
+  isGrantExpired,
+  parseScope,
+  type ScopeDescriptor,
+} from './access-scope.service';
 
 /**
  * Permission Check Result
@@ -42,6 +47,14 @@ export interface UserPermissionContext {
     }
   >; // permission name -> grant + metadata
   permissionIds: string[];
+  /**
+   * WB1-6 · The scope of the profile's role GRANT (from `UserTenantRole.scope`).
+   * `null` = unscoped/global. `AccessScopeService` enforces it: a campus-scoped
+   * grant may only act within its campus. WB5/WB2 read this to gate campus rows.
+   * Optional so the AI-mediator's synthesised context (and older test fixtures)
+   * stay valid — an absent scope is treated as unscoped.
+   */
+  grantScope?: ScopeDescriptor | null;
 }
 
 /**
@@ -85,10 +98,22 @@ export class PermissionService {
     }
 
     // Get role and its clearance level (one per profile)
-    const role = userTenant.userTenantRole?.role;
+    const grant = userTenant.userTenantRole;
+    const role = grant?.role;
     if (!role) {
       return null;
     }
+
+    // WB1-6 · A time-boxed grant (a temporary substitute cover) stops conferring
+    // access the moment it expires. This runs on EVERY authorization decision,
+    // so an expired grant loses its role here — no token invalidation, no
+    // background job: the next request simply resolves to "no active role" and
+    // is denied, exactly like a profile with no role at all.
+    if (isGrantExpired(grant?.expiresAt)) {
+      return null;
+    }
+
+    const grantScope = parseScope(grant?.scope);
 
     const roleId = role.id;
     const clearanceLevel = role?.clearanceLevel ?? 0;
@@ -146,6 +171,7 @@ export class PermissionService {
       roleId,
       permissions,
       permissionIds,
+      grantScope,
     };
   }
 

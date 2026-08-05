@@ -44,7 +44,7 @@ import { RoleService, CreateCustomRoleInput } from '../services/role.service';
 import { PermissionService } from '../services/permission.service';
 import { RoleTemplateService } from '../services/role-template.service';
 import { EffectiveAccessService } from '../services/effective-access.service';
-import type { ScopeDescriptor } from '../services/effective-access.service';
+import type { ScopeDescriptor } from '../services/access-scope.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { RoleType, TenantQueriesService } from '@workspace/api';
 import { AuthUser } from '../decorators';

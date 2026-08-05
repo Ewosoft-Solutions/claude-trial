@@ -23,12 +23,9 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaClient } from '@workspace/database';
 import { withTenantScope } from '@workspace/database/rls';
 import { RoleType } from '@workspace/api';
-
-export interface ScopeDescriptor {
-  type: string; // 'campus' | 'department' | 'global' | …
-  value?: string;
-  label?: string;
-}
+// ScopeDescriptor is defined once, in access-scope.service (the enforcement
+// primitive), and re-used here (not re-exported, so the barrel surfaces it once).
+import type { ScopeDescriptor } from './access-scope.service';
 
 export interface AccessEntry {
   permission: string;
