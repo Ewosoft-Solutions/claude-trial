@@ -598,12 +598,19 @@ export class PromotionService {
     }
     if (run.status === 'pending_approval' && run.approvalRequestId) {
       // Withdraw the pending maker-checker request so it isn't left dangling.
-      await this.makerChecker.rejectRequest(
-        this.prisma,
-        run.approvalRequestId,
-        actor.userId,
-        reason?.trim() || 'Promotion run cancelled',
-      );
+      // If it is already closed/expired (rejectRequest throws on a non-pending
+      // request), the run must STILL cancel — cancel exists precisely to unstick
+      // a lapsed approval — so the rejection is best-effort.
+      try {
+        await this.makerChecker.rejectRequest(
+          this.prisma,
+          run.approvalRequestId,
+          actor.userId,
+          reason?.trim() || 'Promotion run cancelled',
+        );
+      } catch {
+        // The request was already expired or processed — nothing to withdraw.
+      }
     }
     const updated = await this.client.promotionRun.update({
       where: { id: runId },

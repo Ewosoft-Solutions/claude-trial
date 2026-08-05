@@ -28,9 +28,13 @@ Last Updated: 2026-08-05
 - web routes verified to compile in the live turbopack dev server (`/academics/lifecycle` + `/academics/promotion` → 307→/login).
 - **Deferred:** isolated `next build`/`nest build` → CI (a `next dev` :3001 + api dev :3030 were live — the shared-`.next`/`dist` gotcha). Authenticated visual pass owner-gated (credential guardrail).
 
+**Independent review (done, this session)**
+
+- An independent maker-checker review returned **CHANGES-REQUESTED → 8 findings**, all fixed on the branch (`b12bbab` + a `cancelRun` expiry-robustness follow-up); the confirmation pass returned **APPROVE** (no new defects). Headline: the promotion **`repeat`** exception silently PROMOTED the student (setException kept the preview's next-level proposal) — fixed + e2e-proven (a repeat now lands in the source section next year). Also: manual-exception + promotion-run reads + lifecycle reads + withdraw/graduate close now all campus-scoped; a `cancel` path unsticks a submitted run. Re-validated green (api unit 590, e2e 11/11).
+
 **What's next**
 
-- Independent review of the branch → apply fixes → green → owner tests → merge → WB2-3 + WB2-4 `done` = **WB2 complete** (all of WB2-1..WB2-4). Then WB2-4's dependent workbenches (WB3 admissions / WB4 results / WB8 daily-work) reference this placement + promotion substrate.
+- Owner tests the two surfaces (`/academics/lifecycle`, `/academics/promotion`) → open PR → CI green → merge → WB2-3 + WB2-4 `done` = **WB2 complete** (all of WB2-1..WB2-4). Then the dependent workbenches (WB3 admissions / WB4 results / WB8 daily-work) reference this placement + promotion substrate. Two narrow non-blocking review residuals were left as-is (documented in the review): a withdrawn student who last sat on another campus is still readable cross-campus; a maker-checker request already past its 48h expiry can't be formally rejected (cancel still cancels the run — best-effort).
 
 ---
 
