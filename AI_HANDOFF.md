@@ -4,6 +4,36 @@ Last Updated: 2026-08-05
 
 ---
 
+## Session Summary (2026-08-05) — Claude: WB2-3 + WB2-4 built to DoD → in-review (completes WB2 pending review)
+
+**Item(s):** **WB2-3 (student lifecycle)** + **WB2-4 (promotion workbench)** → `in-review` on one branch `feat/wb2-3-4-lifecycle-promotion` (owner asked to finish a whole workbench per session). With these two, all of WB2 (WB2-1..WB2-4) is built.
+
+**What changed & why**
+
+- **WB2-3 · Student lifecycle** — every change to WHERE a student sits is a durable, effective-dated EVENT with history, never a delete-and-retype:
+  - **Domain (`packages/database`):** new `student-management.StudentPlacementHistory` (a span per (campus·section·year): eventType registration|transfer|withdrawal|graduation|reinstatement|promotion, status active|ended, effectiveFrom/To). Migration `20260805050000_student_lifecycle_and_promotion` (additive, own+platform RLS, DB-level FKs).
+  - **API (`apps/api/src/academic-structure`):** `StudentLifecycleService` + `StudentLifecycleController` at `/academics/lifecycle/*` — **`TenantDbService`-only**, the ONE authoritative writer of placement changes: it keeps the WB2-2 `SectionEnrollment` (current membership), the `StudentPlacementHistory` ledger, and `Student.enrollmentStatus` in lock-step per `@TenantScoped` tx, audited, campus-scoped via the WB1-6 `AccessScopeService`. `register` (first placement) · `transfer` (CLOSE current span + OPEN new — both survive with dates; scopes on BOTH source + dest campus) · `withdraw`/`graduate` (flip status + close spans + drop active course registrations) · `explainPlacement` (current + full history, most-recent active = current) · `suggestStudentNumber` (pure `nextStudentNumber`, `STU-<year>-NNNN`, NOT a label parse). Credential issue reuses WB1-3 provisioning (not rebuilt). `recordPromotionPlacement` is the shared next-year placement WB2-4 reuses.
+- **WB2-4 · Promotion workbench** — year rollover as ONE reviewable operation on the WB1-6 maker-checker:
+  - **Domain:** `student-management.PromotionRun` + `PromotionRunItem` (same migration/RLS).
+  - **API:** `PromotionService` + `PromotionController` at `/academics/promotion/*` — createRun → **preview** (cohort = active students in the from-year-level sections for the from-year; proposes a to-year-level section matched by (stream,name)) → **setException** (repeat/withhold/manual — changes only that item) → **requestCommit** (raises a `MakerCheckerRequest`, op `academics.promotion.commit`, parks in `pending_approval`) → **approveAndCommit** (a SECOND approver, maker ≠ checker, clr 7 → creates NEXT-year `SectionEnrollment`s + 'promotion' spans via the WB2-3 lifecycle; **prior year untouched**). Commit is synchronous+transactional; F3-job path for huge cohorts is the documented scale option (mirrors F2-fu2). New maker-checker op registered in `MakerCheckerService`.
+- **Permissions:** +5 → 339→**344** (`academics.lifecycle.view`/`.manage`, `academics.promotion.view`/`.manage`/`.approve`); `ACADEMIC_MANAGEMENT_PERMISSIONS` 25→30; +1 sensitive op (32). Re-seeded.
+- **Web (`apps/web`):** `/academics/lifecycle` (student picker → placement + history timeline + register/transfer/withdraw/graduate, all states + toasts) and `/academics/promotion` (create run → preview → per-student decision select + manual-placement section picker → submit → **F8 `ApprovalPanel`** commit). Dedicated `/api/academics/lifecycle/*` + `/api/academics/promotion/*` proxies; 2 nav entries.
+
+**Verification run + result**
+
+- api check-types ✔ · web tsc (0 errors) ✔ · api lint (new/edited files) clean · web lint `--max-warnings 0` clean · prettier (changed files) clean
+- `check:privileged-db` ✔ · `db:rls:check` ✔ (3 new tables) · `db:verify` **344 perms / 11 pools / 32 sensitive-ops** — NOTE the "Platform Bootstrap" verify item fails **locally only** (the seed creates the Architect with `passwordHash: null` by design — a separate bootstrap sets it; not related to this change and green counts are the ones this change touches).
+- api unit **590/590** (+8: `nextStudentNumber` 4, `resolveTargetSection` 4) · web unit **138/138**
+- **e2e 11/11 on real pg** — `student-lifecycle.e2e-spec.ts` 6/6 (register→first span · transfer keeps BOTH placements w/ dates + source enrollment kept as `transferred` · withdrawal flips+preserves prior spans · graduation · campus-scope deny/allow · RLS+401) · `promotion.e2e-spec.ts` 5/5 (preview cohort+proposals · exception changes only that student · maker can't self-approve · second approver commits → next-year rows created + prior year untouched · RLS+401).
+- web routes verified to compile in the live turbopack dev server (`/academics/lifecycle` + `/academics/promotion` → 307→/login).
+- **Deferred:** isolated `next build`/`nest build` → CI (a `next dev` :3001 + api dev :3030 were live — the shared-`.next`/`dist` gotcha). Authenticated visual pass owner-gated (credential guardrail).
+
+**What's next**
+
+- Independent review of the branch → apply fixes → green → owner tests → merge → WB2-3 + WB2-4 `done` = **WB2 complete** (all of WB2-1..WB2-4). Then WB2-4's dependent workbenches (WB3 admissions / WB4 results / WB8 daily-work) reference this placement + promotion substrate.
+
+---
+
 ## Session Summary (2026-08-05) — Claude: WB2-1 merged (done); WB2-2 built to DoD → in-review
 
 **Item(s):** **WB2-1 → `done`** (merged [PR #68](https://github.com/Ewosoft-Solutions/claude-trial/pull/68) → `fb671f4`; board flipped on `main`). **WB2-2 → `in-review`** (branch `feat/wb2-2-enrollment`; claim landed on `main` first).

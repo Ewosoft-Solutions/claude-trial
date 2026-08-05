@@ -208,6 +208,20 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['academics.enrollment.view'] },
             },
             {
+              key: 'student-lifecycle',
+              label: 'Student lifecycle',
+              icon: <UserPlus />,
+              href: '/academics/lifecycle',
+              access: { anyPermission: ['academics.lifecycle.view'] },
+            },
+            {
+              key: 'promotion',
+              label: 'Promotion',
+              icon: <GraduationCap />,
+              href: '/academics/promotion',
+              access: { anyPermission: ['academics.promotion.view'] },
+            },
+            {
               key: 'materials',
               label: 'Materials',
               icon: <FileText />,

@@ -263,3 +263,132 @@ model StudentSubjectElection {
   @@map("student_subject_elections")
   @@schema("student-management")
 }
+
+// ============================================
+// WB2-3 · Student lifecycle: registration · transfer · withdrawal · graduation
+// ============================================
+// Every change to WHERE a student sits is a durable, explainable lifecycle
+// EVENT with history — never a delete-and-retype. StudentPlacementHistory is
+// the effective-dated ledger of placement SPANS: one row per span a student sat
+// in a (campus, class section, academic year). A transfer CLOSES the current
+// span (effectiveTo) and OPENS a new one — both survive, with dates, so the
+// prior placement is never destroyed (workbench-2 scenario 3). Withdrawal /
+// graduation close the current span and flip the Student's enrollmentStatus. The
+// WB2-2 SectionEnrollment stays the "current membership" projection; this ledger
+// is the authoritative, auditable history the lifecycle service writes alongside
+// it. External ids (campus, class section, academic year, section enrollment)
+// are DB-level FKs validated in-service (F6 convention). RLS: own + platform.
+// ============================================
+
+model StudentPlacementHistory {
+  id             String  @id @default(uuid())
+  tenantId       String  @map("tenant_id")
+  studentId      String  @map("student_id")
+  campusId       String  @map("campus_id") // where the student sat (WB1-6 scope target)
+  classSectionId String? @map("class_section_id") // K-12 section (null = cohort/tertiary)
+  academicYearId String? @map("academic_year_id")
+
+  // 'registration' | 'transfer' | 'withdrawal' | 'graduation' | 'reinstatement' | 'promotion'
+  eventType     String    @map("event_type")
+  status        String    @default("active") // 'active' (current span) | 'ended'
+  effectiveFrom DateTime  @default(now()) @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+  reason        String?
+
+  // The concrete SectionEnrollment this span reflects (K-12), when there is one.
+  sectionEnrollmentId String? @map("section_enrollment_id")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([studentId])
+  @@index([tenantId, studentId])
+  @@index([classSectionId])
+  @@index([campusId])
+  @@index([status])
+  @@index([tenantId, studentId, status])
+  @@map("student_placement_history")
+  @@schema("student-management")
+}
+
+// ============================================
+// WB2-4 · Promotion workbench (year rollover)
+// ============================================
+// Move a cohort to the next year in ONE reviewable operation. A PromotionRun is
+// a from-(year/year-level) → to-(year/year-level) rollover; preview() materialises
+// a PromotionRunItem per active student with a PROPOSED next placement; an admin
+// marks per-student EXCEPTIONS (repeat / withhold / manual). The commit is a
+// high-risk bulk mutation routed through the WB1-6 maker-checker (a SECOND
+// approver, maker ≠ checker) — it creates NEXT-year SectionEnrollments +
+// promotion placement-history rows and leaves the PRIOR year untouched
+// (scenario 4). External ids are DB-level FKs validated in-service. RLS:
+// own + platform.
+// ============================================
+
+model PromotionRun {
+  id       String  @id @default(uuid())
+  tenantId String  @map("tenant_id")
+  campusId String? @map("campus_id") // scope target; null = tenant-wide
+
+  name               String
+  fromAcademicYearId String @map("from_academic_year_id")
+  toAcademicYearId   String @map("to_academic_year_id")
+  fromYearLevelId    String @map("from_year_level_id")
+  toYearLevelId      String @map("to_year_level_id")
+
+  // 'draft' | 'previewed' | 'pending_approval' | 'committed' | 'cancelled'
+  status            String  @default("draft")
+  approvalRequestId String? @map("approval_request_id") // MakerCheckerRequest id (WB1-6)
+
+  previewedAt DateTime? @map("previewed_at")
+  committedAt DateTime? @map("committed_at")
+  committedBy String?   @map("committed_by")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  items PromotionRunItem[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([campusId])
+  @@map("promotion_runs")
+  @@schema("student-management")
+}
+
+model PromotionRunItem {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  runId     String @map("run_id")
+  studentId String @map("student_id")
+
+  fromClassSectionId     String? @map("from_class_section_id")
+  proposedClassSectionId String? @map("proposed_class_section_id")
+
+  // 'promote' | 'repeat' | 'withhold' | 'manual'
+  decision String @default("promote")
+  // 'pending' | 'committed' | 'skipped'
+  status          String  @default("pending")
+  exceptionReason String? @map("exception_reason")
+
+  resultingEnrollmentId String? @map("resulting_enrollment_id")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  run PromotionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+
+  @@unique([runId, studentId])
+  @@index([tenantId])
+  @@index([runId])
+  @@index([studentId])
+  @@index([tenantId, runId])
+  @@map("promotion_run_items")
+  @@schema("student-management")
+}

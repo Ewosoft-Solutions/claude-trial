@@ -132,6 +132,22 @@ export class MakerCheckerService {
           timeLimitHours: 24,
         },
       ],
+      // WB2-4: committing a promotion run rolls a whole cohort into next year in
+      // one bulk mutation — a high-risk operation. The registrar who built the
+      // run (the maker) raises it; a SECOND approver (maker ≠ checker,
+      // Management+) with `academics.promotion.approve` signs off, and only then
+      // are the next-year enrollments created (workbench-2 scenario 4).
+      [
+        'academics.promotion.commit',
+        {
+          operation: 'academics.promotion.commit',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['academics.promotion.approve'],
+          requiredClearanceLevel: 7,
+          requiredCheckerClearanceLevel: 7,
+          timeLimitHours: 48,
+        },
+      ],
       [
         'financial.transactions',
         {
