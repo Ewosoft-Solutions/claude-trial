@@ -75,6 +75,17 @@ model UserTenantRole {
   assignedAt   DateTime @default(now()) @map("assigned_at")
   assignedBy   String?  @map("assigned_by")
 
+  // WB1-6 · The GRANT is time-boxed + scoped. `expiresAt` makes a role a
+  // "temporary cover" (a 5-day substitute) — the live per-request authz path
+  // (PermissionService.getUserPermissionContext) stops honouring the role once
+  // it is past, so the grant auto-expires with no token invalidation. `scope`
+  // is the descriptor AccessScopeService ENFORCES (WB1-5 EXPLAINED it): shape
+  // { type: 'campus'|'global', value?: campusId, label? } matching WB1-5's
+  // ScopeDescriptor. `grantReason` is the audit note for the temporary cover.
+  scope       Json?     @map("scope")
+  expiresAt   DateTime? @map("expires_at")
+  grantReason String?   @map("grant_reason")
+
   userTenant UserTenant @relation("ProfileRole", fields: [userTenantId], references: [id], onDelete: Cascade)
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
 
@@ -84,6 +95,7 @@ model UserTenantRole {
   @@index([roleId])
   @@index([isPrimary])
   @@index([tenantId])
+  @@index([expiresAt])
   @@map("user_tenant_roles")
   @@schema("profile")
 }

@@ -104,6 +104,24 @@ export class MakerCheckerService {
           timeLimitHours: 24,
         },
       ],
+      // WB1-6: granting a HIGH-RISK role (one the effective-access evaluator
+      // flags sensitive — payroll/export/PII — or clearance ≥ 7) to a profile is
+      // a maker-checker operation: the requester raises it, a SECOND approver
+      // (maker ≠ checker, both Management+) signs off, and only then is the grant
+      // applied. This is workbench-1 scenario 4 ("granting payroll export
+      // triggers step-up + a second approval"). Step-up is enforced separately at
+      // the route via @RequireStepUp('users.role.assign').
+      [
+        'access.grant.high_risk',
+        {
+          operation: 'access.grant.high_risk',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['access.grants.manage'],
+          requiredClearanceLevel: 7,
+          requiredCheckerClearanceLevel: 7,
+          timeLimitHours: 48,
+        },
+      ],
       [
         'permissions.modify',
         {

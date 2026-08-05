@@ -32,6 +32,7 @@ model Tenant {
   roles                                  Role[]
   userTenants                            UserTenant[]
   permissionPools                        PermissionPool[]
+  campuses                               Campus[]
   academicYears                          AcademicYear[]
   courses                                Course[]
   students                               Student[]
@@ -66,5 +67,36 @@ model Tenant {
   @@index([status])
   @@index([emailDomain])
   @@map("tenants")
+  @@schema("tenant")
+}
+
+// Campus (WB1-6) - an operating unit WITHIN a tenant (ADR-11 Option A: one
+// tenant per operating school; campuses/arms are organizations within it). This
+// is the concrete target an access GRANT is scoped to: a role granted "scope:
+// Campus A" is denied Campus-B actions by AccessScopeService (WB1-5 EXPLAINED
+// scope; WB1-6 ENFORCES it). Deliberately minimal here — WB2 (academic
+// structure) grows classes/arms/streams that reference a campus, and WB5
+// (finance) tags charges/exports with one so scenario 2 ("a bursar posts for
+// Campus A but can't export Campus B debtors") closes end-to-end.
+model Campus {
+  id        String  @id @default(uuid())
+  tenantId  String  @map("tenant_id")
+  name      String
+  code      String // short human code, unique per tenant (e.g. 'MAIN', 'ANNEX')
+  status    String  @default("active") // 'active' | 'inactive'
+  isPrimary Boolean @default(false) @map("is_primary") // the tenant's default/primary campus
+  address   String?
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@index([status])
+  @@map("campuses")
   @@schema("tenant")
 }

@@ -42,6 +42,7 @@ import {
 } from './guards';
 import {
   PermissionService,
+  AccessScopeService,
   RoleService,
   RoleTemplateService,
   EffectiveAccessService,
@@ -100,6 +101,7 @@ import {
     BiometricsService,
     // Authorization services
     PermissionService,
+    AccessScopeService,
     RoleService,
     RoleTemplateService,
     EffectiveAccessService,
@@ -130,6 +132,7 @@ import {
     MfaAuditService,
     // Authorization services
     PermissionService,
+    AccessScopeService,
     RoleService,
     RoleTemplateService,
     EffectiveAccessService,

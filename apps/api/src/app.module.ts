@@ -22,6 +22,7 @@ import { ImportsModule } from './imports/imports.module';
 import { DirectoryModule } from './directory/directory.module';
 import { ProvisioningModule } from './provisioning/provisioning.module';
 import { EmploymentModule } from './employment/employment.module';
+import { AccessModule } from './access/access.module';
 import { AcademicStructureModule } from './academic-structure/academic-structure.module';
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
 import { CommunicationModule } from './communication/communication.module';
@@ -113,6 +114,7 @@ import { AppController } from './app.controller';
     DirectoryModule,
     ProvisioningModule,
     EmploymentModule,
+    AccessModule,
     AcademicStructureModule,
     AssessmentGradingModule,
     CommunicationModule,

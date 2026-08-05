@@ -247,7 +247,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 332, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1)
+  total: 335, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3)
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
@@ -257,7 +257,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     COMMUNICATION_PERMISSIONS: 18,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
-    SYSTEM_ADMIN_PERMISSIONS: 20,
+    SYSTEM_ADMIN_PERMISSIONS: 23,
     PLATFORM_PERMISSIONS: 18,
     LIBRARY_PERMISSIONS: 7,
     TRANSPORTATION_PERMISSIONS: 8,
@@ -1836,6 +1836,40 @@ const SYSTEM_ADMIN_PERMISSIONS = [
       'Invite users, activate/suspend accounts, and send password-reset links (no plaintext password is ever emitted)',
     resource: 'users',
     action: 'provision',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    // WB1-6: request/approve/revoke time-boxed + scoped role grants. High-risk
+    // grants route through maker-checker + step-up (a second approver applies
+    // them); enforced server-side. Security-sensitive → clearance 7.
+    name: 'access.grants.manage',
+    label: 'Manage Access Grants',
+    description:
+      'Grant scoped/time-boxed roles and approve high-risk access changes (maker-checker + step-up)',
+    resource: 'access',
+    action: 'grants.manage',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
+  },
+  {
+    // WB1-6: campuses are the operating units within a tenant an access grant is
+    // scoped to (ADR-11 Option A). Reading is a low bar so the grant editor and
+    // (later) academic-structure surfaces can pick a campus.
+    name: 'campus.view',
+    label: 'View Campuses',
+    description: 'View the campuses (operating units) within the school',
+    resource: 'campus',
+    action: 'view',
+    category: 'administrative',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'campus.manage',
+    label: 'Manage Campuses',
+    description: 'Create and edit campuses (operating units) within the school',
+    resource: 'campus',
+    action: 'manage',
     category: 'administrative',
     requiredClearanceLevel: 7,
   },
