@@ -6,7 +6,7 @@ Last Updated: 2026-08-05
 
 ## Session Summary (2026-08-05) — Claude: WB1-6 built to DoD → in-review; WB2 kickstarted
 
-**Item(s):** **WB1-6 → in-review** (branch `feat/wb1-6-scope-expiry-maker-checker`, not yet pushed/PR'd). **WB2 → detailed + WB2-1 `ready`** (planning). Claim committed first (`board: claim WB1-6`).
+**Item(s):** **WB1-6 → in-review** ([PR #67](https://github.com/Ewosoft-Solutions/claude-trial/pull/67), branch `feat/wb1-6-scope-expiry-maker-checker`). **WB2 → detailed + WB2-1 `ready`** (planning). Claim committed first (`board: claim WB1-6`).
 
 **What changed & why**
 
@@ -31,7 +31,7 @@ Last Updated: 2026-08-05
 
 **Next step (so the next agent can resume)**
 
-- Push `feat/wb1-6-scope-expiry-maker-checker` → open PR → independent (maker-checker) review → merge → WB1-6 `done` (**Workbench-1 6/6 complete**). On merge, CD applies migration `20260805020000_access_grants_scope_expiry`. Then **WB2-1** is fully unblocked — claim it (`board: claim WB2-1`) to start the ADR-02 academic structure model. This session did NOT push or open a PR.
+- [PR #67](https://github.com/Ewosoft-Solutions/claude-trial/pull/67) is **open** (pushed) → independent (maker-checker) review → merge → WB1-6 `done` (**Workbench-1 6/6 complete**). On merge, CD applies migration `20260805020000_access_grants_scope_expiry`. **WB2-1 is being built in a parallel session** (ADR-02 academic structure model) — it consumes the `Campus` this PR introduces, so land WB1-6 first (or rebase WB2-1 onto it) to avoid a `Campus`-model duplication.
 
 **New gotcha** — after a Prisma schema change, a cross-package return type (e.g. `@workspace/api`'s `getUserTenantProfile`) won't surface new model scalars in a *dependent* package's isolated `tsc` until the producing package's dist is **force-rebuilt** (`tsc -b --force`) — plain `tsc -b` sees inputs "up to date" because it doesn't track the generated client. `pnpm ci:quick` (turbo, full build) handles this in order; a scoped `tsc` in one app does not.
 
