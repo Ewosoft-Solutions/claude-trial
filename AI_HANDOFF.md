@@ -1,8 +1,18 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-04
+Last Updated: 2026-08-05
 
 ---
+
+## Session Summary (2026-08-05) — Claude: WB1-2 + WB1-5 merged → done; WB1-6 unblocked
+
+**Item(s):** WB1-2 + WB1-5 → **done**. WB1-6 → **ready**. **PR:** [#63](https://github.com/Ewosoft-Solutions/claude-trial/pull/63) squash-merged to `main` as `7c69db5`; CI green on the merge commit (gate: CI-green + merged). Branch deleted; local `main` synced.
+
+**What changed** — Merged the combined WB1-2 (first-class staff employment) + WB1-5 (role editor + effective-access evaluator) PR after CI passed, then reconciled the board: both slices flip `in-review` → `done`, and **WB1-6** (scope/expiry + temporary cover + maker-checker) flips `backlog` → `ready` (its declared dep WB1-5 is now `done`). Post-merge CD (`cd.yml`) applies the two additive migrations (`20260805000000` staff employment, `20260805010000` role templates + scope) to the demo DB and deploys API + web.
+
+**Verification** — reproduced by the independent reviewer + the `main` CI run: `ci:quick` + `check:privileged-db` + `db:rls:check` green; `db:verify` 332 perms / 11 pools intact; api unit **545**, web unit **138**; e2e **15/15** on real pg.
+
+**Next step** — **WB1-6** is the last open Workbench-1 slice (5/6 done). It should carry: (a) time-boxed grants + expiry, (b) maker-checker/step-up for high-risk access changes (reuse `MakerCheckerRequest` + `SensitiveOperationPolicy` + `ApprovalPanel`), (c) the deferred **campus-scope ENFORCEMENT** (WB1-5 only explains scope; no `Campus` model exists yet — this is where it lands), and (d) the shared-catalog RLS tightening the WB1-5 review flagged (`role_templates`/`roles`/`permission_pools` `FOR ALL` policies let a tenant DELETE a shared row — split into permissive SELECT + restrictive write, repo-wide).
 
 ## Session Summary (2026-08-04, pt. 3) — Claude: WB1-2 (staff employment) + WB1-5 (role editor) built to DoD → in-review
 
