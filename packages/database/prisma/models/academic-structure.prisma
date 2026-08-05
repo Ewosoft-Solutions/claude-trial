@@ -414,3 +414,66 @@ model SubjectOffering {
   @@map("subject_offerings")
   @@schema("academic-structure")
 }
+
+// ============================================
+// WB2-2 · Enrollment support: academic profile + offering-teacher assignment
+// ============================================
+// The tenant's academic PROFILE selects how students join what they study:
+// 'class' (K-12 — enroll into a ClassSection, take its offerings as a set) vs
+// 'course' (tertiary/TVET — register per SubjectOffering). Effective-dated (F6
+// flavour). If a tenant has no profile, the resolver falls back to deriving the
+// model from Tenant.schoolType. OfferingTeacher assigns a teacher to an OFFERING
+// (#30) — never a free-text label. Both tenant-owned (RLS own+platform); external
+// ids (campus, offering, teacher profile) validated in-service (F6 convention).
+// ============================================
+
+// AcademicProfile - selects the enrollment model for a tenant (optionally a campus).
+model AcademicProfile {
+  id       String  @id @default(uuid())
+  tenantId String  @map("tenant_id")
+  campusId String? @map("campus_id") // null = tenant-wide; set = per-campus override
+
+  name            String
+  enrollmentModel String  @map("enrollment_model") // 'class' (K-12) | 'course' (tertiary)
+  isDefault       Boolean @default(false) @map("is_default")
+  status          String  @default("active") // 'active' | 'inactive'
+
+  effectiveFrom DateTime  @default(now()) @map("effective_from")
+  effectiveTo   DateTime? @map("effective_to")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, campusId])
+  @@index([status])
+  @@map("academic_profiles")
+  @@schema("academic-structure")
+}
+
+// OfferingTeacher - a teacher (UserTenant profile) assigned to a SubjectOffering.
+model OfferingTeacher {
+  id                String @id @default(uuid())
+  tenantId          String @map("tenant_id")
+  subjectOfferingId String @map("subject_offering_id") // academic-structure.subject_offerings(id)
+  userTenantId      String @map("user_tenant_id") // teacher's profile
+
+  role         String    @default("teacher") // 'teacher' | 'assistant'
+  isActive     Boolean   @default(true) @map("is_active")
+  assignedAt   DateTime  @default(now()) @map("assigned_at")
+  assignedBy   String?   @map("assigned_by")
+  unassignedAt DateTime? @map("unassigned_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([subjectOfferingId, userTenantId])
+  @@index([tenantId])
+  @@index([subjectOfferingId])
+  @@index([userTenantId])
+  @@index([isActive])
+  @@map("offering_teachers")
+  @@schema("academic-structure")
+}

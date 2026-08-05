@@ -201,6 +201,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['academics.structure.view'] },
             },
             {
+              key: 'enrollment',
+              label: 'Enrollment',
+              icon: <UserPlus />,
+              href: '/academics/enrollment',
+              access: { anyPermission: ['academics.enrollment.view'] },
+            },
+            {
               key: 'materials',
               label: 'Materials',
               icon: <FileText />,
