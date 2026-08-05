@@ -43,7 +43,10 @@ import { RequestGrantDto, ReviewGrantDto } from '../dto/access.dto';
 export class AccessGrantController {
   constructor(private readonly grants: AccessGrantService) {}
 
-  private ctx(req: AuthenticatedRequest): { tenantId: string; actor: GrantActor } {
+  private ctx(req: AuthenticatedRequest): {
+    tenantId: string;
+    actor: GrantActor;
+  } {
     if (!req.user) throw new ForbiddenException('User context not found');
     // PermissionGuard has already resolved + cached the permission context for
     // this route (it carries the actor's clearance + grant scope).
@@ -60,7 +63,9 @@ export class AccessGrantController {
 
   @Get('profiles/:profileId/grants')
   @RequirePermissions(['access.grants.manage'])
-  @ApiOperation({ summary: "A profile's active grant + pending grant requests" })
+  @ApiOperation({
+    summary: "A profile's active grant + pending grant requests",
+  })
   async state(
     @Param('profileId') profileId: string,
     @Request() req: AuthenticatedRequest,
@@ -75,7 +80,8 @@ export class AccessGrantController {
   @RequireStepUp(STEP_UP_OPERATION.USERS_ROLE_ASSIGN)
   @RequirePermissions(['access.grants.manage'])
   @ApiOperation({
-    summary: 'Request a scoped/time-boxed role grant (high-risk → maker-checker)',
+    summary:
+      'Request a scoped/time-boxed role grant (high-risk → maker-checker)',
   })
   async request(
     @Body() dto: RequestGrantDto,

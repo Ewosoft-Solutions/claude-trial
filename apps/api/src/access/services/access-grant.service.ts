@@ -127,7 +127,7 @@ export class AccessGrantService {
     actor: GrantActor,
     dto: RequestGrantDto,
   ): Promise<GrantOutcome> {
-    const profile = await this.loadProfile(tenantId, dto.profileId);
+    await this.loadProfile(tenantId, dto.profileId); // 404s if not this tenant's
     const role = await this.loadGrantableRole(tenantId, dto.roleId);
     const scope = await this.resolveScope(tenantId, dto.scope);
     const expiresAt = this.parseExpiry(dto.expiresAt);
@@ -145,7 +145,11 @@ export class AccessGrantService {
       campusId: scope?.type === 'campus' ? scope.value : undefined,
     });
 
-    const highRisk = await this.isHighRisk(tenantId, dto.roleId, role.clearanceLevel);
+    const highRisk = await this.isHighRisk(
+      tenantId,
+      dto.roleId,
+      role.clearanceLevel,
+    );
 
     if (!highRisk) {
       await this.applyGrant(tenantId, actor.userId, {
@@ -417,7 +421,9 @@ export class AccessGrantService {
         select: { id: true, name: true },
       });
       if (!campus) {
-        throw new BadRequestException('Scope campus not found for this tenant.');
+        throw new BadRequestException(
+          'Scope campus not found for this tenant.',
+        );
       }
       return { type: 'campus', value: campus.id, label: campus.name };
     }
@@ -449,10 +455,7 @@ export class AccessGrantService {
     return request;
   }
 
-  private async pendingRequestsForProfile(
-    tenantId: string,
-    profileId: string,
-  ) {
+  private async pendingRequestsForProfile(tenantId: string, profileId: string) {
     const requests = await this.client.makerCheckerRequest.findMany({
       where: {
         tenantId,

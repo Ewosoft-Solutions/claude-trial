@@ -480,10 +480,13 @@ export function StatTiles({
 export function PersonOverview({
   detail,
   accountSlot,
+  accessSlot,
   employmentSlot,
 }: {
   detail: PersonDetail;
   accountSlot?: React.ReactNode;
+  /** WB1-6 · the interactive access-grants panel (scope + expiry + approvals). */
+  accessSlot?: React.ReactNode;
   employmentSlot?: React.ReactNode;
 }) {
   const rollups: {
@@ -583,6 +586,8 @@ export function PersonOverview({
             </DetailGrid>
           </Section>
         ) : null)}
+
+      {accessSlot}
 
       {detail.prospect ? (
         <Section title="Application">

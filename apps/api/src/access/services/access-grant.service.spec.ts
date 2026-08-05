@@ -8,10 +8,7 @@ import { AccessGrantService, type GrantActor } from './access-grant.service';
  * own clearance + campus scope bound what they can grant. The full expiry +
  * second-approver + RLS path is proven end-to-end in the e2e spec on real pg.
  */
-function makeService(opts?: {
-  sensitive?: string[];
-  roleClearance?: number;
-}) {
+function makeService(opts?: { sensitive?: string[]; roleClearance?: number }) {
   const userTenantFindFirst = jest.fn().mockResolvedValue({
     id: 'profile-1',
     user: { email: 'sub@school.test', firstName: 'Sub', lastName: 'Teacher' },
@@ -102,7 +99,10 @@ describe('AccessGrantService.requestGrant', () => {
       profileId: 'profile-1',
       roleId: 'role-1',
     });
-    expect(out).toEqual({ status: 'pending_approval', approvalRequestId: 'req-1' });
+    expect(out).toEqual({
+      status: 'pending_approval',
+      approvalRequestId: 'req-1',
+    });
     expect(t.createApprovalRequest).toHaveBeenCalledTimes(1);
     expect(t.upsert).not.toHaveBeenCalled();
   });

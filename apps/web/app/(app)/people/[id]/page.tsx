@@ -3,6 +3,7 @@ import { getPersonDetail } from './get-detail';
 import { PersonProfileShell, ProfileMissing } from './profile-shell';
 import { PersonOverview } from '../person-detail-ui';
 import { AccountAccessPanel } from './account-access-panel';
+import { AccessScopePanel } from './access-scope-panel';
 import { StaffEmploymentPanel } from './staff-employment-panel';
 
 export default async function PersonOverviewPage({
@@ -37,6 +38,12 @@ export default async function PersonOverviewPage({
     detail.type !== 'prospect' &&
     (type === 'staff' || detail.profiles.includes('staff'));
 
+  // WB1-6 · the access-grants panel (scope + expiry + maker-checker approvals)
+  // shows to holders of `access.grants.manage`; the actions inside are enforced
+  // server-side. Prospects have no login to grant a role to.
+  const showAccessPanel =
+    has('access.grants.manage') && detail.type !== 'prospect';
+
   return (
     <PersonProfileShell
       detail={detail}
@@ -62,6 +69,15 @@ export default async function PersonOverviewPage({
             <AccountAccessPanel
               personId={detail.id}
               canProvision={has('users.provision')}
+            />
+          ) : undefined
+        }
+        accessSlot={
+          showAccessPanel ? (
+            <AccessScopePanel
+              personId={detail.id}
+              currentUserId={session?.accountId ?? ''}
+              canManage={has('access.grants.manage')}
             />
           ) : undefined
         }

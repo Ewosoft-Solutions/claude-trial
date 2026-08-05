@@ -87,8 +87,12 @@ d('Access grants — scope + expiry + maker-checker (WB1-6)', () => {
     permissions = app.get(PermissionService);
 
     const [ta, tb] = await Promise.all([
-      owner.tenant.create({ data: { name: 'Acc A', slug: A, status: 'active' } }),
-      owner.tenant.create({ data: { name: 'Acc B', slug: B, status: 'active' } }),
+      owner.tenant.create({
+        data: { name: 'Acc A', slug: A, status: 'active' },
+      }),
+      owner.tenant.create({
+        data: { name: 'Acc B', slug: B, status: 'active' },
+      }),
     ]);
     tenantAId = ta.id;
     tenantBId = tb.id;
@@ -107,7 +111,12 @@ d('Access grants — scope + expiry + maker-checker (WB1-6)', () => {
     // Two campuses in tenant A (the scope targets).
     const [c1, c2] = await Promise.all([
       owner.campus.create({
-        data: { tenantId: tenantAId, name: 'Main', code: 'MAIN', isPrimary: true },
+        data: {
+          tenantId: tenantAId,
+          name: 'Main',
+          code: 'MAIN',
+          isPrimary: true,
+        },
       }),
       owner.campus.create({
         data: { tenantId: tenantAId, name: 'Annex', code: 'ANNEX' },
@@ -154,11 +163,21 @@ d('Access grants — scope + expiry + maker-checker (WB1-6)', () => {
     // Low pool (clr 3, benign) + high pool (clr 5, sensitive export).
     const [low, high] = await Promise.all([
       owner.permissionPool.create({
-        data: { name: poolLow, clearanceLevel: 3, isSystemPool: true, tenantId: null },
+        data: {
+          name: poolLow,
+          clearanceLevel: 3,
+          isSystemPool: true,
+          tenantId: null,
+        },
         select: { id: true },
       }),
       owner.permissionPool.create({
-        data: { name: poolHigh, clearanceLevel: 5, isSystemPool: true, tenantId: null },
+        data: {
+          name: poolHigh,
+          clearanceLevel: 5,
+          isSystemPool: true,
+          tenantId: null,
+        },
         select: { id: true },
       }),
     ]);
@@ -225,7 +244,9 @@ d('Access grants — scope + expiry + maker-checker (WB1-6)', () => {
       await owner.campus.deleteMany({ where: { tenantId: tenantAId } });
       await owner.tenant.deleteMany({ where: { slug: { in: [A, B] } } });
       await owner.user.deleteMany({
-        where: { email: { in: [makerEmail, checkerEmail, subEmail, sub2Email] } },
+        where: {
+          email: { in: [makerEmail, checkerEmail, subEmail, sub2Email] },
+        },
       });
       await owner.$disconnect();
     }
@@ -278,7 +299,11 @@ d('Access grants — scope + expiry + maker-checker (WB1-6)', () => {
 
   it('denies the MAKER approving their own request; a SECOND approver applies it', async () => {
     const req = await owner.makerCheckerRequest.findFirst({
-      where: { tenantId: tenantAId, operation: 'access.grant.high_risk', status: 'pending' },
+      where: {
+        tenantId: tenantAId,
+        operation: 'access.grant.high_risk',
+        status: 'pending',
+      },
       select: { id: true },
     });
     const requestId = req!.id;
@@ -392,12 +417,16 @@ d('Access grants — scope + expiry + maker-checker (WB1-6)', () => {
   });
 
   it('RLS hides another tenant’s profile from the grant surface', async () => {
-    await expect(inB(() => grants.getState(tenantBId, subProfileId))).rejects.toThrow();
+    await expect(
+      inB(() => grants.getState(tenantBId, subProfileId)),
+    ).rejects.toThrow();
   });
 
   it('rejects unauthenticated access-grant calls at the HTTP boundary', async () => {
     const http = app.getHttpServer();
-    await request(http).get(`/access/profiles/${subProfileId}/grants`).expect(401);
+    await request(http)
+      .get(`/access/profiles/${subProfileId}/grants`)
+      .expect(401);
     await request(http).post('/access/grants').send({}).expect(401);
     await request(http).get('/campuses').expect(401);
   });

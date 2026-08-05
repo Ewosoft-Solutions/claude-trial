@@ -73,9 +73,11 @@ describe('isGrantExpired', () => {
 
 describe('parseScope', () => {
   it('parses a well-formed campus scope', () => {
-    expect(
-      parseScope({ type: 'campus', value: 'c1', label: 'Main' }),
-    ).toEqual({ type: 'campus', value: 'c1', label: 'Main' });
+    expect(parseScope({ type: 'campus', value: 'c1', label: 'Main' })).toEqual({
+      type: 'campus',
+      value: 'c1',
+      label: 'Main',
+    });
   });
 
   it('returns null for junk / non-objects / missing type', () => {
