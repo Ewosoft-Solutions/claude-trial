@@ -65,6 +65,13 @@ interface HistoryRow {
   campusName: string | null;
   sectionLabel: string | null;
 }
+interface ActiveEnrollment {
+  id: string;
+  classSectionId: string;
+  sectionLabel: string | null;
+  academicYearId: string | null;
+  enrolledAt: string;
+}
 interface Placement {
   student: {
     studentNumber: string;
@@ -72,6 +79,10 @@ interface Placement {
   };
   current: HistoryRow | null;
   history: HistoryRow[];
+  // Section memberships from WB2-2 enrollment. A student enrolled before any
+  // lifecycle event has these but no history span, so we surface them as the
+  // current section rather than reading "No active placement".
+  activeEnrollments: ActiveEnrollment[];
 }
 
 function studentLabel(s: StudentOption): string {
@@ -200,7 +211,12 @@ export function LifecycleManager({
     }
   }
 
-  const hasPlacement = Boolean(placement?.current);
+  const currentSpan = placement?.current ?? null;
+  const activeEnrollments = placement?.activeEnrollments ?? [];
+  // A student is "placed" if they have a lifecycle span OR a WB2-2 section
+  // enrollment (enrolled before any lifecycle event) — so a pre-lifecycle
+  // student is offered Transfer, not "Register into their first section".
+  const hasPlacement = Boolean(currentSpan) || activeEnrollments.length > 0;
   const status = placement?.student.enrollmentStatus;
   const inactive = status === 'withdrawn' || status === 'graduated';
 
@@ -257,21 +273,48 @@ export function LifecycleManager({
                 </StatusBadge>
               </CardTitle>
               <CardDescription>
-                {placement.current
-                  ? `Currently in ${placement.current.sectionLabel ?? '—'}${
-                      placement.current.campusName
-                        ? ` · ${placement.current.campusName}`
+                {currentSpan
+                  ? `Currently in ${currentSpan.sectionLabel ?? '—'}${
+                      currentSpan.campusName
+                        ? ` · ${currentSpan.campusName}`
                         : ''
                     }`
-                  : 'No active placement.'}
+                  : activeEnrollments.length > 0
+                    ? `Currently in ${activeEnrollments
+                        .map((e) => e.sectionLabel ?? '—')
+                        .join(', ')} (from enrollment)`
+                    : 'No active placement.'}
               </CardDescription>
             </CardHeader>
             <CardContent>
               {placement.history.length === 0 ? (
-                <EmptyState
-                  title="No history yet"
-                  description="Register this student into a section to start their history."
-                />
+                activeEnrollments.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    <p className="text-sm text-muted-foreground">
+                      No lifecycle events yet — this student&apos;s current
+                      section comes from their enrollment. A transfer,
+                      withdrawal or graduation starts the dated history.
+                    </p>
+                    <ul className="flex flex-col divide-y rounded-md border">
+                      {activeEnrollments.map((e) => (
+                        <li
+                          key={e.id}
+                          className="flex items-center justify-between gap-2 px-3 py-2"
+                        >
+                          <span className="font-medium">
+                            {e.sectionLabel ?? e.classSectionId}
+                          </span>
+                          <StatusBadge tone="success">enrolled</StatusBadge>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : (
+                  <EmptyState
+                    title="No history yet"
+                    description="Register this student into a section to start their history."
+                  />
+                )
               ) : (
                 <ol className="flex flex-col gap-0">
                   {placement.history.map((h, i) => (
