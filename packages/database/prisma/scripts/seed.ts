@@ -247,7 +247,7 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 344, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3)
+  total: 345, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3) + WB3 admissions.convert (+1)
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 30,
@@ -273,7 +273,7 @@ const EXPECTED_PERMISSION_COUNTS = {
     COMPLIANCE_PERMISSIONS: 6,
     TIMETABLE_PERMISSIONS: 12,
     EXAMS_PERMISSIONS: 12,
-    ADMISSIONS_PERMISSIONS: 15,
+    ADMISSIONS_PERMISSIONS: 16,
     HR_PAYROLL_PERMISSIONS: 3,
     AI_PERMISSIONS: 4,
     LESSONS_PERMISSIONS: 9,
@@ -3345,6 +3345,20 @@ const ADMISSIONS_PERMISSIONS = [
     action: 'approve',
     category: 'administrative',
     requiredClearanceLevel: 8,
+  },
+  {
+    // WB3-2: convert an ACCEPTED application into a registered student (creates
+    // the Person + profile + Student and enrols them via the WB2-3 lifecycle).
+    // Operational once the admit decision is made, so clearance 7 (Management),
+    // below the approve/reject decision gate (8).
+    name: 'admissions.convert',
+    label: 'Convert Applicant to Student',
+    description:
+      'Convert an accepted admission application into a registered, enrolled student',
+    resource: 'admissions',
+    action: 'convert',
+    category: 'administrative',
+    requiredClearanceLevel: 7,
   },
   {
     name: 'admissions.reject',

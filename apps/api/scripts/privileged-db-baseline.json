@@ -1,7 +1,6 @@
 [
   "src/academic-structure/services/academic-structure.service.ts",
   "src/academic-structure/services/current-term.service.ts",
-  "src/admissions/services/admissions.service.ts",
   "src/ai/services/academic-chat.service.ts",
   "src/ai/services/ai-settings.service.ts",
   "src/ai/services/analytics-chat.service.ts",

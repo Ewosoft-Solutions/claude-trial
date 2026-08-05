@@ -77,6 +77,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['admissions.view'] },
             },
             {
+              key: 'admissions',
+              label: 'Admissions',
+              icon: <GraduationCap />,
+              href: '/admissions',
+              access: { anyPermission: ['admissions.view'] },
+            },
+            {
               key: 'directory',
               label: 'Directory',
               icon: <Contact />,
