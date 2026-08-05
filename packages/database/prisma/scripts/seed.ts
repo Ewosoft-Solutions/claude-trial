@@ -247,10 +247,10 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 339, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2)
+  total: 344, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3)
   arrays: {
     STUDENT_PERMISSIONS: 15,
-    ACADEMIC_MANAGEMENT_PERMISSIONS: 25,
+    ACADEMIC_MANAGEMENT_PERMISSIONS: 30,
     GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
     FINANCIAL_PERMISSIONS: 16,
@@ -645,6 +645,65 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
       'Enroll students into sections, register courses, set electives and assign teachers to offerings (campus-scoped)',
     resource: 'academics',
     action: 'enrollment.manage',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+  {
+    // WB2-3: the student lifecycle — registration, transfer, withdrawal and
+    // graduation as durable, effective-dated events that keep history (never a
+    // delete-and-retype). Viewing a student's placement + history is a low bar;
+    // performing a transition is a management action, campus-scoped via the
+    // WB1-6 AccessScopeService.
+    name: 'academics.lifecycle.view',
+    label: 'View Student Lifecycle',
+    description:
+      "View a student's current placement and their year-over-year placement history",
+    resource: 'academics',
+    action: 'lifecycle.view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'academics.lifecycle.manage',
+    label: 'Manage Student Lifecycle',
+    description:
+      'Register, transfer, withdraw and graduate students (durable, effective-dated; campus-scoped)',
+    resource: 'academics',
+    action: 'lifecycle.manage',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+  {
+    // WB2-4: the promotion workbench — year rollover as one reviewable operation
+    // (preview + exceptions, maker-checker-gated commit). Viewing runs is a low
+    // bar; managing them (create/preview/exceptions/request-commit) is a
+    // management action; approving the commit is the SECOND-approver gate.
+    name: 'academics.promotion.view',
+    label: 'View Promotion Runs',
+    description:
+      'View year-rollover promotion runs and their proposed placements',
+    resource: 'academics',
+    action: 'promotion.view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'academics.promotion.manage',
+    label: 'Manage Promotion Runs',
+    description:
+      'Create promotion runs, preview cohorts, set exceptions and submit for approval (campus-scoped)',
+    resource: 'academics',
+    action: 'promotion.manage',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'academics.promotion.approve',
+    label: 'Approve Promotion Commit',
+    description:
+      'Approve and commit a promotion run as the second approver (maker ≠ checker)',
+    resource: 'academics',
+    action: 'promotion.approve',
     category: 'academic',
     requiredClearanceLevel: 7,
   },
