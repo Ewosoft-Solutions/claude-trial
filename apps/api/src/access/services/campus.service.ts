@@ -17,6 +17,10 @@ import { Prisma } from '@workspace/database';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
+import {
+  AccessScopeService,
+  type ScopeDescriptor,
+} from '../../auth/services/access-scope.service';
 import type { CreateCampusDto, UpdateCampusDto } from '../dto/access.dto';
 
 @Injectable()
@@ -24,6 +28,7 @@ export class CampusService {
   constructor(
     private readonly tenantDb: TenantDbService,
     private readonly audit: AuditService,
+    private readonly accessScope: AccessScopeService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
@@ -55,7 +60,15 @@ export class CampusService {
     return campus;
   }
 
-  async create(tenantId: string, actorId: string, dto: CreateCampusDto) {
+  async create(
+    tenantId: string,
+    actorId: string,
+    dto: CreateCampusDto,
+    actorScope?: ScopeDescriptor | null,
+  ) {
+    // A campus-scoped admin has no campus to create within — only an unscoped
+    // (whole-school) manager may add campuses. Reuses the grant-scope primitive.
+    this.accessScope.assertWithinScope(actorScope, {});
     const code = dto.code.trim().toUpperCase();
     try {
       // The request already runs inside one RLS transaction (@TenantScoped), so
@@ -107,8 +120,11 @@ export class CampusService {
     actorId: string,
     campusId: string,
     dto: UpdateCampusDto,
+    actorScope?: ScopeDescriptor | null,
   ) {
     await this.get(tenantId, campusId); // 404 if not this tenant's
+    // A campus-scoped admin may only edit their own campus.
+    this.accessScope.assertWithinScope(actorScope, { campusId });
     if (dto.isPrimary === true) {
       await this.client.campus.updateMany({
         where: { tenantId, isPrimary: true, id: { not: campusId } },

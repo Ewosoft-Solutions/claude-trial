@@ -158,9 +158,13 @@ export function StaffEmploymentPanel({
         });
         if (!res.ok) {
           const data = (await res.json().catch(() => null)) as {
+            error?: string;
             message?: string;
           } | null;
-          throw new Error(data?.message ?? `Request failed (${res.status})`);
+          // The proxy sends the API message under `error`; fall back to `message`.
+          throw new Error(
+            data?.error ?? data?.message ?? `Request failed (${res.status})`,
+          );
         }
         toast.success(successMsg);
         await load();

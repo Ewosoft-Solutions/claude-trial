@@ -42,6 +42,8 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { ApprovalPanel } from '@workspace/ui/custom/approval/approval-panel';
 
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { useStepUpAction } from '../../_shared/use-step-up-action';
 import { Section, DetailGrid, Field } from '../person-detail-ui';
 import { formatDate } from '../person-detail.types';
 
@@ -102,6 +104,10 @@ export function AccessScopePanel({
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+
+  // Granting/approving is step-up-gated (users.role.assign) — the shared prompt
+  // runs the MFA ceremony and hands back a challenge id to send with the write.
+  const { requestStepUp, stepUpPrompt } = useStepUpAction();
 
   // Grant dialog form
   const [open, setOpen] = React.useState(false);
@@ -166,11 +172,21 @@ export function AccessScopePanel({
           body: JSON.stringify(body ?? {}),
         });
         const data = (await res.json().catch(() => null)) as {
+          error?: string;
           message?: string;
           status?: string;
         } | null;
         if (!res.ok) {
-          throw new Error(data?.message ?? `Request failed (${res.status})`);
+          // A 401 means the session lapsed — the API's raw "invalid token" text
+          // isn't actionable, so say what to do. Otherwise surface the API's
+          // message (the proxy sends it under `error`, e.g. a step-up prompt).
+          throw new Error(
+            res.status === 401
+              ? 'Your session has expired — please sign in again.'
+              : (data?.error ??
+                  data?.message ??
+                  `Request failed (${res.status})`),
+          );
         }
         toast.success(
           data?.status === 'pending_approval'
@@ -189,31 +205,44 @@ export function AccessScopePanel({
     [load],
   );
 
-  const submitGrant = React.useCallback(async () => {
+  const submitGrant = React.useCallback(() => {
     if (!profileId || !roleId) return;
     const scope =
       scopeValue === GLOBAL
         ? { type: 'global' }
         : { type: 'campus', value: scopeValue };
-    const ok = await post(
-      '/api/access/grants',
+    const body = {
+      profileId,
+      roleId,
+      scope,
+      expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
+      reason: reason.trim() || undefined,
+    };
+    // Close the grant dialog while the step-up drawer is up; the form state is
+    // retained, so a cancelled confirmation reopens unchanged.
+    setOpen(false);
+    requestStepUp(
       {
-        profileId,
-        roleId,
-        scope,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : undefined,
-        reason: reason.trim() || undefined,
+        operation: STEP_UP_OPERATION.USERS_ROLE_ASSIGN,
+        title: 'Confirm it’s you',
+        description:
+          'Granting a role is a sensitive change and needs a fresh identity check.',
       },
-      'Access granted',
+      async (stepUpChallengeId) => {
+        const ok = await post(
+          '/api/access/grants',
+          { ...body, stepUpChallengeId },
+          'Access granted',
+        );
+        if (ok) {
+          setRoleId('');
+          setScopeValue(GLOBAL);
+          setExpiresAt('');
+          setReason('');
+        }
+      },
     );
-    if (ok) {
-      setOpen(false);
-      setRoleId('');
-      setScopeValue(GLOBAL);
-      setExpiresAt('');
-      setReason('');
-    }
-  }, [profileId, roleId, scopeValue, expiresAt, reason, post]);
+  }, [profileId, roleId, scopeValue, expiresAt, reason, post, requestStepUp]);
 
   const roleName = React.useCallback(
     (id: string) => roles.find((r) => r.id === id)?.name ?? id,
@@ -448,10 +477,20 @@ export function AccessScopePanel({
               isSelfRequest={req.makerId === currentUserId}
               stepUpRequired
               onApprove={() =>
-                void post(
-                  `/api/access/grants/${req.requestId}/approve`,
-                  {},
-                  'Grant approved',
+                requestStepUp(
+                  {
+                    operation: STEP_UP_OPERATION.USERS_ROLE_ASSIGN,
+                    title: 'Confirm it’s you',
+                    description:
+                      'Approving a high-risk grant needs a fresh identity check.',
+                  },
+                  (stepUpChallengeId) => {
+                    void post(
+                      `/api/access/grants/${req.requestId}/approve`,
+                      { stepUpChallengeId },
+                      'Grant approved',
+                    );
+                  },
                 )
               }
               onReject={() =>
@@ -465,6 +504,8 @@ export function AccessScopePanel({
           ))}
         </div>
       ) : null}
+
+      {stepUpPrompt}
     </Section>
   );
 }

@@ -37,7 +37,12 @@ export class CampusController {
 
   private ctx(req: AuthenticatedRequest) {
     if (!req.user) throw new ForbiddenException('User context not found');
-    return { tenantId: req.user.tenantId, userId: req.user.userId };
+    // PermissionGuard has cached the actor's context (incl. their grant scope).
+    return {
+      tenantId: req.user.tenantId,
+      userId: req.user.userId,
+      grantScope: req.userContext?.grantScope ?? null,
+    };
   }
 
   @Get()
@@ -55,8 +60,8 @@ export class CampusController {
     @Body() dto: CreateCampusDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const { tenantId, userId } = this.ctx(req);
-    return this.campuses.create(tenantId, userId, dto);
+    const { tenantId, userId, grantScope } = this.ctx(req);
+    return this.campuses.create(tenantId, userId, dto, grantScope);
   }
 
   @Patch(':campusId')
@@ -67,7 +72,7 @@ export class CampusController {
     @Body() dto: UpdateCampusDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    const { tenantId, userId } = this.ctx(req);
-    return this.campuses.update(tenantId, userId, campusId, dto);
+    const { tenantId, userId, grantScope } = this.ctx(req);
+    return this.campuses.update(tenantId, userId, campusId, dto, grantScope);
   }
 }
