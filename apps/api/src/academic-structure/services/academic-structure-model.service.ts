@@ -17,6 +17,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -79,6 +80,25 @@ export class AcademicStructureModelService {
 
   private get client(): Prisma.TransactionClient {
     return this.tenantDb.client;
+  }
+
+  /**
+   * The campus a scoped READ is clamped to, or null when unrestricted. A
+   * `campus`-scoped actor only ever sees their own campus's rows, so their
+   * scope's campus OVERRIDES any client-supplied campus filter (the read-path
+   * twin of the write-path `assertWithinScope`); an unscoped/`global`/unknown
+   * scope is unclamped. Mirrors AccessScopeService's campus rule — including
+   * failing CLOSED: a `campus` scope with no campus is denied (rather than
+   * falling through to see everything), same as the write path.
+   */
+  private scopedCampusId(
+    grantScope: ScopeDescriptor | null | undefined,
+  ): string | null {
+    if (!grantScope || grantScope.type !== 'campus') return null;
+    if (!grantScope.value) {
+      throw new ForbiddenException('A campus-scoped action needs a campus.');
+    }
+    return grantScope.value;
   }
 
   private async writeAudit(
@@ -371,11 +391,22 @@ export class AcademicStructureModelService {
     return section;
   }
 
-  async listClassSections(tenantId: string, query: ListClassSectionsDto) {
+  async listClassSections(
+    tenantId: string,
+    actor: StructureActor,
+    query: ListClassSectionsDto,
+  ) {
+    // Campus scope on the READ path: a campus-scoped registrar sees only their
+    // own campus's sections, clamping (overriding) any client `campusId` filter.
+    const clampCampusId = this.scopedCampusId(actor.grantScope);
     return this.client.classSection.findMany({
       where: {
         tenantId,
-        ...(query.campusId ? { campusId: query.campusId } : {}),
+        ...(clampCampusId
+          ? { campusId: clampCampusId }
+          : query.campusId
+            ? { campusId: query.campusId }
+            : {}),
         ...(query.yearLevelId ? { yearLevelId: query.yearLevelId } : {}),
         ...(query.streamId ? { streamId: query.streamId } : {}),
       },
@@ -424,6 +455,26 @@ export class AcademicStructureModelService {
       streamName,
       nextName,
     );
+
+    // Pre-check the (campus, year, stream, name) uniqueness against OTHER rows so
+    // a rename/re-stream into a collision returns a 409 — not a raw Prisma P2002
+    // surfaced as a 500 (mirrors createClassSection's dedupe check).
+    const dup = await this.client.classSection.findFirst({
+      where: {
+        id: { not: id },
+        tenantId,
+        campusId: existing.campusId,
+        yearLevelId: existing.yearLevelId,
+        streamId: nextStreamId ?? null,
+        name: nextName,
+      },
+      select: { id: true },
+    });
+    if (dup) {
+      throw new ConflictException(
+        'A class section with this campus, year, stream and name already exists.',
+      );
+    }
 
     const section = await this.client.classSection.update({
       where: { id },
@@ -536,7 +587,14 @@ export class AcademicStructureModelService {
     return offering;
   }
 
-  async listSubjectOfferings(tenantId: string, query: ListSubjectOfferingsDto) {
+  async listSubjectOfferings(
+    tenantId: string,
+    actor: StructureActor,
+    query: ListSubjectOfferingsDto,
+  ) {
+    // Offerings carry no campusId of their own — clamp a campus-scoped read
+    // through the parent section's campus so a registrar sees only their campus.
+    const clampCampusId = this.scopedCampusId(actor.grantScope);
     return this.client.subjectOffering.findMany({
       where: {
         tenantId,
@@ -545,6 +603,9 @@ export class AcademicStructureModelService {
           : {}),
         ...(query.academicYearId
           ? { academicYearId: query.academicYearId }
+          : {}),
+        ...(clampCampusId
+          ? { classSection: { campusId: clampCampusId } }
           : {}),
       },
       orderBy: [{ subjectLabel: 'asc' }],

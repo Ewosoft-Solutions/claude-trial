@@ -172,7 +172,8 @@ export class AcademicStructureModelController {
     @Query() query: ListClassSectionsDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.structure.listClassSections(this.ctx(req).tenantId, query);
+    const { tenantId, actor } = this.ctx(req);
+    return this.structure.listClassSections(tenantId, actor, query);
   }
 
   @Post('sections')
@@ -206,7 +207,8 @@ export class AcademicStructureModelController {
     @Query() query: ListSubjectOfferingsDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.structure.listSubjectOfferings(this.ctx(req).tenantId, query);
+    const { tenantId, actor } = this.ctx(req);
+    return this.structure.listSubjectOfferings(tenantId, actor, query);
   }
 
   @Post('offerings')

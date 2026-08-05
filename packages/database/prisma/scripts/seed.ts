@@ -439,38 +439,17 @@ function validatePermissionsCatalog(
   }
 }
 
-// All Permissions - Comprehensive List (280 permissions total)
+// All Permissions - Comprehensive List
 //
-// Permission Summary by Category:
-// - Student Management (15 permissions)
-// - Academic Management (19 permissions)
-// - Grade & Assessment (21 permissions)
-// - Attendance (9 permissions)
-// - Financial (16 permissions)
-// - Communication (18 permissions)
-// - Staff Management (13 permissions)
-// - Reports & Analytics (10 permissions)
-// - System Administration (18 permissions)
-// - Platform (12 permissions)
-// - Library (7 permissions)
-// - Transportation (8 permissions)
-// - Cafeteria (8 permissions)
-// - Health (8 permissions)
-// - Facilities (8 permissions)
-// - Events (8 permissions)
-// - Sports (8 permissions)
-// - Clubs (7 permissions)
-// - Parent Portal (7 permissions)
-// - Inventory (7 permissions)
-// - Safety (7 permissions)
-// - Compliance (6 permissions)
-// - Timetable (12 permissions)
-// - Exams (12 permissions)
-// - Admissions (15 permissions)
-// - HR & Payroll (3 permissions)
-// - AI (3 permissions)
+// The authoritative per-category counts (and the total) live in
+// EXPECTED_PERMISSION_COUNTS.arrays above, which the seed VALIDATES against the
+// real array lengths at run time — a mismatch fails the seed. That map is the
+// single source of truth. A hand-maintained summary used to be duplicated here;
+// it drifted badly (wrong total, ~5 stale counts, ~6 whole categories missing),
+// so it was removed rather than re-copied. Update EXPECTED_PERMISSION_COUNTS —
+// not a prose list — when a permission is added or removed.
 
-// Student Management Permissions (15 permissions)
+// Student Management Permissions
 const STUDENT_PERMISSIONS = [
   {
     name: 'students.view',
@@ -619,7 +598,7 @@ const STUDENT_PERMISSIONS = [
   },
 ];
 
-// Academic Management Permissions (19 permissions)
+// Academic Management Permissions
 const ACADEMIC_MANAGEMENT_PERMISSIONS = [
   {
     // WB2-1: the ADR-02 structured academic model (campus·stage·year·stream·
@@ -864,7 +843,7 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
   },
 ];
 
-// Grade & Assessment Permissions (21 permissions)
+// Grade & Assessment Permissions
 const GRADE_ASSESSMENT_PERMISSIONS = [
   {
     name: 'grades.view',
@@ -1119,7 +1098,7 @@ const GRADE_ASSESSMENT_PERMISSIONS = [
   },
 ];
 
-// Attendance Management Permissions (9 permissions)
+// Attendance Management Permissions
 const ATTENDANCE_PERMISSIONS = [
   {
     name: 'attendance.view',
@@ -1207,7 +1186,7 @@ const ATTENDANCE_PERMISSIONS = [
   },
 ];
 
-// Financial Management Permissions (16 permissions)
+// Financial Management Permissions
 const FINANCIAL_PERMISSIONS = [
   {
     name: 'fees.view',
@@ -1356,7 +1335,7 @@ const FINANCIAL_PERMISSIONS = [
   },
 ];
 
-// Communication Permissions (18 permissions)
+// Communication Permissions
 const COMMUNICATION_PERMISSIONS = [
   {
     name: 'messages.view',
@@ -1535,7 +1514,7 @@ const COMMUNICATION_PERMISSIONS = [
   },
 ];
 
-// Staff Management Permissions (13 permissions)
+// Staff Management Permissions
 const STAFF_PERMISSIONS = [
   {
     name: 'staff.view',
@@ -1657,7 +1636,7 @@ const STAFF_PERMISSIONS = [
   },
 ];
 
-// Reports & Analytics Permissions (10 permissions)
+// Reports & Analytics Permissions
 const REPORTS_PERMISSIONS = [
   {
     name: 'reports.view',
@@ -1752,7 +1731,7 @@ const REPORTS_PERMISSIONS = [
   },
 ];
 
-// System Administration Permissions (19 permissions)
+// System Administration Permissions
 const SYSTEM_ADMIN_PERMISSIONS = [
   {
     name: 'settings.view',
@@ -1977,7 +1956,7 @@ const SYSTEM_ADMIN_PERMISSIONS = [
   },
 ];
 
-// Platform Permissions (17 permissions)
+// Platform Permissions
 //
 // Clearance is the floor: `getPermissionPoolsForPermission` routes a
 // category:'platform' permission into pools at max(9, requiredClearanceLevel)
@@ -2175,7 +2154,7 @@ const PLATFORM_PERMISSIONS = [
   },
 ];
 
-// Library Management Permissions (7 permissions)
+// Library Management Permissions
 const LIBRARY_PERMISSIONS = [
   {
     name: 'library.view',
@@ -2246,7 +2225,7 @@ const LIBRARY_PERMISSIONS = [
   },
 ];
 
-// Transportation Permissions (8 permissions)
+// Transportation Permissions
 const TRANSPORTATION_PERMISSIONS = [
   {
     name: 'transportation.view',
@@ -2322,7 +2301,7 @@ const TRANSPORTATION_PERMISSIONS = [
   },
 ];
 
-// Food Service & Cafeteria Permissions (8 permissions)
+// Food Service & Cafeteria Permissions
 const CAFETERIA_PERMISSIONS = [
   {
     name: 'cafeteria.view',
@@ -2398,7 +2377,7 @@ const CAFETERIA_PERMISSIONS = [
   },
 ];
 
-// Health & Medical Services Permissions (8 permissions)
+// Health & Medical Services Permissions
 const HEALTH_PERMISSIONS = [
   {
     name: 'health.view',
@@ -2474,7 +2453,7 @@ const HEALTH_PERMISSIONS = [
   },
 ];
 
-// Facilities & Maintenance Permissions (8 permissions)
+// Facilities & Maintenance Permissions
 const FACILITIES_PERMISSIONS = [
   {
     name: 'facilities.view',
@@ -2550,7 +2529,7 @@ const FACILITIES_PERMISSIONS = [
   },
 ];
 
-// Events & Activities Management Permissions (7 permissions)
+// Events & Activities Management Permissions
 const EVENTS_PERMISSIONS = [
   {
     name: 'events.view',
@@ -2626,7 +2605,7 @@ const EVENTS_PERMISSIONS = [
   },
 ];
 
-// Sports & Athletics Permissions (8 permissions)
+// Sports & Athletics Permissions
 const SPORTS_PERMISSIONS = [
   {
     name: 'sports.view',
@@ -2702,7 +2681,7 @@ const SPORTS_PERMISSIONS = [
   },
 ];
 
-// Clubs & Extracurricular Permissions (7 permissions)
+// Clubs & Extracurricular Permissions
 const CLUBS_PERMISSIONS = [
   {
     name: 'clubs.view',
@@ -2769,7 +2748,7 @@ const CLUBS_PERMISSIONS = [
   },
 ];
 
-// Parent & Community Engagement Permissions (7 permissions)
+// Parent & Community Engagement Permissions
 const PARENT_PORTAL_PERMISSIONS = [
   {
     name: 'parent_portal.view',
@@ -2836,7 +2815,7 @@ const PARENT_PORTAL_PERMISSIONS = [
   },
 ];
 
-// Inventory & Asset Management Permissions (7 permissions)
+// Inventory & Asset Management Permissions
 const INVENTORY_PERMISSIONS = [
   {
     name: 'inventory.view',
@@ -2903,7 +2882,7 @@ const INVENTORY_PERMISSIONS = [
   },
 ];
 
-// Safety & Security Permissions (7 permissions)
+// Safety & Security Permissions
 const SAFETY_PERMISSIONS = [
   {
     name: 'safety.view',
@@ -2970,7 +2949,7 @@ const SAFETY_PERMISSIONS = [
   },
 ];
 
-// Compliance & Reporting Permissions (6 permissions)
+// Compliance & Reporting Permissions
 const COMPLIANCE_PERMISSIONS = [
   {
     name: 'compliance.view',
@@ -3028,7 +3007,7 @@ const COMPLIANCE_PERMISSIONS = [
   },
 ];
 
-// Lesson & Timetable Management Permissions (12 permissions)
+// Lesson & Timetable Management Permissions
 const TIMETABLE_PERMISSIONS = [
   {
     name: 'timetable.view',
@@ -3140,7 +3119,7 @@ const TIMETABLE_PERMISSIONS = [
   },
 ];
 
-// Exam & Assessment Scheduling Permissions (12 permissions)
+// Exam & Assessment Scheduling Permissions
 const EXAMS_PERMISSIONS = [
   {
     name: 'exams.view',
@@ -3252,7 +3231,7 @@ const EXAMS_PERMISSIONS = [
   },
 ];
 
-// Admissions Management Permissions (15 permissions)
+// Admissions Management Permissions
 const ADMISSIONS_PERMISSIONS = [
   {
     name: 'admissions.view',
@@ -3391,7 +3370,7 @@ const ADMISSIONS_PERMISSIONS = [
   },
 ];
 
-// HR & Payroll Permissions (3 permissions)
+// HR & Payroll Permissions
 //
 // hr.view backs the HR nav section + /hr/* layout gate added in Step 6
 // (schoolType-driven nav polymorphism); payroll.* backs the Step 8
@@ -3426,7 +3405,7 @@ const HR_PAYROLL_PERMISSIONS = [
   },
 ];
 
-// AI Permissions (4 permissions)
+// AI Permissions
 //
 // Backs the AI integration (docs/ai-integration-plan.md, Step 1).
 // ai.analytics.query has a clearance FLOOR of 1, not 3+: per
@@ -3480,7 +3459,7 @@ const AI_PERMISSIONS = [
   },
 ];
 
-// Lesson Content Permissions (6 permissions) — learning schema (AI plan Step 4)
+// Lesson Content Permissions — learning schema (AI plan Step 4)
 const LESSONS_PERMISSIONS = [
   {
     name: 'lessons.view',
@@ -3761,7 +3740,7 @@ const IMPORT_PERMISSIONS = [
   },
 ];
 
-// Curriculum Permissions (4 permissions) — F6 / ADR-03
+// Curriculum Permissions — F6 / ADR-03
 const CURRICULUM_PERMISSIONS = [
   {
     name: 'curriculum.view',

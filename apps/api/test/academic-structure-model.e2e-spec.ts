@@ -12,6 +12,9 @@
  *     (same section + subject + term) is rejected.
  *   - campus scope is ENFORCED: a Campus-1-scoped actor cannot build a section on
  *     Campus-2, but can on Campus-1 (WB1-6 AccessScopeService).
+ *   - campus scope also clamps the READ path: a Campus-1-scoped actor's
+ *     section/offering LIST returns only Campus-1 rows (scope overrides filter),
+ *     while an unscoped/global actor sees every campus.
  *   - RLS hides another tenant's structure; the HTTP guard stack rejects anon.
  *
  * Requires APP_RUNTIME_DATABASE_URL (the restricted role). Skips otherwise —
@@ -333,9 +336,87 @@ d(
       expect(ok.campusId).toBe(campus1Id);
     });
 
+    it('clamps the READ path: a Campus-1 registrar lists only Campus-1 sections/offerings', async () => {
+      // Seed a Campus-2 section + offering with an UNSCOPED actor, so there is
+      // cross-campus data available to (not) leak on the read path.
+      const campus2Section = await inA(() =>
+        structure.createClassSection(tenantAId, unscoped(), {
+          campusId: campus2Id,
+          yearLevelId: ss1Id,
+          streamId: artsId,
+          name: 'Annex',
+        }),
+      );
+      await inA(() =>
+        structure.createSubjectOffering(tenantAId, unscoped(), {
+          classSectionId: campus2Section.id,
+          academicYearId,
+          curriculumSubjectId: subjectId,
+        }),
+      );
+
+      const campus1Actor = {
+        userId: actorId,
+        grantScope: { type: 'campus', value: campus1Id, label: 'Main' },
+      };
+
+      // Sections: the scoped actor sees only its own campus, never the Campus-2
+      // row — even when it explicitly asks for Campus-2 (scope OVERRIDES filter).
+      const scopedSections = await inA(() =>
+        structure.listClassSections(tenantAId, campus1Actor, {}),
+      );
+      expect(scopedSections.length).toBeGreaterThan(0);
+      expect(scopedSections.every((s) => s.campusId === campus1Id)).toBe(true);
+      expect(scopedSections.some((s) => s.id === campus2Section.id)).toBe(false);
+
+      const askingCampus2 = await inA(() =>
+        structure.listClassSections(tenantAId, campus1Actor, {
+          campusId: campus2Id,
+        }),
+      );
+      expect(askingCampus2.every((s) => s.campusId === campus1Id)).toBe(true);
+
+      // Offerings carry no campusId — the clamp reaches through the parent
+      // section's campus, so the Campus-2 offering is not visible.
+      const scopedOfferings = await inA(() =>
+        structure.listSubjectOfferings(tenantAId, campus1Actor, {}),
+      );
+      expect(
+        scopedOfferings.some((o) => o.classSectionId === campus2Section.id),
+      ).toBe(false);
+
+      // Even explicitly filtering by the Campus-2 section returns nothing — the
+      // campus clamp AND-composes with the classSectionId filter (no leak).
+      const offeringsAskingCampus2Section = await inA(() =>
+        structure.listSubjectOfferings(tenantAId, campus1Actor, {
+          classSectionId: campus2Section.id,
+        }),
+      );
+      expect(offeringsAskingCampus2Section.length).toBe(0);
+
+      // An unscoped/global actor is unaffected: it still sees BOTH campuses.
+      const allSections = await inA(() =>
+        structure.listClassSections(tenantAId, unscoped(), {}),
+      );
+      expect(allSections.some((s) => s.campusId === campus1Id)).toBe(true);
+      expect(allSections.some((s) => s.campusId === campus2Id)).toBe(true);
+
+      // Fail CLOSED: a malformed campus scope with no campus is DENIED, never
+      // silently unclamped to see every campus (matches the write path).
+      await expect(
+        inA(() =>
+          structure.listClassSections(
+            tenantAId,
+            { userId: actorId, grantScope: { type: 'campus' } },
+            {},
+          ),
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+    });
+
     it('isolates tenants via RLS: tenant B sees none of tenant A structure and cannot use its campus', async () => {
       const seenFromB = await inB(() =>
-        structure.listClassSections(tenantBId, {}),
+        structure.listClassSections(tenantBId, unscoped(), {}),
       );
       expect(seenFromB.length).toBe(0);
 
