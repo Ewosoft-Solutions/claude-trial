@@ -4,6 +4,37 @@ Last Updated: 2026-08-05
 
 ---
 
+## Session Summary (2026-08-05) — Claude: WB1-6 built to DoD → in-review; WB2 kickstarted
+
+**Item(s):** **WB1-6 → in-review** (branch `feat/wb1-6-scope-expiry-maker-checker`, not yet pushed/PR'd). **WB2 → detailed + WB2-1 `ready`** (planning). Claim committed first (`board: claim WB1-6`).
+
+**What changed & why**
+
+- **WB1-6 · time-boxed + scoped access grants with maker-checker/step-up** (the last Workbench-1 slice). The four legs:
+  - **Expiry (scenario 3):** `UserTenantRole` gains `scope` + `expiresAt` + `grantReason`. The **live per-request** authz path — `PermissionService.getUserPermissionContext` — now treats an **expired** grant as "no active role" (returns null → denied), so a 5-day substitute cover auto-expires with **no token invalidation, no background job**; the next request simply resolves to denied. `isGrantExpired` + `parseScope` live in the new `AccessScopeService`.
+  - **Maker-checker (scenario 4):** new `AccessGrantService.requestGrant` decides **high-risk** (the role carries a SENSITIVE capability per the WB1-5 `EffectiveAccessService.evaluateRole`, or clearance ≥ 7) vs low-risk. Low-risk applies immediately; high-risk raises a `MakerCheckerRequest` (op `access.grant.high_risk`, added to `MakerCheckerService`'s map, checker floor 7) and is applied only when `approveGrant` runs for a **different** approver — `MakerCheckerService.approveRequest` already enforces maker ≠ checker; the service re-throws its denial as a 403. Step-up is enforced at the route via `@RequireStepUp('users.role.assign')` (that op is `requiresStepUp: true` in the catalog, so an authenticated POST without a challenge 403s). `rejectGrant` + `revokeGrant` too.
+  - **Campus scope ENFORCEMENT (scenario 2 primitive):** new **`Campus`** model (`tenant` schema, standard own+platform RLS — ADR-11 Option A, org-within-tenant) is the concrete scope target. `AccessScopeService.assertWithinScope(grantScope, {campusId})` enforces it (WB1-5 only EXPLAINED scope): a campus-scoped actor can only grant within its campus (`UserPermissionContext` now carries `grantScope`). Finance/academic **row-level** campus enforcement completes in WB5/WB2 once those rows carry a `campusId` — the primitive is ready + tested. `CampusService` CRUD + `/campuses` controller.
+  - **Shared-catalog RLS tightening (WB1-5 review follow-up):** `roles` / `permission_pools` / `role_templates` moved from a single `FOR ALL` `tenant_isolation` policy (which let a tenant DELETE a shared `tenant_id IS NULL` row) to the **two-policy** shape (mirrors F6 curriculum): `tenant_isolation` FOR SELECT (own + shared + platform) + `tenant_write` FOR ALL (own + platform). `db:rls:check` still green (PERMISSIVE `tenant_isolation` retained).
+  - **Web:** person-detail **Access & scope** panel (`accessSlot` on `PersonOverview`, gated `access.grants.manage`): active grant (role · campus scope · expiry badge · revoke), a Grant-role dialog (role → scope → optional expiry → reason), and pending high-risk approvals rendered via the **F8 `ApprovalPanel`** (before→after, SoD block, step-up notice). Proxy routes under `/api/access/*` + `/api/campuses`.
+  - **+3 permissions** (`access.grants.manage` clr 7, `campus.view` clr 3, `campus.manage` clr 7) → **335**; `EXPECTED_PERMISSION_COUNTS.total` 332→335 + `SYSTEM_ADMIN_PERMISSIONS` 20→23. New module `apps/api/src/access` wired into `app.module`.
+
+- **WB2 kickstart:** with `F1`+`F6` done and ADR-02/03 accepted, detailed Workbench-2 into [`workbench-academic.md`](design-export/product-expansion/action-plan/workbench-academic.md) + board rows **WB2-1..WB2-4**. **WB2-1** (ADR-02 structured model: campus·stage·year·stream·section + offerings, label stored not parsed) → `ready` (its new dep, `Campus`, ships with WB1-6). The ADR-02 model's top dimension is the `Campus` WB1-6 introduces — WB2 is where campus scope becomes visible on academic rows.
+
+**Verification** (run + result)
+
+- `check:privileged-db` **green** (no new `DatabaseService`; new services use `TenantDbService`). `db:rls:check` **green** (campuses covered; catalog keeps its PERMISSIVE `tenant_isolation`). `db:verify` **335 perms / 11 pools / 11 roles**.
+- API typecheck (`tsc -p tsconfig.build.json`) green; api lint + web lint (`next lint`) clean; web `tsc --noEmit` green. `packages/api` was **force-rebuilt** (`tsc -b --force`) so `getUserTenantProfile`'s return type picks up the new `UserTenantRole` scalars — a plain `tsc -b` reports "up to date" because it doesn't track the Prisma client as an input.
+- Unit: **api 570/570** (+19: `access-scope.service` 10, `access-grant.service` 9). e2e **`access-grants` 7/7 on real pg** (low-risk immediate · high-risk → pending, not applied · maker self-approval denied + second approver applies · auto-expiry via the live permission context · campus-scope deny-cross/allow-within · RLS hides another tenant's profile · 401 boundary).
+- **Web `next build` deliberately NOT run:** a `next dev` server was live on :3001 and they share `apps/web/.next` (the corruption gotcha). Validated web by tsc + lint; the isolated CI build is authoritative. Authenticated visual pass owner-gated (credential guardrail; WB1-1..1-5 precedent).
+
+**Decisions / ADRs** — no new ADR. Notable calls: (1) enforce expiry at the **permission-context** layer (one authoritative authz read) rather than a sweeper job; (2) `grantScope` added **optional** on `UserPermissionContext` so the AI-mediator's synthesised context + existing fixtures stay valid; (3) high-risk = **evaluator-driven** (sensitive capability) OR clearance ≥ 7, reusing the WB1-5 evaluator rather than a hand-maintained role list; (4) `Campus` is owned by **WB1-6** and consumed by WB2 (kept the two consistent since both were touched this session); (5) full finance/academic campus-row enforcement stays WB5/WB2 — WB1-6 ships the primitive + proves it on the grant surface.
+
+**Next step (so the next agent can resume)**
+
+- Push `feat/wb1-6-scope-expiry-maker-checker` → open PR → independent (maker-checker) review → merge → WB1-6 `done` (**Workbench-1 6/6 complete**). On merge, CD applies migration `20260805020000_access_grants_scope_expiry`. Then **WB2-1** is fully unblocked — claim it (`board: claim WB2-1`) to start the ADR-02 academic structure model. This session did NOT push or open a PR.
+
+**New gotcha** — after a Prisma schema change, a cross-package return type (e.g. `@workspace/api`'s `getUserTenantProfile`) won't surface new model scalars in a *dependent* package's isolated `tsc` until the producing package's dist is **force-rebuilt** (`tsc -b --force`) — plain `tsc -b` sees inputs "up to date" because it doesn't track the generated client. `pnpm ci:quick` (turbo, full build) handles this in order; a scoped `tsc` in one app does not.
+
 ## Session Summary (2026-08-05) — Claude: WB1-2 + WB1-5 merged → done; WB1-6 unblocked
 
 **Item(s):** WB1-2 + WB1-5 → **done**. WB1-6 → **ready**. **PR:** [#63](https://github.com/Ewosoft-Solutions/claude-trial/pull/63) squash-merged to `main` as `7c69db5`; CI green on the merge commit (gate: CI-green + merged). Branch deleted; local `main` synced.
