@@ -232,9 +232,11 @@ export function PromotionWorkbench({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             decision,
+            // withhold + repeat clear the next-level proposal (repeat falls back
+            // to the source section server-side); promote/manual keep it.
             proposedClassSectionId:
               proposedClassSectionId ??
-              (decision === 'withhold'
+              (decision === 'withhold' || decision === 'repeat'
                 ? undefined
                 : (item.proposedClassSectionId ?? undefined)),
             reason: item.exceptionReason ?? undefined,
@@ -405,6 +407,19 @@ export function PromotionWorkbench({
                     disabled={busy}
                   >
                     Submit for approval
+                  </Button>
+                )}
+                {(status === 'previewed' ||
+                  status === 'pending_approval' ||
+                  status === 'draft') && (
+                  <Button
+                    variant="ghost"
+                    onClick={() =>
+                      post(`runs/${selectedId}/cancel`, 'Run cancelled')
+                    }
+                    disabled={busy}
+                  >
+                    Cancel run
                   </Button>
                 )}
               </div>

@@ -51,6 +51,7 @@ d(
     let ss2SectionId: string; // to (SS2) — same stream + name so it is auto-proposed
     let promoteStudentId: string;
     let withholdStudentId: string;
+    let repeatStudentId: string;
     let makerId: string;
     let checkerId: string;
 
@@ -217,10 +218,12 @@ d(
       ss1SectionId = s1.id;
       ss2SectionId = s2.id;
 
-      [promoteStudentId, withholdStudentId] = await Promise.all([
-        makeStudentEnrolledInSS1('promote'),
-        makeStudentEnrolledInSS1('withhold'),
-      ]);
+      [promoteStudentId, withholdStudentId, repeatStudentId] =
+        await Promise.all([
+          makeStudentEnrolledInSS1('promote'),
+          makeStudentEnrolledInSS1('withhold'),
+          makeStudentEnrolledInSS1('repeat'),
+        ]);
     });
 
     afterAll(async () => {
@@ -249,6 +252,7 @@ d(
 
     let runId: string;
     let withholdItemId: string;
+    let repeatItemId: string;
 
     it('previews the cohort with proposed next-year placements', async () => {
       const run = await inA(() =>
@@ -267,34 +271,51 @@ d(
         promotion.preview(tenantAId, maker(), runId),
       );
       expect(previewed.status).toBe('previewed');
-      expect(items).toHaveLength(2);
+      expect(items).toHaveLength(3);
       // Every item proposes the matching SS2 "A" section.
       for (const item of items) {
         expect(item.proposedClassSectionId).toBe(ss2SectionId);
         expect(item.decision).toBe('promote');
       }
       withholdItemId = items.find((i) => i.studentId === withholdStudentId)!.id;
+      repeatItemId = items.find((i) => i.studentId === repeatStudentId)!.id;
     });
 
     it('an exception on one student changes only that student', async () => {
       await inA(() =>
         promotion.setException(tenantAId, maker(), runId, withholdItemId, {
           decision: 'withhold',
-          reason: 'Repeating the year',
+          reason: 'Leaving the school',
         }),
       );
-      const { items } = await inA(() => promotion.getRun(tenantAId, runId));
+      // A repeat exception: the student stays at the SS1 level next year.
+      await inA(() =>
+        promotion.setException(tenantAId, maker(), runId, repeatItemId, {
+          decision: 'repeat',
+          reason: 'Not ready to advance',
+        }),
+      );
+      const { items } = await inA(() =>
+        promotion.getRun(tenantAId, maker(), runId),
+      );
       const withheld = items.find((i) => i.studentId === withholdStudentId);
+      const repeated = items.find((i) => i.studentId === repeatStudentId);
       const promoted = items.find((i) => i.studentId === promoteStudentId);
       expect(withheld?.decision).toBe('withhold');
-      // The OTHER student is untouched.
+      // A repeat clears the next-level proposal so the commit resolver falls back
+      // to the SOURCE section — the fix for the "repeat silently promotes" bug.
+      expect(repeated?.decision).toBe('repeat');
+      expect(repeated?.proposedClassSectionId).toBeNull();
+      // The un-excepted student is untouched.
       expect(promoted?.decision).toBe('promote');
       expect(promoted?.proposedClassSectionId).toBe(ss2SectionId);
     });
 
     it('maker-checker: the maker cannot approve their own commit', async () => {
       await inA(() => promotion.requestCommit(tenantAId, maker(), runId));
-      const { run } = await inA(() => promotion.getRun(tenantAId, runId));
+      const { run } = await inA(() =>
+        promotion.getRun(tenantAId, maker(), runId),
+      );
       expect(run.status).toBe('pending_approval');
       expect(run.approvalRequestId).toBeTruthy();
 
@@ -309,7 +330,7 @@ d(
         promotion.approveAndCommit(tenantAId, checker(), runId),
       );
       expect(result.status).toBe('committed');
-      expect(result.committed).toBe(1); // promote student
+      expect(result.committed).toBe(2); // promote + repeat students
       expect(result.withheld).toBe(1); // withhold student
 
       // The promoted student now has a NEXT-year enrollment in SS2 "A".
@@ -323,6 +344,18 @@ d(
       expect(nextYear).toHaveLength(1);
       expect(nextYear[0]!.classSectionId).toBe(ss2SectionId);
 
+      // The REPEAT student's next-year enrollment is in the SS1 (source) section,
+      // NOT the next-level SS2 — they repeat the year (fix for the repeat bug).
+      const repeatNext = await owner.sectionEnrollment.findMany({
+        where: {
+          tenantId: tenantAId,
+          studentId: repeatStudentId,
+          academicYearId: toYearId,
+        },
+      });
+      expect(repeatNext).toHaveLength(1);
+      expect(repeatNext[0]!.classSectionId).toBe(ss1SectionId);
+
       // The withheld student did NOT get a next-year enrollment.
       const withheldNext = await owner.sectionEnrollment.findMany({
         where: {
@@ -333,8 +366,8 @@ d(
       });
       expect(withheldNext).toHaveLength(0);
 
-      // The PRIOR year (SS1/AY1) enrollments are untouched — both students still
-      // have their active SS1 rows.
+      // The PRIOR year (SS1/AY1) enrollments are untouched — all three students
+      // still have their active SS1 rows.
       const priorYear = await owner.sectionEnrollment.findMany({
         where: {
           tenantId: tenantAId,
@@ -342,14 +375,14 @@ d(
           classSectionId: ss1SectionId,
         },
       });
-      expect(priorYear).toHaveLength(2);
+      expect(priorYear).toHaveLength(3);
       for (const e of priorYear) expect(e.status).toBe('active');
     });
 
     it('isolates tenants via RLS and rejects anon at the HTTP boundary', async () => {
       // Tenant B cannot see tenant A's run (RLS hides it).
       await expect(
-        inB(() => promotion.getRun(tenantBId, runId)),
+        inB(() => promotion.getRun(tenantBId, maker(), runId)),
       ).rejects.toBeTruthy();
 
       const http = app.getHttpServer();

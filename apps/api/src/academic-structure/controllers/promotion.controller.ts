@@ -67,14 +67,16 @@ export class PromotionController {
   @RequirePermissions(['academics.promotion.view'])
   @ApiOperation({ summary: 'List promotion runs' })
   listRuns(@Request() req: AuthenticatedRequest) {
-    return this.promotion.listRuns(this.ctx(req).tenantId);
+    const { tenantId, actor } = this.ctx(req);
+    return this.promotion.listRuns(tenantId, actor);
   }
 
   @Get('runs/:id')
   @RequirePermissions(['academics.promotion.view'])
   @ApiOperation({ summary: 'A promotion run + its items' })
   getRun(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.promotion.getRun(this.ctx(req).tenantId, id);
+    const { tenantId, actor } = this.ctx(req);
+    return this.promotion.getRun(tenantId, actor, id);
   }
 
   // ---- manage ----
@@ -121,6 +123,21 @@ export class PromotionController {
   requestCommit(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     const { tenantId, actor } = this.ctx(req);
     return this.promotion.requestCommit(tenantId, actor, id);
+  }
+
+  @Post('runs/:id/cancel')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['academics.promotion.manage'])
+  @ApiOperation({
+    summary: 'Cancel a run (withdraws any pending approval; not for committed)',
+  })
+  cancel(
+    @Param('id') id: string,
+    @Body() dto: ReviewPromotionDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const { tenantId, actor } = this.ctx(req);
+    return this.promotion.cancelRun(tenantId, actor, id, dto.reason);
   }
 
   // ---- approve + commit (second approver) ----

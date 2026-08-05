@@ -214,7 +214,7 @@ d('Student lifecycle — register/transfer/withdraw/graduate (WB2-3)', () => {
     expect(res.placement.eventType).toBe('registration');
 
     const explained = await inA(() =>
-      lifecycle.explainPlacement(tenantAId, studentId),
+      lifecycle.explainPlacement(tenantAId, unscoped(), studentId),
     );
     expect(explained.student.enrollmentStatus).toBe('active');
     expect(explained.current?.classSectionId).toBe(sectionA1Id);
@@ -242,7 +242,7 @@ d('Student lifecycle — register/transfer/withdraw/graduate (WB2-3)', () => {
     );
 
     const explained = await inA(() =>
-      lifecycle.explainPlacement(tenantAId, studentId),
+      lifecycle.explainPlacement(tenantAId, unscoped(), studentId),
     );
     // Two placement spans survive — the source (ended, with an end date) and the
     // destination (active). The prior placement was NOT destroyed.
@@ -277,7 +277,7 @@ d('Student lifecycle — register/transfer/withdraw/graduate (WB2-3)', () => {
       }),
     );
     const explained = await inA(() =>
-      lifecycle.explainPlacement(tenantAId, studentId),
+      lifecycle.explainPlacement(tenantAId, unscoped(), studentId),
     );
     expect(explained.student.enrollmentStatus).toBe('withdrawn');
     // The two prior placement spans are still present (never destroyed) + a
@@ -308,7 +308,7 @@ d('Student lifecycle — register/transfer/withdraw/graduate (WB2-3)', () => {
     );
     expect(res.status).toBe('graduated');
     const explained = await inA(() =>
-      lifecycle.explainPlacement(tenantAId, gradStudentId),
+      lifecycle.explainPlacement(tenantAId, unscoped(), gradStudentId),
     );
     expect(explained.student.enrollmentStatus).toBe('graduated');
     expect(explained.student.graduationDate).toBeTruthy();
@@ -344,7 +344,7 @@ d('Student lifecycle — register/transfer/withdraw/graduate (WB2-3)', () => {
   it('isolates tenants via RLS and rejects anon at the HTTP boundary', async () => {
     // Tenant B cannot see tenant A's student (RLS hides it).
     await expect(
-      inB(() => lifecycle.explainPlacement(tenantBId, studentId)),
+      inB(() => lifecycle.explainPlacement(tenantBId, unscoped(), studentId)),
     ).rejects.toBeTruthy();
     await expect(
       inB(() =>

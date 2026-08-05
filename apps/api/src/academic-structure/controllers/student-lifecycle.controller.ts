@@ -68,7 +68,8 @@ export class StudentLifecycleController {
     @Param('studentId') studentId: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.lifecycle.explainPlacement(this.ctx(req).tenantId, studentId);
+    const { tenantId, actor } = this.ctx(req);
+    return this.lifecycle.explainPlacement(tenantId, actor, studentId);
   }
 
   @Get('students/:studentId/history')
@@ -79,8 +80,10 @@ export class StudentLifecycleController {
     @Query() query: ListPlacementHistoryDto,
     @Request() req: AuthenticatedRequest,
   ) {
+    const { tenantId, actor } = this.ctx(req);
     return this.lifecycle.listPlacementHistory(
-      this.ctx(req).tenantId,
+      tenantId,
+      actor,
       studentId,
       query,
     );

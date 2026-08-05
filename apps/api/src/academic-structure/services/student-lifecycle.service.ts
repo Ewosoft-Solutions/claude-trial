@@ -229,19 +229,24 @@ export class StudentLifecycleService {
     const year = dto.academicYearId ?? currentEnrollment.academicYearId;
     if (dto.academicYearId) await this.assertAcademicYear(tenantId, year);
 
-    // A pre-existing active enrollment in the destination for that year blocks
-    // the transfer (the unique (student, section, year) would collide).
+    // Any prior enrollment in the destination for that year blocks the transfer
+    // — the unique (student, section, year) would collide. This includes a
+    // section the student was in earlier this year and left (kept as a
+    // 'transferred' row, by design); re-entry into a prior section within the
+    // same year isn't supported, so the message names that case.
     const dupDest = await this.client.sectionEnrollment.findFirst({
       where: {
         studentId: dto.studentId,
         classSectionId: dto.toClassSectionId,
         academicYearId: year,
       },
-      select: { id: true },
+      select: { id: true, status: true },
     });
     if (dupDest) {
       throw new ConflictException(
-        'The student already has an enrollment in the destination section for that year.',
+        dupDest.status === 'active'
+          ? 'The student is already actively enrolled in the destination section for that year.'
+          : 'The student was already placed in the destination section earlier this year; re-entry into a prior section within the same year is not supported.',
       );
     }
 
@@ -372,22 +377,48 @@ export class StudentLifecycleService {
   ) {
     await this.assertStudent(tenantId, input.studentId);
 
-    // The campus the student currently sits on (for scope + the closing span).
+    // The campus the student currently sits on (for the closing span + the
+    // no-section case).
     const currentCampusId = await this.currentCampusId(
       tenantId,
       input.studentId,
     );
-    this.accessScope.assertWithinScope(actor.grantScope, {
-      campusId: currentCampusId,
-    });
 
     const now = new Date();
 
-    // End every active section membership (never delete).
+    // End every active section membership (never delete). A student can hold
+    // enrollments on more than one campus (e.g. this-year + a next-year span
+    // from a cross-campus promotion), so scope is asserted on EVERY campus the
+    // close would touch — a campus-scoped actor may only exit a student whose
+    // active placements are all within their scope (fail closed otherwise).
     const activeEnrollments = await this.client.sectionEnrollment.findMany({
       where: { tenantId, studentId: input.studentId, status: 'active' },
-      select: { id: true },
+      select: { id: true, classSectionId: true },
     });
+    const enrollmentSectionIds = [
+      ...new Set(activeEnrollments.map((e) => e.classSectionId)),
+    ];
+    const enrollmentSections = enrollmentSectionIds.length
+      ? await this.client.classSection.findMany({
+          where: { id: { in: enrollmentSectionIds }, tenantId },
+          select: { id: true, campusId: true },
+        })
+      : [];
+    const campusesToCheck = new Set<string>(
+      enrollmentSections.map((s) => s.campusId),
+    );
+    if (currentCampusId) campusesToCheck.add(currentCampusId);
+    // When a campus-scoped actor targets a student with no placement at all,
+    // there is no campus to satisfy their scope → deny (fail closed).
+    if (campusesToCheck.size === 0) {
+      this.accessScope.assertWithinScope(actor.grantScope, {
+        campusId: currentCampusId,
+      });
+    }
+    for (const campusId of campusesToCheck) {
+      this.accessScope.assertWithinScope(actor.grantScope, { campusId });
+    }
+
     for (const e of activeEnrollments) {
       await this.client.sectionEnrollment.update({
         where: { id: e.id },
@@ -455,9 +486,15 @@ export class StudentLifecycleService {
 
   /**
    * Explain a student's placement: their current section (campus → section) and
-   * the full year-over-year placement history behind it (scenario 5).
+   * the full year-over-year placement history behind it (scenario 5). Campus-
+   * scoped: a campus-scoped reader may only explain students currently on their
+   * campus.
    */
-  async explainPlacement(tenantId: string, studentId: string) {
+  async explainPlacement(
+    tenantId: string,
+    actor: StructureActor,
+    studentId: string,
+  ) {
     const student = await this.client.student.findFirst({
       where: { id: studentId, tenantId },
       select: {
@@ -472,6 +509,7 @@ export class StudentLifecycleService {
       },
     });
     if (!student) throw new NotFoundException('Student not found');
+    await this.assertStudentInScope(tenantId, actor, studentId);
 
     const history = await this.loadHistory(tenantId, studentId);
     const activeEnrollments = await this.loadActiveEnrollments(
@@ -549,14 +587,33 @@ export class StudentLifecycleService {
 
   async listPlacementHistory(
     tenantId: string,
+    actor: StructureActor,
     studentId: string,
     query: ListPlacementHistoryDto,
   ) {
     await this.assertStudent(tenantId, studentId);
+    await this.assertStudentInScope(tenantId, actor, studentId);
     const history = await this.loadHistory(tenantId, studentId);
     return query.status
       ? history.filter((h) => h.status === query.status)
       : history;
+  }
+
+  /**
+   * A campus-scoped reader may only touch a student currently on their campus.
+   * When the student has no current campus (no placement anywhere) there is
+   * nothing campus-sensitive to protect, so the read is allowed — the check is
+   * about not leaking students placed on OTHER campuses.
+   */
+  private async assertStudentInScope(
+    tenantId: string,
+    actor: StructureActor,
+    studentId: string,
+  ) {
+    const campusId = await this.currentCampusId(tenantId, studentId);
+    if (campusId) {
+      this.accessScope.assertWithinScope(actor.grantScope, { campusId });
+    }
   }
 
   /** Suggest the next student identifier for this tenant (identifier allocation). */

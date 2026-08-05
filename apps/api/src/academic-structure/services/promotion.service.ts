@@ -151,15 +151,20 @@ export class PromotionService {
     return run;
   }
 
-  async listRuns(tenantId: string) {
+  async listRuns(tenantId: string, actor: PromotionActor) {
+    // A campus-scoped viewer only sees their own campus's runs (the read-path
+    // twin of assertRunScope, which denies a campus-scoped actor a tenant-wide
+    // run) — mirrors the WB2-1 read clamp. Unscoped/global sees everything.
+    const campusId = this.scopedCampusId(actor.grantScope);
     return this.client.promotionRun.findMany({
-      where: { tenantId },
+      where: { tenantId, ...(campusId ? { campusId } : {}) },
       orderBy: { createdAt: 'desc' },
     });
   }
 
-  async getRun(tenantId: string, runId: string) {
+  async getRun(tenantId: string, actor: PromotionActor, runId: string) {
     const run = await this.loadRun(tenantId, runId);
+    this.assertRunScope(actor, run);
     const items = await this.loadItemsWithLabels(tenantId, runId);
     return { run, items };
   }
@@ -181,8 +186,11 @@ export class PromotionService {
     }
     if (run.status === 'pending_approval') {
       throw new BadRequestException(
-        'This run is awaiting approval; withdraw it before re-previewing.',
+        'This run is awaiting approval; cancel it before re-previewing.',
       );
+    }
+    if (run.status === 'cancelled') {
+      throw new BadRequestException('This run was cancelled.');
     }
 
     // Source sections: the run's from-year-level sections (optionally campus).
@@ -234,7 +242,10 @@ export class PromotionService {
             classSectionId: { in: sourceSectionIds },
             academicYearId: run.fromAcademicYearId,
           },
-          select: { studentId: true, classSectionId: true },
+          select: { studentId: true, classSectionId: true, enrolledAt: true },
+          // Deterministic: for a student with >1 active source enrollment, the
+          // earliest wins consistently (rather than arbitrary row order).
+          orderBy: [{ enrolledAt: 'asc' }, { id: 'asc' }],
         })
       : [];
 
@@ -308,33 +319,57 @@ export class PromotionService {
     });
     if (!item) throw new NotFoundException('Promotion item not found');
 
-    // A manual (or promote) decision must point at a real target section.
-    let proposed = dto.proposedClassSectionId ?? undefined;
+    const proposed = dto.proposedClassSectionId?.trim() || undefined;
     if (dto.decision === 'manual' && !proposed) {
       throw new BadRequestException(
         'A manual placement needs a destination section.',
       );
     }
+    // A chosen destination must exist, be within the actor's campus scope, and —
+    // when the run is campus-scoped — belong to that campus (so a manual
+    // exception can't place a student on another campus). This closes the
+    // scope-escape the auto-proposal path already prevents.
     if (proposed) {
       const section = await this.client.classSection.findFirst({
         where: { id: proposed, tenantId },
-        select: { id: true },
+        select: { id: true, campusId: true },
       });
       if (!section) {
         throw new BadRequestException(
           'Destination section not found for this tenant.',
         );
       }
+      this.accessScope.assertWithinScope(actor.grantScope, {
+        campusId: section.campusId,
+      });
+      if (run.campusId && section.campusId !== run.campusId) {
+        throw new BadRequestException(
+          'The destination section is on a different campus than this run.',
+        );
+      }
     }
-    // withhold clears any proposed placement (the student is held back).
-    if (dto.decision === 'withhold') proposed = undefined;
+
+    // The section stored for each decision:
+    //   • withhold → null (the student is held back, no next-year placement).
+    //   • repeat   → the explicit choice, else null so the commit resolver falls
+    //                back to the student's SOURCE section (they repeat the level).
+    //                Without this, repeat silently kept the preview's next-level
+    //                proposal and PROMOTED the student.
+    //   • promote/manual → the explicit choice, else keep the existing proposal.
+    let proposedUpdate: string | null | undefined;
+    if (dto.decision === 'withhold') {
+      proposedUpdate = null;
+    } else if (dto.decision === 'repeat') {
+      proposedUpdate = proposed ?? null;
+    } else {
+      proposedUpdate = proposed ?? undefined;
+    }
 
     const updated = await this.client.promotionRunItem.update({
       where: { id: itemId },
       data: {
         decision: dto.decision,
-        proposedClassSectionId:
-          dto.decision === 'withhold' ? null : (proposed ?? undefined),
+        proposedClassSectionId: proposedUpdate,
         exceptionReason: dto.reason?.trim() || null,
         updatedBy: actor.userId,
       },
@@ -539,6 +574,56 @@ export class PromotionService {
     };
   }
 
+  // ======================= cancel =======================
+
+  /**
+   * Cancel a run before it commits — the escape hatch for a mistaken run or a
+   * pending approval that should be withdrawn. Rejects any pending maker-checker
+   * request (so it isn't stranded) and moves the run to 'cancelled'. A committed
+   * run is immutable and cannot be cancelled.
+   */
+  async cancelRun(
+    tenantId: string,
+    actor: PromotionActor,
+    runId: string,
+    reason?: string,
+  ) {
+    const run = await this.loadRun(tenantId, runId);
+    this.assertRunScope(actor, run);
+    if (run.status === 'committed') {
+      throw new BadRequestException('A committed run cannot be cancelled.');
+    }
+    if (run.status === 'cancelled') {
+      throw new BadRequestException('This run is already cancelled.');
+    }
+    if (run.status === 'pending_approval' && run.approvalRequestId) {
+      // Withdraw the pending maker-checker request so it isn't left dangling.
+      await this.makerChecker.rejectRequest(
+        this.prisma,
+        run.approvalRequestId,
+        actor.userId,
+        reason?.trim() || 'Promotion run cancelled',
+      );
+    }
+    const updated = await this.client.promotionRun.update({
+      where: { id: runId },
+      data: {
+        status: 'cancelled',
+        approvalRequestId: null,
+        updatedBy: actor.userId,
+      },
+    });
+    await this.writeAudit(
+      tenantId,
+      actor.userId,
+      'academics.promotion.cancel',
+      runId,
+      `cancelled promotion run ${run.name}`,
+      { previousStatus: run.status },
+    );
+    return { status: 'cancelled' as const, run: updated };
+  }
+
   // ======================= internals =======================
 
   /** Where an item is to be placed (delegates to the pure `resolveTargetSection`). */
@@ -557,6 +642,22 @@ export class PromotionService {
     this.accessScope.assertWithinScope(actor.grantScope, {
       campusId: run.campusId ?? undefined,
     });
+  }
+
+  /**
+   * The campus a scoped READ is clamped to, or null when unrestricted. A
+   * `campus`-scoped actor only ever sees their own campus's rows; an
+   * unscoped/`global` scope is unclamped. A `campus` scope with no campus fails
+   * CLOSED (denied) — same rule as AccessScopeService's write path.
+   */
+  private scopedCampusId(
+    grantScope: PromotionActor['grantScope'],
+  ): string | null {
+    if (!grantScope || grantScope.type !== 'campus') return null;
+    if (!grantScope.value) {
+      throw new ForbiddenException('A campus-scoped action needs a campus.');
+    }
+    return grantScope.value;
   }
 
   private async loadRun(tenantId: string, runId: string) {
