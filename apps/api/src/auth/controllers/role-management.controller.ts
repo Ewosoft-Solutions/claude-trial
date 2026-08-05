@@ -23,6 +23,16 @@ import {
   ApiBearerAuth,
   ApiResponse,
 } from '@nestjs/swagger';
+import {
+  IsArray,
+  IsInt,
+  IsObject,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { SwaggerTags } from '../../common/swagger-tags';
 import { JwtAuthGuard } from '../guards/jwt-auth.guard';
 import {
@@ -33,10 +43,8 @@ import { TenantContextGuard } from '../guards/tenant-context.guard';
 import { RoleService, CreateCustomRoleInput } from '../services/role.service';
 import { PermissionService } from '../services/permission.service';
 import { RoleTemplateService } from '../services/role-template.service';
-import {
-  EffectiveAccessService,
-  ScopeDescriptor,
-} from '../services/effective-access.service';
+import { EffectiveAccessService } from '../services/effective-access.service';
+import type { ScopeDescriptor } from '../services/effective-access.service';
 import { DatabaseService } from '../../common/database/database.service';
 import { RoleType, TenantQueriesService } from '@workspace/api';
 import { AuthUser } from '../decorators';
@@ -46,36 +54,91 @@ import { RequireStepUp, StepUpGuard } from '../guards/step-up.guard';
 import { STEP_UP_OPERATION } from '../step-up.operations';
 
 /**
- * Create Custom Role DTO
+ * Create Custom Role DTO.
+ *
+ * The global ValidationPipe runs `whitelist` + `forbidNonWhitelisted`, so EVERY
+ * accepted property must carry a class-validator decorator — an undecorated DTO
+ * makes every field non-whitelisted and the request 400s before the handler.
+ * (`scope` is validated only as an object; its inner shape is defensively parsed
+ * by the effective-access evaluator.)
  */
 export class CreateCustomRoleDto {
+  @IsString()
+  @MaxLength(80)
   name: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
   description?: string;
+
+  @IsInt()
+  @Min(0)
+  @Max(10)
   clearanceLevel: number;
+
+  @IsArray()
+  @IsString({ each: true })
   permissionPoolIds: string[];
+
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
   permissionIds?: string[];
+
   // WB1-5: optional scope descriptor + the template this role was built from.
+  @IsOptional()
+  @IsObject()
   scope?: ScopeDescriptor | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
   templateKey?: string | null;
 }
 
 /** Gate 4: change a custom role's clearance level. */
 export class UpdateRoleClearanceDto {
+  @IsInt()
+  @Min(0)
+  @Max(10)
   clearanceLevel: number;
 }
 
 /** WB1-5: preview the effective access of a role the editor is assembling. */
 export class PreviewRoleDto {
+  @IsInt()
+  @Min(0)
+  @Max(10)
   clearanceLevel: number;
+
+  @IsArray()
+  @IsString({ each: true })
   poolIds: string[];
+
+  @IsOptional()
+  @IsObject()
   scope?: ScopeDescriptor | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
   templateKey?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
   name?: string | null;
 }
 
 /** WB1-5: ask whether a role would allow one permission (optionally in a scope). */
 export class ExplainAccessDto {
+  @IsString()
+  @MaxLength(120)
   permission: string;
+
+  @IsOptional()
+  @IsObject()
   targetScope?: ScopeDescriptor | null;
 }
 
