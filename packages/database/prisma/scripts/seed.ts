@@ -247,10 +247,10 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 335, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3)
+  total: 337, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2)
   arrays: {
     STUDENT_PERMISSIONS: 15,
-    ACADEMIC_MANAGEMENT_PERMISSIONS: 21,
+    ACADEMIC_MANAGEMENT_PERMISSIONS: 23,
     GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
     FINANCIAL_PERMISSIONS: 16,
@@ -621,6 +621,30 @@ const STUDENT_PERMISSIONS = [
 
 // Academic Management Permissions (19 permissions)
 const ACADEMIC_MANAGEMENT_PERMISSIONS = [
+  {
+    // WB2-1: the ADR-02 structured academic model (campus·stage·year·stream·
+    // section + offerings; label stored, not parsed). Viewing the structure is a
+    // low bar (registrars/teachers pick a section); mutating it is a management
+    // action, and is campus-scoped via the WB1-6 AccessScopeService.
+    name: 'academics.structure.view',
+    label: 'View Academic Structure',
+    description:
+      'View the academic structure (campus, stage, year level, stream, class section, subject offerings)',
+    resource: 'academics',
+    action: 'structure.view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'academics.structure.manage',
+    label: 'Manage Academic Structure',
+    description:
+      'Create and edit stages, year levels, streams, class sections and subject offerings (campus-scoped)',
+    resource: 'academics',
+    action: 'structure.manage',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
   {
     name: 'courses.view',
     label: 'View Courses',

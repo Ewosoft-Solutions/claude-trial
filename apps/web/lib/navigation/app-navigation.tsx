@@ -194,6 +194,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['subjects.view', 'courses.view'] },
             },
             {
+              key: 'academic-structure',
+              label: 'Academic structure',
+              icon: <GraduationCap />,
+              href: '/academics/structure',
+              access: { anyPermission: ['academics.structure.view'] },
+            },
+            {
               key: 'materials',
               label: 'Materials',
               icon: <FileText />,
