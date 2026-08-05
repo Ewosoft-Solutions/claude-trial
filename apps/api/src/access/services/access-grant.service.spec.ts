@@ -57,6 +57,8 @@ function makeService(opts?: { sensitive?: string[]; roleClearance?: number }) {
     rejectRequest,
     campusFindFirst,
     mcFindFirst,
+    userTenantFindFirst,
+    del,
   };
 }
 
@@ -182,5 +184,64 @@ describe('AccessGrantService.approveGrant', () => {
       ),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(t.upsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses to approve a role that now exceeds the checker’s clearance', async () => {
+    const t = makeService({ roleClearance: 7 });
+    t.mcFindFirst.mockResolvedValue(PENDING_REQUEST);
+    // A clearance-5 checker approving a role whose clearance is now 7.
+    await expect(
+      t.service.approveGrant(
+        't1',
+        { userId: 'checker-2', clearanceLevel: 5 },
+        'req-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    // The approval is not consumed and the grant is not applied.
+    expect(t.approveRequest).not.toHaveBeenCalled();
+    expect(t.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('AccessGrantService.revokeGrant', () => {
+  function profileWithGrant(scope: unknown) {
+    return {
+      id: 'profile-1',
+      user: { email: 'x@school.test', firstName: 'X', lastName: 'Y' },
+      userTenantRole: { roleId: 'role-1', scope },
+    };
+  }
+
+  it('denies a campus-scoped actor revoking a grant in another campus', async () => {
+    const t = makeService();
+    t.userTenantFindFirst.mockResolvedValue(
+      profileWithGrant({ type: 'campus', value: 'campus-a' }),
+    );
+    await expect(
+      t.service.revokeGrant(
+        't1',
+        {
+          userId: 'a1',
+          clearanceLevel: 7,
+          grantScope: { type: 'campus', value: 'campus-b' },
+        },
+        'profile-1',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(t.del).not.toHaveBeenCalled();
+  });
+
+  it('lets an unscoped actor revoke any grant', async () => {
+    const t = makeService();
+    t.userTenantFindFirst.mockResolvedValue(
+      profileWithGrant({ type: 'campus', value: 'campus-a' }),
+    );
+    const out = await t.service.revokeGrant(
+      't1',
+      { userId: 'owner-1', clearanceLevel: 8 },
+      'profile-1',
+    );
+    expect(out).toEqual({ status: 'revoked' });
+    expect(t.del).toHaveBeenCalledTimes(1);
   });
 });

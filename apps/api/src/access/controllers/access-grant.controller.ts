@@ -135,6 +135,6 @@ export class AccessGrantController {
     @Request() req: AuthenticatedRequest,
   ) {
     const { tenantId, actor } = this.ctx(req);
-    return this.grants.revokeGrant(tenantId, actor.userId, profileId);
+    return this.grants.revokeGrant(tenantId, actor, profileId);
   }
 }

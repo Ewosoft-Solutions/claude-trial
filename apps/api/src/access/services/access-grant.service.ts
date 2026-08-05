@@ -218,6 +218,18 @@ export class AccessGrantService {
     const request = await this.loadPendingRequest(tenantId, requestId);
     const data = request.requestData as unknown as GrantRequestData;
 
+    // Re-validate at APPROVAL time, before the approval is consumed: the role
+    // must still be grantable (not deleted/deactivated since the request) and
+    // within the approver's own authority (its clearance could have risen). Done
+    // first so a failed check leaves the request pending rather than approved-
+    // but-unapplied.
+    const role = await this.loadGrantableRole(tenantId, data.roleId);
+    if (role.clearanceLevel > checker.clearanceLevel) {
+      throw new ForbiddenException(
+        'This role now exceeds your clearance level; it cannot be approved.',
+      );
+    }
+
     // MakerCheckerService enforces separation-of-duties: the maker can never
     // approve their own request, and the checker must clear the clearance floor.
     const result = await this.makerChecker.approveRequest(
@@ -286,11 +298,18 @@ export class AccessGrantService {
   // ---- revoke -------------------------------------------------------------
 
   /** Revoke a profile's role grant (the profile is left with no active role). */
-  async revokeGrant(tenantId: string, actorId: string, profileId: string) {
+  async revokeGrant(tenantId: string, actor: GrantActor, profileId: string) {
     const profile = await this.loadProfile(tenantId, profileId);
     if (!profile.userTenantRole) {
       throw new NotFoundException('This profile has no role grant to revoke.');
     }
+    // A campus-scoped actor may only revoke grants within their own campus — the
+    // same scope enforcement requestGrant applies. Without this a Campus-A admin
+    // could revoke a whole-school or Campus-B grant.
+    const targetScope = parseScope(profile.userTenantRole.scope);
+    this.accessScope.assertWithinScope(actor.grantScope, {
+      campusId: targetScope?.type === 'campus' ? targetScope.value : undefined,
+    });
     await this.client.userTenantRole.delete({
       where: { userTenantId: profileId },
     });
@@ -300,7 +319,7 @@ export class AccessGrantService {
       action: 'access.grant.revoke',
       resource: 'user_tenant_role',
       resourceId: profileId,
-      actorId,
+      actorId: actor.userId,
       description: `revoked the role grant on profile ${profileId}`,
       metadata: { roleId: profile.userTenantRole.roleId },
     });

@@ -8,6 +8,9 @@ export const STEP_UP_OPERATION = {
   AI_SETTINGS_UPDATE: 'ai.settings.update',
   TENANT_PROVISION: 'tenant.provision',
   TENANT_SUSPEND: 'tenant.suspend',
+  // WB1-6: granting / approving a scoped or time-boxed role is step-up-gated
+  // (the /access grant + approve endpoints require a fresh MFA confirmation).
+  USERS_ROLE_ASSIGN: 'users.role.assign',
 } as const;
 
 export type StepUpOperation = string;
