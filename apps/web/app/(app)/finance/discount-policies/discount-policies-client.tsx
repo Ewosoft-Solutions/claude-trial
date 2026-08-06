@@ -44,6 +44,7 @@ import {
 } from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
@@ -116,24 +117,17 @@ export function DiscountPoliciesClient({
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Discount policies"
-          meta={[
-            {
-              key: 'count',
-              label: `${policies.length} policies`,
-              emphasis: true,
-            },
-            {
-              key: 'active',
-              label: `${policies.filter((p) => p.status === 'active').length} active`,
-            },
-          ]}
           actions={
             canManage ? <CreatePolicyDialog catalogue={catalogue} /> : undefined
           }
         />
 
-        <div className="rounded-xl border border-border bg-card/40">
-          {policies.length === 0 ? (
+        <DataTableLayout
+          title="Policies"
+          description={`${policies.length} ${policies.length === 1 ? 'policy' : 'policies'} · ${policies.filter((p) => p.status === 'active').length} active`}
+          empty={policies.length === 0}
+          skeletonColumns={canManage ? 5 : 4}
+          emptyState={
             <EmptyState
               compact
               title="No discount policies"
@@ -143,70 +137,68 @@ export function DiscountPoliciesClient({
                   : 'No discount policies configured.'
               }
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Policy</TableHead>
-                    <TableHead>Applies to</TableHead>
-                    <TableHead className="text-right">Value</TableHead>
-                    <TableHead>Status</TableHead>
+          }
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Policy</TableHead>
+                <TableHead>Applies to</TableHead>
+                <TableHead className="text-right">Value</TableHead>
+                <TableHead>Status</TableHead>
+                {canManage ? (
+                  <TableHead className="w-0 text-right">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                ) : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {policies.map((p) => {
+                const meta = STATUS_META[p.status] ?? {
+                  label: titleCase(p.status),
+                  tone: 'neutral' as StateTone,
+                };
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell>
+                      <div className="flex min-w-0 flex-col">
+                        <span className="font-medium text-foreground">
+                          {p.name}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {titleCase(p.type)}
+                          {p.reason ? ` · ${p.reason}` : ''}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {p.feeItem?.name ?? 'Whole invoice'}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">
+                      {policyValue(p)}
+                    </TableCell>
+                    <TableCell>
+                      <StatusBadge
+                        tone={meta.tone}
+                        dot={p.status !== 'inactive'}
+                      >
+                        {meta.label}
+                      </StatusBadge>
+                    </TableCell>
                     {canManage ? (
-                      <TableHead className="w-0 text-right">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
+                      <TableCell className="text-right">
+                        {p.status === 'pending' ? (
+                          <ActivatePolicyButton policyId={p.id} />
+                        ) : null}
+                      </TableCell>
                     ) : null}
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {policies.map((p) => {
-                    const meta = STATUS_META[p.status] ?? {
-                      label: titleCase(p.status),
-                      tone: 'neutral' as StateTone,
-                    };
-                    return (
-                      <TableRow key={p.id}>
-                        <TableCell>
-                          <div className="flex min-w-0 flex-col">
-                            <span className="font-medium text-foreground">
-                              {p.name}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {titleCase(p.type)}
-                              {p.reason ? ` · ${p.reason}` : ''}
-                            </span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {p.feeItem?.name ?? 'Whole invoice'}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {policyValue(p)}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge
-                            tone={meta.tone}
-                            dot={p.status !== 'inactive'}
-                          >
-                            {meta.label}
-                          </StatusBadge>
-                        </TableCell>
-                        {canManage ? (
-                          <TableCell className="text-right">
-                            {p.status === 'pending' ? (
-                              <ActivatePolicyButton policyId={p.id} />
-                            ) : null}
-                          </TableCell>
-                        ) : null}
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </DataTableLayout>
       </div>
     </ShellMain>
   );

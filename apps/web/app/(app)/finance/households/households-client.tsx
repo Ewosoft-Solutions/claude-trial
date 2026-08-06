@@ -32,6 +32,7 @@ import {
 } from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
@@ -71,13 +72,6 @@ export function HouseholdsClient({
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Households"
-          meta={[
-            {
-              key: 'count',
-              label: `${households.length} households`,
-              emphasis: true,
-            },
-          ]}
           actions={
             canManage ? (
               <>
@@ -88,8 +82,11 @@ export function HouseholdsClient({
           }
         />
 
-        <div className="rounded-xl border border-border bg-card/40">
-          {households.length === 0 ? (
+        <DataTableLayout
+          title="Family accounts"
+          description={`${households.length} ${households.length === 1 ? 'household' : 'households'}`}
+          empty={households.length === 0}
+          emptyState={
             <EmptyState
               compact
               title="No households yet"
@@ -99,55 +96,52 @@ export function HouseholdsClient({
                   : 'No billing households configured.'
               }
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Household</TableHead>
-                    <TableHead>Primary payer</TableHead>
-                    <TableHead className="text-right">Students</TableHead>
-                    <TableHead className="text-right">Payers</TableHead>
-                    <TableHead>Source</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {households.map((h) => (
-                    <TableRow key={h.id}>
-                      <TableCell className="font-medium text-foreground">
-                        <Link
-                          href={`/finance/households/${h.id}`}
-                          className="hover:underline"
-                        >
-                          {h.name}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {h.primaryPayerName ??
-                          h.payers.find((p) => p.role === 'primary')
-                            ?.payerName ??
-                          '—'}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {h.members.length}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {h.payers.length}
-                      </TableCell>
-                      <TableCell>
-                        {h.derivedFromGuardianId ? (
-                          <StatusBadge tone="info">Auto</StatusBadge>
-                        ) : (
-                          <StatusBadge tone="neutral">Manual</StatusBadge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+          }
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Household</TableHead>
+                <TableHead>Primary payer</TableHead>
+                <TableHead className="text-right">Students</TableHead>
+                <TableHead className="text-right">Payers</TableHead>
+                <TableHead>Source</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {households.map((h) => (
+                <TableRow key={h.id}>
+                  <TableCell className="font-medium text-foreground">
+                    <Link
+                      href={`/finance/households/${h.id}`}
+                      className="hover:underline"
+                    >
+                      {h.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {h.primaryPayerName ??
+                      h.payers.find((p) => p.role === 'primary')?.payerName ??
+                      '—'}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {h.members.length}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {h.payers.length}
+                  </TableCell>
+                  <TableCell>
+                    {h.derivedFromGuardianId ? (
+                      <StatusBadge tone="info">Auto</StatusBadge>
+                    ) : (
+                      <StatusBadge tone="neutral">Manual</StatusBadge>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataTableLayout>
       </div>
     </ShellMain>
   );

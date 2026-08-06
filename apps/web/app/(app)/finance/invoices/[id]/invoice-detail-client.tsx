@@ -47,6 +47,7 @@ import {
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
+import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
@@ -352,30 +353,36 @@ function IssueInvoiceButton({ invoiceId }: { invoiceId: string }) {
 
 /* ---- Lines -------------------------------------------------------------- */
 
+/** A titled section on the detail page, framed by the shared table shell so its
+ *  card, header gutter and first/last-cell padding match every list in the app. */
 function SectionCard({
   title,
   description,
   action,
+  empty,
+  emptyState,
+  skeletonColumns,
   children,
 }: {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  empty?: boolean;
+  emptyState?: React.ReactNode;
+  skeletonColumns?: number;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card/40">
-      <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="flex min-w-0 flex-col">
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          {description ? (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
-        {action}
-      </header>
+    <DataTableLayout
+      title={title}
+      description={description}
+      toolbar={action}
+      empty={empty}
+      emptyState={emptyState}
+      skeletonColumns={skeletonColumns}
+    >
       {children}
-    </section>
+    </DataTableLayout>
   );
 }
 
@@ -399,8 +406,9 @@ function LinesSection({
           <AddLineDialog invoiceId={invoiceId} catalogue={catalogue} />
         ) : undefined
       }
-    >
-      {lines.length === 0 ? (
+      empty={lines.length === 0}
+      skeletonColumns={canManage ? 5 : 4}
+      emptyState={
         <EmptyState
           compact
           title="No line items"
@@ -410,60 +418,58 @@ function LinesSection({
               : 'This invoice has no line items yet.'
           }
         />
-      ) : (
-        <div className="overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead className="text-right">Unit</TableHead>
-                <TableHead className="text-right">Qty</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                {canManage ? (
-                  <TableHead className="w-0 text-right">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                ) : null}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {lines.map((line) => (
-                <TableRow key={line.id}>
-                  <TableCell>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="font-medium text-foreground">
-                        {line.feeItem?.name ?? 'Item'}
-                      </span>
-                      {line.description ? (
-                        <span className="text-xs text-muted-foreground">
-                          {line.description}
-                        </span>
-                      ) : null}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {naira(line.amount)}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {line.quantity}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">
-                    {naira(line.amount * line.quantity)}
-                  </TableCell>
-                  {canManage ? (
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <EditLineDialog line={line} />
-                        <RemoveLineButton lineId={line.id} />
-                      </div>
-                    </TableCell>
+      }
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Item</TableHead>
+            <TableHead className="text-right">Unit</TableHead>
+            <TableHead className="text-right">Qty</TableHead>
+            <TableHead className="text-right">Amount</TableHead>
+            {canManage ? (
+              <TableHead className="w-0 text-right">
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            ) : null}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {lines.map((line) => (
+            <TableRow key={line.id}>
+              <TableCell>
+                <div className="flex min-w-0 flex-col">
+                  <span className="font-medium text-foreground">
+                    {line.feeItem?.name ?? 'Item'}
+                  </span>
+                  {line.description ? (
+                    <span className="text-xs text-muted-foreground">
+                      {line.description}
+                    </span>
                   ) : null}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                </div>
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {naira(line.amount)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {line.quantity}
+              </TableCell>
+              <TableCell className="text-right tabular-nums font-medium">
+                {naira(line.amount * line.quantity)}
+              </TableCell>
+              {canManage ? (
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-1">
+                    <EditLineDialog line={line} />
+                    <RemoveLineButton lineId={line.id} />
+                  </div>
+                </TableCell>
+              ) : null}
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </SectionCard>
   );
 }
@@ -809,8 +815,8 @@ function AdjustmentsSection({
           <RequestAdjustmentDialog invoiceId={invoiceId} />
         ) : undefined
       }
-    >
-      {adjustments.length === 0 ? (
+      empty={adjustments.length === 0}
+      emptyState={
         <EmptyState
           compact
           title="No adjustments"
@@ -820,56 +826,47 @@ function AdjustmentsSection({
               : 'No discounts or adjustments on this invoice.'
           }
         />
-      ) : (
-        <ul className="divide-y divide-border">
-          {adjustments.map((adj) => {
-            const meta = ADJ_STATUS_META[adj.status] ?? {
-              label: titleCase(adj.status),
-              tone: 'neutral' as StateTone,
-            };
-            return (
-              <li
-                key={adj.id}
-                className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
-              >
-                <div className="flex min-w-0 flex-col gap-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-foreground">
-                      {titleCase(adj.type)} · {naira(adj.amount)}
-                    </span>
-                    <StatusBadge
-                      tone={meta.tone}
-                      dot={adj.status !== 'rejected'}
-                    >
-                      {meta.label}
-                    </StatusBadge>
-                    <span className="text-xs text-muted-foreground">
-                      {adj.source === 'policy' ? 'policy' : 'discretionary'}
-                    </span>
-                  </div>
-                  {adj.reason ? (
-                    <span className="text-xs text-muted-foreground">
-                      {adj.reason}
-                    </span>
-                  ) : null}
+      }
+    >
+      <ul className="divide-y divide-border">
+        {adjustments.map((adj) => {
+          const meta = ADJ_STATUS_META[adj.status] ?? {
+            label: titleCase(adj.status),
+            tone: 'neutral' as StateTone,
+          };
+          return (
+            <li
+              key={adj.id}
+              className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6"
+            >
+              <div className="flex min-w-0 flex-col gap-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium text-foreground">
+                    {titleCase(adj.type)} · {naira(adj.amount)}
+                  </span>
+                  <StatusBadge tone={meta.tone} dot={adj.status !== 'rejected'}>
+                    {meta.label}
+                  </StatusBadge>
+                  <span className="text-xs text-muted-foreground">
+                    {adj.source === 'policy' ? 'policy' : 'discretionary'}
+                  </span>
                 </div>
-                {canManage && adj.status === 'pending' ? (
-                  <div className="flex items-center gap-1.5">
-                    <ApproveRejectButton
-                      adjustmentId={adj.id}
-                      action="approve"
-                    />
-                    <ApproveRejectButton
-                      adjustmentId={adj.id}
-                      action="reject"
-                    />
-                  </div>
+                {adj.reason ? (
+                  <span className="text-xs text-muted-foreground">
+                    {adj.reason}
+                  </span>
                 ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              </div>
+              {canManage && adj.status === 'pending' ? (
+                <div className="flex items-center gap-1.5">
+                  <ApproveRejectButton adjustmentId={adj.id} action="approve" />
+                  <ApproveRejectButton adjustmentId={adj.id} action="reject" />
+                </div>
+              ) : null}
+            </li>
+          );
+        })}
+      </ul>
     </SectionCard>
   );
 }
@@ -1091,37 +1088,36 @@ function PaymentsSection({ payments }: { payments: ApiPayment[] }) {
     <SectionCard
       title="Payments"
       description="Receipts recorded against this invoice."
+      skeletonColumns={4}
     >
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Receipt</TableHead>
-              <TableHead>Method</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Receipt</TableHead>
+            <TableHead>Method</TableHead>
+            <TableHead>Date</TableHead>
+            <TableHead className="text-right">Amount</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {payments.map((p) => (
+            <TableRow key={p.id}>
+              <TableCell className="text-muted-foreground">
+                {p.receiptNumber ?? p.id}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {p.method ? titleCase(p.method) : '—'}
+              </TableCell>
+              <TableCell className="text-muted-foreground">
+                {formatDate(p.paidAt)}
+              </TableCell>
+              <TableCell className="text-right tabular-nums font-medium">
+                {naira(p.amount)}
+              </TableCell>
             </TableRow>
-          </TableHeader>
-          <TableBody>
-            {payments.map((p) => (
-              <TableRow key={p.id}>
-                <TableCell className="text-muted-foreground">
-                  {p.receiptNumber ?? p.id}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {p.method ? titleCase(p.method) : '—'}
-                </TableCell>
-                <TableCell className="text-muted-foreground">
-                  {formatDate(p.paidAt)}
-                </TableCell>
-                <TableCell className="text-right tabular-nums font-medium">
-                  {naira(p.amount)}
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+          ))}
+        </TableBody>
+      </Table>
     </SectionCard>
   );
 }

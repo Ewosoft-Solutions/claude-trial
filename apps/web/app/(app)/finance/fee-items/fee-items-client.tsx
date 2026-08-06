@@ -38,6 +38,7 @@ import {
 } from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
@@ -86,18 +87,15 @@ export function FeeItemsClient({ items, canManage }: Props) {
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Fee items"
-          meta={[
-            { key: 'count', label: `${items.length} items`, emphasis: true },
-            {
-              key: 'active',
-              label: `${items.filter((i) => i.active).length} active`,
-            },
-          ]}
           actions={canManage ? <AddFeeItemDialog /> : undefined}
         />
 
-        <div className="rounded-xl border border-border bg-card/40">
-          {items.length === 0 ? (
+        <DataTableLayout
+          title="Catalogue"
+          description={`${items.length} ${items.length === 1 ? 'item' : 'items'} · ${items.filter((i) => i.active).length} active`}
+          empty={items.length === 0}
+          skeletonColumns={canManage ? 5 : 4}
+          emptyState={
             <EmptyState
               compact
               title="No fee items yet"
@@ -107,57 +105,55 @@ export function FeeItemsClient({ items, canManage }: Props) {
                   : 'The fee-item catalogue is empty.'
               }
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Item</TableHead>
-                    <TableHead>Code</TableHead>
-                    <TableHead className="text-right">Default amount</TableHead>
-                    <TableHead>Status</TableHead>
-                    {canManage ? (
-                      <TableHead className="w-0 text-right">
-                        <span className="sr-only">Actions</span>
-                      </TableHead>
-                    ) : null}
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {items.map((item) => (
-                    <TableRow key={item.id}>
-                      <TableCell className="font-medium text-foreground">
-                        {item.name}
-                      </TableCell>
-                      <TableCell>
-                        <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                          {item.code}
-                        </code>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {nairaFromKobo(item.defaultAmount)}
-                      </TableCell>
-                      <TableCell>
-                        {item.active ? (
-                          <StatusBadge tone="success" dot>
-                            Active
-                          </StatusBadge>
-                        ) : (
-                          <StatusBadge tone="neutral">Archived</StatusBadge>
-                        )}
-                      </TableCell>
-                      {canManage ? (
-                        <TableCell className="text-right">
-                          <EditFeeItemDialog item={item} />
-                        </TableCell>
-                      ) : null}
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
-        </div>
+          }
+        >
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Item</TableHead>
+                <TableHead>Code</TableHead>
+                <TableHead className="text-right">Default amount</TableHead>
+                <TableHead>Status</TableHead>
+                {canManage ? (
+                  <TableHead className="w-0 text-right">
+                    <span className="sr-only">Actions</span>
+                  </TableHead>
+                ) : null}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {items.map((item) => (
+                <TableRow key={item.id}>
+                  <TableCell className="font-medium text-foreground">
+                    {item.name}
+                  </TableCell>
+                  <TableCell>
+                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+                      {item.code}
+                    </code>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {nairaFromKobo(item.defaultAmount)}
+                  </TableCell>
+                  <TableCell>
+                    {item.active ? (
+                      <StatusBadge tone="success" dot>
+                        Active
+                      </StatusBadge>
+                    ) : (
+                      <StatusBadge tone="neutral">Archived</StatusBadge>
+                    )}
+                  </TableCell>
+                  {canManage ? (
+                    <TableCell className="text-right">
+                      <EditFeeItemDialog item={item} />
+                    </TableCell>
+                  ) : null}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </DataTableLayout>
       </div>
     </ShellMain>
   );

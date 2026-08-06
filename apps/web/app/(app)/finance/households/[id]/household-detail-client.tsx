@@ -31,6 +31,7 @@ import {
 } from '@workspace/ui/components/select';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
@@ -141,40 +142,40 @@ export function HouseholdDetailClient({
               <AddPayerDialog householdId={household.id} />
             ) : undefined
           }
-        >
-          {activePayers.length === 0 ? (
+          empty={activePayers.length === 0}
+          emptyState={
             <EmptyState
               compact
               title="No payers"
               description="Add a guardian."
             />
-          ) : (
-            <ul className="divide-y divide-border">
-              {activePayers.map((p) => (
-                <li
-                  key={p.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
-                >
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium text-foreground">
-                      {p.payerName ?? p.guardianId}
-                    </span>
-                    <StatusBadge
-                      tone={p.role === 'primary' ? 'success' : 'neutral'}
-                    >
-                      {p.role}
-                    </StatusBadge>
-                  </div>
-                  {canManage ? (
-                    <EndButton
-                      url={`/api/finance/households/payers/${p.id}`}
-                      label="Remove payer"
-                    />
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
+          }
+        >
+          <ul className="divide-y divide-border">
+            {activePayers.map((p) => (
+              <li
+                key={p.id}
+                className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
+              >
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-foreground">
+                    {p.payerName ?? p.guardianId}
+                  </span>
+                  <StatusBadge
+                    tone={p.role === 'primary' ? 'success' : 'neutral'}
+                  >
+                    {p.role}
+                  </StatusBadge>
+                </div>
+                {canManage ? (
+                  <EndButton
+                    url={`/api/finance/households/payers/${p.id}`}
+                    label="Remove payer"
+                  />
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </SectionCard>
 
         <SectionCard
@@ -185,33 +186,33 @@ export function HouseholdDetailClient({
               <AddMemberDialog householdId={household.id} students={pickable} />
             ) : undefined
           }
-        >
-          {activeMembers.length === 0 ? (
+          empty={activeMembers.length === 0}
+          emptyState={
             <EmptyState
               compact
               title="No students"
               description="Add a student to this household."
             />
-          ) : (
-            <ul className="divide-y divide-border">
-              {activeMembers.map((m) => (
-                <li
-                  key={m.id}
-                  className="flex items-center justify-between gap-3 px-4 py-3"
-                >
-                  <span className="font-medium text-foreground">
-                    {m.studentName ?? m.studentId}
-                  </span>
-                  {canManage ? (
-                    <EndButton
-                      url={`/api/finance/households/members/${m.id}`}
-                      label="Remove student"
-                    />
-                  ) : null}
-                </li>
-              ))}
-            </ul>
-          )}
+          }
+        >
+          <ul className="divide-y divide-border">
+            {activeMembers.map((m) => (
+              <li
+                key={m.id}
+                className="flex items-center justify-between gap-3 px-4 py-3 sm:px-6"
+              >
+                <span className="font-medium text-foreground">
+                  {m.studentName ?? m.studentId}
+                </span>
+                {canManage ? (
+                  <EndButton
+                    url={`/api/finance/households/members/${m.id}`}
+                    label="Remove student"
+                  />
+                ) : null}
+              </li>
+            ))}
+          </ul>
         </SectionCard>
 
         {canManage && otherHouseholds.length > 0 ? (
@@ -219,7 +220,7 @@ export function HouseholdDetailClient({
             title="Merge"
             description="Absorb another household into this one (its students, payers and invoices move here; it is then removed)."
           >
-            <div className="px-4 py-3">
+            <div className="px-4 py-3 sm:px-6">
               <MergeControl
                 householdId={household.id}
                 others={otherHouseholds}
@@ -232,30 +233,33 @@ export function HouseholdDetailClient({
   );
 }
 
+/** A titled section framed by the shared table shell, so every card, header
+ *  gutter and row padding matches the app's lists. */
 function SectionCard({
   title,
   description,
   action,
+  empty,
+  emptyState,
   children,
 }: {
   title: string;
   description?: string;
   action?: React.ReactNode;
+  empty?: boolean;
+  emptyState?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <section className="rounded-xl border border-border bg-card/40">
-      <header className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="flex min-w-0 flex-col">
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-          {description ? (
-            <p className="text-xs text-muted-foreground">{description}</p>
-          ) : null}
-        </div>
-        {action}
-      </header>
+    <DataTableLayout
+      title={title}
+      description={description}
+      toolbar={action}
+      empty={empty}
+      emptyState={emptyState}
+    >
       {children}
-    </section>
+    </DataTableLayout>
   );
 }
 
