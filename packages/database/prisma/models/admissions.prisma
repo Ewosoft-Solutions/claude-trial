@@ -18,8 +18,30 @@ model AdmissionApplication {
   tenantId String @map("tenant_id")
 
   applicantName String @map("applicant_name")
-  applyingFor   String @map("applying_for") // target class/grade
+  // WB3 structured-intake: `applyingFor` is now the COMPOSED, STORED display
+  // label (e.g. "SS1 Science", built from the cascade — never parsed, WB2-1
+  // convention). The structured dimensions below are the clean data.
+  applyingFor String @map("applying_for")
 
+  // Structured "applying for" — the same academic structure the school uses for
+  // classes/enrollment/promotion (WB2-1), so an admit lands in a real class with
+  // no re-keying and the school keeps no parallel admissions list. Soft refs
+  // (DB-level FKs, validated in-service). `campusId`/`academicYearId` already
+  // exist below.
+  stageId     String? @map("stage_id") // level: Nursery/Primary/JSS/SSS
+  yearLevelId String? @map("year_level_id") // class: Primary 5 / JSS1 / SS1
+  streamId    String? @map("stream_id") // department: Science/Arts/Commercial (senior only)
+
+  // Applicant profile (the standard Nigerian record; some captured at
+  // application, the rest configurable to a later stage via the requirements set).
+  dateOfBirth   DateTime? @map("date_of_birth") @db.Date
+  gender        String?
+  stateOfOrigin String?   @map("state_of_origin")
+  religion      String?
+  healthNotes   String?   @map("health_notes")
+
+  // Legacy flat guardian fields (kept for back-compat); structured, multi-guardian
+  // data now lives in AdmissionGuardian.
   guardianName  String  @map("guardian_name")
   guardianEmail String? @map("guardian_email")
   guardianPhone String? @map("guardian_phone")
@@ -56,16 +78,130 @@ model AdmissionApplication {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reviews     AdmissionReview[]
-  stageEvents AdmissionStageEvent[]
+  tenant       Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviews      AdmissionReview[]
+  stageEvents  AdmissionStageEvent[]
+  guardians    AdmissionGuardian[]
+  requirements AdmissionApplicationRequirement[]
 
   @@index([tenantId])
   @@index([tenantId, stage])
   @@index([tenantId, decision])
   @@index([tenantId, submittedDate])
   @@index([resultingStudentId])
+  @@index([tenantId, yearLevelId])
   @@map("admission_applications")
+  @@schema("admissions")
+}
+
+// WB3 structured-intake: a guardian on an application (before the applicant is a
+// Person). Supports multiple guardians; phone + WhatsApp are captured with a
+// country code, with the option to reuse the phone as the WhatsApp number.
+model AdmissionGuardian {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  applicationId String @map("application_id")
+
+  fullName     String  @map("full_name")
+  relationship String // 'father' | 'mother' | 'guardian' | 'parent' | 'other'
+  email        String?
+  address      String?
+
+  phoneCountryCode String  @default("+234") @map("phone_country_code")
+  phoneNumber      String  @map("phone_number")
+  whatsappSameAsPhone Boolean @default(true) @map("whatsapp_same_as_phone")
+  whatsappCountryCode String? @map("whatsapp_country_code")
+  whatsappNumber      String? @map("whatsapp_number")
+
+  isPrimary Boolean @default(false) @map("is_primary")
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([tenantId, applicationId])
+  @@map("admission_guardians")
+  @@schema("admissions")
+}
+
+// WB3 structured-intake: the per-tenant, school-CONFIGURABLE requirement template.
+// Each requirement is a field / document / measurement / fee, tagged to the
+// COLLECTION STAGE at which it is due — so schools stagger what is collected at
+// application vs. after admission (some want all up-front, some defer).
+model AdmissionRequirement {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  key   String // stable slug, unique per tenant, e.g. 'birth_certificate'
+  label String
+
+  // 'document' (F4 file) | 'field' (typed value) | 'measurement' (e.g. uniform) | 'fee'
+  type String
+  // 'application' | 'offer' | 'acceptance' | 'enrolment'
+  collectStage String  @map("collect_stage")
+  required     Boolean @default(true)
+  active       Boolean @default(true)
+  order        Int     @default(0)
+  // Type-specific config: measurement fields, accepted doc formats, fee amount…
+  config Json? @map("config")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  fulfilments AdmissionApplicationRequirement[]
+
+  @@unique([tenantId, key])
+  @@index([tenantId])
+  @@index([tenantId, collectStage])
+  @@index([tenantId, active])
+  @@map("admission_requirements")
+  @@schema("admissions")
+}
+
+// WB3 structured-intake: an application's fulfilment of one requirement. Snapshots
+// the requirement's stage/type/label at instantiation (so a later template edit
+// doesn't rewrite history), tracks status, and links to an F4 Document when the
+// requirement is a document upload.
+model AdmissionApplicationRequirement {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  applicationId String @map("application_id")
+  requirementId String @map("requirement_id")
+
+  // Snapshotted from the requirement at instantiation.
+  label        String
+  type         String
+  collectStage String  @map("collect_stage")
+  required     Boolean @default(true)
+
+  status String @default("pending") // 'pending' | 'provided' | 'waived'
+  // Value for field/measurement requirements (e.g. { height, chest, shoeSize }).
+  value Json?
+  // F4 document link for document requirements (soft ref → documents.documents).
+  documentId String? @map("document_id")
+
+  providedAt   DateTime? @map("provided_at")
+  providedBy   String?   @map("provided_by")
+  waivedReason String?   @map("waived_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  requirement AdmissionRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+
+  @@unique([applicationId, requirementId])
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([tenantId, applicationId])
+  @@index([requirementId])
+  @@map("admission_application_requirements")
   @@schema("admissions")
 }
 
