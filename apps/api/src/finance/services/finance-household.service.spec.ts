@@ -39,10 +39,7 @@ describe('FinanceHouseholdService', () => {
     person,
     feeInvoice,
   };
-  const service = new FinanceHouseholdService(
-    { client } as never,
-    { isScoped: false } as never,
-  );
+  const service = new FinanceHouseholdService({ client } as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
