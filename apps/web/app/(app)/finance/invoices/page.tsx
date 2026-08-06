@@ -30,6 +30,14 @@ interface ApiInvoice {
   amountDue: number;
   amountPaid: number;
   status: string;
+  financials?: {
+    gross: number;
+    discounts: number;
+    net: number;
+    paid: number;
+    balance: number;
+    overpaid: number;
+  };
 }
 
 interface InvoicesResponse {
@@ -39,6 +47,7 @@ interface InvoicesResponse {
 
 interface InvoiceSummary {
   totalBilled: number;
+  totalDiscounts?: number;
   totalCollected: number;
   totalOutstanding: number;
   statusCounts: Record<string, number>;
@@ -108,22 +117,31 @@ export default async function InvoicesPage({
     students.map((student) => [student.id, student]),
   );
 
-  const invoices: Invoice[] = raw.map((inv) => ({
-    id: inv.id,
-    invoiceNumber: inv.invoiceNumber,
-    studentId: inv.studentId,
-    student: inv.studentName ?? undefined,
-    className: studentClass(studentsById.get(inv.studentId)),
-    issued: formatDate(inv.issuedDate),
-    due: formatDate(inv.dueDate),
-    amountDue: inv.amountDue,
-    amountPaid: inv.amountPaid,
-    status: inv.status as Invoice['status'],
-  }));
+  const invoices: Invoice[] = raw.map((inv) => {
+    // Prefer the DERIVED financials; fall back to the flat amounts for any
+    // invoice that predates lines (kept in parallel/compat).
+    const fin = inv.financials;
+    return {
+      id: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      studentId: inv.studentId,
+      student: inv.studentName ?? undefined,
+      className: studentClass(studentsById.get(inv.studentId)),
+      issued: formatDate(inv.issuedDate),
+      due: formatDate(inv.dueDate),
+      amountDue: inv.amountDue,
+      amountPaid: inv.amountPaid,
+      gross: fin?.gross ?? inv.amountDue,
+      discounts: fin?.discounts ?? 0,
+      balance: fin?.balance ?? Math.max(0, inv.amountDue - inv.amountPaid),
+      status: inv.status as Invoice['status'],
+    };
+  });
 
   const counts = summary?.statusCounts ?? {};
   const stats: InvoiceStats = {
     billed: summary?.totalBilled ?? 0,
+    discounts: summary?.totalDiscounts ?? 0,
     collected: summary?.totalCollected ?? 0,
     outstanding: summary?.totalOutstanding ?? 0,
     overdue: counts.overdue ?? 0,

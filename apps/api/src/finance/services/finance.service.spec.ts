@@ -13,11 +13,20 @@ describe('FinanceService.listInvoices', () => {
   const service = new FinanceService(
     { client } as never, // db
     { isScoped: false } as never, // tenantDb (unscoped → uses db.client)
+    { applyPoliciesToInvoice: jest.fn() } as never, // adjustments
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    findMany.mockResolvedValue([{ id: 'inv-1' }]);
+    // gross 1000 (its one line), a 200 applied discount, 300 paid.
+    findMany.mockResolvedValue([
+      {
+        id: 'inv-1',
+        amountPaid: 300,
+        lines: [{ amount: 1000, quantity: 1 }],
+        adjustments: [{ amount: 200 }],
+      },
+    ]);
     count.mockResolvedValue(1);
   });
 
@@ -27,8 +36,22 @@ describe('FinanceService.listInvoices', () => {
     expect(args.skip).toBeUndefined();
     expect(args.take).toBeUndefined();
     expect(count).not.toHaveBeenCalled();
-    expect(result.data).toEqual([{ id: 'inv-1' }]);
     expect(result.pagination.total).toBe(1);
+    // balance is DERIVED: gross(1000) − discounts(200) − paid(300) = 500.
+    expect(result.data[0]).toMatchObject({
+      id: 'inv-1',
+      financials: {
+        gross: 1000,
+        discounts: 200,
+        net: 800,
+        paid: 300,
+        balance: 500,
+        overpaid: 0,
+      },
+    });
+    // raw line/adjustment arrays are dropped from the row.
+    expect(result.data[0]).not.toHaveProperty('lines');
+    expect(result.data[0]).not.toHaveProperty('adjustments');
   });
 
   it('paginates (skip/take + count) when a limit is given', async () => {

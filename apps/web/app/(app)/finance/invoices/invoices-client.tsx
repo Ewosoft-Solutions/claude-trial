@@ -56,11 +56,16 @@ export interface Invoice {
   /** Amount due in kobo (minor units). */
   amountDue?: number;
   amountPaid?: number;
+  /** Derived: gross (Σ lines), applied discounts, and the outstanding balance. */
+  gross?: number;
+  discounts?: number;
+  balance?: number;
   status: InvoiceStatus;
 }
 
 export interface InvoiceStats {
   billed: number;
+  discounts: number;
   collected: number;
   outstanding: number;
   overdue: number;
@@ -143,6 +148,11 @@ export function InvoicesClient({
       value: nairaFromKobo(stats.billed),
     },
     {
+      key: 'discounts',
+      label: 'Discounts',
+      value: nairaFromKobo(stats.discounts),
+    },
+    {
       key: 'collected',
       label: 'Collected',
       value: nairaFromKobo(stats.collected),
@@ -201,13 +211,20 @@ export function InvoicesClient({
     },
     {
       id: 'amountDue',
-      header: 'Amount',
+      header: 'Billed',
       align: 'end',
       sortable: true,
       cell: (inv) => (
-        <span className="tabular-nums text-foreground">
-          {inv.amountDue ? nairaFromKobo(inv.amountDue) : '—'}
-        </span>
+        <div className="flex flex-col items-end">
+          <span className="tabular-nums text-foreground">
+            {inv.gross ? nairaFromKobo(inv.gross) : '—'}
+          </span>
+          {inv.discounts ? (
+            <span className="tabular-nums text-xs text-muted-foreground">
+              −{nairaFromKobo(inv.discounts)} disc
+            </span>
+          ) : null}
+        </div>
       ),
     },
     {
@@ -217,7 +234,17 @@ export function InvoicesClient({
       sortable: true,
       cell: (inv) => (
         <span className="tabular-nums text-muted-foreground">
-          {inv.amountDue ? nairaFromKobo(inv.amountPaid ?? 0) : '—'}
+          {inv.gross ? nairaFromKobo(inv.amountPaid ?? 0) : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'balance',
+      header: 'Balance',
+      align: 'end',
+      cell: (inv) => (
+        <span className="tabular-nums font-medium text-foreground">
+          {inv.balance != null ? nairaFromKobo(inv.balance) : '—'}
         </span>
       ),
     },
