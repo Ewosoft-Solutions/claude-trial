@@ -31,6 +31,7 @@ import {
   GraduationCap,
   HeartPulse,
   House,
+  ListTree,
   Palette,
   PartyPopper,
   ScrollText,
@@ -334,6 +335,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               icon: <Banknote />,
               href: '/finance/payments',
               access: { anyPermission: ['payments.view'] },
+            },
+            {
+              key: 'fee-items',
+              label: 'Fee items',
+              icon: <ListTree />,
+              href: '/finance/fee-items',
+              access: { anyPermission: ['fees.view', 'billing.view'] },
             },
             {
               key: 'fin-reports',
