@@ -8,7 +8,7 @@
       "port": 3001
     },
     {
-      "name": "web-pnpm",
+      "name": "web-start",
       "runtimeExecutable": "pnpm",
       "runtimeArgs": ["--filter", "web", "exec", "next", "dev", "--turbopack"],
       "autoPort": true
