@@ -1,18 +1,28 @@
 /* ============================================================
    /finance/invoices — fee invoices (server component)
 
-   Fetches invoices from the NestJS backend (server-side,
-   cookie-authenticated) and passes them to InvoicesClient.
-   Empty API responses render as empty states in the client.
+   Server-driven list: search (invoice # / student name) / status filter / sort
+   / paging all run at the DB (via the URL → the paginated `/finance/invoices`
+   endpoint). The student name comes off the invoice's denormalized snapshot;
+   the roster is only used to label the class. Stat tiles come from the
+   whole-set `/finance/invoices/summary`.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';
-import { InvoicesClient, type Invoice } from './invoices-client';
+import { toListQuery } from '@/lib/list-query';
+import {
+  InvoicesClient,
+  type Invoice,
+  type InvoiceStats,
+} from './invoices-client';
+
+const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiInvoice {
   id: string;
   invoiceNumber: string;
   studentId: string;
+  studentName?: string | null;
   classId?: string | null;
   termName?: string | null;
   issuedDate?: string | null;
@@ -22,15 +32,20 @@ interface ApiInvoice {
   status: string;
 }
 
+interface InvoicesResponse {
+  data: ApiInvoice[];
+  pagination: { total: number };
+}
+
+interface InvoiceSummary {
+  totalBilled: number;
+  totalCollected: number;
+  totalOutstanding: number;
+  statusCounts: Record<string, number>;
+}
+
 interface ApiStudent {
   id: string;
-  userTenant?: {
-    user?: {
-      firstName?: string | null;
-      lastName?: string | null;
-      email?: string | null;
-    } | null;
-  } | null;
   enrollments?: Array<{
     status: string;
     class?: {
@@ -57,16 +72,6 @@ function formatDate(iso: string | null | undefined): string | undefined {
   }
 }
 
-function studentName(student: ApiStudent | undefined): string | undefined {
-  const user = student?.userTenant?.user;
-  if (!user) return undefined;
-  return (
-    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
-    user.email ||
-    undefined
-  );
-}
-
 function studentClass(student: ApiStudent | undefined): string | undefined {
   const enrollment =
     student?.enrollments?.find((item) => item.status === 'active') ??
@@ -78,15 +83,24 @@ function studentClass(student: ApiStudent | undefined): string | undefined {
   );
 }
 
-export default async function InvoicesPage() {
-  const [data, studentData] = await Promise.all([
-    serverApiGet<ApiInvoice[] | { data?: ApiInvoice[] }>('/finance/invoices'),
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const { params } = toListQuery(sp, {
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    filters: { status: 'status' },
+  });
+
+  const [list, summary, studentData] = await Promise.all([
+    serverApiGet<InvoicesResponse>(`/finance/invoices?${params.toString()}`),
+    serverApiGet<InvoiceSummary>('/finance/invoices/summary'),
     serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
   ]);
 
-  const raw: ApiInvoice[] = Array.isArray(data)
-    ? data
-    : ((data as { data?: ApiInvoice[] } | null)?.data ?? []);
+  const raw = list?.data ?? [];
   const students = Array.isArray(studentData)
     ? studentData
     : (studentData?.data ?? []);
@@ -98,7 +112,7 @@ export default async function InvoicesPage() {
     id: inv.id,
     invoiceNumber: inv.invoiceNumber,
     studentId: inv.studentId,
-    student: studentName(studentsById.get(inv.studentId)),
+    student: inv.studentName ?? undefined,
     className: studentClass(studentsById.get(inv.studentId)),
     issued: formatDate(inv.issuedDate),
     due: formatDate(inv.dueDate),
@@ -107,5 +121,20 @@ export default async function InvoicesPage() {
     status: inv.status as Invoice['status'],
   }));
 
-  return <InvoicesClient invoices={invoices} />;
+  const counts = summary?.statusCounts ?? {};
+  const stats: InvoiceStats = {
+    billed: summary?.totalBilled ?? 0,
+    collected: summary?.totalCollected ?? 0,
+    outstanding: summary?.totalOutstanding ?? 0,
+    overdue: counts.overdue ?? 0,
+  };
+
+  return (
+    <InvoicesClient
+      invoices={invoices}
+      total={list?.pagination.total ?? 0}
+      defaultPageSize={DEFAULT_PAGE_SIZE}
+      stats={stats}
+    />
+  );
 }

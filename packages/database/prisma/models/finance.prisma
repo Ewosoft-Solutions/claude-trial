@@ -23,6 +23,12 @@ model FeeInvoice {
   studentId String  @map("student_id")
   classId   String? @map("class_id")
 
+  // Denormalized payer snapshot. Finance is decoupled from the student schema
+  // (no relation, by the "not a custodian" ADR), so the invoices list searches
+  // and sorts on this column instead of an impossible cross-schema join. Set at
+  // invoice creation; captures the student's name as billed.
+  studentName String? @map("student_name")
+
   // Term / period
   termName  String? @map("term_name")
   termYear  Int?    @map("term_year")
@@ -46,8 +52,10 @@ model FeeInvoice {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant   Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  payments Payment[]
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payments    Payment[]
+  lines       FeeInvoiceLine[]
+  adjustments FeeAdjustment[]
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
@@ -94,5 +102,141 @@ model Payment {
   @@index([invoiceId])
   @@index([studentId])
   @@map("payments")
+  @@schema("finance")
+}
+
+/// Managed catalogue of billable fee items (Tuition, Bus, Books, …). Pre-seeded
+/// per tenant; invoice lines reference these so billing stays consistent and
+/// reportable (revenue by fee type), and discount policies can target an item.
+model FeeItem {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  code          String // stable slug, unique per tenant (e.g. "tuition", "bus")
+  name          String
+  defaultAmount Int?    @map("default_amount") // kobo; optional suggested amount
+  active        Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant           Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines            FeeInvoiceLine[]
+  discountPolicies DiscountPolicy[]
+
+  @@unique([tenantId, code])
+  @@index([tenantId])
+  @@map("fee_items")
+  @@schema("finance")
+}
+
+/// A line item on a fee invoice — the itemisation behind the invoice total. The
+/// invoice's gross is the sum of its lines; the balance is derived from gross −
+/// adjustments − payments (never stored-and-edited).
+model FeeInvoiceLine {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  invoiceId String @map("invoice_id")
+  feeItemId String @map("fee_item_id")
+
+  description String?
+  amount      Int     @default(0) // kobo, per unit
+  quantity    Int     @default(1)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice     FeeInvoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  feeItem     FeeItem         @relation(fields: [feeItemId], references: [id], onDelete: Restrict)
+  adjustments FeeAdjustment[]
+
+  @@index([tenantId])
+  @@index([invoiceId])
+  @@index([feeItemId])
+  @@map("fee_invoice_lines")
+  @@schema("finance")
+}
+
+/// A standing discount rule (sibling %, early-bird promo, scholarship band). The
+/// authority IS the policy, so it auto-applies to anyone who qualifies — but
+/// ACTIVATING one is a maker-checker action (it silently reduces revenue for all
+/// matching invoices). v1 targeting: an optional fee item + a fixed amount OR a
+/// percentage; richer conditions (grade, sibling count) come later.
+model DiscountPolicy {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  name       String
+  type       String // discount | scholarship
+  feeItemId  String? @map("fee_item_id") // null = applies to the whole invoice
+  amount     Int? // kobo, fixed amount off (mutually exclusive with percentBps)
+  percentBps Int?    @map("percent_bps") // basis points off, 10000 = 100%
+  reason     String?
+
+  // Activation lifecycle (maker-checker).
+  status            String    @default("pending") // pending | active | inactive
+  approvalRequestId String?   @map("approval_request_id")
+  createdBy         String?   @map("created_by")
+  approvedBy        String?   @map("approved_by")
+  approvedAt        DateTime? @map("approved_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant      Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  feeItem     FeeItem?        @relation(fields: [feeItemId], references: [id], onDelete: SetNull)
+  adjustments FeeAdjustment[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([feeItemId])
+  @@map("discount_policies")
+  @@schema("finance")
+}
+
+/// A reduction applied to an invoice: a discount / waiver / scholarship /
+/// correction. `source` records the authority — `policy` (auto, auditable by
+/// policyId) or `discretionary` (needs maker-checker sign-off, requester ≠
+/// approver). Immutable once `applied`; a reversal is a new `correction`.
+model FeeAdjustment {
+  id        String  @id @default(uuid())
+  tenantId  String  @map("tenant_id")
+  invoiceId String  @map("invoice_id")
+  lineId    String? @map("line_id") // optional: adjust one line rather than the invoice
+
+  type   String // discount | waiver | scholarship | correction
+  source String // policy | discretionary
+  amount Int     @default(0) // kobo, the resolved amount off
+  reason String?
+
+  policyId String? @map("policy_id") // set when source = policy
+
+  // Approval lifecycle (discretionary uses maker-checker; policy is pre-approved).
+  status            String    @default("pending") // pending | approved | rejected | applied
+  approvalRequestId String?   @map("approval_request_id")
+  requestedBy       String?   @map("requested_by")
+  approvedBy        String?   @map("approved_by")
+  approvedAt        DateTime? @map("approved_at")
+  appliedAt         DateTime? @map("applied_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  tenant  Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoice FeeInvoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  line    FeeInvoiceLine? @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  policy  DiscountPolicy? @relation(fields: [policyId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId])
+  @@index([tenantId, invoiceId])
+  @@index([tenantId, status])
+  @@index([lineId])
+  @@index([policyId])
+  @@map("fee_adjustments")
   @@schema("finance")
 }

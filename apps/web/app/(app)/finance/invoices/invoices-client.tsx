@@ -1,13 +1,17 @@
 'use client';
 
 /* ============================================================
-   InvoicesClient — interactive invoice table island
+   InvoicesClient — fee invoices (server-driven table)
 
-   Receives server-fetched invoices as props.
+   Search (invoice # / student name) / status filter / sort / paging live in
+   the URL and run at the DB via `useDirectoryState` + `DirectoryTable`; the
+   client never filters the fetched page. Stat tiles come from the whole-set
+   invoice summary passed by the server.
    ============================================================ */
 
 import * as React from 'react';
 import { Download, Plus, Search } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
@@ -19,25 +23,27 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
-export type InvoiceStatus = 'paid' | 'partial' | 'overdue' | 'draft' | 'issued' | 'cancelled';
+export type InvoiceStatus =
+  | 'paid'
+  | 'partial'
+  | 'overdue'
+  | 'draft'
+  | 'issued'
+  | 'cancelled';
 
 export interface Invoice {
   id: string;
@@ -51,6 +57,13 @@ export interface Invoice {
   amountDue?: number;
   amountPaid?: number;
   status: InvoiceStatus;
+}
+
+export interface InvoiceStats {
+  billed: number;
+  collected: number;
+  outstanding: number;
+  overdue: number;
 }
 
 const STATUS_META: Record<InvoiceStatus, { label: string; tone: StateTone }> = {
@@ -77,58 +90,154 @@ function nairaFromKobo(kobo: number): string {
 
 interface Props {
   invoices: Invoice[];
+  total: number;
+  defaultPageSize: number;
+  stats: InvoiceStats;
 }
 
-export function InvoicesClient({ invoices }: Props) {
-  const rows = invoices;
+export function InvoicesClient({
+  invoices,
+  total,
+  defaultPageSize,
+  stats,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const [query, setQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('all');
+  const onChange = React.useCallback(
+    (qs: string) => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname],
+  );
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter((inv) => {
-      const display = inv.invoiceNumber ?? inv.id;
-      const name = inv.student ?? '';
-      const matchesQuery =
-        !q || name.toLowerCase().includes(q) || display.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === 'all' || inv.status === statusFilter;
-      return matchesQuery && matchesStatus;
+  const defaults = React.useMemo(
+    () => ({ pageSize: defaultPageSize }),
+    [defaultPageSize],
+  );
+  const { state, setPage, setPageSize, toggleSort, setQuery, setFilter } =
+    useDirectoryState({
+      searchParams: searchParams.toString(),
+      onChange,
+      defaults,
     });
-  }, [rows, query, statusFilter]);
 
-  const hasFilters = query.trim() !== '' || statusFilter !== 'all';
+  const [term, setTerm] = React.useState(state.q);
+  React.useEffect(() => setTerm(state.q), [state.q]);
+  React.useEffect(() => {
+    if (term === state.q) return;
+    const id = setTimeout(() => setQuery(term), 300);
+    return () => clearTimeout(id);
+  }, [term, state.q, setQuery]);
 
-  function resetFilters() {
-    setQuery('');
-    setStatusFilter('all');
-  }
+  const statusFilter = state.filters.status ?? 'all';
+  const hasFilters = state.q.trim() !== '' || statusFilter !== 'all';
 
-  const stats: StatItem[] = React.useMemo(() => {
-    const billed = rows.reduce((s, i) => s + (i.amountDue ?? 0), 0);
-    const collected = rows.reduce((s, i) => s + (i.amountPaid ?? 0), 0);
-    const overdue = rows.filter((i) => i.status === 'overdue').length;
-    return [
-      { key: 'billed', label: 'Total billed', value: nairaFromKobo(billed) },
-      {
-        key: 'collected',
-        label: 'Collected',
-        value: nairaFromKobo(collected),
-        delta: billed > 0
-          ? { label: `${Math.round((collected / billed) * 100)}%`, direction: 'up' as const, intent: 'positive' as const }
+  const collectionRate =
+    stats.billed > 0 ? Math.round((stats.collected / stats.billed) * 100) : 0;
+  const statItems: StatItem[] = [
+    {
+      key: 'billed',
+      label: 'Total billed',
+      value: nairaFromKobo(stats.billed),
+    },
+    {
+      key: 'collected',
+      label: 'Collected',
+      value: nairaFromKobo(stats.collected),
+      delta:
+        stats.billed > 0
+          ? { label: `${collectionRate}%`, direction: 'up', intent: 'positive' }
           : undefined,
-      },
-      { key: 'outstanding', label: 'Outstanding', value: nairaFromKobo(billed - collected) },
-      {
-        key: 'overdue',
-        label: 'Overdue invoices',
-        value: String(overdue),
-        delta: overdue > 0
-          ? { label: 'past due', direction: 'up' as const, intent: 'negative' as const }
+    },
+    {
+      key: 'outstanding',
+      label: 'Outstanding',
+      value: nairaFromKobo(stats.outstanding),
+    },
+    {
+      key: 'overdue',
+      label: 'Overdue invoices',
+      value: String(stats.overdue),
+      delta:
+        stats.overdue > 0
+          ? { label: 'past due', direction: 'up', intent: 'negative' }
           : undefined,
+    },
+  ];
+
+  const columns: DirectoryColumn<Invoice>[] = [
+    {
+      id: 'studentName',
+      header: 'Invoice',
+      sortable: true,
+      cell: (inv) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="break-words font-medium text-foreground">
+            {inv.student ?? inv.studentId ?? '—'}
+          </span>
+          <span className="break-words text-xs text-muted-foreground">
+            {inv.invoiceNumber ?? inv.id}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'className',
+      header: 'Class',
+      hideable: true,
+      cell: (inv) => (
+        <span className="text-muted-foreground">{inv.className ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'dueDate',
+      header: 'Due',
+      sortable: true,
+      cell: (inv) => (
+        <span className="text-muted-foreground">{inv.due ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'amountDue',
+      header: 'Amount',
+      align: 'end',
+      sortable: true,
+      cell: (inv) => (
+        <span className="tabular-nums text-foreground">
+          {inv.amountDue ? nairaFromKobo(inv.amountDue) : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'amountPaid',
+      header: 'Paid',
+      align: 'end',
+      sortable: true,
+      cell: (inv) => (
+        <span className="tabular-nums text-muted-foreground">
+          {inv.amountDue ? nairaFromKobo(inv.amountPaid ?? 0) : '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (inv) => {
+        const meta = STATUS_META[inv.status] ?? STATUS_META.draft;
+        return (
+          <StatusBadge
+            tone={meta.tone}
+            dot={inv.status !== 'draft' && inv.status !== 'cancelled'}
+          >
+            {meta.label}
+          </StatusBadge>
+        );
       },
-    ];
-  }, [rows]);
+    },
+  ];
 
   return (
     <ShellMain>
@@ -148,14 +257,23 @@ export function InvoicesClient({ invoices }: Props) {
           }
         />
 
-        <StatGrid items={stats} />
+        <StatGrid items={statItems} />
 
-        <DataTableLayout
+        <DirectoryTable<Invoice>
+          columns={columns}
+          rows={invoices}
+          getRowId={(inv) => inv.id}
+          getRowLabel={(inv) => inv.invoiceNumber ?? inv.id}
+          total={total}
+          page={state.page}
+          pageSize={state.pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={state.sort}
+          onSortChange={toggleSort}
           title="Fee invoices"
-          description={`${filtered.length} of ${rows.length} invoices`}
-          loading={false}
-          empty={filtered.length === 0}
-          skeletonColumns={6}
+          description={`${total} ${total === 1 ? 'invoice' : 'invoices'}`}
+          caption="Fee invoices"
           toolbar={
             <>
               <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
@@ -163,18 +281,28 @@ export function InvoicesClient({ invoices }: Props) {
                   className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
                   aria-hidden
                 />
-                <Label htmlFor="invoice-search" className="sr-only">Search invoices</Label>
+                <Label htmlFor="invoice-search" className="sr-only">
+                  Search invoices
+                </Label>
                 <Input
                   id="invoice-search"
                   type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
                   placeholder="Search invoice # or student…"
                   className="pl-8"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[8.5rem]" aria-label="Filter by status">
+              <Select
+                value={statusFilter}
+                onValueChange={(v) =>
+                  setFilter('status', v === 'all' ? null : v)
+                }
+              >
+                <SelectTrigger
+                  className="w-[8.5rem]"
+                  aria-label="Filter by status"
+                >
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -191,79 +319,19 @@ export function InvoicesClient({ invoices }: Props) {
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No invoices match your filters' : 'No invoices yet'}
+              title={
+                hasFilters
+                  ? 'No invoices match your filters'
+                  : 'No invoices yet'
+              }
               description={
                 hasFilters
                   ? 'Try a different search term, or clear the filters to see every invoice.'
                   : 'Run the dev operational seed or create an invoice.'
               }
-              primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
-              }
             />
           }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of {rows.length}
-              </span>
-              {hasFilters ? (
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Invoice</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((inv) => {
-                const status = STATUS_META[inv.status] ?? STATUS_META['draft'];
-                const amountDue = inv.amountDue ?? 0;
-                const amountPaid = inv.amountPaid ?? 0;
-                const displayName = inv.student ?? inv.studentId ?? '—';
-                const displayId = inv.invoiceNumber ?? inv.id;
-                return (
-                  <TableRow key={inv.id}>
-                    <TableCell>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="break-words font-medium text-foreground">{displayName}</span>
-                        <span className="break-words text-xs text-muted-foreground">{displayId}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {inv.className ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {inv.due ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-foreground">
-                      {amountDue ? nairaFromKobo(amountDue) : '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {amountDue ? nairaFromKobo(amountPaid) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={status.tone} dot={inv.status !== 'draft' && inv.status !== 'cancelled'}>
-                        {status.label}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

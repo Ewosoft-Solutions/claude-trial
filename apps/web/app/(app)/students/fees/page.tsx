@@ -63,7 +63,7 @@ function statusFor(billed: number, paid: number): FeeRow['status'] {
 export default async function StudentFeesPage() {
   const [studentData, invoiceData] = await Promise.all([
     serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
-    serverApiGet<ApiInvoice[]>('/finance/invoices'),
+    serverApiGet<ApiInvoice[] | Paginated<ApiInvoice>>('/finance/invoices'),
   ]);
 
   const students = asArray(studentData);
@@ -72,7 +72,7 @@ export default async function StudentFeesPage() {
   );
   const balances = new Map<string, { billed: number; paid: number }>();
 
-  for (const invoice of invoiceData ?? []) {
+  for (const invoice of asArray(invoiceData)) {
     const current = balances.get(invoice.studentId) ?? { billed: 0, paid: 0 };
     current.billed += Number(invoice.amountDue ?? 0);
     current.paid += Number(invoice.amountPaid ?? 0);
