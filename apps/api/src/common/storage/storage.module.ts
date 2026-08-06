@@ -12,20 +12,20 @@ import { STORAGE_PROVIDER, StorageProvider } from './storage.types';
 @Module({
   providers: [
     LocalDiskStorageService,
-    R2StorageService,
     {
       provide: STORAGE_PROVIDER,
-      useFactory: (
-        local: LocalDiskStorageService,
-        r2: R2StorageService,
-      ): StorageProvider => {
-        const provider = R2StorageService.isConfigured() ? r2 : local;
+      // R2StorageService is constructed here (not a DI provider) so Nest never
+      // tries to inject its `env` constructor arg; it reads process.env itself.
+      useFactory: (local: LocalDiskStorageService): StorageProvider => {
+        const provider = R2StorageService.isConfigured()
+          ? new R2StorageService()
+          : local;
         new Logger('StorageModule').log(
           `Document storage provider: ${provider.providerName}`,
         );
         return provider;
       },
-      inject: [LocalDiskStorageService, R2StorageService],
+      inject: [LocalDiskStorageService],
     },
   ],
   exports: [STORAGE_PROVIDER],
