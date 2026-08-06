@@ -26,8 +26,26 @@ model AdmissionApplication {
 
   submittedDate DateTime @default(now()) @map("submitted_date") @db.Date
 
-  stage    String @default("application") // application | interview | decision
+  // WB3-1: a real pipeline stage machine (was strings-only application|interview|
+  // decision). Superseded by enquiry | applied | screening | interview | offer |
+  // accepted | enrolled | rejected | withdrawn — the old 'application'/'decision'
+  // defaults are dropped (this replaces the stub; no production rows carry them).
+  stage    String @default("applied")
   decision String @default("pending") // pending | accepted | waitlisted | rejected
+
+  // WB3: the applicant as an F1 Person (soft ref; set on capture/conversion), the
+  // target placement for conversion, decision timestamps, and the resulting
+  // student once converted. Soft refs (no Prisma relation) with DB-level FKs in
+  // the migration — same convention as the WB2 offering/registration tables.
+  personId             String?   @map("person_id")
+  campusId             String?   @map("campus_id")
+  targetClassSectionId String?   @map("target_class_section_id")
+  academicYearId       String?   @map("academic_year_id")
+  offeredAt            DateTime? @map("offered_at")
+  acceptedAt           DateTime? @map("accepted_at")
+  decisionAt           DateTime? @map("decision_at")
+  resultingStudentId   String?   @map("resulting_student_id")
+  documentChecklist    Json?     @map("document_checklist") // [{ name, required, received }]
 
   notes String?
 
@@ -38,12 +56,61 @@ model AdmissionApplication {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant      Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviews     AdmissionReview[]
+  stageEvents AdmissionStageEvent[]
 
   @@index([tenantId])
   @@index([tenantId, stage])
   @@index([tenantId, decision])
   @@index([tenantId, submittedDate])
+  @@index([resultingStudentId])
   @@map("admission_applications")
+  @@schema("admissions")
+}
+
+// WB3-1: scored decision/review history (fixes matrix job 17 "strings only"). A
+// reviewer records a score + recommendation + note; every review is kept.
+model AdmissionReview {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  applicationId String @map("application_id")
+
+  reviewerId     String? @map("reviewer_id")
+  score          Int? // e.g. 0..100
+  recommendation String // 'recommend' | 'waitlist' | 'reject' | 'hold'
+  note           String?
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([tenantId, applicationId])
+  @@map("admission_reviews")
+  @@schema("admissions")
+}
+
+// WB3-1: effective-dated stage history — one row per stage transition, so the
+// pipeline is auditable and explainable (never a silent overwrite).
+model AdmissionStageEvent {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  applicationId String @map("application_id")
+
+  fromStage String? @map("from_stage")
+  toStage   String  @map("to_stage")
+  note      String?
+  actorId   String? @map("actor_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([tenantId, applicationId])
+  @@map("admission_stage_events")
   @@schema("admissions")
 }

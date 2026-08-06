@@ -97,6 +97,20 @@ _(`P0-1` **decided** + **build-first** — see [`release-1-promise.md`](release-
 
 **Workbench-2 acceptance:** SS1 ARTS vs SS1 SCIENCE model without name-parsing; a K-12 (class) and a tertiary (per-course) profile both resolve student→subject; a mid-year transfer keeps both placements; a promotion preview + exceptions commits next-year enrollments leaving the prior year untouched; an admin can explain a student's placement + year-over-year history. _(detail: [`workbench-academic.md`](workbench-academic.md))_
 
+## Workbench 3 — Admissions (detailed in [`workbench-admissions.md`](workbench-admissions.md))
+
+_Replaces the flat page-first `AdmissionApplication` stub (strings-only stage/decision + a grandfathered privileged-client read) with a durable, Person-linked pipeline that ends in a one-command conversion to a registered student (reusing the WB2-3 lifecycle). Parity jobs 14–23 (matrix 07 §Admissions). Deps F1/F4/F5/WB1 + WB2 all `done`._
+
+| ID    | Title                                                                                                         | #       | Effort | Deps            | Owner | Status  |
+| ----- | ------------------------------------------------------------------------------------------------------------- | ------- | ------ | --------------- | ----- | ------- |
+| WB3-1 | Admissions **pipeline + decision history** (durable stage machine + effective-dated stage events + scored `AdmissionReview`; retires the strings-only stub + its privileged client) | #14,#17 | L | F1, WB1 | claude | in-progress |
+| WB3-2 | **Offer → acceptance → one-command conversion → student** (offer/accept states + `convertToStudent` = Person+profile+Student + register into a section via the WB2-3 lifecycle) | #22,#23 | M | WB3-1, WB2-3, F1 | claude | in-progress |
+| WB3-3 | **Versioned application form + responses** (form builder + typed responses)                                   | #15     | L      | WB3-1           | —     | backlog |
+| WB3-4 | **Interview/exam scheduling + outcome** + admission **quiz** (reuse `Assessment`)                              | #18,#19 | M      | WB3-1           | —     | backlog |
+| WB3-5 | **Admission fee/deposit** (link Finance)                                                                       | #20     | M      | WB3-1, **WB5**  | —     | blocked |
+
+**Workbench-3 acceptance (this session's build = WB3-1 + WB3-2):** an application is a durable, Person-linked record moving through explicit stages with an **auditable stage + decision/review history** (never strings-only); a reviewer records a **scored decision** that is kept; an accepted applicant gets an **offer** then, on acceptance, **one command converts them into a registered student** placed into a class section via the WB2-3 lifecycle (the new student shows a proper registration placement span); tenant isolation + campus scope + server-side permissions hold; **no privileged client** (the stub's grandfathered read is removed). _(detail: [`workbench-admissions.md`](workbench-admissions.md))_
+
 ## Later workbenches (outlined in [`BACKLOG.md`](BACKLOG.md); detailed just-in-time)
 
 | ID      | Workbench                                                                           | Phase | Blocked on           |
