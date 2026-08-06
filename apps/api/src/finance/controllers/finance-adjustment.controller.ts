@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Get,
   Param,
   Post,
   Request,
@@ -95,6 +96,23 @@ export class FinanceAdjustmentController {
       id,
       dto.reason ?? 'Rejected',
     );
+  }
+
+  @Get('invoices/:id/adjustments')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({ summary: "List an invoice's adjustments" })
+  listAdjustments(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.adjustments.listAdjustments(req.user!.tenantId, id);
+  }
+
+  @Get('discount-policies')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({ summary: 'List the tenant discount policies' })
+  listPolicies(@Request() req: AuthenticatedRequest) {
+    return this.adjustments.listPolicies(req.user!.tenantId);
   }
 
   @Post('discount-policies')

@@ -248,6 +248,25 @@ export class FinanceAdjustmentService {
     });
   }
 
+  // ---- Reads (for the UI) --------------------------------------------
+
+  /** Every adjustment on an invoice (pending + applied + rejected), newest first. */
+  listAdjustments(tenantId: string, invoiceId: string) {
+    return this.client.feeAdjustment.findMany({
+      where: { tenantId, invoiceId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  /** The tenant's discount policies (pending awaiting activation first). */
+  listPolicies(tenantId: string) {
+    return this.client.discountPolicy.findMany({
+      where: { tenantId },
+      orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
+      include: { feeItem: { select: { code: true, name: true } } },
+    });
+  }
+
   // ---- Auto-apply active policies to an invoice (at issue) ------------
 
   /**
