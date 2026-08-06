@@ -20,10 +20,6 @@ import { FinanceCatalogueService } from './services/finance-catalogue.service';
     FinanceAdjustmentService,
     FinanceCatalogueService,
   ],
-  exports: [
-    FinanceService,
-    FinanceAdjustmentService,
-    FinanceCatalogueService,
-  ],
+  exports: [FinanceService, FinanceAdjustmentService, FinanceCatalogueService],
 })
 export class FinanceModule {}

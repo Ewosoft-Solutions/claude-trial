@@ -44,7 +44,9 @@ export class FinanceCatalogueService {
       select: { id: true },
     });
     if (existing) {
-      throw new BadRequestException(`A fee item with code "${dto.code}" already exists`);
+      throw new BadRequestException(
+        `A fee item with code "${dto.code}" already exists`,
+      );
     }
     return this.client.feeItem.create({
       data: {
@@ -58,13 +60,17 @@ export class FinanceCatalogueService {
   }
 
   async updateFeeItem(tenantId: string, id: string, dto: UpdateFeeItemDto) {
-    const item = await this.client.feeItem.findFirst({ where: { id, tenantId } });
+    const item = await this.client.feeItem.findFirst({
+      where: { id, tenantId },
+    });
     if (!item) throw new NotFoundException('Fee item not found');
     return this.client.feeItem.update({
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.defaultAmount !== undefined && { defaultAmount: dto.defaultAmount }),
+        ...(dto.defaultAmount !== undefined && {
+          defaultAmount: dto.defaultAmount,
+        }),
         ...(dto.active !== undefined && { active: dto.active }),
       },
     });
@@ -109,7 +115,11 @@ export class FinanceCatalogueService {
     if (!item) throw new BadRequestException('Fee item not found for tenant');
   }
 
-  async addLine(tenantId: string, invoiceId: string, dto: CreateInvoiceLineDto) {
+  async addLine(
+    tenantId: string,
+    invoiceId: string,
+    dto: CreateInvoiceLineDto,
+  ) {
     await this.assertInvoice(tenantId, invoiceId);
     await this.assertFeeItem(tenantId, dto.feeItemId);
     const line = await this.client.feeInvoiceLine.create({
@@ -126,7 +136,11 @@ export class FinanceCatalogueService {
     return line;
   }
 
-  async updateLine(tenantId: string, lineId: string, dto: UpdateInvoiceLineDto) {
+  async updateLine(
+    tenantId: string,
+    lineId: string,
+    dto: UpdateInvoiceLineDto,
+  ) {
     const line = await this.client.feeInvoiceLine.findFirst({
       where: { id: lineId, tenantId },
     });

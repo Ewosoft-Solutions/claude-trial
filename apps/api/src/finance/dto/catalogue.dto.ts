@@ -11,7 +11,10 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /** Create a fee item in the tenant's catalogue. */
 export class CreateFeeItemDto {
-  @ApiProperty({ example: 'boarding', description: 'Stable slug, unique per tenant' })
+  @ApiProperty({
+    example: 'boarding',
+    description: 'Stable slug, unique per tenant',
+  })
   @IsString()
   @IsNotEmpty()
   @Matches(/^[a-z0-9_]+$/, {
@@ -24,7 +27,10 @@ export class CreateFeeItemDto {
   @IsNotEmpty()
   name!: string;
 
-  @ApiPropertyOptional({ example: 15000000, description: 'Suggested amount in kobo' })
+  @ApiPropertyOptional({
+    example: 15000000,
+    description: 'Suggested amount in kobo',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)
