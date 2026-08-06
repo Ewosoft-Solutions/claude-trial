@@ -40,3 +40,19 @@ Items `WB3-1..WB3-5` on the [board](TASK-BOARD.md). This session builds **WB3-1 
 ### Definition of Done (this session)
 
 WB3-1 + WB3-2 acceptance scenarios pass end-to-end; the flat stub + its privileged read are replaced; conversion reuses WB2-3; full validation contract + `pnpm ci:quick` green; board + `AI_HANDOFF.md` updated.
+
+---
+
+## Structured-intake redesign — `2026-08-06` (owner-driven, branch `feat/wb3-admissions-structured-intake`)
+
+**Why:** the free-text "Applying for" made admissions a parallel list a school had to reconcile with its real classes. The redesign sources intake from the school's **own** structure and captures the full applicant record up front, so an admit converts with **zero re-keying** and the school keeps no separate list.
+
+**What shipped (extends WB3-1/2; toward WB3-3):**
+
+- **Cascade intake.** `createApplication` validates the WB2-1 cascade (class = `YearLevel` → level = `Stage`, optional department = `Stream`, optional `Campus`) against the tenant's structure and **composes** the stored `applyingFor` label from it (never parsed). Applicant profile (DOB/gender/state/religion/health) captured. `GET /admissions/intake-structure` feeds the form.
+- **Structured guardians.** New `AdmissionGuardian` (multi): relationship, phone + WhatsApp with a **same-as-phone reuse** (no re-typing), exactly-one-primary enforced server-side; legacy flat guardian fields mirror the primary.
+- **Configurable requirements framework (the staggered reality).** `AdmissionRequirement` = a per-tenant, **editable** template — document / field / measurement / fee, each tagged to a **collection stage** (`application` up-front vs `acceptance`/etc. after an offer) so schools collect medicals, uniform measurements, acceptance fees, more IDs *when they actually do*. It is **snapshotted** onto each application as `AdmissionApplicationRequirement` (a later template edit never rewrites an in-flight file; FK **RESTRICT**), then **provided / uploaded / waived**. Default Nigerian checklist seeded on demand.
+- **Real document storage (F4 → R2).** Requirement documents upload through the F4 `DocumentService` behind a new **Cloudflare R2** S3-compatible `StorageProvider` (auto-selected when the four `R2_*` env vars are set, else local disk); round-trip verified against the real bucket; env parity + a 20mb body limit for real uploads.
+- **UI.** Full-width Applications table + search; structured **New Application** cascade form (side sheet); at-a-glance **drawer** on row-click; full **`/admissions/[id]`** detail/edit with the staged requirement checklist (upload/measure/fee/waive), history, reviews and the decision/convert actions.
+
+**Permissions:** reuses existing admissions perms (`create`/`view`/`documents`/`criteria`) — **no count change (345)**. **No privileged client.** New migration `20260806010000_admissions_structured_intake` (+3 RLS tables). Independent review: all gates green + 10 findings all fixed; **admissions e2e 14/14 on real pg**.
