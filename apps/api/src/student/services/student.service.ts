@@ -29,6 +29,14 @@ import {
   type AcademicsActor,
 } from '../../common/academics/academics-access.service';
 
+/**
+ * Safety ceiling for the un-paginated {@link StudentService.roster} read. It is
+ * far above any realistic single-tenant enrollment, so it never truncates real
+ * data — it just bounds a pathological query. Revisit with cursor paging if a
+ * tenant ever approaches it.
+ */
+export const STUDENT_ROSTER_MAX = 5000;
+
 @Injectable()
 export class StudentService {
   constructor(
@@ -97,6 +105,42 @@ export class StudentService {
       orderBy: [{ isPrimary: 'desc' }, { contactPriority: 'asc' }],
     },
   } satisfies Prisma.StudentInclude;
+
+  /**
+   * Lightweight projection for the full-roster read consumed by aggregate and
+   * roster/picker pages (analytics, finance reports, attendance, fees). It is
+   * the union of the fields those callers actually use — name, number, grade,
+   * status, movement dates, and the active-enrollment class label — and
+   * deliberately omits the heavy `studentInclude` branches (guardians, roles,
+   * contact/verification) so pulling every student stays cheap.
+   */
+  private readonly rosterSelect = {
+    id: true,
+    studentNumber: true,
+    gradeLevel: true,
+    enrollmentStatus: true,
+    createdAt: true,
+    withdrawalDate: true,
+    userTenant: {
+      select: {
+        user: {
+          select: { firstName: true, lastName: true, email: true },
+        },
+      },
+    },
+    enrollments: {
+      select: {
+        status: true,
+        class: {
+          select: {
+            name: true,
+            section: true,
+            course: { select: { name: true, code: true } },
+          },
+        },
+      },
+    },
+  } satisfies Prisma.StudentSelect;
 
   private ensureValidStudentStatus(status: string) {
     if (
@@ -260,6 +304,25 @@ export class StudentService {
         hasPrev: page > 1,
       },
     };
+  }
+
+  /**
+   * Every student in the tenant as a lightweight projection, un-paginated.
+   *
+   * Backs the pages that genuinely need the whole roster (aggregates, id→name
+   * maps) and were previously abusing `?limit=1000` on the paginated `list`
+   * endpoint — which capped at 100 and 400'd. Bounded by {@link STUDENT_ROSTER_MAX}
+   * and scoped by RLS + the `students.view` permission, exactly like `list`.
+   */
+  async roster(tenantId: string) {
+    const data = await this.client.student.findMany({
+      where: { tenantId },
+      take: STUDENT_ROSTER_MAX,
+      orderBy: { createdAt: 'desc' },
+      select: this.rosterSelect,
+    });
+
+    return { data };
   }
 
   async getById(tenantId: string, id: string) {

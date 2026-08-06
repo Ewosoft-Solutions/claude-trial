@@ -90,6 +90,24 @@ export class StudentController {
   }
 
   /**
+   * Full-roster projection (all students, lightweight).
+   *
+   * For pages that need the whole roster for aggregates or id→name maps
+   * (analytics, finance reports, attendance, fees) rather than a page of the
+   * heavy detailed list. Declared before `:id` so `/students/roster` is not
+   * matched as an id.
+   */
+  @Get('roster')
+  @RequirePermissions(['students.view'])
+  @ApiOperation({
+    summary: 'List every student as a lightweight projection (un-paginated)',
+  })
+  async listRoster(@Request() req: AuthenticatedRequest) {
+    const user = req.user;
+    return this.studentService.roster(user!.tenantId);
+  }
+
+  /**
    * Get student by ID (13.4)
    */
   @Get(':id')

@@ -39,7 +39,10 @@ interface StudentListResponse {
 function formatDate(iso: string | null | undefined): string | undefined {
   if (!iso) return undefined;
   try {
-    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(new Date(iso));
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+    }).format(new Date(iso));
   } catch {
     return undefined;
   }
@@ -48,20 +51,28 @@ function formatDate(iso: string | null | undefined): string | undefined {
 function studentName(student: ApiStudent | undefined): string | undefined {
   const user = student?.userTenant?.user;
   if (!user) return undefined;
-  return [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || undefined;
+  return (
+    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+    user.email ||
+    undefined
+  );
 }
 
 export default async function PaymentsPage() {
   const [data, studentData] = await Promise.all([
-    serverApiGet<ApiPayment[] | { data?: ApiPayment[] }>('/finance/payments?limit=200'),
-    serverApiGet<StudentListResponse | ApiStudent[]>('/students?limit=500'),
+    serverApiGet<ApiPayment[] | { data?: ApiPayment[] }>('/finance/payments'),
+    serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
   ]);
 
   const raw: ApiPayment[] = Array.isArray(data)
     ? data
-    : (data as { data?: ApiPayment[] } | null)?.data ?? [];
-  const students = Array.isArray(studentData) ? studentData : studentData?.data ?? [];
-  const studentsById = new Map(students.map((student) => [student.id, student]));
+    : ((data as { data?: ApiPayment[] } | null)?.data ?? []);
+  const students = Array.isArray(studentData)
+    ? studentData
+    : (studentData?.data ?? []);
+  const studentsById = new Map(
+    students.map((student) => [student.id, student]),
+  );
 
   const payments: Payment[] = raw.map((p) => ({
     id: p.id,

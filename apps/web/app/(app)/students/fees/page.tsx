@@ -36,7 +36,11 @@ function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
 
 function studentName(student: ApiStudent | undefined): string {
   const user = student?.userTenant?.user;
-  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Unknown student';
+  return (
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    user?.email ||
+    'Unknown student'
+  );
 }
 
 function studentClass(student: ApiStudent | undefined): string {
@@ -45,7 +49,9 @@ function studentClass(student: ApiStudent | undefined): string {
     student?.enrollments?.[0];
   const cls = enrollment?.class;
   if (!cls) return 'Unassigned';
-  return cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim();
+  return (
+    cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim()
+  );
 }
 
 function statusFor(billed: number, paid: number): FeeRow['status'] {
@@ -56,12 +62,14 @@ function statusFor(billed: number, paid: number): FeeRow['status'] {
 
 export default async function StudentFeesPage() {
   const [studentData, invoiceData] = await Promise.all([
-    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
-    serverApiGet<ApiInvoice[]>('/finance/invoices?limit=1000'),
+    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
+    serverApiGet<ApiInvoice[]>('/finance/invoices'),
   ]);
 
   const students = asArray(studentData);
-  const studentsById = new Map(students.map((student) => [student.id, student]));
+  const studentsById = new Map(
+    students.map((student) => [student.id, student]),
+  );
   const balances = new Map<string, { billed: number; paid: number }>();
 
   for (const invoice of invoiceData ?? []) {
@@ -71,17 +79,19 @@ export default async function StudentFeesPage() {
     balances.set(invoice.studentId, current);
   }
 
-  const rows: FeeRow[] = Array.from(balances.entries()).map(([studentId, balance]) => {
-    const student = studentsById.get(studentId);
-    return {
-      id: student?.studentNumber ?? studentId,
-      name: studentName(student),
-      className: studentClass(student),
-      billed: balance.billed,
-      paid: balance.paid,
-      status: statusFor(balance.billed, balance.paid),
-    };
-  });
+  const rows: FeeRow[] = Array.from(balances.entries()).map(
+    ([studentId, balance]) => {
+      const student = studentsById.get(studentId);
+      return {
+        id: student?.studentNumber ?? studentId,
+        name: studentName(student),
+        className: studentClass(student),
+        billed: balance.billed,
+        paid: balance.paid,
+        status: statusFor(balance.billed, balance.paid),
+      };
+    },
+  );
 
   return <StudentFeesClient rows={rows} />;
 }
