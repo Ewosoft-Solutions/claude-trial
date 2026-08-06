@@ -9,6 +9,7 @@
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';
+import { getSession } from '@/lib/session';
 import { toListQuery } from '@/lib/list-query';
 import {
   InvoicesClient,
@@ -55,6 +56,10 @@ interface InvoiceSummary {
 
 interface ApiStudent {
   id: string;
+  studentNumber?: string | null;
+  userTenant?: {
+    user?: { firstName?: string | null; lastName?: string | null } | null;
+  } | null;
   enrollments?: Array<{
     status: string;
     class?: {
@@ -63,6 +68,15 @@ interface ApiStudent {
       course?: { name?: string | null } | null;
     } | null;
   }>;
+}
+
+function studentName(student: ApiStudent): string {
+  const user = student.userTenant?.user;
+  const name = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return name || student.studentNumber || student.id;
 }
 
 interface StudentListResponse {
@@ -103,11 +117,14 @@ export default async function InvoicesPage({
     filters: { status: 'status' },
   });
 
-  const [list, summary, studentData] = await Promise.all([
+  const [list, summary, studentData, session] = await Promise.all([
     serverApiGet<InvoicesResponse>(`/finance/invoices?${params.toString()}`),
     serverApiGet<InvoiceSummary>('/finance/invoices/summary'),
     serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
+    getSession(),
   ]);
+  const canManage =
+    session?.permissions.includes('finance.manage' as never) ?? false;
 
   const raw = list?.data ?? [];
   const students = Array.isArray(studentData)
@@ -147,12 +164,21 @@ export default async function InvoicesPage({
     overdue: counts.overdue ?? 0,
   };
 
+  // Lightweight roster for the "New invoice" student picker (id + label).
+  const studentOptions = students.map((student) => ({
+    id: student.id,
+    name: studentName(student),
+    studentNumber: student.studentNumber ?? undefined,
+  }));
+
   return (
     <InvoicesClient
       invoices={invoices}
       total={list?.pagination.total ?? 0}
       defaultPageSize={DEFAULT_PAGE_SIZE}
       stats={stats}
+      students={studentOptions}
+      canManage={canManage}
     />
   );
 }

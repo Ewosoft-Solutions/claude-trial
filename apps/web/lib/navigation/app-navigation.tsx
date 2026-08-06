@@ -15,6 +15,7 @@
    ============================================================ */
 
 import {
+  BadgePercent,
   Banknote,
   BookMarked,
   BookOpen,
@@ -341,6 +342,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Fee items',
               icon: <ListTree />,
               href: '/finance/fee-items',
+              access: { anyPermission: ['fees.view', 'billing.view'] },
+            },
+            {
+              key: 'discount-policies',
+              label: 'Discount policies',
+              icon: <BadgePercent />,
+              href: '/finance/discount-policies',
               access: { anyPermission: ['fees.view', 'billing.view'] },
             },
             {

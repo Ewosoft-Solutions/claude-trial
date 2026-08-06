@@ -52,6 +52,8 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { useStepUpAction } from '../../../_shared/use-step-up-action';
 
 /* ---- Types (mirror the API response) ------------------------------------ */
 
@@ -264,14 +266,19 @@ export function InvoiceDetailClient({
               { key: 'due', label: `Due ${formatDate(invoice.dueDate)}` },
             ]}
             actions={
-              <StatusBadge
-                tone={statusMeta.tone}
-                dot={
-                  invoice.status !== 'draft' && invoice.status !== 'cancelled'
-                }
-              >
-                {statusMeta.label}
-              </StatusBadge>
+              <div className="flex items-center gap-2">
+                {canManage && invoice.status === 'draft' ? (
+                  <IssueInvoiceButton invoiceId={invoice.id} />
+                ) : null}
+                <StatusBadge
+                  tone={statusMeta.tone}
+                  dot={
+                    invoice.status !== 'draft' && invoice.status !== 'cancelled'
+                  }
+                >
+                  {statusMeta.label}
+                </StatusBadge>
+              </div>
             }
           />
         </div>
@@ -296,6 +303,50 @@ export function InvoiceDetailClient({
         ) : null}
       </div>
     </ShellMain>
+  );
+}
+
+/** Issue a draft invoice (step-up-gated). Issuing auto-applies active policies. */
+function IssueInvoiceButton({ invoiceId }: { invoiceId: string }) {
+  const router = useRouter();
+  const { requestStepUp, stepUpPrompt } = useStepUpAction();
+  const [busy, setBusy] = React.useState(false);
+
+  const issue = () => {
+    requestStepUp(
+      {
+        operation: STEP_UP_OPERATION.FINANCIAL_FEE_STRUCTURE_UPDATE,
+        title: 'Issue this invoice',
+        description:
+          'Confirm your identity to issue the invoice. Active discount policies apply on issue.',
+      },
+      async (challengeId) => {
+        setBusy(true);
+        try {
+          await mutate(`/api/finance/invoices/${invoiceId}`, 'PATCH', {
+            status: 'issued',
+            stepUpChallengeId: challengeId,
+          });
+          toast.success('Invoice issued');
+          router.refresh();
+        } catch (e) {
+          toast.error(
+            e instanceof Error ? e.message : 'Could not issue invoice',
+          );
+        } finally {
+          setBusy(false);
+        }
+      },
+    );
+  };
+
+  return (
+    <>
+      <Button size="sm" disabled={busy} onClick={issue}>
+        Issue invoice
+      </Button>
+      {stepUpPrompt}
+    </>
   );
 }
 
