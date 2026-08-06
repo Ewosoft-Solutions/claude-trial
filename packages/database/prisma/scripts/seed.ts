@@ -247,13 +247,13 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 345, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3) + WB3 admissions.convert (+1)
+  total: 347, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3) + WB3 admissions.convert (+1) + WB3 finance.view/.manage (+2)
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 30,
     GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
-    FINANCIAL_PERMISSIONS: 16,
+    FINANCIAL_PERMISSIONS: 18,
     COMMUNICATION_PERMISSIONS: 18,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
@@ -1247,6 +1247,31 @@ const ATTENDANCE_PERMISSIONS = [
 
 // Financial Management Permissions
 const FINANCIAL_PERMISSIONS = [
+  // Coarse finance-domain gates. The finance API (invoices, fee-item catalogue,
+  // invoice lines, discretionary adjustments + discount policies) authorizes on
+  // these; the granular fees.*/billing.*/payments.* permissions below stay for
+  // finer reporting/export splits. Clearance 5 = Financial & Legal tier, so they
+  // reach exactly the pools (level 5+) that already carry `fees.view`.
+  {
+    name: 'finance.view',
+    label: 'View Finance',
+    description:
+      'View finance data (invoices, fee items, adjustments, policies)',
+    resource: 'finance',
+    action: 'view',
+    category: 'financial',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'finance.manage',
+    label: 'Manage Finance',
+    description:
+      'Manage finance (edit invoice lines/fee items, request+approve adjustments, activate discount policies)',
+    resource: 'finance',
+    action: 'manage',
+    category: 'financial',
+    requiredClearanceLevel: 5,
+  },
   {
     name: 'fees.view',
     label: 'View Fees',

@@ -1,101 +1,186 @@
-import { IsDateString, IsIn, IsInt, IsNotEmpty, IsOptional, IsString, Min } from 'class-validator';
+import {
+  IsDateString,
+  IsIn,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { PaginationDto } from '../../common/dto';
 
-export const EVENT_STATUSES = ['scheduled', 'ongoing', 'completed', 'cancelled'] as const;
+export const EVENT_STATUSES = [
+  'scheduled',
+  'ongoing',
+  'completed',
+  'cancelled',
+] as const;
 export type EventStatus = (typeof EVENT_STATUSES)[number];
 
 export class CreateEventDto {
   @ApiProperty({ example: 'Inter-house Sports Day' })
-  @IsString() @IsNotEmpty() title!: string;
+  @IsString()
+  @IsNotEmpty()
+  title!: string;
 
   @ApiPropertyOptional({ example: 'Annual inter-house athletics competition' })
-  @IsOptional() @IsString() description?: string;
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @ApiPropertyOptional({ example: 'sports' })
-  @IsOptional() @IsString() eventType?: string;
+  @IsOptional()
+  @IsString()
+  eventType?: string;
 
   @ApiPropertyOptional({ example: 'School sports field' })
-  @IsOptional() @IsString() location?: string;
+  @IsOptional()
+  @IsString()
+  location?: string;
 
   @ApiProperty({ example: '2026-08-14T08:00:00.000Z' })
-  @IsDateString() startDate!: string;
+  @IsDateString()
+  startDate!: string;
 
   @ApiPropertyOptional({ example: '2026-08-14T16:00:00.000Z' })
-  @IsOptional() @IsDateString() endDate?: string;
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 
   @ApiPropertyOptional({ example: 500 })
-  @IsOptional() @IsInt() @Min(0) capacity?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  capacity?: number;
 }
 
 export class UpdateEventDto {
   @ApiPropertyOptional({ example: 'Inter-house Sports Day (Rescheduled)' })
-  @IsOptional() @IsString() title?: string;
+  @IsOptional()
+  @IsString()
+  title?: string;
 
   @ApiPropertyOptional({ example: 'Annual inter-house athletics competition' })
-  @IsOptional() @IsString() description?: string;
+  @IsOptional()
+  @IsString()
+  description?: string;
 
   @ApiPropertyOptional({ example: 'sports' })
-  @IsOptional() @IsString() eventType?: string;
+  @IsOptional()
+  @IsString()
+  eventType?: string;
 
   @ApiPropertyOptional({ example: 'School sports field' })
-  @IsOptional() @IsString() location?: string;
+  @IsOptional()
+  @IsString()
+  location?: string;
 
   @ApiPropertyOptional({ example: '2026-08-15T08:00:00.000Z' })
-  @IsOptional() @IsDateString() startDate?: string;
+  @IsOptional()
+  @IsDateString()
+  startDate?: string;
 
   @ApiPropertyOptional({ example: '2026-08-15T16:00:00.000Z' })
-  @IsOptional() @IsDateString() endDate?: string;
+  @IsOptional()
+  @IsDateString()
+  endDate?: string;
 
   @ApiPropertyOptional({ enum: EVENT_STATUSES, example: 'ongoing' })
-  @IsOptional() @IsIn(EVENT_STATUSES) status?: EventStatus;
+  @IsOptional()
+  @IsIn(EVENT_STATUSES)
+  status?: EventStatus;
 
   @ApiPropertyOptional({ example: 500 })
-  @IsOptional() @IsInt() @Min(0) capacity?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  capacity?: number;
 
   @ApiPropertyOptional({ example: 120 })
-  @IsOptional() @IsInt() @Min(0) registeredCount?: number;
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  registeredCount?: number;
 }
 
-export class ListEventsDto {
+export class ListEventsDto extends PaginationDto {
   @ApiPropertyOptional({ enum: EVENT_STATUSES, example: 'scheduled' })
-  @IsOptional() @IsIn(EVENT_STATUSES) status?: EventStatus;
+  @IsOptional()
+  @IsIn(EVENT_STATUSES)
+  status?: EventStatus;
 
   @ApiPropertyOptional({ example: 'sports' })
-  @IsOptional() @IsString() eventType?: string;
+  @IsOptional()
+  @IsString()
+  eventType?: string;
 
-  @ApiPropertyOptional({ example: 'Sports Day', description: 'Free-text search across title' })
-  @IsOptional() @IsString() query?: string;
+  @ApiPropertyOptional({
+    example: 'Sports Day',
+    description: 'Free-text search across title',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
+  @ApiPropertyOptional({
+    example: '2026-08-01',
+    description: 'Only events starting on/after this date',
+  })
+  @IsOptional()
+  @IsDateString()
+  from?: string;
 }
 
 export const ATTENDEE_TYPES = ['student', 'staff', 'parent', 'guest'] as const;
 export type AttendeeType = (typeof ATTENDEE_TYPES)[number];
-export const ATTENDEE_STATUSES = ['registered', 'attended', 'cancelled', 'waitlist'] as const;
+export const ATTENDEE_STATUSES = [
+  'registered',
+  'attended',
+  'cancelled',
+  'waitlist',
+] as const;
 export type AttendeeStatus = (typeof ATTENDEE_STATUSES)[number];
 
 export class AddAttendeeDto {
   @ApiProperty({ example: 'Chidera Okafor' })
-  @IsString() @IsNotEmpty() attendeeName!: string;
+  @IsString()
+  @IsNotEmpty()
+  attendeeName!: string;
 
   @ApiProperty({ enum: ATTENDEE_TYPES, example: 'student' })
-  @IsIn(ATTENDEE_TYPES) attendeeType!: AttendeeType;
+  @IsIn(ATTENDEE_TYPES)
+  attendeeType!: AttendeeType;
 
   @ApiPropertyOptional({ example: 'guardian@example.com' })
-  @IsOptional() @IsString() email?: string;
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @ApiPropertyOptional({ enum: ATTENDEE_STATUSES, example: 'registered' })
-  @IsOptional() @IsIn(ATTENDEE_STATUSES) status?: AttendeeStatus;
+  @IsOptional()
+  @IsIn(ATTENDEE_STATUSES)
+  status?: AttendeeStatus;
 }
 
 export class UpdateAttendeeDto {
   @ApiPropertyOptional({ example: 'Chidera Okafor' })
-  @IsOptional() @IsString() attendeeName?: string;
+  @IsOptional()
+  @IsString()
+  attendeeName?: string;
 
   @ApiPropertyOptional({ enum: ATTENDEE_TYPES, example: 'guest' })
-  @IsOptional() @IsIn(ATTENDEE_TYPES) attendeeType?: AttendeeType;
+  @IsOptional()
+  @IsIn(ATTENDEE_TYPES)
+  attendeeType?: AttendeeType;
 
   @ApiPropertyOptional({ example: 'guardian@example.com' })
-  @IsOptional() @IsString() email?: string;
+  @IsOptional()
+  @IsString()
+  email?: string;
 
   @ApiPropertyOptional({ enum: ATTENDEE_STATUSES, example: 'attended' })
-  @IsOptional() @IsIn(ATTENDEE_STATUSES) status?: AttendeeStatus;
+  @IsOptional()
+  @IsIn(ATTENDEE_STATUSES)
+  status?: AttendeeStatus;
 }

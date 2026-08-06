@@ -116,11 +116,11 @@ function daysBetween(
 
 async function FinanceKpiSection() {
   const [invoiceData, paymentData] = await Promise.all([
-    serverApiGet<ApiInvoice[]>('/finance/invoices'),
+    serverApiGet<{ data?: ApiInvoice[] }>('/finance/invoices'),
     serverApiGet<ApiPayment[]>('/finance/payments'),
   ]);
 
-  const invoices = invoiceData ?? [];
+  const invoices = invoiceData?.data ?? [];
   const payments = paymentData ?? [];
   const invoicesById = new Map(
     invoices.map((invoice) => [invoice.id, invoice]),
@@ -176,11 +176,11 @@ async function FinanceKpiSection() {
 
 async function FinanceBreakdownSection() {
   const [invoiceData, studentData] = await Promise.all([
-    serverApiGet<ApiInvoice[]>('/finance/invoices'),
+    serverApiGet<{ data?: ApiInvoice[] }>('/finance/invoices'),
     serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
   ]);
 
-  const invoices = invoiceData ?? [];
+  const invoices = invoiceData?.data ?? [];
   const students = asArray(studentData);
   const studentsById = new Map(
     students.map((student) => [student.id, student]),

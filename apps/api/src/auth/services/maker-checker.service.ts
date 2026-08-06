@@ -158,6 +158,30 @@ export class MakerCheckerService {
           timeLimitHours: 48,
         },
       ],
+      // A discretionary fee discount/waiver reduces a receivable, so the
+      // grantor signs off separately from the record-keeper (maker ≠ checker).
+      [
+        'finance.adjustment.discretionary',
+        {
+          operation: 'finance.adjustment.discretionary',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['finance.manage'],
+          requiredClearanceLevel: 5, // Finance
+          timeLimitHours: 48,
+        },
+      ],
+      // Activating a discount POLICY is a standing authority (it silently
+      // reduces revenue for everyone who qualifies), so it needs a second sign-off.
+      [
+        'finance.discount_policy.activate',
+        {
+          operation: 'finance.discount_policy.activate',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['finance.manage'],
+          requiredClearanceLevel: 5, // Finance
+          timeLimitHours: 48,
+        },
+      ],
       [
         'data.export',
         {

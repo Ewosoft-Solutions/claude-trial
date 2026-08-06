@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { ArrowRight, ClipboardList, Search } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 import {
   ASSESSMENT_STATUS_META,
@@ -29,24 +29,37 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 
 export function AssessmentTakeListClient({
   initialAssessments,
+  initialQuery = '',
 }: {
   live?: boolean;
   initialAssessments: AssessmentSummary[];
+  initialQuery?: string;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [assessmentId, setAssessmentId] = React.useState('');
-  const [query, setQuery] = React.useState('');
+  const [query, setQuery] = React.useState(initialQuery);
 
-  const filtered = React.useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    return initialAssessments.filter((assessment) => {
-      return (
-        !needle ||
-        assessment.name.toLowerCase().includes(needle) ||
-        classLabel(assessment.class).toLowerCase().includes(needle)
+  // Server-side search: `initialAssessments` is already filtered at the DB, so
+  // the box only needs to push its term into the URL and let the page refetch.
+  // (Filtering in the client would only ever see the first page of results.)
+  React.useEffect(() => {
+    setQuery(initialQuery);
+  }, [initialQuery]);
+
+  React.useEffect(() => {
+    if (query === initialQuery) return;
+    const timer = setTimeout(() => {
+      const trimmed = query.trim();
+      router.replace(
+        trimmed ? `${pathname}?q=${encodeURIComponent(trimmed)}` : pathname,
+        { scroll: false },
       );
-    });
-  }, [initialAssessments, query]);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, initialQuery, pathname, router]);
+
+  const assessments = initialAssessments;
 
   function openAssessment(id: string) {
     if (!id.trim()) return;
@@ -59,7 +72,11 @@ export function AssessmentTakeListClient({
         <PageHeader
           title="Take assessment"
           meta={[
-            { key: 'available', label: `${initialAssessments.length} listed`, emphasis: true },
+            {
+              key: 'available',
+              label: `${initialAssessments.length} listed`,
+              emphasis: true,
+            },
           ]}
         />
 
@@ -83,8 +100,8 @@ export function AssessmentTakeListClient({
 
         <DataTableLayout
           title="Published assessments"
-          description={`${filtered.length} visible assessments`}
-          empty={filtered.length === 0}
+          description={`${assessments.length} visible assessments`}
+          empty={assessments.length === 0}
           toolbar={
             <div className="relative flex-1 min-w-0 @md/main:w-64 @md/main:flex-none">
               <Search
@@ -123,7 +140,7 @@ export function AssessmentTakeListClient({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.map((assessment) => {
+              {assessments.map((assessment) => {
                 const status =
                   ASSESSMENT_STATUS_META[assessment.status] ??
                   ({ label: 'Published', tone: 'success' } as const);
@@ -137,7 +154,9 @@ export function AssessmentTakeListClient({
                     </TableCell>
                     <TableCell>{formatDate(assessment.dueDate)}</TableCell>
                     <TableCell>
-                      <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                      <StatusBadge tone={status.tone}>
+                        {status.label}
+                      </StatusBadge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button

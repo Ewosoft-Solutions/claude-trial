@@ -15,6 +15,7 @@
    ============================================================ */
 
 import {
+  BadgePercent,
   Banknote,
   BookMarked,
   BookOpen,
@@ -31,6 +32,8 @@ import {
   GraduationCap,
   HeartPulse,
   House,
+  HousePlus,
+  ListTree,
   Palette,
   PartyPopper,
   ScrollText,
@@ -334,6 +337,27 @@ export const SCHOOL_NAV: NavigationConfig = {
               icon: <Banknote />,
               href: '/finance/payments',
               access: { anyPermission: ['payments.view'] },
+            },
+            {
+              key: 'fee-items',
+              label: 'Fee items',
+              icon: <ListTree />,
+              href: '/finance/fee-items',
+              access: { anyPermission: ['fees.view', 'billing.view'] },
+            },
+            {
+              key: 'discount-policies',
+              label: 'Discount policies',
+              icon: <BadgePercent />,
+              href: '/finance/discount-policies',
+              access: { anyPermission: ['fees.view', 'billing.view'] },
+            },
+            {
+              key: 'households',
+              label: 'Households',
+              icon: <HousePlus />,
+              href: '/finance/households',
+              access: { anyPermission: ['fees.view', 'billing.view'] },
             },
             {
               key: 'fin-reports',

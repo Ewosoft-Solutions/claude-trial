@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@workspace/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import {
   CreateLeaveRequestDto,
   CreatePayrollRecordDto,
@@ -9,6 +11,16 @@ import {
   ReviewLeaveRequestDto,
   UpdatePayrollRecordDto,
 } from '../dto/hr.dto';
+
+/** Allow-listed sort columns for the payroll list; default is newest period then staff A–Z. */
+const PAYROLL_LIST_SORT: SortAllowList<Prisma.StaffPayrollRecordOrderByWithRelationInput> =
+  {
+    staffName: (dir) => [{ staffName: dir }],
+    payPeriod: (dir) => [{ payPeriod: dir }, { staffName: 'asc' }],
+    status: (dir) => [{ status: dir }, { staffName: 'asc' }],
+    grossPay: (dir) => [{ grossPay: dir }],
+    netPay: (dir) => [{ netPay: dir }],
+  };
 
 @Injectable()
 export class HrService {
@@ -22,17 +34,43 @@ export class HrService {
   }
 
   async listPayrollRecords(tenantId: string, query: ListPayrollRecordsDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const skip = (page - 1) * limit;
+
     const where: Record<string, unknown> = { tenantId };
     if (query.status) where['status'] = query.status;
     if (query.payPeriod) where['payPeriod'] = query.payPeriod;
-    if (query.query) {
-      where['staffName'] = { contains: query.query, mode: 'insensitive' };
+    if (query.search) {
+      where['staffName'] = { contains: query.search, mode: 'insensitive' };
     }
 
-    return this.client.staffPayrollRecord.findMany({
-      where,
-      orderBy: [{ payPeriod: 'desc' }, { staffName: 'asc' }],
-    });
+    const [data, total] = await Promise.all([
+      this.client.staffPayrollRecord.findMany({
+        where,
+        orderBy: resolvePaginationOrderBy(
+          query.sortBy,
+          query.sortOrder,
+          PAYROLL_LIST_SORT,
+          [{ payPeriod: 'desc' }, { staffName: 'asc' }],
+        ),
+        skip,
+        take: limit,
+      }),
+      this.client.staffPayrollRecord.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   async payrollSummary(tenantId: string, payPeriod?: string) {
@@ -109,7 +147,11 @@ export class HrService {
     );
   }
 
-  async createRecord(tenantId: string, dto: CreatePayrollRecordDto, userId: string) {
+  async createRecord(
+    tenantId: string,
+    dto: CreatePayrollRecordDto,
+    userId: string,
+  ) {
     const deductions = dto.deductions ?? 0;
     return this.client.staffPayrollRecord.create({
       data: {
@@ -128,8 +170,15 @@ export class HrService {
     });
   }
 
-  async updateRecord(tenantId: string, id: string, dto: UpdatePayrollRecordDto, userId: string) {
-    const record = await this.client.staffPayrollRecord.findFirst({ where: { id, tenantId } });
+  async updateRecord(
+    tenantId: string,
+    id: string,
+    dto: UpdatePayrollRecordDto,
+    userId: string,
+  ) {
+    const record = await this.client.staffPayrollRecord.findFirst({
+      where: { id, tenantId },
+    });
     if (!record) throw new NotFoundException('Payroll record not found');
 
     return this.client.staffPayrollRecord.update({
@@ -157,7 +206,11 @@ export class HrService {
     });
   }
 
-  async createLeaveRequest(tenantId: string, dto: CreateLeaveRequestDto, userId: string) {
+  async createLeaveRequest(
+    tenantId: string,
+    dto: CreateLeaveRequestDto,
+    userId: string,
+  ) {
     return this.client.staffLeaveRequest.create({
       data: {
         tenantId,

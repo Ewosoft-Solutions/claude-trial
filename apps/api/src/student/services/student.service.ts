@@ -28,6 +28,27 @@ import {
   AcademicsAccessService,
   type AcademicsActor,
 } from '../../common/academics/academics-access.service';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
+
+/**
+ * Sortable columns for the students list (allow-listed — see
+ * {@link resolvePaginationOrderBy}). Default order stays newest-first.
+ */
+const STUDENT_LIST_SORT: SortAllowList<Prisma.StudentOrderByWithRelationInput> =
+  {
+    studentNumber: (dir) => [{ studentNumber: dir }],
+    gradeLevel: (dir) => [{ gradeLevel: dir }, { studentNumber: 'asc' }],
+    status: (dir) => [{ enrollmentStatus: dir }, { studentNumber: 'asc' }],
+    enrollmentStatus: (dir) => [
+      { enrollmentStatus: dir },
+      { studentNumber: 'asc' },
+    ],
+    createdAt: (dir) => [{ createdAt: dir }],
+    name: (dir) => [
+      { userTenant: { user: { lastName: dir } } },
+      { userTenant: { user: { firstName: dir } } },
+    ],
+  };
 
 /**
  * Safety ceiling for the un-paginated {@link StudentService.roster} read. It is
@@ -287,7 +308,12 @@ export class StudentService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: resolvePaginationOrderBy(
+          filters.sortBy,
+          filters.sortOrder,
+          STUDENT_LIST_SORT,
+          [{ createdAt: 'desc' }],
+        ),
         include: this.studentInclude,
       }),
       this.client.student.count({ where }),

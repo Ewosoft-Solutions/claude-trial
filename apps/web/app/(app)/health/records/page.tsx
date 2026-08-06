@@ -1,22 +1,22 @@
 /* ============================================================
    /health/records — student health records (server component)
 
-   Fetches records from the NestJS backend (server-side,
-   cookie-authenticated) and passes them to RecordsClient.
-   Empty API responses render as empty states in the client.
+   Server-driven list: search / status filter / sort / paging run at the DB
+   (via the URL → the paginated `/health/records` endpoint). Stat tiles come
+   from the whole-set `/health/records/summary`, so they stay accurate on any
+   page.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';
-import { RecordsClient, type HealthRecordRow, type HealthStatus } from './records-client';
+import { toListQuery } from '@/lib/list-query';
+import {
+  RecordsClient,
+  type HealthRecordRow,
+  type HealthStats,
+  type HealthStatus,
+} from './records-client';
 
-function formatDate(iso: string | null | undefined): string | null {
-  if (!iso) return null;
-  try {
-    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(new Date(iso));
-  } catch {
-    return null;
-  }
-}
+const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiRecord {
   id: string;
@@ -29,11 +29,45 @@ interface ApiRecord {
   };
 }
 
-export default async function RecordsPage() {
-  const data = await serverApiGet<ApiRecord[] | { data?: ApiRecord[] }>('/health/records');
+interface RecordsResponse {
+  data: ApiRecord[];
+  pagination: { total: number };
+}
 
-  const raw: ApiRecord[] = Array.isArray(data) ? data : (data as { data?: ApiRecord[] } | null)?.data ?? [];
+interface HealthSummary {
+  totalRecords: number;
+  statusCounts: Record<string, number>;
+}
 
+function formatDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+    }).format(new Date(iso));
+  } catch {
+    return null;
+  }
+}
+
+export default async function RecordsPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const { params } = toListQuery(sp, {
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    filters: { status: 'status' },
+  });
+
+  const [list, summary] = await Promise.all([
+    serverApiGet<RecordsResponse>(`/health/records?${params.toString()}`),
+    serverApiGet<HealthSummary>('/health/records/summary'),
+  ]);
+
+  const raw = list?.data ?? [];
   const records: HealthRecordRow[] = raw.map((r) => ({
     id: r.id,
     name: `${r.student.userTenant.user.firstName} ${r.student.userTenant.user.lastName}`,
@@ -43,5 +77,20 @@ export default async function RecordsPage() {
     lastCheckup: formatDate(r.lastCheckup),
   }));
 
-  return <RecordsClient records={records} />;
+  const counts = summary?.statusCounts ?? {};
+  const stats: HealthStats = {
+    total: summary?.totalRecords ?? 0,
+    normal: counts.normal ?? 0,
+    monitoring: counts.monitoring ?? 0,
+    urgent: counts.urgent ?? 0,
+  };
+
+  return (
+    <RecordsClient
+      records={records}
+      total={list?.pagination.total ?? 0}
+      defaultPageSize={DEFAULT_PAGE_SIZE}
+      stats={stats}
+    />
+  );
 }

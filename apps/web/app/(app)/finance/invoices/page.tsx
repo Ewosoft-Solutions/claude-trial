@@ -1,18 +1,29 @@
 /* ============================================================
    /finance/invoices — fee invoices (server component)
 
-   Fetches invoices from the NestJS backend (server-side,
-   cookie-authenticated) and passes them to InvoicesClient.
-   Empty API responses render as empty states in the client.
+   Server-driven list: search (invoice # / student name) / status filter / sort
+   / paging all run at the DB (via the URL → the paginated `/finance/invoices`
+   endpoint). The student name comes off the invoice's denormalized snapshot;
+   the roster is only used to label the class. Stat tiles come from the
+   whole-set `/finance/invoices/summary`.
    ============================================================ */
 
 import { serverApiGet } from '@/lib/server-api';
-import { InvoicesClient, type Invoice } from './invoices-client';
+import { getSession } from '@/lib/session';
+import { toListQuery } from '@/lib/list-query';
+import {
+  InvoicesClient,
+  type Invoice,
+  type InvoiceStats,
+} from './invoices-client';
+
+const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiInvoice {
   id: string;
   invoiceNumber: string;
   studentId: string;
+  studentName?: string | null;
   classId?: string | null;
   termName?: string | null;
   issuedDate?: string | null;
@@ -20,16 +31,34 @@ interface ApiInvoice {
   amountDue: number;
   amountPaid: number;
   status: string;
+  financials?: {
+    gross: number;
+    discounts: number;
+    net: number;
+    paid: number;
+    balance: number;
+    overpaid: number;
+  };
+}
+
+interface InvoicesResponse {
+  data: ApiInvoice[];
+  pagination: { total: number };
+}
+
+interface InvoiceSummary {
+  totalBilled: number;
+  totalDiscounts?: number;
+  totalCollected: number;
+  totalOutstanding: number;
+  statusCounts: Record<string, number>;
 }
 
 interface ApiStudent {
   id: string;
+  studentNumber?: string | null;
   userTenant?: {
-    user?: {
-      firstName?: string | null;
-      lastName?: string | null;
-      email?: string | null;
-    } | null;
+    user?: { firstName?: string | null; lastName?: string | null } | null;
   } | null;
   enrollments?: Array<{
     status: string;
@@ -39,6 +68,15 @@ interface ApiStudent {
       course?: { name?: string | null } | null;
     } | null;
   }>;
+}
+
+function studentName(student: ApiStudent): string {
+  const user = student.userTenant?.user;
+  const name = [user?.firstName, user?.lastName]
+    .filter(Boolean)
+    .join(' ')
+    .trim();
+  return name || student.studentNumber || student.id;
 }
 
 interface StudentListResponse {
@@ -57,16 +95,6 @@ function formatDate(iso: string | null | undefined): string | undefined {
   }
 }
 
-function studentName(student: ApiStudent | undefined): string | undefined {
-  const user = student?.userTenant?.user;
-  if (!user) return undefined;
-  return (
-    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
-    user.email ||
-    undefined
-  );
-}
-
 function studentClass(student: ApiStudent | undefined): string | undefined {
   const enrollment =
     student?.enrollments?.find((item) => item.status === 'active') ??
@@ -78,15 +106,27 @@ function studentClass(student: ApiStudent | undefined): string | undefined {
   );
 }
 
-export default async function InvoicesPage() {
-  const [data, studentData] = await Promise.all([
-    serverApiGet<ApiInvoice[] | { data?: ApiInvoice[] }>('/finance/invoices'),
-    serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
-  ]);
+export default async function InvoicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const sp = await searchParams;
+  const { params } = toListQuery(sp, {
+    defaultPageSize: DEFAULT_PAGE_SIZE,
+    filters: { status: 'status' },
+  });
 
-  const raw: ApiInvoice[] = Array.isArray(data)
-    ? data
-    : ((data as { data?: ApiInvoice[] } | null)?.data ?? []);
+  const [list, summary, studentData, session] = await Promise.all([
+    serverApiGet<InvoicesResponse>(`/finance/invoices?${params.toString()}`),
+    serverApiGet<InvoiceSummary>('/finance/invoices/summary'),
+    serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
+    getSession(),
+  ]);
+  const canManage =
+    session?.permissions.includes('finance.manage' as never) ?? false;
+
+  const raw = list?.data ?? [];
   const students = Array.isArray(studentData)
     ? studentData
     : (studentData?.data ?? []);
@@ -94,18 +134,51 @@ export default async function InvoicesPage() {
     students.map((student) => [student.id, student]),
   );
 
-  const invoices: Invoice[] = raw.map((inv) => ({
-    id: inv.id,
-    invoiceNumber: inv.invoiceNumber,
-    studentId: inv.studentId,
-    student: studentName(studentsById.get(inv.studentId)),
-    className: studentClass(studentsById.get(inv.studentId)),
-    issued: formatDate(inv.issuedDate),
-    due: formatDate(inv.dueDate),
-    amountDue: inv.amountDue,
-    amountPaid: inv.amountPaid,
-    status: inv.status as Invoice['status'],
+  const invoices: Invoice[] = raw.map((inv) => {
+    // Prefer the DERIVED financials; fall back to the flat amounts for any
+    // invoice that predates lines (kept in parallel/compat).
+    const fin = inv.financials;
+    return {
+      id: inv.id,
+      invoiceNumber: inv.invoiceNumber,
+      studentId: inv.studentId,
+      student: inv.studentName ?? undefined,
+      className: studentClass(studentsById.get(inv.studentId)),
+      issued: formatDate(inv.issuedDate),
+      due: formatDate(inv.dueDate),
+      amountDue: inv.amountDue,
+      amountPaid: inv.amountPaid,
+      gross: fin?.gross ?? inv.amountDue,
+      discounts: fin?.discounts ?? 0,
+      balance: fin?.balance ?? Math.max(0, inv.amountDue - inv.amountPaid),
+      status: inv.status as Invoice['status'],
+    };
+  });
+
+  const counts = summary?.statusCounts ?? {};
+  const stats: InvoiceStats = {
+    billed: summary?.totalBilled ?? 0,
+    discounts: summary?.totalDiscounts ?? 0,
+    collected: summary?.totalCollected ?? 0,
+    outstanding: summary?.totalOutstanding ?? 0,
+    overdue: counts.overdue ?? 0,
+  };
+
+  // Lightweight roster for the "New invoice" student picker (id + label).
+  const studentOptions = students.map((student) => ({
+    id: student.id,
+    name: studentName(student),
+    studentNumber: student.studentNumber ?? undefined,
   }));
 
-  return <InvoicesClient invoices={invoices} />;
+  return (
+    <InvoicesClient
+      invoices={invoices}
+      total={list?.pagination.total ?? 0}
+      defaultPageSize={DEFAULT_PAGE_SIZE}
+      stats={stats}
+      students={studentOptions}
+      canManage={canManage}
+    />
+  );
 }
