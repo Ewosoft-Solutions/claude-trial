@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import {
   AddHouseholdMemberDto,
@@ -17,16 +16,16 @@ import {
  * to. Membership + payers are temporal (an "effectiveTo" ends a stint without
  * losing history). Households are auto-derived from shared primary/billing
  * guardian clusters and hand-managed via add/end + merge for blended families.
+ *
+ * Tenant-scoped only: every route is `@TenantScoped()`, so it reads/writes
+ * through the RLS-scoped `TenantDbService.client` — never the privileged client.
  */
 @Injectable()
 export class FinanceHouseholdService {
-  constructor(
-    private readonly db: DatabaseService,
-    private readonly tenantDb: TenantDbService,
-  ) {}
+  constructor(private readonly tenantDb: TenantDbService) {}
 
   private get client() {
-    return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
+    return this.tenantDb.client;
   }
 
   /** Current (not-yet-ended) members + payers, for list/detail rendering. */
