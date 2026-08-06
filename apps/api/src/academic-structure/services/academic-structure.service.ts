@@ -7,10 +7,7 @@ import { Prisma } from '@workspace/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { PrismaTransactionService } from '../../common/database/prisma-transaction.service';
-import {
-  resolvePaginationOrderBy,
-  type SortAllowList,
-} from '../../common/dto';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 
 /** Allow-listed sort columns for the classes list; default is year/term order. */
 const CLASS_LIST_SORT: SortAllowList<Prisma.ClassOrderByWithRelationInput> = {
@@ -57,7 +54,11 @@ export class AcademicStructureService {
     return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
   }
 
-  private assertStatus(value: string, allowed: readonly string[], message: string) {
+  private assertStatus(
+    value: string,
+    allowed: readonly string[],
+    message: string,
+  ) {
     if (!allowed.includes(value)) {
       throw new BadRequestException(message);
     }
@@ -98,9 +99,17 @@ export class AcademicStructureService {
   }
 
   // ---------- Academic Years ----------
-  async createAcademicYear(tenantId: string, userId: string, dto: CreateAcademicYearDto) {
+  async createAcademicYear(
+    tenantId: string,
+    userId: string,
+    dto: CreateAcademicYearDto,
+  ) {
     if (dto.status) {
-      this.assertStatus(dto.status, ACADEMIC_YEAR_STATUSES, 'Invalid academic year status');
+      this.assertStatus(
+        dto.status,
+        ACADEMIC_YEAR_STATUSES,
+        'Invalid academic year status',
+      );
     }
     if (new Date(dto.startDate) >= new Date(dto.endDate)) {
       throw new BadRequestException('startDate must be before endDate');
@@ -136,7 +145,11 @@ export class AcademicStructureService {
   async listAcademicYears(tenantId: string, status?: string) {
     const where: any = { tenantId };
     if (status) {
-      this.assertStatus(status, ACADEMIC_YEAR_STATUSES, 'Invalid academic year status');
+      this.assertStatus(
+        status,
+        ACADEMIC_YEAR_STATUSES,
+        'Invalid academic year status',
+      );
       where.status = status;
     }
     return this.client.academicYear.findMany({
@@ -161,7 +174,11 @@ export class AcademicStructureService {
     dto: UpdateAcademicYearDto,
   ) {
     if (dto.status) {
-      this.assertStatus(dto.status, ACADEMIC_YEAR_STATUSES, 'Invalid academic year status');
+      this.assertStatus(
+        dto.status,
+        ACADEMIC_YEAR_STATUSES,
+        'Invalid academic year status',
+      );
     }
 
     const existing = await this.client.academicYear.findFirst({
@@ -220,7 +237,11 @@ export class AcademicStructureService {
     academicYearId: string,
     dto: CreateTermDto,
   ) {
-    this.assertStatus(dto.status ?? 'planned', TERM_STATUSES, 'Invalid term status');
+    this.assertStatus(
+      dto.status ?? 'planned',
+      TERM_STATUSES,
+      'Invalid term status',
+    );
 
     const year = await this.client.academicYear.findFirst({
       where: { id: academicYearId, tenantId },
@@ -267,7 +288,12 @@ export class AcademicStructureService {
     return term;
   }
 
-  async updateTerm(tenantId: string, userId: string, termId: string, dto: UpdateTermDto) {
+  async updateTerm(
+    tenantId: string,
+    userId: string,
+    termId: string,
+    dto: UpdateTermDto,
+  ) {
     if (dto.status) {
       this.assertStatus(dto.status, TERM_STATUSES, 'Invalid term status');
     }
@@ -311,7 +337,11 @@ export class AcademicStructureService {
 
   // ---------- Courses ----------
   async createCourse(tenantId: string, userId: string, dto: CreateCourseDto) {
-    this.assertStatus(dto.status ?? 'active', COURSE_STATUSES, 'Invalid course status');
+    this.assertStatus(
+      dto.status ?? 'active',
+      COURSE_STATUSES,
+      'Invalid course status',
+    );
 
     // Ensure unique code per tenant
     const existing = await this.client.course.findFirst({
@@ -376,7 +406,12 @@ export class AcademicStructureService {
     return course;
   }
 
-  async updateCourse(tenantId: string, userId: string, id: string, dto: UpdateCourseDto) {
+  async updateCourse(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: UpdateCourseDto,
+  ) {
     if (dto.status) {
       this.assertStatus(dto.status, COURSE_STATUSES, 'Invalid course status');
     }
@@ -426,7 +461,11 @@ export class AcademicStructureService {
 
   // ---------- Classes ----------
   async createClass(tenantId: string, userId: string, dto: CreateClassDto) {
-    this.assertStatus(dto.status ?? 'active', CLASS_STATUSES, 'Invalid class status');
+    this.assertStatus(
+      dto.status ?? 'active',
+      CLASS_STATUSES,
+      'Invalid class status',
+    );
 
     const course = await this.client.course.findFirst({
       where: { id: dto.courseId, tenantId },
@@ -435,17 +474,27 @@ export class AcademicStructureService {
     if (!course) throw new BadRequestException('Course not found for tenant');
 
     const term = await this.client.term.findFirst({
-      where: { id: dto.termId, academicYear: { id: dto.academicYearId, tenantId } },
+      where: {
+        id: dto.termId,
+        academicYear: { id: dto.academicYearId, tenantId },
+      },
       select: { id: true },
     });
     if (!term) throw new BadRequestException('Term not found for tenant/year');
 
     // Ensure unique section for course+term
     const existing = await this.client.class.findFirst({
-      where: { courseId: dto.courseId, termId: dto.termId, section: dto.section },
+      where: {
+        courseId: dto.courseId,
+        termId: dto.termId,
+        section: dto.section,
+      },
       select: { id: true },
     });
-    if (existing) throw new BadRequestException('Section already exists for course and term');
+    if (existing)
+      throw new BadRequestException(
+        'Section already exists for course and term',
+      );
 
     return this.client.class.create({
       data: {
@@ -492,10 +541,12 @@ export class AcademicStructureService {
         where,
         skip,
         take: limit,
-        orderBy: resolvePaginationOrderBy(filters.sortBy, filters.sortOrder, CLASS_LIST_SORT, [
-          { academicYear: { startDate: 'desc' } },
-          { term: { order: 'asc' } },
-        ]),
+        orderBy: resolvePaginationOrderBy(
+          filters.sortBy,
+          filters.sortOrder,
+          CLASS_LIST_SORT,
+          [{ academicYear: { startDate: 'desc' } }, { term: { order: 'asc' } }],
+        ),
         include: {
           course: true,
           term: true,
@@ -554,7 +605,12 @@ export class AcademicStructureService {
     return cls;
   }
 
-  async updateClass(tenantId: string, userId: string, id: string, dto: UpdateClassDto) {
+  async updateClass(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: UpdateClassDto,
+  ) {
     if (dto.status) {
       this.assertStatus(dto.status, CLASS_STATUSES, 'Invalid class status');
     }
@@ -565,7 +621,9 @@ export class AcademicStructureService {
     if (!cls) throw new NotFoundException('Class not found');
 
     if (dto.capacity !== undefined && dto.capacity < cls.currentEnrollment) {
-      throw new BadRequestException('Capacity cannot be less than current enrollment');
+      throw new BadRequestException(
+        'Capacity cannot be less than current enrollment',
+      );
     }
 
     return this.client.class.update({
@@ -594,7 +652,12 @@ export class AcademicStructureService {
     return { success: true };
   }
 
-  async updateSchedule(tenantId: string, userId: string, id: string, dto: UpdateScheduleDto) {
+  async updateSchedule(
+    tenantId: string,
+    userId: string,
+    id: string,
+    dto: UpdateScheduleDto,
+  ) {
     const cls = await this.client.class.findFirst({
       where: { id, academicYear: { tenantId } },
       select: { id: true },
@@ -638,7 +701,8 @@ export class AcademicStructureService {
       },
       select: { id: true, status: true },
     });
-    if (existing) throw new BadRequestException('Student already enrolled in this class');
+    if (existing)
+      throw new BadRequestException('Student already enrolled in this class');
 
     if (cls.capacity && cls.currentEnrollment >= cls.capacity) {
       throw new BadRequestException('Class is full');
@@ -680,7 +744,8 @@ export class AcademicStructureService {
       where: { classId, studentId, class: { academicYear: { tenantId } } },
       select: { id: true, status: true },
     });
-    if (!enrollment) throw new NotFoundException('Enrollment not found for class/student');
+    if (!enrollment)
+      throw new NotFoundException('Enrollment not found for class/student');
 
     return this.prismaTx.runInTransaction(
       async (tx) => {
@@ -765,7 +830,9 @@ export class AcademicStructureService {
     });
 
     if (existing?.isActive) {
-      throw new BadRequestException('Teacher is already assigned to this class');
+      throw new BadRequestException(
+        'Teacher is already assigned to this class',
+      );
     }
 
     if (existing) {

@@ -11,10 +11,7 @@ import {
   AcademicsAccessService,
   type AcademicsActor,
 } from '../../common/academics/academics-access.service';
-import {
-  resolvePaginationOrderBy,
-  type SortAllowList,
-} from '../../common/dto';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 
 /** Allow-listed sort columns for the assessments list; default is due-date. */
 const ASSESSMENT_LIST_SORT: SortAllowList<Prisma.AssessmentOrderByWithRelationInput> =
@@ -283,10 +280,12 @@ export class AssessmentGradingService {
         where,
         skip,
         take: limit,
-        orderBy: resolvePaginationOrderBy(filters.sortBy, filters.sortOrder, ASSESSMENT_LIST_SORT, [
-          { dueDate: 'asc' },
-          { createdAt: 'desc' },
-        ]),
+        orderBy: resolvePaginationOrderBy(
+          filters.sortBy,
+          filters.sortOrder,
+          ASSESSMENT_LIST_SORT,
+          [{ dueDate: 'asc' }, { createdAt: 'desc' }],
+        ),
         include: {
           class: true,
           term: true,
@@ -349,11 +348,7 @@ export class AssessmentGradingService {
       where: { id, academicYear: { tenantId } },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(
-      tenantId,
-      actor,
-      assessment.classId,
-    );
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
 
     if (dto.gradingSystemId) {
       const gs = await this.client.gradingSystem.findFirst({
@@ -390,11 +385,7 @@ export class AssessmentGradingService {
       select: { id: true, classId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(
-      tenantId,
-      actor,
-      assessment.classId,
-    );
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
 
     await this.client.assessment.delete({ where: { id } });
     return { success: true };
@@ -456,11 +447,7 @@ export class AssessmentGradingService {
     });
     if (!assessment)
       throw new BadRequestException('Assessment not found for tenant');
-    await this.access.assertCanManageClass(
-      tenantId,
-      actor,
-      assessment.classId,
-    );
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
 
     // Validate enrollment belongs to same class/academic year
     const enrollment = await this.client.enrollment.findFirst({
@@ -575,11 +562,7 @@ export class AssessmentGradingService {
       select: { id: true, classId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(
-      tenantId,
-      actor,
-      assessment.classId,
-    );
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
 
     return this.client.grade.findMany({
       where: { assessmentId },
@@ -649,11 +632,7 @@ export class AssessmentGradingService {
       select: { id: true, classId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(
-      tenantId,
-      actor,
-      assessment.classId,
-    );
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
 
     const grades = await this.client.grade.findMany({
       where: { assessmentId },

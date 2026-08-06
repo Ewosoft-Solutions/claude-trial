@@ -72,7 +72,11 @@ export function AssessmentTakeListClient({
         <PageHeader
           title="Take assessment"
           meta={[
-            { key: 'available', label: `${initialAssessments.length} listed`, emphasis: true },
+            {
+              key: 'available',
+              label: `${initialAssessments.length} listed`,
+              emphasis: true,
+            },
           ]}
         />
 
@@ -150,7 +154,9 @@ export function AssessmentTakeListClient({
                     </TableCell>
                     <TableCell>{formatDate(assessment.dueDate)}</TableCell>
                     <TableCell>
-                      <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                      <StatusBadge tone={status.tone}>
+                        {status.label}
+                      </StatusBadge>
                     </TableCell>
                     <TableCell className="text-right">
                       <Button

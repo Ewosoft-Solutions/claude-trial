@@ -1,6 +1,9 @@
 import { describe, expect, it } from '@jest/globals';
 
-import { resolvePaginationOrderBy, type SortAllowList } from './pagination-order';
+import {
+  resolvePaginationOrderBy,
+  type SortAllowList,
+} from './pagination-order';
 
 /** A tiny stand-in for a Prisma orderBy fragment. */
 type OrderBy = Record<string, 'asc' | 'desc' | Record<string, unknown>>;
@@ -14,22 +17,22 @@ const FALLBACK: OrderBy[] = [{ createdAt: 'desc' }];
 
 describe('resolvePaginationOrderBy', () => {
   it('falls back to the default order when no sortBy is given', () => {
-    expect(resolvePaginationOrderBy(undefined, undefined, ALLOW, FALLBACK)).toBe(
-      FALLBACK,
-    );
+    expect(
+      resolvePaginationOrderBy(undefined, undefined, ALLOW, FALLBACK),
+    ).toBe(FALLBACK);
   });
 
   it('falls back when sortBy is not in the allow-list (never trusts raw input)', () => {
     // `password` is not allow-listed → must NOT reach the DB as an orderBy.
-    expect(
-      resolvePaginationOrderBy('password', 'asc', ALLOW, FALLBACK),
-    ).toBe(FALLBACK);
+    expect(resolvePaginationOrderBy('password', 'asc', ALLOW, FALLBACK)).toBe(
+      FALLBACK,
+    );
   });
 
   it('honours an allow-listed sortBy with the requested direction', () => {
-    expect(resolvePaginationOrderBy('createdAt', 'asc', ALLOW, FALLBACK)).toEqual(
-      [{ createdAt: 'asc' }],
-    );
+    expect(
+      resolvePaginationOrderBy('createdAt', 'asc', ALLOW, FALLBACK),
+    ).toEqual([{ createdAt: 'asc' }]);
   });
 
   it('defaults an allow-listed sort to ascending when direction is omitted', () => {

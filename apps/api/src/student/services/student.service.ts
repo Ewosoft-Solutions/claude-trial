@@ -28,10 +28,7 @@ import {
   AcademicsAccessService,
   type AcademicsActor,
 } from '../../common/academics/academics-access.service';
-import {
-  resolvePaginationOrderBy,
-  type SortAllowList,
-} from '../../common/dto';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 
 /**
  * Sortable columns for the students list (allow-listed — see
