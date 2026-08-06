@@ -2,8 +2,10 @@ import {
   Injectable,
   ConflictException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { RegisterTenantDto, UpdateTenantDto } from '../dto';
+import { seedStandardFeeCatalogue } from '../../finance/fee-catalogue';
 import {
   JWTSecretService,
   SystemRole,
@@ -26,6 +28,8 @@ import * as bcrypt from 'bcrypt';
  */
 @Injectable()
 export class TenantRegistrationService {
+  private readonly logger = new Logger(TenantRegistrationService.name);
+
   constructor(
     private readonly dbService: DatabaseService,
     private readonly auditService: TenantAuditService,
@@ -129,6 +133,30 @@ export class TenantRegistrationService {
       await JWTSecretService.initializeTenantJWTSecret(
         this.dbService.client,
         tenant.id,
+      );
+    }
+
+    // Seed the starter fee-item catalogue so a brand-new school's
+    // /finance/fee-items is populated out of the box (tenants that predate the
+    // fee_items table were seeded by migration 20260806030000). Scoped to the
+    // new tenant so the FORCE-RLS WITH CHECK passes. A failure here must not
+    // abort registration — the catalogue can also be built on the fee-items
+    // page — so it is logged and swallowed.
+    try {
+      const seeded = await withTenantScope(
+        this.dbService.client,
+        tenant.id,
+        createdBy,
+        (tx) => seedStandardFeeCatalogue(tx, tenant.id),
+      );
+      this.logger.log(
+        `Seeded ${seeded} fee item(s) for new tenant ${tenant.slug}`,
+      );
+    } catch (error) {
+      this.logger.warn(
+        `Could not seed fee-item catalogue for tenant ${tenant.slug}: ${
+          error instanceof Error ? error.message : String(error)
+        }`,
       );
     }
 
