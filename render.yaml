@@ -24,15 +24,15 @@ services:
     # after CI passes). Disable Render's own push-triggered deploys to avoid
     # double deploys.
     # Quoted: bare `off` is boolean false under YAML 1.1 parsers.
-    autoDeployTrigger: "off"
+    autoDeployTrigger: 'off'
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "3000"
+        value: '3000'
       # Fail-closed RLS at runtime (ADR-004). Do not weaken in a deployed env.
       - key: DB_RLS_ENFORCED
-        value: "true"
+        value: 'true'
       # Owner connection — used by migrations/seed (run OUT of band in CI), and
       # kept here as the boot RLS-probe reference + a local fallback. The API
       # itself does NOT connect with it at runtime: both its clients use
@@ -126,6 +126,6 @@ databases:
   - name: swe-postgres
     plan: basic-256mb # → basic-1gb in Phase D2 under load
     region: oregon
-    postgresMajorVersion: "16"
+    postgresMajorVersion: '16'
     # pgvector is enabled by the learning_domain migration (CREATE EXTENSION
     # vector). Confirm it is in the instance's allowed extensions on provision.

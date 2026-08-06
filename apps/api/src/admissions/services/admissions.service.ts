@@ -395,7 +395,10 @@ export class AdmissionsService {
     };
   }
 
-  private composePhone(countryCode: string | undefined, number: string): string {
+  private composePhone(
+    countryCode: string | undefined,
+    number: string,
+  ): string {
     return `${(countryCode ?? '+234').trim()} ${number.trim()}`.trim();
   }
 

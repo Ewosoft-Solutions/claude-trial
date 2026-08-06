@@ -11,12 +11,7 @@ import { AdmissionRequirementsService } from './services/admission-requirements.
   // AcademicStructureModule provides the WB2-3 StudentLifecycleService the
   // conversion reuses; AuthModule provides AccessScopeService (campus scope);
   // DocumentsModule provides the F4 DocumentService (requirement uploads → R2).
-  imports: [
-    CommonModule,
-    AuthModule,
-    AcademicStructureModule,
-    DocumentsModule,
-  ],
+  imports: [CommonModule, AuthModule, AcademicStructureModule, DocumentsModule],
   controllers: [AdmissionsController],
   providers: [AdmissionsService, AdmissionRequirementsService],
   exports: [AdmissionsService, AdmissionRequirementsService],

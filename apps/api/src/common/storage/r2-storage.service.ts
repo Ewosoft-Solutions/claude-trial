@@ -43,9 +43,9 @@ export class R2StorageService implements StorageProvider {
   static isConfigured(env: NodeJS.ProcessEnv = process.env): boolean {
     return Boolean(
       env.R2_ACCOUNT_ID?.trim() &&
-        env.R2_BUCKET?.trim() &&
-        env.R2_ACCESS_KEY_ID?.trim() &&
-        env.R2_SECRET_ACCESS_KEY?.trim(),
+      env.R2_BUCKET?.trim() &&
+      env.R2_ACCESS_KEY_ID?.trim() &&
+      env.R2_SECRET_ACCESS_KEY?.trim(),
     );
   }
 

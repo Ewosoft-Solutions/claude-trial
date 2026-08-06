@@ -399,7 +399,9 @@ export class CreateRequirementDto {
   @Min(0)
   order?: number;
 
-  @ApiPropertyOptional({ description: 'Type-specific config (accept, fields…).' })
+  @ApiPropertyOptional({
+    description: 'Type-specific config (accept, fields…).',
+  })
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;

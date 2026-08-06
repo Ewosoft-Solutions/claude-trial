@@ -22,7 +22,9 @@ function makeResponse(
     arrayBuffer: async () =>
       body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength),
     text: async () => Buffer.from(body).toString('utf8'),
-    headers: { get: (h: string) => (h === 'content-type' ? contentType : null) },
+    headers: {
+      get: (h: string) => (h === 'content-type' ? contentType : null),
+    },
   } as unknown as Response;
 }
 
@@ -44,9 +46,9 @@ describe('R2StorageService', () => {
   describe('isConfigured', () => {
     it('is true only when all four settings are present', () => {
       expect(R2StorageService.isConfigured(R2_ENV)).toBe(true);
-      expect(
-        R2StorageService.isConfigured({ ...R2_ENV, R2_BUCKET: '' }),
-      ).toBe(false);
+      expect(R2StorageService.isConfigured({ ...R2_ENV, R2_BUCKET: '' })).toBe(
+        false,
+      );
       expect(R2StorageService.isConfigured({})).toBe(false);
     });
   });
@@ -58,7 +60,11 @@ describe('R2StorageService', () => {
   it('PUTs to the path-style object URL with the content type', async () => {
     fetchMock.mockResolvedValue(makeResponse(200));
     const svc = new R2StorageService(R2_ENV);
-    await svc.put('tenants/t1/documents/d1/v1/abc', Buffer.from('hi'), 'image/png');
+    await svc.put(
+      'tenants/t1/documents/d1/v1/abc',
+      Buffer.from('hi'),
+      'image/png',
+    );
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
@@ -72,9 +78,9 @@ describe('R2StorageService', () => {
   it('throws when PUT is not ok', async () => {
     fetchMock.mockResolvedValue(makeResponse(403, Buffer.from('AccessDenied')));
     const svc = new R2StorageService(R2_ENV);
-    await expect(
-      svc.put('tenants/t1/x', Buffer.from('hi')),
-    ).rejects.toThrow(/R2 put failed.*403/);
+    await expect(svc.put('tenants/t1/x', Buffer.from('hi'))).rejects.toThrow(
+      /R2 put failed.*403/,
+    );
   });
 
   it('GETs and returns the bytes + content type', async () => {

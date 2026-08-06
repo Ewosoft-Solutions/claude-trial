@@ -211,10 +211,12 @@ export class AdmissionRequirementsService {
       template = await this.listTemplate(tenantId, true);
     }
 
-    const attached = await this.client.admissionApplicationRequirement.findMany({
-      where: { tenantId, applicationId },
-      select: { requirementId: true },
-    });
+    const attached = await this.client.admissionApplicationRequirement.findMany(
+      {
+        where: { tenantId, applicationId },
+        select: { requirementId: true },
+      },
+    );
     const have = new Set(attached.map((r) => r.requirementId));
     const toAdd = template.filter((r) => !have.has(r.id));
     if (toAdd.length === 0) return { created: 0 };
