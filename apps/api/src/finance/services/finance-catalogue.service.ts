@@ -3,7 +3,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import {
   CreateFeeItemDto,
@@ -17,16 +16,16 @@ import {
  * Invoice gross = Σ line (amount × quantity); mutating lines keeps the flat
  * `amountDue` in sync (parallel/compat) while the derived balance reads the
  * lines directly.
+ *
+ * Tenant-scoped only: every route is `@TenantScoped()`, so reads/writes go
+ * through the RLS-scoped `TenantDbService.client` — never the privileged client.
  */
 @Injectable()
 export class FinanceCatalogueService {
-  constructor(
-    private readonly db: DatabaseService,
-    private readonly tenantDb: TenantDbService,
-  ) {}
+  constructor(private readonly tenantDb: TenantDbService) {}
 
   private get client() {
-    return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
+    return this.tenantDb.client;
   }
 
   // ---- Fee items ------------------------------------------------------

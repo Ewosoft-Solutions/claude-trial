@@ -27,7 +27,6 @@ describe('FinanceAdjustmentService', () => {
   };
   const service = new FinanceAdjustmentService(
     { client } as never,
-    { isScoped: false } as never,
     makerChecker as never,
   );
 

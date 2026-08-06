@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import type { PrismaClient } from '@workspace/database';
-import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { MakerCheckerService } from '../../auth/services/maker-checker.service';
 import {
@@ -37,13 +36,14 @@ const OP_POLICY_ACTIVATE = 'finance.discount_policy.activate';
 @Injectable()
 export class FinanceAdjustmentService {
   constructor(
-    private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
     private readonly makerChecker: MakerCheckerService,
   ) {}
 
+  // Tenant-scoped only (every route is `@TenantScoped()`): reads/writes go
+  // through the RLS-scoped client, never the privileged one.
   private get client() {
-    return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
+    return this.tenantDb.client;
   }
 
   /** MakerCheckerService is typed for the full client; the scoped tx satisfies it. */

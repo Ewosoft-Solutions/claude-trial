@@ -21,10 +21,7 @@ describe('FinanceCatalogueService', () => {
     delete: jest.fn(),
   };
   const client = { feeItem, feeInvoice, feeInvoiceLine };
-  const service = new FinanceCatalogueService(
-    { client } as never,
-    { isScoped: false } as never,
-  );
+  const service = new FinanceCatalogueService({ client } as never);
 
   beforeEach(() => {
     jest.clearAllMocks();
