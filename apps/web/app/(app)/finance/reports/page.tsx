@@ -90,10 +90,15 @@ function studentClass(student: ApiStudent | undefined): string {
     student?.enrollments?.[0];
   const cls = enrollment?.class;
   if (!cls) return 'Unassigned';
-  return cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim();
+  return (
+    cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim()
+  );
 }
 
-function daysBetween(start: string | null | undefined, end: string | null | undefined): number | null {
+function daysBetween(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): number | null {
   if (!start || !end) return null;
   const from = new Date(start).getTime();
   const to = new Date(end).getTime();
@@ -103,7 +108,7 @@ function daysBetween(start: string | null | undefined, end: string | null | unde
 
 /* ── Streaming sections ──────────────────────────────────────────────────
    The KPI band needs invoices + payments; the chart grid needs invoices +
-   the heavy `/students?limit=1000` read. Splitting them means the stats no
+   the heavy `/students/roster` read. Splitting them means the stats no
    longer wait on the student roster, and payments no longer sit on the
    charts' critical path. Identical `serverApiGet` URLs are deduped by Next's
    per-render request memoization, so the shared `/finance/invoices` read is
@@ -111,31 +116,59 @@ function daysBetween(start: string | null | undefined, end: string | null | unde
 
 async function FinanceKpiSection() {
   const [invoiceData, paymentData] = await Promise.all([
-    serverApiGet<ApiInvoice[]>('/finance/invoices?limit=500'),
-    serverApiGet<ApiPayment[]>('/finance/payments?limit=500'),
+    serverApiGet<ApiInvoice[]>('/finance/invoices'),
+    serverApiGet<ApiPayment[]>('/finance/payments'),
   ]);
 
   const invoices = invoiceData ?? [];
   const payments = paymentData ?? [];
-  const invoicesById = new Map(invoices.map((invoice) => [invoice.id, invoice]));
+  const invoicesById = new Map(
+    invoices.map((invoice) => [invoice.id, invoice]),
+  );
 
-  const totalBilled = invoices.reduce((sum, invoice) => sum + Number(invoice.amountDue ?? 0), 0);
-  const totalCollected = invoices.reduce((sum, invoice) => sum + Number(invoice.amountPaid ?? 0), 0);
+  const totalBilled = invoices.reduce(
+    (sum, invoice) => sum + Number(invoice.amountDue ?? 0),
+    0,
+  );
+  const totalCollected = invoices.reduce(
+    (sum, invoice) => sum + Number(invoice.amountPaid ?? 0),
+    0,
+  );
   const outstanding = Math.max(0, totalBilled - totalCollected);
   const collectionRate = percent(totalCollected, totalBilled);
   const completedPaymentDays = payments
     .filter((payment) => payment.status === 'completed')
-    .map((payment) => daysBetween(invoicesById.get(payment.invoiceId ?? '')?.issuedDate, payment.paidAt))
+    .map((payment) =>
+      daysBetween(
+        invoicesById.get(payment.invoiceId ?? '')?.issuedDate,
+        payment.paidAt,
+      ),
+    )
     .filter((value): value is number => value !== null);
   const avgDays = completedPaymentDays.length
-    ? Math.round(completedPaymentDays.reduce((sum, value) => sum + value, 0) / completedPaymentDays.length)
+    ? Math.round(
+        completedPaymentDays.reduce((sum, value) => sum + value, 0) /
+          completedPaymentDays.length,
+      )
     : 0;
 
   const stats: StatItem[] = [
-    { key: 'revenue', label: 'Revenue collected', value: nairaFromKobo(totalCollected) },
+    {
+      key: 'revenue',
+      label: 'Revenue collected',
+      value: nairaFromKobo(totalCollected),
+    },
     { key: 'rate', label: 'Collection rate', value: `${collectionRate}%` },
-    { key: 'outstanding', label: 'Outstanding', value: nairaFromKobo(outstanding) },
-    { key: 'avgdays', label: 'Avg. days to pay', value: avgDays.toLocaleString() },
+    {
+      key: 'outstanding',
+      label: 'Outstanding',
+      value: nairaFromKobo(outstanding),
+    },
+    {
+      key: 'avgdays',
+      label: 'Avg. days to pay',
+      value: avgDays.toLocaleString(),
+    },
   ];
 
   return <StatGrid items={stats} />;
@@ -143,27 +176,37 @@ async function FinanceKpiSection() {
 
 async function FinanceBreakdownSection() {
   const [invoiceData, studentData] = await Promise.all([
-    serverApiGet<ApiInvoice[]>('/finance/invoices?limit=500'),
-    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
+    serverApiGet<ApiInvoice[]>('/finance/invoices'),
+    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
   ]);
 
   const invoices = invoiceData ?? [];
   const students = asArray(studentData);
-  const studentsById = new Map(students.map((student) => [student.id, student]));
+  const studentsById = new Map(
+    students.map((student) => [student.id, student]),
+  );
 
-  const totalBilled = invoices.reduce((sum, invoice) => sum + Number(invoice.amountDue ?? 0), 0);
+  const totalBilled = invoices.reduce(
+    (sum, invoice) => sum + Number(invoice.amountDue ?? 0),
+    0,
+  );
 
   const statusTotals = new Map<string, number>();
   for (const invoice of invoices) {
     const status = invoice.status ?? 'outstanding';
-    statusTotals.set(status, (statusTotals.get(status) ?? 0) + Number(invoice.amountDue ?? 0));
+    statusTotals.set(
+      status,
+      (statusTotals.get(status) ?? 0) + Number(invoice.amountDue ?? 0),
+    );
   }
-  const feeStatus: ChartSlice[] = Array.from(statusTotals.entries()).map(([key, value]) => ({
-    key,
-    label: key.replace(/^\w/, (char) => char.toUpperCase()),
-    value,
-    color: STATUS_COLORS[key],
-  }));
+  const feeStatus: ChartSlice[] = Array.from(statusTotals.entries()).map(
+    ([key, value]) => ({
+      key,
+      label: key.replace(/^\w/, (char) => char.toUpperCase()),
+      value,
+      color: STATUS_COLORS[key],
+    }),
+  );
 
   const classTotals = new Map<string, { billed: number; collected: number }>();
   for (const invoice of invoices) {
@@ -181,7 +224,10 @@ async function FinanceBreakdownSection() {
   const termTotals = new Map<string, number>();
   for (const invoice of invoices) {
     const label = invoice.termName ?? 'Unassigned';
-    termTotals.set(label, (termTotals.get(label) ?? 0) + Number(invoice.amountDue ?? 0));
+    termTotals.set(
+      label,
+      (termTotals.get(label) ?? 0) + Number(invoice.amountDue ?? 0),
+    );
   }
   const byTerm = Array.from(termTotals.entries()).map(([label, amount]) => ({
     label,
@@ -194,7 +240,9 @@ async function FinanceBreakdownSection() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Fee status</CardTitle>
-          <CardDescription>Share of billed fees by invoice status</CardDescription>
+          <CardDescription>
+            Share of billed fees by invoice status
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <DonutChart
@@ -212,7 +260,12 @@ async function FinanceBreakdownSection() {
         </CardHeader>
         <CardContent className="flex flex-col gap-3.5">
           {byClass.map((row) => (
-            <Meter key={row.label} label={row.label} value={row.value} tone={row.tone} />
+            <Meter
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              tone={row.tone}
+            />
           ))}
         </CardContent>
       </Card>

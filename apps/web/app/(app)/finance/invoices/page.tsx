@@ -48,7 +48,10 @@ interface StudentListResponse {
 function formatDate(iso: string | null | undefined): string | undefined {
   if (!iso) return undefined;
   try {
-    return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(new Date(iso));
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+    }).format(new Date(iso));
   } catch {
     return undefined;
   }
@@ -57,7 +60,11 @@ function formatDate(iso: string | null | undefined): string | undefined {
 function studentName(student: ApiStudent | undefined): string | undefined {
   const user = student?.userTenant?.user;
   if (!user) return undefined;
-  return [user.firstName, user.lastName].filter(Boolean).join(' ') || user.email || undefined;
+  return (
+    [user.firstName, user.lastName].filter(Boolean).join(' ') ||
+    user.email ||
+    undefined
+  );
 }
 
 function studentClass(student: ApiStudent | undefined): string | undefined {
@@ -66,20 +73,26 @@ function studentClass(student: ApiStudent | undefined): string | undefined {
     student?.enrollments?.[0];
   const cls = enrollment?.class;
   if (!cls) return undefined;
-  return cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim();
+  return (
+    cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim()
+  );
 }
 
 export default async function InvoicesPage() {
   const [data, studentData] = await Promise.all([
-    serverApiGet<ApiInvoice[] | { data?: ApiInvoice[] }>('/finance/invoices?limit=200'),
-    serverApiGet<StudentListResponse | ApiStudent[]>('/students?limit=500'),
+    serverApiGet<ApiInvoice[] | { data?: ApiInvoice[] }>('/finance/invoices'),
+    serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
   ]);
 
   const raw: ApiInvoice[] = Array.isArray(data)
     ? data
-    : (data as { data?: ApiInvoice[] } | null)?.data ?? [];
-  const students = Array.isArray(studentData) ? studentData : studentData?.data ?? [];
-  const studentsById = new Map(students.map((student) => [student.id, student]));
+    : ((data as { data?: ApiInvoice[] } | null)?.data ?? []);
+  const students = Array.isArray(studentData)
+    ? studentData
+    : (studentData?.data ?? []);
+  const studentsById = new Map(
+    students.map((student) => [student.id, student]),
+  );
 
   const invoices: Invoice[] = raw.map((inv) => ({
     id: inv.id,

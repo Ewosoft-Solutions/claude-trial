@@ -88,14 +88,20 @@ function monthLabel(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('en-GB', { month: 'short', year: '2-digit' }).format(date);
+  return new Intl.DateTimeFormat('en-GB', {
+    month: 'short',
+    year: '2-digit',
+  }).format(date);
 }
 
 function dayLabel(value: string | null | undefined): string | null {
   if (!value) return null;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
-  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+  }).format(date);
 }
 
 function percent(numerator: number, denominator: number): number {
@@ -124,12 +130,19 @@ function levelLabel(student: ApiStudent): string {
 }
 
 function buildEnrollmentTrend(students: ApiStudent[]): ChartDatum[] {
-  const buckets = new Map<string, { month: string; joined: number; left: number }>();
+  const buckets = new Map<
+    string,
+    { month: string; joined: number; left: number }
+  >();
 
   for (const student of students) {
     const joined = monthLabel(student.createdAt);
     if (joined) {
-      const bucket = buckets.get(joined) ?? { month: joined, joined: 0, left: 0 };
+      const bucket = buckets.get(joined) ?? {
+        month: joined,
+        joined: 0,
+        left: 0,
+      };
       bucket.joined += 1;
       buckets.set(joined, bucket);
     }
@@ -146,14 +159,18 @@ function buildEnrollmentTrend(students: ApiStudent[]): ChartDatum[] {
 }
 
 function buildAttendanceTrend(records: ApiAttendanceRecord[]): ChartDatum[] {
-  const buckets = new Map<string, { week: string; present: number; total: number }>();
+  const buckets = new Map<
+    string,
+    { week: string; present: number; total: number }
+  >();
 
   for (const record of records) {
     const label = dayLabel(record.date);
     if (!label) continue;
     const bucket = buckets.get(label) ?? { week: label, present: 0, total: 0 };
     bucket.total += 1;
-    if (record.status === 'present' || record.status === 'late') bucket.present += 1;
+    if (record.status === 'present' || record.status === 'late')
+      bucket.present += 1;
     buckets.set(label, bucket);
   }
 
@@ -172,13 +189,23 @@ function buildFunnel(applications: ApiApplication[]): ChartDatum[] {
   >();
 
   for (const application of applications) {
-    const label = monthLabel(application.submittedDate ?? application.createdAt);
+    const label = monthLabel(
+      application.submittedDate ?? application.createdAt,
+    );
     if (!label) continue;
-    const bucket = buckets.get(label) ?? { month: label, applied: 0, offered: 0, enrolled: 0 };
+    const bucket = buckets.get(label) ?? {
+      month: label,
+      applied: 0,
+      offered: 0,
+      enrolled: 0,
+    };
     const stage = application.stage ?? '';
     const decision = application.decision ?? '';
     bucket.applied += 1;
-    if (['offer', 'enrolment', 'enrollment'].includes(stage) || ['accepted', 'waitlisted'].includes(decision)) {
+    if (
+      ['offer', 'enrolment', 'enrollment'].includes(stage) ||
+      ['accepted', 'waitlisted'].includes(decision)
+    ) {
       bucket.offered += 1;
     }
     if (stage === 'enrolled' || decision === 'accepted') {
@@ -212,11 +239,16 @@ function meterTone(value: number): MeterTone {
   return 'success';
 }
 
-function buildCapacity(classes: ApiClass[]): { label: string; value: number; tone: MeterTone }[] {
+function buildCapacity(
+  classes: ApiClass[],
+): { label: string; value: number; tone: MeterTone }[] {
   return classes
     .filter((cls) => Number(cls.capacity) > 0)
     .map((cls) => {
-      const value = percent(Number(cls.currentEnrollment ?? 0), Number(cls.capacity));
+      const value = percent(
+        Number(cls.currentEnrollment ?? 0),
+        Number(cls.capacity),
+      );
       return { label: classLabel(cls), value, tone: meterTone(value) };
     })
     .slice(0, 6);
@@ -233,14 +265,14 @@ function attendanceFrom(): string {
 
 /* ── Streaming sections ──────────────────────────────────────────────────
    Each section fetches only the datasets it needs and renders as soon as
-   that data resolves, so the heavy `/students?limit=1000` read never blocks
+   that data resolves, so the heavy `/students/roster` read never blocks
    the whole page. Identical `serverApiGet` URLs across sections are
    deduplicated by Next's per-render request memoization, so the fan-out
    below still makes just one network call per distinct endpoint. */
 
 async function KpiStatsSection() {
   const [studentData, attendanceData, classData] = await Promise.all([
-    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
+    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
     serverApiGet<ApiAttendanceRecord[]>(`/attendance?from=${attendanceFrom()}`),
     serverApiGet<Paginated<ApiClass>>('/classes?limit=200'),
   ]);
@@ -268,8 +300,16 @@ async function KpiStatsSection() {
     : 0;
 
   const stats: StatItem[] = [
-    { key: 'enrolled', label: 'Enrolled', value: activeStudents.length.toLocaleString() },
-    { key: 'attendance', label: 'Avg. attendance', value: pctLabel(attendanceRate) },
+    {
+      key: 'enrolled',
+      label: 'Enrolled',
+      value: activeStudents.length.toLocaleString(),
+    },
+    {
+      key: 'attendance',
+      label: 'Avg. attendance',
+      value: pctLabel(attendanceRate),
+    },
     { key: 'retention', label: 'Retention', value: pctLabel(retentionRate) },
     { key: 'capacity', label: 'Capacity used', value: pctLabel(capacityRate) },
   ];
@@ -279,7 +319,7 @@ async function KpiStatsSection() {
 
 async function MovementChartsSection() {
   const [studentData, attendanceData] = await Promise.all([
-    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
+    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
     serverApiGet<ApiAttendanceRecord[]>(`/attendance?from=${attendanceFrom()}`),
   ]);
 
@@ -291,7 +331,9 @@ async function MovementChartsSection() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Enrollment movement</CardTitle>
-          <CardDescription>Joined vs withdrew from student records</CardDescription>
+          <CardDescription>
+            Joined vs withdrew from student records
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <TrendChart
@@ -308,7 +350,9 @@ async function MovementChartsSection() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Attendance rate</CardTitle>
-          <CardDescription>Daily average from recent attendance records</CardDescription>
+          <CardDescription>
+            Daily average from recent attendance records
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <TrendChart
@@ -335,7 +379,9 @@ async function AdmissionsFunnelSection() {
     <Card className="shadow-card">
       <CardHeader>
         <CardTitle className="text-base">Admissions funnel</CardTitle>
-        <CardDescription>Application stages grouped by submitted month</CardDescription>
+        <CardDescription>
+          Application stages grouped by submitted month
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <CategoryBarChart
@@ -352,7 +398,7 @@ async function AdmissionsFunnelSection() {
 
 async function DistributionSection() {
   const [studentData, classData] = await Promise.all([
-    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students?limit=1000'),
+    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
     serverApiGet<Paginated<ApiClass>>('/classes?limit=200'),
   ]);
 
@@ -368,7 +414,9 @@ async function DistributionSection() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Enrolment by level</CardTitle>
-          <CardDescription>Active students grouped by grade or class</CardDescription>
+          <CardDescription>
+            Active students grouped by grade or class
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <DonutChart
@@ -382,11 +430,18 @@ async function DistributionSection() {
       <Card className="shadow-card">
         <CardHeader>
           <CardTitle className="text-base">Capacity by class</CardTitle>
-          <CardDescription>Seats filled from class capacity records</CardDescription>
+          <CardDescription>
+            Seats filled from class capacity records
+          </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3.5">
           {capacityRows.map((row) => (
-            <Meter key={row.label} label={row.label} value={row.value} tone={row.tone} />
+            <Meter
+              key={row.label}
+              label={row.label}
+              value={row.value}
+              tone={row.tone}
+            />
           ))}
         </CardContent>
       </Card>
@@ -417,7 +472,12 @@ function ChartCardFallback({
     </Card>
   );
   if (wide) return card;
-  return <div className="grid gap-4 @4xl/main:grid-cols-2">{card}{card}</div>;
+  return (
+    <div className="grid gap-4 @4xl/main:grid-cols-2">
+      {card}
+      {card}
+    </div>
+  );
 }
 
 export default function AnalyticsReportPage() {
