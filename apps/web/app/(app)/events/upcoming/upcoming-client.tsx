@@ -1,16 +1,17 @@
 'use client';
 
 /* ============================================================
-   UpcomingClient — upcoming school events interactive table
+   UpcomingClient — school events (server-driven table)
 
-   Receives server-fetched events as props. M6 StatGrid (event summary) +
-   DataTableLayout (toolbar + table + footer). Event status reads as a
-   StatusBadge.
+   Search / status filter / sort / paging live in the URL and run at the DB
+   via `useDirectoryState` + `DirectoryTable`; no in-memory filtering of the
+   fetched page. Stat tiles come from the whole-set summary from the server.
    ============================================================ */
 
 import * as React from 'react';
 import Link from 'next/link';
 import { CalendarPlus, Search } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
@@ -22,20 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
@@ -53,6 +50,13 @@ export interface EventRow {
   capacity: number | null;
 }
 
+export interface EventStats {
+  total: number;
+  scheduled: number;
+  completed: number;
+  registrations: number;
+}
+
 const STATUS_META: Record<EventStatus, { label: string; tone: StateTone }> = {
   scheduled: { label: 'Scheduled', tone: 'info' },
   ongoing: { label: 'Ongoing', tone: 'warning' },
@@ -60,43 +64,137 @@ const STATUS_META: Record<EventStatus, { label: string; tone: StateTone }> = {
   cancelled: { label: 'Cancelled', tone: 'destructive' },
 };
 
-const META: PageHeaderMeta[] = [{ key: 'term', label: 'Spring Term 2025', emphasis: true }];
+const META: PageHeaderMeta[] = [
+  { key: 'term', label: 'Spring Term 2025', emphasis: true },
+];
 
 interface Props {
   events: EventRow[];
+  total: number;
+  defaultPageSize: number;
+  stats: EventStats;
 }
 
-export function UpcomingClient({ events }: Props) {
-  const EVENTS = events;
-  const loading = false;
+export function UpcomingClient({
+  events,
+  total,
+  defaultPageSize,
+  stats,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const [query, setQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('all');
+  const onChange = React.useCallback(
+    (qs: string) => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname],
+  );
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return EVENTS.filter((e) => {
-      const matchesQuery = !q || e.title.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === 'all' || e.status === statusFilter;
-      return matchesQuery && matchesStatus;
+  const defaults = React.useMemo(
+    () => ({ pageSize: defaultPageSize }),
+    [defaultPageSize],
+  );
+  const { state, setPage, setPageSize, toggleSort, setQuery, setFilter } =
+    useDirectoryState({
+      searchParams: searchParams.toString(),
+      onChange,
+      defaults,
     });
-  }, [EVENTS, query, statusFilter]);
 
-  const hasFilters = query.trim() !== '' || statusFilter !== 'all';
-  function resetFilters() {
-    setQuery('');
-    setStatusFilter('all');
-  }
+  const [term, setTerm] = React.useState(state.q);
+  React.useEffect(() => setTerm(state.q), [state.q]);
+  React.useEffect(() => {
+    if (term === state.q) return;
+    const id = setTimeout(() => setQuery(term), 300);
+    return () => clearTimeout(id);
+  }, [term, state.q, setQuery]);
 
-  const stats: StatItem[] = React.useMemo(() => {
-    const count = (fn: (e: EventRow) => boolean) => EVENTS.filter(fn).length;
-    return [
-      { key: 'total', label: 'Events', value: String(EVENTS.length) },
-      { key: 'scheduled', label: 'Scheduled', value: String(count((e) => e.status === 'scheduled')) },
-      { key: 'completed', label: 'Completed', value: String(count((e) => e.status === 'completed')) },
-      { key: 'registrations', label: 'Total registrations', value: String(EVENTS.reduce((s, e) => s + e.registeredCount, 0)) },
-    ];
-  }, [EVENTS]);
+  const statusFilter = state.filters.status ?? 'all';
+  const hasFilters = state.q.trim() !== '' || statusFilter !== 'all';
+
+  const statItems: StatItem[] = [
+    { key: 'total', label: 'Events', value: String(stats.total) },
+    { key: 'scheduled', label: 'Scheduled', value: String(stats.scheduled) },
+    { key: 'completed', label: 'Completed', value: String(stats.completed) },
+    {
+      key: 'registrations',
+      label: 'Total registrations',
+      value: String(stats.registrations),
+    },
+  ];
+
+  const columns: DirectoryColumn<EventRow>[] = [
+    {
+      id: 'title',
+      header: 'Event',
+      sortable: true,
+      cell: (e) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="break-words font-medium text-foreground">
+            {e.title}
+          </span>
+          <span className="break-words text-xs text-muted-foreground">
+            {e.eventType ?? '—'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'location',
+      header: 'Location',
+      hideable: true,
+      cell: (e) => (
+        <span className="text-muted-foreground">{e.location ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'startDate',
+      header: 'Date',
+      sortable: true,
+      cell: (e) => <span className="text-muted-foreground">{e.startDate}</span>,
+    },
+    {
+      id: 'registeredCount',
+      header: 'Registered',
+      align: 'end',
+      sortable: true,
+      cell: (e) => (
+        <span className="tabular-nums text-muted-foreground">
+          {e.registeredCount}
+          {e.capacity ? ` / ${e.capacity}` : ''}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (e) => {
+        const meta = STATUS_META[e.status];
+        return (
+          <StatusBadge tone={meta.tone} dot>
+            {meta.label}
+          </StatusBadge>
+        );
+      },
+    },
+    {
+      id: 'roster',
+      header: 'Roster',
+      align: 'end',
+      hideable: true,
+      cell: (e) => (
+        <Link
+          href={`/events/${e.id}/roster`}
+          className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+        >
+          View
+        </Link>
+      ),
+    },
+  ];
 
   return (
     <ShellMain>
@@ -111,16 +209,23 @@ export function UpcomingClient({ events }: Props) {
           }
         />
 
-        <StatGrid items={stats} />
+        <StatGrid items={statItems} />
 
-        <DataTableLayout
+        <DirectoryTable<EventRow>
+          columns={columns}
+          rows={events}
+          getRowId={(e) => e.id}
+          getRowLabel={(e) => e.title}
+          total={total}
+          page={state.page}
+          pageSize={state.pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={state.sort}
+          onSortChange={toggleSort}
           title="Upcoming & past events"
-          description={
-            loading ? 'Loading events…' : `${filtered.length} of ${EVENTS.length} events`
-          }
-          loading={loading}
-          empty={!loading && filtered.length === 0}
-          skeletonColumns={5}
+          description={`${total} ${total === 1 ? 'event' : 'events'}`}
+          caption="School events"
           toolbar={
             <>
               <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
@@ -134,14 +239,22 @@ export function UpcomingClient({ events }: Props) {
                 <Input
                   id="event-search"
                   type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
                   placeholder="Search title…"
                   className="pl-8"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[10rem]" aria-label="Filter by status">
+              <Select
+                value={statusFilter}
+                onValueChange={(v) =>
+                  setFilter('status', v === 'all' ? null : v)
+                }
+              >
+                <SelectTrigger
+                  className="w-[10rem]"
+                  aria-label="Filter by status"
+                >
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -157,82 +270,17 @@ export function UpcomingClient({ events }: Props) {
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No events match your filters' : 'No events yet'}
+              title={
+                hasFilters ? 'No events match your filters' : 'No events yet'
+              }
               description={
                 hasFilters
                   ? 'Try a different search term, or clear the filters.'
                   : 'Run the dev operational seed or create an event.'
               }
-              primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
-              }
             />
           }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of{' '}
-                {EVENTS.length}
-              </span>
-              {hasFilters ? (
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Event</TableHead>
-                <TableHead>Location</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Registered</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Roster</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((e) => {
-                const status = STATUS_META[e.status];
-                return (
-                  <TableRow key={e.id}>
-                    <TableCell>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="break-words font-medium text-foreground">{e.title}</span>
-                        <span className="break-words text-xs text-muted-foreground">{e.eventType ?? '—'}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {e.location ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {e.startDate}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {e.registeredCount}
-                      {e.capacity ? ` / ${e.capacity}` : ''}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={status.tone} dot>
-                        {status.label}
-                      </StatusBadge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/events/${e.id}/roster`}
-                        className="text-sm font-medium text-primary underline-offset-4 hover:underline"
-                      >
-                        View
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

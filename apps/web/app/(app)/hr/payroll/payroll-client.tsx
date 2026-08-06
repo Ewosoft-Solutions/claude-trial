@@ -1,15 +1,16 @@
 'use client';
 
 /* ============================================================
-   PayrollClient — staff payroll interactive table
+   PayrollClient — staff payroll (server-driven table)
 
-   Receives server-fetched payroll records as props. M6 StatGrid (payroll
-   totals) + DataTableLayout (toolbar + table + footer). Run status reads as
-   a StatusBadge.
+   Search / status filter / sort / paging live in the URL and run at the DB
+   via `useDirectoryState` + `DirectoryTable`; no in-memory filtering of the
+   fetched page. Stat tiles come from the whole-set summary from the server.
    ============================================================ */
 
 import * as React from 'react';
 import { Plus, Search } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
@@ -22,20 +23,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
@@ -52,58 +49,158 @@ export interface PayrollRow {
   status: PayrollStatus;
 }
 
+export interface PayrollStats {
+  total: number;
+  draft: number;
+  approved: number;
+  netPay: number;
+}
+
 const STATUS_META: Record<PayrollStatus, { label: string; tone: StateTone }> = {
   draft: { label: 'Draft', tone: 'neutral' },
   approved: { label: 'Approved', tone: 'info' },
   paid: { label: 'Paid', tone: 'success' },
 };
 
-const META: PageHeaderMeta[] = [{ key: 'period', label: 'June 2026', emphasis: true }];
+const META: PageHeaderMeta[] = [
+  { key: 'period', label: 'June 2026', emphasis: true },
+];
 
 function currency(n: number): string {
-  return new Intl.NumberFormat('en-NG', { style: 'currency', currency: 'NGN', maximumFractionDigits: 0 }).format(n);
+  return new Intl.NumberFormat('en-NG', {
+    style: 'currency',
+    currency: 'NGN',
+    maximumFractionDigits: 0,
+  }).format(n);
 }
 
 function initials(name: string): string {
-  return name.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
 }
 
 interface Props {
   records: PayrollRow[];
+  total: number;
+  defaultPageSize: number;
+  stats: PayrollStats;
 }
 
-export function PayrollClient({ records }: Props) {
-  const RECORDS = records;
-  const loading = false;
+export function PayrollClient({
+  records,
+  total,
+  defaultPageSize,
+  stats,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const [query, setQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('all');
+  const onChange = React.useCallback(
+    (qs: string) => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname],
+  );
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return RECORDS.filter((r) => {
-      const matchesQuery = !q || r.staffName.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-      return matchesQuery && matchesStatus;
+  const defaults = React.useMemo(
+    () => ({ pageSize: defaultPageSize }),
+    [defaultPageSize],
+  );
+  const { state, setPage, setPageSize, toggleSort, setQuery, setFilter } =
+    useDirectoryState({
+      searchParams: searchParams.toString(),
+      onChange,
+      defaults,
     });
-  }, [RECORDS, query, statusFilter]);
 
-  const hasFilters = query.trim() !== '' || statusFilter !== 'all';
-  function resetFilters() {
-    setQuery('');
-    setStatusFilter('all');
-  }
+  const [term, setTerm] = React.useState(state.q);
+  React.useEffect(() => setTerm(state.q), [state.q]);
+  React.useEffect(() => {
+    if (term === state.q) return;
+    const id = setTimeout(() => setQuery(term), 300);
+    return () => clearTimeout(id);
+  }, [term, state.q, setQuery]);
 
-  const stats: StatItem[] = React.useMemo(() => {
-    const count = (fn: (r: PayrollRow) => boolean) => RECORDS.filter(fn).length;
-    const totalNet = RECORDS.reduce((sum, r) => sum + r.netPay, 0);
-    return [
-      { key: 'total', label: 'Records', value: String(RECORDS.length) },
-      { key: 'draft', label: 'Draft', value: String(count((r) => r.status === 'draft')) },
-      { key: 'approved', label: 'Approved', value: String(count((r) => r.status === 'approved')) },
-      { key: 'net', label: 'Total net pay', value: currency(totalNet) },
-    ];
-  }, [RECORDS]);
+  const statusFilter = state.filters.status ?? 'all';
+  const hasFilters = state.q.trim() !== '' || statusFilter !== 'all';
+
+  const statItems: StatItem[] = [
+    { key: 'total', label: 'Records', value: String(stats.total) },
+    { key: 'draft', label: 'Draft', value: String(stats.draft) },
+    { key: 'approved', label: 'Approved', value: String(stats.approved) },
+    { key: 'net', label: 'Total net pay', value: currency(stats.netPay) },
+  ];
+
+  const columns: DirectoryColumn<PayrollRow>[] = [
+    {
+      id: 'staffName',
+      header: 'Staff',
+      sortable: true,
+      cell: (r) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarFallback className="text-[11px] font-semibold">
+              {initials(r.staffName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col">
+            <span className="break-words font-medium text-foreground">
+              {r.staffName}
+            </span>
+            <span className="break-words text-xs text-muted-foreground">
+              {r.role ?? '—'}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'payPeriod',
+      header: 'Pay period',
+      sortable: true,
+      cell: (r) => <span className="text-muted-foreground">{r.payPeriod}</span>,
+    },
+    {
+      id: 'grossPay',
+      header: 'Gross',
+      align: 'end',
+      sortable: true,
+      cell: (r) => (
+        <span className="tabular-nums text-muted-foreground">
+          {currency(r.grossPay)}
+        </span>
+      ),
+    },
+    {
+      id: 'netPay',
+      header: 'Net',
+      align: 'end',
+      sortable: true,
+      cell: (r) => (
+        <span className="tabular-nums text-muted-foreground">
+          {currency(r.netPay)}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (r) => {
+        const meta = STATUS_META[r.status];
+        return (
+          <StatusBadge tone={meta.tone} dot>
+            {meta.label}
+          </StatusBadge>
+        );
+      },
+    },
+  ];
 
   return (
     <ShellMain>
@@ -118,16 +215,23 @@ export function PayrollClient({ records }: Props) {
           }
         />
 
-        <StatGrid items={stats} />
+        <StatGrid items={statItems} />
 
-        <DataTableLayout
+        <DirectoryTable<PayrollRow>
+          columns={columns}
+          rows={records}
+          getRowId={(r) => r.id}
+          getRowLabel={(r) => r.staffName}
+          total={total}
+          page={state.page}
+          pageSize={state.pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={state.sort}
+          onSortChange={toggleSort}
           title="Payroll runs"
-          description={
-            loading ? 'Loading payroll…' : `${filtered.length} of ${RECORDS.length} records`
-          }
-          loading={loading}
-          empty={!loading && filtered.length === 0}
-          skeletonColumns={5}
+          description={`${total} ${total === 1 ? 'record' : 'records'}`}
+          caption="Staff payroll runs"
           toolbar={
             <>
               <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
@@ -141,14 +245,22 @@ export function PayrollClient({ records }: Props) {
                 <Input
                   id="payroll-search"
                   type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
                   placeholder="Search staff name…"
                   className="pl-8"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[10rem]" aria-label="Filter by status">
+              <Select
+                value={statusFilter}
+                onValueChange={(v) =>
+                  setFilter('status', v === 'all' ? null : v)
+                }
+              >
+                <SelectTrigger
+                  className="w-[10rem]"
+                  aria-label="Filter by status"
+                >
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -163,79 +275,19 @@ export function PayrollClient({ records }: Props) {
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No payroll records match your filters' : 'No payroll records yet'}
+              title={
+                hasFilters
+                  ? 'No payroll records match your filters'
+                  : 'No payroll records yet'
+              }
               description={
                 hasFilters
                   ? 'Try a different search term, or clear the filters.'
                   : 'Run the dev operational seed or create a payroll run.'
               }
-              primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
-              }
             />
           }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of{' '}
-                {RECORDS.length}
-              </span>
-              {hasFilters ? (
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Staff</TableHead>
-                <TableHead>Pay period</TableHead>
-                <TableHead className="text-right">Gross</TableHead>
-                <TableHead className="text-right">Net</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((r) => {
-                const status = STATUS_META[r.status];
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarFallback className="text-[11px] font-semibold">
-                            {initials(r.staffName)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="break-words font-medium text-foreground">{r.staffName}</span>
-                          <span className="break-words text-xs text-muted-foreground">{r.role ?? '—'}</span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.payPeriod}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {currency(r.grossPay)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {currency(r.netPay)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={status.tone} dot>
-                        {status.label}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

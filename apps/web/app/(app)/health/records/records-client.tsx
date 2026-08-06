@@ -1,15 +1,17 @@
 'use client';
 
 /* ============================================================
-   RecordsClient — student health records interactive table
+   RecordsClient — student health records (server-driven table)
 
-   Receives server-fetched records as props. M6 StatGrid (triage summary) +
-   DataTableLayout (toolbar + table + footer). Triage status reads as a
-   StatusBadge.
+   Search (student name) / status filter / sort / paging live in the URL and
+   run at the DB via `useDirectoryState` + `DirectoryTable`; no in-memory
+   filtering of the fetched page. Stat tiles come from the whole-set triage
+   summary from the server.
    ============================================================ */
 
 import * as React from 'react';
 import { Search, UserPlus } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
@@ -22,20 +24,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
@@ -51,53 +49,144 @@ export interface HealthRecordRow {
   lastCheckup: string | null;
 }
 
+export interface HealthStats {
+  total: number;
+  normal: number;
+  monitoring: number;
+  urgent: number;
+}
+
 const STATUS_META: Record<HealthStatus, { label: string; tone: StateTone }> = {
   normal: { label: 'Normal', tone: 'success' },
   monitoring: { label: 'Monitoring', tone: 'warning' },
   urgent: { label: 'Urgent', tone: 'destructive' },
 };
 
-const META: PageHeaderMeta[] = [{ key: 'term', label: 'Spring Term 2025', emphasis: true }];
+const META: PageHeaderMeta[] = [
+  { key: 'term', label: 'Spring Term 2025', emphasis: true },
+];
 
 function initials(name: string): string {
-  return name.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase();
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase();
 }
 
 interface Props {
   records: HealthRecordRow[];
+  total: number;
+  defaultPageSize: number;
+  stats: HealthStats;
 }
 
-export function RecordsClient({ records }: Props) {
-  const RECORDS = records;
-  const loading = false;
+export function RecordsClient({
+  records,
+  total,
+  defaultPageSize,
+  stats,
+}: Props) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
-  const [query, setQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('all');
+  const onChange = React.useCallback(
+    (qs: string) => {
+      router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    },
+    [router, pathname],
+  );
 
-  const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return RECORDS.filter((r) => {
-      const matchesQuery = !q || r.name.toLowerCase().includes(q);
-      const matchesStatus = statusFilter === 'all' || r.status === statusFilter;
-      return matchesQuery && matchesStatus;
+  const defaults = React.useMemo(
+    () => ({ pageSize: defaultPageSize }),
+    [defaultPageSize],
+  );
+  const { state, setPage, setPageSize, toggleSort, setQuery, setFilter } =
+    useDirectoryState({
+      searchParams: searchParams.toString(),
+      onChange,
+      defaults,
     });
-  }, [RECORDS, query, statusFilter]);
 
-  const hasFilters = query.trim() !== '' || statusFilter !== 'all';
-  function resetFilters() {
-    setQuery('');
-    setStatusFilter('all');
-  }
+  const [term, setTerm] = React.useState(state.q);
+  React.useEffect(() => setTerm(state.q), [state.q]);
+  React.useEffect(() => {
+    if (term === state.q) return;
+    const id = setTimeout(() => setQuery(term), 300);
+    return () => clearTimeout(id);
+  }, [term, state.q, setQuery]);
 
-  const stats: StatItem[] = React.useMemo(() => {
-    const count = (fn: (r: HealthRecordRow) => boolean) => RECORDS.filter(fn).length;
-    return [
-      { key: 'total', label: 'Records', value: String(RECORDS.length) },
-      { key: 'normal', label: 'Normal', value: String(count((r) => r.status === 'normal')) },
-      { key: 'monitoring', label: 'Monitoring', value: String(count((r) => r.status === 'monitoring')) },
-      { key: 'urgent', label: 'Urgent', value: String(count((r) => r.status === 'urgent')) },
-    ];
-  }, [RECORDS]);
+  const statusFilter = state.filters.status ?? 'all';
+  const hasFilters = state.q.trim() !== '' || statusFilter !== 'all';
+
+  const statItems: StatItem[] = [
+    { key: 'total', label: 'Records', value: String(stats.total) },
+    { key: 'normal', label: 'Normal', value: String(stats.normal) },
+    { key: 'monitoring', label: 'Monitoring', value: String(stats.monitoring) },
+    { key: 'urgent', label: 'Urgent', value: String(stats.urgent) },
+  ];
+
+  const columns: DirectoryColumn<HealthRecordRow>[] = [
+    {
+      id: 'name',
+      header: 'Student',
+      sortable: true,
+      cell: (r) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarFallback className="text-[11px] font-semibold">
+              {initials(r.name)}
+            </AvatarFallback>
+          </Avatar>
+          <span className="break-words font-medium text-foreground">
+            {r.name}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'bloodType',
+      header: 'Blood type',
+      hideable: true,
+      cell: (r) => (
+        <span className="text-muted-foreground">{r.bloodType ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'allergies',
+      header: 'Allergies',
+      hideable: true,
+      cell: (r) => (
+        <span className="text-muted-foreground">{r.allergies ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'lastCheckup',
+      header: 'Last checkup',
+      align: 'end',
+      sortable: true,
+      cell: (r) => (
+        <span className="tabular-nums text-muted-foreground">
+          {r.lastCheckup ?? '—'}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (r) => {
+        const meta = STATUS_META[r.status];
+        return (
+          <StatusBadge tone={meta.tone} dot>
+            {meta.label}
+          </StatusBadge>
+        );
+      },
+    },
+  ];
 
   return (
     <ShellMain>
@@ -112,16 +201,23 @@ export function RecordsClient({ records }: Props) {
           }
         />
 
-        <StatGrid items={stats} />
+        <StatGrid items={statItems} />
 
-        <DataTableLayout
+        <DirectoryTable<HealthRecordRow>
+          columns={columns}
+          rows={records}
+          getRowId={(r) => r.id}
+          getRowLabel={(r) => r.name}
+          total={total}
+          page={state.page}
+          pageSize={state.pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={state.sort}
+          onSortChange={toggleSort}
           title="Student records"
-          description={
-            loading ? 'Loading records…' : `${filtered.length} of ${RECORDS.length} students`
-          }
-          loading={loading}
-          empty={!loading && filtered.length === 0}
-          skeletonColumns={5}
+          description={`${total} ${total === 1 ? 'student' : 'students'}`}
+          caption="Student health records"
           toolbar={
             <>
               <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
@@ -135,14 +231,22 @@ export function RecordsClient({ records }: Props) {
                 <Input
                   id="health-search"
                   type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
+                  value={term}
+                  onChange={(e) => setTerm(e.target.value)}
                   placeholder="Search name…"
                   className="pl-8"
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[10rem]" aria-label="Filter by status">
+              <Select
+                value={statusFilter}
+                onValueChange={(v) =>
+                  setFilter('status', v === 'all' ? null : v)
+                }
+              >
+                <SelectTrigger
+                  className="w-[10rem]"
+                  aria-label="Filter by status"
+                >
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -157,76 +261,19 @@ export function RecordsClient({ records }: Props) {
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No records match your filters' : 'No health records yet'}
+              title={
+                hasFilters
+                  ? 'No records match your filters'
+                  : 'No health records yet'
+              }
               description={
                 hasFilters
                   ? 'Try a different search term, or clear the filters.'
                   : 'Run the dev operational seed or create a student health record.'
               }
-              primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
-              }
             />
           }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of{' '}
-                {RECORDS.length}
-              </span>
-              {hasFilters ? (
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Blood type</TableHead>
-                <TableHead>Allergies</TableHead>
-                <TableHead className="text-right">Last checkup</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((r) => {
-                const status = STATUS_META[r.status];
-                return (
-                  <TableRow key={r.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarFallback className="text-[11px] font-semibold">
-                            {initials(r.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <span className="break-words font-medium text-foreground">{r.name}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.bloodType ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {r.allergies ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {r.lastCheckup ?? '—'}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={status.tone} dot>
-                        {status.label}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

@@ -83,7 +83,9 @@ function formFromQuestion(question: QuestionSummary | null): QuestionForm {
       question.options && question.options.length > 0
         ? question.options
         : EMPTY_FORM.options,
-    correctAnswer: question.correctAnswer ?? (question.style === 'true_false' ? 'true' : 'A'),
+    correctAnswer:
+      question.correctAnswer ??
+      (question.style === 'true_false' ? 'true' : 'A'),
     solution: question.solution ?? '',
     difficulty: (question.difficulty as Difficulty | null) ?? 'medium',
   };
@@ -140,18 +142,23 @@ export function QuestionBankClient({
 
   const [courseId, setCourseId] = React.useState(initialCourses[0]?.id ?? '');
   const [questions, setQuestions] = React.useState(initialQuestions);
-  const [selectedId, setSelectedId] = React.useState(initialQuestions[0]?.id ?? '');
+  const [selectedId, setSelectedId] = React.useState(
+    initialQuestions[0]?.id ?? '',
+  );
   const [mobileDetailOpen, setMobileDetailOpen] = React.useState(false);
   const [form, setForm] = React.useState<QuestionForm>(() =>
     formFromQuestion(initialQuestions[0] ?? null),
   );
   const [query, setQuery] = React.useState('');
-  const [styleFilter, setStyleFilter] = React.useState<QuestionStyle | 'all'>('all');
+  const [styleFilter, setStyleFilter] = React.useState<QuestionStyle | 'all'>(
+    'all',
+  );
   const [busy, setBusy] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const selected = questions.find((question) => question.id === selectedId) ?? null;
+  const selected =
+    questions.find((question) => question.id === selectedId) ?? null;
 
   React.useEffect(() => {
     setForm(formFromQuestion(selected));
@@ -160,7 +167,8 @@ export function QuestionBankClient({
   const filtered = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
     return questions.filter((question) => {
-      const matchesStyle = styleFilter === 'all' || question.style === styleFilter;
+      const matchesStyle =
+        styleFilter === 'all' || question.style === styleFilter;
       const matchesQuery =
         !needle ||
         question.text.toLowerCase().includes(needle) ||
@@ -179,7 +187,10 @@ export function QuestionBankClient({
         setSelectedId('');
         return;
       }
-      const params = new URLSearchParams({ courseId: nextCourseId, limit: '50' });
+      const params = new URLSearchParams({
+        courseId: nextCourseId,
+        limit: '100',
+      });
       const res = await fetch(academicsApi(`questions?${params}`));
       if (!res.ok) throw new Error(await readError(res));
       const list = ((await res.json()) as QuestionSummary[] | null) ?? [];
@@ -220,14 +231,18 @@ export function QuestionBankClient({
         {
           method: editing ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(editing ? { ...payload, courseId: undefined } : payload),
+          body: JSON.stringify(
+            editing ? { ...payload, courseId: undefined } : payload,
+          ),
         },
       );
       if (!res.ok) throw new Error(await readError(res));
       const saved = (await res.json()) as QuestionSummary;
       setQuestions((prev) =>
         editing
-          ? prev.map((question) => (question.id === saved.id ? saved : question))
+          ? prev.map((question) =>
+              question.id === saved.id ? saved : question,
+            )
           : [saved, ...prev],
       );
       setSelectedId(saved.id);
@@ -247,7 +262,9 @@ export function QuestionBankClient({
         method: 'DELETE',
       });
       if (!res.ok) throw new Error(await readError(res));
-      setQuestions((prev) => prev.filter((question) => question.id !== selected.id));
+      setQuestions((prev) =>
+        prev.filter((question) => question.id !== selected.id),
+      );
       setSelectedId('');
       setForm(EMPTY_FORM);
     } catch (err) {
@@ -264,7 +281,11 @@ export function QuestionBankClient({
         className="pb-3"
         title="Question bank"
         meta={[
-          { key: 'course', label: `${initialCourses.length} courses`, emphasis: true },
+          {
+            key: 'course',
+            label: `${initialCourses.length} courses`,
+            emphasis: true,
+          },
           { key: 'questions', label: `${questions.length} questions` },
         ]}
         actions={
@@ -316,7 +337,9 @@ export function QuestionBankClient({
           <Label htmlFor="question-style-filter">Style</Label>
           <Select
             value={styleFilter}
-            onValueChange={(value) => setStyleFilter(value as QuestionStyle | 'all')}
+            onValueChange={(value) =>
+              setStyleFilter(value as QuestionStyle | 'all')
+            }
           >
             <SelectTrigger id="question-style-filter" className="w-40">
               <SelectValue />
@@ -391,7 +414,9 @@ export function QuestionBankClient({
                       {question.style.replace('_', ' ')}
                     </StatusBadge>
                     {question.difficulty ? (
-                      <StatusBadge tone="neutral">{question.difficulty}</StatusBadge>
+                      <StatusBadge tone="neutral">
+                        {question.difficulty}
+                      </StatusBadge>
                     ) : null}
                   </span>
                 </button>
@@ -478,7 +503,10 @@ export function QuestionBankClient({
                   <Select
                     value={form.difficulty}
                     onValueChange={(value) =>
-                      setForm((prev) => ({ ...prev, difficulty: value as Difficulty }))
+                      setForm((prev) => ({
+                        ...prev,
+                        difficulty: value as Difficulty,
+                      }))
                     }
                     disabled={selected ? !canEdit : !canCreate}
                   >
@@ -528,7 +556,10 @@ export function QuestionBankClient({
                     <Label>Options</Label>
                     <div className="grid gap-2 @xl/main:grid-cols-2">
                       {form.options.map((option, index) => (
-                        <div key={option.label} className="flex items-center gap-2">
+                        <div
+                          key={option.label}
+                          className="flex items-center gap-2"
+                        >
                           <span className="grid size-8 shrink-0 place-items-center rounded-md bg-muted text-sm font-semibold">
                             {option.label}
                           </span>
@@ -606,7 +637,10 @@ export function QuestionBankClient({
                     id="question-solution"
                     value={form.solution}
                     onChange={(event) =>
-                      setForm((prev) => ({ ...prev, solution: event.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        solution: event.target.value,
+                      }))
                     }
                     readOnly={selected ? !canEdit : !canCreate}
                     className="min-h-24"

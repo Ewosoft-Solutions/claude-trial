@@ -3,9 +3,23 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@workspace/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { PrismaTransactionService } from '../../common/database/prisma-transaction.service';
+import {
+  resolvePaginationOrderBy,
+  type SortAllowList,
+} from '../../common/dto';
+
+/** Allow-listed sort columns for the classes list; default is year/term order. */
+const CLASS_LIST_SORT: SortAllowList<Prisma.ClassOrderByWithRelationInput> = {
+  name: (dir) => [{ name: dir }],
+  section: (dir) => [{ section: dir }],
+  status: (dir) => [{ status: dir }],
+  createdAt: (dir) => [{ createdAt: dir }],
+  startDate: (dir) => [{ academicYear: { startDate: dir } }],
+};
 import {
   CreateAcademicYearDto,
   UpdateAcademicYearDto,
@@ -478,7 +492,10 @@ export class AcademicStructureService {
         where,
         skip,
         take: limit,
-        orderBy: [{ academicYear: { startDate: 'desc' } }, { term: { order: 'asc' } }],
+        orderBy: resolvePaginationOrderBy(filters.sortBy, filters.sortOrder, CLASS_LIST_SORT, [
+          { academicYear: { startDate: 'desc' } },
+          { term: { order: 'asc' } },
+        ]),
         include: {
           course: true,
           term: true,

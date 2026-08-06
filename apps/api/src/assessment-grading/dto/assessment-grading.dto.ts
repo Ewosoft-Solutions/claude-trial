@@ -386,6 +386,11 @@ export class UpdateGradeDto {
 }
 
 export class ListAssessmentsDto extends PaginationDto {
+  @ApiPropertyOptional({ description: 'Search by assessment name', example: 'midterm' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+
   @ApiPropertyOptional({ description: 'Filter by classId', example: 'a1b2c3d4-e5f6-4789-9abc-def012345678' })
   @IsOptional()
   @IsString()

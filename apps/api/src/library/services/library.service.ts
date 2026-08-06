@@ -1,7 +1,28 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Prisma } from '@workspace/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
-import { CheckoutBookDto, CreateBookDto, ListBooksDto, UpdateBookDto } from '../dto/library.dto';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
+import {
+  CheckoutBookDto,
+  CreateBookDto,
+  ListBooksDto,
+  UpdateBookDto,
+} from '../dto/library.dto';
+
+/** Allow-listed sort columns for the catalog list; default is title A–Z. */
+const BOOK_LIST_SORT: SortAllowList<Prisma.LibraryBookOrderByWithRelationInput> =
+  {
+    title: (dir) => [{ title: dir }],
+    author: (dir) => [{ author: dir }, { title: 'asc' }],
+    category: (dir) => [{ category: dir }, { title: 'asc' }],
+    status: (dir) => [{ status: dir }, { title: 'asc' }],
+    dueDate: (dir) => [{ dueDate: dir }, { title: 'asc' }],
+  };
 
 const STUDENT_SELECT = {
   id: true,
@@ -23,22 +44,48 @@ export class LibraryService {
   }
 
   async listBooks(tenantId: string, query: ListBooksDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const skip = (page - 1) * limit;
+
     const where: Record<string, unknown> = { tenantId };
     if (query.status) where['status'] = query.status;
     if (query.category) where['category'] = query.category;
-    if (query.query) {
+    if (query.search) {
       where['OR'] = [
-        { title: { contains: query.query, mode: 'insensitive' } },
-        { author: { contains: query.query, mode: 'insensitive' } },
-        { isbn: { contains: query.query, mode: 'insensitive' } },
+        { title: { contains: query.search, mode: 'insensitive' } },
+        { author: { contains: query.search, mode: 'insensitive' } },
+        { isbn: { contains: query.search, mode: 'insensitive' } },
       ];
     }
 
-    return this.client.libraryBook.findMany({
-      where,
-      include: { student: { select: STUDENT_SELECT } },
-      orderBy: [{ title: 'asc' }],
-    });
+    const [data, total] = await Promise.all([
+      this.client.libraryBook.findMany({
+        where,
+        include: { student: { select: STUDENT_SELECT } },
+        orderBy: resolvePaginationOrderBy(
+          query.sortBy,
+          query.sortOrder,
+          BOOK_LIST_SORT,
+          [{ title: 'asc' }],
+        ),
+        skip,
+        take: limit,
+      }),
+      this.client.libraryBook.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   async catalogSummary(tenantId: string) {
@@ -104,8 +151,15 @@ export class LibraryService {
     });
   }
 
-  async updateBook(tenantId: string, id: string, dto: UpdateBookDto, userId: string) {
-    const book = await this.client.libraryBook.findFirst({ where: { id, tenantId } });
+  async updateBook(
+    tenantId: string,
+    id: string,
+    dto: UpdateBookDto,
+    userId: string,
+  ) {
+    const book = await this.client.libraryBook.findFirst({
+      where: { id, tenantId },
+    });
     if (!book) throw new NotFoundException('Book not found');
 
     return this.client.libraryBook.update({
@@ -121,8 +175,15 @@ export class LibraryService {
     });
   }
 
-  async checkoutBook(tenantId: string, id: string, dto: CheckoutBookDto, userId: string) {
-    const book = await this.client.libraryBook.findFirst({ where: { id, tenantId } });
+  async checkoutBook(
+    tenantId: string,
+    id: string,
+    dto: CheckoutBookDto,
+    userId: string,
+  ) {
+    const book = await this.client.libraryBook.findFirst({
+      where: { id, tenantId },
+    });
     if (!book) throw new NotFoundException('Book not found');
     if (book.status === 'on_loan') {
       throw new BadRequestException('Book is already on loan');
@@ -145,7 +206,9 @@ export class LibraryService {
   }
 
   async returnBook(tenantId: string, id: string, userId: string) {
-    const book = await this.client.libraryBook.findFirst({ where: { id, tenantId } });
+    const book = await this.client.libraryBook.findFirst({
+      where: { id, tenantId },
+    });
     if (!book) throw new NotFoundException('Book not found');
 
     return this.client.libraryBook.update({

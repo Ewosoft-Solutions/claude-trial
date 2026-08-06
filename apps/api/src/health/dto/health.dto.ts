@@ -8,6 +8,7 @@ import {
 import { Transform } from 'class-transformer';
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { HEALTH_FLAG_CODES } from '@workspace/api';
+import { PaginationDto } from '../../common/dto';
 
 /**
  * Coerce a query param to a string array. `?flags=a` arrives as a string and
@@ -21,36 +22,58 @@ const toStringArray = ({ value }: { value: unknown }): unknown =>
       ? value
       : [value];
 
-export const HEALTH_RECORD_STATUSES = ['normal', 'monitoring', 'urgent'] as const;
+export const HEALTH_RECORD_STATUSES = [
+  'normal',
+  'monitoring',
+  'urgent',
+] as const;
 export type HealthRecordStatus = (typeof HEALTH_RECORD_STATUSES)[number];
 
 export class UpsertHealthRecordDto {
   @ApiPropertyOptional({ example: 'O+' })
-  @IsOptional() @IsString() bloodType?: string;
+  @IsOptional()
+  @IsString()
+  bloodType?: string;
 
   @ApiPropertyOptional({ example: 'Penicillin, peanuts' })
-  @IsOptional() @IsString() allergies?: string;
+  @IsOptional()
+  @IsString()
+  allergies?: string;
 
   @ApiPropertyOptional({ example: 'Mild asthma' })
-  @IsOptional() @IsString() conditions?: string;
+  @IsOptional()
+  @IsString()
+  conditions?: string;
 
   @ApiPropertyOptional({ example: 'Ventolin inhaler as needed' })
-  @IsOptional() @IsString() medications?: string;
+  @IsOptional()
+  @IsString()
+  medications?: string;
 
   @ApiPropertyOptional({ example: 'Mrs. E. Achebe' })
-  @IsOptional() @IsString() emergencyContactName?: string;
+  @IsOptional()
+  @IsString()
+  emergencyContactName?: string;
 
   @ApiPropertyOptional({ example: '+234-801-234-5678' })
-  @IsOptional() @IsString() emergencyContactPhone?: string;
+  @IsOptional()
+  @IsString()
+  emergencyContactPhone?: string;
 
   @ApiPropertyOptional({ example: '2026-05-01' })
-  @IsOptional() @IsDateString() lastCheckup?: string;
+  @IsOptional()
+  @IsDateString()
+  lastCheckup?: string;
 
   @ApiPropertyOptional({ enum: HEALTH_RECORD_STATUSES, example: 'monitoring' })
-  @IsOptional() @IsIn(HEALTH_RECORD_STATUSES) status?: HealthRecordStatus;
+  @IsOptional()
+  @IsIn(HEALTH_RECORD_STATUSES)
+  status?: HealthRecordStatus;
 
   @ApiPropertyOptional({ example: 'Carries inhaler at all times' })
-  @IsOptional() @IsString() notes?: string;
+  @IsOptional()
+  @IsString()
+  notes?: string;
 
   /**
    * Controlled-vocabulary codes. These are what flag search matches — the free
@@ -64,21 +87,32 @@ export class UpsertHealthRecordDto {
     description:
       'Controlled-vocabulary health flags. Searchable; the free-text fields are not.',
   })
-  @IsOptional() @IsArray() @IsString({ each: true }) healthFlags?: string[];
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  healthFlags?: string[];
 }
 
-export class ListHealthRecordsDto {
+export class ListHealthRecordsDto extends PaginationDto {
   @ApiPropertyOptional({ enum: HEALTH_RECORD_STATUSES, example: 'monitoring' })
-  @IsOptional() @IsIn(HEALTH_RECORD_STATUSES) status?: HealthRecordStatus;
+  @IsOptional()
+  @IsIn(HEALTH_RECORD_STATUSES)
+  status?: HealthRecordStatus;
 
-  @ApiPropertyOptional({ example: 'Achebe', description: 'Free-text search across student name' })
-  @IsOptional() @IsString() query?: string;
+  @ApiPropertyOptional({
+    example: 'Achebe',
+    description: 'Free-text search across student name',
+  })
+  @IsOptional()
+  @IsString()
+  search?: string;
 
   @ApiPropertyOptional({
     example: ['allergy:peanut'],
     isArray: true,
     enum: HEALTH_FLAG_CODES,
-    description: 'Filter by health flags, e.g. before a trip or catering order.',
+    description:
+      'Filter by health flags, e.g. before a trip or catering order.',
   })
   @IsOptional()
   @Transform(toStringArray)
@@ -92,5 +126,7 @@ export class ListHealthRecordsDto {
     description:
       "Match pupils with ANY of the flags (default) or ALL of them. Default 'any' — the safe direction for a screening query, since a narrower default could hide a pupil.",
   })
-  @IsOptional() @IsIn(['any', 'all']) flagsMatch?: 'any' | 'all';
+  @IsOptional()
+  @IsIn(['any', 'all'])
+  flagsMatch?: 'any' | 'all';
 }

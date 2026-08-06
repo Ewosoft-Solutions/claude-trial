@@ -1,6 +1,8 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@workspace/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import {
   AddAttendeeDto,
   CreateEventDto,
@@ -8,6 +10,16 @@ import {
   UpdateAttendeeDto,
   UpdateEventDto,
 } from '../dto/events.dto';
+
+/** Allow-listed sort columns for the events list; default is soonest first. */
+const EVENT_LIST_SORT: SortAllowList<Prisma.SchoolEventOrderByWithRelationInput> =
+  {
+    title: (dir) => [{ title: dir }],
+    startDate: (dir) => [{ startDate: dir }],
+    status: (dir) => [{ status: dir }, { startDate: 'asc' }],
+    eventType: (dir) => [{ eventType: dir }, { startDate: 'asc' }],
+    registeredCount: (dir) => [{ registeredCount: dir }],
+  };
 
 const EVENT_ROSTER_SELECT = {
   id: true,
@@ -33,34 +45,68 @@ export class EventsService {
   }
 
   async listEvents(tenantId: string, query: ListEventsDto) {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const skip = (page - 1) * limit;
+
     const where: Record<string, unknown> = { tenantId };
     if (query.status) where['status'] = query.status;
     if (query.eventType) where['eventType'] = query.eventType;
-    if (query.query) {
-      where['title'] = { contains: query.query, mode: 'insensitive' };
+    if (query.from) where['startDate'] = { gte: new Date(query.from) };
+    if (query.search) {
+      where['title'] = { contains: query.search, mode: 'insensitive' };
     }
 
-    return this.client.schoolEvent.findMany({
-      where,
-      orderBy: [{ startDate: 'asc' }],
-    });
+    const [data, total] = await Promise.all([
+      this.client.schoolEvent.findMany({
+        where,
+        orderBy: resolvePaginationOrderBy(
+          query.sortBy,
+          query.sortOrder,
+          EVENT_LIST_SORT,
+          [{ startDate: 'asc' }],
+        ),
+        skip,
+        take: limit,
+      }),
+      this.client.schoolEvent.count({ where }),
+    ]);
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   async eventsSummary(tenantId: string) {
     const events = await this.client.schoolEvent.findMany({
       where: { tenantId },
-      select: { status: true, eventType: true },
+      select: { status: true, eventType: true, registeredCount: true },
     });
 
     const statusCounts: Record<string, number> = {};
     const typeCounts: Record<string, number> = {};
+    let totalRegistrations = 0;
     for (const e of events) {
       statusCounts[e.status] = (statusCounts[e.status] ?? 0) + 1;
       const type = e.eventType ?? 'other';
       typeCounts[type] = (typeCounts[type] ?? 0) + 1;
+      totalRegistrations += e.registeredCount;
     }
 
-    return { totalEvents: events.length, statusCounts, typeCounts };
+    return {
+      totalEvents: events.length,
+      statusCounts,
+      typeCounts,
+      totalRegistrations,
+    };
   }
 
   async createEvent(tenantId: string, dto: CreateEventDto, userId: string) {
@@ -81,8 +127,15 @@ export class EventsService {
     });
   }
 
-  async updateEvent(tenantId: string, id: string, dto: UpdateEventDto, userId: string) {
-    const event = await this.client.schoolEvent.findFirst({ where: { id, tenantId } });
+  async updateEvent(
+    tenantId: string,
+    id: string,
+    dto: UpdateEventDto,
+    userId: string,
+  ) {
+    const event = await this.client.schoolEvent.findFirst({
+      where: { id, tenantId },
+    });
     if (!event) throw new NotFoundException('Event not found');
 
     return this.client.schoolEvent.update({
@@ -92,11 +145,15 @@ export class EventsService {
         ...(dto.description !== undefined && { description: dto.description }),
         ...(dto.eventType !== undefined && { eventType: dto.eventType }),
         ...(dto.location !== undefined && { location: dto.location }),
-        ...(dto.startDate !== undefined && { startDate: new Date(dto.startDate) }),
+        ...(dto.startDate !== undefined && {
+          startDate: new Date(dto.startDate),
+        }),
         ...(dto.endDate !== undefined && { endDate: new Date(dto.endDate) }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(dto.capacity !== undefined && { capacity: dto.capacity }),
-        ...(dto.registeredCount !== undefined && { registeredCount: dto.registeredCount }),
+        ...(dto.registeredCount !== undefined && {
+          registeredCount: dto.registeredCount,
+        }),
         updatedBy: userId,
       },
     });
@@ -161,8 +218,12 @@ export class EventsService {
     const updated = await this.client.eventAttendee.update({
       where: { id: attendeeId },
       data: {
-        ...(dto.attendeeName !== undefined && { attendeeName: dto.attendeeName }),
-        ...(dto.attendeeType !== undefined && { attendeeType: dto.attendeeType }),
+        ...(dto.attendeeName !== undefined && {
+          attendeeName: dto.attendeeName,
+        }),
+        ...(dto.attendeeType !== undefined && {
+          attendeeType: dto.attendeeType,
+        }),
         ...(dto.email !== undefined && { email: dto.email }),
         ...(dto.status !== undefined && { status: dto.status }),
         updatedBy: userId,

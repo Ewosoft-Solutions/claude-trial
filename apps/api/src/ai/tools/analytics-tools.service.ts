@@ -132,7 +132,8 @@ export class AnalyticsToolsService {
         const records = await this.attendanceService.list(context.tenantId, {
           from: typeof input.from === 'string' ? input.from : undefined,
           to: typeof input.to === 'string' ? input.to : undefined,
-          classId: typeof input.classId === 'string' ? input.classId : undefined,
+          classId:
+            typeof input.classId === 'string' ? input.classId : undefined,
           studentId:
             typeof input.studentId === 'string' ? input.studentId : undefined,
         });
@@ -184,7 +185,8 @@ export class AnalyticsToolsService {
       },
       execute: (context, input) =>
         this.reportingAnalyticsService.academicPerformance(context.tenantId, {
-          classId: typeof input.classId === 'string' ? input.classId : undefined,
+          classId:
+            typeof input.classId === 'string' ? input.classId : undefined,
           assessmentId:
             typeof input.assessmentId === 'string'
               ? input.assessmentId
@@ -279,23 +281,27 @@ export class AnalyticsToolsService {
         const rawLimit = typeof input.limit === 'number' ? input.limit : 10;
         const limit = Math.min(Math.max(Math.trunc(rawLimit), 1), 25);
 
-        const events = await this.eventsService.listEvents(
+        // Upcoming events, resolved at the DB: filter to on/after now, order by
+        // soonest, and take just `limit` — so this never depends on a page of
+        // the (now paginated) events list.
+        const { data: events } = await this.eventsService.listEvents(
           context.tenantId,
-          {},
+          {
+            from: new Date().toISOString(),
+            sortBy: 'startDate',
+            sortOrder: 'asc',
+            limit,
+          },
         );
-        const now = new Date();
 
-        return events
-          .filter((event) => event.startDate >= now)
-          .slice(0, limit)
-          .map((event) => ({
-            id: event.id,
-            title: event.title,
-            eventType: event.eventType,
-            status: event.status,
-            startDate: event.startDate,
-            endDate: event.endDate,
-          }));
+        return events.map((event) => ({
+          id: event.id,
+          title: event.title,
+          eventType: event.eventType,
+          status: event.status,
+          startDate: event.startDate,
+          endDate: event.endDate,
+        }));
       },
     };
   }

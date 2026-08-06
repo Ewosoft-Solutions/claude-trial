@@ -64,3 +64,41 @@ describe('StudentService.roster', () => {
     expect(select.userTenant.select.userTenantRole).toBeUndefined();
   });
 });
+
+describe('StudentService.list ordering', () => {
+  const findMany = jest.fn();
+  const count = jest.fn();
+  const client = { student: { findMany, count } };
+  const service = new StudentService(
+    { client } as never,
+    { isScoped: false } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findMany.mockResolvedValue([]);
+    count.mockResolvedValue(0);
+  });
+
+  it('defaults to newest-first when no sort is requested', async () => {
+    await service.list('tenant-1', {});
+    expect(findMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'desc' }]);
+  });
+
+  it('honours an allow-listed sort (name → last/first, with direction)', async () => {
+    await service.list('tenant-1', { sortBy: 'name', sortOrder: 'desc' });
+    expect(findMany.mock.calls[0][0].orderBy).toEqual([
+      { userTenant: { user: { lastName: 'desc' } } },
+      { userTenant: { user: { firstName: 'desc' } } },
+    ]);
+  });
+
+  it('ignores an unknown sort field (falls back to default order)', async () => {
+    await service.list('tenant-1', { sortBy: 'healthInfo', sortOrder: 'asc' });
+    expect(findMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'desc' }]);
+  });
+});

@@ -1,9 +1,23 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@workspace/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { EncryptionService } from '../../common/encryption/encryption.service';
+import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import { ListHealthRecordsDto, UpsertHealthRecordDto } from '../dto/health.dto';
 import { HealthFlagsService } from './health-flags.service';
+
+/** Allow-listed sort columns for the health list; default is triage-first (urgent), newest. */
+const HEALTH_LIST_SORT: SortAllowList<Prisma.HealthRecordOrderByWithRelationInput> =
+  {
+    name: (dir) => [
+      { student: { userTenant: { user: { lastName: dir } } } },
+      { student: { userTenant: { user: { firstName: dir } } } },
+    ],
+    status: (dir) => [{ status: dir }, { updatedAt: 'desc' }],
+    lastCheckup: (dir) => [{ lastCheckup: dir }],
+    updatedAt: (dir) => [{ updatedAt: dir }],
+  };
 
 /**
  * Free-text medical fields encrypted at rest. Read/written whole and never
@@ -43,12 +57,24 @@ export class HealthService {
   async listRecords(tenantId: string, query: ListHealthRecordsDto) {
     const where: Record<string, unknown> = { tenantId };
     if (query.status) where['status'] = query.status;
-    if (query.query) {
+    if (query.search) {
       where['student'] = {
         OR: [
-          { studentNumber: { contains: query.query, mode: 'insensitive' } },
-          { userTenant: { user: { firstName: { contains: query.query, mode: 'insensitive' } } } },
-          { userTenant: { user: { lastName: { contains: query.query, mode: 'insensitive' } } } },
+          { studentNumber: { contains: query.search, mode: 'insensitive' } },
+          {
+            userTenant: {
+              user: {
+                firstName: { contains: query.search, mode: 'insensitive' },
+              },
+            },
+          },
+          {
+            userTenant: {
+              user: {
+                lastName: { contains: query.search, mode: 'insensitive' },
+              },
+            },
+          },
         ],
       };
     }
@@ -62,13 +88,37 @@ export class HealthService {
           : this.flags.hasAnyFilter(query.flags);
     }
 
-    const records = await this.client.healthRecord.findMany({
-      where,
-      include: { student: { select: STUDENT_SELECT } },
-      orderBy: [{ status: 'desc' }, { updatedAt: 'desc' }],
-    });
+    const page = query.page ?? 1;
+    const limit = query.limit ?? 25;
+    const skip = (page - 1) * limit;
 
-    return records.map((record) => this.present(record));
+    const [records, total] = await Promise.all([
+      this.client.healthRecord.findMany({
+        where,
+        include: { student: { select: STUDENT_SELECT } },
+        orderBy: resolvePaginationOrderBy(
+          query.sortBy,
+          query.sortOrder,
+          HEALTH_LIST_SORT,
+          [{ status: 'desc' }, { updatedAt: 'desc' }],
+        ),
+        skip,
+        take: limit,
+      }),
+      this.client.healthRecord.count({ where }),
+    ]);
+
+    return {
+      data: records.map((record) => this.present(record)),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+        hasNext: page * limit < total,
+        hasPrev: page > 1,
+      },
+    };
   }
 
   /**
@@ -90,9 +140,8 @@ export class HealthService {
     const out = { ...rest, healthFlags: this.flags.decode(healthFlagsEnc) };
     for (const field of NARRATIVE_FIELDS) {
       if (field in out) {
-        (out as Record<string, unknown>)[field] = this.encryption.decryptEnveloped(
-          out[field] ?? null,
-        );
+        (out as Record<string, unknown>)[field] =
+          this.encryption.decryptEnveloped(out[field] ?? null);
       }
     }
     return out;
@@ -118,7 +167,8 @@ export class HealthService {
     });
 
     const statusCounts: Record<string, number> = {};
-    for (const r of records) statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1;
+    for (const r of records)
+      statusCounts[r.status] = (statusCounts[r.status] ?? 0) + 1;
     return { totalRecords: records.length, statusCounts };
   }
 
@@ -128,12 +178,16 @@ export class HealthService {
     dto: UpsertHealthRecordDto,
     userId: string,
   ) {
-    const student = await this.client.student.findFirst({ where: { id: studentId, tenantId } });
+    const student = await this.client.student.findFirst({
+      where: { id: studentId, tenantId },
+    });
     if (!student) throw new NotFoundException('Student not found');
 
     // Encoded once and written to both columns together — see HealthFlagsService.
     const encodedFlags =
-      dto.healthFlags !== undefined ? this.flags.encode(dto.healthFlags) : undefined;
+      dto.healthFlags !== undefined
+        ? this.flags.encode(dto.healthFlags)
+        : undefined;
 
     // Envelope-encrypt the narrative fields present on the payload.
     const enc = this.encryptNarrative(dto);
@@ -146,9 +200,15 @@ export class HealthService {
         ...(enc.allergies !== undefined && { allergies: enc.allergies }),
         ...(enc.conditions !== undefined && { conditions: enc.conditions }),
         ...(enc.medications !== undefined && { medications: enc.medications }),
-        ...(dto.emergencyContactName !== undefined && { emergencyContactName: dto.emergencyContactName }),
-        ...(dto.emergencyContactPhone !== undefined && { emergencyContactPhone: dto.emergencyContactPhone }),
-        ...(dto.lastCheckup !== undefined && { lastCheckup: new Date(dto.lastCheckup) }),
+        ...(dto.emergencyContactName !== undefined && {
+          emergencyContactName: dto.emergencyContactName,
+        }),
+        ...(dto.emergencyContactPhone !== undefined && {
+          emergencyContactPhone: dto.emergencyContactPhone,
+        }),
+        ...(dto.lastCheckup !== undefined && {
+          lastCheckup: new Date(dto.lastCheckup),
+        }),
         ...(dto.status !== undefined && { status: dto.status }),
         ...(enc.notes !== undefined && { notes: enc.notes }),
         updatedBy: userId,

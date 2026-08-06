@@ -166,7 +166,7 @@ export function AssessmentsClient({
           courseId
             ? fetch(
                 academicsApi(
-                  `questions?${new URLSearchParams({ courseId, limit: '50' })}`,
+                  `questions?${new URLSearchParams({ courseId, limit: '100' })}`,
                 ),
               )
             : Promise.resolve(null),
@@ -199,6 +199,47 @@ export function AssessmentsClient({
   React.useEffect(() => {
     void loadAssessmentDetail(selected);
   }, [selected, loadAssessmentDetail]);
+
+  // Live mode: the assessment list is the selected class's COMPLETE set,
+  // refetched from the server whenever the class changes — so it can never hide
+  // a class's assessments the way a client-side filter over one capped page of
+  // ALL classes would once the tenant has more than a page of them.
+  const didMountRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    if (!live || !classId) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch(
+          academicsApi(
+            `assessments?${new URLSearchParams({ classId, limit: '100' })}`,
+          ),
+        );
+        if (!res.ok) throw new Error(await readError(res));
+        const body = (await res.json()) as
+          | { data?: AssessmentSummary[] }
+          | AssessmentSummary[]
+          | null;
+        const next = Array.isArray(body) ? body : (body?.data ?? []);
+        if (cancelled) return;
+        setAssessments(next);
+        setSelectedId(next[0]?.id ?? '');
+      } catch (err) {
+        if (!cancelled) {
+          setError(
+            err instanceof Error ? err.message : 'Failed to load assessments',
+          );
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [classId, live]);
 
   function newAssessment() {
     setSelectedId('');
