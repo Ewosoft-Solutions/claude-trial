@@ -31,6 +31,9 @@ interface MeasurementField {
 type ConfigMap = Record<string, Record<string, unknown> | undefined>;
 
 const STAGE_ORDER = ['application', 'offer', 'acceptance', 'enrolment'];
+// Client-side guard so oversize files fail fast with a friendly message rather
+// than hitting the API body limit; the DTO enforces the real cap server-side.
+const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
 export function RequirementsPanel({
   applicationId,
@@ -97,6 +100,8 @@ function RequirementRow({
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [open, setOpen] = React.useState(false);
+  const [waiveOpen, setWaiveOpen] = React.useState(false);
+  const [waiveReason, setWaiveReason] = React.useState('');
   const fileRef = React.useRef<HTMLInputElement>(null);
 
   const base = `/api/admissions/applications/${applicationId}/requirements/${r.id}`;
@@ -124,6 +129,10 @@ function RequirementRow({
   }
 
   async function uploadFile(file: File) {
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.error('File is too large (max 10 MB).');
+      return;
+    }
     setBusy(true);
     try {
       const contentBase64 = await fileToBase64(file);
@@ -149,9 +158,13 @@ function RequirementRow({
     }
   }
 
-  function waive() {
-    const reason = window.prompt('Reason for waiving this requirement?');
-    if (reason?.trim()) void send('waive', { reason: reason.trim() }, 'Waived');
+  function confirmWaive() {
+    if (waiveReason.trim()) {
+      void send('waive', { reason: waiveReason.trim() }, 'Waived').then(() => {
+        setWaiveOpen(false);
+        setWaiveReason('');
+      });
+    }
   }
 
   return (
@@ -225,17 +238,50 @@ function RequirementRow({
               )}
             </>
           )}
-          {r.status !== 'waived' && (
+          {r.status !== 'waived' && !waiveOpen && (
             <Button
               type="button"
               size="sm"
               variant="ghost"
               disabled={busy}
-              onClick={waive}
+              onClick={() => setWaiveOpen(true)}
             >
               Waive
             </Button>
           )}
+        </div>
+      )}
+
+      {canManage && waiveOpen && (
+        <div className="flex flex-col gap-2 rounded-md bg-muted/40 p-2">
+          <Label className="text-xs">Reason for waiving</Label>
+          <Input
+            value={waiveReason}
+            onChange={(e) => setWaiveReason(e.target.value)}
+            placeholder="e.g. Fresh entrant — no previous school"
+            className="h-8"
+            autoFocus
+          />
+          <div className="flex justify-end gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => {
+                setWaiveOpen(false);
+                setWaiveReason('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={busy || !waiveReason.trim()}
+              onClick={confirmWaive}
+            >
+              Waive
+            </Button>
+          </div>
         </div>
       )}
     </li>

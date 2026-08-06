@@ -66,6 +66,8 @@ export interface ApplicationDetail extends Application {
   yearLevelId?: string | null;
   streamId?: string | null;
   campusId?: string | null;
+  targetClassSectionId?: string | null;
+  academicYearId?: string | null;
   stateOfOrigin?: string | null;
   religion?: string | null;
   healthNotes?: string | null;

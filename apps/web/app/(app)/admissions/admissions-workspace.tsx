@@ -127,6 +127,15 @@ export function AdmissionsWorkspace({
                 <TableRow
                   key={a.id}
                   onClick={() => setSelectedId(a.id)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      setSelectedId(a.id);
+                    }
+                  }}
+                  tabIndex={0}
+                  role="button"
+                  aria-label={`Open ${a.applicantName}`}
                   className="cursor-pointer"
                 >
                   <TableCell className="font-medium">

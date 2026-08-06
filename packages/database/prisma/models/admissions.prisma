@@ -7,10 +7,8 @@
 //
 // Tenant-scoped (tenant_id NOT NULL) in the "admissions" schema and
 // covered by RLS (migration applies the policy explicitly so
-// db:rls:check passes from day one).
-//
-// stage: 'application' | 'interview' | 'decision'
-// decision: 'pending' | 'accepted' | 'waitlisted' | 'rejected'
+// db:rls:check passes from day one). The stage machine + decision values are
+// documented on the `stage`/`decision` fields below (WB3-1).
 // ============================================
 
 model AdmissionApplication {
@@ -21,7 +19,7 @@ model AdmissionApplication {
   // WB3 structured-intake: `applyingFor` is now the COMPOSED, STORED display
   // label (e.g. "SS1 Science", built from the cascade — never parsed, WB2-1
   // convention). The structured dimensions below are the clean data.
-  applyingFor String @map("applying_for")
+  applyingFor   String @map("applying_for")
 
   // Structured "applying for" — the same academic structure the school uses for
   // classes/enrollment/promotion (WB2-1), so an admit lands in a real class with
@@ -78,7 +76,7 @@ model AdmissionApplication {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant       Tenant                          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  tenant       Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   reviews      AdmissionReview[]
   stageEvents  AdmissionStageEvent[]
   guardians    AdmissionGuardian[]
@@ -103,12 +101,12 @@ model AdmissionGuardian {
   applicationId String @map("application_id")
 
   fullName     String  @map("full_name")
-  relationship String // 'father' | 'mother' | 'guardian' | 'parent' | 'other'
+  relationship String // father | mother | guardian | grandparent | sibling | other (GUARDIAN_RELATIONSHIPS)
   email        String?
   address      String?
 
-  phoneCountryCode String  @default("+234") @map("phone_country_code")
-  phoneNumber      String  @map("phone_number")
+  phoneCountryCode    String  @default("+234") @map("phone_country_code")
+  phoneNumber         String  @map("phone_number")
   whatsappSameAsPhone Boolean @default(true) @map("whatsapp_same_as_phone")
   whatsappCountryCode String? @map("whatsapp_country_code")
   whatsappNumber      String? @map("whatsapp_number")
@@ -140,14 +138,14 @@ model AdmissionRequirement {
   label String
 
   // 'document' (F4 file) | 'field' (typed value) | 'measurement' (e.g. uniform) | 'fee'
-  type String
+  type         String
   // 'application' | 'offer' | 'acceptance' | 'enrolment'
   collectStage String  @map("collect_stage")
   required     Boolean @default(true)
   active       Boolean @default(true)
   order        Int     @default(0)
   // Type-specific config: measurement fields, accepted doc formats, fee amount…
-  config Json? @map("config")
+  config       Json?   @map("config")
 
   createdBy String?  @map("created_by")
   updatedBy String?  @map("updated_by")
@@ -180,9 +178,9 @@ model AdmissionApplicationRequirement {
   collectStage String  @map("collect_stage")
   required     Boolean @default(true)
 
-  status String @default("pending") // 'pending' | 'provided' | 'waived'
+  status     String  @default("pending") // 'pending' | 'provided' | 'waived'
   // Value for field/measurement requirements (e.g. { height, chest, shoeSize }).
-  value Json?
+  value      Json?
   // F4 document link for document requirements (soft ref → documents.documents).
   documentId String? @map("document_id")
 
@@ -194,7 +192,9 @@ model AdmissionApplicationRequirement {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  requirement AdmissionRequirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  // RESTRICT: a fulfilment snapshots the template — deleting a requirement must
+  // not wipe in-flight fulfilments (templates are disabled, not hard-deleted).
+  requirement AdmissionRequirement @relation(fields: [requirementId], references: [id], onDelete: Restrict)
 
   @@unique([applicationId, requirementId])
   @@index([tenantId])

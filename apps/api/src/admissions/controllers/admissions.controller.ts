@@ -97,7 +97,7 @@ export class AdmissionsController {
   }
 
   @Get('intake-structure')
-  @RequirePermissions(['admissions.create'])
+  @RequirePermissions(['admissions.view'])
   @ApiOperation({
     summary:
       'The academic structure the intake form cascades over ' +

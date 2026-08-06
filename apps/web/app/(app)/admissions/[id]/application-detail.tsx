@@ -70,8 +70,12 @@ export function ApplicationDetailView({
   const [busy, setBusy] = React.useState(false);
   const [score, setScore] = React.useState('');
   const [recommendation, setRecommendation] = React.useState('recommend');
-  const [sectionId, setSectionId] = React.useState('');
-  const [yearId, setYearId] = React.useState('');
+  // Seed the offer/convert target from what the offer already recorded, so the
+  // convert button isn't stuck disabled after a page refresh.
+  const [sectionId, setSectionId] = React.useState(
+    detail.targetClassSectionId ?? '',
+  );
+  const [yearId, setYearId] = React.useState(detail.academicYearId ?? '');
 
   const stage = detail.stage;
   const terminal =
@@ -369,40 +373,48 @@ export function ApplicationDetailView({
                 </div>
               )}
 
-              {(perms.approve || perms.convert) && (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <div className="flex flex-col gap-1.5">
-                    <Label>Target section</Label>
-                    <Select value={sectionId} onValueChange={setSectionId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sections.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.displayLabel}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              {(perms.approve || perms.convert) &&
+                (sections.length === 0 || years.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                    No {sections.length === 0 ? 'sections' : 'academic years'}{' '}
+                    are available to offer or convert into. You may be missing
+                    access to the academic structure — ask an administrator for
+                    the “View academic structure” and schedule permissions.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Target section</Label>
+                      <Select value={sectionId} onValueChange={setSectionId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose section" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sections.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.displayLabel}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Academic year</Label>
+                      <Select value={yearId} onValueChange={setYearId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((y) => (
+                            <SelectItem key={y.id} value={y.id}>
+                              {y.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label>Academic year</Label>
-                    <Select value={yearId} onValueChange={setYearId}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Choose year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((y) => (
-                          <SelectItem key={y.id} value={y.id}>
-                            {y.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
+                ))}
 
               <div className="flex flex-wrap gap-2">
                 {perms.approve && stage !== 'offer' && stage !== 'accepted' && (

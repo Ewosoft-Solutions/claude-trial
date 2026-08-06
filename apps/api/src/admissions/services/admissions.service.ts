@@ -168,6 +168,9 @@ export class AdmissionsService {
                 {
                   guardianName: { contains: query.query, mode: 'insensitive' },
                 },
+                {
+                  applyingFor: { contains: query.query, mode: 'insensitive' },
+                },
               ],
             }
           : {}),
@@ -407,7 +410,12 @@ export class AdmissionsService {
     return input.map((g, i) => {
       const phoneCountryCode = (g.phoneCountryCode ?? '+234').trim();
       const phoneNumber = g.phoneNumber.trim();
-      const whatsappSameAsPhone = g.whatsappSameAsPhone ?? true;
+      const distinctWhatsapp = g.whatsappNumber?.trim() || null;
+      // "Same as phone" reuse: an explicit reuse OR a blank distinct number both
+      // collapse to the phone (one source of truth) — never persist a half-filled
+      // WhatsApp that would render as "+234 —".
+      const whatsappSameAsPhone =
+        (g.whatsappSameAsPhone ?? true) || !distinctWhatsapp;
       return {
         fullName: g.fullName.trim(),
         relationship: g.relationship,
@@ -416,15 +424,12 @@ export class AdmissionsService {
         phoneCountryCode,
         phoneNumber,
         whatsappSameAsPhone,
-        // When reusing the phone, store nulls and let the reader fall back — one
-        // source of truth. Otherwise persist the distinct WhatsApp number.
         whatsappCountryCode: whatsappSameAsPhone
           ? null
           : (g.whatsappCountryCode ?? phoneCountryCode).trim(),
-        whatsappNumber: whatsappSameAsPhone
-          ? null
-          : (g.whatsappNumber?.trim() ?? null),
-        isPrimary: g.isPrimary ?? i === 0,
+        whatsappNumber: whatsappSameAsPhone ? null : distinctWhatsapp,
+        // Exactly one primary: the first guardian, regardless of client flags.
+        isPrimary: i === 0,
       };
     });
   }

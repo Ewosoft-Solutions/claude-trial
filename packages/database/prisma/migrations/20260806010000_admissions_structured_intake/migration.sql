@@ -142,9 +142,12 @@ BEGIN
     ALTER TABLE "admissions"."admission_application_requirements" ADD CONSTRAINT "admission_application_requirements_application_id_fkey"
       FOREIGN KEY ("application_id") REFERENCES "admissions"."admission_applications"("id") ON DELETE CASCADE ON UPDATE CASCADE;
   END IF;
+  -- RESTRICT (not CASCADE): a fulfilment SNAPSHOTS the template, so deleting a
+  -- requirement must never wipe in-flight fulfilments (uploaded docs, waivers).
+  -- Templates are disabled via active=false, never hard-deleted while in use.
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admission_application_requirements_requirement_id_fkey') THEN
     ALTER TABLE "admissions"."admission_application_requirements" ADD CONSTRAINT "admission_application_requirements_requirement_id_fkey"
-      FOREIGN KEY ("requirement_id") REFERENCES "admissions"."admission_requirements"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+      FOREIGN KEY ("requirement_id") REFERENCES "admissions"."admission_requirements"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
   END IF;
   IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'admission_application_requirements_document_id_fkey') THEN
     ALTER TABLE "admissions"."admission_application_requirements" ADD CONSTRAINT "admission_application_requirements_document_id_fkey"

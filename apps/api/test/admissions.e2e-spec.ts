@@ -320,6 +320,56 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     expect(created.guardianPhone).toContain('8012345678');
   });
 
+  it('normalizes guardians: one primary, WhatsApp reuse/distinct', async () => {
+    const created = await inA(() =>
+      admissions.createApplication(
+        tenantAId,
+        {
+          applicantName: 'Multi Guardian Child',
+          yearLevelId,
+          guardians: [
+            {
+              fullName: 'Primary Parent',
+              relationship: 'mother',
+              phoneNumber: '8010000000',
+              whatsappSameAsPhone: true,
+              // Erroneously not flagged primary — the first is primary anyway.
+              isPrimary: false,
+            },
+            {
+              fullName: 'Second Parent',
+              relationship: 'father',
+              phoneNumber: '8020000000',
+              // Distinct WhatsApp with an explicit country code.
+              whatsappSameAsPhone: false,
+              whatsappCountryCode: '+1',
+              whatsappNumber: '2025550000',
+              // Erroneously flagged primary — ignored; only the first is primary.
+              isPrimary: true,
+            },
+          ],
+        },
+        actorId,
+      ),
+    );
+    const primaries = created.guardians.filter((g) => g.isPrimary);
+    expect(primaries.length).toBe(1);
+    expect(primaries[0]!.fullName).toBe('Primary Parent');
+
+    const first = created.guardians.find(
+      (g) => g.fullName === 'Primary Parent',
+    )!;
+    expect(first.whatsappSameAsPhone).toBe(true);
+    expect(first.whatsappNumber).toBeNull();
+
+    const second = created.guardians.find(
+      (g) => g.fullName === 'Second Parent',
+    )!;
+    expect(second.whatsappSameAsPhone).toBe(false);
+    expect(second.whatsappCountryCode).toBe('+1');
+    expect(second.whatsappNumber).toBe('2025550000');
+  });
+
   it('exposes the intake structure for the cascade form', async () => {
     const structure = await inA(() => admissions.getIntakeStructure(tenantAId));
     expect(structure.stages.some((s) => s.name === 'Primary')).toBe(true);

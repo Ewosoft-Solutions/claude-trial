@@ -145,7 +145,8 @@ export class CreateApplicationDto {
   stageId?: string;
 
   @ApiPropertyOptional({
-    description: 'The department (stream) — senior classes only.',
+    description:
+      'The department (stream), where the class uses one (e.g. senior).',
   })
   @IsOptional()
   @IsString()
@@ -359,9 +360,14 @@ export class UploadRequirementDocumentDto {
   @MaxLength(240)
   filename?: string;
 
-  @ApiProperty({ description: 'File bytes, base64-encoded.' })
+  // ~15M base64 chars ≈ ~11mb binary — under the 20mb body-parser limit, so an
+  // oversize upload fails validation with a clean 400 rather than a raw 413.
+  @ApiProperty({
+    description: 'File bytes, base64-encoded (max ~11mb binary).',
+  })
   @IsString()
   @IsNotEmpty()
+  @MaxLength(15_000_000)
   contentBase64!: string;
 }
 
