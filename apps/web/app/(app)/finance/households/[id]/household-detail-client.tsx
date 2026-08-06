@@ -119,10 +119,13 @@ export function HouseholdDetailClient({
             meta={[
               {
                 key: 'members',
-                label: `${activeMembers.length} students`,
+                label: `${activeMembers.length} ${activeMembers.length === 1 ? 'student' : 'students'}`,
                 emphasis: true,
               },
-              { key: 'payers', label: `${activePayers.length} payers` },
+              {
+                key: 'payers',
+                label: `${activePayers.length} ${activePayers.length === 1 ? 'payer' : 'payers'}`,
+              },
             ]}
             actions={
               household.derivedFromGuardianId ? (
