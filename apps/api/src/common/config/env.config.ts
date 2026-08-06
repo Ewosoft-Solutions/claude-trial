@@ -40,6 +40,17 @@ export interface EnvironmentConfig {
    * binaries). Relative paths resolve against the API process cwd.
    */
   STORAGE_LOCAL_ROOT: string;
+  /**
+   * Cloudflare R2 (S3-compatible) object storage for uploaded document
+   * binaries. Set ALL FOUR to switch the StorageProvider from local disk to R2;
+   * leave any unset to keep the local-disk fallback. R2_ACCOUNT_ID forms the
+   * endpoint `https://<id>.r2.cloudflarestorage.com`; the key/secret are an R2
+   * Object Read & Write API token. All optional so dev/CI need no configuration.
+   */
+  R2_ACCOUNT_ID?: string;
+  R2_BUCKET?: string;
+  R2_ACCESS_KEY_ID?: string;
+  R2_SECRET_ACCESS_KEY?: string;
   /** HMAC key for signed short-lived document download URLs (F4 / ADR-08). */
   DOCUMENT_URL_SIGNING_SECRET: string;
   JWT_SECRET?: string;
@@ -129,6 +140,12 @@ export const envValidationSchema = Joi.object({
   PORT: Joi.number().integer().min(1).max(65535).default(3000),
   API_DEBUG_ERRORS: Joi.boolean().truthy('true').falsy('false').default(false),
   STORAGE_LOCAL_ROOT: Joi.string().default('./storage'),
+  // Cloudflare R2 (S3-compatible) document storage. All optional; the storage
+  // module treats "all four present" as the switch away from local disk.
+  R2_ACCOUNT_ID: Joi.string().optional().allow(''),
+  R2_BUCKET: Joi.string().optional().allow(''),
+  R2_ACCESS_KEY_ID: Joi.string().optional().allow(''),
+  R2_SECRET_ACCESS_KEY: Joi.string().optional().allow(''),
   // REQUIRED in production. This HMAC key authorizes every document download,
   // so a constant-derived default would let anyone with the source forge a
   // signed token for any clean document — bypassing the sensitivity gate and

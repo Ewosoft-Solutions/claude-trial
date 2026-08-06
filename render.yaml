@@ -83,14 +83,17 @@ services:
         sync: false
       - key: VOYAGE_API_KEY
         sync: false
-      # Object storage (Cloudflare R2) — consumed by the S3 provider in D1.
-      - key: STORAGE_S3_ENDPOINT
+      # Object storage — Cloudflare R2 (S3-compatible) for uploaded document
+      # binaries. Set ALL FOUR to switch the StorageProvider from local disk to
+      # R2; the account id forms the endpoint https://<id>.r2.cloudflarestorage.com.
+      # The key/secret are an R2 Object Read & Write API token — never committed.
+      - key: R2_ACCOUNT_ID
         sync: false
-      - key: STORAGE_S3_BUCKET
+      - key: R2_BUCKET
         sync: false
-      - key: STORAGE_S3_ACCESS_KEY_ID
+      - key: R2_ACCESS_KEY_ID
         sync: false
-      - key: STORAGE_S3_SECRET_ACCESS_KEY
+      - key: R2_SECRET_ACCESS_KEY
         sync: false
 
   # Redis-compatible cache/queue backend. Declared as a SERVICE (type: keyvalue),
