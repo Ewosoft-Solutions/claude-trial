@@ -171,10 +171,25 @@ export class FinanceService {
   async getInvoice(tenantId: string, id: string) {
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id, tenantId },
-      include: { payments: { orderBy: { paidAt: 'desc' } } },
+      include: {
+        payments: { orderBy: { paidAt: 'desc' } },
+        lines: {
+          include: { feeItem: { select: { code: true, name: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        adjustments: { orderBy: { createdAt: 'desc' } },
+      },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
-    return invoice;
+
+    // Derived financials off the same lines/applied-adjustments the list uses,
+    // so the detail page and the list agree on gross/discounts/balance.
+    const financials = computeFinancials({
+      amountPaid: invoice.amountPaid,
+      lines: invoice.lines,
+      adjustments: invoice.adjustments.filter((a) => a.status === 'applied'),
+    });
+    return { ...invoice, financials };
   }
 
   /**

@@ -10,6 +10,7 @@
    ============================================================ */
 
 import * as React from 'react';
+import Link from 'next/link';
 import { Download, Plus, Search } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
@@ -183,14 +184,17 @@ export function InvoicesClient({
       header: 'Invoice',
       sortable: true,
       cell: (inv) => (
-        <div className="flex min-w-0 flex-col">
+        <Link
+          href={`/finance/invoices/${inv.id}`}
+          className="flex min-w-0 flex-col hover:underline"
+        >
           <span className="break-words font-medium text-foreground">
             {inv.student ?? inv.studentId ?? '—'}
           </span>
           <span className="break-words text-xs text-muted-foreground">
             {inv.invoiceNumber ?? inv.id}
           </span>
-        </div>
+        </Link>
       ),
     },
     {
