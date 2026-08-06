@@ -32,6 +32,7 @@ import {
   GraduationCap,
   HeartPulse,
   House,
+  HousePlus,
   ListTree,
   Palette,
   PartyPopper,
@@ -349,6 +350,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Discount policies',
               icon: <BadgePercent />,
               href: '/finance/discount-policies',
+              access: { anyPermission: ['fees.view', 'billing.view'] },
+            },
+            {
+              key: 'households',
+              label: 'Households',
+              icon: <HousePlus />,
+              href: '/finance/households',
               access: { anyPermission: ['fees.view', 'billing.view'] },
             },
             {
