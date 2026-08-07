@@ -28,7 +28,19 @@ import request from 'supertest';
 import { AppModule } from '../src/app.module';
 import { TenantDbService } from '../src/common';
 import { AdmissionsService } from '../src/admissions/services/admissions.service';
+import { AdmissionRequirementsService } from '../src/admissions/services/admission-requirements.service';
 import { makeSuperuserClient } from './helpers/superuser-client';
+
+// The requirement document-upload path writes bytes through the StorageProvider.
+// Force the local-disk provider for this run (hermetic — never the real R2
+// bucket); restored in afterAll.
+const R2_KEYS = [
+  'R2_ACCOUNT_ID',
+  'R2_BUCKET',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+] as const;
+const savedR2: Record<string, string | undefined> = {};
 
 const HAS_APP_RUNTIME = !!process.env.APP_RUNTIME_DATABASE_URL;
 const d = HAS_APP_RUNTIME ? describe : describe.skip;
@@ -38,6 +50,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
   let owner: ReturnType<typeof makeSuperuserClient>;
   let tenantDb: TenantDbService;
   let admissions: AdmissionsService;
+  let requirements: AdmissionRequirementsService;
 
   const stamp = Date.now();
   const A = `wb3-a-${stamp}`;
@@ -48,6 +61,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
   let campus1Id: string;
   let campus2Id: string;
   let yearId: string;
+  let yearLevelId: string;
   let section1Id: string; // campus1
   let section2Id: string; // campus2
   let actorId: string;
@@ -67,9 +81,18 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
         tenantAId,
         {
           applicantName: `Ada ${tag} Okoro`,
-          applyingFor: 'Primary 5',
-          guardianName: 'Mrs Okoro',
-          guardianEmail: `okoro-${tag}-${stamp}@guardian.test`,
+          yearLevelId,
+          guardians: [
+            {
+              fullName: 'Mrs Okoro',
+              relationship: 'mother',
+              email: `okoro-${tag}-${stamp}@guardian.test`,
+              phoneCountryCode: '+234',
+              phoneNumber: '8012345678',
+              whatsappSameAsPhone: true,
+              isPrimary: true,
+            },
+          ],
         },
         actorId,
       ),
@@ -77,6 +100,12 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
   }
 
   beforeAll(async () => {
+    // Pin the local-disk storage provider for this run (before the app boots).
+    for (const k of R2_KEYS) {
+      savedR2[k] = process.env[k];
+      delete process.env[k];
+    }
+
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -86,6 +115,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     owner = makeSuperuserClient();
     tenantDb = app.get(TenantDbService);
     admissions = app.get(AdmissionsService);
+    requirements = app.get(AdmissionRequirementsService);
 
     const [ta, tb, actor] = await Promise.all([
       owner.tenant.create({
@@ -139,6 +169,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
         code: 'P5',
       },
     });
+    yearLevelId = year.id;
     const ay = await owner.academicYear.create({
       data: {
         tenantId: tenantAId,
@@ -182,8 +213,15 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
         select: { id: true, userId: true },
       });
       const userIds = profiles.map((p) => p.userId);
+      // Documents created by requirement uploads (cascades their versions).
+      await owner.document.deleteMany({ where: inTenants });
       await owner.admissionStageEvent.deleteMany({ where: inTenants });
       await owner.admissionReview.deleteMany({ where: inTenants });
+      await owner.admissionApplicationRequirement.deleteMany({
+        where: inTenants,
+      });
+      await owner.admissionGuardian.deleteMany({ where: inTenants });
+      await owner.admissionRequirement.deleteMany({ where: inTenants });
       await owner.admissionApplication.deleteMany({ where: inTenants });
       await owner.studentPlacementHistory.deleteMany({ where: inTenants });
       await owner.sectionEnrollment.deleteMany({ where: inTenants });
@@ -205,6 +243,10 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
       await owner.$disconnect();
     }
     if (app) await app.close();
+    for (const k of R2_KEYS) {
+      if (savedR2[k] === undefined) delete process.env[k];
+      else process.env[k] = savedR2[k];
+    }
   });
 
   it('an application is a durable pipeline record with stage history', async () => {
@@ -262,6 +304,156 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     // Both reviews are kept (history, not overwrite); newest first.
     expect(full.reviews[0]!.recommendation).toBe('recommend');
     expect(full.reviews[0]!.score).toBe(88);
+  });
+
+  it('composes the applying-for label and persists structured guardians', async () => {
+    const created = await makeApplication('struct');
+    // Composed from the year level (no stream), never re-typed.
+    expect(created.applyingFor).toBe('Primary 5');
+    expect(created.yearLevelId).toBe(yearLevelId);
+    expect(created.guardians.length).toBe(1);
+    expect(created.guardians[0]!.fullName).toBe('Mrs Okoro');
+    expect(created.guardians[0]!.relationship).toBe('mother');
+    expect(created.guardians[0]!.isPrimary).toBe(true);
+    // Legacy flat guardian fields mirror the primary for back-compat + search.
+    expect(created.guardianName).toBe('Mrs Okoro');
+    expect(created.guardianPhone).toContain('8012345678');
+  });
+
+  it('normalizes guardians: one primary, WhatsApp reuse/distinct', async () => {
+    const created = await inA(() =>
+      admissions.createApplication(
+        tenantAId,
+        {
+          applicantName: 'Multi Guardian Child',
+          yearLevelId,
+          guardians: [
+            {
+              fullName: 'Primary Parent',
+              relationship: 'mother',
+              phoneNumber: '8010000000',
+              whatsappSameAsPhone: true,
+              // Erroneously not flagged primary — the first is primary anyway.
+              isPrimary: false,
+            },
+            {
+              fullName: 'Second Parent',
+              relationship: 'father',
+              phoneNumber: '8020000000',
+              // Distinct WhatsApp with an explicit country code.
+              whatsappSameAsPhone: false,
+              whatsappCountryCode: '+1',
+              whatsappNumber: '2025550000',
+              // Erroneously flagged primary — ignored; only the first is primary.
+              isPrimary: true,
+            },
+          ],
+        },
+        actorId,
+      ),
+    );
+    const primaries = created.guardians.filter((g) => g.isPrimary);
+    expect(primaries.length).toBe(1);
+    expect(primaries[0]!.fullName).toBe('Primary Parent');
+
+    const first = created.guardians.find(
+      (g) => g.fullName === 'Primary Parent',
+    )!;
+    expect(first.whatsappSameAsPhone).toBe(true);
+    expect(first.whatsappNumber).toBeNull();
+
+    const second = created.guardians.find(
+      (g) => g.fullName === 'Second Parent',
+    )!;
+    expect(second.whatsappSameAsPhone).toBe(false);
+    expect(second.whatsappCountryCode).toBe('+1');
+    expect(second.whatsappNumber).toBe('2025550000');
+  });
+
+  it('exposes the intake structure for the cascade form', async () => {
+    const structure = await inA(() => admissions.getIntakeStructure(tenantAId));
+    expect(structure.stages.some((s) => s.name === 'Primary')).toBe(true);
+    expect(structure.yearLevels.some((y) => y.id === yearLevelId)).toBe(true);
+    expect(structure.campuses.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('attaches the default requirement checklist on create', async () => {
+    const created = await makeApplication('reqs');
+    const reqs = await inA(() =>
+      requirements.listForApplication(tenantAId, created.id),
+    );
+    expect(reqs.length).toBeGreaterThan(0);
+    const stages = new Set(reqs.map((r) => r.collectStage));
+    // The default set staggers across application + post-offer collection.
+    expect(stages.has('application')).toBe(true);
+    expect(stages.has('acceptance')).toBe(true);
+    expect(reqs.every((r) => r.status === 'pending')).toBe(true);
+  });
+
+  it('provides, uploads and waives requirements', async () => {
+    const created = await makeApplication('fulfil');
+    const reqs = await inA(() =>
+      requirements.listForApplication(tenantAId, created.id),
+    );
+    const fee = reqs.find((r) => r.type === 'fee')!;
+    const doc = reqs.find((r) => r.type === 'document')!;
+    const measurement = reqs.find((r) => r.type === 'measurement')!;
+    expect(fee && doc && measurement).toBeTruthy();
+
+    // Provide a fee (typed value).
+    const paid = await inA(() =>
+      requirements.provideRequirement(
+        tenantAId,
+        created.id,
+        fee.id,
+        { value: { paid: true, reference: 'PSK-1' } },
+        actorId,
+      ),
+    );
+    expect(paid.status).toBe('provided');
+
+    // Upload a document (local-disk provider in tests) → provided + linked.
+    const uploaded = await inA(() =>
+      requirements.uploadRequirementDocument(
+        tenantAId,
+        created.id,
+        doc.id,
+        {
+          mime: 'image/png',
+          filename: 'passport.png',
+          contentBase64: Buffer.from('fake-png-bytes').toString('base64'),
+        },
+        actorId,
+      ),
+    );
+    expect(uploaded.status).toBe('provided');
+    expect(uploaded.documentId).toBeTruthy();
+
+    // Waive a measurement (reason kept).
+    const waived = await inA(() =>
+      requirements.waiveRequirement(
+        tenantAId,
+        created.id,
+        measurement.id,
+        { reason: 'Measured on-site' },
+        actorId,
+      ),
+    );
+    expect(waived.status).toBe('waived');
+    expect(waived.waivedReason).toBe('Measured on-site');
+
+    // A document requirement cannot be satisfied via the value path.
+    await expect(
+      inA(() =>
+        requirements.provideRequirement(
+          tenantAId,
+          created.id,
+          doc.id,
+          { value: {} },
+          actorId,
+        ),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   it('advance cannot reach a terminal stage (use the dedicated action)', async () => {

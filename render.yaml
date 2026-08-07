@@ -24,15 +24,15 @@ services:
     # after CI passes). Disable Render's own push-triggered deploys to avoid
     # double deploys.
     # Quoted: bare `off` is boolean false under YAML 1.1 parsers.
-    autoDeployTrigger: "off"
+    autoDeployTrigger: 'off'
     envVars:
       - key: NODE_ENV
         value: production
       - key: PORT
-        value: "3000"
+        value: '3000'
       # Fail-closed RLS at runtime (ADR-004). Do not weaken in a deployed env.
       - key: DB_RLS_ENFORCED
-        value: "true"
+        value: 'true'
       # Owner connection — used by migrations/seed (run OUT of band in CI), and
       # kept here as the boot RLS-probe reference + a local fallback. The API
       # itself does NOT connect with it at runtime: both its clients use
@@ -83,14 +83,17 @@ services:
         sync: false
       - key: VOYAGE_API_KEY
         sync: false
-      # Object storage (Cloudflare R2) — consumed by the S3 provider in D1.
-      - key: STORAGE_S3_ENDPOINT
+      # Object storage — Cloudflare R2 (S3-compatible) for uploaded document
+      # binaries. Set ALL FOUR to switch the StorageProvider from local disk to
+      # R2; the account id forms the endpoint https://<id>.r2.cloudflarestorage.com.
+      # The key/secret are an R2 Object Read & Write API token — never committed.
+      - key: R2_ACCOUNT_ID
         sync: false
-      - key: STORAGE_S3_BUCKET
+      - key: R2_BUCKET
         sync: false
-      - key: STORAGE_S3_ACCESS_KEY_ID
+      - key: R2_ACCESS_KEY_ID
         sync: false
-      - key: STORAGE_S3_SECRET_ACCESS_KEY
+      - key: R2_SECRET_ACCESS_KEY
         sync: false
 
   # Redis-compatible cache/queue backend. Declared as a SERVICE (type: keyvalue),
@@ -123,6 +126,6 @@ databases:
   - name: swe-postgres
     plan: basic-256mb # → basic-1gb in Phase D2 under load
     region: oregon
-    postgresMajorVersion: "16"
+    postgresMajorVersion: '16'
     # pgvector is enabled by the learning_domain migration (CREATE EXTENSION
     # vector). Confirm it is in the instance's allowed extensions on provision.

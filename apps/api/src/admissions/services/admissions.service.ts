@@ -34,8 +34,10 @@ import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { AccessScopeService } from '../../auth/services/access-scope.service';
 import { StudentLifecycleService } from '../../academic-structure/services/student-lifecycle.service';
 import type { StructureActor } from '../../academic-structure/services/academic-structure-model.service';
+import { AdmissionRequirementsService } from './admission-requirements.service';
 import type {
   CreateApplicationDto,
+  GuardianInputDto,
   ListApplicationsDto,
   UpdateApplicationDto,
   AdvanceStageDto,
@@ -98,6 +100,7 @@ export class AdmissionsService {
     private readonly audit: AuditService,
     private readonly accessScope: AccessScopeService,
     private readonly lifecycle: StudentLifecycleService,
+    private readonly requirements: AdmissionRequirementsService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
@@ -165,6 +168,9 @@ export class AdmissionsService {
                 {
                   guardianName: { contains: query.query, mode: 'insensitive' },
                 },
+                {
+                  applyingFor: { contains: query.query, mode: 'insensitive' },
+                },
               ],
             }
           : {}),
@@ -173,17 +179,59 @@ export class AdmissionsService {
     });
   }
 
-  /** A single application enriched with its stage history + review history. */
+  /** A single application enriched with guardians, requirements + history. */
   async getApplication(tenantId: string, id: string) {
     const application = await this.client.admissionApplication.findFirst({
       where: { id, tenantId },
       include: {
+        guardians: { orderBy: [{ isPrimary: 'desc' }, { createdAt: 'asc' }] },
+        requirements: {
+          orderBy: [{ collectStage: 'asc' }, { label: 'asc' }],
+        },
         stageEvents: { orderBy: { createdAt: 'asc' } },
         reviews: { orderBy: { createdAt: 'desc' } },
       },
     });
     if (!application) throw new NotFoundException('Application not found');
     return application;
+  }
+
+  /**
+   * The academic structure the intake form cascades over (WB2-1) — so the school
+   * keeps NO separate admissions list and an admit lands in a real class with no
+   * re-keying. Read on the tenant client (RLS); campuses come back so a
+   * multi-campus school can target one.
+   */
+  async getIntakeStructure(tenantId: string) {
+    const [campuses, stages, yearLevels, streams] = await Promise.all([
+      this.client.campus.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, code: true },
+        orderBy: { name: 'asc' },
+      }),
+      this.client.stage.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, code: true, order: true },
+        orderBy: [{ order: 'asc' }, { name: 'asc' }],
+      }),
+      this.client.yearLevel.findMany({
+        where: { tenantId },
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          order: true,
+          stageId: true,
+        },
+        orderBy: [{ order: 'asc' }, { name: 'asc' }],
+      }),
+      this.client.stream.findMany({
+        where: { tenantId },
+        select: { id: true, name: true, code: true },
+        orderBy: [{ order: 'asc' }, { name: 'asc' }],
+      }),
+    ]);
+    return { campuses, stages, yearLevels, streams };
   }
 
   async pipelineSummary(tenantId: string) {
@@ -206,19 +254,44 @@ export class AdmissionsService {
 
   // ======================= create / update =======================
 
+  /**
+   * Submit a structured application: the "applying for" is the WB2-1 cascade
+   * (class = year level, its level = stage, optional department = stream), from
+   * which the stored label is COMPOSED (never parsed). Guardians are captured
+   * structurally (multi, with phone + WhatsApp), and the tenant's requirement
+   * checklist is snapshotted onto the application. All in the one tenant tx.
+   */
   async createApplication(
     tenantId: string,
     dto: CreateApplicationDto,
     actorId: string,
   ) {
+    const cascade = await this.resolveCascade(tenantId, dto);
+    const guardians = this.normalizeGuardians(dto.guardians);
+    const primary = guardians.find((g) => g.isPrimary) ?? guardians[0]!;
+
     const application = await this.client.admissionApplication.create({
       data: {
         tenantId,
         applicantName: dto.applicantName.trim(),
-        applyingFor: dto.applyingFor.trim(),
-        guardianName: dto.guardianName.trim(),
-        guardianEmail: dto.guardianEmail ?? null,
-        guardianPhone: dto.guardianPhone ?? null,
+        applyingFor: cascade.label,
+        stageId: cascade.stageId,
+        yearLevelId: cascade.yearLevelId,
+        streamId: cascade.streamId,
+        campusId: cascade.campusId,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : null,
+        gender: dto.gender ?? null,
+        stateOfOrigin: dto.stateOfOrigin?.trim() || null,
+        religion: dto.religion?.trim() || null,
+        healthNotes: dto.healthNotes?.trim() || null,
+        // Legacy flat guardian fields mirror the primary guardian (back-compat +
+        // the list search still matches on guardianName).
+        guardianName: primary.fullName,
+        guardianEmail: primary.email,
+        guardianPhone: this.composePhone(
+          primary.phoneCountryCode,
+          primary.phoneNumber,
+        ),
         submittedDate: dto.submittedDate
           ? new Date(dto.submittedDate)
           : new Date(),
@@ -229,6 +302,33 @@ export class AdmissionsService {
         updatedBy: actorId,
       },
     });
+
+    await this.client.admissionGuardian.createMany({
+      data: guardians.map((g) => ({
+        tenantId,
+        applicationId: application.id,
+        fullName: g.fullName,
+        relationship: g.relationship,
+        email: g.email,
+        address: g.address,
+        phoneCountryCode: g.phoneCountryCode,
+        phoneNumber: g.phoneNumber,
+        whatsappSameAsPhone: g.whatsappSameAsPhone,
+        whatsappCountryCode: g.whatsappCountryCode,
+        whatsappNumber: g.whatsappNumber,
+        isPrimary: g.isPrimary,
+        createdBy: actorId,
+      })),
+    });
+
+    // Snapshot the requirement checklist onto the application (seeds defaults if
+    // the tenant has no template yet).
+    await this.requirements.instantiateForApplication(
+      tenantId,
+      application.id,
+      actorId,
+    );
+
     await this.writeStageEvent(
       tenantId,
       application.id,
@@ -244,7 +344,94 @@ export class AdmissionsService {
       application.id,
       `submitted application for ${application.applicantName} (${application.applyingFor})`,
     );
-    return application;
+    return this.getApplication(tenantId, application.id);
+  }
+
+  /**
+   * Validate the structured cascade against the tenant's academic structure and
+   * COMPOSE the stored display label from it (year level + optional stream).
+   */
+  private async resolveCascade(tenantId: string, dto: CreateApplicationDto) {
+    const yearLevel = await this.client.yearLevel.findFirst({
+      where: { id: dto.yearLevelId, tenantId },
+      select: { id: true, name: true, stageId: true },
+    });
+    if (!yearLevel) {
+      throw new BadRequestException('Year level not found for this tenant.');
+    }
+    // The stage is derived from the year level; if the caller passed one it must agree.
+    if (dto.stageId && dto.stageId !== yearLevel.stageId) {
+      throw new BadRequestException(
+        'The selected level does not match the class.',
+      );
+    }
+
+    let streamName: string | null = null;
+    if (dto.streamId) {
+      const stream = await this.client.stream.findFirst({
+        where: { id: dto.streamId, tenantId },
+        select: { id: true, name: true },
+      });
+      if (!stream) {
+        throw new BadRequestException('Stream not found for this tenant.');
+      }
+      streamName = stream.name;
+    }
+
+    if (dto.campusId) {
+      const campus = await this.client.campus.findFirst({
+        where: { id: dto.campusId, tenantId },
+        select: { id: true },
+      });
+      if (!campus) {
+        throw new BadRequestException('Campus not found for this tenant.');
+      }
+    }
+
+    const label = [yearLevel.name, streamName].filter(Boolean).join(' ');
+    return {
+      stageId: yearLevel.stageId,
+      yearLevelId: yearLevel.id,
+      streamId: dto.streamId ?? null,
+      campusId: dto.campusId ?? null,
+      label,
+    };
+  }
+
+  private composePhone(
+    countryCode: string | undefined,
+    number: string,
+  ): string {
+    return `${(countryCode ?? '+234').trim()} ${number.trim()}`.trim();
+  }
+
+  /** Normalize the guardian block: defaults, trimming, WhatsApp reuse. */
+  private normalizeGuardians(input: GuardianInputDto[]) {
+    return input.map((g, i) => {
+      const phoneCountryCode = (g.phoneCountryCode ?? '+234').trim();
+      const phoneNumber = g.phoneNumber.trim();
+      const distinctWhatsapp = g.whatsappNumber?.trim() || null;
+      // "Same as phone" reuse: an explicit reuse OR a blank distinct number both
+      // collapse to the phone (one source of truth) — never persist a half-filled
+      // WhatsApp that would render as "+234 —".
+      const whatsappSameAsPhone =
+        (g.whatsappSameAsPhone ?? true) || !distinctWhatsapp;
+      return {
+        fullName: g.fullName.trim(),
+        relationship: g.relationship,
+        email: g.email?.trim() || null,
+        address: g.address?.trim() || null,
+        phoneCountryCode,
+        phoneNumber,
+        whatsappSameAsPhone,
+        whatsappCountryCode: whatsappSameAsPhone
+          ? null
+          : (g.whatsappCountryCode ?? phoneCountryCode).trim(),
+        whatsappNumber: whatsappSameAsPhone ? null : distinctWhatsapp,
+        // Exactly one primary: the first guardian, regardless of client flags.
+        isPrimary: i === 0,
+      };
+    });
   }
 
   async updateApplication(

@@ -1,0 +1,512 @@
+'use client';
+
+/**
+ * WB3 structured-intake · full application detail / edit.
+ *
+ * Applicant profile + guardians + the staged requirement checklist, plus the
+ * stage history, scored reviews, and the decision actions (advance / review /
+ * offer / accept / reject / convert). Writes go through /api/admissions/*;
+ * permissions + campus scope are enforced server-side.
+ */
+import * as React from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
+import { ArrowLeft, GraduationCap, UserCheck } from 'lucide-react';
+
+import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@workspace/ui/components/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@workspace/ui/components/select';
+import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+
+import { RequirementsPanel } from './requirements-panel';
+import {
+  STAGE_TONE,
+  errorMessage,
+  fmtDate,
+  type ApplicationDetail,
+  type Perms,
+  type SectionOption,
+  type YearOption,
+} from '../admissions-types';
+
+const ADVANCE_STAGES = [
+  'enquiry',
+  'applied',
+  'screening',
+  'interview',
+  'withdrawn',
+] as const;
+const RECOMMENDATIONS = ['recommend', 'waitlist', 'reject', 'hold'] as const;
+
+export function ApplicationDetailView({
+  detail,
+  perms,
+  sections,
+  years,
+  configByRequirementId,
+}: {
+  detail: ApplicationDetail;
+  perms: Perms;
+  sections: SectionOption[];
+  years: YearOption[];
+  configByRequirementId: Record<string, Record<string, unknown> | undefined>;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState(false);
+  const [score, setScore] = React.useState('');
+  const [recommendation, setRecommendation] = React.useState('recommend');
+  // Seed the offer/convert target from what the offer already recorded, so the
+  // convert button isn't stuck disabled after a page refresh.
+  const [sectionId, setSectionId] = React.useState(
+    detail.targetClassSectionId ?? '',
+  );
+  const [yearId, setYearId] = React.useState(detail.academicYearId ?? '');
+
+  const stage = detail.stage;
+  const terminal =
+    stage === 'enrolled' || stage === 'rejected' || stage === 'withdrawn';
+
+  async function post(
+    path: string,
+    body: Record<string, unknown> | undefined,
+    okMsg: string,
+  ) {
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/admissions/${path}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
+      });
+      if (!res.ok) {
+        toast.error(await errorMessage(res, 'Action failed'));
+        return;
+      }
+      toast.success(okMsg);
+      router.refresh();
+    } catch {
+      toast.error('Network error — please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
+      <div>
+        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
+          <Link href="/admissions">
+            <ArrowLeft className="mr-1 size-4" aria-hidden /> Admissions
+          </Link>
+        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          <h1 className="text-2xl font-semibold tracking-tight">
+            {detail.applicantName}
+          </h1>
+          <StatusBadge tone={STAGE_TONE[stage] ?? 'neutral'}>
+            {stage}
+          </StatusBadge>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Applying for {detail.applyingFor}
+          {detail.resultingStudentId ? ' · enrolled as a student' : ''}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        {/* Profile + guardians */}
+        <div className="flex flex-col gap-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Applicant</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                <Field
+                  label="Date of birth"
+                  value={fmtDate(detail.dateOfBirth)}
+                />
+                <Field label="Gender" value={detail.gender ?? '—'} />
+                <Field
+                  label="State of origin"
+                  value={detail.stateOfOrigin ?? '—'}
+                />
+                <Field label="Religion" value={detail.religion ?? '—'} />
+                <Field
+                  label="Health notes"
+                  value={detail.healthNotes ?? '—'}
+                  wide
+                />
+                <Field label="Notes" value={detail.notes ?? '—'} wide />
+              </dl>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Parents / guardians</CardTitle>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-2">
+              {detail.guardians.length === 0 ? (
+                <p className="text-sm text-muted-foreground">None recorded.</p>
+              ) : (
+                detail.guardians.map((g, i) => (
+                  <div
+                    key={g.id ?? i}
+                    className="rounded-md border border-border p-3 text-sm"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-medium">{g.fullName}</span>
+                      <span className="text-xs capitalize text-muted-foreground">
+                        {g.relationship}
+                        {g.isPrimary ? ' · primary' : ''}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      Phone: {g.phoneCountryCode} {g.phoneNumber}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      WhatsApp:{' '}
+                      {g.whatsappSameAsPhone
+                        ? `${g.phoneCountryCode} ${g.phoneNumber} (same)`
+                        : `${g.whatsappCountryCode ?? ''} ${g.whatsappNumber ?? '—'}`}
+                    </div>
+                    {g.email && (
+                      <div className="text-xs text-muted-foreground">
+                        {g.email}
+                      </div>
+                    )}
+                    {g.address && (
+                      <div className="text-xs text-muted-foreground">
+                        {g.address}
+                      </div>
+                    )}
+                  </div>
+                ))
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Requirements */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Requirements</CardTitle>
+            <CardDescription>
+              Collected across the admissions journey — documents, measurements
+              and fees, staged as the school configures them.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <RequirementsPanel
+              applicationId={detail.id}
+              requirements={detail.requirements}
+              configByRequirementId={configByRequirementId}
+              canManage={perms.documents}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* History + reviews */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Stage history</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <ol className="flex flex-col gap-0">
+              {detail.stageEvents.map((e) => (
+                <li
+                  key={e.id}
+                  className="flex gap-3 border-l-2 border-border pb-3 pl-4 last:pb-0"
+                >
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-2">
+                      <StatusBadge tone={STAGE_TONE[e.toStage] ?? 'neutral'}>
+                        {e.toStage}
+                      </StatusBadge>
+                      <span className="text-xs text-muted-foreground">
+                        {fmtDate(e.createdAt)}
+                      </span>
+                    </div>
+                    {e.note && (
+                      <span className="text-xs text-muted-foreground">
+                        {e.note}
+                      </span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Reviews</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {detail.reviews.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No reviews yet.</p>
+            ) : (
+              <ul className="flex flex-col divide-y rounded-md border">
+                {detail.reviews.map((r) => (
+                  <li
+                    key={r.id}
+                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                  >
+                    <span>
+                      {r.recommendation}
+                      {r.note ? ` — ${r.note}` : ''}
+                    </span>
+                    {r.score != null && (
+                      <StatusBadge tone="info">{r.score}</StatusBadge>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Decision */}
+      {!terminal &&
+        (perms.review || perms.approve || perms.reject || perms.convert) && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Decision</CardTitle>
+              <CardDescription>
+                Advance, review, offer, accept, reject — or convert to a
+                student.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-col gap-5">
+              {perms.review && (
+                <div className="flex flex-col gap-3">
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Advance to</Label>
+                      <Select
+                        onValueChange={(v) =>
+                          void post(
+                            `applications/${detail.id}/advance`,
+                            { toStage: v },
+                            `Moved to ${v}`,
+                          )
+                        }
+                      >
+                        <SelectTrigger className="w-44">
+                          <SelectValue placeholder="Choose stage" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {ADVANCE_STAGES.map((s) => (
+                            <SelectItem key={s} value={s}>
+                              {s}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-end gap-3">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="rv-score">Score</Label>
+                      <Input
+                        id="rv-score"
+                        className="w-24"
+                        value={score}
+                        onChange={(e) => setScore(e.target.value)}
+                        placeholder="0–100"
+                        inputMode="numeric"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Recommendation</Label>
+                      <Select
+                        value={recommendation}
+                        onValueChange={setRecommendation}
+                      >
+                        <SelectTrigger className="w-44">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {RECOMMENDATIONS.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {r}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <Button
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => {
+                        const s = score.trim() ? Number(score) : undefined;
+                        void post(
+                          `applications/${detail.id}/reviews`,
+                          { recommendation, score: s },
+                          'Review added',
+                        ).then(() => setScore(''));
+                      }}
+                    >
+                      Add review
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {(perms.approve || perms.convert) &&
+                (sections.length === 0 || years.length === 0 ? (
+                  <p className="rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground">
+                    No {sections.length === 0 ? 'sections' : 'academic years'}{' '}
+                    are available to offer or convert into. You may be missing
+                    access to the academic structure — ask an administrator for
+                    the “View academic structure” and schedule permissions.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Target section</Label>
+                      <Select value={sectionId} onValueChange={setSectionId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose section" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sections.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.displayLabel}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label>Academic year</Label>
+                      <Select value={yearId} onValueChange={setYearId}>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choose year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((y) => (
+                            <SelectItem key={y.id} value={y.id}>
+                              {y.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ))}
+
+              <div className="flex flex-wrap gap-2">
+                {perms.approve && stage !== 'offer' && stage !== 'accepted' && (
+                  <Button
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() =>
+                      void post(
+                        `applications/${detail.id}/offer`,
+                        {
+                          targetClassSectionId: sectionId || undefined,
+                          academicYearId: yearId || undefined,
+                        },
+                        'Place offered',
+                      )
+                    }
+                  >
+                    Offer a place
+                  </Button>
+                )}
+                {perms.approve && stage === 'offer' && (
+                  <Button
+                    disabled={busy}
+                    onClick={() =>
+                      void post(
+                        `applications/${detail.id}/accept`,
+                        undefined,
+                        'Offer accepted',
+                      )
+                    }
+                  >
+                    <UserCheck className="mr-1 size-4" aria-hidden />
+                    Record acceptance
+                  </Button>
+                )}
+                {perms.convert && stage === 'accepted' && (
+                  <Button
+                    disabled={busy || !sectionId || !yearId}
+                    onClick={() =>
+                      void post(
+                        `applications/${detail.id}/convert`,
+                        { classSectionId: sectionId, academicYearId: yearId },
+                        'Converted to a registered student',
+                      )
+                    }
+                  >
+                    <GraduationCap className="mr-1 size-4" aria-hidden />
+                    Convert to student
+                  </Button>
+                )}
+                {perms.reject && (
+                  <Button
+                    variant="ghost"
+                    disabled={busy}
+                    onClick={() =>
+                      void post(
+                        `applications/${detail.id}/reject`,
+                        undefined,
+                        'Application rejected',
+                      )
+                    }
+                  >
+                    Reject
+                  </Button>
+                )}
+              </div>
+              {perms.convert && stage === 'accepted' && (
+                <p className="text-xs text-muted-foreground">
+                  Converting creates the student record and enrols them into the
+                  chosen section.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  wide,
+}: {
+  label: string;
+  value: string;
+  wide?: boolean;
+}) {
+  return (
+    <div className={`flex flex-col ${wide ? 'col-span-2' : ''}`}>
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="whitespace-pre-wrap">{value}</dd>
+    </div>
+  );
+}

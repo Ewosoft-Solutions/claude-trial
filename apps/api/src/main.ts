@@ -2,6 +2,7 @@ import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import type { Express } from 'express';
 
 import { AppModule } from './app.module';
@@ -10,7 +11,15 @@ import { swaggerTagList } from './common/swagger-tags';
 import type { EnvConfig } from './common/config/env.config';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Document uploads (F4 + admissions requirement documents) POST the file as
+  // base64 in the JSON body, so raise the body-parser limit from the 100kb
+  // default — a real passport photo / PDF base64-encodes well past that and
+  // would otherwise 413. 20mb of JSON ≈ ~14mb of binary; the upload DTOs cap
+  // `contentBase64` below that so oversize files get a clean 400, not a raw 413.
+  app.useBodyParser('json', { limit: '20mb' });
+  app.useBodyParser('urlencoded', { extended: true, limit: '20mb' });
 
   const configService = app.get(ConfigService);
   const env: EnvConfig = configService.getOrThrow<EnvConfig>('env', {

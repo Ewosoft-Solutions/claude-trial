@@ -22,16 +22,22 @@ import {
 } from '../../auth/guards/permission.guard';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { AdmissionsService } from '../services/admissions.service';
+import { AdmissionRequirementsService } from '../services/admission-requirements.service';
 import type { StructureActor } from '../../academic-structure/services/academic-structure-model.service';
 import {
   AddReviewDto,
   AdvanceStageDto,
   ConvertToStudentDto,
   CreateApplicationDto,
+  CreateRequirementDto,
   DecisionNoteDto,
   ListApplicationsDto,
   MakeOfferDto,
+  ProvideRequirementDto,
   UpdateApplicationDto,
+  UpdateRequirementDto,
+  UploadRequirementDocumentDto,
+  WaiveRequirementDto,
 } from '../dto/admissions.dto';
 import type { AuthenticatedRequest } from 'src/auth';
 
@@ -49,7 +55,10 @@ import type { AuthenticatedRequest } from 'src/auth';
 @TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class AdmissionsController {
-  constructor(private readonly admissions: AdmissionsService) {}
+  constructor(
+    private readonly admissions: AdmissionsService,
+    private readonly requirements: AdmissionRequirementsService,
+  ) {}
 
   private tenantId(req: AuthenticatedRequest): string {
     if (!req.user) throw new ForbiddenException('User context not found');
@@ -85,6 +94,17 @@ export class AdmissionsController {
   @ApiOperation({ summary: 'Pipeline summary (stage + decision counts)' })
   summary(@Request() req: AuthenticatedRequest) {
     return this.admissions.pipelineSummary(this.tenantId(req));
+  }
+
+  @Get('intake-structure')
+  @RequirePermissions(['admissions.view'])
+  @ApiOperation({
+    summary:
+      'The academic structure the intake form cascades over ' +
+      '(campuses, stages, year levels, streams)',
+  })
+  intakeStructure(@Request() req: AuthenticatedRequest) {
+    return this.admissions.getIntakeStructure(this.tenantId(req));
   }
 
   @Get('applications/:id')
@@ -202,6 +222,144 @@ export class AdmissionsController {
     return this.admissions.reject(
       this.tenantId(req),
       id,
+      dto,
+      this.actorId(req),
+    );
+  }
+
+  // ---- requirement template (per-tenant, configurable) ----
+  @Get('requirements')
+  @RequirePermissions(['admissions.view'])
+  @ApiOperation({ summary: "The tenant's admission requirement template" })
+  listTemplate(@Request() req: AuthenticatedRequest) {
+    return this.requirements.listTemplate(this.tenantId(req));
+  }
+
+  @Post('requirements/ensure-defaults')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.criteria'])
+  @ApiOperation({
+    summary: 'Seed the standard requirement checklist (idempotent)',
+  })
+  ensureDefaults(@Request() req: AuthenticatedRequest) {
+    return this.requirements.ensureDefaults(
+      this.tenantId(req),
+      this.actorId(req),
+    );
+  }
+
+  @Post('requirements')
+  @RequirePermissions(['admissions.criteria'])
+  @ApiOperation({ summary: 'Add a requirement to the template' })
+  createRequirement(
+    @Body() dto: CreateRequirementDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.requirements.createRequirement(
+      this.tenantId(req),
+      this.actorId(req),
+      dto,
+    );
+  }
+
+  @Patch('requirements/:reqId')
+  @RequirePermissions(['admissions.criteria'])
+  @ApiOperation({ summary: 'Edit a requirement in the template' })
+  updateRequirement(
+    @Param('reqId') reqId: string,
+    @Body() dto: UpdateRequirementDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.requirements.updateRequirement(
+      this.tenantId(req),
+      this.actorId(req),
+      reqId,
+      dto,
+    );
+  }
+
+  // ---- application requirement checklist ----
+  @Get('applications/:id/requirements')
+  @RequirePermissions(['admissions.view'])
+  @ApiOperation({ summary: "An application's requirement checklist" })
+  listApplicationRequirements(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.requirements.listForApplication(this.tenantId(req), id);
+  }
+
+  @Post('applications/:id/requirements/instantiate')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.documents'])
+  @ApiOperation({
+    summary: 'Refresh the checklist from the current template (idempotent)',
+  })
+  instantiateRequirements(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.requirements.instantiateForApplication(
+      this.tenantId(req),
+      id,
+      this.actorId(req),
+    );
+  }
+
+  @Post('applications/:id/requirements/:reqId/provide')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.documents'])
+  @ApiOperation({ summary: 'Provide a field / measurement / fee requirement' })
+  provideRequirement(
+    @Param('id') id: string,
+    @Param('reqId') reqId: string,
+    @Body() dto: ProvideRequirementDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.requirements.provideRequirement(
+      this.tenantId(req),
+      id,
+      reqId,
+      dto,
+      this.actorId(req),
+    );
+  }
+
+  @Post('applications/:id/requirements/:reqId/waive')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.documents'])
+  @ApiOperation({ summary: 'Waive a requirement (reason kept for audit)' })
+  waiveRequirement(
+    @Param('id') id: string,
+    @Param('reqId') reqId: string,
+    @Body() dto: WaiveRequirementDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.requirements.waiveRequirement(
+      this.tenantId(req),
+      id,
+      reqId,
+      dto,
+      this.actorId(req),
+    );
+  }
+
+  @Post('applications/:id/requirements/:reqId/document')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.documents'])
+  @ApiOperation({
+    summary: 'Upload a document to fulfil a document requirement',
+  })
+  uploadRequirementDocument(
+    @Param('id') id: string,
+    @Param('reqId') reqId: string,
+    @Body() dto: UploadRequirementDocumentDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.requirements.uploadRequirementDocument(
+      this.tenantId(req),
+      id,
+      reqId,
       dto,
       this.actorId(req),
     );
