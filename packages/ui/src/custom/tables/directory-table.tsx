@@ -62,6 +62,14 @@ import {
 } from '@workspace/ui/components/table';
 import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import {
+  DirectoryFilterPills,
+  DirectoryToolbar,
+  activeFilterEntries,
+  type DirectoryToolbarProps,
+  type ToolbarFilter,
+  type ToolbarViews,
+} from '@workspace/ui/custom/tables/directory-toolbar';
+import {
   EmptyState,
   ErrorState,
 } from '@workspace/ui/custom/states/page-states';
@@ -145,8 +153,24 @@ export interface DirectoryTableProps<TRow> {
   /** Title/description above the toolbar. */
   title?: React.ReactNode;
   description?: React.ReactNode;
-  /** Toolbar slot (search, filters, saved-view select, primary action). */
+  /** Toolbar slot (search, filters, saved-view select, primary action).
+   *  Legacy path — prefer the structured props below, which render the
+   *  built-in Pattern B toolbar (responsive Filters button + applied pills). */
   toolbar?: React.ReactNode;
+  /** Applied-filter pills row rendered below the toolbar (legacy path). */
+  filterBar?: React.ReactNode;
+
+  // ---- Structured Pattern B toolbar (opt-in via `search`) --------------
+  /** Providing `search` switches on the built-in DirectoryToolbar. */
+  search?: DirectoryToolbarProps['search'];
+  filters?: ToolbarFilter[];
+  filterValues?: Record<string, string | null | undefined>;
+  onFilterChange?: (key: string, value: string | null) => void;
+  onClearFilters?: () => void;
+  formatFilterValue?: (key: string, value: string) => string;
+  views?: ToolbarViews;
+  /** Inline actions (e.g. a primary button) placed at the toolbar's end. */
+  toolbarActions?: React.ReactNode;
   /** Empty-state slot (defaults to a generic EmptyState). */
   emptyState?: React.ReactNode;
   /** Accessible caption for the table. */
@@ -176,6 +200,15 @@ export function DirectoryTable<TRow>({
   title,
   description,
   toolbar,
+  filterBar,
+  search,
+  filters,
+  filterValues,
+  onFilterChange,
+  onClearFilters,
+  formatFilterValue,
+  views,
+  toolbarActions,
   emptyState,
   caption,
   className,
@@ -279,55 +312,97 @@ export function DirectoryTable<TRow>({
           ))
         )
       }
+      filterBar={
+        search ? (
+          activeFilterEntries(filters, filterValues).length > 0 ? (
+            <DirectoryFilterPills
+              filters={filters}
+              filterValues={filterValues}
+              onFilterChange={onFilterChange}
+              onClearFilters={onClearFilters}
+              formatFilterValue={formatFilterValue}
+            />
+          ) : undefined
+        ) : (
+          filterBar
+        )
+      }
       toolbar={
-        <>
-          {toolbar}
-          {hideableColumns.length > 0 ? (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm">
-                  <Columns3 aria-hidden />
-                  <span className="hidden @md/main:inline">Columns</span>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  disabled={!anyHidden}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    showAllColumns();
-                  }}
-                >
-                  Show all
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={!anyVisible}
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    hideAllColumns();
-                  }}
-                >
-                  Hide all
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                {hideableColumns.map((c) => (
-                  <DropdownMenuCheckboxItem
-                    key={c.id}
-                    checked={!hidden[c.id]}
-                    onCheckedChange={(value) =>
-                      setHidden((prev) => ({ ...prev, [c.id]: !value }))
-                    }
+        search ? (
+          <DirectoryToolbar
+            search={search}
+            filters={filters}
+            filterValues={filterValues}
+            onFilterChange={onFilterChange}
+            onClearFilters={onClearFilters}
+            views={views}
+            actions={toolbarActions}
+            columns={
+              hideableColumns.length > 0
+                ? {
+                    items: hideableColumns.map((c) => ({
+                      id: c.id,
+                      label:
+                        c.ariaLabel ??
+                        (typeof c.header === 'string' ? c.header : c.id),
+                      visible: !hidden[c.id],
+                    })),
+                    onToggle: (id, visible) =>
+                      setHidden((prev) => ({ ...prev, [id]: !visible })),
+                  }
+                : undefined
+            }
+          />
+        ) : (
+          <>
+            {toolbar}
+            {hideableColumns.length > 0 ? (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Columns3 aria-hidden />
+                    <span className="hidden @md/main:inline">Columns</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-48">
+                  <DropdownMenuLabel>Toggle columns</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={!anyHidden}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      showAllColumns();
+                    }}
                   >
-                    {c.ariaLabel ??
-                      (typeof c.header === 'string' ? c.header : c.id)}
-                  </DropdownMenuCheckboxItem>
-                ))}
-              </DropdownMenuContent>
-            </DropdownMenu>
-          ) : null}
-        </>
+                    Show all
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    disabled={!anyVisible}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      hideAllColumns();
+                    }}
+                  >
+                    Hide all
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  {hideableColumns.map((c) => (
+                    <DropdownMenuCheckboxItem
+                      key={c.id}
+                      checked={!hidden[c.id]}
+                      onCheckedChange={(value) =>
+                        setHidden((prev) => ({ ...prev, [c.id]: !value }))
+                      }
+                    >
+                      {c.ariaLabel ??
+                        (typeof c.header === 'string' ? c.header : c.id)}
+                    </DropdownMenuCheckboxItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            ) : null}
+          </>
+        )
       }
       footer={
         <>
@@ -353,7 +428,8 @@ export function DirectoryTable<TRow>({
                 onValueChange={(v) => onPageSizeChange(Number(v))}
               >
                 <SelectTrigger
-                  className="h-8 w-[4.5rem]"
+                  className="h-8 w-[4.5rem] rounded-sm"
+                  style={{ backgroundColor: 'transparent' }}
                   aria-label="Rows per page"
                 >
                   <SelectValue />
@@ -477,7 +553,11 @@ export function DirectoryTable<TRow>({
                     type="button"
                     onClick={() => onSortChange(col.id)}
                     className={cn(
-                      'inline-flex items-center gap-1 rounded-sm font-medium hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
+                      // `uppercase` here is deliberate: browsers' form reset
+                      // (Tailwind Preflight) sets text-transform:none on
+                      // <button>, which would otherwise cancel the uppercase
+                      // inherited from the <th>.
+                      'inline-flex items-center gap-1 rounded-sm font-semibold uppercase tracking-wider hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring',
                       col.align === 'end' && 'flex-row-reverse',
                     )}
                   >

@@ -51,7 +51,7 @@ describe('StatusBadge', () => {
       </StatusBadge>,
     );
     // custom class is merged alongside the base shape classes
-    expect(badge()).toHaveClass('ml-2', 'rounded-full');
+    expect(badge()).toHaveClass('ml-2', 'rounded-badge');
     expect(badge()).toHaveAttribute('id', 'st');
     expect(badge()).toHaveAttribute('aria-label', 'status');
   });

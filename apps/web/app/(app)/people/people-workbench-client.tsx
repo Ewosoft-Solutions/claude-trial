@@ -7,25 +7,13 @@ import {
   Contact,
   Download,
   GraduationCap,
-  Search,
   UserCog,
   UserPlus,
   Users,
-  X,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
-import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -361,38 +349,6 @@ function filtersFor(type: PeopleType, facets: PeopleFacets): FilterDef[] {
   return defs;
 }
 
-function FilterSelect({
-  def,
-  value,
-  onChange,
-}: {
-  def: FilterDef;
-  value: string | undefined;
-  onChange: (value: string | null) => void;
-}) {
-  return (
-    <Select
-      value={value ?? 'all'}
-      onValueChange={(v) => onChange(v === 'all' ? null : v)}
-    >
-      <SelectTrigger
-        className="w-[9.5rem]"
-        aria-label={`Filter by ${def.label.toLowerCase()}`}
-      >
-        <SelectValue placeholder={def.label} />
-      </SelectTrigger>
-      <SelectContent>
-        <SelectItem value="all">{def.allLabel}</SelectItem>
-        {def.options.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
 interface Props {
   activeType: PeopleType;
   rows: PeopleRow[];
@@ -492,8 +448,6 @@ export function PeopleWorkbenchClient({
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   const filters = filtersFor(activeType, facets);
-  const activeFilterCount = Object.values(state.filters).filter(Boolean).length;
-  const hasActiveFilters = activeFilterCount > 0 || !!state.q;
 
   function clearFilters() {
     setTerm('');
@@ -566,47 +520,21 @@ export function PeopleWorkbenchClient({
           description="Adjust the search or filters to see more."
         />
       }
-      toolbar={
-        <>
-          <div className="relative min-w-0 flex-1 @md/main:w-56 @md/main:flex-none">
-            <Search
-              className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              aria-hidden
-            />
-            <Label htmlFor="people-search" className="sr-only">
-              Search {TAB_LABEL[activeType].toLowerCase()}
-            </Label>
-            <Input
-              id="people-search"
-              type="search"
-              value={term}
-              onChange={(e) => setTerm(e.target.value)}
-              placeholder="Search name, number..."
-              className="pl-8"
-            />
-          </div>
-
-          {filters.map((def) => (
-            <FilterSelect
-              key={def.key}
-              def={def}
-              value={state.filters[def.key]}
-              onChange={(v) => setFilter(def.key, v)}
-            />
-          ))}
-
-          {hasActiveFilters ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={clearFilters}
-              aria-label="Clear search and filters"
-            >
-              <X aria-hidden /> Clear
-            </Button>
-          ) : null}
-        </>
-      }
+      search={{
+        value: term,
+        onChange: setTerm,
+        placeholder: 'Search name, number...',
+        label: `Search ${TAB_LABEL[activeType].toLowerCase()}`,
+        id: 'people-search',
+      }}
+      filters={filters.map((def) => ({
+        key: def.key,
+        label: def.label,
+        options: def.options,
+      }))}
+      filterValues={state.filters}
+      onFilterChange={setFilter}
+      onClearFilters={clearFilters}
     />
   );
 

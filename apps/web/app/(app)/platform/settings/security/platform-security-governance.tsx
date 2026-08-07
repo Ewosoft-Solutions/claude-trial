@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import { GitPullRequest, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 
 import { Badge } from '@workspace/ui/components/badge';
+import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -245,9 +246,12 @@ export function PlatformSecurityGovernance() {
                       </p>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      <Badge variant={policy.enabled ? 'default' : 'outline'}>
+                      <StatusBadge
+                        tone={policy.enabled ? 'success' : 'neutral'}
+                        dot
+                      >
                         {policy.enabled ? 'Active' : 'Paused'}
-                      </Badge>
+                      </StatusBadge>
                       {policy.requiresStepUp ? (
                         <Badge variant="secondary">
                           Step-up · {policy.freshnessMinutes}m
@@ -301,17 +305,19 @@ export function PlatformSecurityGovernance() {
                       {request.operation}
                     </p>
                   </div>
-                  <Badge
-                    variant={
+                  <StatusBadge
+                    tone={
                       request.status === 'approved'
-                        ? 'default'
+                        ? 'success'
                         : request.status === 'rejected'
                           ? 'destructive'
-                          : 'secondary'
+                          : 'warning'
                     }
+                    dot
+                    className="capitalize"
                   >
                     {request.status}
-                  </Badge>
+                  </StatusBadge>
                 </div>
                 <p className="mt-3 text-sm text-muted-foreground">
                   {request.reason}

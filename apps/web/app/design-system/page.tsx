@@ -4,6 +4,7 @@ import Link from 'next/link';
 
 import { Button } from '@workspace/ui/components/button';
 import { Badge } from '@workspace/ui/components/badge';
+import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import {
   Card,
   CardContent,
@@ -126,12 +127,34 @@ export default function DesignSystemPage() {
           </div>
         </Section>
 
-        <Section title="Badges" description="Status and label tokens.">
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge>Default</Badge>
-            <Badge variant="secondary">Secondary</Badge>
-            <Badge variant="outline">Outline</Badge>
-            <Badge variant="destructive">Destructive</Badge>
+        <Section
+          title="Badges & status pills"
+          description="Badge for labels/tags; StatusBadge (tone-driven pill) for a record's status — the app-wide standard used in every table."
+        >
+          <div className="space-y-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge>Default</Badge>
+              <Badge variant="secondary">Secondary</Badge>
+              <Badge variant="outline">Outline</Badge>
+              <Badge variant="destructive">Destructive</Badge>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone="success" dot>
+                Active
+              </StatusBadge>
+              <StatusBadge tone="info" dot>
+                On loan
+              </StatusBadge>
+              <StatusBadge tone="warning" dot>
+                Monitoring
+              </StatusBadge>
+              <StatusBadge tone="destructive" dot>
+                Overdue
+              </StatusBadge>
+              <StatusBadge tone="neutral" dot>
+                Inactive
+              </StatusBadge>
+            </div>
           </div>
         </Section>
 

@@ -119,7 +119,8 @@ export function NestedItemBullet() {
   );
 }
 
-/* ---- section heading: italic handwriting (Caveat) for quick scanning ---- */
+/* ---- section heading: uppercase tracked sans, matching the design-system
+   category labels (e.g. the table filter groups) for consistent scanning ---- */
 export function SectionLabel({
   children,
   className,
@@ -130,7 +131,7 @@ export function SectionLabel({
   return (
     <div
       className={cn(
-        'truncate font-display text-[15px] font-medium italic leading-none text-muted-foreground',
+        'truncate text-[11px] font-bold uppercase tracking-wider leading-none text-muted-foreground',
         className,
       )}
     >

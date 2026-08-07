@@ -11,7 +11,7 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { Download, Plus, Search } from 'lucide-react';
+import { Download, Plus } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -27,13 +27,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -146,12 +139,19 @@ export function InvoicesClient({
     () => ({ pageSize: defaultPageSize }),
     [defaultPageSize],
   );
-  const { state, setPage, setPageSize, toggleSort, setQuery, setFilter } =
-    useDirectoryState({
-      searchParams: searchParams.toString(),
-      onChange,
-      defaults,
-    });
+  const {
+    state,
+    setPage,
+    setPageSize,
+    toggleSort,
+    setQuery,
+    setFilter,
+    setFilters,
+  } = useDirectoryState({
+    searchParams: searchParams.toString(),
+    onChange,
+    defaults,
+  });
 
   const [term, setTerm] = React.useState(state.q);
   React.useEffect(() => setTerm(state.q), [state.q]);
@@ -327,48 +327,29 @@ export function InvoicesClient({
           title="Fee invoices"
           description={`${total} ${total === 1 ? 'invoice' : 'invoices'}`}
           caption="Fee invoices"
-          toolbar={
-            <>
-              <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="invoice-search" className="sr-only">
-                  Search invoices
-                </Label>
-                <Input
-                  id="invoice-search"
-                  type="search"
-                  value={term}
-                  onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Search invoice # or student…"
-                  className="pl-8"
-                />
-              </div>
-              <Select
-                value={statusFilter}
-                onValueChange={(v) =>
-                  setFilter('status', v === 'all' ? null : v)
-                }
-              >
-                <SelectTrigger
-                  className="w-[8.5rem]"
-                  aria-label="Filter by status"
-                >
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="partial">Part-paid</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                  <SelectItem value="issued">Issued</SelectItem>
-                  <SelectItem value="draft">Draft</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          }
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search invoice # or student…',
+            label: 'Search invoices',
+            id: 'invoice-search',
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: [
+                { value: 'paid', label: 'Paid' },
+                { value: 'partial', label: 'Part-paid' },
+                { value: 'overdue', label: 'Overdue' },
+                { value: 'issued', label: 'Issued' },
+                { value: 'draft', label: 'Draft' },
+              ],
+            },
+          ]}
+          filterValues={state.filters}
+          onFilterChange={setFilter}
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact

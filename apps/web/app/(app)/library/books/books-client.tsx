@@ -10,19 +10,10 @@
    ============================================================ */
 
 import * as React from 'react';
-import { BookPlus, Search } from 'lucide-react';
+import { BookPlus } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -63,6 +54,10 @@ const STATUS_META: Record<BookStatus, { label: string; tone: StateTone }> = {
   overdue: { label: 'Overdue', tone: 'destructive' },
 };
 
+const STATUS_FILTER_OPTIONS = (Object.keys(STATUS_META) as BookStatus[]).map(
+  (s) => ({ value: s, label: STATUS_META[s].label }),
+);
+
 const META: PageHeaderMeta[] = [
   { key: 'term', label: 'Spring Term 2025', emphasis: true },
 ];
@@ -90,12 +85,19 @@ export function BooksClient({ books, total, defaultPageSize, stats }: Props) {
     () => ({ pageSize: defaultPageSize }),
     [defaultPageSize],
   );
-  const { state, setPage, setPageSize, toggleSort, setQuery, setFilter } =
-    useDirectoryState({
-      searchParams: searchParams.toString(),
-      onChange,
-      defaults,
-    });
+  const {
+    state,
+    setPage,
+    setPageSize,
+    toggleSort,
+    setQuery,
+    setFilter,
+    setFilters,
+  } = useDirectoryState({
+    searchParams: searchParams.toString(),
+    onChange,
+    defaults,
+  });
 
   // Debounced search: snappy typing without a request per keystroke.
   const [term, setTerm] = React.useState(state.q);
@@ -204,47 +206,19 @@ export function BooksClient({ books, total, defaultPageSize, stats }: Props) {
           title="Catalog"
           description={`${total} ${total === 1 ? 'copy' : 'copies'}`}
           caption="Library catalog"
-          toolbar={
-            <>
-              <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="book-search" className="sr-only">
-                  Search books
-                </Label>
-                <Input
-                  id="book-search"
-                  type="search"
-                  value={term}
-                  onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Search title or author…"
-                  className="pl-8"
-                />
-              </div>
-              <Select
-                value={statusFilter}
-                onValueChange={(v) =>
-                  setFilter('status', v === 'all' ? null : v)
-                }
-              >
-                <SelectTrigger
-                  className="w-[10rem]"
-                  aria-label="Filter by status"
-                >
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="available">Available</SelectItem>
-                  <SelectItem value="on_loan">On loan</SelectItem>
-                  <SelectItem value="reserved">Reserved</SelectItem>
-                  <SelectItem value="overdue">Overdue</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          }
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search title or author…',
+            label: 'Search books',
+            id: 'book-search',
+          }}
+          filters={[
+            { key: 'status', label: 'Status', options: STATUS_FILTER_OPTIONS },
+          ]}
+          filterValues={state.filters}
+          onFilterChange={setFilter}
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact

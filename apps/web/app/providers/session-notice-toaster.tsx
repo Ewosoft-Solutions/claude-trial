@@ -5,6 +5,7 @@ import { useTheme } from 'next-themes';
 import { toast, Toaster } from 'sonner';
 
 export const SESSION_NOTICE_STORAGE_KEY = 'swe:session-notice:v1';
+export const SESSION_NOTICE_TOAST_ID = 'idle-session-ended';
 
 interface SessionNotice {
   version: 1;
@@ -41,7 +42,7 @@ export function SessionNoticeToaster() {
   React.useEffect(() => {
     if (!readNotice()) return;
     toast.warning('You were signed out after a period of inactivity.', {
-      id: 'idle-session-ended',
+      id: SESSION_NOTICE_TOAST_ID,
       duration: Infinity,
       closeButton: true,
       description: 'Sign in again to continue where you left off.',
@@ -66,12 +67,17 @@ export function SessionNoticeToaster() {
         // expressions are the reliable override boundary for those colours;
         // the semantic class below supplies `--toast-accent` per toast type.
         style: {
+          // Fill, border and ink each derive from the tone accent by default,
+          // but a tone can override any one independently: the warning tone
+          // (below) uses a brighter golden --warning-wash for the fill/border
+          // while keeping a dark --warning-ink for the text, so it warms up
+          // without the message going pale.
           '--toast-ink':
-            'color-mix(in oklab, var(--toast-accent, var(--foreground)) 72%, var(--foreground))',
+            'color-mix(in oklab, var(--toast-ink-accent, var(--toast-accent, var(--foreground))) 72%, var(--foreground))',
           background:
-            'color-mix(in oklab, var(--toast-accent, var(--muted)) 16%, var(--background))',
+            'color-mix(in oklab, var(--toast-fill-accent, var(--toast-accent, var(--muted))) var(--toast-fill-pct, 16%), var(--background))',
           borderColor:
-            'color-mix(in oklab, var(--toast-accent, var(--border)) 52%, var(--border))',
+            'color-mix(in oklab, var(--toast-border-accent, var(--toast-accent, var(--border))) 52%, var(--border))',
           color: 'var(--toast-ink)',
         } as React.CSSProperties,
         classNames: {
@@ -86,7 +92,11 @@ export function SessionNoticeToaster() {
           closeButton:
             '!absolute !top-1/2 !right-3 !left-auto !size-7 !translate-x-0 !-translate-y-1/2 !rounded-[var(--radius-sm)] !border-0 !bg-transparent text-[var(--toast-ink)] opacity-75 hover:!bg-foreground/5 hover:opacity-100',
           success: '[--toast-accent:var(--success)]',
-          warning: '[--toast-accent:var(--warning)]',
+          // Amber icon (--warning) + brighter golden fill/border (--warning-wash)
+          // + dark text (--warning-ink). Light-only: in dark, all three tokens
+          // collapse back to the existing bright warning treatment.
+          warning:
+            '[--toast-accent:var(--warning)] [--toast-fill-accent:var(--warning-wash)] [--toast-border-accent:var(--warning-wash)] [--toast-fill-pct:var(--warning-wash-pct)] [--toast-ink-accent:var(--warning-ink)]',
           error: '[--toast-accent:var(--destructive)]',
           info: '[--toast-accent:var(--info)]',
         },

@@ -83,6 +83,14 @@
   --success-foreground: #ffffff;
   --warning: #d98a25;
   --warning-foreground: #ffffff;
+  /* Brighter golden "wash" for warning FILL surfaces (toast / notice banner)
+     so they don't read pale on the near-white canvas. --warning stays the
+     darker, legible icon + label colour; --warning-ink keeps toast text dark
+     even over the brighter fill. Dark mode already uses a bright warning, so
+     there the wash equals --warning and the fill % returns to the default. */
+  --warning-wash: #f5b301;
+  --warning-wash-pct: 24%;
+  --warning-ink: #7a4e08;
   --info: #ff5fa8; /* aurora --accent-2 (light) */
   --info-foreground: #ffffff;
 
@@ -234,6 +242,9 @@
   --success-foreground: #06281f;
   --warning: #ffce5c;
   --warning-foreground: #2a1f00;
+  --warning-wash: #ffce5c; /* already bright in dark — no separate wash needed */
+  --warning-wash-pct: 16%;
+  --warning-ink: #ffce5c;
   --info: #ff6fae; /* aurora --accent-2 (dark) */
   --info-foreground: #2a0716;
 
@@ -345,6 +356,9 @@
   --success-foreground: #06281f;
   --warning: #ffce5c;
   --warning-foreground: #2a1f00;
+  --warning-wash: #ffce5c;
+  --warning-wash-pct: 16%;
+  --warning-ink: #ffce5c;
   --info: #ff6fae;
   --info-foreground: #2a0716;
 
@@ -425,6 +439,7 @@
   --color-success-foreground: var(--success-foreground);
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
+  --color-warning-wash: var(--warning-wash);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
   --color-border: var(--border);
@@ -448,6 +463,9 @@
   --radius-sm: calc(var(--radius) - 6px);
   --radius-md: calc(var(--radius) - 4px);
   --radius-lg: var(--radius);
+  /* Small fixed radius for compact chips/badges: below the pill threshold so
+     short elements read as soft rectangles, not stadiums. */
+  --radius-badge: 6px;
   --radius-xl: calc(var(--radius) + 4px);
 
   /* typography — point Tailwind's font utilities at the app's next/font

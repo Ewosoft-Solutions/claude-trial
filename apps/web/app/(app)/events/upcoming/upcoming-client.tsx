@@ -10,19 +10,10 @@
 
 import * as React from 'react';
 import Link from 'next/link';
-import { CalendarPlus, Search } from 'lucide-react';
+import { CalendarPlus } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -96,12 +87,19 @@ export function UpcomingClient({
     () => ({ pageSize: defaultPageSize }),
     [defaultPageSize],
   );
-  const { state, setPage, setPageSize, toggleSort, setQuery, setFilter } =
-    useDirectoryState({
-      searchParams: searchParams.toString(),
-      onChange,
-      defaults,
-    });
+  const {
+    state,
+    setPage,
+    setPageSize,
+    toggleSort,
+    setQuery,
+    setFilter,
+    setFilters,
+  } = useDirectoryState({
+    searchParams: searchParams.toString(),
+    onChange,
+    defaults,
+  });
 
   const [term, setTerm] = React.useState(state.q);
   React.useEffect(() => setTerm(state.q), [state.q]);
@@ -226,47 +224,28 @@ export function UpcomingClient({
           title="Upcoming & past events"
           description={`${total} ${total === 1 ? 'event' : 'events'}`}
           caption="School events"
-          toolbar={
-            <>
-              <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="event-search" className="sr-only">
-                  Search events
-                </Label>
-                <Input
-                  id="event-search"
-                  type="search"
-                  value={term}
-                  onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Search title…"
-                  className="pl-8"
-                />
-              </div>
-              <Select
-                value={statusFilter}
-                onValueChange={(v) =>
-                  setFilter('status', v === 'all' ? null : v)
-                }
-              >
-                <SelectTrigger
-                  className="w-[10rem]"
-                  aria-label="Filter by status"
-                >
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="scheduled">Scheduled</SelectItem>
-                  <SelectItem value="ongoing">Ongoing</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
-          }
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search title…',
+            label: 'Search events',
+            id: 'event-search',
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: [
+                { value: 'scheduled', label: 'Scheduled' },
+                { value: 'ongoing', label: 'Ongoing' },
+                { value: 'completed', label: 'Completed' },
+                { value: 'cancelled', label: 'Cancelled' },
+              ],
+            },
+          ]}
+          filterValues={state.filters}
+          onFilterChange={setFilter}
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
