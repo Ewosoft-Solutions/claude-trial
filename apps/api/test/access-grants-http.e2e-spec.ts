@@ -67,7 +67,11 @@ d('Access-grant HTTP guard boundary — step-up (WB1-6)', () => {
     email = `test-grant-http-${ts}@example.com`;
 
     tenant = await prisma.tenant.create({
-      data: { name: 'Grant HTTP E2E', slug: `grant-http-${ts}`, status: 'active' },
+      data: {
+        name: 'Grant HTTP E2E',
+        slug: `grant-http-${ts}`,
+        status: 'active',
+      },
     });
     await JWTSecretService.initializeTenantJWTSecret(prisma, tenant.id);
 
@@ -96,15 +100,25 @@ d('Access-grant HTTP guard boundary — step-up (WB1-6)', () => {
     // The caller must HOLD access.grants.manage so the PermissionGuard passes and
     // the 403 we assert is the StepUpGuard, not a permission miss. Grant it as a
     // profile-level permission override (no pool wiring needed).
-    const grantPerm = await prisma.permission.findUnique({
+    // Self-provision the permission the guard checks, so the suite doesn't
+    // depend on a pre-seeded DB — CI migrates (`db:deploy`) but never seeds, so
+    // the old `findUnique` + throw failed the whole suite there. Upsert via the
+    // superuser handle; the create carries the same shape the real seed uses.
+    const grantPerm = await prisma.permission.upsert({
       where: { name: 'access.grants.manage' },
+      update: {},
+      create: {
+        name: 'access.grants.manage',
+        label: 'Manage Access Grants',
+        description:
+          'Grant scoped/time-boxed roles and approve high-risk access changes (maker-checker + step-up)',
+        resource: 'access',
+        action: 'grants.manage',
+        category: 'administrative',
+        requiredClearanceLevel: 7,
+      },
       select: { id: true },
     });
-    if (!grantPerm) {
-      throw new Error(
-        'access.grants.manage not seeded — run pnpm db:seed before this e2e.',
-      );
-    }
 
     profile = await prisma.userTenant.create({
       data: {
@@ -116,7 +130,11 @@ d('Access-grant HTTP guard boundary — step-up (WB1-6)', () => {
           create: { roleId: role.id, tenantId: tenant.id, isPrimary: true },
         },
         userTenantPermissions: {
-          create: { permissionId: grantPerm.id, tenantId: tenant.id, granted: true },
+          create: {
+            permissionId: grantPerm.id,
+            tenantId: tenant.id,
+            granted: true,
+          },
         },
       },
     });
@@ -142,7 +160,9 @@ d('Access-grant HTTP guard boundary — step-up (WB1-6)', () => {
       role = null;
     }
     if (tenant) {
-      await prisma.tenantJWTConfig.deleteMany({ where: { tenantId: tenant.id } });
+      await prisma.tenantJWTConfig.deleteMany({
+        where: { tenantId: tenant.id },
+      });
       await prisma.tenant.deleteMany({ where: { id: tenant.id } });
       tenant = null;
     }
