@@ -6,8 +6,6 @@ import {
   Bell,
   CreditCard,
   Plus,
-  RotateCw,
-  Search,
   Shield,
   SlidersHorizontal,
   UserCog,
@@ -15,7 +13,6 @@ import {
 } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
-import { Badge } from '@workspace/ui/components/badge';
 import {
   Card,
   CardContent,
@@ -24,14 +21,6 @@ import {
 } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import {
   Tabs,
   TabsContent,
@@ -43,7 +32,11 @@ import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { ListDetailLayout } from '@workspace/ui/custom/layouts/list-detail-layout';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import {
   FormLayout,
   FormSection,
@@ -59,6 +52,7 @@ import type {
   SettingsNavItem,
 } from '@workspace/ui/types/layout.types';
 import type { ValidationItem } from '@workspace/ui/types/states.types';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 /* ---------------------------------- data --------------------------------- */
 
@@ -325,12 +319,13 @@ function ListDetailDemo() {
                 Back
               </Button>
             </div>
-            <Badge
-              variant={active.status === 'Active' ? 'secondary' : 'destructive'}
+            <StatusBadge
+              tone={active.status === 'Active' ? 'success' : 'warning'}
+              dot
               className="mt-3"
             >
               {active.status}
-            </Badge>
+            </StatusBadge>
             <dl className="mt-5 grid grid-cols-2 gap-x-6 gap-y-3 text-sm">
               {[
                 ['Student ID', active.id.toUpperCase()],
@@ -355,8 +350,74 @@ function ListDetailDemo() {
   );
 }
 
+type Student = (typeof STUDENTS)[number];
+
+/**
+ * Canonical table pattern. Use `DirectoryTable` (not raw `<Table>`) for any
+ * list of records: it ships the Pattern-B toolbar (search + Filters button +
+ * applied-filter pills), column show/hide, sortable headers, selection, paging
+ * and the loading/empty/error states — all consistent across the app. Status
+ * cells use `StatusBadge` (tone-driven pill), never a raw `<Badge>`.
+ */
 function TableDemo() {
-  const [state, setState] = React.useState<TableState>('data');
+  const [demoState, setDemoState] = React.useState<TableState>('data');
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(10);
+
+  const columns: DirectoryColumn<Student>[] = [
+    {
+      id: 'name',
+      header: 'Name',
+      sortable: true,
+      cell: (s) => (
+        <span className="font-medium text-foreground">{s.name}</span>
+      ),
+    },
+    { id: 'klass', header: 'Class', hideable: true, cell: (s) => s.klass },
+    {
+      id: 'guardian',
+      header: 'Guardian',
+      hideable: true,
+      cell: (s) => s.guardian,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (s) => (
+        <StatusBadge tone={s.status === 'Active' ? 'success' : 'warning'} dot>
+          {s.status}
+        </StatusBadge>
+      ),
+    },
+  ];
+
+  // Filter + sort the mock rows in-memory so the demo actually responds.
+  const rows = React.useMemo(() => {
+    if (demoState === 'empty') return [];
+    const q = term.trim().toLowerCase();
+    let out = STUDENTS.filter((s) => {
+      const matchesQ =
+        !q ||
+        s.name.toLowerCase().includes(q) ||
+        s.guardian.toLowerCase().includes(q);
+      const status = filters.status;
+      return matchesQ && (!status || s.status === status);
+    });
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      const field = sort.field as keyof Student;
+      out = [...out].sort(
+        (a, b) => dir * String(a[field]).localeCompare(String(b[field])),
+      );
+    }
+    return out;
+  }, [demoState, term, filters, sort]);
 
   return (
     <div className="space-y-3">
@@ -365,94 +426,71 @@ function TableDemo() {
           <Button
             key={s}
             size="sm"
-            variant={state === s ? 'default' : 'outline'}
-            onClick={() => setState(s)}
+            variant={demoState === s ? 'default' : 'outline'}
+            onClick={() => setDemoState(s)}
           >
             {s}
           </Button>
         ))}
       </div>
-      <DataTableLayout
+      <DirectoryTable<Student>
         title="Students"
-        description={state === 'empty' ? 'No students' : '1,420 students'}
-        loading={state === 'loading'}
-        empty={state === 'empty'}
-        skeletonColumns={4}
-        toolbar={
-          <>
-            <div className="relative">
-              <Search
-                aria-hidden
-                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-              />
-              <Input placeholder="Search students…" className="h-8 w-48 pl-8" />
-            </div>
-            <Button size="sm" variant="outline">
-              <SlidersHorizontal aria-hidden />
-              Filters
-            </Button>
-            <Button size="sm">
-              <Plus aria-hidden />
-              Add
-            </Button>
-          </>
+        description={demoState === 'empty' ? 'No students' : '1,420 students'}
+        columns={columns}
+        rows={rows}
+        getRowId={(s) => s.id}
+        getRowLabel={(s) => s.name}
+        total={demoState === 'empty' ? 0 : 1420}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        sort={sort}
+        onSortChange={(field) =>
+          setSort((cur) =>
+            cur?.field !== field
+              ? { field, dir: 'asc' }
+              : cur.dir === 'asc'
+                ? { field, dir: 'desc' }
+                : null,
+          )
+        }
+        loading={demoState === 'loading'}
+        caption="Students directory (design-system demo)"
+        search={{
+          value: term,
+          onChange: setTerm,
+          placeholder: 'Search students…',
+          label: 'Search students',
+        }}
+        filters={[
+          {
+            key: 'status',
+            label: 'Status',
+            options: [
+              { value: 'Active', label: 'Active' },
+              { value: 'Suspended', label: 'Suspended' },
+            ],
+          },
+        ]}
+        filterValues={filters}
+        onFilterChange={(key, value) =>
+          setFilters((f) => ({ ...f, [key]: value }))
+        }
+        onClearFilters={() => setFilters({})}
+        toolbarActions={
+          <Button size="sm">
+            <Plus aria-hidden /> Add
+          </Button>
         }
         emptyState={
           <EmptyState
             compact
             title="No students match"
             description="Try clearing filters or add a new student."
-            primaryAction={{ label: 'Add student', onClick: () => undefined }}
-            secondaryAction={{
-              label: 'Reset',
-              icon: <RotateCw aria-hidden />,
-              onClick: () => setState('data'),
-            }}
           />
         }
-        footer={
-          <>
-            <span>Showing 5 of 1,420</span>
-            <div className="ml-auto flex gap-2">
-              <Button size="sm" variant="outline" disabled>
-                Previous
-              </Button>
-              <Button size="sm" variant="outline">
-                Next
-              </Button>
-            </div>
-          </>
-        }
-      >
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Class</TableHead>
-              <TableHead>Guardian</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {STUDENTS.map((s) => (
-              <TableRow key={s.id}>
-                <TableCell className="font-medium">{s.name}</TableCell>
-                <TableCell>{s.klass}</TableCell>
-                <TableCell>{s.guardian}</TableCell>
-                <TableCell>
-                  <Badge
-                    variant={
-                      s.status === 'Active' ? 'secondary' : 'destructive'
-                    }
-                  >
-                    {s.status}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </DataTableLayout>
+      />
     </div>
   );
 }

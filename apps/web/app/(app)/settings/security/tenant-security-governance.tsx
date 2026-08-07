@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { Badge } from '@workspace/ui/components/badge';
+import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -69,7 +70,12 @@ function readError(body: unknown, fallback: string): string {
 }
 
 function PolicyBadges({ policy }: { policy: SensitiveOperationPolicy }) {
-  if (!policy.enabled) return <Badge variant="outline">Paused</Badge>;
+  if (!policy.enabled)
+    return (
+      <StatusBadge tone="neutral" dot>
+        Paused
+      </StatusBadge>
+    );
   return (
     <div className="flex flex-wrap gap-1.5">
       {policy.requiresStepUp ? <Badge>Fresh confirmation</Badge> : null}
@@ -329,17 +335,19 @@ export function TenantSecurityGovernance({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold">{request.operation}</p>
-                  <Badge
-                    variant={
+                  <StatusBadge
+                    tone={
                       request.status === 'approved'
-                        ? 'default'
+                        ? 'success'
                         : request.status === 'rejected'
                           ? 'destructive'
-                          : 'secondary'
+                          : 'warning'
                     }
+                    dot
+                    className="capitalize"
                   >
                     {request.status}
-                  </Badge>
+                  </StatusBadge>
                 </div>
                 <p className="mt-2 text-sm text-muted-foreground">
                   {request.reason}
