@@ -2,7 +2,7 @@
 
 import * as React from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { Bookmark, Download, Search, Trash2, UserPlus } from 'lucide-react';
+import { Download, UserPlus } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
@@ -15,17 +15,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
@@ -91,6 +83,11 @@ const STATUS_OPTIONS = [
   'withdrawn',
 ];
 
+const STATUS_FILTER_OPTIONS = STATUS_OPTIONS.map((s) => ({
+  value: s,
+  label: ENROLLMENT_META[s]?.label ?? s,
+}));
+
 function initials(name: string): string {
   return (
     name
@@ -145,6 +142,7 @@ export function StudentDirectoryClient({
     toggleSort,
     setQuery,
     setFilter,
+    setFilters,
     applyView,
   } = useDirectoryState({
     searchParams: searchParams.toString(),
@@ -170,12 +168,6 @@ export function StudentDirectoryClient({
     const id = setTimeout(() => setQuery(term), 300);
     return () => clearTimeout(id);
   }, [term, state.q, setQuery]);
-
-  const appliedView = savedViews.find((v) => v.id === state.viewId) ?? null;
-  const ownsAppliedView =
-    !!appliedView &&
-    !!currentProfileId &&
-    appliedView.ownerUserTenantId === currentProfileId;
 
   async function handleExport(ids: string[]) {
     try {
@@ -204,15 +196,14 @@ export function StudentDirectoryClient({
     }
   }
 
-  async function deleteAppliedView() {
-    if (!appliedView) return;
+  async function deleteView(id: string) {
     try {
-      const res = await fetch(`/api/directory/saved-views/${appliedView.id}`, {
+      const res = await fetch(`/api/directory/saved-views/${id}`, {
         method: 'DELETE',
       });
       if (!res.ok) throw new Error(String(res.status));
       toast.success('View deleted');
-      applyView(null, {});
+      if (state.viewId === id) applyView(null, {});
       router.refresh();
     } catch {
       toast.error('Could not delete this view');
@@ -310,7 +301,7 @@ export function StudentDirectoryClient({
       ]
     : [];
 
-  const statusValue = state.filters.status ?? 'all';
+  const [saveViewOpen, setSaveViewOpen] = React.useState(false);
 
   return (
     <ShellMain>
@@ -352,104 +343,67 @@ export function StudentDirectoryClient({
               description="Adjust the search or filters, or clear the saved view to see everyone."
             />
           }
-          toolbar={
-            <>
-              <div className="relative min-w-0 flex-1 @md/main:w-56 @md/main:flex-none">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="student-search" className="sr-only">
-                  Search students
-                </Label>
-                <Input
-                  id="student-search"
-                  type="search"
-                  value={term}
-                  onChange={(e) => setTerm(e.target.value)}
-                  placeholder="Search name, number..."
-                  className="pl-8"
-                />
-              </div>
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search name, number...',
+            label: 'Search students',
+            id: 'student-search',
+          }}
+          filters={[
+            { key: 'status', label: 'Status', options: STATUS_FILTER_OPTIONS },
+          ]}
+          filterValues={state.filters}
+          onFilterChange={setFilter}
+          onClearFilters={() => setFilters({})}
+          views={{
+            options: savedViews.map((v) => ({
+              id: v.id,
+              name: v.name,
+              shared: v.isShared,
+              canDelete:
+                !!currentProfileId && v.ownerUserTenantId === currentProfileId,
+            })),
+            currentId: state.viewId ?? null,
+            allLabel: 'All students',
+            onSelect: (id) => {
+              if (id == null) {
+                applyView(null, {});
+                return;
+              }
+              const view = savedViews.find((sv) => sv.id === id);
+              if (view) applyView(view.id, view.state);
+            },
+            onSave: () => setSaveViewOpen(true),
+            onDelete: (id) => deleteView(id),
+          }}
+        />
 
-              <Select
-                value={statusValue}
-                onValueChange={(v) =>
-                  setFilter('status', v === 'all' ? null : v)
-                }
-              >
-                <SelectTrigger
-                  className="w-[8.5rem]"
-                  aria-label="Filter by status"
-                >
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {ENROLLMENT_META[s]?.label ?? s}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select
-                value={state.viewId ?? 'none'}
-                onValueChange={(v) => {
-                  if (v === 'none') {
-                    applyView(null, {});
-                    return;
-                  }
-                  const view = savedViews.find((sv) => sv.id === v);
-                  if (view) applyView(view.id, view.state);
-                }}
-              >
-                <SelectTrigger className="w-[10rem]" aria-label="Saved views">
-                  <Bookmark className="size-3.5" aria-hidden />
-                  <SelectValue placeholder="Saved views" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">All students</SelectItem>
-                  {savedViews.map((v) => (
-                    <SelectItem key={v.id} value={v.id}>
-                      {v.name}
-                      {v.isShared ? ' · shared' : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <SaveViewButton state={state} onSaved={applyView} />
-
-              {ownsAppliedView ? (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={deleteAppliedView}
-                  aria-label="Delete this saved view"
-                >
-                  <Trash2 aria-hidden />
-                </Button>
-              ) : null}
-            </>
-          }
+        <SaveViewDialog
+          open={saveViewOpen}
+          onOpenChange={setSaveViewOpen}
+          state={state}
+          onSaved={applyView}
         />
       </div>
     </ShellMain>
   );
 }
 
-/** "Save current view" — a small dialog capturing a name + share toggle. */
-function SaveViewButton({
+/** "Save current view" — a controlled dialog capturing a name + share toggle.
+ *  Triggered from the toolbar's "Save view" control (see `views.onSave`). */
+function SaveViewDialog({
+  open,
+  onOpenChange,
   state,
   onSaved,
 }: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   state: DirectoryState;
   onSaved: (viewId: string | null, viewState: Partial<DirectoryState>) => void;
 }) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const [shared, setShared] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
@@ -478,7 +432,7 @@ function SaveViewButton({
       if (!res.ok) throw new Error(String(res.status));
       const created = (await res.json()) as { id: string };
       toast.success('View saved');
-      setOpen(false);
+      onOpenChange(false);
       setName('');
       setShared(false);
       onSaved(created.id, viewState);
@@ -491,12 +445,7 @@ function SaveViewButton({
   }
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Bookmark aria-hidden /> Save view
-        </Button>
-      </DialogTrigger>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Save current view</DialogTitle>

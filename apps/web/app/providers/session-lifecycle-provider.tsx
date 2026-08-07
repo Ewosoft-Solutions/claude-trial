@@ -3,6 +3,7 @@
 import * as React from 'react';
 import { Clock3, ShieldCheck } from 'lucide-react';
 import { usePathname } from 'next/navigation';
+import { toast } from 'sonner';
 
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -22,7 +23,10 @@ import {
   evaluateSessionLifecycle,
 } from '@/lib/session-lifecycle';
 import { RESUMED_MODAL_STORAGE_KEY } from '@/app/session/resume/resume-session-client';
-import { SESSION_NOTICE_STORAGE_KEY } from './session-notice-toaster';
+import {
+  SESSION_NOTICE_STORAGE_KEY,
+  SESSION_NOTICE_TOAST_ID,
+} from './session-notice-toaster';
 
 const CHANNEL_NAME = 'swe:session-lifecycle:v1';
 const ACTIVITY_WRITE_THROTTLE_MS = 5_000;
@@ -31,8 +35,8 @@ const ACCESS_REFRESH_LEAD_MS = 5 * 60 * 1000;
 type LogoutReason = 'manual' | 'idle' | 'absolute_expiry' | 'refresh_failed';
 type FocusKind = 'assessment' | 'assignment' | 'reading' | 'media';
 
-interface WarningState {
-  deadline: number;
+interface CountdownState {
+  remainingSeconds: number;
   durationSeconds: number;
   focus: boolean;
 }
@@ -124,8 +128,7 @@ export function SessionLifecycleProvider({
   const channelRef = React.useRef<BroadcastChannel | null>(null);
   const loggingOutRef = React.useRef(false);
   const refreshingRef = React.useRef(false);
-  const [warning, setWarning] = React.useState<WarningState | null>(null);
-  const [remainingSeconds, setRemainingSeconds] = React.useState(0);
+  const [countdown, setCountdown] = React.useState<CountdownState | null>(null);
   const [warningError, setWarningError] = React.useState<string | null>(null);
   const [isRefreshing, startRefreshTransition] = React.useTransition();
 
@@ -245,7 +248,7 @@ export function SessionLifecycleProvider({
         };
         if (message.type === 'activity' && typeof message.at === 'number') {
           markActivity(message.at, false);
-          setWarning(null);
+          setCountdown(null);
           setWarningError(null);
         } else if (
           message.type === 'refreshed' &&
@@ -263,7 +266,7 @@ export function SessionLifecycleProvider({
       const at = Number(event.newValue);
       if (Number.isFinite(at)) {
         markActivity(at, false);
-        setWarning(null);
+        setCountdown(null);
         setWarningError(null);
       }
     };
@@ -332,13 +335,20 @@ export function SessionLifecycleProvider({
   }, [pathname, recordUserActivity]);
 
   React.useEffect(() => {
+    // Reaching here means an authenticated session has mounted — the user has
+    // signed back in. The idle-logout notice (shown on the login screen to
+    // explain the sign-out) has served its purpose, so clear it and dismiss the
+    // lingering toast rather than letting it ride along into the app.
+    safelyRemove(SESSION_NOTICE_STORAGE_KEY);
+    toast.dismiss(SESSION_NOTICE_TOAST_ID);
+  }, []);
+
+  React.useEffect(() => {
     const evaluate = () => {
-      const now = Date.now();
       const decision = evaluateSessionLifecycle({
-        now,
+        now: Date.now(),
         lastActivityAt: lastActivityRef.current,
         absoluteExpiresAt: session.absoluteExpiresAt,
-        warningDeadline: warning?.deadline,
         focusMode: focusModesRef.current.size > 0,
         policy: session.sessionPolicy,
       });
@@ -351,17 +361,16 @@ export function SessionLifecycleProvider({
         return;
       }
       if (decision.type === 'countdown') {
-        setRemainingSeconds(decision.remainingSeconds);
-        return;
-      }
-      if (decision.type === 'warn') {
-        setRemainingSeconds(decision.durationSeconds);
-        setWarning({
-          deadline: now + decision.durationSeconds * 1000,
+        setCountdown({
+          remainingSeconds: decision.remainingSeconds,
           durationSeconds: decision.durationSeconds,
           focus: decision.focus,
         });
+        // Don't silently extend the access token while the "are you still
+        // here?" prompt is up — a refresh here would defeat the countdown.
+        return;
       }
+      setCountdown(null);
       void maybeRefresh();
     };
     evaluate();
@@ -372,7 +381,6 @@ export function SessionLifecycleProvider({
     performLogout,
     session.absoluteExpiresAt,
     session.sessionPolicy,
-    warning,
   ]);
 
   const staySignedIn = React.useCallback(() => {
@@ -395,7 +403,7 @@ export function SessionLifecycleProvider({
         accessExpiresAtRef.current = result.accessExpiresAt;
       lastActivityRef.current = now;
       persistActivity(now);
-      setWarning(null);
+      setCountdown(null);
       setWarningError(null);
     });
   }, [performLogout, persistActivity]);
@@ -440,17 +448,20 @@ export function SessionLifecycleProvider({
     ],
   );
 
-  const warningProgress = warning
+  const warningProgress = countdown
     ? Math.max(
         0,
-        Math.min(100, (remainingSeconds / warning.durationSeconds) * 100),
+        Math.min(
+          100,
+          (countdown.remainingSeconds / countdown.durationSeconds) * 100,
+        ),
       )
     : 0;
 
   return (
     <SessionLifecycleContext.Provider value={contextValue}>
       {children}
-      <Dialog open={Boolean(warning)}>
+      <Dialog open={Boolean(countdown)}>
         <DialogContent
           showCloseButton={false}
           onEscapeKeyDown={(event) => event.preventDefault()}
@@ -458,19 +469,19 @@ export function SessionLifecycleProvider({
           <DialogHeader>
             <div className="mb-2 flex items-center gap-3">
               <span className="grid size-11 place-items-center rounded-xl bg-primary/10 text-primary">
-                {warning?.focus ? (
+                {countdown?.focus ? (
                   <ShieldCheck className="size-5" />
                 ) : (
                   <Clock3 className="size-5" />
                 )}
               </span>
               <div className="font-mono text-3xl font-semibold tabular-nums text-foreground">
-                {formatCountdown(remainingSeconds)}
+                {formatCountdown(countdown?.remainingSeconds ?? 0)}
               </div>
             </div>
             <DialogTitle>Are you still active?</DialogTitle>
             <DialogDescription>
-              {warning?.focus
+              {countdown?.focus
                 ? 'Your work is protected, but we need a quick confirmation before keeping this session open.'
                 : 'For your security, this session will close unless you confirm that you are still here.'}
             </DialogDescription>
@@ -484,7 +495,7 @@ export function SessionLifecycleProvider({
             aria-valuenow={Math.round(warningProgress)}
           >
             <div
-              className={`h-full rounded-full transition-[width,background-color] duration-1000 ${remainingSeconds <= 30 ? 'bg-destructive' : 'bg-primary'}`}
+              className={`h-full rounded-full transition-[width,background-color] duration-1000 ${(countdown?.remainingSeconds ?? 0) <= 30 ? 'bg-destructive' : 'bg-primary'}`}
               style={{ width: `${warningProgress}%` }}
             />
           </div>

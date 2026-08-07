@@ -28,7 +28,8 @@ const TONE_SURFACE: Record<StateTone, string> = {
   info: 'border border-info/40 bg-info/12 text-info',
   success: 'border border-success/40 bg-success/12 text-success',
   warning: 'border border-warning/45 bg-warning/15 text-warning',
-  destructive: 'border border-destructive/40 bg-destructive/12 text-destructive',
+  destructive:
+    'border border-destructive/40 bg-destructive/12 text-destructive',
 };
 
 /** Tone → solid dot colour for the optional leading indicator. */
@@ -40,8 +41,7 @@ const TONE_DOT: Record<StateTone, string> = {
   destructive: 'bg-destructive',
 };
 
-export interface StatusBadgeProps
-  extends React.HTMLAttributes<HTMLSpanElement> {
+export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
   /** Semantic tone. Defaults to `neutral`. */
   tone?: StateTone;
   /** Show a leading status dot. */
@@ -60,7 +60,7 @@ export function StatusBadge({
     <span
       data-slot="status-badge"
       className={cn(
-        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2 py-0.5 text-xs font-semibold',
+        'inline-flex items-center gap-1.5 whitespace-nowrap rounded-badge px-2 py-0.5 text-xs font-semibold',
         TONE_SURFACE[tone],
         className,
       )}

@@ -22,7 +22,7 @@ describe('evaluateSessionLifecycle', () => {
     ).toEqual({ type: 'none' });
   });
 
-  it('uses the standard and focus warning windows at the threshold', () => {
+  it('opens the countdown at the threshold with the standard and focus windows', () => {
     expect(
       evaluateSessionLifecycle({
         now: 15 * 60_000,
@@ -30,7 +30,12 @@ describe('evaluateSessionLifecycle', () => {
         focusMode: false,
         policy,
       }),
-    ).toEqual({ type: 'warn', focus: false, durationSeconds: 120 });
+    ).toEqual({
+      type: 'countdown',
+      remainingSeconds: 120,
+      durationSeconds: 120,
+      focus: false,
+    });
     expect(
       evaluateSessionLifecycle({
         now: 15 * 60_000,
@@ -38,24 +43,47 @@ describe('evaluateSessionLifecycle', () => {
         focusMode: true,
         policy,
       }),
-    ).toEqual({ type: 'warn', focus: true, durationSeconds: 300 });
+    ).toEqual({
+      type: 'countdown',
+      remainingSeconds: 300,
+      durationSeconds: 300,
+      focus: true,
+    });
   });
 
-  it('derives countdown time from timestamps after a suspended PWA wakes', () => {
+  it('derives the remaining countdown from timestamps, whenever it is observed', () => {
+    // 30s into the 120s grace window — e.g. the first tick after a suspended
+    // PWA wakes. Time already elapsed is honoured, not restarted.
     expect(
       evaluateSessionLifecycle({
-        now: 30_000,
+        now: 15 * 60_000 + 30_000,
         lastActivityAt: 0,
-        warningDeadline: 120_000,
         focusMode: false,
         policy,
       }),
-    ).toEqual({ type: 'countdown', remainingSeconds: 90 });
+    ).toEqual({
+      type: 'countdown',
+      remainingSeconds: 90,
+      durationSeconds: 120,
+      focus: false,
+    });
+  });
+
+  it('logs out immediately on return when idle + grace has already elapsed', () => {
+    // Away far past idle(15m) + grace(2m); no fresh countdown on return.
     expect(
       evaluateSessionLifecycle({
-        now: 121_000,
+        now: 60 * 60_000,
         lastActivityAt: 0,
-        warningDeadline: 120_000,
+        focusMode: false,
+        policy,
+      }),
+    ).toEqual({ type: 'idle-logout' });
+    // Exactly at the logout boundary counts as elapsed.
+    expect(
+      evaluateSessionLifecycle({
+        now: 15 * 60_000 + 120_000,
+        lastActivityAt: 0,
         focusMode: false,
         policy,
       }),

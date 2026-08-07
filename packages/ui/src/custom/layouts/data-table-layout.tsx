@@ -24,6 +24,8 @@ export interface DataTableLayoutProps {
   description?: React.ReactNode;
   /** Right-aligned toolbar slot (search, filters, primary action). */
   toolbar?: React.ReactNode;
+  /** Full-width row below the toolbar — e.g. applied-filter pills + clear-all. */
+  filterBar?: React.ReactNode;
   /** The table — typically built from the shared Table primitive. */
   children: React.ReactNode;
   /** Show the loading placeholder instead of the table. */
@@ -46,6 +48,7 @@ export function DataTableLayout({
   title,
   description,
   toolbar,
+  filterBar,
   children,
   loading = false,
   empty = false,
@@ -83,10 +86,16 @@ export function DataTableLayout({
             </div>
           ) : null}
           {toolbar ? (
-            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 @md/main:ml-auto @md/main:w-auto">
+            <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:ml-auto lg:w-auto">
               {toolbar}
             </div>
           ) : null}
+        </div>
+      ) : null}
+
+      {filterBar ? (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-border bg-muted/30 px-4 py-2.5 sm:px-6">
+          {filterBar}
         </div>
       ) : null}
 

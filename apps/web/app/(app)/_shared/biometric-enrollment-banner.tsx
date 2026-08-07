@@ -40,14 +40,14 @@ export function BiometricEnrollmentBanner({
       aria-live="polite"
       className={`mx-[var(--content-padding)] mt-3 flex shrink-0 flex-wrap items-center gap-3 rounded-[var(--radius)] border px-4 py-3 shadow-xs ${
         required
-          ? 'border-warning/40 bg-warning/10'
+          ? 'border-warning-wash/45 bg-warning-wash/16'
           : 'border-info/35 bg-info/10'
       }`}
     >
       <span
         className={`grid size-10 shrink-0 place-items-center rounded-full ring-1 ring-inset ${
           required
-            ? 'bg-warning/15 text-warning ring-warning/25'
+            ? 'bg-warning-wash/20 text-warning ring-warning/25'
             : 'bg-info/15 text-info ring-info/25'
         }`}
         aria-hidden="true"
