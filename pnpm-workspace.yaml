@@ -28,8 +28,11 @@ overrides:
   # runtime). Advisories patched in find-my-way 9.7.0 and valibot 1.4.2.
   'find-my-way@<9.7.0': '9.7.0'
   'valibot@<1.4.2': '1.4.2'
-  'js-yaml@<3.15.0': '3.15.0'
-  'js-yaml@>=4.0.0 <4.3.0': '4.3.0'
+  # New js-yaml advisory bumped the patched floors one patch (3.15.0→3.15.1,
+  # 4.3.0→4.3.1); widen the selectors + targets so `pnpm audit` clears again.
+  # Dev/build tooling only (jest-snapshot's istanbul loader + eslint's eslintrc).
+  'js-yaml@<3.15.1': '3.15.1'
+  'js-yaml@>=4.0.0 <4.3.1': '4.3.1'
   # GHSA-fxqj-rqcc-2cmp (incomplete fix of GHSA-6g55-p6wh-862q) covers <=8.5.22,
   # so the earlier <8.5.18 pin no longer clears it; bump the floor to 8.5.23.
   'postcss@<8.5.23': '8.5.23'
