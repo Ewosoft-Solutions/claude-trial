@@ -247,10 +247,10 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 347, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3) + WB3 admissions.convert (+1) + WB3 finance.view/.manage (+2)
+  total: 352, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3) + WB3 admissions.convert (+1) + WB3 finance.view/.manage (+2) + WB4 academics.results.view/.enter/.manage/.approve/.financial_hold (+5)
   arrays: {
     STUDENT_PERMISSIONS: 15,
-    ACADEMIC_MANAGEMENT_PERMISSIONS: 30,
+    ACADEMIC_MANAGEMENT_PERMISSIONS: 35,
     GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
     FINANCIAL_PERMISSIONS: 18,
@@ -706,6 +706,63 @@ const ACADEMIC_MANAGEMENT_PERMISSIONS = [
     action: 'promotion.approve',
     category: 'academic',
     requiredClearanceLevel: 7,
+  },
+  {
+    // WB4 · Results parity / ResultCycle (ADR-04) — the immutable result
+    // publication workbench. Viewing cycles + published results is a low bar;
+    // teachers ENTER component scores into an open cycle for their offerings;
+    // managing (configure/moderate/request-publish/raise-amendment) is a
+    // management action; approving publish + amendments is the SECOND-approver
+    // gate (maker ≠ checker); a FinancialHold on result visibility is a
+    // deliberate, audited finance decision (never a silent per-student block).
+    name: 'academics.results.view',
+    label: 'View Results',
+    description:
+      'View result cycles, entered scores and published (snapshot) results',
+    resource: 'academics',
+    action: 'results.view',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'academics.results.enter',
+    label: 'Enter Results',
+    description:
+      'Enter and edit component (CA/EXAM) scores for subject offerings while a cycle is open for entry',
+    resource: 'academics',
+    action: 'results.enter',
+    category: 'academic',
+    requiredClearanceLevel: 3,
+  },
+  {
+    name: 'academics.results.manage',
+    label: 'Manage Result Cycles',
+    description:
+      'Configure result cycles (components, sections, remark rule sets, promotion policy), open/close entry, moderate, submit for publish and raise amendments (campus-scoped)',
+    resource: 'academics',
+    action: 'results.manage',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'academics.results.approve',
+    label: 'Approve Result Publication',
+    description:
+      'Approve and publish a result cycle, and approve result amendments, as the second approver (maker ≠ checker)',
+    resource: 'academics',
+    action: 'results.approve',
+    category: 'academic',
+    requiredClearanceLevel: 7,
+  },
+  {
+    name: 'academics.results.financial_hold',
+    label: 'Manage Result Financial Holds',
+    description:
+      'Place or release an explicit, audited hold on a student’s result visibility to guardians',
+    resource: 'academics',
+    action: 'results.financial_hold',
+    category: 'academic',
+    requiredClearanceLevel: 5,
   },
   {
     name: 'courses.view',
