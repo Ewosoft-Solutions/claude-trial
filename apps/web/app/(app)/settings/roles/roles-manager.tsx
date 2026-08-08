@@ -38,13 +38,11 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
@@ -126,68 +124,170 @@ export function RolesManager({
   const canManage = clearanceLevel >= 7;
   const [previewRole, setPreviewRole] = React.useState<ApiRole | null>(null);
 
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => setPage(1), [term, filters, pageSize]);
+
+  const roleTypes = React.useMemo(
+    () =>
+      Array.from(
+        new Set(roles.map((r) => r.roleType).filter(Boolean) as string[]),
+      ).sort(),
+    [roles],
+  );
+
+  const columns: DirectoryColumn<ApiRole>[] = [
+    {
+      id: 'name',
+      header: 'Role',
+      sortable: true,
+      cell: (role) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="flex items-center gap-2 font-medium text-foreground">
+            {role.name ?? role.id}
+            {role.roleType ? (
+              <StatusBadge tone="info">{role.roleType}</StatusBadge>
+            ) : null}
+          </span>
+          <span className="break-words text-xs text-muted-foreground">
+            {role.description ?? 'No description'}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'members',
+      header: 'Members',
+      align: 'end',
+      sortable: true,
+      cell: (role) => (
+        <span className="tabular-nums text-muted-foreground">
+          {role.members ?? 0}
+        </span>
+      ),
+    },
+    {
+      id: 'clearance',
+      header: 'Clearance',
+      align: 'end',
+      sortable: true,
+      cell: (role) => {
+        const level = Number(role.clearanceLevel ?? 0);
+        return (
+          <StatusBadge tone={clearanceTone(level)} dot>
+            Level {level}
+          </StatusBadge>
+        );
+      },
+    },
+  ];
+
+  const filtered = React.useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const roleType = filters.roleType;
+    let out = roles.filter((role) => {
+      const name = (role.name ?? role.id).toLowerCase();
+      const desc = (role.description ?? '').toLowerCase();
+      const matchesQ =
+        !q ||
+        name.includes(q) ||
+        desc.includes(q) ||
+        (role.roleType?.toLowerCase().includes(q) ?? false);
+      const matchesType = !roleType || role.roleType === roleType;
+      return matchesQ && matchesType;
+    });
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'members'
+          ? dir * (Number(a.members ?? 0) - Number(b.members ?? 0))
+          : sort.field === 'clearance'
+            ? dir *
+              (Number(a.clearanceLevel ?? 0) - Number(b.clearanceLevel ?? 0))
+            : dir * (a.name ?? a.id).localeCompare(b.name ?? b.id),
+      );
+    }
+    return out;
+  }, [roles, term, filters, sort]);
+
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
+
   return (
     <div className="flex flex-col gap-4">
-      {canManage ? (
-        <div className="flex justify-end">
-          <RoleEditorDialog
-            templates={templates}
-            maxClearance={Math.min(clearanceLevel, 7)}
+      <DirectoryTable<ApiRole>
+        title="Roles"
+        description={`${filtered.length} ${filtered.length === 1 ? 'role' : 'roles'}`}
+        columns={columns}
+        rows={pageRows}
+        getRowId={(r) => r.id}
+        getRowLabel={(r) => r.name ?? r.id}
+        total={filtered.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        sort={sort}
+        onSortChange={(field) =>
+          setSort((cur) =>
+            cur?.field !== field
+              ? { field, dir: 'asc' }
+              : cur.dir === 'asc'
+                ? { field, dir: 'desc' }
+                : null,
+          )
+        }
+        onRowClick={canManage ? (role) => setPreviewRole(role) : undefined}
+        caption="Tenant roles"
+        search={{
+          value: term,
+          onChange: setTerm,
+          placeholder: 'Search role or description…',
+          label: 'Search roles',
+          id: 'roles-search',
+        }}
+        filters={
+          roleTypes.length > 1
+            ? [
+                {
+                  key: 'roleType',
+                  label: 'Type',
+                  options: roleTypes.map((t) => ({ value: t, label: t })),
+                },
+              ]
+            : []
+        }
+        filterValues={filters}
+        onFilterChange={(key, value) =>
+          setFilters((f) => ({ ...f, [key]: value }))
+        }
+        onClearFilters={() => setFilters({})}
+        toolbarActions={
+          canManage ? (
+            <RoleEditorDialog
+              templates={templates}
+              maxClearance={Math.min(clearanceLevel, 7)}
+            />
+          ) : undefined
+        }
+        emptyState={
+          <EmptyState
+            compact
+            title={hasQuery ? 'No roles match your filters' : 'No roles found'}
+            description={
+              hasQuery
+                ? 'Try a different search term, or clear the filters.'
+                : 'Tenant roles returned by the API will appear here.'
+            }
           />
-        </div>
-      ) : null}
-
-      {roles.length === 0 ? (
-        <EmptyState
-          compact
-          title="No roles found"
-          description="Tenant roles returned by the API will appear here."
-        />
-      ) : (
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Role</TableHead>
-              <TableHead className="text-right">Members</TableHead>
-              <TableHead className="text-right">Clearance</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {roles.map((role) => {
-              const level = Number(role.clearanceLevel ?? 0);
-              return (
-                <TableRow
-                  key={role.id}
-                  className={canManage ? 'cursor-pointer' : undefined}
-                  onClick={canManage ? () => setPreviewRole(role) : undefined}
-                >
-                  <TableCell>
-                    <div className="flex min-w-0 flex-col">
-                      <span className="flex items-center gap-2 font-medium text-foreground">
-                        {role.name ?? role.id}
-                        {role.roleType ? (
-                          <StatusBadge tone="info">{role.roleType}</StatusBadge>
-                        ) : null}
-                      </span>
-                      <span className="break-words text-xs text-muted-foreground">
-                        {role.description ?? 'No description'}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {role.members ?? 0}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <StatusBadge tone={clearanceTone(level)} dot>
-                      Level {level}
-                    </StatusBadge>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      )}
+        }
+      />
 
       <RolePreviewDialog
         role={previewRole}
