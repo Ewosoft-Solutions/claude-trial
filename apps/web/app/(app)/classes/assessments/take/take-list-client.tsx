@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { ArrowRight, ClipboardList, Search } from 'lucide-react';
+import { ArrowRight, ClipboardList } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 
 import {
@@ -13,19 +13,16 @@ import {
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export function AssessmentTakeListClient({
   initialAssessments,
@@ -39,6 +36,14 @@ export function AssessmentTakeListClient({
   const pathname = usePathname();
   const [assessmentId, setAssessmentId] = React.useState('');
   const [query, setQuery] = React.useState(initialQuery);
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => setPage(1), [filters, pageSize, initialAssessments]);
 
   // Server-side search: `initialAssessments` is already filtered at the DB, so
   // the box only needs to push its term into the URL and let the page refetch.
@@ -65,6 +70,76 @@ export function AssessmentTakeListClient({
     if (!id.trim()) return;
     router.push(`/classes/assessments/take/${encodeURIComponent(id.trim())}`);
   }
+
+  const statuses = React.useMemo(
+    () => Array.from(new Set(assessments.map((a) => a.status))),
+    [assessments],
+  );
+
+  const filtered = React.useMemo(() => {
+    const status = filters.status;
+    let out = assessments.filter((a) => !status || a.status === status);
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'due'
+          ? dir * String(a.dueDate ?? '').localeCompare(String(b.dueDate ?? ''))
+          : sort.field === 'status'
+            ? dir * a.status.localeCompare(b.status)
+            : dir * a.name.localeCompare(b.name),
+      );
+    }
+    return out;
+  }, [assessments, filters, sort]);
+
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const columns: DirectoryColumn<AssessmentSummary>[] = [
+    {
+      id: 'name',
+      header: 'Assessment',
+      sortable: true,
+      cell: (a) => <span className="font-medium">{a.name}</span>,
+    },
+    {
+      id: 'class',
+      header: 'Class',
+      hideable: true,
+      cell: (a) => (
+        <span className="text-muted-foreground">{classLabel(a.class)}</span>
+      ),
+    },
+    {
+      id: 'due',
+      header: 'Due',
+      sortable: true,
+      hideable: true,
+      cell: (a) => (
+        <span className="text-muted-foreground">{formatDate(a.dueDate)}</span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (a) => {
+        const status =
+          ASSESSMENT_STATUS_META[a.status] ??
+          ({ label: 'Published', tone: 'success' } as const);
+        return <StatusBadge tone={status.tone}>{status.label}</StatusBadge>;
+      },
+    },
+    {
+      id: 'open',
+      header: 'Open',
+      align: 'end',
+      cell: (a) => (
+        <Button variant="ghost" size="sm" onClick={() => openAssessment(a.id)}>
+          Open <ArrowRight />
+        </Button>
+      ),
+    },
+  ];
 
   return (
     <ShellMain>
@@ -98,28 +173,55 @@ export function AssessmentTakeListClient({
           </Button>
         </section>
 
-        <DataTableLayout
+        <DirectoryTable<AssessmentSummary>
           title="Published assessments"
-          description={`${assessments.length} visible assessments`}
-          empty={assessments.length === 0}
-          toolbar={
-            <div className="relative flex-1 min-w-0 @md/main:w-64 @md/main:flex-none">
-              <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Label htmlFor="assessment-take-search" className="sr-only">
-                Search assessments
-              </Label>
-              <Input
-                id="assessment-take-search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search assessments"
-                className="pl-8"
-              />
-            </div>
+          description={`${filtered.length} visible assessments`}
+          columns={columns}
+          rows={pageRows}
+          getRowId={(a) => a.id}
+          getRowLabel={(a) => a.name}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
           }
+          caption="Published assessments"
+          search={{
+            value: query,
+            onChange: setQuery,
+            placeholder: 'Search assessments',
+            label: 'Search assessments',
+            id: 'assessment-take-search',
+          }}
+          filters={
+            statuses.length > 1
+              ? [
+                  {
+                    key: 'status',
+                    label: 'Status',
+                    options: statuses.map((s) => ({
+                      value: s,
+                      label: ASSESSMENT_STATUS_META[s]?.label ?? s,
+                    })),
+                  },
+                ]
+              : []
+          }
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
+          }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
@@ -128,51 +230,7 @@ export function AssessmentTakeListClient({
               description="Use an assessment link or ID from your teacher."
             />
           }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Assessment</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead>Due</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="sr-only">Open</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {assessments.map((assessment) => {
-                const status =
-                  ASSESSMENT_STATUS_META[assessment.status] ??
-                  ({ label: 'Published', tone: 'success' } as const);
-                return (
-                  <TableRow key={assessment.id}>
-                    <TableCell className="font-medium">
-                      {assessment.name}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {classLabel(assessment.class)}
-                    </TableCell>
-                    <TableCell>{formatDate(assessment.dueDate)}</TableCell>
-                    <TableCell>
-                      <StatusBadge tone={status.tone}>
-                        {status.label}
-                      </StatusBadge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => openAssessment(assessment.id)}
-                      >
-                        Open <ArrowRight />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Plus, Search, UserMinus, Users } from 'lucide-react';
+import { Plus, UserMinus, Users } from 'lucide-react';
 
 import { useViewer } from '@/app/providers/viewer-provider';
 import {
@@ -17,7 +17,6 @@ import {
 } from '@/lib/academics';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
   Select,
@@ -26,17 +25,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
@@ -69,16 +65,27 @@ export function ClassTeachersClient({
     React.useState(initialAssignments);
   const [staffId, setStaffId] = React.useState('');
   const [role, setRole] = React.useState<TeacherRole>('teacher');
-  const [query, setQuery] = React.useState('');
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+
+  React.useEffect(() => setPage(1), [term, filters, pageSize, classId]);
 
   const assignments = React.useMemo(
     () => assignmentsByClass[classId] ?? [],
     [assignmentsByClass, classId],
   );
-  const selectedClass = initialClasses.find((cls) => cls.id === classId) ?? null;
-  const activeAssignments = assignments.filter((assignment) => assignment.isActive);
+  const selectedClass =
+    initialClasses.find((cls) => cls.id === classId) ?? null;
+  const activeAssignments = assignments.filter(
+    (assignment) => assignment.isActive,
+  );
   const activeStaffIds = new Set(
     activeAssignments.map((assignment) => assignment.userTenantId),
   );
@@ -86,15 +93,110 @@ export function ClassTeachersClient({
     (profile) => !activeStaffIds.has(profile.id),
   );
 
-  const filteredAssignments = React.useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return assignments;
-    return assignments.filter((assignment) => {
-      const name = personName(assignment.userTenant).toLowerCase();
-      const email = assignment.userTenant.user.email.toLowerCase();
-      return name.includes(needle) || email.includes(needle);
+  const filtered = React.useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const status = filters.status;
+    const roleFilter = filters.role;
+    let out = assignments.filter((a) => {
+      const name = personName(a.userTenant).toLowerCase();
+      const email = a.userTenant.user.email.toLowerCase();
+      const matchesQ = !q || name.includes(q) || email.includes(q);
+      const matchesStatus =
+        !status || (status === 'active' ? a.isActive : !a.isActive);
+      const matchesRole = !roleFilter || a.role === roleFilter;
+      return matchesQ && matchesStatus && matchesRole;
     });
-  }, [assignments, query]);
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'assignedAt'
+          ? dir * a.assignedAt.localeCompare(b.assignedAt)
+          : sort.field === 'status'
+            ? dir * (Number(a.isActive) - Number(b.isActive))
+            : dir *
+              personName(a.userTenant).localeCompare(personName(b.userTenant)),
+      );
+    }
+    return out;
+  }, [assignments, term, filters, sort]);
+
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+
+  const columns: DirectoryColumn<ClassTeacherAssignment>[] = [
+    {
+      id: 'teacher',
+      header: 'Teacher',
+      sortable: true,
+      cell: (a) => {
+        const name = personName(a.userTenant);
+        return (
+          <div className="flex items-center gap-3">
+            <Avatar className="size-8">
+              <AvatarFallback className="text-[11px] font-semibold">
+                {initials(name)}
+              </AvatarFallback>
+            </Avatar>
+            <div className="min-w-0">
+              <p className="break-words font-medium">{name}</p>
+              <p className="break-words text-xs text-muted-foreground">
+                {a.userTenant.user.email}
+              </p>
+            </div>
+          </div>
+        );
+      },
+    },
+    {
+      id: 'role',
+      header: 'Allocation',
+      hideable: true,
+      cell: (a) => (
+        <span className="capitalize">{a.role.replace('-', ' ')}</span>
+      ),
+    },
+    {
+      id: 'assignedAt',
+      header: 'Assigned',
+      sortable: true,
+      hideable: true,
+      cell: (a) => (
+        <span className="text-muted-foreground">
+          {formatDate(a.assignedAt)}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (a) => (
+        <StatusBadge tone={a.isActive ? 'success' : 'neutral'} dot={a.isActive}>
+          {a.isActive ? 'Active' : 'Ended'}
+        </StatusBadge>
+      ),
+    },
+    ...(canAssign
+      ? ([
+          {
+            id: 'actions',
+            header: 'Actions',
+            align: 'end',
+            cell: (a: ClassTeacherAssignment) =>
+              a.isActive ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label={`Unassign ${personName(a.userTenant)}`}
+                  onClick={() => void unassignTeacher(a.userTenantId)}
+                  disabled={!live || busy}
+                >
+                  <UserMinus />
+                </Button>
+              ) : null,
+          },
+        ] as DirectoryColumn<ClassTeacherAssignment>[])
+      : []),
+  ];
 
   function patchAssignments(next: ClassTeacherAssignment[]) {
     setAssignmentsByClass((prev) => ({ ...prev, [classId]: next }));
@@ -156,7 +258,9 @@ export function ClassTeachersClient({
           meta={[
             {
               key: 'class',
-              label: selectedClass ? classLabel(selectedClass) : 'No class selected',
+              label: selectedClass
+                ? classLabel(selectedClass)
+                : 'No class selected',
               emphasis: true,
             },
             { key: 'active', label: `${activeAssignments.length} active` },
@@ -194,7 +298,10 @@ export function ClassTeachersClient({
               <div className="grid gap-2">
                 <Label htmlFor="teacher-profile">Teacher</Label>
                 <Select value={staffId} onValueChange={setStaffId}>
-                  <SelectTrigger id="teacher-profile" aria-label="Select teacher">
+                  <SelectTrigger
+                    id="teacher-profile"
+                    aria-label="Select teacher"
+                  >
                     <SelectValue placeholder="Select teacher" />
                   </SelectTrigger>
                   <SelectContent>
@@ -234,28 +341,59 @@ export function ClassTeachersClient({
           ) : null}
         </div>
 
-        <DataTableLayout
+        <DirectoryTable<ClassTeacherAssignment>
           title="Class roster"
-          description={`${filteredAssignments.length} allocation records`}
-          empty={filteredAssignments.length === 0}
-          toolbar={
-            <div className="relative flex-1 min-w-0 @md/main:w-64 @md/main:flex-none">
-              <Search
-                className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                aria-hidden
-              />
-              <Label htmlFor="allocation-search" className="sr-only">
-                Search teachers
-              </Label>
-              <Input
-                id="allocation-search"
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search teachers"
-                className="pl-8"
-              />
-            </div>
+          description={`${filtered.length} allocation records`}
+          columns={columns}
+          rows={pageRows}
+          getRowId={(a) => a.id}
+          getRowLabel={(a) => personName(a.userTenant)}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
           }
+          caption="Class teacher roster"
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search teachers',
+            label: 'Search teachers',
+            id: 'allocation-search',
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: [
+                { value: 'active', label: 'Active' },
+                { value: 'ended', label: 'Ended' },
+              ],
+            },
+            {
+              key: 'role',
+              label: 'Role',
+              options: ROLE_OPTIONS.map((r) => ({
+                value: r.value,
+                label: r.label,
+              })),
+            },
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
+          }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
@@ -264,70 +402,7 @@ export function ClassTeachersClient({
               description="No teachers match the current class and search."
             />
           }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Teacher</TableHead>
-                <TableHead>Allocation</TableHead>
-                <TableHead>Assigned</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="sr-only">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAssignments.map((assignment) => {
-                const name = personName(assignment.userTenant);
-                return (
-                  <TableRow key={assignment.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarFallback className="text-[11px] font-semibold">
-                            {initials(name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="min-w-0">
-                          <p className="break-words font-medium">{name}</p>
-                          <p className="break-words text-xs text-muted-foreground">
-                            {assignment.userTenant.user.email}
-                          </p>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="capitalize">
-                      {assignment.role.replace('-', ' ')}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {formatDate(assignment.assignedAt)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge
-                        tone={assignment.isActive ? 'success' : 'neutral'}
-                        dot={assignment.isActive}
-                      >
-                        {assignment.isActive ? 'Active' : 'Ended'}
-                      </StatusBadge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {canAssign && assignment.isActive ? (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          aria-label={`Unassign ${name}`}
-                          onClick={() => void unassignTeacher(assignment.userTenantId)}
-                          disabled={!live || busy}
-                        >
-                          <UserMinus />
-                        </Button>
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );
