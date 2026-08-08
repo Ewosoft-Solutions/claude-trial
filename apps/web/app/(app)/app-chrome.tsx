@@ -147,7 +147,10 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
 
   React.useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
-      if (event.key.toLowerCase() === 'k' && (event.metaKey || event.ctrlKey)) {
+      if (
+        event.key?.toLowerCase() === 'k' &&
+        (event.metaKey || event.ctrlKey)
+      ) {
         event.preventDefault();
         setSearchOpen(true);
       }

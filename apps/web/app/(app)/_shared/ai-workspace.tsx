@@ -189,7 +189,10 @@ export function AiWorkspaceLauncher() {
   // ⌘J / Ctrl+J opens the assistant from anywhere.
   React.useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key.toLowerCase() === 'j' && (event.metaKey || event.ctrlKey)) {
+      if (
+        event.key?.toLowerCase() === 'j' &&
+        (event.metaKey || event.ctrlKey)
+      ) {
         event.preventDefault();
         setOpen((current) => !current);
       }
