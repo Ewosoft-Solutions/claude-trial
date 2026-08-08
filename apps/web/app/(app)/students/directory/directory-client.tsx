@@ -143,6 +143,7 @@ export function StudentDirectoryClient({
     setQuery,
     setFilter,
     setFilters,
+    setHiddenColumns,
     applyView,
   } = useDirectoryState({
     searchParams: searchParams.toString(),
@@ -356,6 +357,8 @@ export function StudentDirectoryClient({
           filterValues={state.filters}
           onFilterChange={setFilter}
           onClearFilters={() => setFilters({})}
+          hiddenColumns={state.hiddenColumns}
+          onHiddenColumnsChange={setHiddenColumns}
           views={{
             options: savedViews.map((v) => ({
               id: v.id,
@@ -413,6 +416,9 @@ function SaveViewDialog({
     filters: state.filters,
     sort: state.sort,
     pageSize: state.pageSize,
+    // Capture which columns are hidden so the view can omit columns that aren't
+    // relevant to it (restored on apply; empty = every column shown).
+    hiddenColumns: state.hiddenColumns,
   };
 
   async function save() {

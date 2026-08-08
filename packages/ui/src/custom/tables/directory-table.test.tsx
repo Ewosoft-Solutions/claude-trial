@@ -148,4 +148,33 @@ describe('DirectoryTable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Next page' }));
     expect(onPageChange).toHaveBeenCalledWith(2);
   });
+
+  const VIS_COLUMNS: DirectoryColumn<Row>[] = [
+    { id: 'name', header: 'Name', cell: (r) => r.name },
+    { id: 'email', header: 'Email', cell: (r) => r.email },
+  ];
+
+  it('hides a defaultHidden column by default (uncontrolled)', () => {
+    renderTable({
+      columns: [VIS_COLUMNS[0]!, { ...VIS_COLUMNS[1]!, defaultHidden: true }],
+    });
+    expect(
+      screen.getByRole('columnheader', { name: 'Name' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Email' })).toBeNull();
+  });
+
+  it('respects a controlled hiddenColumns prop over the internal default', () => {
+    // No defaultHidden, but the controlled prop hides Email — proving the URL/
+    // SavedView-driven set wins, which is what lets a saved view omit columns.
+    renderTable({
+      columns: VIS_COLUMNS,
+      hiddenColumns: ['email'],
+      onHiddenColumnsChange: vi.fn(),
+    });
+    expect(
+      screen.getByRole('columnheader', { name: 'Name' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: 'Email' })).toBeNull();
+  });
 });

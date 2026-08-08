@@ -221,7 +221,8 @@ export class CreateSavedViewDto {
   name: string;
 
   @ApiProperty({
-    description: 'Serialized directory state (q / filters / sort / pageSize).',
+    description:
+      'Serialized directory state (q / filters / sort / pageSize / hiddenColumns).',
   })
   @IsObject()
   state: Record<string, unknown>;

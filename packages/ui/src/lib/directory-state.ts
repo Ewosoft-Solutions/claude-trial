@@ -36,6 +36,10 @@ export interface DirectoryState {
   sort: DirectorySort | null;
   /** Arbitrary column filters (key -> value). */
   filters: Record<string, string>;
+  /** Column ids hidden from view. Presentation-only (never sent to the server),
+   *  but part of the state so a shared link and a SavedView restore the same
+   *  columns — letting a view omit columns that aren't relevant to it. */
+  hiddenColumns: string[];
   /** Id of the applied SavedView, if any (for the "shared/dirty" affordance). */
   viewId: string | null;
 }
@@ -62,6 +66,7 @@ export const DEFAULT_DIRECTORY_STATE: DirectoryState = {
   pageSize: 10,
   sort: null,
   filters: {},
+  hiddenColumns: [],
   viewId: null,
 };
 
@@ -73,6 +78,7 @@ const PARAM = {
   page: 'page',
   size: 'size',
   sort: 'sort',
+  cols: 'cols',
   view: 'view',
 } as const;
 
@@ -126,6 +132,31 @@ function sortsEqual(a: DirectorySort | null, b: DirectorySort | null): boolean {
 }
 
 /**
+ * Parse the hidden-columns param (`cols=guardian,contact`) into a de-duplicated
+ * id list. An empty value means "nothing hidden" — distinct from the param being
+ * absent, which falls back to the caller's defaults (see {@link parseDirectoryState}).
+ */
+export function parseCols(raw: string | null): string[] {
+  if (!raw) return [];
+  return [
+    ...new Set(
+      raw
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
+    ),
+  ];
+}
+
+/** Order-insensitive equality for the hidden-columns list. */
+function colsEqual(a: string[], b: string[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort();
+  const sb = [...b].sort();
+  return sa.every((v, i) => v === sb[i]);
+}
+
+/**
  * Read a {@link DirectoryState} out of a URL query string.
  *
  * Absent params fall back to `defaults`. Filter params (prefixed `f_`) define
@@ -155,6 +186,9 @@ export function parseDirectoryState(
       ? parseSort(params.get(PARAM.sort))
       : defaults.sort,
     filters: sawFilter ? filters : { ...defaults.filters },
+    hiddenColumns: params.has(PARAM.cols)
+      ? parseCols(params.get(PARAM.cols))
+      : [...defaults.hiddenColumns],
     viewId: params.get(PARAM.view) ?? defaults.viewId,
   };
 }
@@ -185,6 +219,11 @@ export function serializeDirectoryState(
   }
   if (state.sort && !sortsEqual(state.sort, defaults.sort)) {
     params.set(PARAM.sort, serializeSort(state.sort)!);
+  }
+  if (!colsEqual(state.hiddenColumns, defaults.hiddenColumns)) {
+    // Sorted for a deterministic query string. An empty list emits `cols=`,
+    // which explicitly says "nothing hidden" even when the defaults hide some.
+    params.set(PARAM.cols, [...state.hiddenColumns].sort().join(','));
   }
   if (state.page !== defaults.page) {
     params.set(PARAM.page, String(state.page));

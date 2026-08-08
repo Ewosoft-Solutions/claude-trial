@@ -169,6 +169,15 @@ export interface DirectoryTableProps<TRow> {
   onClearFilters?: () => void;
   formatFilterValue?: (key: string, value: string) => string;
   views?: ToolbarViews;
+  /**
+   * Hidden column ids. Provide together with `onHiddenColumnsChange` to make
+   * column visibility CONTROLLED — e.g. bound to the URL via `useDirectoryState`
+   * so a SavedView / shared link can capture and replay which columns are shown.
+   * Omit both for the default uncontrolled behaviour (internal state seeded from
+   * each column's `defaultHidden`).
+   */
+  hiddenColumns?: string[];
+  onHiddenColumnsChange?: (hiddenColumns: string[]) => void;
   /** Inline actions (e.g. a primary button) placed at the toolbar's end. */
   toolbarActions?: React.ReactNode;
   /** Empty-state slot (defaults to a generic EmptyState). */
@@ -208,18 +217,34 @@ export function DirectoryTable<TRow>({
   onClearFilters,
   formatFilterValue,
   views,
+  hiddenColumns,
+  onHiddenColumnsChange,
   toolbarActions,
   emptyState,
   caption,
   className,
 }: DirectoryTableProps<TRow>) {
-  // ---- Column visibility (internal; seeded from defaultHidden) ----------
-  const [hidden, setHidden] = React.useState<Record<string, boolean>>(() => {
-    const init: Record<string, boolean> = {};
-    for (const c of columns) if (c.defaultHidden) init[c.id] = true;
-    return init;
-  });
-  const visibleColumns = columns.filter((c) => !hidden[c.id]);
+  // ---- Column visibility ------------------------------------------------
+  // Uncontrolled by default (internal state seeded from `defaultHidden`).
+  // Becomes CONTROLLED when the host passes `hiddenColumns` (e.g. bound to the
+  // URL via useDirectoryState so a SavedView can capture + replay it).
+  const [internalHidden, setInternalHidden] = React.useState<string[]>(() =>
+    columns.filter((c) => c.defaultHidden).map((c) => c.id),
+  );
+  const isColumnsControlled = hiddenColumns !== undefined;
+  const hiddenIds = isColumnsControlled ? hiddenColumns : internalHidden;
+  const hiddenSet = new Set(hiddenIds);
+  const commitHidden = (next: string[]) => {
+    onHiddenColumnsChange?.(next);
+    if (!isColumnsControlled) setInternalHidden(next);
+  };
+  const setColumnVisible = (id: string, visible: boolean) => {
+    const next = new Set(hiddenIds);
+    if (visible) next.delete(id);
+    else next.add(id);
+    commitHidden([...next]);
+  };
+  const visibleColumns = columns.filter((c) => !hiddenSet.has(c.id));
 
   // ---- Selection (internal; scoped to the current page) -----------------
   const rowIds = React.useMemo(() => rows.map(getRowId), [rows, getRowId]);
@@ -273,11 +298,10 @@ export function DirectoryTable<TRow>({
 
   const isEmpty = !loading && !error && rows.length === 0;
   const hideableColumns = columns.filter((c) => c.hideable !== false);
-  const anyHidden = hideableColumns.some((c) => hidden[c.id]);
-  const anyVisible = hideableColumns.some((c) => !hidden[c.id]);
-  const showAllColumns = () => setHidden({});
-  const hideAllColumns = () =>
-    setHidden(Object.fromEntries(hideableColumns.map((c) => [c.id, true])));
+  const anyHidden = hideableColumns.some((c) => hiddenSet.has(c.id));
+  const anyVisible = hideableColumns.some((c) => !hiddenSet.has(c.id));
+  const showAllColumns = () => commitHidden([]);
+  const hideAllColumns = () => commitHidden(hideableColumns.map((c) => c.id));
   const colSpan = visibleColumns.length + (selectable ? 1 : 0);
 
   const sortState = (columnId: string): 'ascending' | 'descending' | 'none' => {
@@ -345,10 +369,9 @@ export function DirectoryTable<TRow>({
                       label:
                         c.ariaLabel ??
                         (typeof c.header === 'string' ? c.header : c.id),
-                      visible: !hidden[c.id],
+                      visible: !hiddenSet.has(c.id),
                     })),
-                    onToggle: (id, visible) =>
-                      setHidden((prev) => ({ ...prev, [id]: !visible })),
+                    onToggle: setColumnVisible,
                   }
                 : undefined
             }
@@ -389,9 +412,9 @@ export function DirectoryTable<TRow>({
                   {hideableColumns.map((c) => (
                     <DropdownMenuCheckboxItem
                       key={c.id}
-                      checked={!hidden[c.id]}
+                      checked={!hiddenSet.has(c.id)}
                       onCheckedChange={(value) =>
-                        setHidden((prev) => ({ ...prev, [c.id]: !value }))
+                        setColumnVisible(c.id, value === true)
                       }
                     >
                       {c.ariaLabel ??

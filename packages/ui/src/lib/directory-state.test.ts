@@ -25,6 +25,7 @@ describe('parseDirectoryState', () => {
       pageSize: 50,
       sort: { field: 'name', dir: 'desc' },
       filters: { status: 'active', grade: 'SS1' },
+      hiddenColumns: [],
       viewId: 'v1',
     });
   });
@@ -67,6 +68,7 @@ describe('serializeDirectoryState', () => {
       pageSize: 50,
       sort: { field: 'name', dir: 'asc' },
       filters: { status: 'active', grade: 'SS1' },
+      hiddenColumns: [],
       viewId: 'v1',
     });
     // deterministic ordering: view, q, filters (sorted), sort, page, size.
@@ -83,6 +85,8 @@ describe('serializeDirectoryState', () => {
       pageSize: 10,
       sort: { field: 'fees', dir: 'desc' },
       filters: { status: 'owing' },
+      // Already sorted so the serialize (which sorts) round-trips identically.
+      hiddenColumns: ['contact', 'guardian'],
       viewId: null,
     };
     expect(parseDirectoryState(serializeDirectoryState(original))).toEqual(
@@ -96,6 +100,47 @@ describe('serializeDirectoryState', () => {
       filters: { status: '', grade: 'JS1' },
     });
     expect(qs).toBe('f_grade=JS1');
+  });
+});
+
+describe('hidden columns (cols param)', () => {
+  it('parses and de-duplicates the comma list', () => {
+    expect(
+      parseDirectoryState('cols=guardian,contact,guardian').hiddenColumns,
+    ).toEqual(['guardian', 'contact']);
+  });
+
+  it('serializes the hidden set sorted', () => {
+    const qs = serializeDirectoryState({
+      ...DEFAULT_DIRECTORY_STATE,
+      hiddenColumns: ['guardian', 'contact'],
+    });
+    expect(qs).toBe('cols=contact%2Cguardian');
+  });
+
+  it('an absent cols param falls back to the defaults', () => {
+    const defaults: DirectoryState = {
+      ...DEFAULT_DIRECTORY_STATE,
+      hiddenColumns: ['guardian'],
+    };
+    expect(parseDirectoryState('', defaults).hiddenColumns).toEqual([
+      'guardian',
+    ]);
+  });
+
+  it('an empty cols= explicitly means nothing hidden, overriding defaults', () => {
+    const defaults: DirectoryState = {
+      ...DEFAULT_DIRECTORY_STATE,
+      hiddenColumns: ['guardian'],
+    };
+    // The state shows every column even though the defaults hide one: serialize
+    // must emit an explicit empty `cols=` so parse can distinguish it from absent.
+    const qs = serializeDirectoryState(
+      { ...defaults, hiddenColumns: [] },
+      defaults,
+    );
+    expect(qs).toBe('cols=');
+    expect(parseDirectoryState(qs, defaults).hiddenColumns).toEqual([]);
   });
 });
 

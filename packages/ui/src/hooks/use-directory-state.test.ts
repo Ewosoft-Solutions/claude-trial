@@ -72,6 +72,20 @@ describe('useDirectoryState', () => {
     expect(onChange).toHaveBeenLastCalledWith('');
   });
 
+  it('setHiddenColumns writes cols, keeps the page, and clears the view', () => {
+    const { current, onChange, sync } = setup('page=3&view=v1');
+    act(() => current().setHiddenColumns(['guardian', 'contact']));
+    // Page 3 is preserved (hiding a column does not change the row set); the
+    // applied view is cleared because the shown columns now differ from it.
+    expect(onChange).toHaveBeenLastCalledWith('cols=contact%2Cguardian&page=3');
+    sync();
+    expect(current().state).toMatchObject({
+      hiddenColumns: ['contact', 'guardian'],
+      page: 3,
+      viewId: null,
+    });
+  });
+
   it('applyView replaces state and tags the view id at page 1', () => {
     const { current, onChange } = setup('q=stale&page=9');
     act(() =>
