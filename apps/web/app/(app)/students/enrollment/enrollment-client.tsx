@@ -1,47 +1,33 @@
 'use client';
 
 /* ============================================================
-   EnrollmentClient — admissions pipeline interactive table
+   EnrollmentClient — admissions pipeline (client-side DirectoryTable)
 
-   Receives server-fetched applicants as props. Built from the
-   same recipe as the directory: M6 StatGrid (pipeline summary) +
-   DataTableLayout (toolbar + table + footer) wired to the M5
-   states (SkeletonTable on a brief mount-time load, EmptyState
-   with a reset when over-filtered). Stage + decision read as
-   StatusBadges.
+   Receives the full applicant list, so search / stage + decision filters /
+   sort / paging run in-memory. Both filters collapse into the Pattern-B
+   Filters button. StatGrid shows the pipeline summary.
    ============================================================ */
 
 import * as React from 'react';
-import { Download, Search, UserPlus } from 'lucide-react';
+import { Download, UserPlus } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
+
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export type Stage = 'application' | 'interview' | 'decision';
 export type Decision = 'pending' | 'accepted' | 'waitlisted' | 'rejected';
@@ -95,42 +81,112 @@ interface Props {
 }
 
 export function EnrollmentClient({ applicants }: Props) {
-  const APPLICANTS = applicants;
-  const loading = false;
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
 
-  const [query, setQuery] = React.useState('');
-  const [stageFilter, setStageFilter] = React.useState('all');
-  const [decisionFilter, setDecisionFilter] = React.useState('all');
+  React.useEffect(() => setPage(1), [term, filters, pageSize]);
+
+  const columns: DirectoryColumn<Applicant>[] = [
+    {
+      id: 'name',
+      header: 'Applicant',
+      sortable: true,
+      cell: (a) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarFallback seed={a.name} className="text-[11px] font-semibold">
+              {initials(a.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col">
+            <span className="break-words font-medium text-foreground">
+              {a.name}
+            </span>
+            <span className="break-words text-xs text-muted-foreground">
+              {a.id}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'applyingFor',
+      header: 'Applying for',
+      hideable: true,
+      cell: (a) => (
+        <span className="text-muted-foreground">{a.applyingFor}</span>
+      ),
+    },
+    {
+      id: 'submitted',
+      header: 'Submitted',
+      sortable: true,
+      hideable: true,
+      cell: (a) => <span className="text-muted-foreground">{a.submitted}</span>,
+    },
+    {
+      id: 'stage',
+      header: 'Stage',
+      sortable: true,
+      cell: (a) => {
+        const stage = STAGE_META[a.stage];
+        return <StatusBadge tone={stage.tone}>{stage.label}</StatusBadge>;
+      },
+    },
+    {
+      id: 'decision',
+      header: 'Decision',
+      sortable: true,
+      cell: (a) => {
+        const decision = DECISION_META[a.decision];
+        return (
+          <StatusBadge tone={decision.tone} dot>
+            {decision.label}
+          </StatusBadge>
+        );
+      },
+    },
+  ];
 
   const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return APPLICANTS.filter((a) => {
-      const matchesQuery =
+    const q = term.trim().toLowerCase();
+    const stage = filters.stage;
+    const decision = filters.decision;
+    let out = applicants.filter((a) => {
+      const matchesQ =
         !q ||
         a.name.toLowerCase().includes(q) ||
         a.id.toLowerCase().includes(q) ||
         a.guardian.toLowerCase().includes(q);
-      const matchesStage = stageFilter === 'all' || a.stage === stageFilter;
-      const matchesDecision =
-        decisionFilter === 'all' || a.decision === decisionFilter;
-      return matchesQuery && matchesStage && matchesDecision;
+      const matchesStage = !stage || a.stage === stage;
+      const matchesDecision = !decision || a.decision === decision;
+      return matchesQ && matchesStage && matchesDecision;
     });
-  }, [APPLICANTS, query, stageFilter, decisionFilter]);
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'submitted'
+          ? dir * a.submitted.localeCompare(b.submitted)
+          : sort.field === 'stage'
+            ? dir * a.stage.localeCompare(b.stage)
+            : sort.field === 'decision'
+              ? dir * a.decision.localeCompare(b.decision)
+              : dir * a.name.localeCompare(b.name),
+      );
+    }
+    return out;
+  }, [applicants, term, filters, sort]);
 
-  const hasFilters =
-    query.trim() !== '' || stageFilter !== 'all' || decisionFilter !== 'all';
-
-  function resetFilters() {
-    setQuery('');
-    setStageFilter('all');
-    setDecisionFilter('all');
-  }
-
-  // Pipeline summary — derived live from the data.
   const stats: StatItem[] = React.useMemo(() => {
-    const count = (fn: (a: Applicant) => boolean) => APPLICANTS.filter(fn).length;
+    const count = (fn: (a: Applicant) => boolean) =>
+      applicants.filter(fn).length;
     return [
-      { key: 'total', label: 'Applications', value: String(APPLICANTS.length) },
+      { key: 'total', label: 'Applications', value: String(applicants.length) },
       {
         key: 'review',
         label: 'In review',
@@ -147,7 +203,10 @@ export function EnrollmentClient({ applicants }: Props) {
         value: String(count((a) => a.decision === 'waitlisted')),
       },
     ];
-  }, [APPLICANTS]);
+  }, [applicants]);
+
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
 
   return (
     <ShellMain>
@@ -169,153 +228,72 @@ export function EnrollmentClient({ applicants }: Props) {
 
         <StatGrid items={stats} />
 
-        <DataTableLayout
+        <DirectoryTable<Applicant>
           title="Applications"
-          description={
-            loading
-              ? 'Loading applications…'
-              : `${filtered.length} of ${APPLICANTS.length} applications`
+          description={`${filtered.length} of ${applicants.length} applications`}
+          columns={columns}
+          rows={pageRows}
+          getRowId={(a) => a.id}
+          getRowLabel={(a) => a.name}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
           }
-          loading={loading}
-          empty={!loading && filtered.length === 0}
-          skeletonColumns={5}
-          toolbar={
-            <>
-              <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="applicant-search" className="sr-only">
-                  Search applicants
-                </Label>
-                <Input
-                  id="applicant-search"
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search applicant, ID, guardian…"
-                  className="pl-8"
-                />
-              </div>
-
-              <Select value={stageFilter} onValueChange={setStageFilter}>
-                <SelectTrigger className="w-[8.5rem]" aria-label="Filter by stage">
-                  <SelectValue placeholder="Stage" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All stages</SelectItem>
-                  {STAGES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <Select value={decisionFilter} onValueChange={setDecisionFilter}>
-                <SelectTrigger className="w-[9rem]" aria-label="Filter by decision">
-                  <SelectValue placeholder="Decision" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All decisions</SelectItem>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="accepted">Accepted</SelectItem>
-                  <SelectItem value="waitlisted">Waitlisted</SelectItem>
-                  <SelectItem value="rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
+          caption="Admissions pipeline"
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search applicant, ID, guardian…',
+            label: 'Search applicants',
+            id: 'applicant-search',
+          }}
+          filters={[
+            {
+              key: 'stage',
+              label: 'Stage',
+              options: STAGES.map((s) => ({ value: s.value, label: s.label })),
+            },
+            {
+              key: 'decision',
+              label: 'Decision',
+              options: (Object.keys(DECISION_META) as Decision[]).map((k) => ({
+                value: k,
+                label: DECISION_META[k].label,
+              })),
+            },
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
           }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No applications match your filters' : 'No applications yet'}
+              title={
+                hasQuery
+                  ? 'No applications match your filters'
+                  : 'No applications yet'
+              }
               description={
-                hasFilters
+                hasQuery
                   ? 'Try a different search term, or clear the filters to see the full pipeline.'
                   : 'Run the dev operational seed or create an admission application.'
               }
-              primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
-              }
             />
           }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of{' '}
-                {APPLICANTS.length}
-              </span>
-              {hasFilters ? (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0"
-                  onClick={resetFilters}
-                >
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Applicant</TableHead>
-                <TableHead>Applying for</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Stage</TableHead>
-                <TableHead>Decision</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((a) => {
-                const stage = STAGE_META[a.stage];
-                const decision = DECISION_META[a.decision];
-                return (
-                  <TableRow key={a.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarFallback
-                            seed={a.name}
-                            className="text-[11px] font-semibold"
-                          >
-                            {initials(a.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="break-words font-medium text-foreground">
-                            {a.name}
-                          </span>
-                          <span className="break-words text-xs text-muted-foreground">
-                            {a.id}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {a.applyingFor}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {a.submitted}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={stage.tone}>{stage.label}</StatusBadge>
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={decision.tone} dot>
-                        {decision.label}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

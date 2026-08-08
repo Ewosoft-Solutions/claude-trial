@@ -7,6 +7,7 @@
    (Architect). Combines GET /platform/analytics and /platform/risk.
    ============================================================ */
 
+import * as React from 'react';
 import useSWR from 'swr';
 import { ChartColumn, ShieldAlert } from 'lucide-react';
 import {
@@ -16,16 +17,16 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
+import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
+
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 interface Analytics {
   totals: {
@@ -37,7 +38,11 @@ interface Analytics {
   };
   byType: { schoolType: string; tenants: number; students: number }[];
 }
-interface RiskFlag { code: string; severity: string; detail: string }
+interface RiskFlag {
+  code: string;
+  severity: string;
+  detail: string;
+}
 interface TenantRisk {
   tenantId: string;
   tenantName: string;
@@ -47,7 +52,13 @@ interface TenantRisk {
 }
 interface RiskReport {
   atRisk: TenantRisk[];
-  summary: { total: number; high: number; medium: number; low: number; ok: number };
+  summary: {
+    total: number;
+    high: number;
+    medium: number;
+    low: number;
+    ok: number;
+  };
 }
 
 const SEVERITY_TONE: Record<string, StateTone> = {
@@ -61,7 +72,9 @@ function fmt(n: number): string {
 }
 
 export default function PlatformAnalyticsPage() {
-  const { data: analytics, error: aErr } = useSWR<Analytics>('/api/platform/analytics');
+  const { data: analytics, error: aErr } = useSWR<Analytics>(
+    '/api/platform/analytics',
+  );
   const { data: risk, error: rErr } = useSWR<RiskReport>('/api/platform/risk');
 
   const error =
@@ -72,6 +85,75 @@ export default function PlatformAnalyticsPage() {
         : null;
 
   const t = analytics?.totals;
+
+  const atRisk = React.useMemo(() => risk?.atRisk ?? [], [risk]);
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => setPage(1), [term, filters, pageSize, risk]);
+
+  const severities = React.useMemo(
+    () => Array.from(new Set(atRisk.map((r) => r.severity))),
+    [atRisk],
+  );
+
+  const riskColumns: DirectoryColumn<TenantRisk>[] = [
+    {
+      id: 'school',
+      header: 'School',
+      sortable: true,
+      cell: (r) => <span className="font-medium">{r.tenantName}</span>,
+    },
+    {
+      id: 'severity',
+      header: 'Severity',
+      sortable: true,
+      cell: (r) => (
+        <StatusBadge
+          tone={SEVERITY_TONE[r.severity] ?? 'neutral'}
+          dot
+          className="capitalize"
+        >
+          {r.severity}
+        </StatusBadge>
+      ),
+    },
+    {
+      id: 'reasons',
+      header: 'Reasons',
+      cell: (r) => (
+        <span className="text-sm text-muted-foreground">
+          {r.flags.map((f) => f.detail).join(' ')}
+        </span>
+      ),
+    },
+  ];
+
+  const filteredRisk = React.useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const severity = filters.severity;
+    let out = atRisk.filter(
+      (r) =>
+        (!q || r.tenantName.toLowerCase().includes(q)) &&
+        (!severity || r.severity === severity),
+    );
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'severity'
+          ? dir * a.severity.localeCompare(b.severity)
+          : dir * a.tenantName.localeCompare(b.tenantName),
+      );
+    }
+    return out;
+  }, [atRisk, term, filters, sort]);
+
+  const riskRows = filteredRisk.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="flex flex-col gap-4 py-6">
@@ -85,7 +167,9 @@ export default function PlatformAnalyticsPage() {
       </div>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">{error}</p>
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
       ) : null}
 
       {/* Totals */}
@@ -108,7 +192,10 @@ export default function PlatformAnalyticsPage() {
             <p className="text-muted-foreground">Loading…</p>
           ) : (
             analytics.byType.map((row) => (
-              <div key={row.schoolType} className="flex items-center justify-between">
+              <div
+                key={row.schoolType}
+                className="flex items-center justify-between"
+              >
                 <span className="capitalize text-muted-foreground">
                   {row.schoolType.replace(/_/g, ' ')}
                 </span>
@@ -122,58 +209,73 @@ export default function PlatformAnalyticsPage() {
       </Card>
 
       {/* At-risk */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-base">
+      <DirectoryTable<TenantRisk>
+        title={
+          <span className="flex items-center gap-2">
             <ShieldAlert className="size-4 text-warning" /> At-risk schools
-          </CardTitle>
-          <CardDescription>
-            {risk
-              ? `${risk.summary.high} high · ${risk.summary.medium} medium · ${risk.summary.low} low · ${risk.summary.ok} ok`
-              : 'Combined risk signals (policy drift, stalled onboarding, dormancy, suspension)'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent
-          className={
-            risk?.atRisk.length
-              ? 'px-0 [&_:is(th,td):first-child]:pl-6 [&_:is(th,td):last-child]:pr-6'
-              : undefined
-          }
-        >
-          {!risk ? (
-            <p className="px-6 py-4 text-sm text-muted-foreground">Loading…</p>
-          ) : risk.atRisk.length === 0 ? (
-            <p className="px-6 py-4 text-sm text-muted-foreground">
-              No schools flagged — everything looks healthy.
-            </p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>School</TableHead>
-                  <TableHead>Severity</TableHead>
-                  <TableHead>Reasons</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {risk.atRisk.map((r) => (
-                  <TableRow key={r.tenantId}>
-                    <TableCell className="font-medium">{r.tenantName}</TableCell>
-                    <TableCell>
-                      <StatusBadge tone={SEVERITY_TONE[r.severity] ?? 'neutral'} dot>
-                        {r.severity}
-                      </StatusBadge>
-                    </TableCell>
-                    <TableCell className="text-sm text-muted-foreground">
-                      {r.flags.map((f) => f.detail).join(' ')}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+          </span>
+        }
+        description={
+          risk
+            ? `${risk.summary.high} high · ${risk.summary.medium} medium · ${risk.summary.low} low · ${risk.summary.ok} ok`
+            : 'Combined risk signals (policy drift, stalled onboarding, dormancy, suspension)'
+        }
+        columns={riskColumns}
+        rows={riskRows}
+        getRowId={(r) => r.tenantId}
+        getRowLabel={(r) => r.tenantName}
+        total={filteredRisk.length}
+        page={page}
+        pageSize={pageSize}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+        sort={sort}
+        onSortChange={(field) =>
+          setSort((cur) =>
+            cur?.field !== field
+              ? { field, dir: 'asc' }
+              : cur.dir === 'asc'
+                ? { field, dir: 'desc' }
+                : null,
+          )
+        }
+        loading={!risk}
+        error={rErr ? 'Failed to load risk' : undefined}
+        caption="At-risk schools"
+        search={{
+          value: term,
+          onChange: setTerm,
+          placeholder: 'Search school…',
+          label: 'Search schools',
+          id: 'risk-search',
+        }}
+        filters={
+          severities.length > 1
+            ? [
+                {
+                  key: 'severity',
+                  label: 'Severity',
+                  options: severities.map((s) => ({
+                    value: s,
+                    label: s.charAt(0).toUpperCase() + s.slice(1),
+                  })),
+                },
+              ]
+            : []
+        }
+        filterValues={filters}
+        onFilterChange={(key, value) =>
+          setFilters((f) => ({ ...f, [key]: value }))
+        }
+        onClearFilters={() => setFilters({})}
+        emptyState={
+          <EmptyState
+            compact
+            title="No schools flagged"
+            description="Everything looks healthy."
+          />
+        }
+      />
     </div>
   );
 }

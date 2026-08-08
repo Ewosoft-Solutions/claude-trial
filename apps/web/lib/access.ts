@@ -50,3 +50,20 @@ export async function requireMinClearance(level: number): Promise<void> {
     redirect('/unauthorized');
   }
 }
+
+/**
+ * Asserts the viewer is operating in a given surface scope — e.g. `'platform'`
+ * for the Platform console. This is the route-level counterpart to the nav,
+ * which already hides the other scope's items; without it, a school-scoped
+ * viewer could still reach a platform route by direct URL (the page shell would
+ * render even though every data API 403s). Redirects to /unauthorized on a
+ * mismatch.
+ */
+export async function requireScope(
+  scope: 'school' | 'platform',
+): Promise<void> {
+  const session = await getSession();
+  if (session?.scope !== scope) {
+    redirect('/unauthorized');
+  }
+}
