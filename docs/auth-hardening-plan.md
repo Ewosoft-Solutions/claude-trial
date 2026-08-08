@@ -3,7 +3,8 @@
 > **Status:** Workstreams A and B delivered on 2026-07-16. Secure resume and
 > assessment draft protection are delivered with them. Workstream C biometrics
 > and passkey Phases 0–4 were completed on 2026-07-17 in
-> `biometrics-plan.md`.
+> `biometrics-plan.md`. Workstream D (breached-password screening) is **backlog,
+> not started** — captured 2026-08-08; see the section below.
 
 ## Why this exists
 
@@ -164,3 +165,44 @@ Phases 0–4 are complete in `biometrics-plan.md`: platform passkeys,
 passwordless login, policy-aware step-up with fallbacks, the server-owned
 sensitive-operation catalog, tenant enrollment policy, and platform/tenant
 governance surfaces.
+
+## Workstream D — Breached-password screening 📋
+
+**Status:** Backlog. Not started. Captured 2026-08-08 from the password-policy
+review.
+
+**Goal.** Reject passwords known to appear in public breach corpuses, per NIST
+800-63B "compromised password" screening — so a password that satisfies every
+composition rule but is already public (e.g. `Password1!`) cannot be set.
+
+**Where it fits.** This is a **submit-time async validator, not a strength-meter
+requirement.** `PasswordService.validatePasswordPolicy` is pure/synchronous and
+runs on both client and server; a breach check needs a network lookup and must
+run **server-side only**, on the same paths that already call
+`validatePasswordAgainstAllSchools` (registration, reset, forced rotation,
+self-service change). On a hit it returns a new error — e.g. "This password has
+appeared in a known data breach; choose another." — surfaced exactly like the
+other server-enforced policy rules.
+
+**Approach — k-anonymity (privacy-preserving).** Use the HIBP Pwned Passwords
+range model: SHA-1 the candidate, send only the **first 5 hex chars** of the
+hash to `range/{prefix}`, then match the returned 35-char suffixes locally. The
+full password and full hash never leave the server; send `Add-Padding: true` to
+blunt traffic analysis. Zero-egress alternative: host the hash corpus and serve
+range lookups locally (higher storage/ops cost). Pick at build time.
+
+**Failure mode.** Fail **open** on lookup error/timeout — a breach-list outage
+must never block a password reset — and write an audit row noting the check was
+skipped. Cache prefix responses briefly to bound egress and latency.
+
+**Policy control.** Add a `SchoolSecurityPolicy.passwordCheckBreached` toggle,
+resolved strictest-wins across a user's schools like the other password fields
+(logical-OR). Suggested defaults: on for `enhanced`/`maximum` tiers, off for
+`basic`. It does **not** join the client `PasswordRequirements` contract (can't
+be evaluated live), so the strength meter is unchanged — note this so nobody
+tries to render it as a checklist row.
+
+**Acceptance.** A known-breached password that passes every composition rule is
+rejected at set/reset/rotation with a clear message; the full password and hash
+are never transmitted; a simulated lookup outage fails open with an audit trail;
+the toggle resolves strictest-across-schools.
