@@ -50,6 +50,9 @@ export interface UseDirectoryStateResult {
   setFilter: (key: string, value: string | null) => void;
   /** Replace the whole filter map. */
   setFilters: (filters: Record<string, string>) => void;
+  /** Replace the hidden-column set. Presentation-only, so it does NOT reset the
+   *  page, but it does clear the applied view (the shown columns now differ). */
+  setHiddenColumns: (hiddenColumns: string[]) => void;
   /** Apply a saved view: replace state wholesale, tagging `viewId`. */
   applyView: (
     viewId: string | null,
@@ -139,6 +142,10 @@ export function useDirectoryState(
       update({ filters, viewId: null }, true),
     [update],
   );
+  const setHiddenColumns = React.useCallback(
+    (hiddenColumns: string[]) => update({ hiddenColumns, viewId: null }, false),
+    [update],
+  );
   const applyView = React.useCallback(
     (viewId: string | null, viewState: Partial<DirectoryState>) => {
       commit({
@@ -164,6 +171,7 @@ export function useDirectoryState(
     toggleSort,
     setFilter,
     setFilters,
+    setHiddenColumns,
     applyView,
     reset,
   };
