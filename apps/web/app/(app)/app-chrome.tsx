@@ -332,6 +332,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   );
 
   const activeSchool = schools.find((s) => s.id === activeSchoolId);
+  // The active profile's role — the same label the sidebar switcher shows —
+  // surfaced on the mobile top bar (see AppHeader roleLabel).
+  const activeRole = profileOptions.find(
+    (option) => option.id === activeProfileId,
+  )?.caption;
   const tenantName =
     viewer.scope === 'platform'
       ? 'Platform'
@@ -392,6 +397,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         header={
           <AppHeader
             school={viewer.scope === 'school' ? activeSchool : undefined}
+            roleLabel={viewer.scope === 'school' ? activeRole : undefined}
             breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
             search={
               <OmniSearch

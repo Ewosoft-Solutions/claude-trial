@@ -76,6 +76,10 @@ export interface AppHeaderProps {
    *  logo/initials chip + name (the customer's identity owns the space),
    *  instead of the product wordmark. */
   school?: SchoolOption;
+  /** The signed-in user's role/persona (e.g. "Registrar"), shown stacked above
+   *  the school name on the mobile top bar — mirrors the sidebar switcher, so
+   *  the active role stays visible on phones where the rail is hidden. */
+  roleLabel?: string;
   /** Tenant/school switcher — typically <SchoolSwitcher/>. */
   schoolSwitcher?: React.ReactNode;
   /** Breadcrumb trail — typically <AppBreadcrumbs/>. Hidden on mobile. */
@@ -92,6 +96,7 @@ export interface AppHeaderProps {
 export function AppHeader({
   brandLabel = 'SchoolWithEase',
   school,
+  roleLabel,
   schoolSwitcher,
   breadcrumbs,
   search,
@@ -125,8 +130,17 @@ export function AppHeader({
               className="size-8 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]"
               textClassName="text-[11px] font-extrabold"
             />
-            <span className="truncate text-[14px] font-semibold leading-tight text-foreground">
-              {school.name}
+            {/* Role stacked over the school name — the same lockup the sidebar
+                switcher uses, so the active persona stays visible on mobile. */}
+            <span className="flex min-w-0 flex-col leading-tight">
+              {roleLabel ? (
+                <span className="truncate text-[11px] font-medium leading-tight text-muted-foreground">
+                  {roleLabel}
+                </span>
+              ) : null}
+              <span className="truncate text-[14px] font-semibold leading-tight text-foreground">
+                {school.name}
+              </span>
             </span>
           </div>
         ) : (

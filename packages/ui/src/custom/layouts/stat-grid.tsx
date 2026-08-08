@@ -65,7 +65,9 @@ export function StatCard({ item, className }: StatCardProps) {
           </span>
         ) : null}
       </div>
-      <div className="mt-2 text-[22px] font-extrabold leading-none tracking-[-0.01em] text-foreground tabular-nums sm:text-[26px]">
+      {/* Stat value in the dedicated stat face (--font-stat / Libertinus Mono,
+          set in ui globals.css). font-stat is the single knob for every KPI. */}
+      <div className="mt-2 font-stat text-[22px] font-bold leading-none text-foreground tabular-nums sm:text-[26px]">
         {item.value}
       </div>
       {item.delta || item.hint ? (

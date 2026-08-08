@@ -1,5 +1,9 @@
 import type { Metadata, Viewport } from 'next';
-import { Caveat, Geist_Mono, Plus_Jakarta_Sans } from 'next/font/google';
+import {
+  Geist_Mono,
+  Libertinus_Mono,
+  Plus_Jakarta_Sans,
+} from 'next/font/google';
 
 import '@workspace/ui/globals.css';
 import { ThemeProvider } from './providers/theme-provider';
@@ -8,17 +12,20 @@ import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
 import { SessionNoticeToaster } from './providers/session-notice-toaster';
 import { ThemeColorMeta } from './providers/theme-color-meta';
 
-// Aurora type system: Plus Jakarta Sans for body/UI, Caveat for the
-// handwritten display face (headings + big stat numbers). Applied app-wide.
+// Aurora type system: Plus Jakarta Sans for body/UI AND the display face
+// (headings), Libertinus Mono for stat-card number values. Applied app-wide.
+// The semantic font tokens live in ui globals.css (--font-sans / --font-display
+// / --font-stat / --font-mono) — change a font there and it updates everywhere.
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta',
   weight: ['400', '500', '600', '700', '800'],
 });
-const caveat = Caveat({
+// Stat-card numbers (bound to --font-stat in globals.css). Regular weight only.
+const libertinusMono = Libertinus_Mono({
   subsets: ['latin'],
-  variable: '--font-caveat',
-  weight: ['400', '500', '600', '700'],
+  variable: '--font-libertinus-mono',
+  weight: '400',
 });
 const geistMono = Geist_Mono({
   subsets: ['latin'],
@@ -61,7 +68,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${jakarta.variable} ${caveat.variable} ${geistMono.variable}`}
+        className={`${jakarta.variable} ${libertinusMono.variable} ${geistMono.variable}`}
       >
         <ThemeProvider
           attribute="class"
