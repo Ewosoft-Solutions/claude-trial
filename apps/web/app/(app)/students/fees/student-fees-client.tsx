@@ -1,36 +1,33 @@
 'use client';
 
+/* ============================================================
+   StudentFeesClient — per-student fee balances (client-side DirectoryTable)
+
+   Receives the full billed-students list, so search / status + class filters /
+   sort / paging run in-memory. Both filters collapse into the Pattern-B Filters
+   button.
+   ============================================================ */
+
 import * as React from 'react';
-import { Bell, Search } from 'lucide-react';
+import { Bell } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
+
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export type FeeStatus = 'paid' | 'partial' | 'owing';
 
@@ -70,19 +67,135 @@ function initials(name: string): string {
 }
 
 export function StudentFeesClient({ rows }: Props) {
-  const [query, setQuery] = React.useState('');
-  const [statusFilter, setStatusFilter] = React.useState('all');
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => setPage(1), [term, filters, pageSize]);
+
+  const classes = React.useMemo(
+    () => Array.from(new Set(rows.map((r) => r.className))).sort(),
+    [rows],
+  );
+
+  const columns: DirectoryColumn<FeeRow>[] = [
+    {
+      id: 'name',
+      header: 'Student',
+      sortable: true,
+      cell: (r) => (
+        <div className="flex items-center gap-3">
+          <Avatar className="size-8">
+            <AvatarFallback className="text-[11px] font-semibold">
+              {initials(r.name)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-0 flex-col">
+            <span className="break-words font-medium text-foreground">
+              {r.name}
+            </span>
+            <span className="break-words text-xs text-muted-foreground">
+              {r.id}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'className',
+      header: 'Class',
+      hideable: true,
+      cell: (r) => <span className="text-muted-foreground">{r.className}</span>,
+    },
+    {
+      id: 'billed',
+      header: 'Billed',
+      align: 'end',
+      sortable: true,
+      cell: (r) => (
+        <span className="tabular-nums text-muted-foreground">
+          {nairaFromKobo(r.billed)}
+        </span>
+      ),
+    },
+    {
+      id: 'paid',
+      header: 'Paid',
+      align: 'end',
+      sortable: true,
+      cell: (r) => (
+        <span className="tabular-nums text-muted-foreground">
+          {nairaFromKobo(r.paid)}
+        </span>
+      ),
+    },
+    {
+      id: 'balance',
+      header: 'Balance',
+      align: 'end',
+      sortable: true,
+      cell: (r) => {
+        const balance = r.billed - r.paid;
+        return (
+          <span className="font-semibold tabular-nums text-foreground">
+            {balance > 0 ? nairaFromKobo(balance) : '—'}
+          </span>
+        );
+      },
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (r) => {
+        const status = STATUS_META[r.status];
+        return (
+          <StatusBadge tone={status.tone} dot>
+            {status.label}
+          </StatusBadge>
+        );
+      },
+    },
+  ];
 
   const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter((row) => {
-      const matchesQuery =
-        !q || row.name.toLowerCase().includes(q) || row.id.toLowerCase().includes(q);
-      return matchesQuery && (statusFilter === 'all' || row.status === statusFilter);
+    const q = term.trim().toLowerCase();
+    const status = filters.status;
+    const className = filters.class;
+    let out = rows.filter((r) => {
+      const matchesQ =
+        !q ||
+        r.name.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q);
+      const matchesStatus = !status || r.status === status;
+      const matchesClass = !className || r.className === className;
+      return matchesQ && matchesStatus && matchesClass;
     });
-  }, [query, statusFilter, rows]);
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      const num = (r: FeeRow) =>
+        sort.field === 'billed'
+          ? r.billed
+          : sort.field === 'paid'
+            ? r.paid
+            : r.billed - r.paid;
+      out = [...out].sort((a, b) =>
+        sort.field === 'status'
+          ? dir * a.status.localeCompare(b.status)
+          : sort.field === 'billed' ||
+              sort.field === 'paid' ||
+              sort.field === 'balance'
+            ? dir * (num(a) - num(b))
+            : dir * a.name.localeCompare(b.name),
+      );
+    }
+    return out;
+  }, [rows, term, filters, sort]);
 
-  const hasFilters = query.trim() !== '' || statusFilter !== 'all';
   const stats: StatItem[] = React.useMemo(() => {
     const billed = rows.reduce((sum, row) => sum + row.billed, 0);
     const collected = rows.reduce((sum, row) => sum + row.paid, 0);
@@ -90,19 +203,22 @@ export function StudentFeesClient({ rows }: Props) {
     return [
       { key: 'billed', label: 'Total billed', value: nairaFromKobo(billed) },
       { key: 'collected', label: 'Collected', value: nairaFromKobo(collected) },
-      { key: 'outstanding', label: 'Outstanding', value: nairaFromKobo(billed - collected) },
+      {
+        key: 'outstanding',
+        label: 'Outstanding',
+        value: nairaFromKobo(billed - collected),
+      },
       { key: 'owing', label: 'Students owing', value: String(owing) },
     ];
   }, [rows]);
+
   const meta: PageHeaderMeta[] = [
     { key: 'source', label: 'live invoices', emphasis: true },
     { key: 'students', label: `${rows.length} billed students` },
   ];
 
-  function resetFilters() {
-    setQuery('');
-    setStatusFilter('all');
-  }
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
 
   return (
     <ShellMain>
@@ -119,128 +235,76 @@ export function StudentFeesClient({ rows }: Props) {
 
         <StatGrid items={stats} />
 
-        <DataTableLayout
+        <DirectoryTable<FeeRow>
           title="Student balances"
           description={`${filtered.length} of ${rows.length} students`}
-          empty={filtered.length === 0}
-          skeletonColumns={5}
-          toolbar={
-            <>
-              <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="fees-search" className="sr-only">
-                  Search students
-                </Label>
-                <Input
-                  id="fees-search"
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search name or ID"
-                  className="pl-8"
-                />
-              </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[8.5rem]" aria-label="Filter by status">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All statuses</SelectItem>
-                  <SelectItem value="paid">Paid</SelectItem>
-                  <SelectItem value="partial">Part-paid</SelectItem>
-                  <SelectItem value="owing">Owing</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
+          columns={columns}
+          rows={pageRows}
+          getRowId={(r) => r.id}
+          getRowLabel={(r) => r.name}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
           }
+          caption="Student fee balances"
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search name or ID',
+            label: 'Search students',
+            id: 'fees-search',
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: (Object.keys(STATUS_META) as FeeStatus[]).map((k) => ({
+                value: k,
+                label: STATUS_META[k].label,
+              })),
+            },
+            ...(classes.length > 0
+              ? [
+                  {
+                    key: 'class',
+                    label: 'Class',
+                    options: classes.map((c) => ({ value: c, label: c })),
+                  },
+                ]
+              : []),
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
+          }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No students match your filters' : 'No student balances yet'}
+              title={
+                hasQuery
+                  ? 'No students match your filters'
+                  : 'No student balances yet'
+              }
               description={
-                hasFilters
+                hasQuery
                   ? 'Try a different search term, or clear the filters.'
                   : 'Invoices created for students will appear here.'
               }
-              primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
-              }
             />
           }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of{' '}
-                {rows.length}
-              </span>
-              {hasFilters ? (
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead className="text-right">Billed</TableHead>
-                <TableHead className="text-right">Paid</TableHead>
-                <TableHead className="text-right">Balance</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((row) => {
-                const status = STATUS_META[row.status];
-                const balance = row.billed - row.paid;
-                return (
-                  <TableRow key={row.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <Avatar className="size-8">
-                          <AvatarFallback className="text-[11px] font-semibold">
-                            {initials(row.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex min-w-0 flex-col">
-                          <span className="break-words font-medium text-foreground">
-                            {row.name}
-                          </span>
-                          <span className="break-words text-xs text-muted-foreground">
-                            {row.id}
-                          </span>
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {row.className}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {nairaFromKobo(row.billed)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {nairaFromKobo(row.paid)}
-                    </TableCell>
-                    <TableCell className="text-right font-semibold tabular-nums text-foreground">
-                      {balance > 0 ? nairaFromKobo(balance) : '—'}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={status.tone} dot>
-                        {status.label}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );
