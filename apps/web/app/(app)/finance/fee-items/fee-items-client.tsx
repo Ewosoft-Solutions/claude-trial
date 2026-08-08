@@ -28,21 +28,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export interface FeeItem {
   id: string;
@@ -82,6 +79,101 @@ interface Props {
 }
 
 export function FeeItemsClient({ items, canManage }: Props) {
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => setPage(1), [term, filters, pageSize]);
+
+  const columns: DirectoryColumn<FeeItem>[] = [
+    {
+      id: 'name',
+      header: 'Item',
+      sortable: true,
+      cell: (i) => (
+        <span className="font-medium text-foreground">{i.name}</span>
+      ),
+    },
+    {
+      id: 'code',
+      header: 'Code',
+      sortable: true,
+      hideable: true,
+      cell: (i) => (
+        <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
+          {i.code}
+        </code>
+      ),
+    },
+    {
+      id: 'defaultAmount',
+      header: 'Default amount',
+      align: 'end',
+      sortable: true,
+      cell: (i) => (
+        <span className="tabular-nums">{nairaFromKobo(i.defaultAmount)}</span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (i) =>
+        i.active ? (
+          <StatusBadge tone="success" dot>
+            Active
+          </StatusBadge>
+        ) : (
+          <StatusBadge tone="neutral">Archived</StatusBadge>
+        ),
+    },
+    ...(canManage
+      ? ([
+          {
+            id: 'actions',
+            header: 'Actions',
+            align: 'end',
+            cell: (i: FeeItem) => <EditFeeItemDialog item={i} />,
+          },
+        ] as DirectoryColumn<FeeItem>[])
+      : []),
+  ];
+
+  const filtered = React.useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const status = filters.status;
+    let out = items.filter((i) => {
+      const matchesQ =
+        !q ||
+        i.name.toLowerCase().includes(q) ||
+        i.code.toLowerCase().includes(q);
+      const matchesStatus =
+        !status || (status === 'active' ? i.active : !i.active);
+      return matchesQ && matchesStatus;
+    });
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'defaultAmount'
+          ? dir * ((a.defaultAmount ?? -1) - (b.defaultAmount ?? -1))
+          : sort.field === 'code'
+            ? dir * a.code.localeCompare(b.code)
+            : sort.field === 'status'
+              ? dir * (Number(a.active) - Number(b.active))
+              : dir * a.name.localeCompare(b.name),
+      );
+    }
+    return out;
+  }, [items, term, filters, sort]);
+
+  const activeCount = items.filter((i) => i.active).length;
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
+
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
@@ -90,70 +182,69 @@ export function FeeItemsClient({ items, canManage }: Props) {
           actions={canManage ? <AddFeeItemDialog /> : undefined}
         />
 
-        <DataTableLayout
+        <DirectoryTable<FeeItem>
           title="Catalogue"
-          description={`${items.length} ${items.length === 1 ? 'item' : 'items'} · ${items.filter((i) => i.active).length} active`}
-          empty={items.length === 0}
-          skeletonColumns={canManage ? 5 : 4}
+          description={`${filtered.length} ${filtered.length === 1 ? 'item' : 'items'} · ${activeCount} active`}
+          columns={columns}
+          rows={pageRows}
+          getRowId={(i) => i.id}
+          getRowLabel={(i) => i.name}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
+          }
+          caption="Fee-item catalogue"
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search item or code…',
+            label: 'Search fee items',
+            id: 'fee-items-search',
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: [
+                { value: 'active', label: 'Active' },
+                { value: 'archived', label: 'Archived' },
+              ],
+            },
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
+          }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
-              title="No fee items yet"
+              title={
+                hasQuery
+                  ? 'No fee items match your filters'
+                  : 'No fee items yet'
+              }
               description={
-                canManage
-                  ? 'Add your first fee item, or run the operational seed to load the standard catalogue.'
-                  : 'The fee-item catalogue is empty.'
+                hasQuery
+                  ? 'Try a different search term, or clear the filters.'
+                  : canManage
+                    ? 'Add your first fee item, or run the operational seed to load the standard catalogue.'
+                    : 'The fee-item catalogue is empty.'
               }
             />
           }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Item</TableHead>
-                <TableHead>Code</TableHead>
-                <TableHead className="text-right">Default amount</TableHead>
-                <TableHead>Status</TableHead>
-                {canManage ? (
-                  <TableHead className="w-0 text-right">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                ) : null}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {items.map((item) => (
-                <TableRow key={item.id}>
-                  <TableCell className="font-medium text-foreground">
-                    {item.name}
-                  </TableCell>
-                  <TableCell>
-                    <code className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground">
-                      {item.code}
-                    </code>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {nairaFromKobo(item.defaultAmount)}
-                  </TableCell>
-                  <TableCell>
-                    {item.active ? (
-                      <StatusBadge tone="success" dot>
-                        Active
-                      </StatusBadge>
-                    ) : (
-                      <StatusBadge tone="neutral">Archived</StatusBadge>
-                    )}
-                  </TableCell>
-                  {canManage ? (
-                    <TableCell className="text-right">
-                      <EditFeeItemDialog item={item} />
-                    </TableCell>
-                  ) : null}
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

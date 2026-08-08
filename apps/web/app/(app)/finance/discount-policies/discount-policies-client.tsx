@@ -34,22 +34,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export interface CatalogueItem {
   id: string;
@@ -112,6 +109,106 @@ export function DiscountPoliciesClient({
   catalogue: CatalogueItem[];
   canManage: boolean;
 }) {
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => setPage(1), [term, filters, pageSize]);
+
+  const columns: DirectoryColumn<ApiPolicy>[] = [
+    {
+      id: 'name',
+      header: 'Policy',
+      sortable: true,
+      cell: (p) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="font-medium text-foreground">{p.name}</span>
+          <span className="text-xs text-muted-foreground">
+            {titleCase(p.type)}
+            {p.reason ? ` · ${p.reason}` : ''}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'appliesTo',
+      header: 'Applies to',
+      hideable: true,
+      cell: (p) => (
+        <span className="text-muted-foreground">
+          {p.feeItem?.name ?? 'Whole invoice'}
+        </span>
+      ),
+    },
+    {
+      id: 'value',
+      header: 'Value',
+      align: 'end',
+      cell: (p) => <span className="tabular-nums">{policyValue(p)}</span>,
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (p) => {
+        const meta = STATUS_META[p.status] ?? {
+          label: titleCase(p.status),
+          tone: 'neutral' as StateTone,
+        };
+        return (
+          <StatusBadge tone={meta.tone} dot={p.status !== 'inactive'}>
+            {meta.label}
+          </StatusBadge>
+        );
+      },
+    },
+    ...(canManage
+      ? ([
+          {
+            id: 'actions',
+            header: 'Actions',
+            align: 'end',
+            cell: (p: ApiPolicy) =>
+              p.status === 'pending' ? (
+                <ActivatePolicyButton policyId={p.id} />
+              ) : null,
+          },
+        ] as DirectoryColumn<ApiPolicy>[])
+      : []),
+  ];
+
+  const filtered = React.useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const status = filters.status;
+    const type = filters.type;
+    let out = policies.filter((p) => {
+      const matchesQ =
+        !q ||
+        p.name.toLowerCase().includes(q) ||
+        (p.reason?.toLowerCase().includes(q) ?? false);
+      const matchesStatus = !status || p.status === status;
+      const matchesType = !type || p.type === type;
+      return matchesQ && matchesStatus && matchesType;
+    });
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'status'
+          ? dir * a.status.localeCompare(b.status)
+          : dir * a.name.localeCompare(b.name),
+      );
+    }
+    return out;
+  }, [policies, term, filters, sort]);
+
+  const activeCount = policies.filter((p) => p.status === 'active').length;
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
+
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
@@ -122,83 +219,78 @@ export function DiscountPoliciesClient({
           }
         />
 
-        <DataTableLayout
+        <DirectoryTable<ApiPolicy>
           title="Policies"
-          description={`${policies.length} ${policies.length === 1 ? 'policy' : 'policies'} · ${policies.filter((p) => p.status === 'active').length} active`}
-          empty={policies.length === 0}
-          skeletonColumns={canManage ? 5 : 4}
+          description={`${filtered.length} ${filtered.length === 1 ? 'policy' : 'policies'} · ${activeCount} active`}
+          columns={columns}
+          rows={pageRows}
+          getRowId={(p) => p.id}
+          getRowLabel={(p) => p.name}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
+          }
+          caption="Discount policies"
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search policy or reason…',
+            label: 'Search policies',
+            id: 'policies-search',
+          }}
+          filters={[
+            {
+              key: 'status',
+              label: 'Status',
+              options: [
+                { value: 'pending', label: 'Pending activation' },
+                { value: 'active', label: 'Active' },
+                { value: 'inactive', label: 'Inactive' },
+              ],
+            },
+            {
+              key: 'type',
+              label: 'Type',
+              options: [
+                { value: 'discount', label: 'Discount' },
+                { value: 'scholarship', label: 'Scholarship' },
+              ],
+            },
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
+          }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
-              title="No discount policies"
+              title={
+                hasQuery
+                  ? 'No policies match your filters'
+                  : 'No discount policies'
+              }
               description={
-                canManage
-                  ? 'Create a policy (e.g. a sibling discount). A second authority activates it, then it auto-applies to invoices at issue.'
-                  : 'No discount policies configured.'
+                hasQuery
+                  ? 'Try a different search term, or clear the filters.'
+                  : canManage
+                    ? 'Create a policy (e.g. a sibling discount). A second authority activates it, then it auto-applies to invoices at issue.'
+                    : 'No discount policies configured.'
               }
             />
           }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Policy</TableHead>
-                <TableHead>Applies to</TableHead>
-                <TableHead className="text-right">Value</TableHead>
-                <TableHead>Status</TableHead>
-                {canManage ? (
-                  <TableHead className="w-0 text-right">
-                    <span className="sr-only">Actions</span>
-                  </TableHead>
-                ) : null}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {policies.map((p) => {
-                const meta = STATUS_META[p.status] ?? {
-                  label: titleCase(p.status),
-                  tone: 'neutral' as StateTone,
-                };
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="font-medium text-foreground">
-                          {p.name}
-                        </span>
-                        <span className="text-xs text-muted-foreground">
-                          {titleCase(p.type)}
-                          {p.reason ? ` · ${p.reason}` : ''}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {p.feeItem?.name ?? 'Whole invoice'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {policyValue(p)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge
-                        tone={meta.tone}
-                        dot={p.status !== 'inactive'}
-                      >
-                        {meta.label}
-                      </StatusBadge>
-                    </TableCell>
-                    {canManage ? (
-                      <TableCell className="text-right">
-                        {p.status === 'pending' ? (
-                          <ActivatePolicyButton policyId={p.id} />
-                        ) : null}
-                      </TableCell>
-                    ) : null}
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

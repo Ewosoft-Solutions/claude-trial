@@ -1,39 +1,30 @@
 'use client';
 
 /* ============================================================
-   PaymentsClient — interactive payments table island
+   PaymentsClient — payment receipts (client-side DirectoryTable)
 
-   Receives server-fetched payments as props.
+   Receives the full server-fetched payments list, so search / method +
+   status filters / sort / paging run in-memory. Both filters collapse into
+   the Pattern-B Filters button.
    ============================================================ */
 
 import * as React from 'react';
-import { Download, Search } from 'lucide-react';
+import { Download } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
+
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export type PaymentMethod = 'transfer' | 'card' | 'cash' | 'cheque';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
@@ -82,37 +73,111 @@ interface Props {
 }
 
 export function PaymentsClient({ payments }: Props) {
-  const rows = payments;
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
 
-  const [query, setQuery] = React.useState('');
-  const [methodFilter, setMethodFilter] = React.useState('all');
+  React.useEffect(() => setPage(1), [term, filters, pageSize]);
+
+  const columns: DirectoryColumn<Payment>[] = [
+    {
+      id: 'receipt',
+      header: 'Receipt',
+      sortable: true,
+      cell: (p) => (
+        <div className="flex min-w-0 flex-col">
+          <span className="break-words font-medium text-foreground">
+            {p.student ?? p.studentId ?? '—'}
+          </span>
+          <span className="break-words text-xs text-muted-foreground">
+            {p.receiptNumber ?? p.id}
+          </span>
+        </div>
+      ),
+    },
+    {
+      id: 'method',
+      header: 'Method',
+      hideable: true,
+      cell: (p) => (
+        <span className="text-muted-foreground">
+          {METHOD_LABEL[p.method] ?? p.method}
+        </span>
+      ),
+    },
+    {
+      id: 'date',
+      header: 'Date',
+      hideable: true,
+      cell: (p) => (
+        <span className="text-muted-foreground">{p.date ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'amount',
+      header: 'Amount',
+      align: 'end',
+      sortable: true,
+      cell: (p) => (
+        <span className="tabular-nums text-foreground">
+          {nairaFromKobo(p.amount)}
+        </span>
+      ),
+    },
+    {
+      id: 'status',
+      header: 'Status',
+      sortable: true,
+      cell: (p) => {
+        const status = STATUS_META[p.status];
+        return (
+          <StatusBadge tone={status.tone} dot={p.status !== 'refunded'}>
+            {status.label}
+          </StatusBadge>
+        );
+      },
+    },
+  ];
 
   const filtered = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    return rows.filter((p) => {
-      const display = p.receiptNumber ?? p.id;
-      const name = p.student ?? '';
-      const matchesQuery =
-        !q || name.toLowerCase().includes(q) || display.toLowerCase().includes(q);
-      const matchesMethod = methodFilter === 'all' || p.method === methodFilter;
-      return matchesQuery && matchesMethod;
+    const q = term.trim().toLowerCase();
+    const method = filters.method;
+    const status = filters.status;
+    let out = payments.filter((p) => {
+      const name = (p.student ?? '').toLowerCase();
+      const display = (p.receiptNumber ?? p.id).toLowerCase();
+      const matchesQ = !q || name.includes(q) || display.includes(q);
+      const matchesMethod = !method || p.method === method;
+      const matchesStatus = !status || p.status === status;
+      return matchesQ && matchesMethod && matchesStatus;
     });
-  }, [rows, query, methodFilter]);
-
-  const hasFilters = query.trim() !== '' || methodFilter !== 'all';
-
-  function resetFilters() {
-    setQuery('');
-    setMethodFilter('all');
-  }
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'amount'
+          ? dir * (a.amount - b.amount)
+          : sort.field === 'status'
+            ? dir * a.status.localeCompare(b.status)
+            : dir * (a.student ?? '').localeCompare(b.student ?? ''),
+      );
+    }
+    return out;
+  }, [payments, term, filters, sort]);
 
   const collected = React.useMemo(
     () =>
-      rows
+      payments
         .filter((p) => p.status === 'completed')
         .reduce((s, p) => s + p.amount, 0),
-    [rows],
+    [payments],
   );
+
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
 
   return (
     <ShellMain>
@@ -127,113 +192,71 @@ export function PaymentsClient({ payments }: Props) {
           }
         />
 
-        <DataTableLayout
+        <DirectoryTable<Payment>
           title="Payment receipts"
-          description={`${filtered.length} of ${rows.length} · ${nairaFromKobo(collected)} collected`}
-          loading={false}
-          empty={filtered.length === 0}
-          skeletonColumns={5}
-          toolbar={
-            <>
-              <div className="relative flex-1 min-w-0 @md/main:w-56 @md/main:flex-none">
-                <Search
-                  className="pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
-                  aria-hidden
-                />
-                <Label htmlFor="payment-search" className="sr-only">Search payments</Label>
-                <Input
-                  id="payment-search"
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search receipt # or student…"
-                  className="pl-8"
-                />
-              </div>
-              <Select value={methodFilter} onValueChange={setMethodFilter}>
-                <SelectTrigger className="w-[9rem]" aria-label="Filter by method">
-                  <SelectValue placeholder="Method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All methods</SelectItem>
-                  <SelectItem value="transfer">Bank transfer</SelectItem>
-                  <SelectItem value="card">Card</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="cheque">Cheque</SelectItem>
-                </SelectContent>
-              </Select>
-            </>
+          description={`${payments.length} ${payments.length === 1 ? 'receipt' : 'receipts'} · ${nairaFromKobo(collected)} collected`}
+          columns={columns}
+          rows={pageRows}
+          getRowId={(p) => p.id}
+          getRowLabel={(p) => p.student ?? p.receiptNumber ?? p.id}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
           }
+          caption="Payment receipts"
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search receipt # or student…',
+            label: 'Search payments',
+            id: 'payment-search',
+          }}
+          filters={[
+            {
+              key: 'method',
+              label: 'Method',
+              options: (Object.keys(METHOD_LABEL) as PaymentMethod[]).map(
+                (m) => ({ value: m, label: METHOD_LABEL[m] }),
+              ),
+            },
+            {
+              key: 'status',
+              label: 'Status',
+              options: (Object.keys(STATUS_META) as PaymentStatus[]).map(
+                (s) => ({ value: s, label: STATUS_META[s].label }),
+              ),
+            },
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
+          }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
-              title={hasFilters ? 'No payments match your filters' : 'No payments yet'}
+              title={
+                hasQuery ? 'No payments match your filters' : 'No payments yet'
+              }
               description={
-                hasFilters
+                hasQuery
                   ? 'Try a different search term, or clear the filters to see every receipt.'
                   : 'Run the dev operational seed or record a payment.'
               }
-              primaryAction={
-                hasFilters ? { label: 'Clear filters', onClick: resetFilters } : undefined
-              }
             />
           }
-          footer={
-            <>
-              <span>
-                Showing <strong className="text-foreground">{filtered.length}</strong> of {rows.length}
-              </span>
-              {hasFilters ? (
-                <Button variant="link" size="sm" className="h-auto p-0" onClick={resetFilters}>
-                  Clear filters
-                </Button>
-              ) : null}
-            </>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Receipt</TableHead>
-                <TableHead>Method</TableHead>
-                <TableHead>Date</TableHead>
-                <TableHead className="text-right">Amount</TableHead>
-                <TableHead>Status</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((p) => {
-                const status = STATUS_META[p.status];
-                const displayName = p.student ?? p.studentId ?? '—';
-                const displayId = p.receiptNumber ?? p.id;
-                return (
-                  <TableRow key={p.id}>
-                    <TableCell>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="break-words font-medium text-foreground">{displayName}</span>
-                        <span className="break-words text-xs text-muted-foreground">{displayId}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {METHOD_LABEL[p.method] ?? p.method}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {p.date ?? '—'}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums text-foreground">
-                      {nairaFromKobo(p.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <StatusBadge tone={status.tone} dot={p.status !== 'refunded'}>
-                        {status.label}
-                      </StatusBadge>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );

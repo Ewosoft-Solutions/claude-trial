@@ -22,21 +22,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
+import {
+  DirectoryTable,
+  type DirectoryColumn,
+} from '@workspace/ui/custom/tables/directory-table';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 interface ApiMember {
   id: string;
@@ -60,6 +57,14 @@ export interface ApiHousehold {
   payers: ApiPayer[];
 }
 
+function primaryPayer(h: ApiHousehold): string | null {
+  return (
+    h.primaryPayerName ??
+    h.payers.find((p) => p.role === 'primary')?.payerName ??
+    null
+  );
+}
+
 export function HouseholdsClient({
   households,
   canManage,
@@ -67,6 +72,96 @@ export function HouseholdsClient({
   households: ApiHousehold[];
   canManage: boolean;
 }) {
+  const [term, setTerm] = React.useState('');
+  const [filters, setFilters] = React.useState<
+    Record<string, string | null | undefined>
+  >({});
+  const [sort, setSort] = React.useState<DirectorySort | null>(null);
+  const [page, setPage] = React.useState(1);
+  const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
+
+  React.useEffect(() => setPage(1), [term, filters, pageSize]);
+
+  const columns: DirectoryColumn<ApiHousehold>[] = [
+    {
+      id: 'name',
+      header: 'Household',
+      sortable: true,
+      cell: (h) => (
+        <Link
+          href={`/finance/households/${h.id}`}
+          className="font-medium text-foreground hover:underline"
+        >
+          {h.name}
+        </Link>
+      ),
+    },
+    {
+      id: 'primaryPayer',
+      header: 'Primary payer',
+      hideable: true,
+      cell: (h) => (
+        <span className="text-muted-foreground">{primaryPayer(h) ?? '—'}</span>
+      ),
+    },
+    {
+      id: 'members',
+      header: 'Students',
+      align: 'end',
+      sortable: true,
+      cell: (h) => <span className="tabular-nums">{h.members.length}</span>,
+    },
+    {
+      id: 'payers',
+      header: 'Payers',
+      align: 'end',
+      sortable: true,
+      cell: (h) => <span className="tabular-nums">{h.payers.length}</span>,
+    },
+    {
+      id: 'source',
+      header: 'Source',
+      hideable: true,
+      cell: (h) =>
+        h.derivedFromGuardianId ? (
+          <StatusBadge tone="info">Auto</StatusBadge>
+        ) : (
+          <StatusBadge tone="neutral">Manual</StatusBadge>
+        ),
+    },
+  ];
+
+  const filtered = React.useMemo(() => {
+    const q = term.trim().toLowerCase();
+    const source = filters.source;
+    let out = households.filter((h) => {
+      const matchesQ =
+        !q ||
+        h.name.toLowerCase().includes(q) ||
+        (primaryPayer(h)?.toLowerCase().includes(q) ?? false);
+      const matchesSource =
+        !source ||
+        (source === 'auto'
+          ? !!h.derivedFromGuardianId
+          : !h.derivedFromGuardianId);
+      return matchesQ && matchesSource;
+    });
+    if (sort) {
+      const dir = sort.dir === 'desc' ? -1 : 1;
+      out = [...out].sort((a, b) =>
+        sort.field === 'members'
+          ? dir * (a.members.length - b.members.length)
+          : sort.field === 'payers'
+            ? dir * (a.payers.length - b.payers.length)
+            : dir * a.name.localeCompare(b.name),
+      );
+    }
+    return out;
+  }, [households, term, filters, sort]);
+
+  const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
+  const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
+
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
@@ -82,66 +177,69 @@ export function HouseholdsClient({
           }
         />
 
-        <DataTableLayout
+        <DirectoryTable<ApiHousehold>
           title="Family accounts"
-          description={`${households.length} ${households.length === 1 ? 'household' : 'households'}`}
-          empty={households.length === 0}
+          description={`${filtered.length} ${filtered.length === 1 ? 'household' : 'households'}`}
+          columns={columns}
+          rows={pageRows}
+          getRowId={(h) => h.id}
+          getRowLabel={(h) => h.name}
+          total={filtered.length}
+          page={page}
+          pageSize={pageSize}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          sort={sort}
+          onSortChange={(field) =>
+            setSort((cur) =>
+              cur?.field !== field
+                ? { field, dir: 'asc' }
+                : cur.dir === 'asc'
+                  ? { field, dir: 'desc' }
+                  : null,
+            )
+          }
+          caption="Billing households"
+          search={{
+            value: term,
+            onChange: setTerm,
+            placeholder: 'Search household or payer…',
+            label: 'Search households',
+            id: 'households-search',
+          }}
+          filters={[
+            {
+              key: 'source',
+              label: 'Source',
+              options: [
+                { value: 'auto', label: 'Auto' },
+                { value: 'manual', label: 'Manual' },
+              ],
+            },
+          ]}
+          filterValues={filters}
+          onFilterChange={(key, value) =>
+            setFilters((f) => ({ ...f, [key]: value }))
+          }
+          onClearFilters={() => setFilters({})}
           emptyState={
             <EmptyState
               compact
-              title="No households yet"
+              title={
+                hasQuery
+                  ? 'No households match your filters'
+                  : 'No households yet'
+              }
               description={
-                canManage
-                  ? 'Auto-derive from guardian relationships, or create one by hand.'
-                  : 'No billing households configured.'
+                hasQuery
+                  ? 'Try a different search term, or clear the filters.'
+                  : canManage
+                    ? 'Auto-derive from guardian relationships, or create one by hand.'
+                    : 'No billing households configured.'
               }
             />
           }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Household</TableHead>
-                <TableHead>Primary payer</TableHead>
-                <TableHead className="text-right">Students</TableHead>
-                <TableHead className="text-right">Payers</TableHead>
-                <TableHead>Source</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {households.map((h) => (
-                <TableRow key={h.id}>
-                  <TableCell className="font-medium text-foreground">
-                    <Link
-                      href={`/finance/households/${h.id}`}
-                      className="hover:underline"
-                    >
-                      {h.name}
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {h.primaryPayerName ??
-                      h.payers.find((p) => p.role === 'primary')?.payerName ??
-                      '—'}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {h.members.length}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {h.payers.length}
-                  </TableCell>
-                  <TableCell>
-                    {h.derivedFromGuardianId ? (
-                      <StatusBadge tone="info">Auto</StatusBadge>
-                    ) : (
-                      <StatusBadge tone="neutral">Manual</StatusBadge>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        />
       </div>
     </ShellMain>
   );
