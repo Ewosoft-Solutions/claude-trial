@@ -119,9 +119,10 @@ export function PublicationsPanel({
         apiGet<PublicationSummary[]>(`/cycles/${cycle.id}/publications`),
         apiGet<Amendment[]>(`/cycles/${cycle.id}/amendments`),
       ]);
-      setPublications(pubs);
-      setAmendments(amends);
-      if (pubs.length && !selectedPub) setSelectedPub(pubs[0]!.id);
+      const pubList = Array.isArray(pubs) ? pubs : [];
+      setPublications(pubList);
+      setAmendments(Array.isArray(amends) ? amends : []);
+      if (pubList.length && !selectedPub) setSelectedPub(pubList[0]!.id);
     } catch {
       /* reads are permission-gated; leave empty */
     }
@@ -138,7 +139,7 @@ export function PublicationsPanel({
         const data = await apiGet<{ students: StudentResult[] }>(
           `/publications/${selectedPub}`,
         );
-        setStudents(data.students);
+        setStudents(Array.isArray(data?.students) ? data.students : []);
       } catch (e) {
         toast.error(
           e instanceof Error ? e.message : 'Could not load publication',

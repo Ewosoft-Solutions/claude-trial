@@ -28,6 +28,7 @@ import { ResultEntryService } from '../src/results/services/result-entry.service
 import { ResultPublicationService } from '../src/results/services/result-publication.service';
 import { FinancialHoldService } from '../src/results/services/financial-hold.service';
 import type { ResultActor } from '../src/results/services/results.types';
+import { JobWorker } from '../src/common/jobs/job.worker';
 import { makeSuperuserClient } from './helpers/superuser-client';
 
 const HAS_APP_RUNTIME = !!process.env.APP_RUNTIME_DATABASE_URL;
@@ -41,6 +42,7 @@ d('Results workbench — ResultCycle publish/amend/hold (WB4)', () => {
   let entries: ResultEntryService;
   let publications: ResultPublicationService;
   let holds: FinancialHoldService;
+  let worker: JobWorker;
 
   const stamp = Date.now();
   const A = `wb4-a-${stamp}`;
@@ -130,13 +132,24 @@ d('Results workbench — ResultCycle publish/amend/hold (WB4)', () => {
     entries = app.get(ResultEntryService);
     publications = app.get(ResultPublicationService);
     holds = app.get(FinancialHoldService);
+    worker = app.get(JobWorker);
 
     const [ta, tb, mk, ck] = await Promise.all([
       owner.tenant.create({
-        data: { name: 'WB4 A', slug: A, status: 'active', schoolType: 'secondary' },
+        data: {
+          name: 'WB4 A',
+          slug: A,
+          status: 'active',
+          schoolType: 'secondary',
+        },
       }),
       owner.tenant.create({
-        data: { name: 'WB4 B', slug: B, status: 'active', schoolType: 'secondary' },
+        data: {
+          name: 'WB4 B',
+          slug: B,
+          status: 'active',
+          schoolType: 'secondary',
+        },
       }),
       owner.user.create({
         data: { email: `wb4-maker-${stamp}@a.test`, isActive: true },
@@ -151,14 +164,24 @@ d('Results workbench — ResultCycle publish/amend/hold (WB4)', () => {
     checkerId = ck.id;
 
     const campus = await owner.campus.create({
-      data: { tenantId: tenantAId, name: 'Main', code: 'MAIN', isPrimary: true },
+      data: {
+        tenantId: tenantAId,
+        name: 'Main',
+        code: 'MAIN',
+        isPrimary: true,
+      },
     });
     campusId = campus.id;
     const stage = await owner.stage.create({
       data: { tenantId: tenantAId, name: 'Senior Secondary', code: 'SSS' },
     });
     const yl = await owner.yearLevel.create({
-      data: { tenantId: tenantAId, stageId: stage.id, name: 'SS1', code: 'SS1' },
+      data: {
+        tenantId: tenantAId,
+        stageId: stage.id,
+        name: 'SS1',
+        code: 'SS1',
+      },
     });
     const ay = await owner.academicYear.create({
       data: {
@@ -236,9 +259,27 @@ d('Results workbench — ResultCycle publish/amend/hold (WB4)', () => {
         kind: 'subject',
         rules: {
           create: [
-            { tenantId: tenantAId, minPercentage: 75, maxPercentage: 100, comment: 'Excellent', order: 0 },
-            { tenantId: tenantAId, minPercentage: 40, maxPercentage: 74, comment: 'Good, keep going', order: 1 },
-            { tenantId: tenantAId, minPercentage: 0, maxPercentage: 39, comment: 'Needs improvement', order: 2 },
+            {
+              tenantId: tenantAId,
+              minPercentage: 75,
+              maxPercentage: 100,
+              comment: 'Excellent',
+              order: 0,
+            },
+            {
+              tenantId: tenantAId,
+              minPercentage: 40,
+              maxPercentage: 74,
+              comment: 'Good, keep going',
+              order: 1,
+            },
+            {
+              tenantId: tenantAId,
+              minPercentage: 0,
+              maxPercentage: 39,
+              comment: 'Needs improvement',
+              order: 2,
+            },
           ],
         },
       },
@@ -254,6 +295,10 @@ d('Results workbench — ResultCycle publish/amend/hold (WB4)', () => {
   afterAll(async () => {
     if (owner) {
       const inTenants = { tenantId: { in: [tenantAId, tenantBId] } };
+      // Artifact documents rendered by the F3 job (versions cascade).
+      await owner.document.deleteMany({
+        where: { ...inTenants, ownerType: 'ResultPublication' },
+      });
       await owner.publishedStudentResult.deleteMany({ where: inTenants });
       await owner.resultAmendment.deleteMany({ where: inTenants });
       await owner.resultPublication.deleteMany({ where: inTenants });
@@ -323,10 +368,31 @@ d('Results workbench — ResultCycle publish/amend/hold (WB4)', () => {
     await inA(() => cycles.openEntry(tenantAId, maker(), cycleId));
 
     // Ada: full scores in both subjects. Bola: full Maths, ABSENT for English.
-    const full = (studentId: string, offeringId: string, ca1: number, ca2: number, exam: number) => [
-      { studentId, subjectOfferingId: offeringId, componentKey: 'CA1', score: ca1 },
-      { studentId, subjectOfferingId: offeringId, componentKey: 'CA2', score: ca2 },
-      { studentId, subjectOfferingId: offeringId, componentKey: 'EXAM', score: exam },
+    const full = (
+      studentId: string,
+      offeringId: string,
+      ca1: number,
+      ca2: number,
+      exam: number,
+    ) => [
+      {
+        studentId,
+        subjectOfferingId: offeringId,
+        componentKey: 'CA1',
+        score: ca1,
+      },
+      {
+        studentId,
+        subjectOfferingId: offeringId,
+        componentKey: 'CA2',
+        score: ca2,
+      },
+      {
+        studentId,
+        subjectOfferingId: offeringId,
+        componentKey: 'EXAM',
+        score: exam,
+      },
     ];
     const absent = (studentId: string, offeringId: string) =>
       ['CA1', 'CA2', 'EXAM'].map((componentKey) => ({
@@ -408,6 +474,38 @@ d('Results workbench — ResultCycle publish/amend/hold (WB4)', () => {
     expect(bolaEng.total).toBeNull();
     // An absent subject → the recommendation is a human "review", not a fail.
     expect(bola.promotionRecommendation).toBe('review');
+  });
+
+  it('renders report-card + broadsheet artifacts off the request (F3 job)', async () => {
+    // The worker is off in tests; drain it deterministically. Publish enqueued
+    // one artifact job per section (here, one) — plus the document-scan jobs each
+    // uploaded artifact triggers.
+    for (let i = 0; i < 100; i++) {
+      if (!(await worker.processOnce())) break;
+    }
+    const pubs = await inA(() =>
+      publications.listPublications(tenantAId, checker(), cycleId),
+    );
+    const v1 = pubs.find((p) => p.version === 1)!;
+    // A single-section cycle pins its broadsheet on the publication.
+    expect(v1.broadsheetDocumentId).toBeTruthy();
+
+    const { students } = await inA(() =>
+      publications.getPublication(tenantAId, checker(), v1.id),
+    );
+    for (const s of students) {
+      expect(s.reportCardDocumentId).toBeTruthy();
+    }
+    // The artifacts are real stored DocumentArtifacts owned by the publication
+    // (2 report cards + 1 broadsheet).
+    const docs = await owner.document.findMany({
+      where: {
+        tenantId: tenantAId,
+        ownerType: 'ResultPublication',
+        ownerId: v1.id,
+      },
+    });
+    expect(docs.length).toBeGreaterThanOrEqual(students.length + 1);
   });
 
   it('editing the grade scale after publish leaves the snapshot unchanged', async () => {

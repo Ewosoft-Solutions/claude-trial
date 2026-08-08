@@ -90,14 +90,14 @@ export default async function ResultsPage() {
         canEnter={permissions.includes('academics.results.enter')}
         canApprove={permissions.includes('academics.results.approve')}
         canHold={permissions.includes('academics.results.financial_hold')}
-        cycles={cycles ?? []}
+        cycles={toArray<ResultCycle>(cycles)}
         years={yearList}
         termsByYear={termsByYear}
-        yearLevels={yearLevels ?? []}
-        sections={sections ?? []}
-        campuses={campuses ?? []}
-        gradingSystems={gradingSystems ?? []}
-        remarkSets={remarkSets ?? []}
+        yearLevels={toArray<YearLevelOption>(yearLevels)}
+        sections={toArray<SectionOption>(sections)}
+        campuses={toArray<CampusOption>(campuses)}
+        gradingSystems={toArray<GradingSystemOption>(gradingSystems)}
+        remarkSets={toArray<RemarkRuleSetOption>(remarkSets)}
       />
     </div>
   );

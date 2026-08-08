@@ -31,12 +31,12 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { MakerCheckerService } from '../../auth/services/maker-checker.service';
 import { SignatureService } from '../../documents/services/signature.service';
-import { DeliveryService } from '../../communication/delivery/services/delivery.service';
+import { JobService } from '../../common/jobs/job.service';
 import { ResultCycleService } from './result-cycle.service';
 import {
-  ResultArtifactService,
-  type ArtifactStudent,
-} from './result-artifact.service';
+  RESULT_ARTIFACTS_JOB,
+  type ResultArtifactsPayload,
+} from '../jobs/results-jobs';
 import {
   computeOverall,
   computeSubjectResult,
@@ -99,9 +99,8 @@ export class ResultPublicationService {
     private readonly audit: AuditService,
     private readonly makerChecker: MakerCheckerService,
     private readonly cycles: ResultCycleService,
-    private readonly artifacts: ResultArtifactService,
     private readonly signatures: SignatureService,
-    private readonly delivery: DeliveryService,
+    private readonly jobs: JobService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
@@ -606,22 +605,6 @@ export class ResultPublicationService {
       );
     }
 
-    // Profiles (for notification) for the published students.
-    const allStudentIds = [
-      ...new Set(
-        [...scope.studentsBySectionId.values()].flatMap((ss) =>
-          ss.map((s) => s.id),
-        ),
-      ),
-    ];
-    const profiles = allStudentIds.length
-      ? await this.client.student.findMany({
-          where: { id: { in: allStudentIds }, tenantId },
-          select: { id: true, userTenantId: true, personId: true },
-        })
-      : [];
-    const profileByStudent = new Map(profiles.map((p) => [p.id, p]));
-
     // Compute per-student snapshots (sorted by section then studentId → stable).
     const students: SnapshotStudent[] = [];
     const sectionOf = new Map<string, string>(); // studentId → sectionLabel
@@ -714,6 +697,9 @@ export class ResultPublicationService {
         academicYearName: meta.academicYearName,
         termId: cycle.termId,
         termName: meta.termName,
+        // schoolName is snapshotted so the artifact job renders deterministically
+        // without re-reading the tenant row.
+        schoolName: meta.schoolName,
         rankingEnabled: cycle.rankingEnabled,
       },
       gradingSystem: gradingSystem
@@ -748,25 +734,9 @@ export class ResultPublicationService {
       },
     });
 
-    // Per-student rows + report-card artifacts.
-    const artMeta = {
-      schoolName: meta.schoolName,
-      cycleName: cycle.name,
-      academicYearName: meta.academicYearName,
-      termName: meta.termName,
-      version: opts.version,
-      publishedAt: publication.publishedAt.toISOString().slice(0, 10),
-    };
+    // Per-student snapshot rows (DB-only — fast, atomic with the approval). The
+    // report-card document id is filled in by the artifact job.
     for (const s of students) {
-      const perStudentChecksum = checksumOf(s);
-      const artStudent = this.toArtifactStudent(s);
-      const card = await this.artifacts.storeReportCard(
-        tenantId,
-        actor.userId,
-        publication.id,
-        artMeta,
-        artStudent,
-      );
       await this.client.publishedStudentResult.create({
         data: {
           tenantId,
@@ -787,37 +757,13 @@ export class ResultPublicationService {
           position: s.position,
           promotionRecommendation: s.promotionRecommendation,
           promotionReason: s.promotionReason,
-          reportCardDocumentId: card.documentId,
-          checksum: perStudentChecksum,
+          reportCardDocumentId: null,
+          checksum: checksumOf(s),
         },
       });
     }
 
-    // One broadsheet per section (each its own DocumentArtifact).
-    let firstBroadsheetId: string | null = null;
-    for (const section of scope.sections) {
-      const sectionStudents = students
-        .filter((s) => s.classSectionId === section.id)
-        .map((s) => this.toArtifactStudent(s));
-      if (sectionStudents.length === 0) continue;
-      const bs = await this.artifacts.storeBroadsheet(
-        tenantId,
-        actor.userId,
-        publication.id,
-        artMeta,
-        section.displayLabel,
-        sectionStudents,
-      );
-      firstBroadsheetId ??= bs.documentId;
-    }
-    if (scope.sections.length === 1 && firstBroadsheetId) {
-      await this.client.resultPublication.update({
-        where: { id: publication.id },
-        data: { broadsheetDocumentId: firstBroadsheetId },
-      });
-    }
-
-    // Best-effort signature (if a signing authority is configured).
+    // Signature is a single DB write (no external I/O) → safe to keep in-tx.
     await this.applySignatureIfAvailable(
       tenantId,
       actor.userId,
@@ -825,39 +771,29 @@ export class ResultPublicationService {
       checksum,
     );
 
-    // Notify (F5) — best-effort in-app per student; never blocks publish.
-    await this.notify(
-      tenantId,
-      actor.userId,
-      cycle.name,
-      students,
-      profileByStudent,
+    // Artifact rendering (object-storage writes) + guardian notifications are the
+    // heavy, external-I/O part of publish, so they run OFF this request
+    // transaction on the F3 substrate — one job PER SECTION so each job's tx
+    // stays small and independently retryable (ADR-04 "publish runs as a job").
+    // The enqueue commits with this transaction, so it never fires for a
+    // rolled-back publish.
+    const sectionsWithStudents = new Set(
+      students.map((s) => s.classSectionId).filter((id): id is string => !!id),
     );
+    for (const classSectionId of sectionsWithStudents) {
+      await this.jobs.enqueue({
+        type: RESULT_ARTIFACTS_JOB,
+        tenantId,
+        idempotencyKey: `result-artifacts:${publication.id}:${classSectionId}`,
+        actorId: actor.userId,
+        payload: {
+          publicationId: publication.id,
+          classSectionId,
+        } satisfies ResultArtifactsPayload,
+      });
+    }
 
     return { ...publication, studentCount: students.length, checksum };
-  }
-
-  private toArtifactStudent(s: SnapshotStudent): ArtifactStudent {
-    return {
-      studentNumber: s.studentNumber,
-      studentName: s.studentName,
-      sectionLabel: s.sectionLabel,
-      subjects: s.subjects.map((sub) => ({
-        subjectLabel: sub.subjectLabel,
-        components: sub.components,
-        total: sub.total,
-        maxTotal: sub.maxTotal,
-        percentage: sub.percentage,
-        letterGrade: sub.letterGrade,
-        remark: sub.remark,
-      })),
-      average: s.average,
-      overallGrade: s.overallGrade,
-      position: s.position,
-      promotionRecommendation: s.promotionRecommendation,
-      promotionReason: s.promotionReason,
-      principalRemark: s.principalRemark,
-    };
   }
 
   private async applySignatureIfAvailable(
@@ -888,38 +824,6 @@ export class ResultPublicationService {
       });
     } catch {
       // A signature is best-effort here; publication is not blocked by it.
-    }
-  }
-
-  private async notify(
-    tenantId: string,
-    actorId: string,
-    cycleName: string,
-    students: SnapshotStudent[],
-    profileByStudent: Map<
-      string,
-      { userTenantId: string; personId: string | null }
-    >,
-  ) {
-    for (const s of students) {
-      const profile = profileByStudent.get(s.studentId);
-      if (!profile) continue;
-      try {
-        await this.delivery.send({
-          tenantId,
-          channel: 'in_app',
-          category: 'transactional',
-          profileId: profile.userTenantId,
-          personId: profile.personId ?? undefined,
-          subject: 'Your results are ready',
-          body: `Results for "${cycleName}" have been published.`,
-          dedupeKey: `result-published:${s.studentId}:${cycleName}`,
-          actorId,
-          metadata: { kind: 'result_published' },
-        });
-      } catch {
-        // Delivery failures are ledgered by F5; they never block publication.
-      }
     }
   }
 

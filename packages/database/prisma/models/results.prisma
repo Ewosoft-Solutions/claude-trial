@@ -355,6 +355,9 @@ model FinancialHold {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
+  // A DB-level PARTIAL unique index (migration 20260808130000) enforces at most
+  // one ACTIVE hold per (tenant, student) — Prisma can't express a WHERE-filtered
+  // unique, so it lives in the migration, not here.
   @@index([tenantId])
   @@index([tenantId, studentId, status])
   @@index([studentId])

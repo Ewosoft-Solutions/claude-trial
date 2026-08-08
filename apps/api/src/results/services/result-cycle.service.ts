@@ -166,9 +166,16 @@ export class ResultCycleService {
   ) {
     const cycle = await this.loadCycle(tenantId, cycleId);
     this.assertCycleScope(actor, cycle);
-    if (cycle.status === 'published' || cycle.status === 'archived') {
+    if (
+      cycle.status === 'published' ||
+      cycle.status === 'archived' ||
+      cycle.status === 'pending_approval'
+    ) {
+      // Frozen once submitted for approval so the checker approves exactly the
+      // configuration they reviewed (no maker-checker TOCTOU); cancel or let the
+      // approval lapse to reconfigure.
       throw new BadRequestException(
-        'A published or archived cycle can no longer be reconfigured.',
+        `A cycle that is ${cycle.status.replace(/_/g, ' ')} can no longer be reconfigured.`,
       );
     }
     if (dto.gradingSystemId) {
