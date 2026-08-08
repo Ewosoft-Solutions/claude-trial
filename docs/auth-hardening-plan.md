@@ -121,6 +121,34 @@ Production deliberately refuses to sign resume state when it is absent.
 - Global search is the first allow-listed modal that can be reopened. Other
   modals stay closed until they explicitly register a safe resume key.
 
+### Idle decision precedes resume (2026-08-09 fix)
+
+Secure resume and the inactivity logout are separate subsystems that used to
+run uncoordinated on wake, so a user returning past the idle deadline was
+re-authenticated by the resume trampoline, shown their page, and only then
+ejected by the lifecycle provider (resume → overview → logout). The idle
+`lastActivity` timestamp is client-only (localStorage), invisible to the
+server/middleware resume path, which is why resume ran regardless.
+
+The idle deadline now **gates** the resume, decided before any protected UI:
+
+- The provider persists a **policy snapshot** (`swe:session-policy:v1`) alongside
+  the activity timestamp, so pre-auth surfaces can evaluate idle without a live
+  session.
+- The **resume trampoline** (`/session/resume`) evaluates the idle deadline
+  BEFORE calling `/api/auth/resume`. If already past logout, it does not
+  re-authenticate: it clears cookies via `/api/auth/logout` with a new
+  `skipResumeState` flag (preserving the middleware-set resume cookie for the
+  original destination, so re-login still returns the user to their work), leaves
+  the inactivity notice, and goes straight to `/login`.
+- The **lifecycle provider** adds a pre-paint (`useLayoutEffect`) gate: if the
+  shell mounts already idle/absolute-expired (e.g. a suspended PWA reopened while
+  the access cookie was still valid, so no resume ran), it blocks the app from
+  rendering and signs out — never a page-flash-then-eject.
+
+Outcome: exactly one result on return — resumed (idle within window) or a clean
+"signed out due to inactivity" login screen — never resumed-then-ejected.
+
 ## Long-work data protection ✅
 
 Assessment attempts now save draft answers after a one-second debounce and

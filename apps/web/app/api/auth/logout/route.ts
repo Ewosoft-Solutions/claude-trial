@@ -31,6 +31,13 @@ interface LogoutBody {
   tenantId?: string;
   profileId?: string;
   modalKey?: ResumableModalKey;
+  /**
+   * Skip writing a resume cookie from this request's referer. Set by the resume
+   * trampoline when it signs out an idle-expired user: a resume cookie for the
+   * ORIGINAL destination was already stashed by middleware, and deriving one
+   * from the `/session/resume` referer would overwrite it (and loop on re-login).
+   */
+  skipResumeState?: boolean;
 }
 
 export async function POST(req: NextRequest) {
@@ -79,7 +86,12 @@ export async function POST(req: NextRequest) {
     ),
   );
 
-  if (body.reason && body.reason !== 'manual' && returnTo) {
+  if (
+    !body.skipResumeState &&
+    body.reason &&
+    body.reason !== 'manual' &&
+    returnTo
+  ) {
     const state = createResumeState({
       path: returnTo,
       tenantId: body.tenantId,
