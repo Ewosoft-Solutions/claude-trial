@@ -1,0 +1,364 @@
+// ============================================
+// WB4 · Results parity / ResultCycle (ADR-04)
+// ============================================
+//
+// The immutable result-publication layer on top of the day-to-day gradebook
+// (Assessment/Grade). ADR-04 lifecycle, one workbench:
+//
+//   Configure → Open entry → Validate → Moderate → Approve → Publish (snapshot)
+//              → Notify → Amend → Archive
+//
+//   ResultCycle          — a term's result run for a set of class sections. Its
+//                          COMPONENTS (CA1…/EXAM) are configurable; entry is a
+//                          direct per-(student · subject offering · component)
+//                          capture — the authoritative term-result source, which
+//                          may optionally be seeded from the live gradebook.
+//   ResultComponent      — a configurable CA/EXAM component of a cycle (max +
+//                          weight); the subject total is the sum of components.
+//   ResultCycleSection   — a class section included in the cycle's scope.
+//   ResultEntry          — one component score for one student in one subject
+//                          offering. Absent ≠ zero; exempt is excluded.
+//   RemarkRuleSet/Rule   — STRUCTURED band→comment rules (typed subject vs
+//                          principal), replacing the 724 prose remark rows.
+//   ResultPublication    — an IMMUTABLE snapshot (config + scale + remark rules
+//                          + promotion policy + per-subject results), checksum-
+//                          addressed and anchor-ready (ADR-13). Amendments create
+//                          a new version and supersede — the original is never
+//                          overwritten.
+//   PublishedStudentResult — the per-student immutable snapshot row + its
+//                          checksum-addressed report-card DocumentArtifact.
+//   ResultAmendment      — a correction after publication (maker-checker),
+//                          producing a superseding publication version.
+//   FinancialHold        — an explicit, audited hold on a student's result
+//                          VISIBILITY to guardians (redesign of the legacy silent
+//                          per-student block — a logged decision, never a hidden
+//                          flag). Finance never silently blocks a result.
+//
+// Tenanting (F6 / WB2 convention): every table carries tenant_id NOT NULL with
+// own+platform RLS applied in the migration (db:rls:check). External references
+// (student, class section, subject offering, academic year/term, grading system,
+// campus) are plain id fields with DB-level FKs added in the migration and
+// validated in-service — NOT Prisma relations — so this module stays decoupled
+// from those models. The new models relate to EACH OTHER via Prisma for
+// ergonomic nested reads. All rows in the `academic-structure` schema.
+// ============================================
+
+// ResultCycle - a term's result run for a set of class sections.
+model ResultCycle {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  campusId String? @map("campus_id") // tenant.campuses(id) — WB1-6 scope target; null = whole school
+
+  name           String
+  academicYearId String  @map("academic_year_id") // academic-structure.academic_years(id) — DB FK
+  termId         String? @map("term_id") // academic-structure.terms(id) — DB FK, null = year-long
+  yearLevelId    String? @map("year_level_id") // optional filter — academic-structure.year_levels(id)
+
+  // Configuration references (validated in-service; DB FKs where the target is
+  // tenant-owned). The grade scale reuses the existing GradingSystem (JSON scale).
+  gradingSystemId          String? @map("grading_system_id") // academic-structure.grading_systems(id)
+  subjectRemarkRuleSetId   String? @map("subject_remark_rule_set_id") // per-subject auto remark
+  principalRemarkRuleSetId String? @map("principal_remark_rule_set_id") // overall/principal remark
+
+  // Promotion policy (WB4 promotion INPUT → an explainable per-student
+  // recommendation, computed at publish; the text leaves the remark, fixing
+  // C124). Shape: { passMark:number, maxFailedSubjects:number, coreSubjectOfferingIds?:string[] }.
+  promotionPolicy Json? @map("promotion_policy")
+
+  // Ranking is a policy, default OFF (C065) — positions are only computed when on.
+  rankingEnabled Boolean @default(false) @map("ranking_enabled")
+
+  status            String  @default("draft") // draft | entry_open | entry_closed | moderation | pending_approval | published | archived | cancelled
+  approvalRequestId String? @map("approval_request_id")
+
+  entryOpenedAt DateTime? @map("entry_opened_at")
+  entryClosedAt DateTime? @map("entry_closed_at")
+  publishedAt   DateTime? @map("published_at")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  components   ResultComponent[]
+  sections     ResultCycleSection[]
+  entries      ResultEntry[]
+  publications ResultPublication[]
+  amendments   ResultAmendment[]
+
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@index([campusId])
+  @@index([academicYearId])
+  @@map("result_cycles")
+  @@schema("academic-structure")
+}
+
+// ResultComponent - a configurable scored component of a cycle (CA1…/EXAM).
+model ResultComponent {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  cycleId  String @map("cycle_id")
+
+  key      String // stable key, e.g. 'CA1' | 'CA2' | 'EXAM'
+  label    String // display, e.g. 'First CA'
+  maxScore Decimal @map("max_score") // component max (e.g. 20, 40, 60)
+  weight   Decimal? // optional weight override; default = maxScore share
+  order    Int     @default(0)
+  isExam   Boolean @default(false) @map("is_exam")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cycle   ResultCycle   @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  entries ResultEntry[]
+
+  @@unique([cycleId, key])
+  @@index([tenantId])
+  @@index([cycleId])
+  @@map("result_components")
+  @@schema("academic-structure")
+}
+
+// ResultCycleSection - a class section included in a cycle's scope.
+model ResultCycleSection {
+  id             String @id @default(uuid())
+  tenantId       String @map("tenant_id")
+  cycleId        String @map("cycle_id")
+  classSectionId String @map("class_section_id") // academic-structure.class_sections(id)
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  cycle ResultCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, classSectionId])
+  @@index([tenantId])
+  @@index([cycleId])
+  @@index([classSectionId])
+  @@map("result_cycle_sections")
+  @@schema("academic-structure")
+}
+
+// ResultEntry - one component score for one student in one subject offering.
+// Absent (isAbsent) has no score and is NOT zeroed; exempt (isExempt) is removed
+// from the subject's max + total entirely.
+model ResultEntry {
+  id                String @id @default(uuid())
+  tenantId          String @map("tenant_id")
+  cycleId           String @map("cycle_id")
+  componentId       String @map("component_id")
+  studentId         String @map("student_id") // student-management.students(id)
+  subjectOfferingId String @map("subject_offering_id") // academic-structure.subject_offerings(id)
+
+  score    Decimal? // null when absent/exempt/not-yet-entered
+  isAbsent Boolean  @default(false) @map("is_absent")
+  isExempt Boolean  @default(false) @map("is_exempt")
+
+  enteredBy String?  @map("entered_by")
+  enteredAt DateTime @default(now()) @map("entered_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cycle     ResultCycle     @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  component ResultComponent @relation(fields: [componentId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, studentId, subjectOfferingId, componentId])
+  @@index([tenantId])
+  @@index([cycleId])
+  @@index([cycleId, subjectOfferingId])
+  @@index([cycleId, studentId])
+  @@index([studentId])
+  @@map("result_entries")
+  @@schema("academic-structure")
+}
+
+// RemarkRuleSet - a structured set of band→comment rules (typed).
+model RemarkRuleSet {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  name   String
+  kind   String @default("subject") // 'subject' | 'principal'
+  status String @default("active") // 'active' | 'inactive'
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  rules RemarkRule[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, kind])
+  @@map("remark_rule_sets")
+  @@schema("academic-structure")
+}
+
+// RemarkRule - one band (min..max percentage) → comment within a rule set.
+model RemarkRule {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  ruleSetId String @map("rule_set_id")
+
+  minPercentage Decimal @map("min_percentage")
+  maxPercentage Decimal @map("max_percentage")
+  comment       String
+  order         Int     @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  ruleSet RemarkRuleSet @relation(fields: [ruleSetId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([ruleSetId])
+  @@map("remark_rules")
+  @@schema("academic-structure")
+}
+
+// ResultPublication - an IMMUTABLE snapshot of a cycle's published results.
+// Amendments create a NEW version and supersede the prior one; a published row
+// is never overwritten (checksum-addressed, anchor-ready per ADR-13).
+model ResultPublication {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  cycleId  String @map("cycle_id")
+
+  version Int    @default(1)
+  status  String @default("published") // 'published' | 'superseded'
+
+  // The full immutable snapshot: cycle config + components + grading scale +
+  // remark rule sets + promotion policy + subject list — everything needed to
+  // reproduce the published result independently.
+  snapshot Json
+  checksum String // sha256 hex of the canonical snapshot serialization
+
+  approvalRequestId String?   @map("approval_request_id")
+  amendmentReason   String?   @map("amendment_reason")
+  supersededById    String?   @map("superseded_by_id") // the publication that replaced this one
+  supersededAt      DateTime? @map("superseded_at")
+
+  broadsheetDocumentId String? @map("broadsheet_document_id") // rendered broadsheet DocumentArtifact
+
+  publishedBy String?  @map("published_by")
+  publishedAt DateTime @default(now()) @map("published_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  cycle          ResultCycle             @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  studentResults PublishedStudentResult[]
+
+  @@unique([cycleId, version])
+  @@index([tenantId])
+  @@index([cycleId])
+  @@index([tenantId, status])
+  @@map("result_publications")
+  @@schema("academic-structure")
+}
+
+// PublishedStudentResult - the per-student immutable snapshot row.
+model PublishedStudentResult {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  publicationId String @map("publication_id")
+  cycleId       String @map("cycle_id")
+  studentId     String @map("student_id")
+
+  // Snapshotted identity + placement (stored, not re-derived at read).
+  studentNumber String? @map("student_number")
+  studentName   String? @map("student_name")
+  classSectionId String? @map("class_section_id")
+  sectionLabel   String? @map("section_label")
+
+  // Per-subject snapshot: [{ subjectOfferingId, subjectLabel, components:[{key,
+  // label, score, max, isAbsent, isExempt}], total, maxTotal, percentage,
+  // letterGrade, gradePoints, remark }].
+  subjects Json
+
+  overallTotal Decimal? @map("overall_total")
+  overallMax   Decimal? @map("overall_max")
+  average      Decimal?
+  overallGrade String?  @map("overall_grade")
+  position     Int? // only when the cycle's ranking policy is ON
+
+  promotionRecommendation String? @map("promotion_recommendation") // 'promote' | 'repeat' | 'review'
+  promotionReason         String? @map("promotion_reason")
+
+  reportCardDocumentId String? @map("report_card_document_id") // rendered report-card DocumentArtifact
+  checksum             String // sha256 hex of the per-student snapshot
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  publication ResultPublication @relation(fields: [publicationId], references: [id], onDelete: Cascade)
+
+  @@unique([publicationId, studentId])
+  @@index([tenantId])
+  @@index([publicationId])
+  @@index([cycleId])
+  @@index([tenantId, studentId])
+  @@map("published_student_results")
+  @@schema("academic-structure")
+}
+
+// ResultAmendment - a correction after publication (maker-checker) that produces
+// a superseding publication version.
+model ResultAmendment {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  cycleId       String @map("cycle_id")
+  publicationId String @map("publication_id") // the publication being amended
+
+  status String @default("pending_approval") // pending_approval | applied | rejected | cancelled
+  reason String
+
+  // What changed: [{ studentId, subjectOfferingId, componentKey, from, to }].
+  changes Json
+
+  approvalRequestId      String? @map("approval_request_id")
+  resultingPublicationId String? @map("resulting_publication_id") // the new superseding publication
+
+  requestedBy String?   @map("requested_by")
+  approvedBy  String?   @map("approved_by")
+  appliedAt   DateTime? @map("applied_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  cycle ResultCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([cycleId])
+  @@index([publicationId])
+  @@index([tenantId, status])
+  @@map("result_amendments")
+  @@schema("academic-structure")
+}
+
+// FinancialHold - an explicit, audited hold on a student's result VISIBILITY to
+// guardians (redesign of the legacy silent per-student block, C112/#60). Finance
+// never silently blocks a result; this is a deliberate, logged decision.
+model FinancialHold {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  studentId String @map("student_id") // student-management.students(id)
+  campusId  String? @map("campus_id")
+
+  status String @default("active") // 'active' | 'released'
+  reason String
+
+  placedBy   String?   @map("placed_by")
+  placedAt   DateTime  @default(now()) @map("placed_at")
+  releasedBy String?   @map("released_by")
+  releasedAt DateTime? @map("released_at")
+  releaseReason String? @map("release_reason")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@index([tenantId, studentId, status])
+  @@index([studentId])
+  @@index([campusId])
+  @@map("financial_holds")
+  @@schema("academic-structure")
+}

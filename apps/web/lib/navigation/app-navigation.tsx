@@ -232,6 +232,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['academics.promotion.view'] },
             },
             {
+              key: 'results',
+              label: 'Results',
+              icon: <ClipboardCheck />,
+              href: '/academics/results',
+              access: { anyPermission: ['academics.results.view'] },
+            },
+            {
               key: 'materials',
               label: 'Materials',
               icon: <FileText />,

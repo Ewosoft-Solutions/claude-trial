@@ -25,6 +25,7 @@ import { EmploymentModule } from './employment/employment.module';
 import { AccessModule } from './access/access.module';
 import { AcademicStructureModule } from './academic-structure/academic-structure.module';
 import { AssessmentGradingModule } from './assessment-grading/assessment-grading.module';
+import { ResultsModule } from './results/results.module';
 import { CommunicationModule } from './communication/communication.module';
 import { CurriculumModule } from './curriculum/curriculum.module';
 import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
@@ -117,6 +118,7 @@ import { AppController } from './app.controller';
     AccessModule,
     AcademicStructureModule,
     AssessmentGradingModule,
+    ResultsModule,
     CommunicationModule,
     CurriculumModule,
     ReportingAnalyticsModule,
