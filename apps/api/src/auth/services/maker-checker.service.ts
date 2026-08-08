@@ -148,6 +148,37 @@ export class MakerCheckerService {
           timeLimitHours: 48,
         },
       ],
+      // WB4 (ADR-04): publishing a result cycle produces an IMMUTABLE snapshot a
+      // family relies on, so it is maker-checker — the registrar who prepared the
+      // cycle (the maker) submits; a SECOND approver (maker ≠ checker,
+      // Management+) with `academics.results.approve` signs off, and only then is
+      // the snapshot published (result-publication scenario). maker ≠ checker on
+      // publish is an ADR-04 validation kept as a regression test.
+      [
+        'academics.results.publish',
+        {
+          operation: 'academics.results.publish',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['academics.results.approve'],
+          requiredClearanceLevel: 7,
+          requiredCheckerClearanceLevel: 7,
+          timeLimitHours: 48,
+        },
+      ],
+      // WB4 (ADR-04): a correction to an already-published result is an amendment
+      // (never an overwrite) — it supersedes the prior snapshot with a new
+      // version, so it too needs a second approver.
+      [
+        'academics.results.amend',
+        {
+          operation: 'academics.results.amend',
+          level: ApprovalLevel.SCHOOL,
+          requiredPermissions: ['academics.results.approve'],
+          requiredClearanceLevel: 7,
+          requiredCheckerClearanceLevel: 7,
+          timeLimitHours: 48,
+        },
+      ],
       [
         'financial.transactions',
         {
