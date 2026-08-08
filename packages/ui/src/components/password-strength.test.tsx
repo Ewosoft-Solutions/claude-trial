@@ -27,8 +27,8 @@ describe('evaluatePassword', () => {
       { ...FULL, requireSpecialChars: false, requireNumbers: false },
       '',
     );
-    expect(r.total).toBe(3); // length + upper + lower
-    expect(r.checks.map((c) => c.key)).toEqual(['length', 'upper', 'lower']);
+    expect(r.total).toBe(3); // lower + upper + length (length last)
+    expect(r.checks.map((c) => c.key)).toEqual(['lower', 'upper', 'length']);
   });
 
   it('flags a password that misses the special-char rule', () => {

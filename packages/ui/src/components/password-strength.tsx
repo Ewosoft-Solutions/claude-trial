@@ -52,25 +52,24 @@ export function evaluatePassword(
   policy: PasswordRequirements,
   value: string,
 ): PasswordEvaluation {
-  const checks: PasswordCheck[] = [
-    {
-      key: 'length',
-      label: `At least ${policy.minLength} characters`,
-      ok: value.length >= policy.minLength,
-    },
-  ];
-  if (policy.requireUppercase) {
-    checks.push({
-      key: 'upper',
-      label: '1 uppercase letter',
-      ok: /[A-Z]/.test(value),
-    });
-  }
+  // Ordered the way a password is actually built: the deliberate
+  // character-class choices first (lowercase → uppercase → number → symbol, by
+  // increasing effort), then the cumulative length check LAST. Length is
+  // satisfied simply by continuing to type, so it belongs at the finish line —
+  // not leading the list as a filler to clear before the real choices.
+  const checks: PasswordCheck[] = [];
   if (policy.requireLowercase) {
     checks.push({
       key: 'lower',
       label: '1 lowercase letter',
       ok: /[a-z]/.test(value),
+    });
+  }
+  if (policy.requireUppercase) {
+    checks.push({
+      key: 'upper',
+      label: '1 uppercase letter',
+      ok: /[A-Z]/.test(value),
     });
   }
   if (policy.requireNumbers) {
@@ -83,6 +82,11 @@ export function evaluatePassword(
       ok: SPECIAL_CHARS.test(value),
     });
   }
+  checks.push({
+    key: 'length',
+    label: `At least ${policy.minLength} characters`,
+    ok: value.length >= policy.minLength,
+  });
 
   const total = checks.length;
   const met = checks.filter((c) => c.ok).length;
