@@ -55,7 +55,7 @@ import {
   SheetTitle,
   SheetTrigger,
 } from '@workspace/ui/components/sheet';
-import { useIsMobile } from '@workspace/ui/hooks/use-mobile';
+import { useIsMobile, useMediaQuery } from '@workspace/ui/hooks/use-mobile';
 
 export interface ToolbarFilterOption {
   value: string;
@@ -154,8 +154,13 @@ export function DirectoryToolbar({
   // phones (<768) get a bottom drawer; tablet + desktop get the dropdown. The
   // toolbar layout itself stays CSS-driven (lg: utilities, below).
   const isMobile = useIsMobile();
+  // Whether saved-view + columns sit inline (≥lg) rather than folded into the
+  // Filters menu (<lg). Only gates the reset button inside the menu (which is
+  // closed at first paint), so a media-query hook here can't cause a flash.
+  const isDesktop = useMediaQuery('(min-width: 1024px)');
   const [filtersOpen, setFiltersOpen] = React.useState(false);
-  const searchId = search.id ?? React.useId();
+  const generatedId = React.useId();
+  const searchId = search.id ?? generatedId;
 
   const filterCount = activeFilterEntries(filters, filterValues).length;
   const setFilterValue = (key: string, value: string | null) =>
@@ -199,13 +204,34 @@ export function DirectoryToolbar({
     </Button>
   );
 
+  // Reset clears everything the Filters menu currently CONTAINS: its filter
+  // groups always, plus — only when they're folded in (below lg) — the saved
+  // view back to default (never deleting it) and every column back to visible.
+  // It leaves saved-view/columns alone when they sit inline on desktop, and
+  // never touches the search box (which lives outside the menu).
+  const savedViewResettable = !!views && views.currentId != null;
+  const columnsResettable = !!columns && columns.items.some((c) => !c.visible);
+  const foldedResettable =
+    !isDesktop && (savedViewResettable || columnsResettable);
+
+  function handleReset() {
+    onClearFilters?.();
+    if (isDesktop) return;
+    if (views?.currentId != null) views.onSelect(null);
+    if (columns) {
+      for (const column of columns.items) {
+        if (!column.visible) columns.onToggle(column.id, true);
+      }
+    }
+  }
+
   const resetButton = (
     <Button
       variant="ghost"
       size="sm"
       className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-      disabled={filterCount === 0}
-      onClick={() => onClearFilters?.()}
+      disabled={filterCount === 0 && !foldedResettable}
+      onClick={handleReset}
     >
       Reset
     </Button>
