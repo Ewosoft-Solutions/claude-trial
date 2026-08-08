@@ -66,7 +66,9 @@ export class FinancialHoldService {
       });
     }
 
-    // Idempotent: one active hold per student.
+    // One active hold per student (pre-check for a friendly error; the partial
+    // unique index `financial_holds_one_active_per_student` is the race-proof
+    // backstop, translated back to the same friendly error below).
     const existing = await this.client.financialHold.findFirst({
       where: { tenantId, studentId: dto.studentId, status: 'active' },
       select: { id: true },
@@ -75,16 +77,30 @@ export class FinancialHoldService {
       throw new BadRequestException('This student already has an active hold.');
     }
 
-    const hold = await this.client.financialHold.create({
-      data: {
-        tenantId,
-        studentId: dto.studentId,
-        campusId: dto.campusId ?? null,
-        status: 'active',
-        reason: dto.reason.trim(),
-        placedBy: actor.userId,
-      },
-    });
+    let hold;
+    try {
+      hold = await this.client.financialHold.create({
+        data: {
+          tenantId,
+          studentId: dto.studentId,
+          campusId: dto.campusId ?? null,
+          status: 'active',
+          reason: dto.reason.trim(),
+          placedBy: actor.userId,
+        },
+      });
+    } catch (e) {
+      if (
+        e instanceof Prisma.PrismaClientKnownRequestError &&
+        e.code === 'P2002'
+      ) {
+        // A concurrent place() won the race against the partial unique index.
+        throw new BadRequestException(
+          'This student already has an active hold.',
+        );
+      }
+      throw e;
+    }
     await this.audit.write({
       tenantId,
       eventType: AUDIT_EVENT.SECURITY_EVENT,
