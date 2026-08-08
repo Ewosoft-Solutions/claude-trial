@@ -83,6 +83,24 @@ function recordFreshLoginActivity() {
   }
 }
 
+/** Rewrites any ISO-8601 timestamp inside an API error message to the viewer's
+ *  local date + time — so e.g. "Account is locked until 2026-08-08T07:16:56.848Z"
+ *  reads as "Account is locked until 8 Aug 2026, 08:16" in the user's timezone. */
+function humanizeErrorTimestamps(message: string): string {
+  return message.replace(
+    /\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?/g,
+    (iso) => {
+      const date = new Date(iso);
+      return Number.isNaN(date.getTime())
+        ? iso
+        : new Intl.DateTimeFormat(undefined, {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+          }).format(date);
+    },
+  );
+}
+
 /** `schoolName` is set when the login page is reached on a `{slug}.domain`
  *  subdomain — the page brands itself for that school. */
 export function LoginForm({ schoolName }: { schoolName?: string }) {
@@ -193,7 +211,11 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
 
         if (!res.ok) {
           setPending(null);
-          setError(data.error ?? 'Sign in failed. Check your credentials.');
+          setError(
+            data.error
+              ? humanizeErrorTimestamps(data.error)
+              : 'Sign in failed. Check your credentials.',
+          );
           return;
         }
 

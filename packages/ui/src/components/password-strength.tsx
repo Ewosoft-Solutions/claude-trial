@@ -100,13 +100,38 @@ export function evaluatePassword(
   return { checks, met, total, allMet, level };
 }
 
-const LEVEL_META = [
-  { label: '', bar: 'bg-transparent', text: 'text-muted-foreground' },
-  { label: 'Weak', bar: 'bg-destructive', text: 'text-destructive' },
-  { label: 'Fair', bar: 'bg-warning', text: 'text-warning' },
-  { label: 'Good', bar: 'bg-info', text: 'text-info' },
-  { label: 'Strong', bar: 'bg-success', text: 'text-success' },
-] as const;
+/**
+ * Strength reads as ONE smooth ramp from red (weakest) to green (strongest),
+ * aligned to how many requirements are met. Intermediate steps are mixed from
+ * the design tokens (--destructive → --warning → --success), so the scale stays
+ * on-palette in both themes with no off-ramp blue in the middle. `pos` is the
+ * strength position in [0,1] (0 = weakest filled step, 1 = every rule met).
+ */
+function strengthColor(pos: number): string {
+  const p = Math.min(1, Math.max(0, pos));
+  if (p <= 0.5) {
+    const t = Math.round((p / 0.5) * 100);
+    return `color-mix(in oklab, var(--warning) ${t}%, var(--destructive))`;
+  }
+  const t = Math.round(((p - 0.5) / 0.5) * 100);
+  return `color-mix(in oklab, var(--success) ${t}%, var(--warning))`;
+}
+
+/** Terminology sized to the number of requirements, spanning weak → strong, so
+ *  the words track the count (4 rules → Weak · Fair · Good · Strong). */
+const STRENGTH_LABELS: Record<number, string[]> = {
+  1: ['Set'],
+  2: ['Weak', 'Strong'],
+  3: ['Weak', 'Fair', 'Strong'],
+  4: ['Weak', 'Fair', 'Good', 'Strong'],
+  5: ['Very weak', 'Weak', 'Fair', 'Good', 'Strong'],
+  6: ['Very weak', 'Weak', 'Low', 'Fair', 'Good', 'Strong'],
+};
+
+function strengthLabel(filled: number, total: number): string {
+  const set = STRENGTH_LABELS[total] ?? STRENGTH_LABELS[5]!;
+  return set[Math.min(set.length - 1, Math.max(0, filled - 1))] ?? '';
+}
 
 export interface PasswordStrengthMeterProps {
   policy: PasswordRequirements;
@@ -122,11 +147,18 @@ export function PasswordStrengthMeter({
   className,
   hideBar = false,
 }: PasswordStrengthMeterProps) {
-  const { checks, level } = React.useMemo(
+  const { checks, met, total } = React.useMemo(
     () => evaluatePassword(policy, value),
     [policy, value],
   );
-  const meta = LEVEL_META[level];
+
+  const active = value.length > 0;
+  // One segment per requirement (aligned to the count); a non-empty value shows
+  // at least the weakest step so the ramp reads immediately.
+  const filled = active ? Math.min(total, Math.max(met, 1)) : 0;
+  const pos = total > 1 ? (filled - 1) / (total - 1) : filled > 0 ? 1 : 0;
+  const color = strengthColor(pos);
+  const label = active ? strengthLabel(filled, total) : '';
 
   return (
     <div className={cn('flex flex-col gap-2.5', className)}>
@@ -137,23 +169,21 @@ export function PasswordStrengthMeter({
             role="progressbar"
             aria-label="Password strength"
             aria-valuemin={0}
-            aria-valuemax={4}
-            aria-valuenow={level}
-            aria-valuetext={meta.label || 'Empty'}
+            aria-valuemax={total}
+            aria-valuenow={filled}
+            aria-valuetext={label || 'Empty'}
           >
-            {[1, 2, 3, 4].map((seg) => (
+            {Array.from({ length: total }, (_, i) => i + 1).map((seg) => (
               <span
                 key={seg}
-                className={cn(
-                  'h-1.5 flex-1 rounded-full transition-colors',
-                  seg <= level ? meta.bar : 'bg-muted',
-                )}
+                className="h-1.5 flex-1 rounded-full bg-muted transition-colors"
+                style={seg <= filled ? { backgroundColor: color } : undefined}
               />
             ))}
           </div>
-          {meta.label ? (
-            <span className={cn('text-xs font-semibold', meta.text)}>
-              {meta.label}
+          {label ? (
+            <span className="text-xs font-semibold" style={{ color }}>
+              {label}
             </span>
           ) : null}
         </div>
