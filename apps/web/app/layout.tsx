@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import {
+  Fredoka,
   Geist_Mono,
   Libertinus_Mono,
   Plus_Jakarta_Sans,
@@ -12,14 +13,21 @@ import { ColorScheme } from '@workspace/ui/custom/colors/color-scheme';
 import { SessionNoticeToaster } from './providers/session-notice-toaster';
 import { ThemeColorMeta } from './providers/theme-color-meta';
 
-// Aurora type system: Plus Jakarta Sans for body/UI AND the display face
-// (headings), Libertinus Mono for stat-card number values. Applied app-wide.
-// The semantic font tokens live in ui globals.css (--font-sans / --font-display
-// / --font-stat / --font-mono) — change a font there and it updates everywhere.
+// Aurora type system: Plus Jakarta Sans for body/UI, Fredoka for the display
+// face (headings), Libertinus Mono for stat-card number values. Applied
+// app-wide. The semantic font tokens live in ui globals.css (--font-sans /
+// --font-display / --font-stat / --font-mono) — change a font there and it
+// updates everywhere.
 const jakarta = Plus_Jakarta_Sans({
   subsets: ['latin'],
   variable: '--font-jakarta',
   weight: ['400', '500', '600', '700', '800'],
+});
+// Display face for headings/greetings (bound to --font-display in globals.css).
+const fredoka = Fredoka({
+  subsets: ['latin'],
+  variable: '--font-fredoka',
+  weight: ['400', '500', '600', '700'],
 });
 // Stat-card numbers (bound to --font-stat in globals.css). Regular weight only.
 const libertinusMono = Libertinus_Mono({
@@ -68,7 +76,7 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body
-        className={`${jakarta.variable} ${libertinusMono.variable} ${geistMono.variable}`}
+        className={`${jakarta.variable} ${fredoka.variable} ${libertinusMono.variable} ${geistMono.variable}`}
       >
         <ThemeProvider
           attribute="class"

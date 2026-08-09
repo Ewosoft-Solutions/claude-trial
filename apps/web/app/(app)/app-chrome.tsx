@@ -62,6 +62,7 @@ import {
   suppressBiometricReminder,
   type BiometricReminderPreference,
 } from '@/lib/biometric-reminder';
+import { writeSidebarPreference } from '@/lib/sidebar-preference';
 import {
   useResumableModal,
   useSessionLifecycle,
@@ -120,7 +121,14 @@ function HeaderActions() {
   );
 }
 
-export function AppChrome({ children }: { children: React.ReactNode }) {
+export function AppChrome({
+  children,
+  sidebarExpanded = true,
+}: {
+  children: React.ReactNode;
+  /** Initial desktop-rail state from the persisted cookie (no refresh flash). */
+  sidebarExpanded?: boolean;
+}) {
   const {
     accountId,
     viewer,
@@ -423,6 +431,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             navPanels={sidebarPanels}
             user={user}
             userMenuItems={userMenu}
+            defaultExpanded={sidebarExpanded}
+            onExpandedChange={writeSidebarPreference}
           />
         }
       >

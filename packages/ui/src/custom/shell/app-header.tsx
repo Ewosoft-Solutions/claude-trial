@@ -50,8 +50,10 @@ export function OmniSearch({
       onClick={onClick}
       aria-label={placeholder}
       className={cn(
-        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius)] border border-border bg-background text-[13px] text-muted-foreground outline-none',
-        'sm:w-full sm:justify-start sm:px-3',
+        // Mobile: a borderless icon that groups with the other top-bar icons.
+        // sm+: the full bordered search pill.
+        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-full text-[13px] text-muted-foreground outline-none',
+        'sm:w-full sm:justify-start sm:rounded-[var(--radius)] sm:border sm:border-border sm:bg-background sm:px-3',
         'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         className,
       )}
@@ -109,7 +111,7 @@ export function AppHeader({
       className={cn(
         // Horizontal padding matches --content-padding so the top-bar content
         // lines up with the page content below it.
-        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-sidebar px-[var(--content-padding)] sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3',
+        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 border-b border-border bg-sidebar px-[var(--content-padding)] sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3',
         className,
       )}
     >
@@ -160,7 +162,7 @@ export function AppHeader({
           className={cn(
             'mx-auto flex min-w-0 items-center justify-self-center',
             searchAction
-              ? 'w-auto gap-2 sm:w-full sm:max-w-[40rem]'
+              ? 'w-auto gap-0.5 sm:w-full sm:max-w-[40rem] sm:gap-2'
               : 'w-9 sm:w-full sm:max-w-[34rem]',
           )}
         >

@@ -14,12 +14,17 @@
    redirect lands with the auth flow; see lib/session.ts.)
    ============================================================ */
 
+import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
 import { ViewerProvider } from '@/app/providers/viewer-provider';
 import { SwrProvider } from '@/app/providers/swr-provider';
 import { SessionLifecycleProvider } from '@/app/providers/session-lifecycle-provider';
 import { getSession } from '@/lib/session';
+import {
+  SIDEBAR_COOKIE,
+  sidebarExpandedFromCookie,
+} from '@/lib/sidebar-preference';
 import { AppChrome } from './app-chrome';
 
 export default async function AppLayout({
@@ -27,17 +32,23 @@ export default async function AppLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const session = await getSession();
+  const [session, cookieStore] = await Promise.all([getSession(), cookies()]);
 
   if (!session) {
     redirect('/session/resume');
   }
 
+  // Read the persisted rail state on the server so its width renders correctly
+  // on first paint (no expand→collapse flash on refresh).
+  const sidebarExpanded = sidebarExpandedFromCookie(
+    cookieStore.get(SIDEBAR_COOKIE)?.value,
+  );
+
   return (
     <SwrProvider>
       <ViewerProvider session={session}>
         <SessionLifecycleProvider session={session}>
-          <AppChrome>{children}</AppChrome>
+          <AppChrome sidebarExpanded={sidebarExpanded}>{children}</AppChrome>
         </SessionLifecycleProvider>
       </ViewerProvider>
     </SwrProvider>
