@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@workspace/database';
+import type { PaginationSortOrder } from '@workspace/api';
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import {
+  resolvePaginationOrderBy,
+  type SortAllowList,
+} from '../../common/dto/pagination-order';
 
 export interface PlatformAuditQuery {
   tenantId?: string;
@@ -8,14 +13,33 @@ export interface PlatformAuditQuery {
   eventType?: string;
   actorId?: string;
   resource?: string;
+  search?: string;
   startDate?: string;
   endDate?: string;
+  sortBy?: string;
+  sortOrder?: PaginationSortOrder;
   page?: number;
   limit?: number;
 }
 
 const DEFAULT_LIMIT = 50;
 const MAX_LIMIT = 200;
+
+/**
+ * Public sort keys → Prisma order fragments. Allow-listed so a raw client
+ * `sortBy` can never order on an unindexed / relational / nonexistent column;
+ * an unknown key falls back to newest-first (see `DEFAULT_ORDER_BY`).
+ */
+const SORT_ALLOW: SortAllowList<Prisma.AuditLogOrderByWithRelationInput> = {
+  timestamp: (dir) => [{ timestamp: dir }],
+  action: (dir) => [{ action: dir }],
+  eventType: (dir) => [{ eventType: dir }],
+  resource: (dir) => [{ resource: dir }],
+};
+
+const DEFAULT_ORDER_BY: Prisma.AuditLogOrderByWithRelationInput[] = [
+  { timestamp: 'desc' },
+];
 
 /**
  * Platform Audit Query Service
@@ -52,6 +76,24 @@ export class PlatformAuditQueryService {
       if (params.startDate) where.timestamp.gte = new Date(params.startDate);
       if (params.endDate) where.timestamp.lte = new Date(params.endDate);
     }
+    const search = params.search?.trim();
+    if (search) {
+      const contains = { contains: search, mode: 'insensitive' as const };
+      where.OR = [
+        { action: contains },
+        { resource: contains },
+        { description: contains },
+        { actorRole: contains },
+        { tenant: { name: contains } },
+      ];
+    }
+
+    const orderBy = resolvePaginationOrderBy(
+      params.sortBy,
+      params.sortOrder,
+      SORT_ALLOW,
+      DEFAULT_ORDER_BY,
+    );
 
     const client = this.tenantDb.client;
     const [logs, total] = await Promise.all([
@@ -59,7 +101,7 @@ export class PlatformAuditQueryService {
         where,
         skip,
         take: limit,
-        orderBy: { timestamp: 'desc' },
+        orderBy,
         select: {
           id: true,
           tenantId: true,
