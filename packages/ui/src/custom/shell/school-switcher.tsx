@@ -187,11 +187,11 @@ export function SchoolSwitcher({
         <SchoolChip school={active} className="size-9" />
         <span className="flex min-w-0 flex-1 flex-col items-start leading-tight">
           {active.caption ? (
-            <span className="w-full truncate text-left text-[11px] font-medium leading-tight text-muted-foreground">
+            <span className="w-full truncate text-left text-[calc(11px*var(--font-scale))] font-medium leading-tight text-muted-foreground">
               {active.caption}
             </span>
           ) : null}
-          <span className="w-full truncate text-left text-[13px] font-semibold leading-tight text-foreground">
+          <span className="w-full truncate text-left text-[calc(13px*var(--font-scale))] font-semibold leading-tight text-foreground">
             {active.name}
           </span>
         </span>
@@ -228,11 +228,11 @@ export function SchoolSwitcher({
       {/* role stacked over the school name (role lives here, not on the profile) */}
       <span className="flex min-w-0 max-w-[11rem] flex-col items-start text-left leading-tight sm:max-w-[15rem]">
         {active.caption ? (
-          <span className="w-full truncate text-left text-[11px] font-medium leading-tight text-muted-foreground">
+          <span className="w-full truncate text-left text-[calc(11px*var(--font-scale))] font-medium leading-tight text-muted-foreground">
             {active.caption}
           </span>
         ) : null}
-        <span className="w-full truncate text-left text-[13px] font-semibold leading-tight text-foreground">
+        <span className="w-full truncate text-left text-[calc(13px*var(--font-scale))] font-semibold leading-tight text-foreground">
           {active.name}
         </span>
       </span>
@@ -246,7 +246,7 @@ export function SchoolSwitcher({
   );
 
   const triggerClass = cn(
-    'flex min-w-0 shrink items-center gap-2.5 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-card py-2 pl-2 pr-2.5 text-left text-[13px] text-foreground outline-none',
+    'flex min-w-0 shrink items-center gap-2.5 overflow-hidden rounded-[var(--radius-sm)] border border-border bg-card py-2 pl-2 pr-2.5 text-left text-[calc(13px*var(--font-scale))] text-foreground outline-none',
     'max-sm:gap-2 max-sm:pr-2',
     'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
     className,

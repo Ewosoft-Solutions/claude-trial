@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2 } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Card } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
 import { PasswordInput } from '@workspace/ui/components/password-input';
@@ -107,7 +108,8 @@ export function AcceptInviteForm() {
         }),
       });
       const body = await res.json();
-      if (!res.ok) throw new Error(body?.error || 'Failed to accept invitation');
+      if (!res.ok)
+        throw new Error(body?.error || 'Failed to accept invitation');
       setDone(true);
       setTimeout(() => router.push('/login'), 2500);
     } catch (err) {
@@ -124,7 +126,7 @@ export function AcceptInviteForm() {
           <p className="text-sm text-muted-foreground">Loading invitation…</p>
         ) : loadError ? (
           <div className="flex flex-col gap-3">
-            <h1 className="text-lg font-semibold">Invitation unavailable</h1>
+            <PageTitle>Invitation unavailable</PageTitle>
             <p className="text-sm text-muted-foreground">{loadError}</p>
             <Button variant="outline" onClick={() => router.push('/login')}>
               Go to sign in
@@ -133,14 +135,14 @@ export function AcceptInviteForm() {
         ) : done ? (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
             <CheckCircle2 className="size-8 text-success" />
-            <h1 className="text-lg font-semibold">You&apos;re all set</h1>
+            <PageTitle>You&apos;re all set</PageTitle>
             <p className="text-sm text-muted-foreground">
               Your account is ready. Redirecting you to sign in…
             </p>
           </div>
         ) : preview && (preview.expired || !preview.valid) ? (
           <div className="flex flex-col gap-3">
-            <h1 className="text-lg font-semibold">Invitation expired</h1>
+            <PageTitle>Invitation expired</PageTitle>
             <p className="text-sm text-muted-foreground">
               This invitation to <strong>{preview.tenantName}</strong> is no
               longer valid. Ask an administrator to send a new one.
@@ -152,7 +154,7 @@ export function AcceptInviteForm() {
         ) : preview ? (
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <h1 className="text-lg font-semibold">Accept your invitation</h1>
+              <PageTitle>Accept your invitation</PageTitle>
               <p className="text-sm text-muted-foreground">
                 Join <strong>{preview.tenantName}</strong>
                 {preview.role ? ` as ${preview.role}` : ''}. Set a password for{' '}

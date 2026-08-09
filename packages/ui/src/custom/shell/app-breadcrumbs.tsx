@@ -64,7 +64,7 @@ export function AppBreadcrumbs({
 
   return (
     <Breadcrumb className={cn('min-w-0', className)}>
-      <BreadcrumbList className="flex-nowrap gap-2 text-[13px] sm:gap-2">
+      <BreadcrumbList className="flex-nowrap gap-2 text-[calc(13px*var(--font-scale))] sm:gap-2">
         {trail.map((entry, index) => {
           const isLast = index === trail.length - 1;
 

@@ -131,7 +131,7 @@ export function SectionLabel({
   return (
     <div
       className={cn(
-        'truncate text-[11px] font-bold uppercase tracking-wider leading-none text-muted-foreground',
+        'truncate text-[calc(11px*var(--font-scale))] font-bold uppercase tracking-wider leading-none text-muted-foreground',
         className,
       )}
     >
@@ -167,11 +167,11 @@ export function NavItemRow({
         active={item.active}
         style={MOBILE_NAV_ROW_STYLE}
         className={cn(
-          'group flex items-center rounded-[var(--radius-sm)] px-2 text-[13.5px] font-medium text-muted-foreground outline-none',
+          'group flex items-center rounded-[var(--radius-sm)] px-2 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
           'transition-colors hover:bg-accent hover:text-foreground',
           'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
           'aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
-          isSub && 'text-[12.5px]',
+          isSub && 'text-[calc(12.5px*var(--font-scale))]',
         )}
       >
         {isSub ? <NestedItemBullet /> : null}
@@ -179,7 +179,7 @@ export function NavItemRow({
         {item.badge != null ? (
           <span
             className={cn(
-              'min-w-[22px] rounded-full px-1.5 py-0.5 text-center text-[10px] font-bold',
+              'min-w-[22px] rounded-full px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold',
               item.badgeTone === 'hot'
                 ? 'bg-primary/15 text-primary'
                 : 'bg-muted text-muted-foreground',
@@ -277,7 +277,7 @@ function ThemeOptionList({
             aria-checked={selected}
             onClick={() => onSelect(value)}
             className={cn(
-              'flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-[13px] font-medium text-muted-foreground outline-none',
+              'flex items-center gap-2 rounded-[var(--radius-sm)] px-2 py-1.5 text-[calc(13px*var(--font-scale))] font-medium text-muted-foreground outline-none',
               'transition-colors hover:bg-accent hover:text-foreground',
               'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
               selected && 'text-foreground',
@@ -388,7 +388,7 @@ function CurveThemeControl({
           aria-controls="theme-accordion"
           style={MOBILE_NAV_ROW_STYLE}
           className={cn(
-            'group flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2 text-[13.5px] font-medium text-muted-foreground outline-none',
+            'group flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
             'transition-colors hover:bg-accent hover:text-foreground',
             'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
             'aria-expanded:bg-accent aria-expanded:text-foreground',
@@ -438,7 +438,7 @@ function CurveThemeControl({
         >
           <ThemeGlyph />
         </span>
-        <span className="w-full truncate text-center text-[10px] font-medium leading-none">
+        <span className="w-full truncate text-center text-[calc(10px*var(--font-scale))] font-medium leading-none">
           Theme
         </span>
       </button>
@@ -502,7 +502,7 @@ export function ThemeControl({
   const trigger = expanded ? (
     <button
       type="button"
-      className="group flex h-9 w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 text-[13.5px] font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
+      className="group flex h-9 w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2.5 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
       aria-label="Theme"
     >
       <ThemeGlyph className="size-[18px] shrink-0" />
@@ -561,7 +561,7 @@ export function ProfileAvatar({
       seed={user.email ?? user.name}
       imageUrl={user.avatarUrl}
       className={cn('size-8', className)}
-      textClassName="text-[11px]"
+      textClassName="text-[calc(11px*var(--font-scale))]"
     />
   );
 }
@@ -649,12 +649,12 @@ export function SidebarProfile({
       >
         <ProfileAvatar user={user} className="size-9" />
         <span className="flex min-w-0 flex-1 flex-col">
-          <span className="truncate text-[13px] font-semibold text-foreground">
+          <span className="truncate text-[calc(13px*var(--font-scale))] font-semibold text-foreground">
             {toTitleCase(user.name)}
           </span>
           {/* email here — the role/persona lives in the context switcher */}
           {user.email ? (
-            <span className="truncate text-[11px] text-muted-foreground">
+            <span className="truncate text-[calc(11px*var(--font-scale))] text-muted-foreground">
               {user.email}
             </span>
           ) : null}

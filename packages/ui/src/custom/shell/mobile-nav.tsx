@@ -85,7 +85,7 @@ export interface MobileNavProps {
 /* ---- bottom-bar count badge ---- */
 function TabBadge({ badge }: { badge: string | number }) {
   return (
-    <span className="pointer-events-none absolute -right-1.5 -top-1 grid h-[16px] min-w-[16px] max-w-7 place-items-center truncate rounded-full border-2 border-sidebar bg-info px-1 text-[9px] font-bold leading-none text-info-foreground">
+    <span className="pointer-events-none absolute -right-1.5 -top-1 grid h-[16px] min-w-[16px] max-w-7 place-items-center truncate rounded-full border-2 border-sidebar bg-info px-1 text-[calc(9px*var(--font-scale))] font-bold leading-none text-info-foreground">
       {badge}
     </span>
   );
@@ -123,7 +123,7 @@ function TabInner({
       </span>
       <span
         className={cn(
-          'max-w-full truncate text-[10px] font-medium leading-none',
+          'max-w-full truncate text-[calc(10px*var(--font-scale))] font-medium leading-none',
           active ? 'text-foreground' : 'text-muted-foreground',
         )}
       >
@@ -135,7 +135,7 @@ function TabInner({
 
 /* ---- drawer row (expanded style, mirrors the desktop rail) ---- */
 const DRAWER_ROW_CLASS = cn(
-  'group flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2 text-[13.5px] font-medium text-muted-foreground outline-none',
+  'group flex w-full items-center gap-2.5 rounded-[var(--radius-sm)] px-2 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
   'transition-colors hover:bg-accent hover:text-foreground',
   'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
   'aria-[current=page]:font-semibold aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
@@ -175,7 +175,7 @@ function DrawerSection({
         </span>
         <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
         {item.badge != null ? (
-          <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[10px] font-bold text-info-foreground">
+          <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
             {item.badge}
           </span>
         ) : null}
@@ -203,7 +203,7 @@ function DrawerSection({
         </span>
         <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
         {item.badge != null ? (
-          <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[10px] font-bold text-info-foreground">
+          <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
             {item.badge}
           </span>
         ) : null}
@@ -341,7 +341,7 @@ export function MobileNav({
             {schoolSwitcher ? (
               schoolSwitcher(true, 'bottom')
             ) : (
-              <span className="truncate pl-2 font-display text-[22px] font-semibold leading-none text-foreground">
+              <span className="truncate pl-2 font-display text-[calc(22px*var(--font-scale))] font-semibold leading-none text-foreground">
                 {brandLabel}
               </span>
             )}
@@ -406,7 +406,7 @@ export function MobileNav({
               muted line at the foot (only when the school leads above). */}
           {schoolSwitcher ? (
             <div className="pt-1 text-center">
-              <span className="font-display text-[15px] leading-tight text-muted-foreground/70">
+              <span className="font-display text-[calc(15px*var(--font-scale))] leading-tight text-muted-foreground/70">
                 {brandLabel}
               </span>
             </div>

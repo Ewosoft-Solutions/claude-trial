@@ -85,7 +85,7 @@ export default function PlatformSecuritySettingsPage() {
             id="security-tenant"
             value={selectedId}
             onChange={(event) => setTenantId(event.target.value)}
-            className="h-10 w-full max-w-xl rounded-lg border border-input bg-background px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="h-10 w-full max-w-xl rounded-lg border border-input bg-background px-3 text-base outline-none focus-visible:ring-2 focus-visible:ring-ring pointer-fine:text-sm"
           >
             {schools.map((school) => (
               <option key={school.id} value={school.id}>

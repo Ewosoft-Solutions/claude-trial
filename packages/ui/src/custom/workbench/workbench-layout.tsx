@@ -71,12 +71,12 @@ export function WorkbenchLayout({
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
           <div className="flex min-w-[min(100%,12rem)] flex-1 flex-col gap-0.5">
             {title ? (
-              <h1 className="w-fit max-w-full break-words bg-[image:var(--h1-grad)] bg-clip-text pr-1 font-display text-[24px] font-semibold leading-[1.15] tracking-[0] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
+              <h1 className="w-fit max-w-full break-words bg-[image:var(--h1-grad)] bg-clip-text pr-1 font-display text-[calc(24px*var(--font-scale))] font-semibold leading-[1.15] tracking-[0] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
                 {title}
               </h1>
             ) : null}
             {description ? (
-              <p className="text-[12.5px] text-muted-foreground">
+              <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
                 {description}
               </p>
             ) : null}
@@ -94,7 +94,7 @@ export function WorkbenchLayout({
           data-slot="workbench-context"
           role="group"
           aria-label="Workspace context"
-          className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card/80 px-3 py-2 text-[12.5px] shadow-xs backdrop-blur supports-[backdrop-filter]:bg-card/70"
+          className="sticky top-0 z-10 flex flex-wrap items-center gap-2 rounded-[var(--radius-md)] border border-border bg-card/80 px-3 py-2 text-[calc(12.5px*var(--font-scale))] shadow-xs backdrop-blur supports-[backdrop-filter]:bg-card/70"
         >
           {context}
         </div>
@@ -121,7 +121,7 @@ export function WorkbenchLayout({
                 ) : null}
                 {tab.label}
                 {tab.badge != null ? (
-                  <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[10.5px] font-semibold text-muted-foreground tabular-nums">
+                  <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[calc(10.5px*var(--font-scale))] font-semibold text-muted-foreground tabular-nums">
                     {tab.badge}
                   </span>
                 ) : null}

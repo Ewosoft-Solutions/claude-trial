@@ -79,7 +79,7 @@ export function DataTableLayout({
                 </h2>
               ) : null}
               {description ? (
-                <p className="break-words text-[12.5px] text-muted-foreground">
+                <p className="break-words text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
                   {description}
                 </p>
               ) : null}
@@ -130,7 +130,7 @@ export function DataTableLayout({
       </div>
 
       {footer && !loading && !empty ? (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-4 py-3.5 text-[12.5px] text-muted-foreground sm:px-6">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-border px-4 py-3.5 text-[calc(12.5px*var(--font-scale))] text-muted-foreground sm:px-6">
           {footer}
         </div>
       ) : null}

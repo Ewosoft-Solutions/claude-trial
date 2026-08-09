@@ -142,7 +142,7 @@ export function PayrollClient({
       cell: (r) => (
         <div className="flex items-center gap-3">
           <Avatar className="size-8">
-            <AvatarFallback className="text-[11px] font-semibold">
+            <AvatarFallback className="text-[calc(11px*var(--font-scale))] font-semibold">
               {initials(r.staffName)}
             </AvatarFallback>
           </Avatar>

@@ -29,6 +29,7 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+import { greeting, useGreetingSubtitle } from './greeting';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -36,7 +37,12 @@ import type { StatItem } from '@workspace/ui/types/layout.types';
 import { RefreshButton } from '../../_shared/refresh-button';
 
 interface PlatformOverview {
-  tenants: { total: number; active: number; pending: number; suspended: number };
+  tenants: {
+    total: number;
+    active: number;
+    pending: number;
+    suspended: number;
+  };
   byType: { schoolType: string; count: number }[];
   users: { total: number };
   onboarding: {
@@ -48,14 +54,11 @@ interface PlatformOverview {
     }[];
   };
   growth: { month: string; count: number }[];
-  recentActivity: { action: string; targetTenantId: string | null; at: string }[];
-}
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
+  recentActivity: {
+    action: string;
+    targetTenantId: string | null;
+    at: string;
+  }[];
 }
 
 function formatCount(n: number): string {
@@ -119,16 +122,22 @@ export function PlatformDashboard({ userName }: Props) {
   const stalled = data?.onboarding.stalled ?? [];
   const peakGrowth = Math.max(1, ...(data?.growth ?? []).map((g) => g.count));
 
+  const subtitle = useGreetingSubtitle();
+
   return (
     <ShellMain>
       <DashboardLayout
         header={
           <PageHeader
             title={`${greeting()}, ${userName}`}
-            description="Platform overview — all schools"
+            description={subtitle}
+            meta={[{ key: 'role', label: 'Platform — all schools' }]}
             actions={
               <>
-                <RefreshButton onRefresh={() => void mutate()} refreshing={refreshing} />
+                <RefreshButton
+                  onRefresh={() => void mutate()}
+                  refreshing={refreshing}
+                />
                 <Button size="sm" asChild>
                   <Link href="/platform/tenants/onboarding">
                     <Plus /> Onboard school
@@ -147,9 +156,21 @@ export function PlatformDashboard({ userName }: Props) {
                 <CardDescription>Platform management</CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
-                <QuickLink href="/platform/tenants/all" icon={<Building2 className="size-4" />} label="All schools" />
-                <QuickLink href="/platform/tenants/onboarding" icon={<Plus className="size-4" />} label="Onboard a school" />
-                <QuickLink href="/platform/tenants/approvals" icon={<ClipboardCheck className="size-4" />} label="Review approvals" />
+                <QuickLink
+                  href="/platform/tenants/all"
+                  icon={<Building2 className="size-4" />}
+                  label="All schools"
+                />
+                <QuickLink
+                  href="/platform/tenants/onboarding"
+                  icon={<Plus className="size-4" />}
+                  label="Onboard a school"
+                />
+                <QuickLink
+                  href="/platform/tenants/approvals"
+                  icon={<ClipboardCheck className="size-4" />}
+                  label="Review approvals"
+                />
               </CardContent>
             </Card>
 
@@ -158,7 +179,9 @@ export function PlatformDashboard({ userName }: Props) {
                 <CardTitle className="flex items-center gap-2 text-base">
                   <Layers className="size-4" aria-hidden /> By institution type
                 </CardTitle>
-                <CardDescription>Distribution across the platform</CardDescription>
+                <CardDescription>
+                  Distribution across the platform
+                </CardDescription>
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
                 {loading ? (
@@ -167,7 +190,10 @@ export function PlatformDashboard({ userName }: Props) {
                   <p className="text-muted-foreground">No schools yet.</p>
                 ) : (
                   data?.byType.map((row) => (
-                    <div key={row.schoolType} className="flex items-center justify-between">
+                    <div
+                      key={row.schoolType}
+                      className="flex items-center justify-between"
+                    >
                       <span className="capitalize text-muted-foreground">
                         {titleCase(row.schoolType)}
                       </span>

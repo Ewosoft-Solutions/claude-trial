@@ -84,7 +84,7 @@ export function Field({
 }) {
   return (
     <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+      <span className="text-[calc(10.5px*var(--font-scale))] font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </span>
       <span className="break-words text-sm text-foreground">
@@ -103,7 +103,7 @@ export function ProfileChips({ profiles }: { profiles: ProfileKind[] }) {
       {profiles.map((p) => (
         <span
           key={p}
-          className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[11px] font-medium text-muted-foreground"
+          className="inline-flex items-center gap-1 rounded-full border border-border bg-card px-2 py-0.5 text-[calc(11px*var(--font-scale))] font-medium text-muted-foreground"
         >
           <span aria-hidden>{PROFILE_ICON[p]}</span>
           {profileLabel(p)}
@@ -191,7 +191,9 @@ export function ContactList({
       ))}
       {detail.contactPreferences.length > 0 ? (
         <div className="mt-1 flex flex-wrap items-center gap-1.5 border-t border-border pt-2">
-          <span className="text-[11px] text-muted-foreground">Consent:</span>
+          <span className="text-[calc(11px*var(--font-scale))] text-muted-foreground">
+            Consent:
+          </span>
           {detail.contactPreferences.map((pref: PersonContactPreference) => (
             <StatusBadge
               key={pref.channel}
@@ -237,7 +239,9 @@ function ContactRow({
         </a>
       )}
       {point.label ? (
-        <span className="text-[11px] text-muted-foreground">{point.label}</span>
+        <span className="text-[calc(11px*var(--font-scale))] text-muted-foreground">
+          {point.label}
+        </span>
       ) : null}
       {point.verified ? (
         <StatusBadge tone="success" dot>
@@ -355,7 +359,7 @@ export function RelationRow({
       <Avatar className="size-8">
         <AvatarFallback
           seed={relation.name}
-          className="text-[10px] font-semibold"
+          className="text-[calc(10px*var(--font-scale))] font-semibold"
         >
           {initials(relation.name)}
         </AvatarFallback>
@@ -452,7 +456,7 @@ export function StatTiles({
           key={it.key}
           className="rounded-lg border border-border bg-card/40 p-3"
         >
-          <div className="text-[10.5px] font-medium uppercase tracking-wide text-muted-foreground">
+          <div className="text-[calc(10.5px*var(--font-scale))] font-medium uppercase tracking-wide text-muted-foreground">
             {it.label}
           </div>
           <div

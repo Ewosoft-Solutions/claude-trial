@@ -119,7 +119,7 @@ export interface DirectoryToolbarProps {
 }
 
 const CATEGORY_LABEL =
-  'text-[11px] font-bold uppercase tracking-wider text-muted-foreground';
+  'text-[calc(11px*var(--font-scale))] font-bold uppercase tracking-wider text-muted-foreground';
 
 /** Every toolbar control — search, buttons, dropdowns — reads as border-only
  *  over the card (the design system's Filters-button colour). */
@@ -197,7 +197,7 @@ export function DirectoryToolbar({
       <SlidersHorizontal aria-hidden />
       Filters
       {filterCount > 0 ? (
-        <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold leading-none text-primary-foreground">
+        <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[calc(10px*var(--font-scale))] font-bold leading-none text-primary-foreground">
           {filterCount}
         </span>
       ) : null}
@@ -327,7 +327,7 @@ export function DirectoryToolbar({
           value={search.value}
           onChange={(e) => search.onChange(e.target.value)}
           placeholder={search.placeholder ?? 'Search…'}
-          className="rounded-sm pl-8 text-sm"
+          className="rounded-sm pl-8"
         />
       </div>
 
@@ -640,7 +640,7 @@ export function DirectoryFilterPills({
 
   return (
     <>
-      <span className="text-[12px] font-semibold text-muted-foreground">
+      <span className="text-[calc(12px*var(--font-scale))] font-semibold text-muted-foreground">
         Filters
       </span>
       {active.map(({ filter, value }) => (

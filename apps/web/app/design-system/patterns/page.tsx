@@ -208,13 +208,13 @@ export default function PatternsPage() {
       >
         <div className="grid gap-8 rounded-[var(--radius-lg)] border border-border bg-card p-5 sm:grid-cols-2">
           <div className="space-y-2">
-            <p className="text-[12.5px] font-semibold text-muted-foreground">
+            <p className="text-[calc(12.5px*var(--font-scale))] font-semibold text-muted-foreground">
               Result publication
             </p>
             <LifecycleBar steps={RESULT_LIFECYCLE} label="Result lifecycle" />
           </div>
           <div className="space-y-2">
-            <p className="text-[12.5px] font-semibold text-muted-foreground">
+            <p className="text-[calc(12.5px*var(--font-scale))] font-semibold text-muted-foreground">
               Admission
             </p>
             <LifecycleBar

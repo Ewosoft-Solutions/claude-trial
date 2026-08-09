@@ -51,7 +51,7 @@ export function ShortcutHint({
       className={cn(
         // Legible: 12.5px on a slightly taller chip. The ⌘ glyph in particular
         // reads as mush below ~12px, so this is the floor.
-        'inline-flex select-none items-center rounded-[5px] border border-border bg-card px-1.5 py-[3px] text-[12.5px] font-semibold leading-none text-foreground/75',
+        'inline-flex select-none items-center rounded-[5px] border border-border bg-card px-1.5 py-[3px] text-[calc(12.5px*var(--font-scale))] font-semibold leading-none text-foreground/75',
         className,
       )}
       {...props}

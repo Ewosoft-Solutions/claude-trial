@@ -421,7 +421,7 @@ export function GlobalSearch({
           ) : null}
         </div>
 
-        <div className="hidden h-10 shrink-0 items-center gap-4 border-t px-5 text-[11px] text-muted-foreground sm:flex [@media(pointer:coarse)]:hidden">
+        <div className="hidden h-10 shrink-0 items-center gap-4 border-t px-5 text-[calc(11px*var(--font-scale))] text-muted-foreground sm:flex [@media(pointer:coarse)]:hidden">
           <span>↑↓ move</span>
           <span>↵ open</span>
           <span>Esc close</span>

@@ -31,7 +31,7 @@ export function SettingsNav({ items, className }: SettingsNavProps) {
     >
       {items.map((item) => {
         const itemClass = cn(
-          'group flex shrink-0 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[13px] outline-none transition-colors @3xl/main:shrink',
+          'group flex shrink-0 items-center gap-2.5 rounded-[var(--radius-sm)] px-3 py-2 text-left text-[calc(13px*var(--font-scale))] outline-none transition-colors @3xl/main:shrink',
           'focus-visible:ring-[3px] focus-visible:ring-ring/50',
           item.active
             ? 'bg-secondary font-semibold text-foreground'
@@ -47,7 +47,7 @@ export function SettingsNav({ items, className }: SettingsNavProps) {
             <span className="min-w-0">
               <span className="block break-words">{item.label}</span>
               {item.description ? (
-                <span className="hidden break-words text-[11.5px] font-normal text-muted-foreground @3xl/main:block">
+                <span className="hidden break-words text-[calc(11.5px*var(--font-scale))] font-normal text-muted-foreground @3xl/main:block">
                   {item.description}
                 </span>
               ) : null}

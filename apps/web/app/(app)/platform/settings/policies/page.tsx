@@ -26,6 +26,7 @@ import {
   TableRow,
 } from '@workspace/ui/components/table';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 
 interface DriftViolation {
@@ -83,9 +84,10 @@ export default function PlatformPoliciesPage() {
   return (
     <div className="flex flex-col gap-4 py-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <ShieldCheck className="size-5" /> Policy posture
-        </h1>
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="size-6 text-primary" />
+          <PageTitle>Policy posture</PageTitle>
+        </div>
         <p className="text-sm text-muted-foreground">
           {data
             ? `${data.summary.drifting} of ${data.summary.total} schools drift from the platform baseline`
@@ -111,7 +113,10 @@ export default function PlatformPoliciesPage() {
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-2 text-sm sm:grid-cols-2">
               {data.baseline.map((rule) => (
-                <div key={rule.field} className="flex items-center justify-between gap-4">
+                <div
+                  key={rule.field}
+                  className="flex items-center justify-between gap-4"
+                >
                   <span className="text-muted-foreground">{rule.label}</span>
                   <span className="font-medium">{fmt(rule.baseline)}</span>
                 </div>
@@ -134,7 +139,11 @@ export default function PlatformPoliciesPage() {
               }
             >
               {tenants.length === 0 ? (
-                <EmptyState compact title="No schools" description="Nothing to show." />
+                <EmptyState
+                  compact
+                  title="No schools"
+                  description="Nothing to show."
+                />
               ) : (
                 <Table>
                   <TableHeader>
@@ -150,17 +159,29 @@ export default function PlatformPoliciesPage() {
                   <TableBody>
                     {tenants.map((t) => (
                       <TableRow key={t.tenantId}>
-                        <TableCell className="font-medium">{t.tenantName}</TableCell>
+                        <TableCell className="font-medium">
+                          {t.tenantName}
+                        </TableCell>
                         <TableCell className="text-sm">
-                          {t.hasPolicy ? (t.policyTier ?? '—') : (
-                            <span className="text-muted-foreground">no policy</span>
+                          {t.hasPolicy ? (
+                            (t.policyTier ?? '—')
+                          ) : (
+                            <span className="text-muted-foreground">
+                              no policy
+                            </span>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm">{fmt(t.requireMFA)}</TableCell>
                         <TableCell className="text-sm">
-                          {t.sessionTimeout == null ? '—' : `${t.sessionTimeout}m`}
+                          {fmt(t.requireMFA)}
                         </TableCell>
-                        <TableCell className="text-sm">{fmt(t.auditLevel)}</TableCell>
+                        <TableCell className="text-sm">
+                          {t.sessionTimeout == null
+                            ? '—'
+                            : `${t.sessionTimeout}m`}
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {fmt(t.auditLevel)}
+                        </TableCell>
                         <TableCell>
                           {t.drift.length === 0 ? (
                             <StatusBadge tone="success" dot>
@@ -174,7 +195,8 @@ export default function PlatformPoliciesPage() {
                                 .join('\n')}
                             >
                               <ShieldAlert className="size-4" />
-                              {t.drift.length} issue{t.drift.length === 1 ? '' : 's'}
+                              {t.drift.length} issue
+                              {t.drift.length === 1 ? '' : 's'}
                             </span>
                           )}
                         </TableCell>
@@ -206,7 +228,8 @@ export default function PlatformPoliciesPage() {
                       <ul className="ml-4 list-disc text-muted-foreground">
                         {t.drift.map((d) => (
                           <li key={d.field}>
-                            {d.label}: expected {fmt(d.baseline)}, got {fmt(d.actual)}
+                            {d.label}: expected {fmt(d.baseline)}, got{' '}
+                            {fmt(d.actual)}
                           </li>
                         ))}
                       </ul>

@@ -97,7 +97,7 @@ export default function AccountLayout({
                     <span className="block truncate text-sm font-semibold">
                       {section.label}
                     </span>
-                    <span className="block truncate text-[11px]">
+                    <span className="block truncate text-[calc(11px*var(--font-scale))]">
                       {section.description}
                     </span>
                   </span>

@@ -9,6 +9,7 @@
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import {
   ResultsWorkbench,
   type CampusOption,
@@ -77,7 +78,7 @@ export default async function ResultsPage() {
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Results</h1>
+        <PageTitle>Results</PageTitle>
         <p className="text-sm text-muted-foreground">
           Run a term’s results end to end — configure, enter scores, validate,
           moderate, then a second approver publishes an immutable, reproducible

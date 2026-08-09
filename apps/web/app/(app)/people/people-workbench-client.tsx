@@ -171,7 +171,10 @@ function NameCell({ row }: { row: PeopleRow }) {
   return (
     <div className="flex items-center gap-3">
       <Avatar className="size-8">
-        <AvatarFallback seed={row.name} className="text-[11px] font-semibold">
+        <AvatarFallback
+          seed={row.name}
+          className="text-[calc(11px*var(--font-scale))] font-semibold"
+        >
           {initials(row.name)}
         </AvatarFallback>
       </Avatar>

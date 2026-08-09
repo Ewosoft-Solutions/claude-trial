@@ -38,6 +38,7 @@ import {
 } from '@workspace/ui/components/card';
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+import { greeting, useGreetingSubtitle } from './greeting';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -84,13 +85,6 @@ interface ChildSummary {
   feeTotalDue: number;
   feeTotalPaid: number;
   feeBalance: number;
-}
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
 }
 
 function formatNaira(minorUnits: number) {
@@ -204,12 +198,15 @@ export function ParentDashboard({ userName, schoolName }: Props) {
       ]
     : [];
 
+  const subtitle = useGreetingSubtitle();
+
   return (
     <ShellMain>
       <DashboardLayout
         header={
           <PageHeader
             title={`${greeting()}, ${userName}`}
+            description={subtitle}
             meta={
               view
                 ? [

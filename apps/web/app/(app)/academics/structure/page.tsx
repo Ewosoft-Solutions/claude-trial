@@ -8,6 +8,7 @@
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import {
   StructureBuilder,
   type Campus,
@@ -47,9 +48,7 @@ export default async function AcademicStructurePage() {
   return (
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Academic structure
-        </h1>
+        <PageTitle>Academic structure</PageTitle>
         <p className="text-sm text-muted-foreground">
           Build classes from dimensions — campus, stage, year level, stream and
           section — instead of typing a name like “SS1 Science A”. The label is

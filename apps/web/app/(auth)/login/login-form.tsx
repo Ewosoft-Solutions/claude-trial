@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Fingerprint } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Input } from '@workspace/ui/components/input';
 import { PasswordInput } from '@workspace/ui/components/password-input';
 import {
@@ -429,9 +430,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
       <div className="grid h-svh w-full place-items-center px-4">
         <Card className="w-full max-w-sm p-8 space-y-6">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">
-              Choose a new password
-            </h1>
+            <PageTitle>Choose a new password</PageTitle>
             <p className="text-sm text-muted-foreground">
               This account is still using an assigned password. Set your own to
               finish signing in.
@@ -519,9 +518,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
       <div className="grid h-svh w-full place-items-center px-4">
         <Card className="w-full max-w-sm p-8 space-y-6">
           <div className="space-y-1">
-            <h1 className="text-xl font-semibold tracking-tight">
-              Verify your identity
-            </h1>
+            <PageTitle>Verify your identity</PageTitle>
             <p className="text-sm text-muted-foreground">{mfaHint}</p>
           </div>
 
@@ -571,9 +568,7 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
           <div className="flex items-start justify-between gap-4">
             <div className="space-y-0.5">
               <p className="text-sm text-muted-foreground">{timeGreeting()}</p>
-              <h1 className="text-2xl font-bold tracking-tight">
-                {hint.firstName || hint.email}
-              </h1>
+              <PageTitle>{hint.firstName || hint.email}</PageTitle>
             </div>
             <button
               type="button"
@@ -654,9 +649,9 @@ export function LoginForm({ schoolName }: { schoolName?: string }) {
     <div className="grid h-svh w-full place-items-center px-4">
       <Card className="w-full max-w-sm p-8 space-y-6">
         <div className="space-y-1">
-          <h1 className="text-xl font-semibold tracking-tight">
+          <PageTitle>
             {schoolName ? `Sign in to ${schoolName}` : 'Sign in'}
-          </h1>
+          </PageTitle>
           <p className="text-sm text-muted-foreground">
             Enter your email and password to access your school.
           </p>

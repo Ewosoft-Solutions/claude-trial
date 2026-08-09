@@ -238,7 +238,9 @@ function DashboardDemo() {
             >
               <div>
                 <div className="font-medium text-foreground">{t}</div>
-                <div className="text-[12px] text-muted-foreground">{s}</div>
+                <div className="text-[calc(12px*var(--font-scale))] text-muted-foreground">
+                  {s}
+                </div>
               </div>
               <Button variant="ghost" size="sm">
                 View
@@ -290,7 +292,7 @@ function ListDetailDemo() {
                 <span className="text-sm font-medium text-foreground">
                   {s.name}
                 </span>
-                <span className="text-[12px] text-muted-foreground">
+                <span className="text-[calc(12px*var(--font-scale))] text-muted-foreground">
                   {s.klass} · Guardian {s.guardian}
                 </span>
               </button>
@@ -306,7 +308,7 @@ function ListDetailDemo() {
                 <h3 className="text-lg font-bold text-foreground">
                   {active.name}
                 </h3>
-                <p className="text-[12.5px] text-muted-foreground">
+                <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
                   Class {active.klass} · Guardian {active.guardian}
                 </p>
               </div>
@@ -334,7 +336,9 @@ function ListDetailDemo() {
                 ['Attendance', '96%'],
               ].map(([k, v]) => (
                 <div key={k}>
-                  <dt className="text-[12px] text-muted-foreground">{k}</dt>
+                  <dt className="text-[calc(12px*var(--font-scale))] text-muted-foreground">
+                    {k}
+                  </dt>
                   <dd className="font-medium text-foreground">{v}</dd>
                 </div>
               ))}
@@ -539,7 +543,7 @@ function FormDemo() {
           <CardHeader>
             <CardTitle className="text-base">Tips</CardTitle>
           </CardHeader>
-          <CardContent className="text-[12.5px] leading-relaxed text-muted-foreground">
+          <CardContent className="text-[calc(12.5px*var(--font-scale))] leading-relaxed text-muted-foreground">
             The guardian email receives invoices and term reports. You can add
             more contacts after the student is created.
           </CardContent>
@@ -605,7 +609,7 @@ function SettingsDemo() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-[12.5px] text-muted-foreground">
+          <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
             {current.description} — settings for the “{current.label}” section
             render here. Switch sections in the nav; the active item is marked
             with <code>aria-current</code>.

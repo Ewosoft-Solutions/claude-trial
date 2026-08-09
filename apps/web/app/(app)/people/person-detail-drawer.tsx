@@ -129,10 +129,10 @@ export function PersonDetailDrawer({
               <div className="flex items-center gap-3 pr-8">
                 <AvatarLightbox name={detail.name} />
                 <div className="min-w-0">
-                  <SheetTitle className="truncate font-display text-[22px] font-semibold capitalize leading-tight">
+                  <SheetTitle className="truncate font-display text-[calc(22px*var(--font-scale))] font-semibold capitalize leading-tight">
                     {detail.name}
                   </SheetTitle>
-                  <SheetDescription className="truncate text-[12.5px]">
+                  <SheetDescription className="truncate text-[calc(12.5px*var(--font-scale))]">
                     {subtitleFor(detail)}
                   </SheetDescription>
                 </div>
@@ -147,7 +147,7 @@ export function PersonDetailDrawer({
                       type="button"
                       onClick={() => setTab(t)}
                       className={cn(
-                        'shrink-0 rounded-md px-2.5 py-1 text-[13px] font-medium transition-colors',
+                        'shrink-0 rounded-md px-2.5 py-1 text-[calc(13px*var(--font-scale))] font-medium transition-colors',
                         t === tab
                           ? 'bg-accent text-foreground'
                           : 'text-muted-foreground hover:text-foreground',

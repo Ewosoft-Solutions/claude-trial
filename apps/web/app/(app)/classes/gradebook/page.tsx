@@ -83,7 +83,11 @@ function initials(name: string): string {
 
 function studentName(grade: ApiGrade): string {
   const user = grade.enrollment?.student?.userTenant?.user;
-  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || user?.email || 'Unknown student';
+  return (
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    user?.email ||
+    'Unknown student'
+  );
 }
 
 function classLabel(assessment: ApiAssessment | undefined): string {
@@ -112,27 +116,33 @@ function letterFor(grade: ApiGrade): string {
 }
 
 function average(values: number[]): number {
-  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+  return values.length
+    ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+    : 0;
 }
 
 export default async function GradebookPage() {
-  const assessmentData = await serverApiGet<ApiAssessment[] | Paginated<ApiAssessment>>(
-    '/assessments?limit=100',
-  );
+  const assessmentData = await serverApiGet<
+    ApiAssessment[] | Paginated<ApiAssessment>
+  >('/assessments?limit=100');
   const assessments = asArray(assessmentData);
-  const assessmentsById = new Map(assessments.map((assessment) => [assessment.id, assessment]));
+  const assessmentsById = new Map(
+    assessments.map((assessment) => [assessment.id, assessment]),
+  );
   const gradeGroups = await Promise.all(
-    assessments
-      .slice(0, 20)
-      .map(async (assessment) => ({
-        assessment,
-        grades: (await serverApiGet<ApiGrade[]>(`/grades/assessment/${assessment.id}`)) ?? [],
-      })),
+    assessments.slice(0, 20).map(async (assessment) => ({
+      assessment,
+      grades:
+        (await serverApiGet<ApiGrade[]>(
+          `/grades/assessment/${assessment.id}`,
+        )) ?? [],
+    })),
   );
 
   const rows: GradeRow[] = gradeGroups.flatMap((group) =>
     group.grades.map((grade) => {
-      const assessment = assessmentsById.get(grade.assessmentId ?? '') ?? group.assessment;
+      const assessment =
+        assessmentsById.get(grade.assessmentId ?? '') ?? group.assessment;
       const percentage = numeric(grade.percentage);
       const letter = letterFor(grade);
       return {
@@ -185,8 +195,8 @@ export default async function GradebookPage() {
           }
           footer={
             <span>
-              <strong className="text-foreground">{rows.length}</strong> grades ·{' '}
-              {assessments.length} assessments
+              <strong className="text-foreground">{rows.length}</strong> grades
+              · {assessments.length} assessments
             </span>
           }
         >
@@ -207,7 +217,7 @@ export default async function GradebookPage() {
                   <TableCell>
                     <div className="flex items-center gap-3">
                       <Avatar className="size-8">
-                        <AvatarFallback className="text-[11px] font-semibold">
+                        <AvatarFallback className="text-[calc(11px*var(--font-scale))] font-semibold">
                           {initials(row.student)}
                         </AvatarFallback>
                       </Avatar>
@@ -221,7 +231,9 @@ export default async function GradebookPage() {
                       </div>
                     </div>
                   </TableCell>
-                  <TableCell className="text-muted-foreground">{row.assessment}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {row.assessment}
+                  </TableCell>
                   <TableCell className="text-muted-foreground">
                     {row.className}
                   </TableCell>
@@ -231,7 +243,9 @@ export default async function GradebookPage() {
                       : 'Pending'}
                   </TableCell>
                   <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {row.percentage !== null ? `${Math.round(row.percentage)}%` : 'Pending'}
+                    {row.percentage !== null
+                      ? `${Math.round(row.percentage)}%`
+                      : 'Pending'}
                   </TableCell>
                   <TableCell className="text-right">
                     <StatusBadge tone={row.tone}>{row.letter}</StatusBadge>

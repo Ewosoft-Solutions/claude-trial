@@ -100,7 +100,7 @@ export function LifecycleBar({ steps, label, className }: LifecycleBarProps) {
                 <span className="h-px flex-1 bg-transparent" aria-hidden />
                 <span
                   className={cn(
-                    'flex size-7 shrink-0 items-center justify-center rounded-full border text-[11px] font-bold tabular-nums transition-colors',
+                    'flex size-7 shrink-0 items-center justify-center rounded-full border text-[calc(11px*var(--font-scale))] font-bold tabular-nums transition-colors',
                     TONE_RING[tone],
                     isCurrent &&
                       'ring-2 ring-ring/45 ring-offset-1 ring-offset-background',
@@ -127,7 +127,7 @@ export function LifecycleBar({ steps, label, className }: LifecycleBarProps) {
               </div>
               <span
                 className={cn(
-                  'text-[12px] leading-tight font-semibold break-words',
+                  'text-[calc(12px*var(--font-scale))] leading-tight font-semibold break-words',
                   TONE_LABEL[tone],
                   isCurrent && 'text-foreground',
                 )}
@@ -136,7 +136,7 @@ export function LifecycleBar({ steps, label, className }: LifecycleBarProps) {
                 <span className="sr-only">, {STATUS_TEXT[state]}</span>
               </span>
               {step.description ? (
-                <span className="text-[11px] leading-tight text-muted-foreground break-words">
+                <span className="text-[calc(11px*var(--font-scale))] leading-tight text-muted-foreground break-words">
                   {step.description}
                 </span>
               ) : null}

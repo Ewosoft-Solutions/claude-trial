@@ -83,7 +83,7 @@ export function PolicyVersionPanel({
               )}
             >
               <span className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">
+                <span className="min-w-0 flex-1 truncate text-[calc(13px*var(--font-scale))] font-semibold text-foreground">
                   {version.label}
                 </span>
                 {version.isActive ? (
@@ -97,7 +97,7 @@ export function PolicyVersionPanel({
                 ) : null}
               </span>
               {(version.effectiveFrom || version.meta) && (
-                <span className="text-[11px] text-muted-foreground">
+                <span className="text-[calc(11px*var(--font-scale))] text-muted-foreground">
                   {version.effectiveFrom ? (
                     <>
                       {version.effectiveFrom}
@@ -120,7 +120,7 @@ export function PolicyVersionPanel({
         ) : selected ? (
           <div className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h3 className="min-w-0 flex-1 truncate font-display text-[17px] font-semibold text-foreground">
+              <h3 className="min-w-0 flex-1 truncate font-display text-[calc(17px*var(--font-scale))] font-semibold text-foreground">
                 {selected.label}
               </h3>
               {selected.isActive ? (
@@ -130,7 +130,7 @@ export function PolicyVersionPanel({
               ) : null}
             </div>
             {(selected.effectiveFrom || selected.meta) && (
-              <p className="text-[12.5px] text-muted-foreground">
+              <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
                 {selected.effectiveFrom ? (
                   <>
                     Effective {selected.effectiveFrom}
@@ -172,7 +172,7 @@ export function PolicyVersionPanel({
             </div>
           </div>
         ) : (
-          <p className="text-[12.5px] text-muted-foreground">
+          <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
             No versions yet.
           </p>
         )}
@@ -191,12 +191,12 @@ function CompareTable({
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {title ? (
-        <h3 className="font-display text-[15px] font-semibold text-foreground">
+        <h3 className="font-display text-[calc(15px*var(--font-scale))] font-semibold text-foreground">
           {title}
         </h3>
       ) : null}
       <div className="overflow-x-auto rounded-[var(--radius-md)] border border-border">
-        <table className="w-full border-collapse text-[12.5px]">
+        <table className="w-full border-collapse text-[calc(12.5px*var(--font-scale))]">
           <thead>
             <tr className="bg-secondary/60 text-muted-foreground">
               <th className="px-3 py-1.5 text-left font-semibold">Field</th>
@@ -220,7 +220,7 @@ function CompareTable({
                   <span className="flex items-center gap-1.5">
                     {row.label}
                     {row.changed ? (
-                      <span className="rounded-full border border-warning/45 bg-warning/15 px-1.5 text-[10px] font-semibold text-warning">
+                      <span className="rounded-full border border-warning/45 bg-warning/15 px-1.5 text-[calc(10px*var(--font-scale))] font-semibold text-warning">
                         changed
                       </span>
                     ) : null}

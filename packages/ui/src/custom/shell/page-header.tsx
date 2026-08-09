@@ -13,6 +13,7 @@
 import * as React from 'react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
 export interface SegmentedControlProps {
@@ -47,7 +48,7 @@ export function SegmentedControl({
             aria-selected={active}
             onClick={() => onValueChange?.(option.key)}
             className={cn(
-              'rounded-[calc(var(--radius-sm)-2px)] px-3 py-1 text-[12.5px] font-semibold whitespace-nowrap outline-none transition-colors',
+              'rounded-[calc(var(--radius-sm)-2px)] px-3 py-1 text-[calc(12.5px*var(--font-scale))] font-semibold whitespace-nowrap outline-none transition-colors',
               'focus-visible:ring-[3px] focus-visible:ring-ring/50',
               active
                 ? 'bg-card text-foreground shadow-xs'
@@ -100,14 +101,14 @@ export function PageHeader({
       )}
     >
       <div className="flex min-w-[min(100%,12rem)] flex-1 flex-col gap-0.5">
-        <h1 className="w-fit max-w-full break-words bg-[image:var(--h1-grad)] bg-clip-text pr-1 font-display text-[26px] font-semibold leading-[1.15] tracking-[0] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
-          {title}
-        </h1>
+        <PageTitle>{title}</PageTitle>
         {description ? (
-          <p className="text-[12.5px] text-muted-foreground">{description}</p>
+          <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
+            {description}
+          </p>
         ) : null}
         {meta?.length ? (
-          <div className="flex flex-wrap items-center gap-2 text-[12.5px] text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
             {meta.map((fact, index) => (
               <span
                 key={fact.key}
