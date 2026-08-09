@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { ArrowLeft, GraduationCap, UserCheck } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
@@ -115,9 +116,7 @@ export function ApplicationDetailView({
           </Link>
         </Button>
         <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            {detail.applicantName}
-          </h1>
+          <PageTitle>{detail.applicantName}</PageTitle>
           <StatusBadge tone={STAGE_TONE[stage] ?? 'neutral'}>
             {stage}
           </StatusBadge>

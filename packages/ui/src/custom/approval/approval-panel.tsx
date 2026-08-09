@@ -61,10 +61,10 @@ export function ApprovalPanel({
     >
       <div className="flex min-w-0 flex-wrap items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h3 className="min-w-0 font-display text-[17px] font-semibold break-words text-foreground">
+          <h3 className="min-w-0 font-display text-[calc(17px*var(--font-scale))] font-semibold break-words text-foreground">
             {request.title}
           </h3>
-          <p className="text-[12px] text-muted-foreground">
+          <p className="text-[calc(12px*var(--font-scale))] text-muted-foreground">
             Requested by{' '}
             <span className="font-medium text-foreground">
               {request.requestedBy}
@@ -78,7 +78,7 @@ export function ApprovalPanel({
       </div>
 
       {request.reason ? (
-        <p className="rounded-[var(--radius-sm)] bg-secondary/60 px-3 py-2 text-[12.5px] text-foreground">
+        <p className="rounded-[var(--radius-sm)] bg-secondary/60 px-3 py-2 text-[calc(12.5px*var(--font-scale))] text-foreground">
           <span className="font-semibold">Reason: </span>
           {request.reason}
         </p>
@@ -89,7 +89,7 @@ export function ApprovalPanel({
           {fields.map((field) => (
             <div
               key={field.key}
-              className="grid gap-1 px-3 py-2 text-[12.5px] @sm/approval:grid-cols-[10rem_1fr]"
+              className="grid gap-1 px-3 py-2 text-[calc(12.5px*var(--font-scale))] @sm/approval:grid-cols-[10rem_1fr]"
             >
               <dt className="font-medium text-muted-foreground">
                 {field.label}
@@ -172,7 +172,7 @@ function Callout({
     <div
       role="note"
       className={cn(
-        'flex items-start gap-2 rounded-[var(--radius-sm)] border px-3 py-2 text-[12px] font-medium',
+        'flex items-start gap-2 rounded-[var(--radius-sm)] border px-3 py-2 text-[calc(12px*var(--font-scale))] font-medium',
         CALLOUT_TONE[tone],
       )}
     >

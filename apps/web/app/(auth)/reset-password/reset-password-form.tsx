@@ -16,6 +16,7 @@ import Link from 'next/link';
 import { CheckCircle2 } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Card } from '@workspace/ui/components/card';
 import { Label } from '@workspace/ui/components/label';
 import { PasswordInput } from '@workspace/ui/components/password-input';
@@ -85,9 +86,7 @@ export function ResetPasswordForm() {
       <Card className="w-full max-w-sm space-y-6 p-8">
         {!token ? (
           <div className="flex flex-col gap-3">
-            <h1 className="text-xl font-semibold tracking-tight">
-              Reset link invalid
-            </h1>
+            <PageTitle>Reset link invalid</PageTitle>
             <p className="text-sm text-muted-foreground">
               This link is missing its token. Request a new password-reset email
               and try again.
@@ -99,9 +98,7 @@ export function ResetPasswordForm() {
         ) : done ? (
           <div className="flex flex-col items-center gap-3 py-2 text-center">
             <CheckCircle2 className="size-8 text-success" />
-            <h1 className="text-xl font-semibold tracking-tight">
-              Password updated
-            </h1>
+            <PageTitle>Password updated</PageTitle>
             <p className="text-sm text-muted-foreground">
               You can now sign in with your new password. Redirecting you to
               sign in…
@@ -110,9 +107,7 @@ export function ResetPasswordForm() {
         ) : (
           <>
             <div className="space-y-1">
-              <h1 className="text-xl font-semibold tracking-tight">
-                Choose a new password
-              </h1>
+              <PageTitle>Choose a new password</PageTitle>
               <p className="text-sm text-muted-foreground">
                 Set a new password for your account.
               </p>

@@ -52,7 +52,7 @@ export function OmniSearch({
       className={cn(
         // Mobile: a borderless icon that groups with the other top-bar icons.
         // sm+: the full bordered search pill.
-        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-full text-[13px] text-muted-foreground outline-none',
+        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-full text-[calc(13px*var(--font-scale))] text-muted-foreground outline-none',
         'sm:w-full sm:justify-start sm:rounded-[var(--radius)] sm:border sm:border-border sm:bg-background sm:px-3',
         'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         className,
@@ -130,23 +130,23 @@ export function AppHeader({
               color={school.color}
               imageUrl={school.logoUrl}
               className="size-8 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]"
-              textClassName="text-[11px] font-extrabold"
+              textClassName="text-[calc(11px*var(--font-scale))] font-extrabold"
             />
             {/* Role stacked over the school name — the same lockup the sidebar
                 switcher uses, so the active persona stays visible on mobile. */}
             <span className="flex min-w-0 flex-col leading-tight">
               {roleLabel ? (
-                <span className="truncate text-[11px] font-medium leading-tight text-muted-foreground">
+                <span className="truncate text-[calc(11px*var(--font-scale))] font-medium leading-tight text-muted-foreground">
                   {roleLabel}
                 </span>
               ) : null}
-              <span className="truncate text-[14px] font-semibold leading-tight text-foreground">
+              <span className="truncate text-[calc(14px*var(--font-scale))] font-semibold leading-tight text-foreground">
                 {school.name}
               </span>
             </span>
           </div>
         ) : (
-          <span className="truncate font-display text-[22px] font-semibold leading-none text-foreground md:hidden">
+          <span className="truncate font-display text-[calc(22px*var(--font-scale))] font-semibold leading-none text-foreground md:hidden">
             {brandLabel}
           </span>
         )}

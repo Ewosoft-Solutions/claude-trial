@@ -98,7 +98,7 @@ export function FormSection({
       <div className="@5xl/main:col-span-1">
         <h3 className="text-sm font-bold text-foreground">{title}</h3>
         {description ? (
-          <p className="mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+          <p className="mt-1 text-[calc(12.5px*var(--font-scale))] leading-relaxed text-muted-foreground">
             {description}
           </p>
         ) : null}

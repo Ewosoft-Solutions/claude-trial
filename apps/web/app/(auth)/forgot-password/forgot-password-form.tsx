@@ -14,6 +14,7 @@ import Link from 'next/link';
 import { MailCheck } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Card } from '@workspace/ui/components/card';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
@@ -54,9 +55,7 @@ export function ForgotPasswordForm() {
         {sent ? (
           <div className="flex flex-col items-center gap-3 text-center">
             <MailCheck className="size-8 text-success" />
-            <h1 className="text-xl font-semibold tracking-tight">
-              Check your email
-            </h1>
+            <PageTitle>Check your email</PageTitle>
             <p className="text-sm text-muted-foreground">
               If an account exists for <strong>{email}</strong>, we&apos;ve sent
               a link to reset your password. It expires in one hour.
@@ -68,9 +67,7 @@ export function ForgotPasswordForm() {
         ) : (
           <>
             <div className="space-y-1">
-              <h1 className="text-xl font-semibold tracking-tight">
-                Reset your password
-              </h1>
+              <PageTitle>Reset your password</PageTitle>
               <p className="text-sm text-muted-foreground">
                 Enter your email and we&apos;ll send you a link to set a new
                 password.

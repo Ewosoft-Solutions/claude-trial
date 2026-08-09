@@ -48,7 +48,7 @@ export interface ClassOption {
 }
 
 export interface Pupil {
-  id: string;        // student DB id
+  id: string; // student DB id
   studentNumber: string;
   name: string;
 }
@@ -61,7 +61,9 @@ export interface AttendanceRecord {
 interface ApiStudent {
   id: string;
   studentNumber: string;
-  userTenant?: { user?: { firstName?: string | null; lastName?: string | null } | null };
+  userTenant?: {
+    user?: { firstName?: string | null; lastName?: string | null } | null;
+  };
 }
 
 interface Props {
@@ -89,7 +91,10 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function seedMarks(pupils: Pupil[], existing: AttendanceRecord[]): Record<string, Mark> {
+function seedMarks(
+  pupils: Pupil[],
+  existing: AttendanceRecord[],
+): Record<string, Mark> {
   const base = Object.fromEntries(pupils.map((p) => [p.id, 'present' as Mark]));
   for (const r of existing) {
     if (r.studentId in base) base[r.studentId] = r.status;
@@ -99,7 +104,10 @@ function seedMarks(pupils: Pupil[], existing: AttendanceRecord[]): Record<string
 
 function studentName(student: ApiStudent): string {
   const user = student.userTenant?.user;
-  return [user?.firstName, user?.lastName].filter(Boolean).join(' ') || student.studentNumber;
+  return (
+    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
+    student.studentNumber
+  );
 }
 
 function toPupil(student: ApiStudent): Pupil {
@@ -117,7 +125,9 @@ export function DailyRegisterClient({
   initialRecords,
 }: Props) {
   const classes = propClasses;
-  const [classId, setClassId] = React.useState(initialClassId || classes[0]?.id || '');
+  const [classId, setClassId] = React.useState(
+    initialClassId || classes[0]?.id || '',
+  );
   const [date, setDate] = React.useState(todayISO);
 
   const [students, setStudents] = React.useState<Pupil[]>(initialStudents);
@@ -127,7 +137,9 @@ export function DailyRegisterClient({
 
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
-  const [saveStatus, setSaveStatus] = React.useState<'idle' | 'saved' | 'error'>('idle');
+  const [saveStatus, setSaveStatus] = React.useState<
+    'idle' | 'saved' | 'error'
+  >('idle');
 
   /** Re-fetch attendance when class or date changes. */
   const fetchAttendance = React.useCallback(
@@ -207,7 +219,9 @@ export function DailyRegisterClient({
   }
 
   function markAllPresent() {
-    setMarks(Object.fromEntries(students.map((p) => [p.id, 'present' as Mark])));
+    setMarks(
+      Object.fromEntries(students.map((p) => [p.id, 'present' as Mark])),
+    );
     setSaveStatus('idle');
   }
 
@@ -233,7 +247,10 @@ export function DailyRegisterClient({
   }
 
   const summary = React.useMemo(() => {
-    let present = 0, absent = 0, late = 0, excused = 0;
+    let present = 0,
+      absent = 0,
+      late = 0,
+      excused = 0;
     for (const p of students) {
       const m = marks[p.id] ?? 'present';
       if (m === 'absent') absent++;
@@ -268,7 +285,11 @@ export function DailyRegisterClient({
                 disabled={saving || !classId || students.length === 0}
               >
                 <Check />
-                {saving ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'Save register'}
+                {saving
+                  ? 'Saving…'
+                  : saveStatus === 'saved'
+                    ? 'Saved ✓'
+                    : 'Save register'}
               </Button>
             </>
           }
@@ -281,11 +302,19 @@ export function DailyRegisterClient({
               'Loading roster…'
             ) : (
               <span className="flex flex-wrap items-center gap-1.5">
-                <StatusBadge tone="success" dot>{summary.present} present</StatusBadge>
-                <StatusBadge tone="destructive" dot>{summary.absent} absent</StatusBadge>
-                <StatusBadge tone="warning" dot>{summary.late} late</StatusBadge>
+                <StatusBadge tone="success" dot>
+                  {summary.present} present
+                </StatusBadge>
+                <StatusBadge tone="destructive" dot>
+                  {summary.absent} absent
+                </StatusBadge>
+                <StatusBadge tone="warning" dot>
+                  {summary.late} late
+                </StatusBadge>
                 {summary.excused > 0 && (
-                  <StatusBadge tone="neutral" dot>{summary.excused} excused</StatusBadge>
+                  <StatusBadge tone="neutral" dot>
+                    {summary.excused} excused
+                  </StatusBadge>
                 )}
                 {saveStatus === 'error' && (
                   <StatusBadge tone="destructive">Save failed</StatusBadge>
@@ -300,21 +329,27 @@ export function DailyRegisterClient({
           toolbar={
             <>
               <div className="flex flex-col gap-1">
-                <Label htmlFor="register-class" className="sr-only">Class</Label>
+                <Label htmlFor="register-class" className="sr-only">
+                  Class
+                </Label>
                 <Select value={classId} onValueChange={handleClassChange}>
                   <SelectTrigger id="register-class" className="w-[7.5rem]">
                     <SelectValue placeholder="Class" />
                   </SelectTrigger>
                   <SelectContent>
                     {classes.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.label}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
               <div className="flex flex-col gap-1">
-                <Label htmlFor="register-date" className="sr-only">Date</Label>
+                <Label htmlFor="register-date" className="sr-only">
+                  Date
+                </Label>
                 <Input
                   id="register-date"
                   type="date"
@@ -327,14 +362,18 @@ export function DailyRegisterClient({
           }
           footer={
             <span>
-              <strong className="text-foreground">{students.length}</strong> pupils ·
-              register for {date}
+              <strong className="text-foreground">{students.length}</strong>{' '}
+              pupils · register for {date}
             </span>
           }
           emptyState={
             <EmptyState
               compact
-              title={classes.length === 0 ? 'No classes available' : 'No pupils enrolled'}
+              title={
+                classes.length === 0
+                  ? 'No classes available'
+                  : 'No pupils enrolled'
+              }
               description={
                 classes.length === 0
                   ? 'Run the dev academic seed or create an active class.'
@@ -354,7 +393,10 @@ export function DailyRegisterClient({
             <TableBody>
               {students.map((p) => {
                 const mark = marks[p.id] ?? 'present';
-                const tone: Record<Mark, 'success' | 'destructive' | 'warning' | 'neutral'> = {
+                const tone: Record<
+                  Mark,
+                  'success' | 'destructive' | 'warning' | 'neutral'
+                > = {
                   present: 'success',
                   absent: 'destructive',
                   late: 'warning',
@@ -371,18 +413,24 @@ export function DailyRegisterClient({
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <Avatar className="size-8">
-                          <AvatarFallback className="text-[11px] font-semibold">
+                          <AvatarFallback className="text-[calc(11px*var(--font-scale))] font-semibold">
                             {initials(p.name)}
                           </AvatarFallback>
                         </Avatar>
                         <div className="flex min-w-0 flex-col">
-                          <span className="break-words font-medium text-foreground">{p.name}</span>
-                          <span className="break-words text-xs text-muted-foreground">{p.studentNumber}</span>
+                          <span className="break-words font-medium text-foreground">
+                            {p.name}
+                          </span>
+                          <span className="break-words text-xs text-muted-foreground">
+                            {p.studentNumber}
+                          </span>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <StatusBadge tone={tone[mark]} dot>{label[mark]}</StatusBadge>
+                      <StatusBadge tone={tone[mark]} dot>
+                        {label[mark]}
+                      </StatusBadge>
                     </TableCell>
                     <TableCell>
                       <ToggleGroup
@@ -390,7 +438,9 @@ export function DailyRegisterClient({
                         variant="outline"
                         size="sm"
                         value={mark}
-                        onValueChange={(v) => { if (v) setMark(p.id, v as Mark); }}
+                        onValueChange={(v) => {
+                          if (v) setMark(p.id, v as Mark);
+                        }}
                         className="justify-end"
                         aria-label={`Attendance for ${p.name}`}
                       >
@@ -399,7 +449,8 @@ export function DailyRegisterClient({
                           aria-label="Present"
                           className="data-[state=on]:bg-success/15 data-[state=on]:text-success"
                         >
-                          <Check /> <span className="max-lg:sr-only">Present</span>
+                          <Check />{' '}
+                          <span className="max-lg:sr-only">Present</span>
                         </ToggleGroupItem>
                         <ToggleGroupItem
                           value="late"

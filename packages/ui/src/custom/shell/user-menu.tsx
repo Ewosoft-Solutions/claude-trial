@@ -56,7 +56,7 @@ function UserAvatar({
         <AvatarImage src={user.avatarUrl} alt={user.name} />
       ) : null}
       <AvatarFallback
-        className="text-[11px] font-bold text-white"
+        className="text-[calc(11px*var(--font-scale))] font-bold text-white"
         style={{ background: neonAvatarColor(user.email ?? user.name) }}
       >
         {user.initials}
@@ -89,7 +89,7 @@ export function UserMenu({
               {user.name}
             </span>
             {user.caption ? (
-              <span className="w-full truncate text-[11px] text-muted-foreground">
+              <span className="w-full truncate text-[calc(11px*var(--font-scale))] text-muted-foreground">
                 {user.caption}
               </span>
             ) : null}

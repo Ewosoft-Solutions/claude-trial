@@ -12,6 +12,7 @@
 import { useState } from 'react';
 import { Sparkles, Send } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Textarea } from '@workspace/ui/components/textarea';
 import {
   Card,
@@ -21,8 +22,15 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 
-interface ToolTrace { tool: string; allowed: boolean; error?: string }
-interface ChatResult { answer: string; toolCalls: ToolTrace[] }
+interface ToolTrace {
+  tool: string;
+  allowed: boolean;
+  error?: string;
+}
+interface ChatResult {
+  answer: string;
+  toolCalls: ToolTrace[];
+}
 
 const SUGGESTIONS = [
   'How many schools and students are on the platform in total?',
@@ -49,7 +57,9 @@ export default function PlatformAssistantPage() {
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(body?.error || body?.message || 'The AI request failed.');
+        throw new Error(
+          body?.error || body?.message || 'The AI request failed.',
+        );
       }
       setResult(body as ChatResult);
     } catch (err) {
@@ -62,9 +72,10 @@ export default function PlatformAssistantPage() {
   return (
     <div className="flex flex-col gap-4 py-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <Sparkles className="size-5" /> Platform assistant
-        </h1>
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-6 text-primary" />
+          <PageTitle>Platform assistant</PageTitle>
+        </div>
         <p className="text-sm text-muted-foreground">
           Ask about the estate across all schools. Aggregate data only — the
           assistant has no access to individual pupil, parent, or staff records.
@@ -106,7 +117,9 @@ export default function PlatformAssistantPage() {
       </Card>
 
       {error ? (
-        <p className="text-sm text-destructive" role="alert">{error}</p>
+        <p className="text-sm text-destructive" role="alert">
+          {error}
+        </p>
       ) : null}
 
       {result ? (

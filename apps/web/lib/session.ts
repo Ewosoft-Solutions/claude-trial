@@ -89,6 +89,10 @@ export interface Session {
   /** Preferred table rows-per-page (per-account UI preference). Undefined when
    *  the user hasn't set one → the app default applies. */
   defaultPageSize?: number;
+  /** Text-size preference (font-scale multiplier, 0.9–1.1). Undefined when the
+   *  user hasn't set one → 1.0. The root layout uses it to seed a fresh device
+   *  (no cookie yet) so the choice follows the account across devices. */
+  fontScale?: number;
   sessionPolicy: SessionLifecyclePolicy;
   biometricEnrollment: {
     policy: 'require' | 'allow' | 'forbid';
@@ -123,6 +127,7 @@ interface MeResponse {
   activeProfileId?: string;
   defaultProfileId?: string;
   defaultPageSize?: number;
+  fontScale?: number;
   schools: Array<{
     id: string;
     name: string;
@@ -194,6 +199,7 @@ export const getSession = cache(async (): Promise<Session | null> => {
       activeProfileId: me.activeProfileId,
       defaultProfileId: me.defaultProfileId,
       defaultPageSize: me.defaultPageSize,
+      fontScale: me.fontScale,
       sessionPolicy: me.sessionPolicy,
       biometricEnrollment: me.biometricEnrollment,
       accessExpiresAt: me.accessExpiresAt,

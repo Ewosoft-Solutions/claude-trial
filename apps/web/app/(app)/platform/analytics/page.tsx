@@ -18,6 +18,7 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import {
   DirectoryTable,
   type DirectoryColumn,
@@ -158,9 +159,10 @@ export default function PlatformAnalyticsPage() {
   return (
     <div className="flex flex-col gap-4 py-6">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold">
-          <ChartColumn className="size-5" /> Analytics
-        </h1>
+        <div className="flex items-center gap-2">
+          <ChartColumn className="size-6 text-primary" />
+          <PageTitle>Analytics</PageTitle>
+        </div>
         <p className="text-sm text-muted-foreground">
           Aggregate metrics across every school
         </p>

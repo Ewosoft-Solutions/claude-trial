@@ -29,6 +29,7 @@ import {
   type DirectoryColumn,
 } from '@workspace/ui/custom/tables/directory-table';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
@@ -243,9 +244,10 @@ export default function AllSchoolsPage() {
     <div className="flex flex-col gap-4 py-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold">
-            <Building2 className="size-5" /> Schools
-          </h1>
+          <div className="flex items-center gap-2">
+            <Building2 className="size-6 text-primary" />
+            <PageTitle>Schools</PageTitle>
+          </div>
           <p className="text-sm text-muted-foreground">
             {schools.length} school{schools.length === 1 ? '' : 's'} on the
             platform

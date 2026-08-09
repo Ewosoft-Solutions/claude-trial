@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowLeft } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Button } from '@workspace/ui/components/button';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
@@ -52,9 +53,7 @@ export function PersonProfileShell({
           <AvatarLightbox name={detail.name} />
           <div className="flex min-w-0 flex-col gap-2">
             <div className="min-w-0">
-              <h1 className="font-display text-[24px] font-semibold capitalize leading-tight text-foreground">
-                {detail.name}
-              </h1>
+              <PageTitle className="capitalize">{detail.name}</PageTitle>
               <p className="text-sm text-muted-foreground">
                 {profileSubtitle(detail)}
               </p>
@@ -100,9 +99,7 @@ export function ProfileMissing() {
         </Link>
       </Button>
       <div className="rounded-[var(--radius)] border border-border bg-card p-8 text-center">
-        <h1 className="font-display text-xl font-semibold text-foreground">
-          Person not available
-        </h1>
+        <PageTitle className="mx-auto">Person not available</PageTitle>
         <p className="mt-1 text-sm text-muted-foreground">
           This person does not exist, or your role does not allow viewing them.
         </p>

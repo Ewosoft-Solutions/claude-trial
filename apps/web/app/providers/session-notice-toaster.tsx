@@ -83,8 +83,10 @@ export function SessionNoticeToaster() {
         classNames: {
           toast:
             'group rounded-[var(--radius)] border shadow-lg backdrop-blur [&_[data-icon]]:text-[var(--toast-accent,var(--muted-foreground))]',
-          title: 'text-[13px] font-semibold text-[var(--toast-ink)]',
-          description: 'text-[12.5px] text-[var(--toast-ink)] opacity-80',
+          title:
+            'text-[calc(13px*var(--font-scale))] font-semibold text-[var(--toast-ink)]',
+          description:
+            'text-[calc(12.5px*var(--font-scale))] text-[var(--toast-ink)] opacity-80',
           actionButton:
             'rounded-[var(--radius-sm)] bg-primary text-primary-foreground',
           cancelButton:

@@ -65,6 +65,13 @@ model User {
   // Nullable = not set → the app default (10) applies.
   defaultPageSize Int? @map("default_page_size")
 
+  // Text-size accessibility preference (Appearance › Text size): a font-scale
+  // multiplier (0.9–1.1) applied to every font token so text scales as a group
+  // without the layout zooming. Nullable = not set → the app default (1.0)
+  // applies. Cross-device source of truth; a cookie mirrors it locally for a
+  // fast first paint. Set via PATCH /auth/preferences.
+  fontScale Float? @map("font_scale")
+
   // Audit Fields
   createdBy String?  @map("created_by")
   updatedBy String?  @map("updated_by")

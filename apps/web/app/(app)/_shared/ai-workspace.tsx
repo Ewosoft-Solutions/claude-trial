@@ -215,7 +215,7 @@ export function AiWorkspaceLauncher() {
           // Borderless icon-only circle on mobile (a light glyph that groups
           // with the other top-bar icons and frees width for the school name);
           // expands to the bordered, labelled pill from sm up.
-          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold text-foreground outline-none transition-colors',
+          'inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[calc(13px*var(--font-scale))] font-semibold text-foreground outline-none transition-colors',
           'sm:w-auto sm:justify-start sm:gap-2 sm:border sm:border-border sm:bg-secondary sm:px-2.5 md:px-3',
           'hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         )}

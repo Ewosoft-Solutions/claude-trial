@@ -59,7 +59,10 @@ function PersonAvatar({
 }) {
   return (
     <Avatar className={className ?? 'size-8'}>
-      <AvatarFallback seed={name} className="text-[10px] font-semibold">
+      <AvatarFallback
+        seed={name}
+        className="text-[calc(10px*var(--font-scale))] font-semibold"
+      >
         {initials(name)}
       </AvatarFallback>
     </Avatar>
@@ -395,9 +398,13 @@ function GuardRow({
           ) : null}
 
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[11px] text-muted-foreground">Consent:</span>
+            <span className="text-[calc(11px*var(--font-scale))] text-muted-foreground">
+              Consent:
+            </span>
             {consentOn.length === 0 ? (
-              <span className="text-[11px] text-muted-foreground">none</span>
+              <span className="text-[calc(11px*var(--font-scale))] text-muted-foreground">
+                none
+              </span>
             ) : (
               consentOn.map((k) => <ConsentPill key={k}>{k}</ConsentPill>)
             )}
@@ -423,7 +430,7 @@ function GuardRow({
 
 function Tag({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center rounded-full border border-border bg-card px-2 py-0.5 text-[11px] text-muted-foreground">
+    <span className="inline-flex items-center rounded-full border border-border bg-card px-2 py-0.5 text-[calc(11px*var(--font-scale))] text-muted-foreground">
       {children}
     </span>
   );

@@ -241,7 +241,7 @@ export function PlatformSecurityGovernance() {
                       <p className="mt-1 text-xs leading-5 text-muted-foreground">
                         {policy.description}
                       </p>
-                      <p className="mt-1 font-mono text-[11px] text-muted-foreground">
+                      <p className="mt-1 font-mono text-[calc(11px*var(--font-scale))] text-muted-foreground">
                         {policy.operation}
                       </p>
                     </div>

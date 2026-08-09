@@ -7,6 +7,7 @@
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { AdmissionsWorkspace } from './admissions-workspace';
 import type { Application, IntakeStructure } from './admissions-types';
 
@@ -43,7 +44,7 @@ export default async function AdmissionsPage() {
   return (
     <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 p-4 sm:p-6">
       <header className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Admissions</h1>
+        <PageTitle>Admissions</PageTitle>
         <p className="text-sm text-muted-foreground">
           Capture applications against the school&apos;s own classes, collect
           the requirement checklist at each stage, and convert an accepted

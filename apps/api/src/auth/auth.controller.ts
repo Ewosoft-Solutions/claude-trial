@@ -172,6 +172,7 @@ export class AuthController {
         phone: true,
         defaultUserTenantId: true,
         defaultPageSize: true,
+        fontScale: true,
       },
     });
 
@@ -253,6 +254,9 @@ export class AuthController {
       /** Preferred table rows-per-page (per-account UI preference); the web
        *  uses it as the default page size across every directory. */
       defaultPageSize: dbUser.defaultPageSize ?? undefined,
+      /** Text-size preference (font-scale multiplier); the web applies it to
+       *  every font token so text scales without the layout zooming. */
+      fontScale: dbUser.fontScale ?? undefined,
       schools: scope === 'school' ? schoolsWithFeatures : [],
       sessionPolicy,
       biometricEnrollment: {
@@ -351,9 +355,10 @@ export class AuthController {
         ...(dto.defaultPageSize !== undefined
           ? { defaultPageSize: dto.defaultPageSize }
           : {}),
+        ...(dto.fontScale !== undefined ? { fontScale: dto.fontScale } : {}),
         updatedBy: user.userId,
       },
-      select: { defaultPageSize: true },
+      select: { defaultPageSize: true, fontScale: true },
     });
     return { success: true, preferences: updated };
   }

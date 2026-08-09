@@ -52,7 +52,7 @@ export function StatCard({ item, className }: StatCardProps) {
   const body = (
     <>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase leading-tight tracking-wide text-muted-foreground sm:text-[11.5px]">
+        <span className="text-[calc(10px*var(--font-scale))] font-semibold uppercase leading-tight tracking-wide text-muted-foreground sm:text-[calc(11.5px*var(--font-scale))]">
           {item.label}
         </span>
         {item.icon ? (
@@ -67,11 +67,11 @@ export function StatCard({ item, className }: StatCardProps) {
       </div>
       {/* Stat value in the dedicated stat face (--font-stat / Libertinus Mono,
           set in ui globals.css). font-stat is the single knob for every KPI. */}
-      <div className="mt-2 font-stat text-[22px] font-bold leading-none text-foreground tabular-nums sm:text-[26px]">
+      <div className="mt-2 font-stat text-[calc(22px*var(--font-scale))] font-bold leading-none text-foreground tabular-nums sm:text-[calc(26px*var(--font-scale))]">
         {item.value}
       </div>
       {item.delta || item.hint ? (
-        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] sm:text-[12px]">
+        <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[calc(11px*var(--font-scale))] sm:text-[calc(12px*var(--font-scale))]">
           {item.delta ? (
             <span
               className={cn(

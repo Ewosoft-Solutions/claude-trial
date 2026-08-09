@@ -113,7 +113,7 @@ function HeaderActions() {
         className="relative"
       >
         <Bell />
-        <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-info text-[10px] font-bold text-info-foreground">
+        <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-info text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
           3
         </span>
       </Button>

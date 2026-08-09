@@ -21,6 +21,7 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+import { greeting, useGreetingSubtitle } from './greeting';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -61,13 +62,6 @@ const QUICK_ACTIONS = [
     icon: <Banknote />,
   },
 ];
-
-function greeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
 
 interface AttentionItem {
   key: string;
@@ -163,12 +157,15 @@ export function AdminDashboard({ userName, schoolName }: Props) {
     }
   }
 
+  const subtitle = useGreetingSubtitle();
+
   return (
     <ShellMain>
       <DashboardLayout
         header={
           <PageHeader
             title={`${greeting()}, ${userName}`}
+            description={subtitle}
             actions={
               <>
                 <RefreshButton onRefresh={refresh} refreshing={refreshing} />

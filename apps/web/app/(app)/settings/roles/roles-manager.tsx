@@ -385,7 +385,7 @@ function EffectiveAccessView({ access }: { access: EffectiveAccess }) {
                       {e.sourcePool ? ` · ${e.sourcePool}` : ''}
                     </span>
                   </div>
-                  <span className="shrink-0 text-[10.5px] uppercase tracking-wide text-muted-foreground">
+                  <span className="shrink-0 text-[calc(10.5px*var(--font-scale))] uppercase tracking-wide text-muted-foreground">
                     clr {e.requiredClearance}
                   </span>
                 </li>

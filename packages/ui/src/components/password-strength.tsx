@@ -198,7 +198,7 @@ export function PasswordStrengthMeter({
           <li
             key={check.key}
             className={cn(
-              'flex items-center gap-2 text-[13px] transition-colors',
+              'flex items-center gap-2 text-[calc(13px*var(--font-scale))] transition-colors',
               check.ok ? 'text-foreground' : 'text-muted-foreground',
             )}
           >

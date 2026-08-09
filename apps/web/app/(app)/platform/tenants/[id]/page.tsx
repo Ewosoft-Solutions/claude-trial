@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
 interface JwtConfig {
@@ -72,8 +73,7 @@ export default function TenantDetailPage({
   // `securityPolicy` is the marker: the API includes it only for an inspect
   // holder, so its presence (either key) tells us the internals were returned.
   const canInspect =
-    tenant != null &&
-    ('securityPolicy' in tenant || 'jwtConfig' in tenant);
+    tenant != null && ('securityPolicy' in tenant || 'jwtConfig' in tenant);
 
   const error =
     loadError instanceof Error
@@ -102,9 +102,10 @@ export default function TenantDetailPage({
         <>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="flex items-center gap-2 text-xl font-semibold">
-                <Building2 className="size-5" /> {tenant.name}
-              </h1>
+              <div className="flex items-center gap-2">
+                <Building2 className="size-6 text-primary" />
+                <PageTitle>{tenant.name}</PageTitle>
+              </div>
               <p className="text-sm text-muted-foreground">{tenant.slug}</p>
             </div>
             <StatusBadge tone={STATUS_TONE[tenant.status] ?? 'neutral'} dot>
@@ -119,7 +120,10 @@ export default function TenantDetailPage({
               <CardDescription>School registration details</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-              <Field label="Type" value={tenant.schoolType?.replace('_', ' ') ?? '—'} />
+              <Field
+                label="Type"
+                value={tenant.schoolType?.replace('_', ' ') ?? '—'}
+              />
               <Field label="Email domain" value={tenant.emailDomain ?? '—'} />
               <Field
                 label="Registered"
@@ -141,15 +145,23 @@ export default function TenantDetailPage({
                 <CardContent className="flex flex-col gap-2 text-sm">
                   {tenant.securityPolicy ? (
                     <>
-                      <Field label="Tier" value={tenant.securityPolicy.policyTier} />
+                      <Field
+                        label="Tier"
+                        value={tenant.securityPolicy.policyTier}
+                      />
                       <Field
                         label="Require MFA"
                         value={tenant.securityPolicy.requireMFA ? 'Yes' : 'No'}
                       />
-                      <Field label="Audit level" value={tenant.securityPolicy.auditLevel} />
+                      <Field
+                        label="Audit level"
+                        value={tenant.securityPolicy.auditLevel}
+                      />
                     </>
                   ) : (
-                    <p className="text-muted-foreground">No policy configured.</p>
+                    <p className="text-muted-foreground">
+                      No policy configured.
+                    </p>
                   )}
                 </CardContent>
               </Card>
@@ -179,7 +191,9 @@ export default function TenantDetailPage({
                       />
                       <Field
                         label="Emergency"
-                        value={tenant.jwtConfig.emergencyRotation ? 'Yes' : 'No'}
+                        value={
+                          tenant.jwtConfig.emergencyRotation ? 'Yes' : 'No'
+                        }
                       />
                     </>
                   ) : (
@@ -215,7 +229,9 @@ function Field({
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-muted-foreground">{label}</span>
-      <span className={mono ? 'font-mono text-xs' : 'font-medium text-foreground'}>
+      <span
+        className={mono ? 'font-mono text-xs' : 'font-medium text-foreground'}
+      >
         {value}
       </span>
     </div>

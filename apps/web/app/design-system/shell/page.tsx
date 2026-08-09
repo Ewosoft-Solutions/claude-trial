@@ -127,11 +127,13 @@ const VIEW_OPTIONS = [
 function NavFooterCard() {
   return (
     <div className="flex flex-col gap-2 rounded-[var(--radius)] border border-border bg-card p-3 shadow-card">
-      <div className="text-[12.5px] font-bold text-foreground">Spring intake</div>
+      <div className="text-[calc(12.5px*var(--font-scale))] font-bold text-foreground">
+        Spring intake
+      </div>
       <div className="h-1.5 overflow-hidden rounded bg-muted">
         <div className="h-full rounded bg-primary" style={{ width: '93%' }} />
       </div>
-      <div className="text-[11.5px] leading-snug text-muted-foreground">
+      <div className="text-[calc(11.5px*var(--font-scale))] leading-snug text-muted-foreground">
         446 of 480 seats confirmed · 34 open
       </div>
     </div>
@@ -151,7 +153,7 @@ function HeaderActions() {
         className="relative"
       >
         <Bell />
-        <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-info text-[10px] font-bold text-info-foreground">
+        <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-info text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
           3
         </span>
       </Button>
@@ -170,7 +172,7 @@ function HeaderActions() {
 function Inspector() {
   return (
     <div className="flex flex-col gap-3 p-4">
-      <span className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
+      <span className="text-[calc(11px*var(--font-scale))] font-bold uppercase tracking-wide text-muted-foreground">
         Applicant
       </span>
       <div className="flex items-center gap-3">
@@ -178,25 +180,27 @@ function Inspector() {
           AR
         </span>
         <div>
-          <h3 className="text-[17px] font-extrabold leading-tight text-foreground">
+          <h3 className="text-[calc(17px*var(--font-scale))] font-extrabold leading-tight text-foreground">
             Alex Rivera
           </h3>
-          <div className="text-xs text-muted-foreground">Grade 9 · #2025-0428</div>
+          <div className="text-xs text-muted-foreground">
+            Grade 9 · #2025-0428
+          </div>
         </div>
       </div>
       <div className="flex flex-wrap gap-1.5">
         <Badge variant="outline">Pending review</Badge>
         <Badge variant="secondary">In-zone</Badge>
       </div>
-      <div className="mt-1 flex flex-col gap-2.5 text-[13px]">
+      <div className="mt-1 flex flex-col gap-2.5 text-[calc(13px*var(--font-scale))]">
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10.5px] font-bold uppercase tracking-wide text-muted-foreground">
+          <span className="text-[calc(10.5px*var(--font-scale))] font-bold uppercase tracking-wide text-muted-foreground">
             Guardian
           </span>
           <span className="text-foreground">Daniela Rivera</span>
         </div>
         <div className="flex flex-col gap-0.5">
-          <span className="text-[10.5px] font-bold uppercase tracking-wide text-muted-foreground">
+          <span className="text-[calc(10.5px*var(--font-scale))] font-bold uppercase tracking-wide text-muted-foreground">
             Prior school
           </span>
           <span className="text-foreground">Maple Grove Elementary</span>
@@ -213,7 +217,7 @@ function Inspector() {
 
 function StatusBar({ note }: { note: string }) {
   return (
-    <div className="flex h-[30px] shrink-0 items-center gap-3.5 border-t border-border bg-sidebar px-4 text-[11.5px] font-medium text-muted-foreground">
+    <div className="flex h-[30px] shrink-0 items-center gap-3.5 border-t border-border bg-sidebar px-4 text-[calc(11.5px*var(--font-scale))] font-medium text-muted-foreground">
       <span className="inline-flex items-center gap-1.5">
         <span className="size-[7px] rounded-full bg-success ring-2 ring-success/30" />
         Synced · 2m ago
@@ -221,7 +225,7 @@ function StatusBar({ note }: { note: string }) {
       <span className="font-bold text-foreground/80">{note}</span>
       <span className="hidden sm:inline">3 background jobs</span>
       <span className="ml-auto inline-flex items-center gap-1.5">
-        <kbd className="rounded border border-border px-1.5 py-px text-[10.5px] font-semibold">
+        <kbd className="rounded border border-border px-1.5 py-px text-[calc(10.5px*var(--font-scale))] font-semibold">
           ⌘K
         </kbd>
         to jump anywhere
@@ -241,7 +245,7 @@ function PersonaSwitcher({
   return (
     <Select value={value} onValueChange={onChange}>
       <SelectTrigger
-        className="h-8 w-[172px] text-[13px] max-md:hidden"
+        className="h-8 w-[172px] text-[calc(13px*var(--font-scale))] max-md:hidden"
         aria-label="Preview as persona"
       >
         <SelectValue />
@@ -320,7 +324,9 @@ export default function ShellPreviewPage() {
             navPanels={nav.navPanels}
             schoolSwitcher={renderSchoolSwitcher}
             navFooter={
-              nav.activeSectionKey === 'students' ? <NavFooterCard /> : undefined
+              nav.activeSectionKey === 'students' ? (
+                <NavFooterCard />
+              ) : undefined
             }
             user={USER}
             userMenuItems={USER_MENU}
@@ -347,7 +353,9 @@ export default function ShellPreviewPage() {
             }
             navGroups={nav.navGroups}
             navFooter={
-              nav.activeSectionKey === 'students' ? <NavFooterCard /> : undefined
+              nav.activeSectionKey === 'students' ? (
+                <NavFooterCard />
+              ) : undefined
             }
             user={USER}
             userMenuItems={USER_MENU}
@@ -381,10 +389,22 @@ export default function ShellPreviewPage() {
         <ShellMain>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             {[
-              { label: 'New applicants', value: '128', foot: '+12% vs last term' },
+              {
+                label: 'New applicants',
+                value: '128',
+                foot: '+12% vs last term',
+              },
               { label: 'Seats remaining', value: '34', foot: '446 confirmed' },
-              { label: 'Avg. processing', value: '3.2d', foot: 'faster than target' },
-              { label: 'Offer acceptance', value: '78%', foot: '142 of 182 offers' },
+              {
+                label: 'Avg. processing',
+                value: '3.2d',
+                foot: 'faster than target',
+              },
+              {
+                label: 'Offer acceptance',
+                value: '78%',
+                foot: '142 of 182 offers',
+              },
             ].map((kpi) => (
               <Card key={kpi.label} className="shadow-card">
                 <CardHeader>
