@@ -62,6 +62,7 @@ import {
   suppressBiometricReminder,
   type BiometricReminderPreference,
 } from '@/lib/biometric-reminder';
+import { writeSidebarPreference } from '@/lib/sidebar-preference';
 import {
   useResumableModal,
   useSessionLifecycle,
@@ -120,7 +121,14 @@ function HeaderActions() {
   );
 }
 
-export function AppChrome({ children }: { children: React.ReactNode }) {
+export function AppChrome({
+  children,
+  sidebarExpanded = true,
+}: {
+  children: React.ReactNode;
+  /** Initial desktop-rail state from the persisted cookie (no refresh flash). */
+  sidebarExpanded?: boolean;
+}) {
   const {
     accountId,
     viewer,
@@ -332,6 +340,11 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
   );
 
   const activeSchool = schools.find((s) => s.id === activeSchoolId);
+  // The active profile's role — the same label the sidebar switcher shows —
+  // surfaced on the mobile top bar (see AppHeader roleLabel).
+  const activeRole = profileOptions.find(
+    (option) => option.id === activeProfileId,
+  )?.caption;
   const tenantName =
     viewer.scope === 'platform'
       ? 'Platform'
@@ -392,6 +405,7 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
         header={
           <AppHeader
             school={viewer.scope === 'school' ? activeSchool : undefined}
+            roleLabel={viewer.scope === 'school' ? activeRole : undefined}
             breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
             search={
               <OmniSearch
@@ -417,6 +431,8 @@ export function AppChrome({ children }: { children: React.ReactNode }) {
             navPanels={sidebarPanels}
             user={user}
             userMenuItems={userMenu}
+            defaultExpanded={sidebarExpanded}
+            onExpandedChange={writeSidebarPreference}
           />
         }
       >

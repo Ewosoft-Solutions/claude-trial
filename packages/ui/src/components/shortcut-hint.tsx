@@ -26,8 +26,10 @@ function useIsMac() {
   return isMac;
 }
 
-export interface ShortcutHintProps
-  extends Omit<React.ComponentProps<'kbd'>, 'children'> {
+export interface ShortcutHintProps extends Omit<
+  React.ComponentProps<'kbd'>,
+  'children'
+> {
   /** The non-modifier key, e.g. "K" or "J". */
   keyName: string;
   /** Include the ⌘/Ctrl modifier (default) or render the bare key. */
@@ -41,17 +43,15 @@ export function ShortcutHint({
   ...props
 }: ShortcutHintProps) {
   const isMac = useIsMac();
-  const label = !modifier
-    ? keyName
-    : isMac
-      ? `⌘${keyName}`
-      : `Ctrl ${keyName}`;
+  const label = !modifier ? keyName : isMac ? `⌘${keyName}` : `Ctrl ${keyName}`;
 
   return (
     <kbd
       suppressHydrationWarning
       className={cn(
-        'inline-flex select-none items-center rounded-[5px] border border-border bg-card px-1.5 py-0.5 text-[11px] font-semibold leading-none text-muted-foreground',
+        // Legible: 12.5px on a slightly taller chip. The ⌘ glyph in particular
+        // reads as mush below ~12px, so this is the floor.
+        'inline-flex select-none items-center rounded-[5px] border border-border bg-card px-1.5 py-[3px] text-[12.5px] font-semibold leading-none text-foreground/75',
         className,
       )}
       {...props}

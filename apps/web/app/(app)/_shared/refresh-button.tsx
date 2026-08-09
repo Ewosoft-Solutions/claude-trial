@@ -31,16 +31,16 @@ export function RefreshButton({
   return (
     <Button
       type="button"
-      // Icon-only: `ghost` (no border box) so the control reads as a single
-      // spinning glyph — an outlined square around the circular refresh icon
-      // looked like two stacked buttons, the box static while the icon rotated.
-      // Labelled: keep `outline` so it still reads as a proper button.
-      variant={label ? 'outline' : 'ghost'}
+      variant="outline"
       size={label ? 'sm' : 'icon-sm'}
       onClick={onRefresh}
       disabled={refreshing}
       aria-label={label ?? 'Refresh data'}
-      className={className}
+      // Promote the BUTTON to its own compositor layer (not the icon — the
+      // spin animation owns the icon's `transform`, so a GPU hint there is
+      // overwritten). On iOS PWAs the spinning RefreshCw otherwise left a
+      // half-frame ghost that read as a second, superimposed icon in the box.
+      className={cn('transform-gpu [backface-visibility:hidden]', className)}
     >
       <RefreshCw className={cn(refreshing && 'animate-spin')} aria-hidden />
       {label}

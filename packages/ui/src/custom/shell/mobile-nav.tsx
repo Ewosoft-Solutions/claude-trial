@@ -341,7 +341,7 @@ export function MobileNav({
             {schoolSwitcher ? (
               schoolSwitcher(true, 'bottom')
             ) : (
-              <span className="truncate pl-2 font-display text-[22px] font-bold leading-none text-foreground">
+              <span className="truncate pl-2 font-display text-[22px] font-semibold leading-none text-foreground">
                 {brandLabel}
               </span>
             )}

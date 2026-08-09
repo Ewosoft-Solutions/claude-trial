@@ -120,7 +120,7 @@ export function PolicyVersionPanel({
         ) : selected ? (
           <div className="flex min-w-0 flex-col gap-3">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <h3 className="min-w-0 flex-1 truncate font-display text-[17px] font-bold text-foreground">
+              <h3 className="min-w-0 flex-1 truncate font-display text-[17px] font-semibold text-foreground">
                 {selected.label}
               </h3>
               {selected.isActive ? (
@@ -191,7 +191,7 @@ function CompareTable({
   return (
     <div className="flex min-w-0 flex-col gap-2">
       {title ? (
-        <h3 className="font-display text-[15px] font-bold text-foreground">
+        <h3 className="font-display text-[15px] font-semibold text-foreground">
           {title}
         </h3>
       ) : null}

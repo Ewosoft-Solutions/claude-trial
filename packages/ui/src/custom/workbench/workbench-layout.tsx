@@ -71,7 +71,7 @@ export function WorkbenchLayout({
         <div className="flex flex-wrap items-center gap-x-3.5 gap-y-2.5">
           <div className="flex min-w-[min(100%,12rem)] flex-1 flex-col gap-0.5">
             {title ? (
-              <h1 className="w-fit max-w-full break-words bg-[image:var(--h1-grad)] bg-clip-text pr-1 font-display text-[28px] font-bold leading-[0.95] tracking-[0] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
+              <h1 className="w-fit max-w-full break-words bg-[image:var(--h1-grad)] bg-clip-text pr-1 font-display text-[24px] font-semibold leading-[1.15] tracking-[0] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
                 {title}
               </h1>
             ) : null}

@@ -50,8 +50,10 @@ export function OmniSearch({
       onClick={onClick}
       aria-label={placeholder}
       className={cn(
-        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-[var(--radius)] border border-border bg-background text-[13px] text-muted-foreground outline-none',
-        'sm:w-full sm:justify-start sm:px-3',
+        // Mobile: a borderless icon that groups with the other top-bar icons.
+        // sm+: the full bordered search pill.
+        'mx-auto flex h-9 w-9 min-w-0 shrink-0 items-center justify-center gap-2.5 rounded-full text-[13px] text-muted-foreground outline-none',
+        'sm:w-full sm:justify-start sm:rounded-[var(--radius)] sm:border sm:border-border sm:bg-background sm:px-3',
         'transition-colors hover:bg-accent focus-visible:ring-[3px] focus-visible:ring-ring/50',
         className,
       )}
@@ -76,6 +78,10 @@ export interface AppHeaderProps {
    *  logo/initials chip + name (the customer's identity owns the space),
    *  instead of the product wordmark. */
   school?: SchoolOption;
+  /** The signed-in user's role/persona (e.g. "Registrar"), shown stacked above
+   *  the school name on the mobile top bar — mirrors the sidebar switcher, so
+   *  the active role stays visible on phones where the rail is hidden. */
+  roleLabel?: string;
   /** Tenant/school switcher — typically <SchoolSwitcher/>. */
   schoolSwitcher?: React.ReactNode;
   /** Breadcrumb trail — typically <AppBreadcrumbs/>. Hidden on mobile. */
@@ -92,6 +98,7 @@ export interface AppHeaderProps {
 export function AppHeader({
   brandLabel = 'SchoolWithEase',
   school,
+  roleLabel,
   schoolSwitcher,
   breadcrumbs,
   search,
@@ -104,7 +111,7 @@ export function AppHeader({
       className={cn(
         // Horizontal padding matches --content-padding so the top-bar content
         // lines up with the page content below it.
-        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-b border-border bg-sidebar px-[var(--content-padding)] sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3',
+        'grid h-[var(--header-height)] min-h-[50px] shrink-0 grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-1 border-b border-border bg-sidebar px-[var(--content-padding)] sm:grid-cols-[minmax(0,auto)_minmax(2.25rem,1fr)_auto] sm:gap-3',
         className,
       )}
     >
@@ -125,12 +132,21 @@ export function AppHeader({
               className="size-8 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]"
               textClassName="text-[11px] font-extrabold"
             />
-            <span className="truncate text-[14px] font-semibold leading-tight text-foreground">
-              {school.name}
+            {/* Role stacked over the school name — the same lockup the sidebar
+                switcher uses, so the active persona stays visible on mobile. */}
+            <span className="flex min-w-0 flex-col leading-tight">
+              {roleLabel ? (
+                <span className="truncate text-[11px] font-medium leading-tight text-muted-foreground">
+                  {roleLabel}
+                </span>
+              ) : null}
+              <span className="truncate text-[14px] font-semibold leading-tight text-foreground">
+                {school.name}
+              </span>
             </span>
           </div>
         ) : (
-          <span className="truncate font-display text-[22px] font-bold leading-none text-foreground md:hidden">
+          <span className="truncate font-display text-[22px] font-semibold leading-none text-foreground md:hidden">
             {brandLabel}
           </span>
         )}
@@ -146,7 +162,7 @@ export function AppHeader({
           className={cn(
             'mx-auto flex min-w-0 items-center justify-self-center',
             searchAction
-              ? 'w-auto gap-2 sm:w-full sm:max-w-[40rem]'
+              ? 'w-auto gap-0.5 sm:w-full sm:max-w-[40rem] sm:gap-2'
               : 'w-9 sm:w-full sm:max-w-[34rem]',
           )}
         >

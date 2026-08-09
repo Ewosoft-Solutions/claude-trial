@@ -159,8 +159,8 @@
 
   /* typography — font families are registered in @theme inline below
      (they reference the app's next/font variables: --font-jakarta /
-     --font-caveat / --font-geist-mono), with the aurora families kept
-     as fallback. Caveat is the display face; Plus Jakarta Sans the body. */
+     --font-geist-mono), with the aurora families kept as fallback. Plus Jakarta
+     Sans is the body, display, and stat-number face; Geist Mono is code. */
 
   /* weights */
   --font-weight-normal: 400;
@@ -387,10 +387,7 @@
   --glass-inset: none;
   --grad-primary: none; /* flat primary CTAs */
   --grad-nav-active: none; /* flat active nav (falls back to bg-primary/10) */
-  --h1-grad: linear-gradient(
-    #eef0ff,
-    #eef0ff
-  ); /* flat headings (still Caveat) */
+  --h1-grad: linear-gradient(#eef0ff, #eef0ff); /* flat headings */
   --grad-brand: conic-gradient(
     from 210deg at 50% 50%,
     #5b8cff,
@@ -469,16 +466,27 @@
   --radius-xl: calc(var(--radius) + 4px);
 
   /* typography — point Tailwind's font utilities at the app's next/font
-     variables, with the aurora design families as fallback. Caveat is the
-     display face (font-display / headings & stat numbers); Plus Jakarta
-     Sans is the body face (font-sans). */
+     variables, with the aurora design families as fallback.
+       · --font-sans    body/UI            → Plus Jakarta Sans
+       · --font-display headings (font-display) → Plus Jakarta Sans. Kept as
+                        its OWN token so every heading spot stays greppable via
+                        `font-display` and the display face can be swapped here
+                        in ONE place later.
+       · --font-stat    stat-card numbers (font-stat) → Plus Jakarta Sans.
+                        Its OWN token too, so KPI/stat values can be restyled
+                        app-wide from here.
+       · --font-mono    code/monospace     → Geist Mono. */
   --font-sans:
     var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system,
     'Segoe UI', sans-serif;
   --font-mono:
     var(--font-geist-mono), ui-monospace, 'SFMono-Regular', 'Menlo', monospace;
   --font-display:
-    var(--font-caveat), 'Caveat', 'Plus Jakarta Sans', system-ui, cursive;
+    var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --font-stat:
+    var(--font-jakarta), 'Plus Jakarta Sans', system-ui, -apple-system,
+    'Segoe UI', sans-serif;
 
   /* elevation */
   --shadow-xs: var(--shadow-xs);

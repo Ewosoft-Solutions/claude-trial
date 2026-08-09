@@ -52,7 +52,7 @@ export function PersonProfileShell({
           <AvatarLightbox name={detail.name} />
           <div className="flex min-w-0 flex-col gap-2">
             <div className="min-w-0">
-              <h1 className="font-display text-[26px] font-bold capitalize leading-tight text-foreground">
+              <h1 className="font-display text-[24px] font-semibold capitalize leading-tight text-foreground">
                 {detail.name}
               </h1>
               <p className="text-sm text-muted-foreground">
@@ -100,7 +100,7 @@ export function ProfileMissing() {
         </Link>
       </Button>
       <div className="rounded-[var(--radius)] border border-border bg-card p-8 text-center">
-        <h1 className="font-display text-xl font-bold text-foreground">
+        <h1 className="font-display text-xl font-semibold text-foreground">
           Person not available
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">

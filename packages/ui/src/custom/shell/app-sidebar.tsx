@@ -65,6 +65,8 @@ function Sidebar({
   schoolSwitcher,
   user,
   userMenuItems = [],
+  defaultExpanded = true,
+  onExpandedChange,
 }: {
   brandLabel?: string;
   brandCollapsedLabel?: string;
@@ -77,13 +79,18 @@ function Sidebar({
   schoolSwitcher?: (expanded: boolean) => React.ReactNode;
   user?: UserProfile;
   userMenuItems?: UserMenuItem[];
+  /** Initial expanded state — seed from a persisted cookie so the server
+   *  renders the right width and there's no expand→collapse flash on refresh. */
+  defaultExpanded?: boolean;
+  /** Notified when the user toggles the rail, so the host can persist it. */
+  onExpandedChange?: (expanded: boolean) => void;
 }) {
   const sideNavRef = React.useRef<HTMLElement>(null);
   const flyoutSurfaceRef = React.useRef<HTMLElement>(null);
   // Desktop rail is expanded by default; the user can collapse it to an icon
   // rail with flyouts. Mobile navigation is a separate surface (see MobileNav),
   // so this component no longer tracks viewport size.
-  const [expanded, setExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState(defaultExpanded);
   const [flyoutSectionKey, setFlyoutSectionKey] = React.useState<string | null>(
     null,
   );
@@ -158,7 +165,9 @@ function Sidebar({
   }, [flyoutOpen]);
 
   const toggleExpanded = () => {
-    setExpanded((current) => !current);
+    const next = !expanded;
+    setExpanded(next);
+    onExpandedChange?.(next);
     setFlyoutSectionKey(null);
     setExpandedSectionKey(undefined);
     setThemeOpen(false);
@@ -328,14 +337,14 @@ function Sidebar({
         </div>
       ) : expanded ? (
         <div className="flex h-[var(--header-height)] shrink-0 items-center pl-3 pr-2">
-          <span className="truncate font-display text-[22px] font-bold leading-none text-foreground">
+          <span className="truncate font-display text-[22px] font-semibold leading-none text-foreground">
             {brandLabel}
           </span>
         </div>
       ) : (
         <div className="flex h-[var(--header-height)] shrink-0 items-center justify-center">
           <span
-            className="font-display text-[22px] font-bold leading-none text-foreground"
+            className="font-display text-[22px] font-semibold leading-none text-foreground"
             title={brandLabel}
           >
             {brandCollapsedLabel}
@@ -448,7 +457,7 @@ function Sidebar({
           >
             <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-2.5 py-2">
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-lg font-bold italic leading-tight text-foreground">
+                <div className="truncate font-display text-base font-semibold leading-tight text-foreground">
                   {selectedFlyoutPanel?.header?.title ??
                     selectedFlyoutItem?.label}
                 </div>
@@ -513,6 +522,10 @@ export interface AppSidebarProps {
   user?: UserProfile;
   /** Account menu items for the footer profile. */
   userMenuItems?: UserMenuItem[];
+  /** Initial expanded state (persisted cookie) — avoids a refresh flash. */
+  defaultExpanded?: boolean;
+  /** Notified when the user toggles the rail, so the host can persist it. */
+  onExpandedChange?: (expanded: boolean) => void;
   className?: string;
 }
 
@@ -528,6 +541,8 @@ export function AppSidebar({
   navFooter,
   user,
   userMenuItems,
+  defaultExpanded,
+  onExpandedChange,
 }: AppSidebarProps) {
   const activeSection = [...railItems, ...(railFooterItems ?? [])].find(
     (item) => item.active,
@@ -555,6 +570,8 @@ export function AppSidebar({
       schoolSwitcher={schoolSwitcher}
       user={user}
       userMenuItems={userMenuItems}
+      defaultExpanded={defaultExpanded}
+      onExpandedChange={onExpandedChange}
     />
   );
 }
