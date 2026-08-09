@@ -129,7 +129,7 @@ export function PersonDetailDrawer({
               <div className="flex items-center gap-3 pr-8">
                 <AvatarLightbox name={detail.name} />
                 <div className="min-w-0">
-                  <SheetTitle className="truncate font-display text-[22px] font-bold capitalize leading-tight">
+                  <SheetTitle className="truncate font-display text-[22px] font-semibold capitalize leading-tight">
                     {detail.name}
                   </SheetTitle>
                   <SheetDescription className="truncate text-[12.5px]">

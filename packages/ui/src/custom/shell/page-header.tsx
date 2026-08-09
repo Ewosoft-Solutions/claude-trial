@@ -100,7 +100,7 @@ export function PageHeader({
       )}
     >
       <div className="flex min-w-[min(100%,12rem)] flex-1 flex-col gap-0.5">
-        <h1 className="w-fit max-w-full break-words bg-[image:var(--h1-grad)] bg-clip-text pr-1 font-display text-[32px] font-bold leading-[0.95] tracking-[0] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
+        <h1 className="w-fit max-w-full break-words bg-[image:var(--h1-grad)] bg-clip-text pr-1 font-display text-[26px] font-semibold leading-[1] tracking-[0] text-transparent [-webkit-background-clip:text] [-webkit-text-fill-color:transparent]">
           {title}
         </h1>
         {description ? (

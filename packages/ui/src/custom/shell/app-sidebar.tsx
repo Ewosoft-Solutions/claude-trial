@@ -337,14 +337,14 @@ function Sidebar({
         </div>
       ) : expanded ? (
         <div className="flex h-[var(--header-height)] shrink-0 items-center pl-3 pr-2">
-          <span className="truncate font-display text-[22px] font-bold leading-none text-foreground">
+          <span className="truncate font-display text-[22px] font-semibold leading-none text-foreground">
             {brandLabel}
           </span>
         </div>
       ) : (
         <div className="flex h-[var(--header-height)] shrink-0 items-center justify-center">
           <span
-            className="font-display text-[22px] font-bold leading-none text-foreground"
+            className="font-display text-[22px] font-semibold leading-none text-foreground"
             title={brandLabel}
           >
             {brandCollapsedLabel}
@@ -457,7 +457,7 @@ function Sidebar({
           >
             <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-2.5 py-2">
               <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-lg font-bold italic leading-tight text-foreground">
+                <div className="truncate font-display text-base font-semibold leading-tight text-foreground">
                   {selectedFlyoutPanel?.header?.title ??
                     selectedFlyoutItem?.label}
                 </div>

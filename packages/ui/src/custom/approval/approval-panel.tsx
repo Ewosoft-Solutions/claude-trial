@@ -61,7 +61,7 @@ export function ApprovalPanel({
     >
       <div className="flex min-w-0 flex-wrap items-start gap-2">
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h3 className="min-w-0 font-display text-[17px] font-bold break-words text-foreground">
+          <h3 className="min-w-0 font-display text-[17px] font-semibold break-words text-foreground">
             {request.title}
           </h3>
           <p className="text-[12px] text-muted-foreground">

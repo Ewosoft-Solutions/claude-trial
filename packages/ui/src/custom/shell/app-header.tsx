@@ -146,7 +146,7 @@ export function AppHeader({
             </span>
           </div>
         ) : (
-          <span className="truncate font-display text-[22px] font-bold leading-none text-foreground md:hidden">
+          <span className="truncate font-display text-[22px] font-semibold leading-none text-foreground md:hidden">
             {brandLabel}
           </span>
         )}

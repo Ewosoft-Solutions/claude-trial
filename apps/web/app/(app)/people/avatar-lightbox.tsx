@@ -49,7 +49,7 @@ export function AvatarLightbox({
             {initials(name)}
           </AvatarFallback>
         </Avatar>
-        <span className="font-display text-xl font-bold text-foreground">
+        <span className="font-display text-xl font-semibold text-foreground">
           {name}
         </span>
       </DialogContent>
