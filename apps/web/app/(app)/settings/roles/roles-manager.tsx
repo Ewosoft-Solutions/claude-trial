@@ -74,6 +74,7 @@ export interface RoleTemplate {
 interface AccessEntry {
   permission: string;
   label: string;
+  description: string | null;
   resource: string;
   action: string;
   context: string | null;
@@ -306,9 +307,15 @@ function EffectiveAccessView({ access }: { access: EffectiveAccess }) {
           e.resource.toLowerCase().includes(query) ||
           e.action.toLowerCase().includes(query) ||
           (e.context ?? '').toLowerCase().includes(query) ||
-          e.label.toLowerCase().includes(query),
+          e.label.toLowerCase().includes(query) ||
+          (e.description ?? '').toLowerCase().includes(query),
       )
     : access.entries;
+
+  // Formal permission name → human label, so the sensitive + SoD callouts read
+  // in plain language too (both only reference granted permissions).
+  const labelOf = new Map(access.entries.map((e) => [e.permission, e.label]));
+  const human = (name: string) => labelOf.get(name) ?? name;
 
   return (
     <div className="flex flex-col gap-4">
@@ -327,7 +334,7 @@ function EffectiveAccessView({ access }: { access: EffectiveAccess }) {
             {access.conflicts.map((c) => (
               <li key={`${c.a}-${c.b}`}>
                 <span className="font-medium text-foreground">
-                  {c.a} + {c.b}
+                  {human(c.a)} + {human(c.b)}
                 </span>{' '}
                 — {c.rule}
               </li>
@@ -343,7 +350,7 @@ function EffectiveAccessView({ access }: { access: EffectiveAccess }) {
           </span>
           {access.sensitive.map((s) => (
             <StatusBadge key={s} tone="destructive">
-              {s}
+              {human(s)}
             </StatusBadge>
           ))}
         </div>
@@ -370,15 +377,20 @@ function EffectiveAccessView({ access }: { access: EffectiveAccess }) {
                   key={e.permission}
                   className="flex items-start justify-between gap-3 p-2.5"
                 >
-                  <div className="flex min-w-0 flex-col">
-                    <span className="flex items-center gap-2 font-mono text-xs text-foreground">
-                      {e.permission}
+                  <div className="flex min-w-0 flex-col gap-0.5">
+                    <span className="flex items-center gap-2 text-sm font-medium text-foreground">
+                      {e.label}
                       {e.sensitive ? (
                         <StatusBadge tone="destructive">sensitive</StatusBadge>
                       ) : null}
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {e.label}
+                    {e.description ? (
+                      <span className="text-xs text-muted-foreground">
+                        {e.description}
+                      </span>
+                    ) : null}
+                    <span className="font-mono text-[calc(10.5px*var(--font-scale))] text-muted-foreground/80">
+                      {e.permission}
                       {e.sourcePool ? ` · ${e.sourcePool}` : ''}
                     </span>
                   </div>
