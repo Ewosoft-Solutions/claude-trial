@@ -34,6 +34,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
+import {
+  ToggleGroup,
+  ToggleGroupItem,
+} from '@workspace/ui/components/toggle-group';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
@@ -391,24 +395,22 @@ function CreatePolicyDialog({ catalogue }: { catalogue: CatalogueItem[] }) {
 
           <div className="flex flex-col gap-2">
             <Label>Discount</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={mode === 'percent' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setMode('percent')}
-              >
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              value={mode}
+              onValueChange={(v) => {
+                if (v) setMode(v as 'amount' | 'percent');
+              }}
+              className="justify-start"
+            >
+              <ToggleGroupItem value="percent" className="px-4">
                 Percentage
-              </Button>
-              <Button
-                type="button"
-                variant={mode === 'amount' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setMode('amount')}
-              >
+              </ToggleGroupItem>
+              <ToggleGroupItem value="amount" className="px-4">
                 Fixed amount
-              </Button>
-            </div>
+              </ToggleGroupItem>
+            </ToggleGroup>
             {mode === 'percent' ? (
               <Input
                 inputMode="decimal"

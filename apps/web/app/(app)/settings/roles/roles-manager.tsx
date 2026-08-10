@@ -46,6 +46,8 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { STEP_UP_OPERATION } from '@/lib/step-up';
+import { useStepUpAction } from '../../_shared/use-step-up-action';
 
 export interface ApiRole {
   id: string;
@@ -133,14 +135,6 @@ export function RolesManager({
   const [pageSize, setPageSize] = React.useState(DEFAULT_PAGE_SIZE);
 
   React.useEffect(() => setPage(1), [term, filters, pageSize]);
-
-  const roleTypes = React.useMemo(
-    () =>
-      Array.from(
-        new Set(roles.map((r) => r.roleType).filter(Boolean) as string[]),
-      ).sort(),
-    [roles],
-  );
 
   const columns: DirectoryColumn<ApiRole>[] = [
     {
@@ -252,23 +246,26 @@ export function RolesManager({
           label: 'Search roles',
           id: 'roles-search',
         }}
-        filters={
-          roleTypes.length > 1
-            ? [
-                {
-                  key: 'roleType',
-                  label: 'Type',
-                  options: roleTypes.map((t) => ({ value: t, label: t })),
-                },
-              ]
-            : []
-        }
+        filters={[
+          {
+            key: 'roleType',
+            label: 'Type',
+            // Stable options so the Filters control is always available — not
+            // derived from the rows present (which made it vanish once only
+            // system roles remained). Point 2 replaces this with template
+            // categories.
+            options: [
+              { value: 'system', label: 'System' },
+              { value: 'custom', label: 'Custom' },
+            ],
+          },
+        ]}
         filterValues={filters}
         onFilterChange={(key, value) =>
           setFilters((f) => ({ ...f, [key]: value }))
         }
         onClearFilters={() => setFilters({})}
-        toolbarActions={
+        headerActions={
           canManage ? (
             <RoleEditorDialog
               templates={templates}
@@ -398,11 +395,14 @@ function EffectiveAccessView({ access }: { access: EffectiveAccess }) {
   );
 }
 
-const SCOPE_TYPES = [
-  { value: 'global', label: 'Whole school (no scope)' },
-  { value: 'campus', label: 'A campus' },
-  { value: 'department', label: 'A department' },
-];
+/** A campus of the active tenant — the only thing a role can be scoped to
+ *  besides the whole school. Loaded from GET /api/campuses. */
+interface Campus {
+  id: string;
+  name: string;
+  code: string;
+  isPrimary?: boolean;
+}
 
 /* ---- Create a role from a template -------------------------------------- */
 
@@ -414,27 +414,55 @@ function RoleEditorDialog({
   maxClearance: number;
 }) {
   const router = useRouter();
+  const { requestStepUp, stepUpPrompt } = useStepUpAction();
   const [open, setOpen] = React.useState(false);
   const [templateKey, setTemplateKey] = React.useState('');
   const [name, setName] = React.useState('');
-  const [scopeType, setScopeType] = React.useState('global');
-  const [scopeLabel, setScopeLabel] = React.useState('');
+  const [scopeType, setScopeType] = React.useState<'global' | 'campus'>(
+    'global',
+  );
+  const [campusId, setCampusId] = React.useState('');
+  const [campuses, setCampuses] = React.useState<Campus[] | null>(null);
   const [preview, setPreview] = React.useState<EffectiveAccess | null>(null);
   const [busy, setBusy] = React.useState(false);
 
   const template = templates.find((t) => t.key === templateKey) ?? null;
   const clearance = Math.min(template?.clearanceLevel ?? 0, maxClearance);
 
+  const hasCampuses = (campuses?.length ?? 0) > 0;
+  const selectedCampus = campuses?.find((c) => c.id === campusId) ?? null;
+  // Whole-school (null) or a REAL campus of this tenant — never a free-text
+  // label. The stored scope carries the campus id + name so it resolves later.
   const scope =
-    scopeType === 'global'
-      ? null
-      : {
-          type: scopeType,
-          label: scopeLabel.trim() || undefined,
-          value: scopeLabel.trim()
-            ? scopeLabel.trim().toLowerCase().replace(/\s+/g, '-')
-            : undefined,
-        };
+    scopeType === 'campus' && selectedCampus
+      ? {
+          type: 'campus' as const,
+          value: selectedCampus.id,
+          label: selectedCampus.name,
+        }
+      : null;
+  // A campus scope with no campus chosen yet is incomplete — block create.
+  const scopeIncomplete = scopeType === 'campus' && !selectedCampus;
+
+  // The tenant's campuses are the only valid scope targets; load them when the
+  // dialog opens. A non-OK response (e.g. no campus.view) or an empty list
+  // simply means "whole school only" — it never blocks role creation.
+  React.useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch('/api/campuses', { cache: 'no-store' });
+        const data = res.ok ? ((await res.json()) as Campus[]) : [];
+        if (!cancelled) setCampuses(Array.isArray(data) ? data : []);
+      } catch {
+        if (!cancelled) setCampuses([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [open]);
 
   // Live preview whenever the draft changes.
   React.useEffect(() => {
@@ -469,20 +497,23 @@ function RoleEditorDialog({
       cancelled = true;
       clearTimeout(handle);
     };
-    // scope is derived from scopeType/scopeLabel; list those to avoid a new
+    // scope is derived from scopeType/campusId; list those to avoid a new
     // object identity re-triggering every render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, templateKey, name, scopeType, scopeLabel, clearance]);
+  }, [open, templateKey, name, scopeType, campusId, clearance]);
 
   const reset = () => {
     setTemplateKey('');
     setName('');
     setScopeType('global');
-    setScopeLabel('');
+    setCampusId('');
     setPreview(null);
   };
 
-  const create = async () => {
+  // Creating a role is a step-up-gated governance operation on the API, so we
+  // confirm identity first (the prompt no-ops when the tenant policy doesn't
+  // require MFA) and pass the resulting challenge id in the request body.
+  const create = async (stepUpChallengeId: string) => {
     if (!template) return;
     setBusy(true);
     try {
@@ -496,6 +527,7 @@ function RoleEditorDialog({
           permissionPoolIds: template.poolIds,
           templateKey: template.key,
           scope,
+          stepUpChallengeId: stepUpChallengeId || undefined,
         }),
       });
       if (!res.ok) {
@@ -573,31 +605,43 @@ function RoleEditorDialog({
           </div>
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="role-scope-type">Scope</Label>
-            <Select value={scopeType} onValueChange={setScopeType}>
+            <Select
+              value={scopeType}
+              onValueChange={(v) => setScopeType(v as 'global' | 'campus')}
+            >
               <SelectTrigger id="role-scope-type">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {SCOPE_TYPES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>
-                    {s.label}
-                  </SelectItem>
-                ))}
+                <SelectItem value="global">Whole school</SelectItem>
+                {hasCampuses ? (
+                  <SelectItem value="campus">Specific campus</SelectItem>
+                ) : null}
               </SelectContent>
             </Select>
+            {campuses !== null && !hasCampuses ? (
+              <span className="text-xs text-muted-foreground">
+                No campuses yet — this role applies to the whole school. Add
+                campuses in School settings to scope a role to one.
+              </span>
+            ) : null}
           </div>
-          {scopeType !== 'global' ? (
+          {scopeType === 'campus' ? (
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="role-scope-label">
-                {scopeType === 'campus' ? 'Campus' : 'Department'} name
-              </Label>
-              <Input
-                id="role-scope-label"
-                value={scopeLabel}
-                maxLength={80}
-                onChange={(e) => setScopeLabel(e.target.value)}
-                placeholder="e.g. Campus A"
-              />
+              <Label htmlFor="role-scope-campus">Campus</Label>
+              <Select value={campusId} onValueChange={setCampusId}>
+                <SelectTrigger id="role-scope-campus">
+                  <SelectValue placeholder="Choose a campus" />
+                </SelectTrigger>
+                <SelectContent>
+                  {(campuses ?? []).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.name}
+                      {c.isPrimary ? ' · primary' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           ) : null}
           <div className="flex items-center gap-2 sm:col-span-2">
@@ -607,8 +651,7 @@ function RoleEditorDialog({
             </StatusBadge>
             {scope ? (
               <span className="text-xs text-muted-foreground">
-                Scoped to {scope.label ?? scope.type}. Enforcement lands in a
-                later slice; the preview explains it now.
+                Scoped to {scope.label}.
               </span>
             ) : null}
           </div>
@@ -635,11 +678,26 @@ function RoleEditorDialog({
               Cancel
             </Button>
           </DialogClose>
-          <Button size="sm" disabled={busy || !template} onClick={create}>
+          <Button
+            size="sm"
+            disabled={busy || !template || scopeIncomplete}
+            onClick={() =>
+              requestStepUp(
+                {
+                  operation: STEP_UP_OPERATION.ROLES_CREATE,
+                  title: 'Confirm role creation',
+                  description:
+                    "Confirm it's you before creating a role that can grant access to school data.",
+                },
+                (challengeId) => create(challengeId),
+              )
+            }
+          >
             Create role
           </Button>
         </DialogFooter>
       </DialogContent>
+      {stepUpPrompt}
     </Dialog>
   );
 }

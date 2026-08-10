@@ -180,6 +180,9 @@ export interface DirectoryTableProps<TRow> {
   onHiddenColumnsChange?: (hiddenColumns: string[]) => void;
   /** Inline actions (e.g. a primary button) placed at the toolbar's end. */
   toolbarActions?: React.ReactNode;
+  /** Actions rendered on the title line instead of in the toolbar row — frees
+   *  the search box to take the full width on mobile. */
+  headerActions?: React.ReactNode;
   /** Empty-state slot (defaults to a generic EmptyState). */
   emptyState?: React.ReactNode;
   /** Accessible caption for the table. */
@@ -220,6 +223,7 @@ export function DirectoryTable<TRow>({
   hiddenColumns,
   onHiddenColumnsChange,
   toolbarActions,
+  headerActions,
   emptyState,
   caption,
   className,
@@ -314,6 +318,7 @@ export function DirectoryTable<TRow>({
       className={className}
       title={title}
       description={description}
+      headerActions={headerActions}
       loading={loading}
       empty={isEmpty || Boolean(error)}
       emptyState={

@@ -11,10 +11,11 @@ import {
   ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
-import { PrismaClient } from '@workspace/database';
+import { Prisma, PrismaClient } from '@workspace/database';
 import { withTenantScope } from '@workspace/database/rls';
 import { RoleType, ClearanceLevel } from '@workspace/api';
 import { MakerCheckerService } from './maker-checker.service';
+import { parseScope, type ScopeDescriptor } from './access-scope.service';
 
 /**
  * Custom Role Creation Input
@@ -323,6 +324,15 @@ export class RoleService {
       input.tenantId,
       input.createdBy,
       async (tx) => {
+        // A scope is either whole-school (null) or a REAL campus of this
+        // tenant — never an arbitrary label. Validated here so the stored
+        // scope always references a resolvable campus id.
+        const resolvedScope = await this.resolveRoleScope(
+          tx,
+          input.tenantId,
+          input.scope,
+        );
+
         // 3. Create role
         const role = await tx.role.create({
           data: {
@@ -334,7 +344,7 @@ export class RoleService {
             isSystemRole: false,
             isActive: !requiresApproval,
             createdBy: input.createdBy,
-            scope: (input.scope ?? undefined) as never,
+            scope: (resolvedScope ?? undefined) as never,
             templateKey: input.templateKey ?? undefined,
           },
         });
@@ -417,6 +427,41 @@ export class RoleService {
       approvalStatus: requiresApproval ? 'pending_approval' : 'active',
       approvalRequestId,
     };
+  }
+
+  /**
+   * Normalize a role's scope: whole-school (null) or a real campus of this
+   * tenant. Mirrors AccessGrantService.resolveScope — a campus scope must
+   * carry a `value` that resolves to one of the tenant's campuses, and we
+   * store the canonical `{ type, value: campusId, label: name }` so a role is
+   * never mapped to an arbitrary/non-existent campus. Runs on the caller's
+   * tenant-scoped transaction (RLS).
+   */
+  private async resolveRoleScope(
+    tx: Prisma.TransactionClient,
+    tenantId: string,
+    raw: object | null | undefined,
+  ): Promise<ScopeDescriptor | null> {
+    const scope = parseScope(raw);
+    if (!scope || scope.type === 'global') return null;
+    if (scope.type === 'campus') {
+      if (!scope.value) {
+        throw new BadRequestException('A campus scope needs a campus.');
+      }
+      const campus = await tx.campus.findFirst({
+        where: { id: scope.value, tenantId },
+        select: { id: true, name: true },
+      });
+      if (!campus) {
+        throw new BadRequestException(
+          'Scope campus not found for this tenant.',
+        );
+      }
+      return { type: 'campus', value: campus.id, label: campus.name };
+    }
+    // Unknown scope types are not persisted as a restriction (forward-compatible
+    // with AccessScopeService, which only enforces 'campus').
+    return null;
   }
 
   /**

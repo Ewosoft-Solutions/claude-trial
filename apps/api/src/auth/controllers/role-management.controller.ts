@@ -239,6 +239,7 @@ export class RoleManagementController {
     // Scoped: the OR spans global roles (tenant_id IS NULL, readable either
     // way under the nullable-tenant policy) and this tenant's custom roles,
     // which are not. Unscoped, the custom-role arm silently matches nothing.
+    // PLATFORM roles are Ewosoft-internal and never resolve in tenant context.
     const role = await withTenantScope(
       this.dbService.client,
       tenantId,
@@ -250,7 +251,7 @@ export class RoleManagementController {
             OR: [
               {
                 tenantId: null,
-                roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
+                roleType: RoleType.SYSTEM,
               },
               { tenantId, roleType: RoleType.CUSTOM },
             ],

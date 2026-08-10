@@ -22,6 +22,9 @@ export interface DataTableLayoutProps {
   title?: React.ReactNode;
   /** Optional sub-line beneath the title (count, scope). */
   description?: React.ReactNode;
+  /** Actions rendered on the title line (e.g. a primary "Add" button), kept
+   *  out of the toolbar row so search/filters get the full width on mobile. */
+  headerActions?: React.ReactNode;
   /** Right-aligned toolbar slot (search, filters, primary action). */
   toolbar?: React.ReactNode;
   /** Full-width row below the toolbar — e.g. applied-filter pills + clear-all. */
@@ -47,6 +50,7 @@ export interface DataTableLayoutProps {
 export function DataTableLayout({
   title,
   description,
+  headerActions,
   toolbar,
   filterBar,
   children,
@@ -59,7 +63,7 @@ export function DataTableLayout({
   footer,
   className,
 }: DataTableLayoutProps) {
-  const hasHeader = Boolean(title || description || toolbar);
+  const hasHeader = Boolean(title || description || headerActions || toolbar);
 
   return (
     <section
@@ -71,17 +75,24 @@ export function DataTableLayout({
     >
       {hasHeader ? (
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2.5 border-b border-border px-4 py-3.5 sm:px-6">
-          {title || description ? (
-            <div className="min-w-0 flex flex-col gap-0.5">
-              {title ? (
-                <h2 className="break-words text-sm font-bold text-foreground">
-                  {title}
-                </h2>
+          {title || description || headerActions ? (
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              {title || description ? (
+                <div className="flex min-w-0 flex-col gap-0.5">
+                  {title ? (
+                    <h2 className="break-words text-sm font-bold text-foreground">
+                      {title}
+                    </h2>
+                  ) : null}
+                  {description ? (
+                    <p className="break-words text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
+                      {description}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
-              {description ? (
-                <p className="break-words text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
-                  {description}
-                </p>
+              {headerActions ? (
+                <div className="ml-auto shrink-0">{headerActions}</div>
               ) : null}
             </div>
           ) : null}
