@@ -1,6 +1,49 @@
 import type { SessionLifecyclePolicy } from './session';
 
 export const ACTIVITY_STORAGE_KEY = 'swe:session-activity:v1';
+/** Snapshot of the effective lifecycle policy, persisted so pre-auth surfaces
+ *  (the resume trampoline) can make the idle decision without a live session. */
+export const SESSION_POLICY_STORAGE_KEY = 'swe:session-policy:v1';
+
+/** Last user-activity timestamp, or null when unset/unreadable. Shared so the
+ *  resume trampoline evaluates the idle deadline the same way the provider does. */
+export function readStoredActivity(): number | null {
+  try {
+    const value = Number(localStorage.getItem(ACTIVITY_STORAGE_KEY));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Persist the effective policy (survives app restarts) so the resume screen
+ *  can judge idle-expiry before it re-authenticates the user into the app. */
+export function writeStoredPolicy(policy: SessionLifecyclePolicy): void {
+  try {
+    localStorage.setItem(SESSION_POLICY_STORAGE_KEY, JSON.stringify(policy));
+  } catch {
+    // Storage may be disabled (Safari private mode / restricted webviews).
+  }
+}
+
+/** Read the persisted policy snapshot, or null when absent/malformed. */
+export function readStoredPolicy(): SessionLifecyclePolicy | null {
+  try {
+    const raw = localStorage.getItem(SESSION_POLICY_STORAGE_KEY);
+    if (!raw) return null;
+    const value = JSON.parse(raw) as Partial<SessionLifecyclePolicy>;
+    if (
+      typeof value.idleTimeoutMinutes === 'number' &&
+      typeof value.standardWarningSeconds === 'number' &&
+      typeof value.focusWarningSeconds === 'number'
+    ) {
+      return value as SessionLifecyclePolicy;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
 
 export type LifecycleDecision =
   | { type: 'none' }

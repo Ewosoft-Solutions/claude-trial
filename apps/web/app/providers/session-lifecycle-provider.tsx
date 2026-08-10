@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Clock3, ShieldCheck } from 'lucide-react';
+import { Clock3, LoaderCircle, ShieldCheck } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { toast } from 'sonner';
 
@@ -21,6 +21,8 @@ import type { Session } from '@/lib/session';
 import {
   ACTIVITY_STORAGE_KEY,
   evaluateSessionLifecycle,
+  readStoredActivity,
+  writeStoredPolicy,
 } from '@/lib/session-lifecycle';
 import { RESUMED_MODAL_STORAGE_KEY } from '@/app/session/resume/resume-session-client';
 import {
@@ -79,14 +81,11 @@ function safelyRemove(key: string) {
   }
 }
 
-function readStoredActivity(): number | null {
-  try {
-    const value = Number(localStorage.getItem(ACTIVITY_STORAGE_KEY));
-    return Number.isFinite(value) && value > 0 ? value : null;
-  } catch {
-    return null;
-  }
-}
+// useLayoutEffect on the client (runs before paint, so we can block the app
+// shell from flashing before an idle-logout redirect); a no-op useEffect on the
+// server to avoid React's SSR warning.
+const useIsomorphicLayoutEffect =
+  typeof window !== 'undefined' ? React.useLayoutEffect : React.useEffect;
 
 function readPendingModal(): string | null {
   try {
@@ -110,6 +109,27 @@ function formatCountdown(seconds: number): string {
   return `${minutes}:${remainder.toString().padStart(2, '0')}`;
 }
 
+/** Shown in place of the app while an idle/absolute-expiry sign-out completes,
+ *  so the user never sees their page render a beat before being redirected. */
+function SessionEndingScreen() {
+  return (
+    <main className="grid min-h-svh place-items-center bg-background px-6">
+      <div className="flex max-w-sm flex-col items-center gap-4 text-center">
+        <div className="relative grid size-16 place-items-center rounded-2xl bg-primary/10 text-primary">
+          <ShieldCheck className="size-7" aria-hidden />
+          <LoaderCircle
+            className="absolute -inset-1 size-[4.5rem] animate-spin text-primary/35 motion-reduce:animate-none"
+            aria-hidden
+          />
+        </div>
+        <p className="text-sm text-muted-foreground" aria-live="polite">
+          Signing you out…
+        </p>
+      </div>
+    </main>
+  );
+}
+
 export function SessionLifecycleProvider({
   session,
   children,
@@ -130,6 +150,9 @@ export function SessionLifecycleProvider({
   const refreshingRef = React.useRef(false);
   const [countdown, setCountdown] = React.useState<CountdownState | null>(null);
   const [warningError, setWarningError] = React.useState<string | null>(null);
+  // Blocks the app shell from rendering when we mount already idle-expired, so
+  // a returning user is never shown their page a beat before being signed out.
+  const [signingOut, setSigningOut] = React.useState(false);
   const [isRefreshing, startRefreshTransition] = React.useTransition();
 
   const persistActivity = React.useCallback((at: number, broadcast = true) => {
@@ -219,6 +242,35 @@ export function SessionLifecycleProvider({
       await performLogout('refresh_failed');
     }
   }, [performLogout]);
+
+  // Persist the effective policy so the pre-auth resume screen can judge idle
+  // expiry before it re-authenticates (see resume-session-client).
+  React.useEffect(() => {
+    writeStoredPolicy(session.sessionPolicy);
+  }, [session.sessionPolicy]);
+
+  // Pre-paint idle gate. If this shell mounts already past the logout deadline
+  // (e.g. a suspended PWA reopened while the access cookie was still valid, so
+  // no resume trampoline ran), sign out BEFORE the app renders — never flash the
+  // page then eject. The 1s evaluator below owns the steady state after mount.
+  useIsomorphicLayoutEffect(() => {
+    const storedActivity = readStoredActivity();
+    if (storedActivity == null) return;
+    const decision = evaluateSessionLifecycle({
+      now: Date.now(),
+      lastActivityAt: storedActivity,
+      absoluteExpiresAt: session.absoluteExpiresAt,
+      focusMode: false,
+      policy: session.sessionPolicy,
+    });
+    if (decision.type === 'idle-logout') {
+      setSigningOut(true);
+      void performLogout('idle');
+    } else if (decision.type === 'absolute-expiry') {
+      setSigningOut(true);
+      void performLogout('absolute_expiry');
+    }
+  }, [performLogout, session.absoluteExpiresAt, session.sessionPolicy]);
 
   React.useEffect(() => {
     const now = Date.now();
@@ -460,8 +512,8 @@ export function SessionLifecycleProvider({
 
   return (
     <SessionLifecycleContext.Provider value={contextValue}>
-      {children}
-      <Dialog open={Boolean(countdown)}>
+      {signingOut ? <SessionEndingScreen /> : children}
+      <Dialog open={Boolean(countdown) && !signingOut}>
         <DialogContent
           showCloseButton={false}
           onEscapeKeyDown={(event) => event.preventDefault()}
