@@ -78,24 +78,49 @@ openssl rand -hex 32      # app_runtime DB password (hex → safe in a connectio
 > certificate, so it does not stop an active man-in-the-middle between the client
 > and the database — an attacker who can intercept the connection sees every row
 > in plaintext. `verify-full` validates the certificate chain and the hostname.
-> This is already proven against Render: the `DEMO_DB` string in Step 5 uses it
-> successfully. If a connection that worked under `require` fails under
+> This is already proven against Render: the `demo` connection string in Step 4b
+> uses it successfully. If a connection that worked under `require` fails under
 > `verify-full`, that is the check doing its job — resolve the trust chain rather
 > than downgrading it back. (Caveat: node-`pg` has not historically implemented
 > libpq's sslmode semantics in full, so for the raw-`pg` scripts this is the
 > correct declaration but not by itself proof of verification — see Step 4b.)
 >
-> Note also that `packages/database/.env` defines a localhost `DATABASE_URL`.
-> Forgetting the inline prefix silently targets your **local** database rather
-> than failing loudly — always pass it explicitly for remote work.
+> Note also that `packages/database/.env` defines a localhost `DATABASE_URL`. The
+> `pnpm db:env <env>` runner used from Step 3 on removes the old footgun here: it
+> injects the named target's `DATABASE_URL` explicitly and prints the resolved
+> host before running, so remote work never silently falls back to your local
+> database. That localhost default only applies when you bypass `db:env`.
+
+## Step 2b — Define the `demo` target for `db:env`
+
+Every database script from here on (migrate, seed, verify, re-seed, backfill)
+runs through `pnpm db:env <env> <script>`, which injects the target's connection
+string instead of you exporting one per command. Set it up once:
+
+```bash
+cp scripts/db/environments.example.mjs scripts/db/environments.local.mjs
+```
+
+In `scripts/db/environments.local.mjs`, edit the `demo` entry:
+
+- `env.DATABASE_URL` → the **owner external** connection from Step 1, carrying
+  **both** `?sslmode=verify-full` and `&options=-c%20app.is_platform%3Don` (the
+  table in Step 4b explains why each is needed). The one owner URL serves both
+  migrations and seeding — the `options` GUC is inert during migration DDL and
+  required by the seed.
+- `env.SEED_ARCHITECT_EMAIL` → your architect address.
+
+The file is **gitignored — never commit it.** `db:env` prints the resolved host
+and asks you to confirm before any remote write; a `protected` entry (like the
+`prod` template) refuses dev seeds outright. Adding another environment later is
+just copying the object and editing the values.
 
 ## Step 3 — Apply migrations as the DB owner
 
 Creates every table **and** the `app_runtime` role (as `NOLOGIN`) + its grants.
 
 ```bash
-DATABASE_URL='<owner EXTERNAL conn from Step 1>' \
-  pnpm --filter @workspace/database db:deploy
+pnpm db:env demo db:deploy
 ```
 
 Expect "All migrations have been applied." (36 migrations.)
@@ -202,21 +227,21 @@ is the only control that reaches inside a backup.)
 
 The base seed creates system roles, permission pools, permissions, the platform
 tenant, and the 32 sensitive-operation policies. The app cannot function without
-it. Three things the connection string must carry:
+it. The `demo` target you defined in Step 2b must carry three things — this is
+where the two connection-string params earn their place:
 
 | Requirement | Why |
 | --- | --- |
-| `sslmode=verify-full` | Render refuses non-TLS external connections, and the seed's raw `pg` Pool only enables TLS when the URL asks for it (Prisma's migration engine negotiates it on its own, which is why Step 3 worked without it). `verify-full` rather than `require`: Prisma honours the distinction, and `require` never verifies the certificate. Note that node-`pg` has historically not implemented libpq's sslmode semantics in full, so for the raw-`pg` scripts treat `verify-full` as the correct *declaration* and confirm actual verification behaviour rather than assuming it — the guarantee is only as good as the client. |
+| `sslmode=verify-full` | Render refuses non-TLS external connections, and the seed's raw `pg` Pool only enables TLS when the URL asks for it (Prisma's migration engine negotiates TLS on its own, so Step 3's `db:deploy` would run even without this param — the raw-`pg` seed here would not). `verify-full` rather than `require`: Prisma honours the distinction, and `require` never verifies the certificate. Note that node-`pg` has historically not implemented libpq's sslmode semantics in full, so for the raw-`pg` scripts treat `verify-full` as the correct *declaration* and confirm actual verification behaviour rather than assuming it — the guarantee is only as good as the client. |
 | `options=-c%20app.is_platform%3Don` | Tables are `FORCE ROW LEVEL SECURITY`, so even the owner is subject to RLS, and the managed owner is **not** a superuser (unlike local/CI, where it is). Global rows (`tenant_id IS NULL`) can only be inserted through the ADR-004 platform branch. Scoped to this session only. |
-| `SEED_ARCHITECT_EMAIL` | Required in every environment; the seed has no built-in default. |
+| `SEED_ARCHITECT_EMAIL` | Required in every environment; the seed has no built-in default. Put it in the entry's `env` map (or export it inline — `db:env` passes existing env vars through). |
+
+With `demo` defined, seed then verify — `db:env` prints the resolved host and
+asks you to confirm the remote write before `db:seed` runs:
 
 ```bash
- export DEMO_DB='postgresql://<owner>:<pw>@<external-host>/<db>?sslmode=verify-full&options=-c%20app.is_platform%3Don'
-
-SEED_ARCHITECT_EMAIL='architect@yourdomain.com' DATABASE_URL="$DEMO_DB" \
-  pnpm --filter @workspace/database db:seed
-
-DATABASE_URL="$DEMO_DB" pnpm --filter @workspace/database db:verify
+pnpm db:env demo db:seed
+pnpm db:env demo db:verify
 ```
 
 Expect this to take a while against a remote database and to print little while
@@ -228,21 +253,22 @@ minutes; only its hash is stored) when you are ready to use it — never from a
 deploy pipeline, where it would land in the logs:
 
 ```bash
-SEED_ARCHITECT_EMAIL='architect@yourdomain.com' DATABASE_URL="$DEMO_DB" \
-  pnpm --filter @workspace/database run bootstrap:architect-token
+pnpm db:env demo bootstrap:architect-token
 ```
 
 Exchange it for a password of your choosing:
 `POST /auth/reset-password { "token": "<token>", "newPassword": "<chosen>" }`.
 
-**Optional — synthetic demo data.** Dev seeds refuse a non-local target unless
-you opt in explicitly, so pass `ALLOW_REMOTE_DEV_SEED_TARGET=true`. Run them in
-order; academics and operational data depend on the schools personas creates:
+**Optional — synthetic demo data.** Dev seeds refuse a non-local target unless the
+target opts in. The `demo` entry ships with `allowDevSeeds: true`, so `db:env`
+sets `ALLOW_REMOTE_DEV_SEED_TARGET` for you (an entry without it — or a
+`protected` one like `prod` — is refused). Run them in order; academics and
+operational data depend on the schools personas creates. `--yes` skips the
+per-iteration remote-write confirmation inside the loop:
 
 ```bash
 for s in db:seed:dev db:seed:academics db:seed:ops; do
-  DATABASE_URL="$DEMO_DB" ALLOW_REMOTE_DEV_SEED_TARGET=true \
-    pnpm --filter @workspace/database $s
+  pnpm db:env demo "$s" --yes
 done
 ```
 
@@ -270,15 +296,14 @@ wrong access.)
 **The base seed is idempotent and data-safe.** It upserts roles, pools,
 permissions, and their assignments; it does **not** touch tenant rows, user
 accounts, or seeded personas. Re-running it only reconciles the
-authorization catalog. Same connection-string requirements as Step 4b
-(`sslmode=verify-full`, `app.is_platform=on`, `SEED_ARCHITECT_EMAIL`):
+authorization catalog. Reuses the same `demo` entry as Step 4b (its
+`DATABASE_URL` already carries `sslmode=verify-full` + `app.is_platform=on`, plus
+`SEED_ARCHITECT_EMAIL`):
 
 ```bash
 # Migrations must already be applied (CD migrate job, or Step 3 manually).
-SEED_ARCHITECT_EMAIL='architect@yourdomain.com' DATABASE_URL="$DEMO_DB" \
-  pnpm --filter @workspace/database db:seed
-
-DATABASE_URL="$DEMO_DB" pnpm --filter @workspace/database db:verify
+pnpm db:env demo db:seed
+pnpm db:env demo db:verify
 ```
 
 **Two things that will bite — do not skip:**
@@ -320,11 +345,11 @@ re-seed the platform roles are briefly on the old catalog.
 > `ENCRYPTION_KEY` the API uses**, after migrations:
 >
 > ```bash
-> ENCRYPTION_KEY="$API_ENCRYPTION_KEY" DATABASE_URL="$DEMO_DB" \
->   pnpm --filter @workspace/database db:backfill:health-encryption
+> ENCRYPTION_KEY="$API_ENCRYPTION_KEY" pnpm db:env demo db:backfill:health-encryption
 > ```
 >
-> Idempotent (skips already-enveloped rows). Key rotation later uses
+> (`db:env` passes `ENCRYPTION_KEY` through and confirms the remote write; or put
+> it in the `demo` entry's `env` map.) Idempotent (skips already-enveloped rows). Key rotation later uses
 > `db:rotate:health-encryption` (OLD + NEW key) under a maintenance window.
 
 ## Step 5 — Render Key Value (Redis)
