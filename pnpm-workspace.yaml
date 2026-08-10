@@ -47,3 +47,10 @@ auditConfig:
     # expansion); the only patch (5.0.8) is incompatible with eslint's pinned
     # minimatch@3. See the brace-expansion overrides above.
     - 'GHSA-mh99-v99m-4gvg'
+    # uuid GHSA-w5hq-g745-h8pq — a bounds check missing ONLY in uuid v3/v5/v6
+    # when a caller supplies a `buf`. Reached here solely via exceljs (XLSX
+    # export), which uses uuid.v4() (random, no buffer), so the vulnerable path
+    # is never executed. The fix is uuid 11.1.1, but exceljs pins uuid@^8.3.0 —
+    # a 3-major override just to satisfy the scanner isn't worth the breakage
+    # risk given there's no runtime exposure.
+    - 'GHSA-w5hq-g745-h8pq'

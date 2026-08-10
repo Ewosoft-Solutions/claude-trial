@@ -8,6 +8,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { CommonModule } from '../common';
+import { TableExportService } from '../common/export/table-export.service';
 import { AuthController } from './auth.controller';
 import { MfaController } from './mfa.controller';
 import { BiometricsController } from './biometrics.controller';
@@ -102,6 +103,7 @@ import {
     // Authorization services
     PermissionService,
     AccessScopeService,
+    TableExportService,
     RoleService,
     RoleTemplateService,
     EffectiveAccessService,

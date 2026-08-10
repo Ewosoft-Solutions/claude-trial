@@ -70,6 +70,10 @@ import {
   type ToolbarViews,
 } from '@workspace/ui/custom/tables/directory-toolbar';
 import {
+  ExportMenu,
+  type ExportFormat,
+} from '@workspace/ui/custom/tables/export-menu';
+import {
   EmptyState,
   ErrorState,
 } from '@workspace/ui/custom/states/page-states';
@@ -183,6 +187,10 @@ export interface DirectoryTableProps<TRow> {
   /** Actions rendered on the title line instead of in the toolbar row — frees
    *  the search box to take the full width on mobile. */
   headerActions?: React.ReactNode;
+  /** When set, a CSV / XLSX / PDF Export dropdown appears in the toolbar and
+   *  calls back with the picked format (the consumer runs the download of all
+   *  rows matching the current filters). */
+  onExport?: (format: ExportFormat) => void | Promise<void>;
   /** Empty-state slot (defaults to a generic EmptyState). */
   emptyState?: React.ReactNode;
   /** Accessible caption for the table. */
@@ -224,6 +232,7 @@ export function DirectoryTable<TRow>({
   onHiddenColumnsChange,
   toolbarActions,
   headerActions,
+  onExport,
   emptyState,
   caption,
   className,
@@ -365,7 +374,16 @@ export function DirectoryTable<TRow>({
             onFilterChange={onFilterChange}
             onClearFilters={onClearFilters}
             views={views}
-            actions={toolbarActions}
+            actions={
+              onExport ? (
+                <>
+                  {toolbarActions}
+                  <ExportMenu onExport={onExport} />
+                </>
+              ) : (
+                toolbarActions
+              )
+            }
             columns={
               hideableColumns.length > 0
                 ? {
