@@ -7,12 +7,33 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
 import { SCHOOL_NAV } from '@/lib/navigation/app-navigation';
 
+/** A one-line description under each section title. Kept here (page content,
+ *  keyed by route) rather than in the nav config, which is navigation-only. */
+const SETTINGS_DESCRIPTIONS: Record<string, string> = {
+  '/settings/general':
+    "Your school's name, contact details, academic year, and locale.",
+  '/settings/branding': 'Logo, colours, and theme for your school workspace.',
+  '/settings/features': 'Turn optional modules on or off for your school.',
+  '/settings/security':
+    'Sign-in, session, and sensitive-operation policies for this school.',
+  '/settings/ai-usage':
+    'AI features, usage this month, and analytics settings.',
+  '/settings/roles':
+    'Build scoped roles from templates and preview their effective access.',
+  '/settings/users': 'Invite people and manage who has access to this school.',
+  '/settings/audit':
+    'A record of significant actions taken across this school.',
+};
+
 /** The section's own name is the page title — the active school is already
  *  shown in the top bar + school switcher, so a generic "School settings /
  *  <school>" heading is redundant (finance/students pages title themselves the
- *  same way). Derived from the single nav source of truth, so it never drifts
- *  as settings pages are added. */
-function settingsSectionTitle(pathname: string): string {
+ *  same way). Title is derived from the single nav source of truth, so it never
+ *  drifts as settings pages are added; the description is looked up by route. */
+function settingsSection(pathname: string): {
+  title: string;
+  description?: string;
+} {
   const section = SCHOOL_NAV.sections.find((s) => s.key === 'settings');
   const items = (section?.groups ?? []).flatMap((group) =>
     group.items.flatMap((item) => [item, ...(item.items ?? [])]),
@@ -24,7 +45,10 @@ function settingsSectionTitle(pathname: string): string {
         (pathname === item.href || pathname.startsWith(`${item.href}/`)),
     )
     .sort((a, b) => (b.href?.length ?? 0) - (a.href?.length ?? 0))[0];
-  return match?.label ?? 'School settings';
+  return {
+    title: match?.label ?? 'School settings',
+    description: match?.href ? SETTINGS_DESCRIPTIONS[match.href] : undefined,
+  };
 }
 
 /** School Settings behaves like every other primary navigation section: its
@@ -36,11 +60,12 @@ export default function SettingsSectionLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const { title, description } = settingsSection(pathname);
 
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
-        <PageHeader title={settingsSectionTitle(pathname)} />
+        <PageHeader title={title} description={description} />
         {children}
       </div>
     </ShellMain>
