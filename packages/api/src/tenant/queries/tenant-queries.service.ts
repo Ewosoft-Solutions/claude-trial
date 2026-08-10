@@ -355,14 +355,16 @@ export class TenantQueriesService {
   static async getTenantRoles(prisma: PrismaClient, tenantId: string) {
     // Scoped: the OR spans global roles (readable unscoped under the
     // nullable-tenant policy) and this tenant's custom roles, which are not.
+    // PLATFORM roles are Ewosoft-internal (platform staff) and must never
+    // surface in a school/tenant context — only SYSTEM (school) roles do.
     return withTenantScope(prisma, tenantId, undefined, (tx) =>
       tx.role.findMany({
         where: {
           OR: [
             {
               tenantId: null,
-              roleType: { in: [RoleType.PLATFORM, RoleType.SYSTEM] },
-            }, // System roles
+              roleType: RoleType.SYSTEM,
+            }, // System (school) roles
             { tenantId, roleType: RoleType.CUSTOM }, // Custom roles for this tenant
           ],
           isActive: true,

@@ -4,6 +4,9 @@ export const STEP_UP_OPERATION = {
   SECURITY_POLICY_UPDATE: 'security-policy.update',
   BIOMETRICS_ENROLL: 'biometrics.enroll',
   BIOMETRICS_REMOVE: 'biometrics.remove',
+  // Creating a custom role is a governance-sensitive operation (step-up-gated
+  // on the API); the prompt no-ops when the tenant policy doesn't require MFA.
+  ROLES_CREATE: 'roles.create',
   SYSTEM_CONFIGURATION: 'system.configuration',
   AI_SETTINGS_UPDATE: 'ai.settings.update',
   TENANT_PROVISION: 'tenant.provision',

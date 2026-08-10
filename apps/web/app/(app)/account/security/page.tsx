@@ -404,7 +404,11 @@ export default function SecuritySettingsPage() {
               <RefreshCw className="size-3 animate-spin" /> Loading…
             </p>
           ) : devices.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="flex items-center gap-2 text-sm text-[var(--warning)]">
+              <span
+                className="size-1.5 shrink-0 rounded-full bg-[var(--warning)]"
+                aria-hidden
+              />
               No devices enrolled yet.
             </p>
           ) : (

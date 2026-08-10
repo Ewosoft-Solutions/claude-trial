@@ -50,6 +50,7 @@ d('Role editor + effective access (WB1-5)', () => {
   let actorId: string;
   let poolId: string;
   let roleId: string;
+  let campusAId: string;
 
   // Real permission names so sensitive/SoD detection is meaningful; upserted so
   // the suite is safe whether or not the catalog is already seeded.
@@ -83,6 +84,14 @@ d('Role editor + effective access (WB1-5)', () => {
     ]);
     tenantAId = ta.id;
     tenantBId = tb.id;
+
+    // A real campus of tenant A — role scopes must reference an actual campus
+    // id (validated in createCustomRole), never an arbitrary label.
+    const campusA = await owner.campus.create({
+      data: { tenantId: tenantAId, name: 'Campus A', code: `CAMP-A-${stamp}` },
+      select: { id: true },
+    });
+    campusAId = campusA.id;
 
     const actor = await owner.user.create({
       data: { email: `role-actor-${stamp}@a.test`, isActive: true },
@@ -171,7 +180,7 @@ d('Role editor + effective access (WB1-5)', () => {
       createdBy: actorId,
       creatorClearanceLevel: 8,
       templateKey,
-      scope: { type: 'campus', value: 'campus-a', label: 'Campus A' },
+      scope: { type: 'campus', value: campusAId, label: 'Campus A' },
     });
     roleId = result.role.id;
 
@@ -180,7 +189,7 @@ d('Role editor + effective access (WB1-5)', () => {
       select: { scope: true, templateKey: true, clearanceLevel: true },
     });
     expect(row?.templateKey).toBe(templateKey);
-    expect(row?.scope).toMatchObject({ type: 'campus', value: 'campus-a' });
+    expect(row?.scope).toMatchObject({ type: 'campus', value: campusAId });
   });
 
   it('explains effective access: matrix + source pool + sensitive + SoD', async () => {
@@ -205,7 +214,7 @@ d('Role editor + effective access (WB1-5)', () => {
   it('explain(): allowed for a permission in scope, denied out of scope', async () => {
     const inScope = await effective.explainRole(appRuntime, tenantAId, roleId, {
       permission: 'fees.view',
-      targetScope: { type: 'campus', value: 'campus-a', label: 'Campus A' },
+      targetScope: { type: 'campus', value: campusAId, label: 'Campus A' },
     });
     expect(inScope.allowed).toBe(true);
     expect(inScope.sourcePool).toBe(poolName);

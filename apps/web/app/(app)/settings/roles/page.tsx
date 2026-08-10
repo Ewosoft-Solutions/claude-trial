@@ -1,6 +1,5 @@
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
-import { DataCard } from '../../_shared/data-card';
 import { RolesManager, type ApiRole, type RoleTemplate } from './roles-manager';
 
 interface UserProfile {
@@ -36,17 +35,10 @@ export default async function RolesSettingsPage() {
   }));
 
   return (
-    <DataCard
-      title="Roles"
-      count={rows.length}
-      unit="role"
-      description="Build a scoped role from a template and preview its effective access before you save."
-    >
-      <RolesManager
-        roles={rows}
-        templates={templates ?? []}
-        clearanceLevel={session?.clearanceLevel ?? 0}
-      />
-    </DataCard>
+    <RolesManager
+      roles={rows}
+      templates={templates ?? []}
+      clearanceLevel={session?.clearanceLevel ?? 0}
+    />
   );
 }
