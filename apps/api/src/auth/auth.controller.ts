@@ -703,7 +703,7 @@ export class AuthController {
         resource: 'session',
         actorId: user.userId,
         actorProfileId: user.profileId,
-        actorRole: user.roleId || null,
+        actorRole: user.roleName ?? null,
         description:
           logoutDto.reason === 'idle'
             ? 'User signed out after inactivity'

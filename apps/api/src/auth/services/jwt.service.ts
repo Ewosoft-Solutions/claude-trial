@@ -21,6 +21,10 @@ export interface JWTPayload {
   tenantId: string;
   profileId: string;
   roleId: string;
+  /** Human-readable role name at token-issue time — carried so the audit trail
+   *  records a name (not the role id). Optional: tokens issued before this was
+   *  added simply lack it. */
+  roleName?: string | null;
   iat?: number;
   exp?: number;
   type: JWTTokenType;
