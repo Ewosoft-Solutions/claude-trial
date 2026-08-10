@@ -11,14 +11,26 @@
 //
 //   pnpm db:env <envName> <db-script> [-- extra args]
 //
+//   pnpm db:env demo  db:deploy          # apply migrations
+//   pnpm db:env demo  db:seed            # base seed (roles/perms/architect)
+//   pnpm db:env demo  bootstrap:architect-token   # claim the Architect (below)
 //   pnpm db:env local db:verify
-//   pnpm db:env demo  db:seed
-//   pnpm db:env demo  db:seed:dev:full
+//   pnpm db:env demo  db:seed:dev:full   # synthetic data (dev seeds)
 //
 // `<db-script>` is any script in packages/database/package.json
-// (db:seed, db:seed:dev, db:seed:academics, db:seed:ops, db:verify,
-//  db:deploy, db:studio, …). The runner injects this environment's vars,
-// then runs `pnpm --filter @workspace/database run <db-script>`.
+// (db:deploy, db:seed, db:seed:dev, db:seed:academics, db:seed:ops, db:verify,
+//  bootstrap:architect-token, db:studio, …). The runner injects this
+// environment's vars, then runs `pnpm --filter @workspace/database run <db-script>`.
+//
+// Claiming the Architect: `db:seed` creates the Platform Architect with NO
+// password (no standing credential anywhere), so after seeding a fresh
+// environment you must mint a one-time claim token — it is deliberately NOT
+// minted during `db:seed` (that runs in CI/deploy logs). `bootstrap:architect-token`
+// reads this entry's `SEED_ARCHITECT_EMAIL`, prints a single-use token (30-min,
+// hash-only), which you exchange for a password of your choosing:
+//
+//   pnpm db:env demo bootstrap:architect-token
+//   # → POST /auth/reset-password { "token": "<printed>", "newPassword": "<chosen>" }
 //
 // ------------------------------------------------------------
 // Each environment is an object with the SAME shape ("template/class").
