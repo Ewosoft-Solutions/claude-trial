@@ -136,14 +136,6 @@ export function RolesManager({
 
   React.useEffect(() => setPage(1), [term, filters, pageSize]);
 
-  const roleTypes = React.useMemo(
-    () =>
-      Array.from(
-        new Set(roles.map((r) => r.roleType).filter(Boolean) as string[]),
-      ).sort(),
-    [roles],
-  );
-
   const columns: DirectoryColumn<ApiRole>[] = [
     {
       id: 'name',
@@ -254,17 +246,20 @@ export function RolesManager({
           label: 'Search roles',
           id: 'roles-search',
         }}
-        filters={
-          roleTypes.length > 1
-            ? [
-                {
-                  key: 'roleType',
-                  label: 'Type',
-                  options: roleTypes.map((t) => ({ value: t, label: t })),
-                },
-              ]
-            : []
-        }
+        filters={[
+          {
+            key: 'roleType',
+            label: 'Type',
+            // Stable options so the Filters control is always available — not
+            // derived from the rows present (which made it vanish once only
+            // system roles remained). Point 2 replaces this with template
+            // categories.
+            options: [
+              { value: 'system', label: 'System' },
+              { value: 'custom', label: 'Custom' },
+            ],
+          },
+        ]}
         filterValues={filters}
         onFilterChange={(key, value) =>
           setFilters((f) => ({ ...f, [key]: value }))
