@@ -39,6 +39,7 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { formatNaira as nairaFromKobo } from '@/lib/format';
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export interface FeeItem {
@@ -48,16 +49,6 @@ export interface FeeItem {
   /** Suggested amount in kobo, or null when the item has no default. */
   defaultAmount: number | null;
   active: boolean;
-}
-
-/** Full ₦ formatting from kobo — catalogue amounts are exact, not abbreviated. */
-function nairaFromKobo(kobo: number | null | undefined): string {
-  if (kobo == null) return '—';
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(kobo / 100);
 }
 
 /** Parse a ₦ amount (naira, optional decimals) into kobo; null when blank. */

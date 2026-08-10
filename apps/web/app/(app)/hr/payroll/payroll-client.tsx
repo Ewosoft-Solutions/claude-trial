@@ -57,12 +57,13 @@ const META: PageHeaderMeta[] = [
   { key: 'period', label: 'June 2026', emphasis: true },
 ];
 
+// Payroll amounts are already in naira (major units), so this doesn't divide by
+// 100. Always full: ₦ + thousands separators + 2 decimals, never abbreviated.
 function currency(n: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(n);
+  return `₦${(Number.isFinite(n) ? n : 0).toLocaleString('en-NG', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 }
 
 function initials(name: string): string {

@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Download } from 'lucide-react';
 
 import { serverApiGet } from '@/lib/server-api';
+import { formatNaira as nairaFromKobo } from '@/lib/format';
 import { Button } from '@workspace/ui/components/button';
 import {
   Card,
@@ -65,13 +66,6 @@ const STATUS_COLORS: Record<string, string> = {
 function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
   if (Array.isArray(payload)) return payload;
   return payload?.data ?? [];
-}
-
-function nairaFromKobo(kobo: number): string {
-  const naira = kobo / 100;
-  if (naira >= 1_000_000) return `₦${(naira / 1_000_000).toFixed(1)}M`;
-  if (naira >= 1_000) return `₦${Math.round(naira / 1_000)}k`;
-  return `₦${naira}`;
 }
 
 function percent(numerator: number, denominator: number): number {

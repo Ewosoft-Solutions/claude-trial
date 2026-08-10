@@ -60,15 +60,7 @@ export function useOverviewStats(): OverviewStatsResult {
   };
 }
 
-/** Format kobo (minor units) as a compact Naira amount, e.g. ₦12.4M, ₦3.1k. */
-export function formatNaira(kobo: number): string {
-  const naira = kobo / 100;
-  if (naira >= 1_000_000) return `₦${(naira / 1_000_000).toFixed(1)}M`;
-  if (naira >= 1_000) return `₦${(naira / 1_000).toFixed(1)}k`;
-  return `₦${naira.toFixed(0)}`;
-}
-
-/** Compact integer, e.g. 1,420. */
-export function formatCount(n: number): string {
-  return n.toLocaleString();
-}
+/** Money + count formatters live in one place (always full, never abbreviated);
+ *  re-exported here so the many dashboards importing from this module keep
+ *  working. See @/lib/format. */
+export { formatNaira, formatCount } from '@/lib/format';

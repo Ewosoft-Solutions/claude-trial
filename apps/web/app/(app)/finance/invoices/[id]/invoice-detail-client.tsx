@@ -53,6 +53,7 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { formatNaira as naira } from '@/lib/format';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../../_shared/use-step-up-action';
 
@@ -143,15 +144,6 @@ const ADJ_STATUS_META: Record<string, { label: string; tone: StateTone }> = {
 };
 
 /* ---- Money helpers ------------------------------------------------------ */
-
-function naira(kobo: number | null | undefined): string {
-  if (kobo == null) return '—';
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(kobo / 100);
-}
 
 function koboFromNaira(input: string): number | null {
   const t = input.trim();

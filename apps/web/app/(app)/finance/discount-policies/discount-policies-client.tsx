@@ -46,6 +46,7 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { formatNaira as naira } from '@/lib/format';
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export interface CatalogueItem {
@@ -73,14 +74,6 @@ const STATUS_META: Record<string, { label: string; tone: StateTone }> = {
   active: { label: 'Active', tone: 'success' },
   inactive: { label: 'Inactive', tone: 'neutral' },
 };
-
-function naira(kobo: number): string {
-  return new Intl.NumberFormat('en-NG', {
-    style: 'currency',
-    currency: 'NGN',
-    maximumFractionDigits: 0,
-  }).format(kobo / 100);
-}
 
 function koboFromNaira(input: string): number | null {
   const t = input.trim();
