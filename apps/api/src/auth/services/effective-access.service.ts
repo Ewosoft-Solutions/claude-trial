@@ -30,6 +30,8 @@ import type { ScopeDescriptor } from './access-scope.service';
 export interface AccessEntry {
   permission: string;
   label: string;
+  /** Plain-language description for UI rendering (from the permission catalog). */
+  description: string | null;
   resource: string;
   action: string;
   context: string | null;
@@ -111,6 +113,7 @@ type PoolWithPerms = {
       id: string;
       name: string;
       label: string;
+      description: string | null;
       resource: string;
       action: string;
       context: string | null;
@@ -181,6 +184,7 @@ export class EffectiveAccessService {
         byName.set(perm.name, {
           permission: perm.name,
           label: perm.label,
+          description: perm.description ?? null,
           resource: perm.resource,
           action: perm.action,
           context: perm.context ?? null,

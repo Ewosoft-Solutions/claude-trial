@@ -32,6 +32,8 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+
+import { humanizeSettingKey, humanizeValue } from '@/lib/humanize';
 import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../_shared/use-step-up-action';
@@ -253,7 +255,7 @@ export function AiSettingsClient({ settings, pending }: Props) {
                   <div className="flex flex-wrap gap-1.5">
                     {Object.entries(change.changes).map(([key, value]) => (
                       <StatusBadge key={key} tone="info">
-                        {key}: {String(value)}
+                        {humanizeSettingKey(key)}: {humanizeValue(value)}
                       </StatusBadge>
                     ))}
                   </div>
