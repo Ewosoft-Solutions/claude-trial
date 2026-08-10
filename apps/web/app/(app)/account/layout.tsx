@@ -66,7 +66,7 @@ export default function AccountLayout({
       <h1 id="account-settings-title" className="sr-only">
         Account & preferences
       </h1>
-      <div className="mx-auto grid h-full w-full overflow-hidden bg-background shadow-2xl sm:max-w-6xl sm:grid-cols-[15rem_minmax(0,1fr)] sm:rounded-2xl sm:border sm:border-border">
+      <div className="mx-auto grid h-full w-full grid-cols-1 overflow-hidden bg-background shadow-2xl sm:max-w-6xl sm:grid-cols-[15rem_minmax(0,1fr)] sm:rounded-2xl sm:border sm:border-border">
         <aside className="hidden border-r border-border bg-sidebar p-4 sm:flex sm:flex-col">
           <div className="px-2 pb-4 pt-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">

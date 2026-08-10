@@ -66,6 +66,20 @@ export function statCellSpanClass(wide: boolean): string {
   return wide ? 'col-span-2 @3xl/main:col-span-1' : '';
 }
 
+/**
+ * Whether a stat value needs a full-width ("wide") cell. Explicit `item.wide`
+ * always wins; otherwise a money amount is treated as wide automatically — a
+ * full `₦…` value (always produced by formatNaira) is long enough to clip a
+ * 2-up tile, especially at the largest text size. Keeps every money stat row
+ * money-safe without hand-tagging each one.
+ */
+export function isWideStat(item: StatItem): boolean {
+  if (item.wide != null) return item.wide;
+  return (
+    typeof item.value === 'string' && item.value.trimStart().startsWith('₦')
+  );
+}
+
 function DeltaGlyph({ direction }: { direction: StatDelta['direction'] }) {
   const Icon =
     direction === 'up'
@@ -174,7 +188,7 @@ export interface StatGridProps {
 }
 
 export function StatGrid({ items, className }: StatGridProps) {
-  const wideCells = items.map((item) => !!item.wide);
+  const wideCells = items.map(isWideStat);
   return (
     <div
       data-slot="stat-grid"
@@ -188,7 +202,7 @@ export function StatGrid({ items, className }: StatGridProps) {
         <StatCard
           key={item.key}
           item={item}
-          className={statCellSpanClass(!!item.wide)}
+          className={statCellSpanClass(isWideStat(item))}
         />
       ))}
     </div>
