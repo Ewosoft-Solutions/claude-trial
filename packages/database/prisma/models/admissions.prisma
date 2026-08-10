@@ -76,11 +76,13 @@ model AdmissionApplication {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant       Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  reviews      AdmissionReview[]
-  stageEvents  AdmissionStageEvent[]
-  guardians    AdmissionGuardian[]
-  requirements AdmissionApplicationRequirement[]
+  tenant        Tenant                            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  reviews       AdmissionReview[]
+  stageEvents   AdmissionStageEvent[]
+  guardians     AdmissionGuardian[]
+  requirements  AdmissionApplicationRequirement[]
+  formResponses AdmissionFormResponse[] // WB3-3 typed responses to the school's versioned form
+  interviews    AdmissionInterview[] // WB3-4 scheduled interviews / exams / quizzes
 
   @@index([tenantId])
   @@index([tenantId, stage])
@@ -248,5 +250,136 @@ model AdmissionStageEvent {
   @@index([applicationId])
   @@index([tenantId, applicationId])
   @@map("admission_stage_events")
+  @@schema("admissions")
+}
+
+// WB3-3 · a school-AUTHORED, VERSIONED application form. Beyond the fixed
+// structured intake (name/cascade/profile/guardians) + the requirements
+// checklist, a school configures its own questionnaire here. Editing a
+// published form forks a NEW draft version rather than mutating it, so a form
+// change never rewrites answers already captured (same immutability ethos as
+// the WB4 result snapshot + the AdmissionApplicationRequirement snapshot).
+// One PUBLISHED version is "current" at a time.
+model AdmissionFormVersion {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  version     Int // per-tenant sequential (1, 2, 3…)
+  title       String
+  description String?
+
+  // 'draft' | 'published' | 'archived'. A published version is immutable; a new
+  // draft supersedes it on publish (the prior published version is archived).
+  status String @default("draft")
+
+  // Ordered field definitions:
+  // [{ key, label, type, required, options?, help?, placeholder? }]
+  // type: 'text' | 'paragraph' | 'number' | 'date' | 'select' | 'multiselect' | 'boolean'
+  fields Json
+
+  publishedAt DateTime? @map("published_at")
+  publishedBy String?   @map("published_by")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  responses AdmissionFormResponse[]
+
+  @@unique([tenantId, version])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("admission_form_versions")
+  @@schema("admissions")
+}
+
+// WB3-3 · an application's typed answers to one form version. Snapshots the
+// version number + the field definitions at submission (fieldsSnapshot) so a
+// later form edit never rewrites this record. One response per application per
+// version; re-submitting the same version updates in place.
+model AdmissionFormResponse {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  applicationId String @map("application_id")
+  formVersionId String @map("form_version_id")
+
+  // Snapshotted from the form version at submission time.
+  formVersion    Int  @map("form_version")
+  fieldsSnapshot Json @map("fields_snapshot")
+
+  // Answers keyed by field key: { [fieldKey]: value }.
+  answers Json
+
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  submittedBy String?  @map("submitted_by")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  application    AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  // RESTRICT: a response snapshots a version — a published version referenced by
+  // any response must not be hard-deleted (versions are archived, not removed).
+  formVersionRef AdmissionFormVersion @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([applicationId, formVersionId])
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([tenantId, applicationId])
+  @@index([formVersionId])
+  @@map("admission_form_responses")
+  @@schema("admissions")
+}
+
+// WB3-4 · a scheduled interview / exam / screening on an application, with a
+// structured outcome. An 'exam' may carry an inline question paper (the
+// admission QUIZ, job 19) — the applicant's answers are auto-marked server-side
+// with the same objective-marking logic as assessment taking (reused via a
+// shared helper), producing the score + outcome. No class/enrollment needed
+// (applicants aren't students yet), so the questions live inline here rather
+// than in the class-scoped Assessment/Question tables.
+model AdmissionInterview {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  applicationId String @map("application_id")
+
+  kind  String // 'interview' | 'exam' | 'screening'
+  title String?
+  mode  String  @default("in_person") // 'in_person' | 'online' | 'phone'
+
+  location        String?
+  scheduledFor    DateTime? @map("scheduled_for")
+  durationMinutes Int?      @map("duration_minutes")
+  interviewerId   String?   @map("interviewer_id") // UserTenant soft ref
+
+  // 'scheduled' | 'completed' | 'cancelled' | 'no_show'
+  status String @default("scheduled")
+
+  // Structured outcome (recorded on completion).
+  outcome  String? // 'pass' | 'fail' | 'hold'
+  score    Int?
+  maxScore Int?    @map("max_score")
+  notes    String?
+
+  // Exam-kind quiz: the inline paper + the applicant's answers + marking flags.
+  // questions: [{ id, style, text, options?, correctAnswer?, points }]
+  // answers:   [{ questionId, answer }]
+  questions          Json?
+  answers            Json?
+  autoMarked         Boolean @default(false) @map("auto_marked")
+  needsManualGrading Boolean @default(false) @map("needs_manual_grading")
+
+  completedAt DateTime? @map("completed_at")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([applicationId])
+  @@index([tenantId, applicationId])
+  @@index([tenantId, status])
+  @@map("admission_interviews")
   @@schema("admissions")
 }

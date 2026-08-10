@@ -43,6 +43,41 @@ WB3-1 + WB3-2 acceptance scenarios pass end-to-end; the flat stub + its privileg
 
 ---
 
+## WB3-3 + WB3-4 shipped — `2026-08-11` (branch `feat/wb3-forms-interviews`)
+
+**Completes the workbench** — the two remaining unblocked backlog items. **Zero new permissions
+(stays 352)**; new migration `20260811000000_admissions_forms_interviews` (+3 RLS
+tables); no privileged client. Unit specs + **admissions-forms e2e 6/6 real-pg** (RLS isolation
+proven); the WB3-1/2 admissions e2e stays 14/14.
+
+- **WB3-3 · versioned application form + typed responses (job 15).** A school authors its own
+  questionnaire beyond the fixed structured intake: **`AdmissionFormVersion`** (draft → published →
+  archived; a published version is **immutable**, editing forks a new draft, one published version
+  is "current") with ordered **typed field defs** (`text | paragraph | number | date | select |
+  multiselect | boolean`), and **`AdmissionFormResponse`** — an application's answers **validated by
+  field type** then **snapshotting** the version number + field defs (FK **RESTRICT**), so a later
+  form edit never rewrites captured answers (same immutability ethos as WB4 results + the
+  requirement snapshot). Form builder at `/admissions/forms` (`admissions.criteria`); a per-
+  application form panel captures/updates the response (`admissions.create`).
+- **WB3-4 · interview / exam scheduling + outcome + admission quiz (jobs 18+19).**
+  **`AdmissionInterview`** — a scheduled `interview | exam | screening` with a structured outcome
+  (`pass | fail | hold` + score + notes). An **exam** may carry an **inline question paper** (the
+  admission quiz): the applicant's answers are **auto-marked server-side** by the SAME objective
+  marker as classroom assessments — extracted to a shared `common/academics/objective-marking.ts`
+  (`markObjective`) and reused by both `AssessmentTakingService` and the quiz (no class/enrollment
+  needed, questions live inline). An essay parks `needsManualGrading` for a human to finalise via
+  the outcome action. All gated `admissions.interviews` (existing). Scheduling + outcomes + quiz on
+  the application detail page.
+- **Also hardened:** `serverApiGet` now treats an empty `200` body as `null` (a nullable endpoint
+  like "no published form yet" returns an empty body → `res.json()` used to throw "Unexpected end of
+  JSON input"). Aligns with the defensive-data-access golden rule.
+
+**Deferred:** WB3-5 admission fee/deposit — now `ready` (WB5 P1 landed), a finance-coupling
+fast-follow. Applicant self-service portal for form-fill (staff capture now; public portal is a
+later F5/WB6 surface).
+
+---
+
 ## Structured-intake redesign — `2026-08-06` (owner-driven, branch `feat/wb3-admissions-structured-intake`)
 
 **Why:** the free-text "Applying for" made admissions a parallel list a school had to reconcile with its real classes. The redesign sources intake from the school's **own** structure and captures the full applicant record up front, so an admit converts with **zero re-keying** and the school keeps no separate list.

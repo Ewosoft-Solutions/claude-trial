@@ -11,7 +11,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ExternalLink, Loader2, Plus, Search } from 'lucide-react';
+import { ExternalLink, FileText, Loader2, Plus, Search } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
@@ -86,11 +86,21 @@ export function AdmissionsWorkspace({
             className="pl-8"
           />
         </div>
-        {perms.create && (
-          <Button onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 size-4" aria-hidden /> New application
-          </Button>
-        )}
+        <div className="flex items-center gap-2">
+          {perms.criteria && (
+            <Button asChild variant="outline">
+              <Link href="/admissions/forms">
+                <FileText className="mr-1 size-4" aria-hidden /> Application
+                form
+              </Link>
+            </Button>
+          )}
+          {perms.create && (
+            <Button onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1 size-4" aria-hidden /> New application
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="overflow-hidden rounded-lg border border-border">

@@ -68,7 +68,13 @@ export async function serverApiGet<T>(path: string): Promise<T | null> {
     cache: 'no-store',
   });
 
-  if (res.ok) return res.json() as Promise<T>;
+  if (res.ok) {
+    // A nullable endpoint (e.g. "no published form yet") returns HTTP 200 with an
+    // EMPTY body — `res.json()` would throw "Unexpected end of JSON input" on it.
+    // Treat an empty body as `null` so callers render an empty state, not a crash.
+    const text = await res.text();
+    return (text ? (JSON.parse(text) as T) : null) as T | null;
+  }
 
   // Expected empty-state outcomes: the caller lacks access or the record is
   // gone. These are legitimately "render nothing", not bugs.

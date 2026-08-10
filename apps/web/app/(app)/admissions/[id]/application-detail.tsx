@@ -35,11 +35,16 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
 import { RequirementsPanel } from './requirements-panel';
+import { FormResponsePanel } from './form-response-panel';
+import { InterviewsPanel } from './interviews-panel';
 import {
   STAGE_TONE,
   errorMessage,
   fmtDate,
   type ApplicationDetail,
+  type FormResponse,
+  type FormVersion,
+  type Interview,
   type Perms,
   type SectionOption,
   type YearOption,
@@ -60,12 +65,18 @@ export function ApplicationDetailView({
   sections,
   years,
   configByRequirementId,
+  currentForm,
+  formResponse,
+  interviews,
 }: {
   detail: ApplicationDetail;
   perms: Perms;
   sections: SectionOption[];
   years: YearOption[];
   configByRequirementId: Record<string, Record<string, unknown> | undefined>;
+  currentForm: FormVersion | null;
+  formResponse: FormResponse | null;
+  interviews: Interview[];
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
@@ -217,6 +228,44 @@ export function ApplicationDetailView({
               requirements={detail.requirements}
               configByRequirementId={configByRequirementId}
               canManage={perms.documents}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Application form (WB3-3) + Interviews/exams (WB3-4) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Application form</CardTitle>
+            <CardDescription>
+              The school&rsquo;s own questionnaire — typed answers captured
+              against the published form version.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <FormResponsePanel
+              applicationId={detail.id}
+              form={currentForm}
+              response={formResponse}
+              perms={perms}
+            />
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Interviews &amp; exams</CardTitle>
+            <CardDescription>
+              Schedule interviews, screenings and exams; record outcomes and
+              auto-mark the admission quiz.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <InterviewsPanel
+              applicationId={detail.id}
+              interviews={interviews}
+              canManage={perms.interviews}
             />
           </CardContent>
         </Card>

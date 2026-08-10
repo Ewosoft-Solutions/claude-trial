@@ -61,6 +61,7 @@ export default async function AdmissionsPage() {
           convert: permissions.includes('admissions.convert'),
           documents: permissions.includes('admissions.documents'),
           criteria: permissions.includes('admissions.criteria'),
+          interviews: permissions.includes('admissions.interviews'),
         }}
         applications={applications ?? []}
         structure={structure ?? EMPTY_STRUCTURE}

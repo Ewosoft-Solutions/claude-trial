@@ -5,7 +5,7 @@
  * are enforced server-side.
  */
 import { NextRequest } from 'next/server';
-import { proxyGet, proxyPatch, proxyPost } from '@/lib/api-proxy';
+import { proxyGet, proxyPatch, proxyPost, proxyPut } from '@/lib/api-proxy';
 
 async function upstreamPath(
   params: Promise<{ path?: string[] }>,
@@ -33,4 +33,12 @@ export async function PATCH(
   ctx: { params: Promise<{ path?: string[] }> },
 ) {
   return proxyPatch(req, await upstreamPath(ctx.params));
+}
+
+// WB3-3 form-response upsert uses PUT (capture / update an application's answers).
+export async function PUT(
+  req: NextRequest,
+  ctx: { params: Promise<{ path?: string[] }> },
+) {
+  return proxyPut(req, await upstreamPath(ctx.params));
 }

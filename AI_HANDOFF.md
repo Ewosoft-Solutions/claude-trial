@@ -1,6 +1,37 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-05
+Last Updated: 2026-08-11
+
+---
+
+## Session Summary (2026-08-11) — Claude: WB3-3 + WB3-4 built to DoD → completes WB3 (admissions)
+
+**Item(s):** **WB3-3 (versioned application form + typed responses)** + **WB3-4 (interview/exam scheduling + admission quiz)** on one branch `feat/wb3-forms-interviews` (finish the remaining unblocked workbench items in one session). With these, the admissions front-door is complete; **WB3-5 (admission fee/deposit) flips `blocked → ready`** (its WB5 blocker is cleared by the merged finance P1).
+
+**What changed & why**
+
+- **WB3-3 · Versioned application form + typed responses (job 15).** A school authors its own questionnaire beyond the fixed structured intake.
+  - **Domain (`packages/database`):** `admissions.AdmissionFormVersion` (per-tenant, `version` sequential, `status` draft|published|archived, ordered typed `fields` JSON: `text|paragraph|number|date|select|multiselect|boolean`) — a published version is **immutable**, editing forks a new draft, exactly one published version is "current"; `admissions.AdmissionFormResponse` — an application's answers **validated by field type** then **snapshotting** the version number + field defs (FK **RESTRICT**) so a later form edit never rewrites captured answers.
+  - **API (`apps/api/src/admissions`):** `AdmissionFormsService` + `AdmissionFormsController` — `TenantDbService`-only, audited. Builder `GET/POST/PATCH /admissions/forms[/:id][/publish|/archive]` (`admissions.criteria`); response `GET/PUT /admissions/applications/:id/form-response` (view / `admissions.create`).
+- **WB3-4 · Interview/exam scheduling + outcome + admission quiz (jobs 18+19).**
+  - **Domain:** `admissions.AdmissionInterview` — a scheduled `interview|exam|screening` with a structured outcome (`pass|fail|hold` + score + notes). An **exam** may carry an **inline question paper** (the quiz): answers `questions`/`answers` JSON, auto-mark flags.
+  - **Reuse:** extracted the objective marker from `assessment-taking.service.ts` to a shared `common/academics/objective-marking.ts` (`markObjective`), now used by **both** `AssessmentTakingService` AND the admission quiz — the quiz auto-marks objective questions server-side (no class/enrollment; questions inline), essays park `needsManualGrading` for a human to finalise via the outcome action.
+  - **API:** `AdmissionInterviewsService` + `AdmissionInterviewsController` at `/admissions/{applications/:id/interviews | interviews/:iid/(cancel|outcome|quiz)}` — all `admissions.interviews` (existing).
+- **Permissions:** **zero new — stays 352** (reuses `admissions.view`/`.create`/`.criteria`/`.interviews`). `db:verify` 352/32 unchanged.
+- **Migration:** `20260811000000_admissions_forms_interviews` — hand-written SQL, +3 tables with own+platform RLS + `app_runtime` grant (mirrors the structured-intake migration); no privileged client.
+- **Web (`apps/web`):** form builder at `/admissions/forms` (draft editor: typed field rows + publish/archive); on the application detail — a **form-response panel** (renders the current published form, captures/updates typed answers) + an **interviews/exams panel** (schedule, record outcome, cancel/no-show, and an inline quiz-answer entry that auto-marks). Workspace header gains an "Application form" entry. `PUT` added to the `/api/admissions` proxy; `interviews` added to the admissions `Perms`.
+- **Also hardened:** `serverApiGet` now treats an empty `200` body as `null` — a nullable endpoint (e.g. "no published form yet") returns an empty body and `res.json()` was throwing "Unexpected end of JSON input" (SSR crash). Aligns with the defensive-data-access golden rule.
+
+**Verification run + result**
+
+- `ci:quick` (build + lint + typecheck) ✔ (web lint `--max-warnings 0` clean; api lint 0 errors) · prettier (changed files) ✔
+- `check:privileged-db` ✔ (no new privileged usage) · `db:rls:check` ✔ (3 new tables) · `db:verify` **352 perms / 32 sensitive-ops** (the "Platform Bootstrap" verify item fails **locally only** by seed design — unrelated).
+- api unit **19/19** in the touched suites (new `objective-marking.spec.ts` 4 + `assessment-taking` unchanged behaviour + admissions splitter) · **admissions-forms e2e 6/6 on real pg** (version supersede+immutable · typed-answer validation + snapshot · interview outcome · exam quiz auto-mark + essay→manual · non-exam quiz refused · **RLS isolation on the 3 new tables**) · existing **admissions e2e 14/14** (no regression).
+- **Browser walkthrough (owner@sunrise.test):** built + published form v1 → captured a typed response ("Update response") → scheduled an exam with an MCQ → entered the answer → **auto-marked 1/1, status completed**. All green.
+
+**What's next**
+
+- Owner reviews → open PR → CI green → merge → WB3-3 + WB3-4 `done` = **WB3 complete**. Then WB3-5 (admission fee/deposit, now `ready`) as a finance-coupling fast-follow, and the applicant self-service form-fill portal (F5/WB6 surface).
 
 ---
 

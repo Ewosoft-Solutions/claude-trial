@@ -108,7 +108,144 @@ export interface Perms {
   convert: boolean;
   documents: boolean;
   criteria: boolean;
+  interviews: boolean;
 }
+
+// ---- WB3-3 versioned application form + typed responses ----
+export type FormFieldType =
+  | 'text'
+  | 'paragraph'
+  | 'number'
+  | 'date'
+  | 'select'
+  | 'multiselect'
+  | 'boolean';
+
+export const FORM_FIELD_TYPES: FormFieldType[] = [
+  'text',
+  'paragraph',
+  'number',
+  'date',
+  'select',
+  'multiselect',
+  'boolean',
+];
+
+export const FORM_FIELD_TYPE_LABEL: Record<FormFieldType, string> = {
+  text: 'Short text',
+  paragraph: 'Paragraph',
+  number: 'Number',
+  date: 'Date',
+  select: 'Single choice',
+  multiselect: 'Multiple choice',
+  boolean: 'Yes / no',
+};
+
+export interface FormFieldDef {
+  key: string;
+  label: string;
+  type: FormFieldType;
+  required?: boolean;
+  options?: string[];
+  help?: string;
+  placeholder?: string;
+}
+
+export interface FormVersion {
+  id: string;
+  version: number;
+  title: string;
+  description?: string | null;
+  status: 'draft' | 'published' | 'archived';
+  fields: FormFieldDef[];
+  publishedAt?: string | null;
+  updatedAt?: string | null;
+}
+
+export interface FormResponse {
+  id: string;
+  formVersionId: string;
+  formVersion: number;
+  fieldsSnapshot: FormFieldDef[];
+  answers: Record<string, unknown>;
+  submittedAt: string;
+}
+
+export const FORM_STATUS_TONE: Record<string, StateTone> = {
+  draft: 'warning',
+  published: 'success',
+  archived: 'neutral',
+};
+
+// ---- WB3-4 interviews / exams + admission quiz ----
+export type InterviewKind = 'interview' | 'exam' | 'screening';
+export const INTERVIEW_KINDS: InterviewKind[] = [
+  'interview',
+  'exam',
+  'screening',
+];
+export const INTERVIEW_MODES = ['in_person', 'online', 'phone'] as const;
+export type QuizStyle = 'mcq' | 'true_false' | 'short_answer' | 'essay';
+export const QUIZ_STYLES: QuizStyle[] = [
+  'mcq',
+  'true_false',
+  'short_answer',
+  'essay',
+];
+
+export interface QuizQuestion {
+  id: string;
+  style: QuizStyle;
+  text: string;
+  options?: string[];
+  correctAnswer?: string | null;
+  points: number;
+}
+
+export interface QuizAnswer {
+  questionId: string;
+  answer: string;
+}
+
+export interface Interview {
+  id: string;
+  kind: InterviewKind;
+  title?: string | null;
+  mode: (typeof INTERVIEW_MODES)[number];
+  location?: string | null;
+  scheduledFor?: string | null;
+  durationMinutes?: number | null;
+  interviewerId?: string | null;
+  status: 'scheduled' | 'completed' | 'cancelled' | 'no_show';
+  outcome?: string | null;
+  score?: number | null;
+  maxScore?: number | null;
+  notes?: string | null;
+  questions?: QuizQuestion[] | null;
+  answers?: QuizAnswer[] | null;
+  autoMarked: boolean;
+  needsManualGrading: boolean;
+  completedAt?: string | null;
+}
+
+export const INTERVIEW_STATUS_TONE: Record<string, StateTone> = {
+  scheduled: 'info',
+  completed: 'success',
+  cancelled: 'neutral',
+  no_show: 'destructive',
+};
+
+export const INTERVIEW_OUTCOME_TONE: Record<string, StateTone> = {
+  pass: 'success',
+  fail: 'destructive',
+  hold: 'warning',
+};
+
+export const MODE_LABEL: Record<string, string> = {
+  in_person: 'In person',
+  online: 'Online',
+  phone: 'Phone',
+};
 
 export const GUARDIAN_RELATIONSHIPS = [
   'father',
@@ -150,6 +287,17 @@ export function fmtDate(date?: string | null): string {
   if (!date) return '—';
   const d = new Date(date);
   return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+}
+
+export function fmtDateTime(date?: string | null): string {
+  if (!date) return '—';
+  const d = new Date(date);
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleString(undefined, {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+      });
 }
 
 export async function errorMessage(
