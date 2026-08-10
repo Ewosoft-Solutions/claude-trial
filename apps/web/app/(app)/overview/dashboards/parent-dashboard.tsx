@@ -39,10 +39,12 @@ import {
 import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { greeting, useGreetingSubtitle } from './greeting';
+import { formatNaira } from '@/lib/format';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
 import { RefreshButton } from '../../_shared/refresh-button';
@@ -87,10 +89,6 @@ interface ChildSummary {
   feeBalance: number;
 }
 
-function formatNaira(minorUnits: number) {
-  return `₦${(minorUnits / 100).toLocaleString('en-NG', { maximumFractionDigits: 0 })}`;
-}
-
 /** Averages non-null percentages across children; null when none have data yet. */
 function averagePercent(values: Array<number | null>): number | null {
   const present = values.filter((v): v is number => v !== null);
@@ -108,6 +106,7 @@ export function ParentDashboard({ userName, schoolName }: Props) {
     data,
     error: loadError,
     isValidating: refreshing,
+    isLoading: loading,
     mutate,
   } = useSWR<{ children: ChildSummary[] }>('/api/parent-portal/children');
   const children = data?.children ?? null;
@@ -182,6 +181,7 @@ export function ParentDashboard({ userName, schoolName }: Props) {
         },
         {
           key: 'fee',
+          wide: true,
           label: 'Fee balance',
           value: formatNaira(view.feeBalance),
           icon: <Banknote />,
@@ -199,6 +199,10 @@ export function ParentDashboard({ userName, schoolName }: Props) {
     : [];
 
   const subtitle = useGreetingSubtitle();
+
+  if (loading) {
+    return <DashboardPageSkeleton stats={3} wideStats={[false, false, true]} />;
+  }
 
   return (
     <ShellMain>
@@ -230,7 +234,7 @@ export function ParentDashboard({ userName, schoolName }: Props) {
             }
           />
         }
-        stats={<StatGrid items={stats} minTileWidth={150} />}
+        stats={<StatGrid items={stats} />}
         aside={
           <DashboardQuickActions
             actions={QUICK_ACTIONS}

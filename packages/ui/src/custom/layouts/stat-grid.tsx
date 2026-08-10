@@ -10,7 +10,6 @@
    Data-driven (StatItem[]); no embedded copy.
    ============================================================ */
 
-import * as React from 'react';
 import { ArrowDownRight, ArrowUpRight, Minus } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
@@ -29,6 +28,42 @@ function deltaToneClass(delta: StatDelta): string {
   if (intent === 'positive') return 'text-success';
   if (intent === 'negative') return 'text-destructive';
   return 'text-muted-foreground';
+}
+
+/**
+ * Grid classes for a KPI stat row — shared by StatGrid AND its skeleton so they
+ * lay out identically (no column shift when data replaces the skeleton). Driven
+ * by which cells hold a long (`wide`) value.
+ *
+ * When NO cell is wide: the dense short-value layout (2 columns on mobile → 3/4
+ * on desktop).
+ *
+ * When SOME cells are wide (a full money amount — e.g. ₦100,000,000,000.00 is
+ * ~257px on a phone / 304px on desktop at the largest text size, far more than a
+ * ~150–170px 2-up phone tile): a 2-column mobile grid where the wide cells span
+ * BOTH columns (money 1-up, full width) and the short cells pair up 2-across and
+ * flow around them (`grid-flow-dense` fills the gaps) — so space is still used
+ * well. On very wide desktops (@6xl) it's 3 columns and, via
+ * {@link statCellSpanClass}, wide cells drop back to one column at @3xl where a
+ * single column is already wide enough.
+ */
+export function statGridClass(wideCells: readonly boolean[]): string {
+  const count = wideCells.length;
+  if (count <= 1) return 'grid-cols-1';
+  if (!wideCells.some(Boolean)) {
+    if (count === 2) return 'grid-cols-2';
+    if (count === 3 || count === 5 || count === 6)
+      return 'grid-cols-2 @2xl/main:grid-cols-3';
+    return 'grid-cols-2 @4xl/main:grid-cols-4';
+  }
+  return 'grid-flow-dense grid-cols-2 @6xl/main:grid-cols-3';
+}
+
+/** Per-cell span for a wide (long-value) cell in a {@link statGridClass} grid:
+ *  full width on phones, back to one column at @3xl (~768px) where a single
+ *  column is already wide enough for a full money amount at 110%. */
+export function statCellSpanClass(wide: boolean): string {
+  return wide ? 'col-span-2 @3xl/main:col-span-1' : '';
 }
 
 function DeltaGlyph({ direction }: { direction: StatDelta['direction'] }) {
@@ -65,8 +100,10 @@ export function StatCard({ item, className }: StatCardProps) {
           </span>
         ) : null}
       </div>
-      {/* Stat value in the dedicated stat face (--font-stat / Libertinus Mono,
-          set in ui globals.css). font-stat is the single knob for every KPI. */}
+      {/* Stat value in the dedicated stat face (--font-stat, set in ui
+          globals.css). font-stat is the single knob for every KPI. Long values
+          (full money) are given room by a `wide` item taking a full-width cell
+          on narrow screens — see statGridClass / statCellSpanClass. */}
       <div className="mt-2 font-stat text-[calc(22px*var(--font-scale))] font-bold leading-none text-foreground tabular-nums sm:text-[calc(26px*var(--font-scale))]">
         {item.value}
       </div>
@@ -129,72 +166,30 @@ export function StatCard({ item, className }: StatCardProps) {
 
 export interface StatGridProps {
   items: StatItem[];
-  /**
-   * Preferred minimum tile width. Smaller values opt into the denser
-   * responsive breakpoints sooner. Defaults to 200px.
-   */
+  /** @deprecated No longer affects layout — a tile's width is content-driven by
+   *  its own `wide` flag (StatItem.wide). Accepted only so existing call sites
+   *  keep type-checking. */
   minTileWidth?: number;
   className?: string;
 }
 
-/**
- * Pick a desktop column count that keeps the final row visually balanced.
- * In particular, five and six tiles use three columns instead of producing
- * 4 + 1 or 4 + 2 arrangements. Larger sets favour four columns unless three
- * produces a completely even grid.
- */
-function preferredColumnCount(itemCount: number): 1 | 2 | 3 | 4 {
-  if (itemCount <= 1) return 1;
-  if (itemCount === 2) return 2;
-  if (itemCount === 3) return 3;
-  if (itemCount === 4) return 4;
-  if (itemCount === 5 || itemCount === 6 || itemCount === 9) return 3;
-  return 4;
-}
-
-function responsiveColumnClass(
-  columns: 1 | 2 | 3 | 4,
-  compact: boolean,
-): string {
-  // Mobile shows TWO columns (the tiles are compact and there's ample width);
-  // a single stat still spans the row on its own.
-  if (columns === 1) return 'grid-cols-1';
-  if (columns === 2) return 'grid-cols-2';
-  if (columns === 3) {
-    return compact
-      ? 'grid-cols-2 @xl/main:grid-cols-3'
-      : 'grid-cols-2 @2xl/main:grid-cols-3';
-  }
-  return compact
-    ? 'grid-cols-2 @3xl/main:grid-cols-4'
-    : 'grid-cols-2 @4xl/main:grid-cols-4';
-}
-
-export function StatGrid({
-  items,
-  minTileWidth = 200,
-  className,
-}: StatGridProps) {
-  const preferredColumns = preferredColumnCount(items.length);
-  const compact = minTileWidth <= 170;
-
+export function StatGrid({ items, className }: StatGridProps) {
+  const wideCells = items.map((item) => !!item.wide);
   return (
     <div
       data-slot="stat-grid"
-      data-preferred-columns={preferredColumns}
       className={cn(
         'grid gap-3 sm:gap-3.5',
-        responsiveColumnClass(preferredColumns, compact),
+        statGridClass(wideCells),
         className,
       )}
-      style={
-        {
-          '--stat-min-tile-width': `${minTileWidth}px`,
-        } as React.CSSProperties
-      }
     >
       {items.map((item) => (
-        <StatCard key={item.key} item={item} />
+        <StatCard
+          key={item.key}
+          item={item}
+          className={statCellSpanClass(!!item.wide)}
+        />
       ))}
     </div>
   );

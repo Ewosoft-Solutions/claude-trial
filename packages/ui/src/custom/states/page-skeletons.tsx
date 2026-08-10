@@ -33,6 +33,10 @@ import {
   SkeletonList,
 } from '@workspace/ui/custom/states/skeletons';
 import { cn } from '@workspace/ui/lib/utils';
+import {
+  statCellSpanClass,
+  statGridClass,
+} from '@workspace/ui/custom/layouts/stat-grid';
 
 /** Page-level busy wrapper: one polite status region per loading page. */
 function PageSkeletonRoot({
@@ -97,39 +101,35 @@ export function PageHeaderSkeleton({
   );
 }
 
-/** Container-query column class matching StatGrid for a given tile count. */
-function statColumnsClass(count: number): string {
-  if (count <= 1) return 'grid-cols-1';
-  if (count === 2) return 'grid-cols-1 @md/main:grid-cols-2';
-  if (count === 3)
-    return 'grid-cols-1 @md/main:grid-cols-2 @2xl/main:grid-cols-3';
-  return 'grid-cols-1 @md/main:grid-cols-2 @4xl/main:grid-cols-4';
-}
-
 export interface StatRowSkeletonProps {
-  /** Number of stat tiles. Defaults to 4. */
+  /** Number of stat tiles (all short values). Defaults to 4. Ignored when
+   *  `wideCells` is given. */
   count?: number;
+  /** Per-cell wide flags — mirrors the real StatGrid's per-item `wide` so the
+   *  skeleton lays out with the exact same full-width / paired cells. */
+  wideCells?: readonly boolean[];
   className?: string;
 }
 
-/** A KPI stat row that mirrors StatGrid (same container-query columns and
- *  StatCard shape) so it lays out identically to the real stats band. */
+/** A KPI stat row that mirrors StatGrid (SAME shared grid + per-cell span
+ *  helpers and StatCard shape) so it lays out identically to the real band. */
 export function StatRowSkeleton({
   count = 4,
+  wideCells,
   className,
 }: StatRowSkeletonProps) {
+  const cells = wideCells ?? Array.from({ length: count }, () => false);
   return (
     <div
-      className={cn(
-        'grid gap-3 sm:gap-3.5',
-        statColumnsClass(count),
-        className,
-      )}
+      className={cn('grid gap-3 sm:gap-3.5', statGridClass(cells), className)}
     >
-      {Array.from({ length: count }).map((_, i) => (
+      {cells.map((wide, i) => (
         <div
           key={i}
-          className="min-w-0 rounded-[var(--radius)] border border-border bg-card p-3 shadow-xs sm:p-4"
+          className={cn(
+            'min-w-0 rounded-[var(--radius)] border border-border bg-card p-3 shadow-xs sm:p-4',
+            statCellSpanClass(wide),
+          )}
         >
           <div className="flex items-center justify-between gap-2">
             <Skeleton className="h-3 w-20" />
@@ -249,6 +249,10 @@ function BlockCardSkeleton({
 export interface DashboardPageSkeletonProps {
   /** Stat cards in the top row. Defaults to 4. */
   stats?: number;
+  /** Per-cell wide flags for the KPI row — mirrors the dashboard's per-item
+   *  `wide` (money tiles) so the skeleton's full-width/paired cells match.
+   *  When omitted, `stats` short tiles are drawn. */
+  wideStats?: readonly boolean[];
   /** Large content cards in the main column. Defaults to 2. */
   mainCards?: number;
   /** Cards in the side rail. Defaults to 2. */
@@ -259,13 +263,14 @@ export interface DashboardPageSkeletonProps {
  *  matches DashboardLayout's equal-width split. */
 export function DashboardPageSkeleton({
   stats = 4,
+  wideStats,
   mainCards = 2,
   asideCards = 2,
 }: DashboardPageSkeletonProps) {
   return (
     <PageSkeletonRoot>
       <PageHeaderSkeleton actions={1} />
-      <StatRowSkeleton count={stats} />
+      <StatRowSkeleton count={stats} wideCells={wideStats} />
       <div className="grid grid-cols-1 gap-5 @5xl/main:grid-cols-2">
         <div className="order-2 flex flex-col gap-5 @5xl/main:order-1">
           {Array.from({ length: mainCards }).map((_, i) => (
