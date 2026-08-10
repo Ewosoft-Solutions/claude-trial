@@ -32,8 +32,15 @@ export interface StatItem {
   key: string;
   /** Metric name, e.g. "Total students". */
   label: string;
-  /** Primary value, e.g. "1,420" or "₦3.1M". */
+  /** Primary value, e.g. "1,420" or "₦1,234,567.00". */
   value: React.ReactNode;
+  /**
+   * The value can be long — e.g. a full money amount. Gives this tile a
+   * full-width cell on narrow screens (money 1-up, short values 2-up flowing
+   * around it) instead of clipping. Deterministic per item, so the skeleton
+   * mirrors the exact same spans. See StatGrid / statGridClass.
+   */
+  wide?: boolean;
   /** Optional trend delta. */
   delta?: StatDelta;
   /** Optional leading icon. */

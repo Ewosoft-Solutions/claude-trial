@@ -42,6 +42,7 @@ import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { formatNaira as nairaFromKobo } from '@/lib/format';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../_shared/use-step-up-action';
 
@@ -100,13 +101,6 @@ const META: PageHeaderMeta[] = [
 ];
 
 /** Compact Naira formatting from kobo (minor units). */
-function nairaFromKobo(kobo: number): string {
-  const naira = kobo / 100;
-  if (naira >= 1_000_000) return `₦${(naira / 1_000_000).toFixed(1)}M`;
-  if (naira >= 1_000) return `₦${Math.round(naira / 1_000)}k`;
-  return `₦${naira}`;
-}
-
 interface Props {
   invoices: Invoice[];
   total: number;

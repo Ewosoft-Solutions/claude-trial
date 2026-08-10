@@ -30,10 +30,12 @@ import {
 } from '@workspace/ui/components/card';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { greeting, useGreetingSubtitle } from './greeting';
+import { formatCount } from '@/lib/format';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 import { RefreshButton } from '../../_shared/refresh-button';
 
 interface PlatformOverview {
@@ -59,10 +61,6 @@ interface PlatformOverview {
     targetTenantId: string | null;
     at: string;
   }[];
-}
-
-function formatCount(n: number): string {
-  return new Intl.NumberFormat().format(n);
 }
 
 function titleCase(s: string): string {
@@ -123,6 +121,10 @@ export function PlatformDashboard({ userName }: Props) {
   const peakGrowth = Math.max(1, ...(data?.growth ?? []).map((g) => g.count));
 
   const subtitle = useGreetingSubtitle();
+
+  if (loading) {
+    return <DashboardPageSkeleton stats={STATS.length} />;
+  }
 
   return (
     <ShellMain>

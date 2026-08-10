@@ -17,6 +17,7 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
 import { RefreshButton } from '../../_shared/refresh-button';
@@ -59,6 +60,7 @@ export function FinanceDashboard({ userName, schoolName }: Props) {
   const STATS: StatItem[] = [
     {
       key: 'collected',
+      wide: true,
       label: 'Collected (mo)',
       value: loading ? '—' : formatNaira(f?.revenueThisMonth ?? 0),
       icon: <TrendingUp />,
@@ -66,6 +68,7 @@ export function FinanceDashboard({ userName, schoolName }: Props) {
     },
     {
       key: 'outstanding',
+      wide: true,
       label: 'Outstanding',
       value: loading ? '—' : formatNaira(f?.outstandingAmount ?? 0),
       icon: <Banknote />,
@@ -88,6 +91,15 @@ export function FinanceDashboard({ userName, schoolName }: Props) {
   ];
 
   const subtitle = useGreetingSubtitle();
+
+  if (loading) {
+    return (
+      <DashboardPageSkeleton
+        stats={STATS.length}
+        wideStats={STATS.map((s) => !!s.wide)}
+      />
+    );
+  }
 
   return (
     <ShellMain>

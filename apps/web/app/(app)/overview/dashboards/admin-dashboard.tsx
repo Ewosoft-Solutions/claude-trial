@@ -26,6 +26,7 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
 import { RefreshButton } from '../../_shared/refresh-button';
@@ -97,6 +98,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
     },
     {
       key: 'revenue',
+      wide: true,
       label: 'Revenue (mo)',
       value: loading ? '—' : formatNaira(s?.finance.revenueThisMonth ?? 0),
       icon: <Banknote />,
@@ -104,6 +106,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
     },
     {
       key: 'outstanding',
+      wide: true,
       label: 'Outstanding fees',
       value: loading ? '—' : formatNaira(s?.finance.outstandingAmount ?? 0),
       href: '/finance/invoices',
@@ -158,6 +161,15 @@ export function AdminDashboard({ userName, schoolName }: Props) {
   }
 
   const subtitle = useGreetingSubtitle();
+
+  if (loading) {
+    return (
+      <DashboardPageSkeleton
+        stats={STATS.length}
+        wideStats={STATS.map((s) => !!s.wide)}
+      />
+    );
+  }
 
   return (
     <ShellMain>

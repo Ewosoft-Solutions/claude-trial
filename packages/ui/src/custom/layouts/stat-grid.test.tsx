@@ -1,7 +1,12 @@
 import { render, screen, fireEvent } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { StatCard, StatGrid } from './stat-grid';
+import {
+  StatCard,
+  StatGrid,
+  statCellSpanClass,
+  statGridClass,
+} from './stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
 const ITEMS: StatItem[] = [
@@ -31,34 +36,56 @@ describe('StatGrid', () => {
     }
   });
 
-  it('balances common stat counts instead of leaving an awkward final row', () => {
-    const sixItems = [
-      ...ITEMS,
-      { key: 'staff', label: 'Staff', value: '42' },
-      { key: 'events', label: 'Events', value: '6' },
-      { key: 'revenue', label: 'Revenue', value: '₦2M' },
-    ];
-    const { rerender } = render(<StatGrid items={sixItems} />);
+  it('stays dense (2-up on mobile, no sandwich) when every value is short', () => {
+    render(<StatGrid items={ITEMS.slice(0, 2)} />);
     const grid = document.querySelector(
       '[data-slot="stat-grid"]',
     ) as HTMLElement;
-
-    expect(grid).toHaveAttribute('data-preferred-columns', '3');
-
-    rerender(<StatGrid items={sixItems.slice(0, 5)} />);
-    expect(grid).toHaveAttribute('data-preferred-columns', '3');
-
-    rerender(<StatGrid items={sixItems.slice(0, 4)} />);
-    expect(grid).toHaveAttribute('data-preferred-columns', '4');
+    expect(grid.className).toContain('grid-cols-2');
+    expect(grid.className).not.toContain('grid-flow-dense');
   });
 
-  it('keeps the requested minimum tile width as a responsive grid token', () => {
-    render(<StatGrid items={ITEMS} minTileWidth={260} />);
+  it('gives a wide (money) tile a full-width cell that short tiles flow around', () => {
+    const items: StatItem[] = [
+      { key: 'students', label: 'Students', value: '1,420' },
+      { key: 'staff', label: 'Staff', value: '42' },
+      {
+        key: 'outstanding',
+        label: 'Outstanding',
+        value: '₦530,000.00',
+        wide: true,
+      },
+    ];
+    render(<StatGrid items={items} />);
     const grid = document.querySelector(
       '[data-slot="stat-grid"]',
     ) as HTMLElement;
+    // A row with a wide value uses dense flow so short tiles fill the gaps.
+    expect(grid.className).toContain('grid-flow-dense');
 
-    expect(grid.style.getPropertyValue('--stat-min-tile-width')).toBe('260px');
+    const cells = Array.from(grid.children) as HTMLElement[];
+    const moneyCell = cells.find((c) =>
+      c.textContent?.includes('₦530,000.00'),
+    )!;
+    const countCell = cells.find((c) => c.textContent?.includes('1,420'))!;
+    expect(moneyCell.className).toContain('col-span-2');
+    expect(countCell.className).not.toContain('col-span-2');
+  });
+});
+
+describe('statGridClass / statCellSpanClass', () => {
+  it('is dense when no cell is wide, a dense-flow sandwich when one is', () => {
+    expect(statGridClass([false, false])).toBe('grid-cols-2');
+    expect(statGridClass([false, false, false])).not.toContain(
+      'grid-flow-dense',
+    );
+    expect(statGridClass([false, false, true])).toContain('grid-flow-dense');
+  });
+
+  it('spans a wide cell full-width on phones, one column from @3xl', () => {
+    expect(statCellSpanClass(true)).toContain('col-span-2');
+    expect(statCellSpanClass(true)).toContain('@3xl/main:col-span-1');
+    expect(statCellSpanClass(false)).toBe('');
   });
 });
 

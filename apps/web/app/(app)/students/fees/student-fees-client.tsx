@@ -28,6 +28,7 @@ import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
+import { formatNaira as nairaFromKobo } from '@/lib/format';
 
 export type FeeStatus = 'paid' | 'partial' | 'owing';
 
@@ -49,13 +50,6 @@ const STATUS_META: Record<FeeStatus, { label: string; tone: StateTone }> = {
   partial: { label: 'Part-paid', tone: 'info' },
   owing: { label: 'Owing', tone: 'destructive' },
 };
-
-function nairaFromKobo(kobo: number): string {
-  const naira = kobo / 100;
-  if (naira >= 1_000_000) return `₦${(naira / 1_000_000).toFixed(1)}M`;
-  if (naira >= 1_000) return `₦${Math.round(naira / 1_000)}k`;
-  return `₦${naira}`;
-}
 
 function initials(name: string): string {
   return name

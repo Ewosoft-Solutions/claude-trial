@@ -255,7 +255,7 @@ export function initials(name: string): string {
 /** Minor units (kobo) → naira string, e.g. 123456 → "₦1,234.56". */
 export function formatMinor(minor: number): string {
   const naira = minor / 100;
-  return `₦${naira.toLocaleString(undefined, {
+  return `₦${naira.toLocaleString('en-NG', {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;

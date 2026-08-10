@@ -25,6 +25,7 @@ import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
+import { formatNaira as nairaFromKobo } from '@/lib/format';
 
 export type PaymentMethod = 'transfer' | 'card' | 'cash' | 'cheque';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
@@ -60,13 +61,6 @@ const META: PageHeaderMeta[] = [
   { key: 'term', label: 'Spring Term 2025', emphasis: true },
   { key: 'cycle', label: 'billing cycle 1' },
 ];
-
-function nairaFromKobo(kobo: number): string {
-  const naira = kobo / 100;
-  if (naira >= 1_000_000) return `₦${(naira / 1_000_000).toFixed(1)}M`;
-  if (naira >= 1_000) return `₦${Math.round(naira / 1_000)}k`;
-  return `₦${naira}`;
-}
 
 interface Props {
   payments: Payment[];

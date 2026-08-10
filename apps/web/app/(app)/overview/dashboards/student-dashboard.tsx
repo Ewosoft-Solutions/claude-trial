@@ -16,6 +16,7 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
 import { RefreshButton } from '../../_shared/refresh-button';
@@ -75,6 +76,10 @@ export function StudentDashboard({ userName }: { userName: string }) {
   const noClasses = !loading && (stats?.personal.myEnrollments ?? 0) === 0;
 
   const subtitle = useGreetingSubtitle();
+
+  if (loading) {
+    return <DashboardPageSkeleton stats={STATS.length} />;
+  }
 
   return (
     <ShellMain>
