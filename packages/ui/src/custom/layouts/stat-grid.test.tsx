@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   StatCard,
   StatGrid,
+  isWideStat,
   statCellSpanClass,
   statGridClass,
 } from './stat-grid';
@@ -86,6 +87,23 @@ describe('statGridClass / statCellSpanClass', () => {
     expect(statCellSpanClass(true)).toContain('col-span-2');
     expect(statCellSpanClass(true)).toContain('@3xl/main:col-span-1');
     expect(statCellSpanClass(false)).toBe('');
+  });
+});
+
+describe('isWideStat', () => {
+  it('auto-flags a money (₦) value wide; explicit wide always overrides', () => {
+    expect(isWideStat({ key: 'a', label: 'A', value: '₦1,234,567.00' })).toBe(
+      true,
+    );
+    expect(isWideStat({ key: 'b', label: 'B', value: '1,420' })).toBe(false);
+    expect(isWideStat({ key: 'c', label: 'C', value: '94%' })).toBe(false);
+    // explicit wins over auto-detection, both ways:
+    expect(
+      isWideStat({ key: 'd', label: 'D', value: '₦1.00', wide: false }),
+    ).toBe(false);
+    expect(isWideStat({ key: 'e', label: 'E', value: '5', wide: true })).toBe(
+      true,
+    );
   });
 });
 
