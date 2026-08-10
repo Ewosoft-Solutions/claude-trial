@@ -38,6 +38,9 @@ export interface UserPermissionContext {
   tenantId: string;
   profileId: string;
   roleId: string;
+  /** Human-readable role name, for the audit trail. Optional so synthesised
+   *  contexts (AI mediator) and older test fixtures stay valid. */
+  roleName?: string | null;
   clearanceLevel: number;
   permissions: Map<
     string,
@@ -116,6 +119,7 @@ export class PermissionService {
     const grantScope = parseScope(grant?.scope);
 
     const roleId = role.id;
+    const roleName = role.name ?? null;
     const clearanceLevel = role?.clearanceLevel ?? 0;
 
     // Build permission map keyed by permission name (activity identifier).
@@ -169,6 +173,7 @@ export class PermissionService {
       profileId,
       clearanceLevel,
       roleId,
+      roleName,
       permissions,
       permissionIds,
       grantScope,

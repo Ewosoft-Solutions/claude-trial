@@ -88,6 +88,7 @@ export class JwtAuthGuard implements CanActivate {
       tenantId: payload.tenantId,
       profileId: payload.profileId,
       roleId: payload.roleId,
+      roleName: payload.roleName ?? null,
       accessTokenExpiresAt: payload.exp,
     };
 

@@ -940,6 +940,7 @@ export class AuthenticationService {
 
     // Get roles (one per profile now enforced)
     const roleId = userTenant.userTenantRole?.role.id;
+    const roleName = userTenant.userTenantRole?.role.name ?? null;
 
     if (!roleId) {
       throw new UnauthorizedException('No active roles for this profile');
@@ -953,6 +954,7 @@ export class AuthenticationService {
         tenantId,
         profileId,
         roleId,
+        roleName,
       },
       tenantId,
       3600, // 1 hour access token
@@ -985,7 +987,7 @@ export class AuthenticationService {
       resourceId: tenantId,
       actorId: userId,
       actorProfileId: profileId,
-      actorRole: roleId || null,
+      actorRole: roleName,
       actorEmail: userTenant.user?.email || null,
       ipAddress: ipAddress || null,
       userAgent: userAgent || null,
@@ -1127,6 +1129,7 @@ export class AuthenticationService {
       tenantId: payload.tenantId,
       profileId: payload.profileId,
       roleId: payload.roleId || '',
+      roleName: payload.roleName ?? null,
     };
 
     const [accessToken, newRefreshToken] = await Promise.all([
@@ -1173,7 +1176,7 @@ export class AuthenticationService {
       resourceId: successor.id,
       actorId: payload.sub,
       actorProfileId: payload.profileId,
-      actorRole: payload.roleId || null,
+      actorRole: payload.roleName ?? null,
       actorEmail: session.user?.email ?? null,
       description: 'Access token refreshed; refresh token rotated',
       status: 'success',
@@ -1237,6 +1240,7 @@ export class AuthenticationService {
             tenantId: payload.tenantId,
             profileId: payload.profileId,
             roleId: payload.roleId || '',
+            roleName: payload.roleName ?? null,
           },
           payload.tenantId,
           3600,

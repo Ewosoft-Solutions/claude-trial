@@ -7,6 +7,8 @@ export interface RequestUser {
   tenantId: string;
   profileId: string;
   roleId: string;
+  /** Human-readable role name from the token, for the audit trail. */
+  roleName?: string | null;
   /** Expiry of the verified access token, expressed as epoch seconds. */
   accessTokenExpiresAt?: number;
   email?: string;
