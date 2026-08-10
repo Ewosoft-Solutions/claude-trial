@@ -113,6 +113,57 @@ export async function proxyGet(
   }
 }
 
+/**
+ * Forward a GET to a file/binary endpoint and stream the body back to the
+ * browser, preserving Content-Type + Content-Disposition so it downloads with
+ * the right name. Auth errors that happen before the body opens surface as
+ * JSON. Used for exports (CSV / XLSX / PDF).
+ */
+export async function proxyDownload(
+  req: NextRequest,
+  upstreamPath: string,
+): Promise<Response> {
+  if (!API_BASE) {
+    return NextResponse.json({ error: 'API not configured' }, { status: 503 });
+  }
+  const requestUpstream = (accessToken?: string) =>
+    fetch(`${API_BASE}${upstreamPath}${req.nextUrl.search}`, {
+      method: 'GET',
+      headers: bearerAuthHeaders(req, accessToken),
+      cache: 'no-store',
+    });
+
+  let refreshed: RefreshedAccess | null = null;
+  let upstream = await requestUpstream();
+  if (upstream.status === 401) {
+    refreshed = await refreshAccessForRequest(req);
+    if (refreshed) upstream = await requestUpstream(refreshed.accessToken);
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    let body: unknown = { error: 'Export failed' };
+    try {
+      body = await upstream.json();
+    } catch {
+      // keep the generic error
+    }
+    return attachRefreshedAccess(
+      NextResponse.json(body, { status: upstream.status }),
+      refreshed,
+    );
+  }
+
+  const headers = new Headers({ 'cache-control': 'no-store' });
+  const contentType = upstream.headers.get('content-type');
+  const disposition = upstream.headers.get('content-disposition');
+  if (contentType) headers.set('content-type', contentType);
+  if (disposition) headers.set('content-disposition', disposition);
+  return attachRefreshedAccess(
+    new NextResponse(upstream.body, { status: 200, headers }),
+    refreshed,
+  );
+}
+
 /** Forward a DELETE (incoming query string included) and return the JSON body. */
 export async function proxyDelete(
   req: NextRequest,
