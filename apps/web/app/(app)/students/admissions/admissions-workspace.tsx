@@ -12,7 +12,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ExternalLink, FileText, Loader2, Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
@@ -20,7 +20,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@workspace/ui/components/sheet';
@@ -40,13 +39,11 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { formatCount } from '@/lib/format';
 
 import { NewApplicationForm } from './new-application-form';
+import { ApplicationDrawer } from './application-drawer';
 import {
-  COLLECT_STAGE_LABEL,
-  REQUIREMENT_STATUS_TONE,
   STAGE_TONE,
   fmtDate,
   type Application,
-  type ApplicationDetail,
   type IntakeStructure,
   type Perms,
 } from './admissions-types';
@@ -367,178 +364,5 @@ export function AdmissionsWorkspace({
         onOpenChange={(open) => !open && setSelectedId(null)}
       />
     </ShellMain>
-  );
-}
-
-function ApplicationDrawer({
-  applicationId,
-  onOpenChange,
-}: {
-  applicationId: string | null;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const [detail, setDetail] = React.useState<ApplicationDetail | null>(null);
-  const [loading, setLoading] = React.useState(false);
-
-  React.useEffect(() => {
-    if (!applicationId) {
-      setDetail(null);
-      return;
-    }
-    const controller = new AbortController();
-    setLoading(true);
-    setDetail(null);
-    fetch(`/api/admissions/applications/${applicationId}`, {
-      signal: controller.signal,
-    })
-      .then((res) =>
-        res.ok ? (res.json() as Promise<ApplicationDetail>) : null,
-      )
-      .then((data) => setDetail(data))
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
-    return () => controller.abort();
-  }, [applicationId]);
-
-  const requirements = detail?.requirements ?? [];
-  const provided = requirements.filter((r) => r.status !== 'pending').length;
-
-  return (
-    <Sheet open={applicationId !== null} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full gap-0 overflow-y-auto sm:max-w-md">
-        {loading || !detail ? (
-          <div className="flex h-full items-center justify-center">
-            <SheetTitle className="sr-only">Loading application</SheetTitle>
-            <Loader2 className="size-5 animate-spin text-muted-foreground" />
-          </div>
-        ) : (
-          <div className="flex flex-col gap-5">
-            <SheetHeader className="gap-1">
-              <div className="flex items-center gap-2">
-                <SheetTitle className="text-xl">
-                  {detail.applicantName}
-                </SheetTitle>
-                <StatusBadge tone={STAGE_TONE[detail.stage] ?? 'neutral'}>
-                  {detail.stage}
-                </StatusBadge>
-              </div>
-              <SheetDescription>
-                Applying for {detail.applyingFor}
-                {detail.resultingStudentId ? ' · enrolled as a student' : ''}
-              </SheetDescription>
-            </SheetHeader>
-
-            {/* Profile */}
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-              <Field
-                label="Date of birth"
-                value={fmtDate(detail.dateOfBirth)}
-              />
-              <Field label="Gender" value={detail.gender ?? '—'} />
-              <Field
-                label="State of origin"
-                value={detail.stateOfOrigin ?? '—'}
-              />
-              <Field label="Religion" value={detail.religion ?? '—'} />
-            </dl>
-
-            {/* Guardians */}
-            <section className="flex flex-col gap-2">
-              <h4 className="text-sm font-semibold">Guardians</h4>
-              {detail.guardians.length === 0 ? (
-                <p className="text-sm text-muted-foreground">None recorded.</p>
-              ) : (
-                <ul className="flex flex-col gap-2">
-                  {detail.guardians.map((g, i) => (
-                    <li
-                      key={g.id ?? i}
-                      className="rounded-md border border-border p-2.5 text-sm"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-medium">{g.fullName}</span>
-                        <span className="text-xs capitalize text-muted-foreground">
-                          {g.relationship}
-                          {g.isPrimary ? ' · primary' : ''}
-                        </span>
-                      </div>
-                      <div className="text-xs text-muted-foreground">
-                        {g.phoneCountryCode} {g.phoneNumber}
-                        {g.whatsappSameAsPhone
-                          ? ' · WhatsApp same'
-                          : g.whatsappNumber
-                            ? ` · WhatsApp ${g.whatsappCountryCode ?? ''} ${g.whatsappNumber}`
-                            : ''}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-
-            {/* Requirements progress */}
-            <section className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <h4 className="text-sm font-semibold">Requirements</h4>
-                <span className="text-xs text-muted-foreground">
-                  {provided}/{requirements.length} handled
-                </span>
-              </div>
-              {requirements.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No checklist attached.
-                </p>
-              ) : (
-                <ul className="flex flex-col gap-1">
-                  {requirements.slice(0, 6).map((r) => (
-                    <li
-                      key={r.id}
-                      className="flex items-center justify-between gap-2 text-sm"
-                    >
-                      <span className="truncate">
-                        {r.label}
-                        <span className="ml-1 text-xs text-muted-foreground">
-                          (
-                          {COLLECT_STAGE_LABEL[r.collectStage] ??
-                            r.collectStage}
-                          )
-                        </span>
-                      </span>
-                      <StatusBadge
-                        tone={REQUIREMENT_STATUS_TONE[r.status] ?? 'neutral'}
-                      >
-                        {r.status}
-                      </StatusBadge>
-                    </li>
-                  ))}
-                  {requirements.length > 6 && (
-                    <li className="text-xs text-muted-foreground">
-                      +{requirements.length - 6} more on the detail page
-                    </li>
-                  )}
-                </ul>
-              )}
-            </section>
-
-            <SheetFooter>
-              <Button asChild className="w-full">
-                <Link href={`/students/admissions/${detail.id}`}>
-                  Open full detail
-                  <ExternalLink className="ml-1 size-4" aria-hidden />
-                </Link>
-              </Button>
-            </SheetFooter>
-          </div>
-        )}
-      </SheetContent>
-    </Sheet>
-  );
-}
-
-function Field({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex flex-col">
-      <dt className="text-xs text-muted-foreground">{label}</dt>
-      <dd className="capitalize">{value}</dd>
-    </div>
   );
 }
