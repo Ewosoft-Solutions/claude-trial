@@ -32,24 +32,20 @@ import {
   Section,
   StatTiles,
 } from '@workspace/ui/custom/detail/detail-primitives';
-import type { StateTone } from '@workspace/ui/types/states.types';
 
 import {
   COLLECT_STAGE_LABEL,
-  REQUIREMENT_STATUS_TONE,
-  STAGE_TONE,
   fmtDate,
   fmtDateTime,
   type ApplicationDetail,
   type Requirement,
 } from './admissions-types';
-
-const DECISION_TONE: Record<string, StateTone> = {
-  pending: 'warning',
-  accepted: 'success',
-  waitlisted: 'info',
-  rejected: 'destructive',
-};
+import {
+  StageBadge,
+  DecisionBadge,
+  RequirementStatusBadge,
+  titleCase,
+} from '@/lib/admissions/status';
 
 const COLLECT_STAGE_ORDER = ['application', 'offer', 'acceptance', 'enrolment'];
 
@@ -60,10 +56,6 @@ const TAB_LABEL: Record<DrawerTab, string> = {
   requirements: 'Requirements',
   history: 'History',
 };
-
-function titleCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 function initials(name: string): string {
   return name
@@ -151,15 +143,8 @@ export function ApplicationDrawer({
                 </div>
               </div>
               <div className="flex flex-wrap gap-1.5">
-                <StatusBadge tone={STAGE_TONE[detail.stage] ?? 'neutral'}>
-                  {titleCase(detail.stage)}
-                </StatusBadge>
-                <StatusBadge
-                  tone={DECISION_TONE[detail.decision] ?? 'neutral'}
-                  dot
-                >
-                  {titleCase(detail.decision)}
-                </StatusBadge>
+                <StageBadge stage={detail.stage} />
+                <DecisionBadge decision={detail.decision} />
               </div>
               <div className="-mb-1 flex gap-1 overflow-x-auto">
                 {DRAWER_TABS.map((t) => (
@@ -335,11 +320,7 @@ function RequirementsTab({ detail }: { detail: ApplicationDetail }) {
                     {r.type}
                   </div>
                 </div>
-                <StatusBadge
-                  tone={REQUIREMENT_STATUS_TONE[r.status] ?? 'neutral'}
-                >
-                  {r.status}
-                </StatusBadge>
+                <RequirementStatusBadge status={r.status} />
               </div>
             ))}
           </div>
@@ -377,9 +358,7 @@ function HistoryTab({ detail }: { detail: ApplicationDetail }) {
                 </div>
                 <div className="min-w-0 pb-4">
                   <div className="flex flex-wrap items-center gap-2">
-                    <StatusBadge tone={STAGE_TONE[e.toStage] ?? 'neutral'} dot>
-                      {titleCase(e.toStage)}
-                    </StatusBadge>
+                    <StageBadge stage={e.toStage} />
                     <span className="text-xs text-muted-foreground">
                       {fmtDateTime(e.createdAt)}
                     </span>

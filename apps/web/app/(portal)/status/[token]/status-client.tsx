@@ -7,7 +7,7 @@
  */
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2, Lock, Upload } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
 import { Button } from '@workspace/ui/components/button';
@@ -18,21 +18,23 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
-import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import {
   Section,
   StatTiles,
 } from '@workspace/ui/custom/detail/detail-primitives';
 
 import {
-  COLLECT_STAGE_LABEL,
-  REQUIREMENT_STATUS_TONE,
-  STAGE_STEP_LABEL,
-  STAGE_TONE,
+  StageBadge,
+  RequirementStatusBadge,
+  STAGE_APPLICANT_LABEL,
+  COLLECT_STAGE_APPLICANT_LABEL,
+  isRequirementUnlocked,
+  titleCase,
+} from '@/lib/admissions/status';
+import {
   errorMessage,
   fileToBase64,
   fmtDate,
-  titleCase,
   type StatusRequirement,
   type StatusView,
 } from '../../portal-types';
@@ -104,7 +106,17 @@ export function StatusClient({ token }: { token: string }) {
     );
   }
 
-  const outstanding = status.requirements.filter((r) => r.status === 'pending');
+  // Only ask for what's relevant NOW: a requirement is actionable once the
+  // application has reached the stage its collect-stage belongs to. Everything
+  // else is shown but locked, so an applicant never uploads (say) acceptance
+  // paperwork before they've even been offered a place.
+  const nowItems = status.requirements.filter((r) =>
+    isRequirementUnlocked(r.collectStage, status.stage),
+  );
+  const laterItems = status.requirements.filter(
+    (r) => !isRequirementUnlocked(r.collectStage, status.stage),
+  );
+  const todo = nowItems.filter((r) => r.status === 'pending');
 
   return (
     <div className="flex flex-col gap-6">
@@ -114,9 +126,7 @@ export function StatusClient({ token }: { token: string }) {
         </span>
         <div className="flex flex-wrap items-center gap-2">
           <h1 className="text-2xl font-semibold">{status.applicantName}</h1>
-          <StatusBadge tone={STAGE_TONE[status.stage] ?? 'neutral'}>
-            {STAGE_STEP_LABEL[status.stage] ?? titleCase(status.stage)}
-          </StatusBadge>
+          <StageBadge stage={status.stage} applicant />
         </div>
         <p className="text-sm text-muted-foreground">
           Applying for {status.applyingFor} · submitted{' '}
@@ -149,13 +159,14 @@ export function StatusClient({ token }: { token: string }) {
             {
               key: 'stage',
               label: 'Stage',
-              value: STAGE_STEP_LABEL[status.stage] ?? titleCase(status.stage),
+              value:
+                STAGE_APPLICANT_LABEL[status.stage] ?? titleCase(status.stage),
             },
             {
-              key: 'outstanding',
-              label: 'To do',
-              value: outstanding.length,
-              tone: outstanding.length > 0 ? 'warning' : undefined,
+              key: 'todo',
+              label: 'To do now',
+              value: todo.length,
+              tone: todo.length > 0 ? 'warning' : undefined,
             },
             {
               key: 'ref',
@@ -170,24 +181,47 @@ export function StatusClient({ token }: { token: string }) {
         />
       </div>
 
-      <Section title="Requirements">
-        {status.requirements.length === 0 ? (
+      <Section title="What to do now">
+        {nowItems.length === 0 ? (
           <p className="text-sm text-muted-foreground">
-            Nothing to provide right now.
+            Nothing to provide right now — we&apos;ll let you know when there
+            is.
           </p>
         ) : (
           <div className="flex flex-col gap-1.5">
-            {status.requirements.map((r) => (
+            {nowItems.map((r) => (
               <RequirementRow
                 key={r.id}
                 requirement={r}
                 base={base}
                 onDone={load}
+                unlocked
               />
             ))}
           </div>
         )}
       </Section>
+
+      {laterItems.length > 0 && (
+        <Section title="Later">
+          <p className="mb-2 text-xs text-muted-foreground">
+            You don&apos;t need to do anything with these yet — they only apply
+            once your application gets further along, so there&apos;s no need to
+            upload them now.
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {laterItems.map((r) => (
+              <RequirementRow
+                key={r.id}
+                requirement={r}
+                base={base}
+                onDone={load}
+                unlocked={false}
+              />
+            ))}
+          </div>
+        </Section>
+      )}
 
       <Section title="Progress">
         {status.stageHistory.length === 0 ? (
@@ -211,7 +245,7 @@ export function StatusClient({ token }: { token: string }) {
                 </div>
                 <div className="min-w-0 pb-4">
                   <div className="text-sm font-medium text-foreground">
-                    {STAGE_STEP_LABEL[e.toStage] ?? titleCase(e.toStage)}
+                    {STAGE_APPLICANT_LABEL[e.toStage] ?? titleCase(e.toStage)}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {fmtDate(e.createdAt)}
@@ -230,10 +264,13 @@ function RequirementRow({
   requirement: r,
   base,
   onDone,
+  unlocked,
 }: {
   requirement: StatusRequirement;
   base: string;
   onDone: () => Promise<void> | void;
+  /** Actionable now? Locked rows are shown greyed with a lock, no upload. */
+  unlocked: boolean;
 }) {
   const [busy, setBusy] = React.useState(false);
   const fileRef = React.useRef<HTMLInputElement>(null);
@@ -270,21 +307,29 @@ function RequirementRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5 text-sm">
+    <div
+      className={cn(
+        'flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5 text-sm',
+        !unlocked && 'opacity-60',
+      )}
+    >
       <div className="min-w-0">
         <div className="truncate font-medium text-foreground">
           {r.label}
           {r.required && <span className="ml-1 text-destructive">*</span>}
         </div>
-        <div className="truncate text-xs text-muted-foreground">
-          {COLLECT_STAGE_LABEL[r.collectStage] ?? r.collectStage}
+        <div className="flex items-center gap-1 truncate text-xs text-muted-foreground">
+          {!unlocked && <Lock className="size-3 shrink-0" aria-hidden />}
+          {COLLECT_STAGE_APPLICANT_LABEL[r.collectStage] ?? r.collectStage}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-2">
-        <StatusBadge tone={REQUIREMENT_STATUS_TONE[r.status] ?? 'neutral'}>
-          {r.status}
-        </StatusBadge>
-        {isDocument && r.status === 'pending' && (
+        {unlocked ? (
+          <RequirementStatusBadge status={r.status} />
+        ) : (
+          <span className="text-xs text-muted-foreground">Not needed yet</span>
+        )}
+        {unlocked && isDocument && r.status === 'pending' && (
           <>
             <input
               ref={fileRef}

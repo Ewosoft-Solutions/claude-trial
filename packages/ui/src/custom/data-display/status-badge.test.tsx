@@ -26,6 +26,11 @@ describe('StatusBadge', () => {
     expect(badge()).not.toHaveClass('text-muted-foreground');
   });
 
+  it('maps a progressive accent tone (teal) onto its hue token', () => {
+    render(<StatusBadge tone="teal">Accepted</StatusBadge>);
+    expect(badge()).toHaveClass('border-teal/40', 'text-teal');
+  });
+
   it('omits the leading dot by default and renders it on request', () => {
     const { rerender } = render(<StatusBadge>Owing</StatusBadge>);
     expect(
