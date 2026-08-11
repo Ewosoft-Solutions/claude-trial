@@ -188,6 +188,53 @@ export class SecureLinkService {
     };
   }
 
+  /**
+   * Resolve a raw token to its live link WITHOUT consuming a use, for a
+   * re-checkable, tenant-unknown public flow (e.g. an applicant status portal
+   * the parent reloads). The token IS the capability, so the lookup runs in the
+   * audited platform scope (there is no session to name the tenant); it checks
+   * the link is live (not revoked/expired) and, if given, matches the expected
+   * purpose. It does NOT enforce audience/permission rules or bump the counter —
+   * the caller then scopes to the returned tenant and returns a narrow read.
+   */
+  async resolveActive(
+    token: string,
+    expectedPurpose?: string,
+  ): Promise<{
+    id: string;
+    tenantId: string;
+    targetType: string;
+    targetId: string;
+  }> {
+    const link = await this.tenantDb.runPlatform(undefined, () =>
+      this.client.secureLink.findFirst({
+        where: { tokenHash: SecureLinkService.hash(token) },
+        select: {
+          id: true,
+          tenantId: true,
+          targetType: true,
+          targetId: true,
+          purpose: true,
+          revokedAt: true,
+          expiresAt: true,
+        },
+      }),
+    );
+    if (!link || (expectedPurpose && link.purpose !== expectedPurpose)) {
+      throw new NotFoundException('Invalid link');
+    }
+    if (link.revokedAt) throw new GoneException('This link has been revoked');
+    if (link.expiresAt.getTime() <= Date.now()) {
+      throw new GoneException('This link has expired');
+    }
+    return {
+      id: link.id,
+      tenantId: link.tenantId,
+      targetType: link.targetType,
+      targetId: link.targetId,
+    };
+  }
+
   async revoke(tenantId: string, id: string, actorId: string | undefined) {
     const link = await this.client.secureLink.findFirst({
       where: { id, tenantId },

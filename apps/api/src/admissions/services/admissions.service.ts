@@ -35,6 +35,12 @@ import { AccessScopeService } from '../../auth/services/access-scope.service';
 import { StudentLifecycleService } from '../../academic-structure/services/student-lifecycle.service';
 import type { StructureActor } from '../../academic-structure/services/academic-structure-model.service';
 import { AdmissionRequirementsService } from './admission-requirements.service';
+import { SecureLinkService } from '../../communication/delivery/services/secure-link.service';
+import {
+  STATUS_PURPOSE,
+  STATUS_TARGET,
+  STATUS_TTL_SECONDS,
+} from '../status-link.constants';
 import type {
   CreateApplicationDto,
   GuardianInputDto,
@@ -101,6 +107,7 @@ export class AdmissionsService {
     private readonly accessScope: AccessScopeService,
     private readonly lifecycle: StudentLifecycleService,
     private readonly requirements: AdmissionRequirementsService,
+    private readonly secureLinks: SecureLinkService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
@@ -526,6 +533,31 @@ export class AdmissionsService {
       }`,
     );
     return review;
+  }
+
+  /**
+   * Staff action: mint a SecureLink status token so the applicant can track +
+   * act on their application from the public portal. Works for ANY application
+   * regardless of origin (self-submitted, imported, or staff-created) — this is
+   * what makes the portal universal. Returns the raw token once.
+   */
+  async createStatusLink(tenantId: string, actorId: string, id: string) {
+    await this.assertApplication(tenantId, id);
+    const { token } = await this.secureLinks.create(tenantId, actorId, {
+      purpose: STATUS_PURPOSE,
+      targetType: STATUS_TARGET,
+      targetId: id,
+      ttlSeconds: STATUS_TTL_SECONDS,
+      metadata: { origin: 'staff' },
+    });
+    await this.writeAudit(
+      tenantId,
+      actorId,
+      'admissions.application.portal_link',
+      id,
+      `issued a status portal link for application ${id}`,
+    );
+    return { statusToken: token };
   }
 
   // ======================= offer / accept / reject =======================
