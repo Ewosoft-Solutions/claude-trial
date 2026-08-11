@@ -27,10 +27,10 @@ const TONE_SURFACE: Record<StatusTone, string> = {
   neutral: 'border border-border bg-muted-foreground/12 text-muted-foreground',
   info: 'border border-info/40 bg-info/12 text-info',
   success: 'border border-success/40 bg-success/12 text-success',
-  // Warm-gold "toast" recipe: brighter --warning-wash fill + dark --warning-ink
-  // text (in dark both collapse to the bright --warning). Reads warmer and more
-  // legible than a flat --warning tint on the near-white canvas.
-  warning: 'border border-warning-wash/50 bg-warning-wash/20 text-warning-ink',
+  // Single-hue like every other tone: text + border + dot all derive from the
+  // one --warning token (no separate ink/wash), so the three read as ONE colour
+  // in light exactly as they already do in dark.
+  warning: 'border border-warning/45 bg-warning/15 text-warning',
   destructive:
     'border border-destructive/40 bg-destructive/12 text-destructive',
   blue: 'border border-blue/40 bg-blue/12 text-blue',
