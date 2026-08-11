@@ -227,6 +227,21 @@ export class AdmissionsController {
     );
   }
 
+  // ---- applicant status portal link (staff-issued) ----
+  @Post('applications/:id/portal-link')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.communication'])
+  @ApiOperation({
+    summary: 'Issue a SecureLink status-portal token for the applicant',
+  })
+  portalLink(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
+    return this.admissions.createStatusLink(
+      this.tenantId(req),
+      this.actorId(req),
+      id,
+    );
+  }
+
   // ---- requirement template (per-tenant, configurable) ----
   @Get('requirements')
   @RequirePermissions(['admissions.view'])

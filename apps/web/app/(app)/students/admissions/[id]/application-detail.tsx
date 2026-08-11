@@ -12,7 +12,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, GraduationCap, UserCheck } from 'lucide-react';
+import { ArrowLeft, GraduationCap, Link2, UserCheck } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import { PageTitle } from '@workspace/ui/custom/shell/page-title';
@@ -118,6 +118,29 @@ export function ApplicationDetailView({
     }
   }
 
+  // Mint a SecureLink status-portal token and copy the applicant's tracking URL.
+  async function copyPortalLink() {
+    setBusy(true);
+    try {
+      const res = await fetch(
+        `/api/admissions/applications/${detail.id}/portal-link`,
+        { method: 'POST' },
+      );
+      if (!res.ok) {
+        toast.error(await errorMessage(res, 'Could not create a portal link'));
+        return;
+      }
+      const { statusToken } = (await res.json()) as { statusToken: string };
+      const url = `${window.location.origin}/status/${statusToken}`;
+      await navigator.clipboard?.writeText(url);
+      toast.success('Applicant portal link copied to clipboard');
+    } catch {
+      toast.error('Network error — please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div>
@@ -131,6 +154,19 @@ export function ApplicationDetailView({
           <StatusBadge tone={STAGE_TONE[stage] ?? 'neutral'}>
             {stage}
           </StatusBadge>
+          {perms.review && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="ml-auto"
+              disabled={busy}
+              onClick={() => void copyPortalLink()}
+            >
+              <Link2 className="mr-1 size-4" aria-hidden /> Applicant portal
+              link
+            </Button>
+          )}
         </div>
         <p className="text-sm text-muted-foreground">
           Applying for {detail.applyingFor}

@@ -34,6 +34,10 @@ const PUBLIC_PATHS = new Set([
   '/session/resume',
 ]);
 
+// Public applicant portal (no session): the apply form + the SecureLink status
+// page, matched by prefix since they carry a dynamic slug / token.
+const PUBLIC_PREFIXES = ['/apply/', '/status/'];
+
 /**
  * Resolve an optional development/legacy host hint and forward it to the app.
  * This is never an authorization boundary; the canonical production app uses
@@ -73,6 +77,7 @@ export async function middleware(req: NextRequest) {
   // Let public paths and Next.js internals through (still tenant-tagged).
   if (
     PUBLIC_PATHS.has(pathname) ||
+    PUBLIC_PREFIXES.some((p) => pathname.startsWith(p)) ||
     pathname.startsWith('/_next') ||
     pathname.startsWith('/api/') ||
     pathname.includes('.')

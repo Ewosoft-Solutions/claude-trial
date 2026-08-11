@@ -1,11 +1,18 @@
 'use client';
 
 import * as React from 'react';
+import { usePathname } from 'next/navigation';
 import { useTheme } from 'next-themes';
 import { toast, Toaster } from 'sonner';
 
 export const SESSION_NOTICE_STORAGE_KEY = 'swe:session-notice:v1';
 export const SESSION_NOTICE_TOAST_ID = 'idle-session-ended';
+
+// The idle-logout notice belongs to the authenticated app only. It must never
+// surface on the public applicant portal — a visitor with no account should not
+// be told they were "signed out". Keep this in step with middleware's
+// PUBLIC_PREFIXES.
+const PUBLIC_PREFIXES = ['/apply/', '/status/'];
 
 interface SessionNotice {
   version: 1;
@@ -38,9 +45,13 @@ function clearNotice() {
 
 export function SessionNoticeToaster() {
   const { resolvedTheme } = useTheme();
+  const pathname = usePathname();
+  const isPublic = PUBLIC_PREFIXES.some((p) => pathname?.startsWith(p));
 
   React.useEffect(() => {
-    if (!readNotice()) return;
+    // Still render <Toaster/> for the portal's own toasts, but never raise the
+    // authed-app idle notice on a public page.
+    if (isPublic || !readNotice()) return;
     toast.warning('You were signed out after a period of inactivity.', {
       id: SESSION_NOTICE_TOAST_ID,
       duration: Infinity,
@@ -48,7 +59,7 @@ export function SessionNoticeToaster() {
       description: 'Sign in again to continue where you left off.',
       onDismiss: clearNotice,
     });
-  }, []);
+  }, [isPublic]);
 
   return (
     <Toaster
