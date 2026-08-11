@@ -13,6 +13,27 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: path.resolve(__dirname, '..', '..'),
   },
+  // Admissions moved under its domain (/students/admissions). Keep old links
+  // (and the retired /students/enrollment duplicate) working.
+  async redirects() {
+    return [
+      {
+        source: '/admissions',
+        destination: '/students/admissions',
+        permanent: false,
+      },
+      {
+        source: '/admissions/:path*',
+        destination: '/students/admissions/:path*',
+        permanent: false,
+      },
+      {
+        source: '/students/enrollment',
+        destination: '/students/admissions',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
