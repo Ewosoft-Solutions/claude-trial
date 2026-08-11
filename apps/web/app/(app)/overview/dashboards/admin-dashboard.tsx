@@ -41,7 +41,7 @@ const QUICK_ACTIONS = [
   {
     key: 'student',
     label: 'Add student',
-    href: '/students/enrollment',
+    href: '/students/admissions',
     icon: <UserPlus />,
   },
   {
@@ -137,7 +137,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
         title: `${s.admissionsPending} admission application${s.admissionsPending === 1 ? '' : 's'}`,
         meta: 'Pending review',
         icon: <UserPlus className="size-4" />,
-        href: '/students/enrollment',
+        href: '/students/admissions',
       });
     }
     if (s.finance.outstandingInvoices > 0) {

@@ -308,10 +308,10 @@ describe('SCHOOL_NAV panel resolution', () => {
     const resolved = resolveNavigation(
       SCHOOL_NAV,
       OWNER,
-      '/students/enrollment',
+      '/students/admissions',
     );
     expect(resolved.activeSectionKey).toBe('students');
-    expect(resolved.activeHref).toBe('/students/enrollment');
+    expect(resolved.activeHref).toBe('/students/admissions');
     expect(resolved.navHeader?.title).toBe('Students');
     expect(resolved.railItems.find((i) => i.key === 'students')?.active).toBe(
       true,
@@ -321,7 +321,7 @@ describe('SCHOOL_NAV panel resolution', () => {
     );
 
     const records = resolved.navGroups.find((g) => g.key === 'records');
-    expect(records?.items.find((i) => i.key === 'enrollment')?.active).toBe(
+    expect(records?.items.find((i) => i.key === 'admissions')?.active).toBe(
       true,
     );
     expect(records?.items.find((i) => i.key === 'directory')?.active).toBe(

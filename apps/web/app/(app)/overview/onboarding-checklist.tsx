@@ -42,7 +42,7 @@ export function OnboardingChecklist({ stats }: { stats: OverviewStats }) {
       key: 'students',
       label: 'Add your first students',
       hint: 'Enrol students or import a roster',
-      href: '/students/enrollment',
+      href: '/students/admissions',
       done: s.students > 0,
     },
     {
@@ -83,9 +83,15 @@ export function OnboardingChecklist({ stats }: { stats: OverviewStats }) {
             className="flex items-start gap-3 rounded-[var(--radius-sm)] border border-border bg-card p-3 outline-none transition-colors hover:border-ring/60 hover:bg-accent/40 focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             {st.done ? (
-              <CheckCircle2 className="size-5 shrink-0 text-success" aria-hidden />
+              <CheckCircle2
+                className="size-5 shrink-0 text-success"
+                aria-hidden
+              />
             ) : (
-              <Circle className="size-5 shrink-0 text-muted-foreground" aria-hidden />
+              <Circle
+                className="size-5 shrink-0 text-muted-foreground"
+                aria-hidden
+              />
             )}
             <span className="flex min-w-0 flex-col">
               <span

@@ -122,7 +122,7 @@ export function ApplicationDetailView({
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
       <div>
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
-          <Link href="/admissions">
+          <Link href="/students/admissions">
             <ArrowLeft className="mr-1 size-4" aria-hidden /> Admissions
           </Link>
         </Button>
