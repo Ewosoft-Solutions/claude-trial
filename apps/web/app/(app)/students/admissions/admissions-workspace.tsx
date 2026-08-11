@@ -26,7 +26,6 @@ import {
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
-import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import {
   DirectoryTable,
@@ -37,11 +36,17 @@ import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { formatCount } from '@/lib/format';
+import {
+  StageBadge,
+  DecisionBadge,
+  STAGE_LABEL,
+  DECISION_LABEL,
+  titleCase,
+} from '@/lib/admissions/status';
 
 import { NewApplicationForm } from './new-application-form';
 import { ApplicationDrawer } from './application-drawer';
 import {
-  STAGE_TONE,
   fmtDate,
   type Application,
   type IntakeStructure,
@@ -66,20 +71,6 @@ const DECISION_OPTIONS = [
   'waitlisted',
   'rejected',
 ] as const;
-
-const DECISION_TONE: Record<
-  string,
-  React.ComponentProps<typeof StatusBadge>['tone']
-> = {
-  pending: 'warning',
-  accepted: 'success',
-  waitlisted: 'info',
-  rejected: 'destructive',
-};
-
-function titleCase(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 function initials(name: string): string {
   return name
@@ -163,21 +154,13 @@ export function AdmissionsWorkspace({
       id: 'stage',
       header: 'Stage',
       sortable: true,
-      cell: (a) => (
-        <StatusBadge tone={STAGE_TONE[a.stage] ?? 'neutral'}>
-          {titleCase(a.stage)}
-        </StatusBadge>
-      ),
+      cell: (a) => <StageBadge stage={a.stage} />,
     },
     {
       id: 'decision',
       header: 'Decision',
       sortable: true,
-      cell: (a) => (
-        <StatusBadge tone={DECISION_TONE[a.decision] ?? 'neutral'} dot>
-          {titleCase(a.decision)}
-        </StatusBadge>
-      ),
+      cell: (a) => <DecisionBadge decision={a.decision} />,
     },
   ];
 
@@ -301,7 +284,7 @@ export function AdmissionsWorkspace({
               label: 'Stage',
               options: STAGE_OPTIONS.map((s) => ({
                 value: s,
-                label: titleCase(s),
+                label: STAGE_LABEL[s] ?? titleCase(s),
               })),
             },
             {
@@ -309,7 +292,7 @@ export function AdmissionsWorkspace({
               label: 'Decision',
               options: DECISION_OPTIONS.map((d) => ({
                 value: d,
-                label: titleCase(d),
+                label: DECISION_LABEL[d] ?? titleCase(d),
               })),
             },
           ]}

@@ -38,7 +38,6 @@ import { RequirementsPanel } from './requirements-panel';
 import { FormResponsePanel } from './form-response-panel';
 import { InterviewsPanel } from './interviews-panel';
 import {
-  STAGE_TONE,
   errorMessage,
   fmtDate,
   type ApplicationDetail,
@@ -49,6 +48,7 @@ import {
   type SectionOption,
   type YearOption,
 } from '../admissions-types';
+import { StageBadge, STAGE_LABEL, titleCase } from '@/lib/admissions/status';
 
 const ADVANCE_STAGES = [
   'enquiry',
@@ -151,9 +151,7 @@ export function ApplicationDetailView({
         </Button>
         <div className="flex flex-wrap items-center gap-2">
           <PageTitle>{detail.applicantName}</PageTitle>
-          <StatusBadge tone={STAGE_TONE[stage] ?? 'neutral'}>
-            {stage}
-          </StatusBadge>
+          <StageBadge stage={stage} />
           {perms.review && (
             <Button
               type="button"
@@ -322,9 +320,7 @@ export function ApplicationDetailView({
                 >
                   <div className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-2">
-                      <StatusBadge tone={STAGE_TONE[e.toStage] ?? 'neutral'}>
-                        {e.toStage}
-                      </StatusBadge>
+                      <StageBadge stage={e.toStage} />
                       <span className="text-xs text-muted-foreground">
                         {fmtDate(e.createdAt)}
                       </span>
@@ -356,7 +352,7 @@ export function ApplicationDetailView({
                     className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
                   >
                     <span>
-                      {r.recommendation}
+                      {titleCase(r.recommendation)}
                       {r.note ? ` — ${r.note}` : ''}
                     </span>
                     {r.score != null && (
@@ -402,7 +398,7 @@ export function ApplicationDetailView({
                         <SelectContent>
                           {ADVANCE_STAGES.map((s) => (
                             <SelectItem key={s} value={s}>
-                              {s}
+                              {STAGE_LABEL[s] ?? titleCase(s)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -433,7 +429,7 @@ export function ApplicationDetailView({
                         <SelectContent>
                           {RECOMMENDATIONS.map((r) => (
                             <SelectItem key={r} value={r}>
-                              {r}
+                              {titleCase(r)}
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -553,6 +549,7 @@ export function ApplicationDetailView({
                   <Button
                     variant="ghost"
                     disabled={busy}
+                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() =>
                       void post(
                         `applications/${detail.id}/reject`,

@@ -24,6 +24,20 @@ export type StateTone =
   | 'destructive';
 
 /**
+ * Non-semantic accent hues, for progressive scales (e.g. a distinct colour
+ * per admission stage) where the five semantic tones don't give enough
+ * distinct colours. Not for success/warning/error meaning.
+ */
+export type AccentTone = 'blue' | 'violet' | 'teal';
+
+/**
+ * The full tone vocabulary a StatusBadge accepts — the semantic tones plus
+ * the accent hues. Semantic state components (meter, notice, state view)
+ * stay on the narrower StateTone.
+ */
+export type StatusTone = StateTone | AccentTone;
+
+/**
  * Button styling for a state action. Mirrors the shared Button
  * variant names so a `StateAction` maps straight onto <Button>.
  */

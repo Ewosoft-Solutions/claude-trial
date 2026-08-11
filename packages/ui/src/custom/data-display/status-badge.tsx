@@ -16,34 +16,43 @@
 import * as React from 'react';
 
 import { cn } from '@workspace/ui/lib/utils';
-import type { StateTone } from '@workspace/ui/types/states.types';
+import type { StatusTone } from '@workspace/ui/types/states.types';
 
 /**
  * Tone → matching border + tinted background + foreground. The border and
  * text share the tone colour over a soft translucent fill, e.g. the
  * "Docs needed" / "Interview" / "Accepted" pills in the Aurora design.
  */
-const TONE_SURFACE: Record<StateTone, string> = {
+const TONE_SURFACE: Record<StatusTone, string> = {
   neutral: 'border border-border bg-muted-foreground/12 text-muted-foreground',
   info: 'border border-info/40 bg-info/12 text-info',
   success: 'border border-success/40 bg-success/12 text-success',
-  warning: 'border border-warning/45 bg-warning/15 text-warning',
+  // Warm-gold "toast" recipe: brighter --warning-wash fill + dark --warning-ink
+  // text (in dark both collapse to the bright --warning). Reads warmer and more
+  // legible than a flat --warning tint on the near-white canvas.
+  warning: 'border border-warning-wash/50 bg-warning-wash/20 text-warning-ink',
   destructive:
     'border border-destructive/40 bg-destructive/12 text-destructive',
+  blue: 'border border-blue/40 bg-blue/12 text-blue',
+  violet: 'border border-violet/40 bg-violet/12 text-violet',
+  teal: 'border border-teal/40 bg-teal/12 text-teal',
 };
 
 /** Tone → solid dot colour for the optional leading indicator. */
-const TONE_DOT: Record<StateTone, string> = {
+const TONE_DOT: Record<StatusTone, string> = {
   neutral: 'bg-muted-foreground',
   info: 'bg-info',
   success: 'bg-success',
   warning: 'bg-warning',
   destructive: 'bg-destructive',
+  blue: 'bg-blue',
+  violet: 'bg-violet',
+  teal: 'bg-teal',
 };
 
 export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> {
-  /** Semantic tone. Defaults to `neutral`. */
-  tone?: StateTone;
+  /** Tone (semantic or accent hue). Defaults to `neutral`. */
+  tone?: StatusTone;
   /** Show a leading status dot. */
   dot?: boolean;
   children: React.ReactNode;

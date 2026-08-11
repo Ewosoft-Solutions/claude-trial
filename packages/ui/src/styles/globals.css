@@ -88,18 +88,23 @@
   /* status / semantic roles (aurora --pos / --warn / --neg / --accent-2) */
   --success: #12b886;
   --success-foreground: #ffffff;
-  --warning: #d98a25;
+  /* warm golden amber — the "toast" warning family (was a duller #d98a25). The
+     status FILL surfaces (badges / toast / notice banner) use --warning-wash +
+     --warning-ink below; --warning itself is the legible icon + label colour. */
+  --warning: #e0940f;
   --warning-foreground: #ffffff;
-  /* Brighter golden "wash" for warning FILL surfaces (toast / notice banner)
-     so they don't read pale on the near-white canvas. --warning stays the
-     darker, legible icon + label colour; --warning-ink keeps toast text dark
-     even over the brighter fill. Dark mode already uses a bright warning, so
-     there the wash equals --warning and the fill % returns to the default. */
   --warning-wash: #f5b301;
   --warning-wash-pct: 24%;
   --warning-ink: #7a4e08;
   --info: #ff5fa8; /* aurora --accent-2 (light) */
   --info-foreground: #ffffff;
+
+  /* progressive status hues — a distinct colour per admission stage (applied /
+     screening / accepted), so a pipeline reads as a progression, not a blur.
+     Referenced by the StatusBadge blue/violet/teal tones. */
+  --blue: #3f7ff0;
+  --violet: #8c5cff;
+  --teal: #0ea5a0;
 
   /* chart palette — aurora neon blend (blue · green · blurple · pink · amber) */
   --chart-1: #4f6df5;
@@ -255,6 +260,11 @@
   --info: #ff6fae; /* aurora --accent-2 (dark) */
   --info-foreground: #2a0716;
 
+  /* progressive status hues (dark) — see the light block */
+  --blue: #6f96ff;
+  --violet: #9d78ff;
+  --teal: #2dd4bf;
+
   --chart-1: #5b8cff;
   --chart-2: #2ee6a6;
   --chart-3: #8c5cff;
@@ -369,6 +379,11 @@
   --info: #ff6fae;
   --info-foreground: #2a0716;
 
+  /* progressive status hues (classic dark) — see the light block */
+  --blue: #6f96ff;
+  --violet: #9d78ff;
+  --teal: #2dd4bf;
+
   --chart-1: #5b8cff;
   --chart-2: #2ee6a6;
   --chart-3: #8c5cff;
@@ -459,8 +474,12 @@
   --color-warning: var(--warning);
   --color-warning-foreground: var(--warning-foreground);
   --color-warning-wash: var(--warning-wash);
+  --color-warning-ink: var(--warning-ink);
   --color-info: var(--info);
   --color-info-foreground: var(--info-foreground);
+  --color-blue: var(--blue);
+  --color-violet: var(--violet);
+  --color-teal: var(--teal);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);

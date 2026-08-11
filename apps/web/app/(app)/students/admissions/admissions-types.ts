@@ -258,30 +258,15 @@ export const GUARDIAN_RELATIONSHIPS = [
 
 export const GENDERS = ['male', 'female', 'other'] as const;
 
-export const STAGE_TONE: Record<string, StateTone> = {
-  enquiry: 'neutral',
-  applied: 'info',
-  screening: 'info',
-  interview: 'info',
-  offer: 'warning',
-  accepted: 'success',
-  enrolled: 'success',
-  rejected: 'destructive',
-  withdrawn: 'neutral',
-};
-
-export const REQUIREMENT_STATUS_TONE: Record<string, StateTone> = {
-  pending: 'warning',
-  provided: 'success',
-  waived: 'neutral',
-};
-
-export const COLLECT_STAGE_LABEL: Record<string, string> = {
-  application: 'At application',
-  offer: 'On offer',
-  acceptance: 'On acceptance',
-  enrolment: 'On enrolment',
-};
+// Stage / decision / requirement colours + labels live in ONE place so every
+// admissions surface (list, drawer, detail, and the public portal) stays in
+// lock-step — see @/lib/admissions/status.
+export {
+  STAGE_TONE,
+  STAGE_LABEL,
+  REQUIREMENT_STATUS_TONE,
+  COLLECT_STAGE_LABEL,
+} from '@/lib/admissions/status';
 
 // Dates are formatted with an EXPLICIT locale + timezone so the server and the
 // client always produce the same string — `toLocaleDateString()` with no args

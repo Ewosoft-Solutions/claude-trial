@@ -3,7 +3,6 @@
  * separate from the internal `(app)` admissions types so the public surface has
  * no coupling to the authed app — the public API returns exactly these shapes.
  */
-import type { StateTone } from '@workspace/ui/types/states.types';
 
 export type FormFieldType =
   | 'text'
@@ -93,46 +92,11 @@ export const GUARDIAN_RELATIONSHIPS = [
   'other',
 ] as const;
 
-export const STAGE_TONE: Record<string, StateTone> = {
-  enquiry: 'neutral',
-  applied: 'info',
-  screening: 'info',
-  interview: 'info',
-  offer: 'warning',
-  accepted: 'success',
-  enrolled: 'success',
-  rejected: 'destructive',
-  withdrawn: 'neutral',
-};
-
-export const REQUIREMENT_STATUS_TONE: Record<string, StateTone> = {
-  pending: 'warning',
-  provided: 'success',
-  waived: 'neutral',
-};
-
-export const COLLECT_STAGE_LABEL: Record<string, string> = {
-  application: 'Now',
-  offer: 'After an offer',
-  acceptance: 'On acceptance',
-  enrolment: 'On enrolment',
-};
-
-/** Applicant-friendly stage descriptions for the status timeline. */
-export const STAGE_STEP_LABEL: Record<string, string> = {
-  applied: 'Application received',
-  screening: 'Under review',
-  interview: 'Assessment / interview',
-  offer: 'Offer made',
-  accepted: 'Offer accepted',
-  enrolled: 'Enrolled',
-  rejected: 'Not successful',
-  withdrawn: 'Withdrawn',
-};
-
-export function titleCase(s: string): string {
-  return s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-}
+// Stage / decision / requirement colours, labels + gating come from the ONE
+// shared admissions vocabulary (@/lib/admissions/status) so the public portal
+// stays in lock-step with the staff surfaces — applicant-facing labels live
+// there too. Re-exported here for the portal's own imports.
+export { titleCase } from '@/lib/admissions/status';
 
 // Hydration-safe (explicit locale + UTC) — matches the internal fmtDate.
 export function fmtDate(date?: string | null): string {
