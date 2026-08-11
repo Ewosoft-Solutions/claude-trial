@@ -189,14 +189,22 @@ export function AdmissionsWorkspace({
     return out;
   }, [applications, term, filters, sort]);
 
+  // Clicking a KPI tile applies the exact filter that produced its number, so
+  // the table shows those rows (toggle: clicking the active tile clears it).
   const stats: StatItem[] = React.useMemo(() => {
     const byStage = (s: string) =>
       applications.filter((a) => a.stage === s).length;
+    const noFilters = !filters.stage && !filters.decision;
+    const isReview = filters.decision === 'pending' && !filters.stage;
+    const isOffers = filters.stage === 'offer' && !filters.decision;
+    const isEnrolled = filters.stage === 'enrolled' && !filters.decision;
     return [
       {
         key: 'total',
         label: 'Applications',
         value: formatCount(applications.length),
+        active: noFilters,
+        onSelect: () => setFilters({}),
       },
       {
         key: 'review',
@@ -204,19 +212,25 @@ export function AdmissionsWorkspace({
         value: formatCount(
           applications.filter((a) => a.decision === 'pending').length,
         ),
+        active: isReview,
+        onSelect: () => setFilters(isReview ? {} : { decision: 'pending' }),
       },
       {
         key: 'offers',
         label: 'Offers out',
         value: formatCount(byStage('offer')),
+        active: isOffers,
+        onSelect: () => setFilters(isOffers ? {} : { stage: 'offer' }),
       },
       {
         key: 'enrolled',
         label: 'Enrolled',
         value: formatCount(byStage('enrolled')),
+        active: isEnrolled,
+        onSelect: () => setFilters(isEnrolled ? {} : { stage: 'enrolled' }),
       },
     ];
-  }, [applications]);
+  }, [applications, filters]);
 
   const pageRows = filtered.slice((page - 1) * pageSize, page * pageSize);
   const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
@@ -226,7 +240,7 @@ export function AdmissionsWorkspace({
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Admissions"
-          description="Capture applications against the school's own classes, collect the requirement checklist at each stage, and convert an accepted applicant into a registered student in one command."
+          description="Track applicants from enquiry to enrolment — review, decide, and convert admits into students."
           actions={
             <>
               {perms.criteria && (
