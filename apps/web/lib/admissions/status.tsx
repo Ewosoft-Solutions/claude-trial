@@ -44,10 +44,6 @@ export const STAGE_TONE: Record<string, StatusTone> = {
   enrolled: 'success',
   rejected: 'destructive',
   withdrawn: 'neutral',
-  // Legacy pre-WB3 stage strings still present in older seed/data — aliased to
-  // canonical hues so they never fall through to a pale neutral fallback.
-  application: 'blue',
-  decision: 'warning',
 };
 
 /** Staff-facing stage labels (capitalised). */
@@ -61,8 +57,6 @@ export const STAGE_LABEL: Record<string, string> = {
   enrolled: 'Enrolled',
   rejected: 'Rejected',
   withdrawn: 'Withdrawn',
-  application: 'Application',
-  decision: 'Decision',
 };
 
 /** Applicant-facing stage labels — friendlier copy for the public portal. */
@@ -76,8 +70,6 @@ export const STAGE_APPLICANT_LABEL: Record<string, string> = {
   enrolled: 'Enrolled',
   rejected: 'Not successful',
   withdrawn: 'Withdrawn',
-  application: 'Application received',
-  decision: 'Decision pending',
 };
 
 // ---- Decision -------------------------------------------------------------
@@ -136,9 +128,6 @@ const STAGE_RANK: Record<string, number> = {
   offer: 4,
   accepted: 5,
   enrolled: 6,
-  // Legacy aliases (see STAGE_TONE).
-  application: 1,
-  decision: 4,
 };
 
 const COLLECT_UNLOCK_RANK: Record<string, number> = {
