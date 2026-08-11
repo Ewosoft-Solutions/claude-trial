@@ -76,8 +76,8 @@
   --accent: #eef0fb;
   --accent-foreground: #2a2d55;
 
-  /* danger (aurora --neg, light) */
-  --destructive: #f0506e;
+  /* danger — a clear, obvious red (distinct from the hot-pink info tone) */
+  --destructive: #e23b3b;
   --destructive-foreground: #ffffff;
 
   /* lines / fields / focus */
@@ -85,26 +85,25 @@
   --input: rgba(40, 40, 90, 0.12);
   --ring: #4f6df5;
 
-  /* status / semantic roles (aurora --pos / --warn / --neg / --accent-2) */
-  --success: #12b886;
+  /* status / semantic roles — kept well varied: green / amber / red / hot-pink */
+  --success: #16a34a; /* an obvious green, distinct from the cyan teal */
   --success-foreground: #ffffff;
-  /* warm golden amber — the "toast" warning family (was a duller #d98a25). The
-     status FILL surfaces (badges / toast / notice banner) use --warning-wash +
-     --warning-ink below; --warning itself is the legible icon + label colour. */
-  --warning: #e0940f;
+  /* amber (owner pick) — the warning family. The toast / notice banner still use
+     --warning-wash + --warning-ink; the badge is single-hue off --warning. */
+  --warning: #ec9d06;
   --warning-foreground: #ffffff;
   --warning-wash: #f5b301;
   --warning-wash-pct: 24%;
   --warning-ink: #7a4e08;
-  --info: #ff5fa8; /* aurora --accent-2 (light) */
+  --info: #ff2d95; /* hot pink (replaces the plainer #ff5fa8) */
   --info-foreground: #ffffff;
 
-  /* progressive status hues — a distinct colour per admission stage (applied /
-     screening / accepted), so a pipeline reads as a progression, not a blur.
-     Referenced by the StatusBadge blue/violet/teal tones. */
-  --blue: #3f7ff0;
-  --violet: #8c5cff;
-  --teal: #0ea5a0;
+  /* progressive status hues — a distinct colour per admission stage, so a
+     pipeline reads as a progression, not a blur. blue = electric blue, violet =
+     neon purple, teal = cyan (owner picks). */
+  --blue: #2f6bff;
+  --violet: #b026ff;
+  --teal: #0891b2;
 
   /* chart palette — aurora neon blend (blue · green · blurple · pink · amber) */
   --chart-1: #4f6df5;
@@ -243,27 +242,27 @@
   --accent: rgba(255, 255, 255, 0.065);
   --accent-foreground: #eef0ff;
 
-  --destructive: #ff6b81; /* aurora --neg (dark) */
+  --destructive: #ff6b6b; /* obvious red (was a pinker #ff6b81) */
   --destructive-foreground: #2a0710;
 
   --border: rgba(255, 255, 255, 0.1);
   --input: rgba(255, 255, 255, 0.14);
   --ring: #5b8cff;
 
-  --success: #2ee6a6;
+  --success: #37e07e; /* obvious green, distinct from the cyan teal */
   --success-foreground: #06281f;
-  --warning: #ffce5c;
+  --warning: #ffd35c; /* amber (owner pick) */
   --warning-foreground: #2a1f00;
-  --warning-wash: #ffce5c; /* already bright in dark — no separate wash needed */
+  --warning-wash: #ffd35c; /* already bright in dark — no separate wash needed */
   --warning-wash-pct: 16%;
-  --warning-ink: #ffce5c;
-  --info: #ff6fae; /* aurora --accent-2 (dark) */
+  --warning-ink: #ffd35c;
+  --info: #ff5cae; /* hot pink (dark) */
   --info-foreground: #2a0716;
 
   /* progressive status hues (dark) — see the light block */
-  --blue: #6f96ff;
-  --violet: #9d78ff;
-  --teal: #2dd4bf;
+  --blue: #4d8bff; /* electric blue */
+  --violet: #c25cff; /* neon purple */
+  --teal: #22d3ee; /* cyan */
 
   --chart-1: #5b8cff;
   --chart-2: #2ee6a6;
@@ -362,27 +361,27 @@
   --accent: #232145;
   --accent-foreground: #eef0ff;
 
-  --destructive: #ff6b81;
+  --destructive: #ff6b6b; /* obvious red */
   --destructive-foreground: #2a0710;
 
   --border: #211f3a;
   --input: #2b2950;
   --ring: #5b8cff;
 
-  --success: #2ee6a6;
+  --success: #37e07e; /* obvious green */
   --success-foreground: #06281f;
-  --warning: #ffce5c;
+  --warning: #ffd35c; /* amber */
   --warning-foreground: #2a1f00;
-  --warning-wash: #ffce5c;
+  --warning-wash: #ffd35c;
   --warning-wash-pct: 16%;
-  --warning-ink: #ffce5c;
-  --info: #ff6fae;
+  --warning-ink: #ffd35c;
+  --info: #ff5cae; /* hot pink */
   --info-foreground: #2a0716;
 
   /* progressive status hues (classic dark) — see the light block */
-  --blue: #6f96ff;
-  --violet: #9d78ff;
-  --teal: #2dd4bf;
+  --blue: #4d8bff; /* electric blue */
+  --violet: #c25cff; /* neon purple */
+  --teal: #22d3ee; /* cyan */
 
   --chart-1: #5b8cff;
   --chart-2: #2ee6a6;

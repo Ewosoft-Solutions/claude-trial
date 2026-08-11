@@ -24,7 +24,9 @@ import type { StatusTone } from '@workspace/ui/types/states.types';
  * "Docs needed" / "Interview" / "Accepted" pills in the Aurora design.
  */
 const TONE_SURFACE: Record<StatusTone, string> = {
-  neutral: 'border border-border bg-muted-foreground/12 text-muted-foreground',
+  // Plain gray: the muted body-text colour on a light --muted fill, so a
+  // neutral badge reads as the same gray as the surrounding secondary text.
+  neutral: 'border border-border bg-muted text-muted-foreground',
   info: 'border border-info/40 bg-info/12 text-info',
   success: 'border border-success/40 bg-success/12 text-success',
   // Single-hue like every other tone: text + border + dot all derive from the

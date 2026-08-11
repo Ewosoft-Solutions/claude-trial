@@ -83,7 +83,7 @@ export const STAGE_APPLICANT_LABEL: Record<string, string> = {
 // ---- Decision -------------------------------------------------------------
 
 export const DECISION_TONE: Record<string, StatusTone> = {
-  pending: 'neutral', // awaiting — not a warning
+  pending: 'warning', // amber — matches "pending/attention" elsewhere
   accepted: 'success',
   waitlisted: 'warning',
   rejected: 'destructive',
