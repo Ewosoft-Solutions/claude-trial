@@ -23,6 +23,12 @@ import { cn } from '@workspace/ui/lib/utils';
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import {
+  DetailGrid,
+  Field,
+  Section,
+  StatTiles,
+} from '@workspace/ui/custom/detail/detail-primitives';
 
 import {
   ageFrom,
@@ -49,50 +55,11 @@ const PROFILE_ICON: Record<ProfileKind, React.ReactNode> = {
   user: <UserCog className="size-3" />,
 };
 
-/* ---- Layout primitives -------------------------------------------------- */
-
-export function Section({
-  title,
-  action,
-  children,
-}: {
-  title: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-2 border-b border-border pb-1.5">
-        <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-        {action}
-      </div>
-      {children}
-    </section>
-  );
-}
-
-export function DetailGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid grid-cols-2 gap-x-4 gap-y-3.5">{children}</div>;
-}
-
-export function Field({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-0.5">
-      <span className="text-[calc(10.5px*var(--font-scale))] font-medium uppercase tracking-wide text-muted-foreground">
-        {label}
-      </span>
-      <span className="break-words text-sm text-foreground">
-        {value ?? <span className="text-muted-foreground">—</span>}
-      </span>
-    </div>
-  );
-}
+/* ---- Layout primitives (promoted to @workspace/ui/custom/detail) -------- */
+// Section / DetailGrid / Field / StatTiles now live in the design system so
+// other surfaces (Admissions…) share them; re-exported here so the People
+// drawer + profile tabs keep importing them from this module.
+export { DetailGrid, Field, Section, StatTiles };
 
 /* ---- Header ------------------------------------------------------------- */
 
@@ -431,44 +398,6 @@ export function RelationList({
           onSelect={onSelect}
           labelFor={labelFor}
         />
-      ))}
-    </div>
-  );
-}
-
-/* ---- Stat tiles --------------------------------------------------------- */
-
-export function StatTiles({
-  items,
-}: {
-  items: {
-    key: string;
-    label: string;
-    value: React.ReactNode;
-    tone?: StateTone;
-  }[];
-}) {
-  if (items.length === 0) return null;
-  return (
-    <div className="grid grid-cols-2 gap-2.5 @md/tiles:grid-cols-3">
-      {items.map((it) => (
-        <div
-          key={it.key}
-          className="rounded-lg border border-border bg-card/40 p-3"
-        >
-          <div className="text-[calc(10.5px*var(--font-scale))] font-medium uppercase tracking-wide text-muted-foreground">
-            {it.label}
-          </div>
-          <div
-            className={cn(
-              'mt-1 text-lg font-bold tabular-nums text-foreground',
-              it.tone === 'destructive' && 'text-destructive',
-              it.tone === 'warning' && 'text-amber-500',
-            )}
-          >
-            {it.value}
-          </div>
-        </div>
       ))}
     </div>
   );

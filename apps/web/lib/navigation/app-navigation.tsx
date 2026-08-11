@@ -11,7 +11,7 @@
 
    Routes here map to app routes under the `(app)` route group
    (route groups add no path segment), e.g. `/overview`,
-   `/students/enrollment`.
+   `/students/admissions`.
    ============================================================ */
 
 import {
@@ -73,17 +73,10 @@ export const SCHOOL_NAV: NavigationConfig = {
           label: 'Records',
           items: [
             {
-              key: 'enrollment',
-              label: 'Enrollment',
-              icon: <UserPlus />,
-              href: '/students/enrollment',
-              access: { anyPermission: ['admissions.view'] },
-            },
-            {
               key: 'admissions',
               label: 'Admissions',
               icon: <GraduationCap />,
-              href: '/admissions',
+              href: '/students/admissions',
               access: { anyPermission: ['admissions.view'] },
             },
             {
@@ -212,7 +205,7 @@ export const SCHOOL_NAV: NavigationConfig = {
             },
             {
               key: 'enrollment',
-              label: 'Enrollment',
+              label: 'Class enrolment',
               icon: <UserPlus />,
               href: '/academics/enrollment',
               access: { anyPermission: ['academics.enrollment.view'] },

@@ -57,7 +57,9 @@ export function FormResponsePanel({
         <p>No application form has been published yet.</p>
         {perms.criteria && (
           <Button asChild variant="outline" size="sm" className="w-fit">
-            <Link href="/admissions/forms">Build the application form</Link>
+            <Link href="/students/admissions/forms">
+              Build the application form
+            </Link>
           </Button>
         )}
       </div>

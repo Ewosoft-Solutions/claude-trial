@@ -283,10 +283,23 @@ export const COLLECT_STAGE_LABEL: Record<string, string> = {
   enrolment: 'On enrolment',
 };
 
+// Dates are formatted with an EXPLICIT locale + timezone so the server and the
+// client always produce the same string — `toLocaleDateString()` with no args
+// uses the runtime's default locale/zone, which differs between the Node server
+// (SSR) and the browser and hydration-mismatches (e.g. "8/6/2026" vs
+// "06/08/2026"). Date-only values are read in UTC (the DB `@db.Date` is midnight
+// UTC); date-times are shown in West Africa Time, the product's home zone.
 export function fmtDate(date?: string | null): string {
   if (!date) return '—';
   const d = new Date(date);
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+  return Number.isNaN(d.getTime())
+    ? '—'
+    : d.toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        timeZone: 'UTC',
+      });
 }
 
 export function fmtDateTime(date?: string | null): string {
@@ -294,9 +307,14 @@ export function fmtDateTime(date?: string | null): string {
   const d = new Date(date);
   return Number.isNaN(d.getTime())
     ? '—'
-    : d.toLocaleString(undefined, {
-        dateStyle: 'medium',
-        timeStyle: 'short',
+    : d.toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+        timeZone: 'Africa/Lagos',
       });
 }
 
