@@ -10,6 +10,7 @@ import {
   AcademicsAccessService,
   type AcademicsActor,
 } from '../../common/academics/academics-access.service';
+import { markObjective } from '../../common/academics/objective-marking';
 import { AssessmentGradingService } from './assessment-grading.service';
 import {
   AUTO_GRADABLE_STYLES,
@@ -280,7 +281,7 @@ export class AssessmentTakingService {
       }
     }
 
-    const marking = this.mark(paper, dto.answers);
+    const marking = markObjective(paper, dto.answers, AUTO_GRADABLE_STYLES);
 
     const data = {
       answers: dto.answers as object[],
@@ -417,35 +418,6 @@ export class AssessmentTakingService {
       throw new BadRequestException('This assessment attempt no longer exists');
     }
     return submission;
-  }
-
-  /** Objective marking: exact label match (case-insensitive, trimmed). */
-  private mark(
-    paper: PaperQuestion[],
-    answers: Array<{ questionId: string; answer: string }>,
-  ): { autoPoints: number; maxPoints: number; needsManualGrading: boolean } {
-    const byQuestion = new Map(answers.map((a) => [a.questionId, a.answer]));
-    let autoPoints = 0;
-    let maxPoints = 0;
-    let needsManualGrading = false;
-
-    for (const question of paper) {
-      maxPoints += question.points;
-      if (!AUTO_GRADABLE_STYLES.includes(question.style)) {
-        needsManualGrading = true;
-        continue;
-      }
-      const given = byQuestion.get(question.questionId);
-      if (!given || !question.correctAnswer) continue;
-      if (
-        given.trim().toLowerCase() ===
-        question.correctAnswer.trim().toLowerCase()
-      ) {
-        autoPoints += question.points;
-      }
-    }
-
-    return { autoPoints, maxPoints, needsManualGrading };
   }
 
   private percentage(points: number, maxPoints: number): number | null {

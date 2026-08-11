@@ -11,6 +11,9 @@ import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
 import { ApplicationDetailView } from './application-detail';
 import type {
   ApplicationDetail,
+  FormResponse,
+  FormVersion,
+  Interview,
   SectionOption,
   YearOption,
 } from '../admissions-types';
@@ -48,11 +51,24 @@ export default async function AdmissionApplicationPage({
     );
   }
 
-  const [detail, template, sections, years] = await Promise.all([
+  const [
+    detail,
+    template,
+    sections,
+    years,
+    currentForm,
+    formResponse,
+    interviews,
+  ] = await Promise.all([
     serverApiGet<ApplicationDetail>(`/admissions/applications/${id}`),
     serverApiGet<TemplateRow[]>('/admissions/requirements'),
     serverApiGet<SectionOption[]>('/academics/structure/sections'),
     serverApiGet<YearOption[]>('/academic-years'),
+    serverApiGet<FormVersion | null>('/admissions/forms/current'),
+    serverApiGet<FormResponse | null>(
+      `/admissions/applications/${id}/form-response`,
+    ),
+    serverApiGet<Interview[]>(`/admissions/applications/${id}/interviews`),
   ]);
 
   if (!detail) notFound();
@@ -76,10 +92,14 @@ export default async function AdmissionApplicationPage({
         convert: permissions.includes('admissions.convert'),
         documents: permissions.includes('admissions.documents'),
         criteria: permissions.includes('admissions.criteria'),
+        interviews: permissions.includes('admissions.interviews'),
       }}
       sections={sections ?? []}
       years={toArray<YearOption>(years)}
       configByRequirementId={configByRequirementId}
+      currentForm={currentForm ?? null}
+      formResponse={formResponse ?? null}
+      interviews={Array.isArray(interviews) ? interviews : []}
     />
   );
 }
