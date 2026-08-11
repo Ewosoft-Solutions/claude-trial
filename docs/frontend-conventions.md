@@ -26,6 +26,14 @@ Clicking a row opens a **`Sheet` drawer** (`@workspace/ui/components/sheet`) wit
 and an "Open full detail" link. The full detail/edit is its **own route** (`.../[id]`). Don't cram deep
 editing into the drawer, and don't force a route hop for a glance.
 
+Build the drawer from the shared **detail primitives** — `Section` / `DetailGrid` / `Field` /
+`StatTiles` from `@workspace/ui/custom/detail/detail-primitives` — so every drawer reads with the same
+hierarchy (a `Section` title is bold/foreground; a `Field` label is small + muted). The house pattern
+(see `people/person-detail-drawer.tsx` and `students/admissions/application-drawer.tsx`): a header with
+an avatar + name + status chips + a lightweight tab bar, a scrollable `@container/tiles` body of
+`StatTiles` + `Section`s, proper loading/error states, and a footer action. Fetch on open via
+`/api/…`, aborting on close.
+
 ## 3 · State reads through semantic `StatusBadge` tones
 
 Lifecycle/status/decision values render through **`StatusBadge`** with a semantic `StateTone`
