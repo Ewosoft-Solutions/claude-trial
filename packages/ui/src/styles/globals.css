@@ -88,9 +88,10 @@
   /* status / semantic roles — kept well varied: green / amber / red / hot-pink */
   --success: #16a34a; /* an obvious green, distinct from the cyan teal */
   --success-foreground: #ffffff;
-  /* amber (owner pick) — the warning family. The toast / notice banner still use
-     --warning-wash + --warning-ink; the badge is single-hue off --warning. */
-  --warning: #ec9d06;
+  /* deep amber (owner pick) — matches the rest of the set + most legible. The
+     toast / notice banner still use --warning-wash + --warning-ink; the badge is
+     single-hue off --warning. */
+  --warning: #e0940f;
   --warning-foreground: #ffffff;
   --warning-wash: #f5b301;
   --warning-wash-pct: 24%;
@@ -251,11 +252,11 @@
 
   --success: #37e07e; /* obvious green, distinct from the cyan teal */
   --success-foreground: #06281f;
-  --warning: #ffd35c; /* amber (owner pick) */
+  --warning: #ffce5c; /* deep amber (owner pick) */
   --warning-foreground: #2a1f00;
-  --warning-wash: #ffd35c; /* already bright in dark — no separate wash needed */
+  --warning-wash: #ffce5c; /* already bright in dark — no separate wash needed */
   --warning-wash-pct: 16%;
-  --warning-ink: #ffd35c;
+  --warning-ink: #ffce5c;
   --info: #ff5cae; /* hot pink (dark) */
   --info-foreground: #2a0716;
 
@@ -370,11 +371,11 @@
 
   --success: #37e07e; /* obvious green */
   --success-foreground: #06281f;
-  --warning: #ffd35c; /* amber */
+  --warning: #ffce5c; /* deep amber */
   --warning-foreground: #2a1f00;
-  --warning-wash: #ffd35c;
+  --warning-wash: #ffce5c;
   --warning-wash-pct: 16%;
-  --warning-ink: #ffd35c;
+  --warning-ink: #ffce5c;
   --info: #ff5cae; /* hot pink */
   --info-foreground: #2a0716;
 
