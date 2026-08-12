@@ -18,7 +18,7 @@ import {
   type FormDefinition,
   type FormItem,
   type PhoneAnswer,
-} from './form-schema';
+} from './schema';
 
 /** Thrown for any invalid definition or answer (mapped to 400 by the service). */
 export class FormValidationError extends Error {}

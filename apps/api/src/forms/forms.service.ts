@@ -20,7 +20,6 @@ import { TenantDbService } from '../common/database/tenant-db.service';
 import { AuditService } from '../common/audit/audit.service';
 import { AUDIT_EVENT } from '../common/audit/audit.constants';
 import { DocumentService } from '../documents/services/document.service';
-import { type FormDefinition } from './form-schema';
 import {
   FormValidationError,
   fileItemKeys,
@@ -28,7 +27,8 @@ import {
   isFileUploadMarker,
   validateAnswers,
   validateDefinition,
-} from './form-validation';
+  type FormDefinition,
+} from '@workspace/forms';
 
 /** Locate a form within a tenant by who owns it + what it's for. */
 export interface FormOwnerRef {

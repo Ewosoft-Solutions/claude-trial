@@ -130,6 +130,10 @@ jobs:
         working-directory: packages/database
         run: pnpm build
 
+      - name: Build packages/forms
+        working-directory: packages/forms
+        run: pnpm build
+
       - name: Build packages/api
         working-directory: packages/api
         run: pnpm build
