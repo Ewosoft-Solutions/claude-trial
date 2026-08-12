@@ -358,16 +358,11 @@ function DraftEditor({
         </CardContent>
       </Card>
 
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Fields</h3>
-        <Button size="sm" variant="outline" onClick={addField}>
-          <Plus className="mr-1 size-3.5" aria-hidden /> Add field
-        </Button>
-      </div>
+      <h3 className="text-sm font-semibold">Fields</h3>
 
       {draft.fields.length === 0 ? (
         <p className="text-sm text-muted-foreground">
-          No fields yet — add at least one before publishing.
+          No fields yet — add one below to get started.
         </p>
       ) : (
         <div className="flex flex-col gap-3">
@@ -381,6 +376,17 @@ function DraftEditor({
           ))}
         </div>
       )}
+
+      {/* Add sits AFTER the stack, so adding fields never means scrolling back
+          to the top — the new field appears right here each time. */}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={addField}
+        className="w-full border-dashed"
+      >
+        <Plus className="mr-1 size-4" aria-hidden /> Add field
+      </Button>
 
       <div className="flex justify-end gap-2">
         <Button variant="ghost" disabled={busy} onClick={onCancel}>
