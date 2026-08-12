@@ -119,7 +119,8 @@ export type FormFieldType =
   | 'date'
   | 'select'
   | 'multiselect'
-  | 'boolean';
+  | 'boolean'
+  | 'file';
 
 export const FORM_FIELD_TYPES: FormFieldType[] = [
   'text',
@@ -129,6 +130,7 @@ export const FORM_FIELD_TYPES: FormFieldType[] = [
   'select',
   'multiselect',
   'boolean',
+  'file',
 ];
 
 export const FORM_FIELD_TYPE_LABEL: Record<FormFieldType, string> = {
@@ -139,7 +141,17 @@ export const FORM_FIELD_TYPE_LABEL: Record<FormFieldType, string> = {
   select: 'Single choice',
   multiselect: 'Multiple choice',
   boolean: 'Yes / no',
+  file: 'File upload',
 };
+
+/** The filename of a `file` field's answer (stored ref or a freshly picked file). */
+export function fileAnswerName(value: unknown): string | null {
+  if (value && typeof value === 'object' && 'filename' in value) {
+    const n = (value as { filename?: unknown }).filename;
+    return typeof n === 'string' && n ? n : null;
+  }
+  return null;
+}
 
 export interface FormFieldDef {
   key: string;

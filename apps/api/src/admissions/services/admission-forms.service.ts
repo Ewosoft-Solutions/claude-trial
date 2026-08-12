@@ -26,6 +26,7 @@ import { Prisma } from '@workspace/database';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
+import { DocumentService } from '../../documents/services/document.service';
 import {
   OPTION_FIELD_TYPES,
   type CreateFormVersionDto,
@@ -34,11 +35,20 @@ import {
   type UpdateFormVersionDto,
 } from '../dto/admission-forms.dto';
 
+/** A `file` field's persisted answer — a reference to the stored F4 document. */
+interface FileAnswer {
+  documentId: string;
+  filename: string;
+  mime?: string;
+  size?: number;
+}
+
 @Injectable()
 export class AdmissionFormsService {
   constructor(
     private readonly tenantDb: TenantDbService,
     private readonly audit: AuditService,
+    private readonly documents: DocumentService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
@@ -261,7 +271,13 @@ export class AdmissionFormsService {
       );
     }
     const fields = current.fields as unknown as FormFieldDto[];
-    const answers = this.validateAnswers(fields, dto.answers);
+    const answers = await this.validateAnswers(
+      tenantId,
+      applicationId,
+      actorId,
+      fields,
+      dto.answers,
+    );
 
     const response = await this.client.admissionFormResponse.upsert({
       where: {
@@ -323,10 +339,13 @@ export class AdmissionFormsService {
    * Validate an answer set against the published field defs by type, returning
    * the cleaned answers (unknown keys rejected; empty required fields rejected).
    */
-  private validateAnswers(
+  private async validateAnswers(
+    tenantId: string,
+    applicationId: string,
+    actorId: string,
     fields: FormFieldDto[],
     answers: Record<string, unknown>,
-  ): Record<string, unknown> {
+  ): Promise<Record<string, unknown>> {
     const byKey = new Map(fields.map((f) => [f.key, f]));
     for (const key of Object.keys(answers)) {
       if (!byKey.has(key)) {
@@ -348,12 +367,24 @@ export class AdmissionFormsService {
         }
         continue;
       }
-      cleaned[field.key] = this.coerceAnswer(field, raw);
+      cleaned[field.key] = await this.coerceAnswer(
+        tenantId,
+        applicationId,
+        actorId,
+        field,
+        raw,
+      );
     }
     return cleaned;
   }
 
-  private coerceAnswer(field: FormFieldDto, raw: unknown): unknown {
+  private async coerceAnswer(
+    tenantId: string,
+    applicationId: string,
+    actorId: string,
+    field: FormFieldDto,
+    raw: unknown,
+  ): Promise<unknown> {
     switch (field.type) {
       case 'text':
       case 'paragraph': {
@@ -406,11 +437,95 @@ export class AdmissionFormsService {
         }
         return raw;
       }
+      case 'file':
+        return this.coerceFileAnswer(
+          tenantId,
+          applicationId,
+          actorId,
+          field,
+          raw,
+        );
       default:
         throw new BadRequestException(
           `Unsupported field type on "${field.label}".`,
         );
     }
+  }
+
+  /**
+   * A `file` answer is either a NEW upload ({ filename, mime, contentBase64 })
+   * — stored through F4/R2 and reduced to a document reference — or an EXISTING
+   * reference ({ documentId, filename }) on a re-submit, which is passed through
+   * only after we confirm the document belongs to THIS application (so a client
+   * can't attach another application's — or another tenant's — document).
+   */
+  private async coerceFileAnswer(
+    tenantId: string,
+    applicationId: string,
+    actorId: string,
+    field: FormFieldDto,
+    raw: unknown,
+  ): Promise<FileAnswer> {
+    if (!raw || typeof raw !== 'object') {
+      throw new BadRequestException(
+        `"${field.label}" must be an uploaded file.`,
+      );
+    }
+    const v = raw as Record<string, unknown>;
+
+    // Existing reference (unchanged on re-submit).
+    if (typeof v.documentId === 'string' && v.documentId) {
+      const doc = await this.client.document.findFirst({
+        where: {
+          id: v.documentId,
+          tenantId,
+          ownerType: 'AdmissionApplication',
+          ownerId: applicationId,
+        },
+        select: { id: true },
+      });
+      if (!doc) {
+        throw new BadRequestException(
+          `"${field.label}" refers to a file that isn't on this application.`,
+        );
+      }
+      return {
+        documentId: doc.id,
+        filename: typeof v.filename === 'string' ? v.filename : 'file',
+        mime: typeof v.mime === 'string' ? v.mime : undefined,
+        size: typeof v.size === 'number' ? v.size : undefined,
+      };
+    }
+
+    // New upload.
+    if (typeof v.contentBase64 === 'string' && v.contentBase64) {
+      const content = Buffer.from(v.contentBase64, 'base64');
+      if (content.length === 0) {
+        throw new BadRequestException(`"${field.label}" file is empty.`);
+      }
+      const filename =
+        typeof v.filename === 'string' && v.filename ? v.filename : 'upload';
+      const doc = await this.documents.upload(tenantId, actorId, {
+        ownerType: 'AdmissionApplication',
+        ownerId: applicationId,
+        title: `${field.label} — ${filename}`,
+        visibility: 'private',
+        sensitive: true,
+        mime: typeof v.mime === 'string' ? v.mime : 'application/octet-stream',
+        filename,
+        content,
+        sourceSystem: 'admissions',
+        sourceId: `form-field:${field.key}`,
+      });
+      return {
+        documentId: doc.id,
+        filename,
+        mime: typeof v.mime === 'string' ? v.mime : undefined,
+        size: content.length,
+      };
+    }
+
+    throw new BadRequestException(`"${field.label}" must be an uploaded file.`);
   }
 
   private async assertApplication(tenantId: string, id: string) {

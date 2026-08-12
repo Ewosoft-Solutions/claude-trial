@@ -28,6 +28,15 @@ import { makeSuperuserClient } from './helpers/superuser-client';
 const HAS_APP_RUNTIME = !!process.env.APP_RUNTIME_DATABASE_URL;
 const d = HAS_APP_RUNTIME ? describe : describe.skip;
 
+// Pin the local-disk storage provider (a `file` form field uploads through F4).
+const R2_KEYS = [
+  'R2_ACCOUNT_ID',
+  'R2_BUCKET',
+  'R2_ACCESS_KEY_ID',
+  'R2_SECRET_ACCESS_KEY',
+] as const;
+const savedR2: Record<string, string | undefined> = {};
+
 d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
   let app: INestApplication;
   let owner: ReturnType<typeof makeSuperuserClient>;
@@ -52,6 +61,11 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
     tenantDb.runScoped(tenantBId, actorId, fn);
 
   beforeAll(async () => {
+    for (const k of R2_KEYS) {
+      savedR2[k] = process.env[k];
+      delete process.env[k];
+    }
+
     const moduleRef: TestingModule = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -138,6 +152,7 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
       });
       await owner.admissionGuardian.deleteMany({ where: inTenants });
       await owner.admissionRequirement.deleteMany({ where: inTenants });
+      await owner.document.deleteMany({ where: inTenants });
       await owner.admissionApplication.deleteMany({ where: inTenants });
       await owner.yearLevel.deleteMany({ where: inTenants });
       await owner.stage.deleteMany({ where: inTenants });
@@ -148,6 +163,10 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
       await owner.$disconnect();
     }
     if (app) await app.close();
+    for (const k of R2_KEYS) {
+      if (savedR2[k] === undefined) delete process.env[k];
+      else process.env[k] = savedR2[k];
+    }
   });
 
   // ---- WB3-3 versioned form ----
@@ -255,6 +274,99 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
     );
     expect(res2.id).toBe(res.id);
     expect((res2.answers as Record<string, unknown>).stream_pref).toBe('Arts');
+  });
+
+  it('captures a `file` field: uploads through F4 + stores a document ref', async () => {
+    const v3 = await inA(() =>
+      forms.createDraft(tenantAId, actorId, {
+        title: 'Intake 2026 (with upload)',
+        fields: [
+          {
+            key: 'previous_school',
+            label: 'Previous school',
+            type: 'text',
+            required: true,
+          },
+          {
+            key: 'report_card',
+            label: 'Last report card',
+            type: 'file',
+            required: true,
+          },
+        ],
+      }),
+    );
+    await inA(() => forms.publishVersion(tenantAId, actorId, v3.id));
+
+    // A missing required file is refused.
+    await expect(
+      inA(() =>
+        forms.submitResponse(tenantAId, appId, actorId, {
+          answers: { previous_school: 'Sunrise' },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // A new upload is stored through F4, reduced to a document reference.
+    const res = await inA(() =>
+      forms.submitResponse(tenantAId, appId, actorId, {
+        answers: {
+          previous_school: 'Sunrise',
+          report_card: {
+            filename: 'report.pdf',
+            mime: 'application/pdf',
+            contentBase64: Buffer.from('report bytes').toString('base64'),
+          },
+        },
+      }),
+    );
+    const answer = (res.answers as Record<string, unknown>).report_card as {
+      documentId?: string;
+      filename?: string;
+    };
+    expect(typeof answer.documentId).toBe('string');
+    expect(answer.filename).toBe('report.pdf');
+    // The document really exists, owned by THIS application.
+    const doc = await owner.document.findFirst({
+      where: {
+        id: answer.documentId,
+        ownerType: 'AdmissionApplication',
+        ownerId: appId,
+      },
+    });
+    expect(doc).toBeTruthy();
+
+    // Re-submitting with the stored reference is accepted (no re-upload).
+    const res2 = await inA(() =>
+      forms.submitResponse(tenantAId, appId, actorId, {
+        answers: {
+          previous_school: 'Sunrise',
+          report_card: {
+            documentId: answer.documentId,
+            filename: 'report.pdf',
+          },
+        },
+      }),
+    );
+    expect(
+      (
+        (res2.answers as Record<string, unknown>).report_card as {
+          documentId?: string;
+        }
+      ).documentId,
+    ).toBe(answer.documentId);
+
+    // A reference to a document that isn't on this application is refused.
+    await expect(
+      inA(() =>
+        forms.submitResponse(tenantAId, appId, actorId, {
+          answers: {
+            previous_school: 'Sunrise',
+            report_card: { documentId: 'not-a-real-doc', filename: 'x.pdf' },
+          },
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 
   // ---- WB3-4 interviews + quiz ----

@@ -26,11 +26,14 @@ import {
 
 import {
   errorMessage,
+  fileAnswerName,
+  fileToBase64,
   type FormFieldDef,
   type FormResponse,
   type FormVersion,
   type Perms,
 } from '../admissions-types';
+import { Dropzone } from '@/components/dropzone';
 
 type AnswerMap = Record<string, unknown>;
 
@@ -251,6 +254,29 @@ function FieldControl({
               </label>
             ))}
           </div>
+          {help}
+        </div>
+      );
+    }
+    case 'file': {
+      const name = fileAnswerName(value);
+      return (
+        <div className="flex flex-col gap-1.5">
+          {label}
+          <Dropzone
+            currentName={name}
+            disabled={disabled}
+            onSelect={(file) => {
+              void fileToBase64(file).then((contentBase64) =>
+                onChange({
+                  filename: file.name,
+                  mime: file.type || 'application/octet-stream',
+                  contentBase64,
+                }),
+              );
+            }}
+            onClear={() => onChange(undefined)}
+          />
           {help}
         </div>
       );

@@ -11,7 +11,17 @@ export type FormFieldType =
   | 'date'
   | 'select'
   | 'multiselect'
-  | 'boolean';
+  | 'boolean'
+  | 'file';
+
+/** The filename of a `file` field's answer (a freshly picked file at apply time). */
+export function fileAnswerName(value: unknown): string | null {
+  if (value && typeof value === 'object' && 'filename' in value) {
+    const n = (value as { filename?: unknown }).filename;
+    return typeof n === 'string' && n ? n : null;
+  }
+  return null;
+}
 
 export interface FormFieldDef {
   key: string;

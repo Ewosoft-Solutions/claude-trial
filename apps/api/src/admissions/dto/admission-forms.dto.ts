@@ -23,7 +23,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
  * form edit never rewrites captured answers.
  */
 
-/** Typed field kinds a school can put on the application form. */
+/** Typed field kinds a school can put on the application form. `file` captures
+ *  a document upload (stored through F4/R2); its answer is a document reference. */
 export const FORM_FIELD_TYPES = [
   'text',
   'paragraph',
@@ -32,6 +33,7 @@ export const FORM_FIELD_TYPES = [
   'select',
   'multiselect',
   'boolean',
+  'file',
 ] as const;
 export type FormFieldType = (typeof FORM_FIELD_TYPES)[number];
 

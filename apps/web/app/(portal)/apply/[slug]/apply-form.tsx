@@ -35,11 +35,14 @@ import {
   GENDERS,
   GUARDIAN_RELATIONSHIPS,
   errorMessage,
+  fileAnswerName,
+  fileToBase64,
   titleCase,
   type FormFieldDef,
   type Guardian,
   type Intake,
 } from '../../portal-types';
+import { Dropzone } from '@/components/dropzone';
 
 const NONE = '__none__';
 
@@ -606,6 +609,26 @@ function PortalField({
             </label>
           ))}
         </div>
+      </div>
+    );
+  }
+  if (field.type === 'file') {
+    return (
+      <div className="flex flex-col gap-1.5">
+        {label}
+        <Dropzone
+          currentName={fileAnswerName(value)}
+          onSelect={(file) => {
+            void fileToBase64(file).then((contentBase64) =>
+              onChange({
+                filename: file.name,
+                mime: file.type || 'application/octet-stream',
+                contentBase64,
+              }),
+            );
+          }}
+          onClear={() => onChange(undefined)}
+        />
       </div>
     );
   }
