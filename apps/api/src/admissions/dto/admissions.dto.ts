@@ -208,7 +208,56 @@ export class CreateApplicationDto {
   notes?: string;
 }
 
+/**
+ * Correct an application's applicant record after creation (a typo in the name,
+ * an updated guardian phone, etc.). Every field is optional — only the provided
+ * fields change; a provided `guardians` array REPLACES the guardian set. The
+ * "applying for" cascade is not edited here (it re-derives the class label).
+ */
 export class UpdateApplicationDto {
+  @ApiPropertyOptional({ example: 'Ngozi Achebe' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(160)
+  applicantName?: string;
+
+  @ApiPropertyOptional({ example: '2014-09-01' })
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
+
+  @ApiPropertyOptional({ enum: APPLICANT_GENDERS })
+  @IsOptional()
+  @IsIn(APPLICANT_GENDERS)
+  gender?: (typeof APPLICANT_GENDERS)[number];
+
+  @ApiPropertyOptional({ example: 'Anambra' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  stateOfOrigin?: string;
+
+  @ApiPropertyOptional({ example: 'Christianity' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  religion?: string;
+
+  @ApiPropertyOptional({ example: 'Mild asthma — carries an inhaler.' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(1000)
+  healthNotes?: string;
+
+  @ApiPropertyOptional({ type: [GuardianInputDto] })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => GuardianInputDto)
+  guardians?: GuardianInputDto[];
+
   @ApiPropertyOptional({ example: 'Strong interview; recommended' })
   @IsOptional()
   @IsString()

@@ -448,10 +448,58 @@ export class AdmissionsService {
     actorId: string,
   ) {
     await this.assertApplication(tenantId, id);
-    return this.client.admissionApplication.update({
-      where: { id },
-      data: { notes: dto.notes, updatedBy: actorId },
-    });
+
+    // Partial update: only provided fields change. `?? undefined` on the
+    // optionals keeps an omitted field untouched; an empty string clears it.
+    const data: Prisma.AdmissionApplicationUncheckedUpdateInput = {
+      updatedBy: actorId,
+    };
+    if (dto.applicantName !== undefined)
+      data.applicantName = dto.applicantName.trim();
+    if (dto.dateOfBirth !== undefined)
+      data.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
+    if (dto.gender !== undefined) data.gender = dto.gender ?? null;
+    if (dto.stateOfOrigin !== undefined)
+      data.stateOfOrigin = dto.stateOfOrigin.trim() || null;
+    if (dto.religion !== undefined) data.religion = dto.religion.trim() || null;
+    if (dto.healthNotes !== undefined)
+      data.healthNotes = dto.healthNotes.trim() || null;
+    if (dto.notes !== undefined) data.notes = dto.notes.trim() || null;
+
+    // A provided guardian set REPLACES the existing rows (re-normalised: exactly
+    // one primary, WhatsApp reuse), and the legacy flat mirror fields follow the
+    // new primary so the list search keeps matching.
+    if (dto.guardians !== undefined) {
+      const guardians = this.normalizeGuardians(dto.guardians);
+      const primary = guardians.find((g) => g.isPrimary) ?? guardians[0]!;
+      data.guardianName = primary.fullName;
+      data.guardianEmail = primary.email;
+      data.guardianPhone = this.composePhone(
+        primary.phoneCountryCode,
+        primary.phoneNumber,
+      );
+      await this.client.admissionGuardian.deleteMany({
+        where: { tenantId, applicationId: id },
+      });
+      await this.client.admissionGuardian.createMany({
+        data: guardians.map((g) => ({
+          tenantId,
+          applicationId: id,
+          ...g,
+          createdBy: actorId,
+        })),
+      });
+    }
+
+    await this.client.admissionApplication.update({ where: { id }, data });
+    await this.writeAudit(
+      tenantId,
+      actorId,
+      'admissions.application.update',
+      id,
+      'updated applicant details',
+    );
+    return this.getApplication(tenantId, id);
   }
 
   // ======================= pipeline =======================

@@ -320,6 +320,51 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     expect(created.guardianPhone).toContain('8012345678');
   });
 
+  it('edits the applicant profile + REPLACES the guardian set', async () => {
+    const created = await makeApplication('edit');
+    const updated = await inA(() =>
+      admissions.updateApplication(
+        tenantAId,
+        created.id,
+        {
+          applicantName: 'Ada Renamed Okoro',
+          dateOfBirth: '2015-03-04',
+          gender: 'female',
+          stateOfOrigin: 'Lagos',
+          guardians: [
+            {
+              fullName: 'Mr New Primary',
+              relationship: 'father',
+              phoneNumber: '8033333333',
+              whatsappSameAsPhone: true,
+              isPrimary: true,
+            },
+            {
+              fullName: 'Aunt Secondary',
+              relationship: 'guardian',
+              phoneNumber: '8044444444',
+              whatsappSameAsPhone: true,
+              isPrimary: false,
+            },
+          ],
+        },
+        actorId,
+      ),
+    );
+    expect(updated.applicantName).toBe('Ada Renamed Okoro');
+    expect(updated.gender).toBe('female');
+    expect(updated.stateOfOrigin).toBe('Lagos');
+    // Guardian set replaced wholesale: 2 rows, exactly one primary = the first.
+    expect(updated.guardians.length).toBe(2);
+    expect(updated.guardians.filter((g) => g.isPrimary).length).toBe(1);
+    expect(updated.guardians.find((g) => g.isPrimary)?.fullName).toBe(
+      'Mr New Primary',
+    );
+    // Legacy flat mirror follows the NEW primary (list search stays correct).
+    expect(updated.guardianName).toBe('Mr New Primary');
+    expect(updated.guardianPhone).toContain('8033333333');
+  });
+
   it('normalizes guardians: one primary, WhatsApp reuse/distinct', async () => {
     const created = await inA(() =>
       admissions.createApplication(

@@ -11,13 +11,11 @@
  */
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import { Label } from '@workspace/ui/components/label';
 import { Input } from '@workspace/ui/components/input';
 import { Textarea } from '@workspace/ui/components/textarea';
-import { Checkbox } from '@workspace/ui/components/checkbox';
 import { Separator } from '@workspace/ui/components/separator';
 import {
   Select,
@@ -29,28 +27,17 @@ import {
 
 import {
   GENDERS,
-  GUARDIAN_RELATIONSHIPS,
   errorMessage,
   type Guardian,
   type IntakeStructure,
 } from './admissions-types';
+import {
+  GuardiansEditor,
+  emptyGuardian,
+  guardiansPayload,
+} from './admission-form-fields';
 
 const NONE = '__none__';
-
-function emptyGuardian(isPrimary: boolean): Guardian {
-  return {
-    fullName: '',
-    relationship: isPrimary ? 'mother' : 'father',
-    email: '',
-    address: '',
-    phoneCountryCode: '+234',
-    phoneNumber: '',
-    whatsappSameAsPhone: true,
-    whatsappCountryCode: '+234',
-    whatsappNumber: '',
-    isPrimary,
-  };
-}
 
 export function NewApplicationForm({
   structure,
@@ -88,18 +75,6 @@ export function NewApplicationForm({
     [structure.yearLevels, stageId],
   );
 
-  function setGuardian(i: number, patch: Partial<Guardian>) {
-    setGuardians((prev) =>
-      prev.map((g, idx) => (idx === i ? { ...g, ...patch } : g)),
-    );
-  }
-  function addGuardian() {
-    setGuardians((prev) => [...prev, emptyGuardian(false)]);
-  }
-  function removeGuardian(i: number) {
-    setGuardians((prev) => prev.filter((_, idx) => idx !== i));
-  }
-
   const primary = guardians[0];
   const canSubmit =
     !!name.trim() &&
@@ -123,22 +98,7 @@ export function NewApplicationForm({
         religion: religion.trim() || undefined,
         healthNotes: healthNotes.trim() || undefined,
         notes: notes.trim() || undefined,
-        guardians: guardians.map((g, i) => ({
-          fullName: g.fullName.trim(),
-          relationship: g.relationship,
-          email: g.email?.trim() || undefined,
-          address: g.address?.trim() || undefined,
-          phoneCountryCode: g.phoneCountryCode.trim() || '+234',
-          phoneNumber: g.phoneNumber.trim(),
-          whatsappSameAsPhone: g.whatsappSameAsPhone,
-          whatsappCountryCode: g.whatsappSameAsPhone
-            ? undefined
-            : g.whatsappCountryCode?.trim() || '+234',
-          whatsappNumber: g.whatsappSameAsPhone
-            ? undefined
-            : g.whatsappNumber?.trim() || undefined,
-          isPrimary: i === 0,
-        })),
+        guardians: guardiansPayload(guardians),
       };
       const res = await fetch('/api/admissions/applications', {
         method: 'POST',
@@ -327,143 +287,7 @@ export function NewApplicationForm({
       <Separator />
 
       {/* Guardians */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Parents / guardians</h3>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addGuardian}
-          >
-            <Plus className="mr-1 size-3.5" aria-hidden /> Add
-          </Button>
-        </div>
-        {guardians.map((g, i) => (
-          <div
-            key={i}
-            className="flex flex-col gap-3 rounded-lg border border-border p-3"
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">
-                {i === 0 ? 'Primary contact' : `Guardian ${i + 1}`}
-              </span>
-              {i > 0 && (
-                <button
-                  type="button"
-                  onClick={() => removeGuardian(i)}
-                  className="text-muted-foreground hover:text-destructive"
-                  aria-label="Remove guardian"
-                >
-                  <Trash2 className="size-4" aria-hidden />
-                </button>
-              )}
-            </div>
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label>Full name</Label>
-                <Input
-                  value={g.fullName}
-                  onChange={(e) => setGuardian(i, { fullName: e.target.value })}
-                  placeholder="e.g. Mrs Ebele Okoro"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Relationship</Label>
-                <Select
-                  value={g.relationship}
-                  onValueChange={(v) => setGuardian(i, { relationship: v })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {GUARDIAN_RELATIONSHIPS.map((r) => (
-                      <SelectItem key={r} value={r} className="capitalize">
-                        {r}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label>Phone</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={g.phoneCountryCode}
-                  onChange={(e) =>
-                    setGuardian(i, { phoneCountryCode: e.target.value })
-                  }
-                  className="w-20"
-                  aria-label="Country code"
-                />
-                <Input
-                  value={g.phoneNumber}
-                  onChange={(e) =>
-                    setGuardian(i, { phoneNumber: e.target.value })
-                  }
-                  className="flex-1"
-                  placeholder="801 234 5678"
-                  inputMode="tel"
-                />
-              </div>
-            </div>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={g.whatsappSameAsPhone}
-                onCheckedChange={(v) =>
-                  setGuardian(i, { whatsappSameAsPhone: v === true })
-                }
-              />
-              WhatsApp is the same as this phone number
-            </label>
-            {!g.whatsappSameAsPhone && (
-              <div className="flex flex-col gap-1.5">
-                <Label>WhatsApp number</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={g.whatsappCountryCode ?? ''}
-                    onChange={(e) =>
-                      setGuardian(i, { whatsappCountryCode: e.target.value })
-                    }
-                    className="w-20"
-                    aria-label="WhatsApp country code"
-                  />
-                  <Input
-                    value={g.whatsappNumber ?? ''}
-                    onChange={(e) =>
-                      setGuardian(i, { whatsappNumber: e.target.value })
-                    }
-                    className="flex-1"
-                    placeholder="801 234 5678"
-                    inputMode="tel"
-                  />
-                </div>
-              </div>
-            )}
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <Label>Email</Label>
-                <Input
-                  value={g.email ?? ''}
-                  onChange={(e) => setGuardian(i, { email: e.target.value })}
-                  placeholder="optional"
-                  inputMode="email"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label>Address</Label>
-                <Input
-                  value={g.address ?? ''}
-                  onChange={(e) => setGuardian(i, { address: e.target.value })}
-                  placeholder="optional"
-                />
-              </div>
-            </div>
-          </div>
-        ))}
-      </section>
+      <GuardiansEditor guardians={guardians} onChange={setGuardians} />
 
       <Separator />
 

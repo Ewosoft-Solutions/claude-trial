@@ -1,23 +1,30 @@
 'use client';
 
 /**
- * WB3 structured-intake · full application detail / edit.
+ * WB3 structured-intake · full application detail.
  *
  * Applicant profile + guardians + the staged requirement checklist, plus the
- * stage history, scored reviews, and the decision actions (advance / review /
- * offer / accept / reject / convert). Writes go through /api/admissions/*;
- * permissions + campus scope are enforced server-side.
+ * stage history, scored reviews, and — promoted to the top — the decision
+ * actions (advance / review / offer / accept / reject / convert) and an Edit
+ * applicant sheet. Writes go through /api/admissions/*; permissions + campus
+ * scope are enforced server-side.
  */
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, GraduationCap, Link2, UserCheck } from 'lucide-react';
+import {
+  ArrowLeft,
+  GraduationCap,
+  Link2,
+  Pencil,
+  UserCheck,
+} from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
-import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
+import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import {
   Card,
   CardContent,
@@ -32,11 +39,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@workspace/ui/components/sheet';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { PageTitle } from '@workspace/ui/custom/shell/page-title';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
 import { RequirementsPanel } from './requirements-panel';
 import { FormResponsePanel } from './form-response-panel';
 import { InterviewsPanel } from './interviews-panel';
+import { EditApplicationForm } from './edit-application-form';
 import {
   errorMessage,
   fmtDate,
@@ -48,7 +65,12 @@ import {
   type SectionOption,
   type YearOption,
 } from '../admissions-types';
-import { StageBadge, STAGE_LABEL, titleCase } from '@/lib/admissions/status';
+import {
+  StageBadge,
+  DecisionBadge,
+  STAGE_LABEL,
+  titleCase,
+} from '@/lib/admissions/status';
 
 const ADVANCE_STAGES = [
   'enquiry',
@@ -58,6 +80,16 @@ const ADVANCE_STAGES = [
   'withdrawn',
 ] as const;
 const RECOMMENDATIONS = ['recommend', 'waitlist', 'reject', 'hold'] as const;
+
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((p) => p[0] ?? '')
+    .join('')
+    .toUpperCase();
+}
 
 export function ApplicationDetailView({
   detail,
@@ -80,6 +112,7 @@ export function ApplicationDetailView({
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
+  const [editOpen, setEditOpen] = React.useState(false);
   const [score, setScore] = React.useState('');
   const [recommendation, setRecommendation] = React.useState('recommend');
   // Seed the offer/convert target from what the offer already recorded, so the
@@ -92,6 +125,8 @@ export function ApplicationDetailView({
   const stage = detail.stage;
   const terminal =
     stage === 'enrolled' || stage === 'rejected' || stage === 'withdrawn';
+  const canDecide =
+    perms.review || perms.approve || perms.reject || perms.convert;
 
   async function post(
     path: string,
@@ -142,236 +177,66 @@ export function ApplicationDetailView({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
+    <ShellMain>
+      <div className="flex flex-col gap-6">
+        <Button asChild variant="ghost" size="sm" className="-ml-2 w-fit">
           <Link href="/students/admissions">
             <ArrowLeft className="mr-1 size-4" aria-hidden /> Admissions
           </Link>
         </Button>
-        <div className="flex flex-wrap items-center gap-2">
-          <PageTitle>{detail.applicantName}</PageTitle>
-          <StageBadge stage={stage} />
-          {perms.review && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="ml-auto"
-              disabled={busy}
-              onClick={() => void copyPortalLink()}
+
+        {/* Header — avatar + name + stage/decision + primary actions */}
+        <div className="flex flex-wrap items-start gap-3">
+          <Avatar className="size-12 shrink-0">
+            <AvatarFallback
+              seed={detail.applicantName}
+              className="text-sm font-semibold"
             >
-              <Link2 className="mr-1 size-4" aria-hidden /> Applicant portal
-              link
-            </Button>
-          )}
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Applying for {detail.applyingFor}
-          {detail.resultingStudentId ? ' · enrolled as a student' : ''}
-        </p>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        {/* Profile + guardians */}
-        <div className="flex flex-col gap-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Applicant</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-                <Field
-                  label="Date of birth"
-                  value={fmtDate(detail.dateOfBirth)}
-                />
-                <Field label="Gender" value={detail.gender ?? '—'} />
-                <Field
-                  label="State of origin"
-                  value={detail.stateOfOrigin ?? '—'}
-                />
-                <Field label="Religion" value={detail.religion ?? '—'} />
-                <Field
-                  label="Health notes"
-                  value={detail.healthNotes ?? '—'}
-                  wide
-                />
-                <Field label="Notes" value={detail.notes ?? '—'} wide />
-              </dl>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Parents / guardians</CardTitle>
-            </CardHeader>
-            <CardContent className="flex flex-col gap-2">
-              {detail.guardians.length === 0 ? (
-                <p className="text-sm text-muted-foreground">None recorded.</p>
-              ) : (
-                detail.guardians.map((g, i) => (
-                  <div
-                    key={g.id ?? i}
-                    className="rounded-md border border-border p-3 text-sm"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">{g.fullName}</span>
-                      <span className="text-xs capitalize text-muted-foreground">
-                        {g.relationship}
-                        {g.isPrimary ? ' · primary' : ''}
-                      </span>
-                    </div>
-                    <div className="mt-1 text-xs text-muted-foreground">
-                      Phone: {g.phoneCountryCode} {g.phoneNumber}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      WhatsApp:{' '}
-                      {g.whatsappSameAsPhone
-                        ? `${g.phoneCountryCode} ${g.phoneNumber} (same)`
-                        : `${g.whatsappCountryCode ?? ''} ${g.whatsappNumber ?? '—'}`}
-                    </div>
-                    {g.email && (
-                      <div className="text-xs text-muted-foreground">
-                        {g.email}
-                      </div>
-                    )}
-                    {g.address && (
-                      <div className="text-xs text-muted-foreground">
-                        {g.address}
-                      </div>
-                    )}
-                  </div>
-                ))
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Requirements */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Requirements</CardTitle>
-            <CardDescription>
-              Collected across the admissions journey — documents, measurements
-              and fees, staged as the school configures them.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <RequirementsPanel
-              applicationId={detail.id}
-              requirements={detail.requirements}
-              configByRequirementId={configByRequirementId}
-              canManage={perms.documents}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Application form (WB3-3) + Interviews/exams (WB3-4) */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Application form</CardTitle>
-            <CardDescription>
-              The school&rsquo;s own questionnaire — typed answers captured
-              against the published form version.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <FormResponsePanel
-              applicationId={detail.id}
-              form={currentForm}
-              response={formResponse}
-              perms={perms}
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Interviews &amp; exams</CardTitle>
-            <CardDescription>
-              Schedule interviews, screenings and exams; record outcomes and
-              auto-mark the admission quiz.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <InterviewsPanel
-              applicationId={detail.id}
-              interviews={interviews}
-              canManage={perms.interviews}
-            />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* History + reviews */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Stage history</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <ol className="flex flex-col gap-0">
-              {detail.stageEvents.map((e) => (
-                <li
-                  key={e.id}
-                  className="flex gap-3 border-l-2 border-border pb-3 pl-4 last:pb-0"
-                >
-                  <div className="flex flex-col gap-0.5">
-                    <div className="flex items-center gap-2">
-                      <StageBadge stage={e.toStage} />
-                      <span className="text-xs text-muted-foreground">
-                        {fmtDate(e.createdAt)}
-                      </span>
-                    </div>
-                    {e.note && (
-                      <span className="text-xs text-muted-foreground">
-                        {e.note}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Reviews</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {detail.reviews.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No reviews yet.</p>
-            ) : (
-              <ul className="flex flex-col divide-y rounded-md border">
-                {detail.reviews.map((r) => (
-                  <li
-                    key={r.id}
-                    className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
-                  >
-                    <span>
-                      {titleCase(r.recommendation)}
-                      {r.note ? ` — ${r.note}` : ''}
-                    </span>
-                    {r.score != null && (
-                      <StatusBadge tone="info">{r.score}</StatusBadge>
-                    )}
-                  </li>
-                ))}
-              </ul>
+              {initials(detail.applicantName)}
+            </AvatarFallback>
+          </Avatar>
+          <div className="flex min-w-[min(100%,14rem)] flex-1 flex-col gap-1.5">
+            <div className="flex flex-wrap items-center gap-2">
+              <PageTitle>{detail.applicantName}</PageTitle>
+              <StageBadge stage={stage} />
+              <DecisionBadge decision={detail.decision} />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Applying for {detail.applyingFor}
+              {detail.resultingStudentId ? ' · enrolled as a student' : ''}
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {perms.review && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => setEditOpen(true)}
+              >
+                <Pencil className="mr-1 size-4" aria-hidden /> Edit
+              </Button>
             )}
-          </CardContent>
-        </Card>
-      </div>
+            {perms.review && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={busy}
+                onClick={() => void copyPortalLink()}
+              >
+                <Link2 className="mr-1 size-4" aria-hidden /> Portal link
+              </Button>
+            )}
+          </div>
+        </div>
 
-      {/* Decision */}
-      {!terminal &&
-        (perms.review || perms.approve || perms.reject || perms.convert) && (
+        {/* Decision & actions — promoted so acting on the file is obvious. */}
+        {!terminal && canDecide && (
           <Card>
             <CardHeader>
-              <CardTitle>Decision</CardTitle>
+              <CardTitle>Decision &amp; actions</CardTitle>
               <CardDescription>
                 Advance, review, offer, accept, reject — or convert to a
                 student.
@@ -388,7 +253,7 @@ export function ApplicationDetailView({
                           void post(
                             `applications/${detail.id}/advance`,
                             { toStage: v },
-                            `Moved to ${v}`,
+                            `Moved to ${STAGE_LABEL[v] ?? v}`,
                           )
                         }
                       >
@@ -548,8 +413,8 @@ export function ApplicationDetailView({
                 {perms.reject && (
                   <Button
                     variant="ghost"
+                    className="text-destructive hover:text-destructive"
                     disabled={busy}
-                    className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                     onClick={() =>
                       void post(
                         `applications/${detail.id}/reject`,
@@ -571,7 +436,229 @@ export function ApplicationDetailView({
             </CardContent>
           </Card>
         )}
-    </div>
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          {/* Profile + guardians */}
+          <div className="flex flex-col gap-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Applicant</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
+                  <Field
+                    label="Date of birth"
+                    value={fmtDate(detail.dateOfBirth)}
+                  />
+                  <Field label="Gender" value={detail.gender ?? '—'} />
+                  <Field
+                    label="State of origin"
+                    value={detail.stateOfOrigin ?? '—'}
+                  />
+                  <Field label="Religion" value={detail.religion ?? '—'} />
+                  <Field
+                    label="Health notes"
+                    value={detail.healthNotes ?? '—'}
+                    wide
+                  />
+                  <Field label="Notes" value={detail.notes ?? '—'} wide />
+                </dl>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Parents / guardians</CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2">
+                {detail.guardians.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    None recorded.
+                  </p>
+                ) : (
+                  detail.guardians.map((g, i) => (
+                    <div
+                      key={g.id ?? i}
+                      className="rounded-md border border-border p-3 text-sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-medium">{g.fullName}</span>
+                        <span className="text-xs capitalize text-muted-foreground">
+                          {g.relationship}
+                          {g.isPrimary ? ' · primary' : ''}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        Phone: {g.phoneCountryCode} {g.phoneNumber}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        WhatsApp:{' '}
+                        {g.whatsappSameAsPhone
+                          ? `${g.phoneCountryCode} ${g.phoneNumber} (same)`
+                          : `${g.whatsappCountryCode ?? ''} ${g.whatsappNumber ?? '—'}`}
+                      </div>
+                      {g.email && (
+                        <div className="text-xs text-muted-foreground">
+                          {g.email}
+                        </div>
+                      )}
+                      {g.address && (
+                        <div className="text-xs text-muted-foreground">
+                          {g.address}
+                        </div>
+                      )}
+                    </div>
+                  ))
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Requirements */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Requirements</CardTitle>
+              <CardDescription>
+                Collected across the admissions journey — documents,
+                measurements and fees, staged as the school configures them.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <RequirementsPanel
+                applicationId={detail.id}
+                requirements={detail.requirements}
+                configByRequirementId={configByRequirementId}
+                canManage={perms.documents}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Application form (WB3-3) + Interviews/exams (WB3-4) */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Application form</CardTitle>
+              <CardDescription>
+                The school&rsquo;s own questionnaire — typed answers captured
+                against the published form version.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <FormResponsePanel
+                applicationId={detail.id}
+                form={currentForm}
+                response={formResponse}
+                perms={perms}
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Interviews &amp; exams</CardTitle>
+              <CardDescription>
+                Schedule interviews, screenings and exams; record outcomes and
+                auto-mark the admission quiz.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <InterviewsPanel
+                applicationId={detail.id}
+                interviews={interviews}
+                canManage={perms.interviews}
+              />
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* History + reviews */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Card>
+            <CardHeader>
+              <CardTitle>Stage history</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ol className="flex flex-col gap-0">
+                {detail.stageEvents.map((e) => (
+                  <li
+                    key={e.id}
+                    className="flex gap-3 border-l-2 border-border pb-3 pl-4 last:pb-0"
+                  >
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <StageBadge stage={e.toStage} />
+                        <span className="text-xs text-muted-foreground">
+                          {fmtDate(e.createdAt)}
+                        </span>
+                      </div>
+                      {e.note && (
+                        <span className="text-xs text-muted-foreground">
+                          {e.note}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Reviews</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {detail.reviews.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No reviews yet.</p>
+              ) : (
+                <ul className="flex flex-col divide-y rounded-md border">
+                  {detail.reviews.map((r) => (
+                    <li
+                      key={r.id}
+                      className="flex items-center justify-between gap-2 px-3 py-2 text-sm"
+                    >
+                      <span>
+                        {titleCase(r.recommendation)}
+                        {r.note ? ` — ${r.note}` : ''}
+                      </span>
+                      {r.score != null && (
+                        <StatusBadge tone="info">{r.score}</StatusBadge>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <Sheet open={editOpen} onOpenChange={setEditOpen}>
+        <SheetContent
+          side="right"
+          className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-lg"
+        >
+          <SheetHeader>
+            <SheetTitle>Edit applicant</SheetTitle>
+            <SheetDescription>
+              Correct the applicant&rsquo;s profile and guardians. The class
+              they&rsquo;re applying for isn&rsquo;t changed here.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="p-4">
+            <EditApplicationForm
+              detail={detail}
+              onSaved={() => {
+                setEditOpen(false);
+                router.refresh();
+              }}
+              onCancel={() => setEditOpen(false)}
+            />
+          </div>
+        </SheetContent>
+      </Sheet>
+    </ShellMain>
   );
 }
 
