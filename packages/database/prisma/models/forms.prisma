@@ -1,0 +1,102 @@
+// ============================================================
+// Form Engine — a generic, reusable form subsystem (see docs/form-engine-plan.md)
+//
+// A Form is OWNED polymorphically (ownerType/ownerId) and named by a `purpose`
+// so any domain attaches forms without this subsystem knowing about it (an
+// admissions application form = a Form owned by the tenant, purpose
+// 'admissions.application'). Versions are draft → published → archived; a
+// published version is IMMUTABLE and a response SNAPSHOTS the version's
+// definition + number, so a later edit never rewrites captured answers. The
+// response's SUBJECT is whatever answered (subjectType/subjectId).
+//
+// tenant_id carries the FK to tenant.tenants (added in the migration, not as a
+// Prisma relation — mirrors the rest of the schema) + RLS.
+// ============================================================
+
+model Form {
+  id          String  @id @default(uuid())
+  tenantId    String  @map("tenant_id")
+  ownerType   String  @map("owner_type")
+  ownerId     String  @map("owner_id")
+  purpose     String
+  key         String?
+  title       String
+  description String?
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  versions FormVersion[]
+
+  @@index([tenantId])
+  @@index([tenantId, ownerType, ownerId])
+  @@index([tenantId, purpose])
+  @@map("forms")
+  @@schema("forms")
+}
+
+model FormVersion {
+  id      String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  formId  String @map("form_id")
+
+  version Int
+  // 'draft' | 'published' | 'archived'. A published version is immutable; a new
+  // draft supersedes it on publish (the prior published version is archived).
+  status  String @default("draft")
+
+  // The full FormDefinition (sections + items + settings) as JSONB.
+  definition Json
+
+  publishedAt DateTime? @map("published_at")
+  publishedBy String?   @map("published_by")
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  form      Form           @relation(fields: [formId], references: [id], onDelete: Cascade)
+  responses FormResponse[]
+
+  @@unique([formId, version])
+  @@index([tenantId])
+  @@index([tenantId, formId])
+  @@index([tenantId, status])
+  @@map("form_versions")
+  @@schema("forms")
+}
+
+model FormResponse {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  formVersionId String @map("form_version_id")
+
+  // The thing that answered (an admissions application, an employee, …).
+  subjectType String @map("subject_type")
+  subjectId   String @map("subject_id")
+
+  // Snapshotted from the version at submission time.
+  version            Int
+  definitionSnapshot Json @map("definition_snapshot")
+
+  // Answers keyed by item key: { [itemKey]: value }.
+  answers Json
+
+  submittedBy String?  @map("submitted_by")
+  submittedAt DateTime @default(now()) @map("submitted_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  // RESTRICT: a response snapshots a version — a published version referenced by
+  // any response must not be hard-deleted (versions are archived, not removed).
+  formVersion FormVersion @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
+
+  @@unique([formVersionId, subjectType, subjectId])
+  @@index([tenantId])
+  @@index([tenantId, subjectType, subjectId])
+  @@index([formVersionId])
+  @@map("form_responses")
+  @@schema("forms")
+}

@@ -33,6 +33,7 @@ import { OverviewModule } from './overview/overview.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { FinanceModule } from './finance/finance.module';
 import { AdmissionsModule } from './admissions/admissions.module';
+import { FormsModule } from './forms/forms.module';
 import { TransportModule } from './transport/transport.module';
 import { LibraryModule } from './library/library.module';
 import { HealthModule } from './health/health.module';
@@ -126,6 +127,7 @@ import { AppController } from './app.controller';
     AttendanceModule,
     FinanceModule,
     AdmissionsModule,
+    FormsModule,
     TransportModule,
     LibraryModule,
     HealthModule,

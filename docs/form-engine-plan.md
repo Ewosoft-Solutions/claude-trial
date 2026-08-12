@@ -42,11 +42,11 @@ really a dropdown; no radio, scale, time, grids, or display blocks), and it is
 
 ## 3 · Target architecture (three layers)
 
-| Layer | Home | Responsibility |
-| --- | --- | --- |
-| **Schema + validation** | `packages/forms` (new, pure TS) | The canonical `FormDefinition` types + a **pure `validateAnswers(def, answers)`** shared by client and server (one source of truth). File uploads are _materialised_ server-side (see §4). |
-| **Backend `FormsModule`** | `apps/api/src/forms` | Generic `Form` / `FormVersion` / `FormResponse` tables (polymorphic owner + `purpose`), `FormsService` (draft / publish / archive / submit / validate), RLS, versioning + immutability, audit. |
-| **Reusable UI** | `packages/ui` | `<FormBuilder>` (sections + items, per-type config, branching editor, drag-reorder) and `<FormRenderer>` (paginated by section, Back/Next, progress bar, branching navigation, client validation). |
+| Layer                     | Home                            | Responsibility                                                                                                                                                                                     |
+| ------------------------- | ------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Schema + validation**   | `packages/forms` (new, pure TS) | The canonical `FormDefinition` types + a **pure `validateAnswers(def, answers)`** shared by client and server (one source of truth). File uploads are _materialised_ server-side (see §4).         |
+| **Backend `FormsModule`** | `apps/api/src/forms`            | Generic `Form` / `FormVersion` / `FormResponse` tables (polymorphic owner + `purpose`), `FormsService` (draft / publish / archive / submit / validate), RLS, versioning + immutability, audit.     |
+| **Reusable UI**           | `packages/ui`                   | `<FormBuilder>` (sections + items, per-type config, branching editor, drag-reorder) and `<FormRenderer>` (paginated by section, Back/Next, progress bar, branching navigation, client validation). |
 
 **Admissions after extraction:** an application form is just a `Form` owned by
 the tenant with `purpose = "admissions.application"`; an application's answers
@@ -58,30 +58,50 @@ admissions module.
 
 ```ts
 type FormItemType =
-  | 'short_text' | 'paragraph' | 'number' | 'date' | 'time'
-  | 'radio' | 'dropdown' | 'checkboxes' | 'linear_scale' | 'file'
-  | 'grid_radio' | 'grid_checkbox'       // grids
-  | 'heading' | 'description';           // display-only (no answer)
+  | 'short_text'
+  | 'paragraph'
+  | 'number'
+  | 'date'
+  | 'time'
+  | 'phone'
+  | 'address' // composite value types
+  | 'radio'
+  | 'dropdown'
+  | 'checkboxes'
+  | 'linear_scale'
+  | 'file'
+  | 'grid_radio'
+  | 'grid_checkbox' // grids
+  | 'heading'
+  | 'description'; // display-only (no answer)
 
+// Response validation for text/number items. `kind` are friendly presets the
+// builder surfaces as a dropdown; `pattern` is the escape hatch for anything
+// specific (e.g. a 10-digit rule = `^\d{10}$` + patternError "Enter 10 digits").
 interface FormValidation {
-  minLength?: number; maxLength?: number;
-  min?: number; max?: number;
-  pattern?: string; patternError?: string;
-  kind?: 'email' | 'url' | 'integer';
+  minLength?: number;
+  maxLength?: number; // also drives a live character countdown in the UI
+  min?: number;
+  max?: number; // numeric value range
+  kind?: 'email' | 'url' | 'number' | 'integer';
+  pattern?: string;
+  patternError?: string;
 }
 
 interface FormItem {
-  id: string;                 // stable id — branching targets + reorder
-  key: string;                // answer key (questions only; '' for display)
+  id: string; // stable id — branching targets + reorder
+  key: string; // answer key (questions only; '' for display)
   type: FormItemType;
   label: string;
   help?: string;
   required?: boolean;
   placeholder?: string;
-  options?: string[];         // radio / dropdown / checkboxes
-  allowOther?: boolean;       // adds an "Other: ___" choice
+  options?: string[]; // radio / dropdown / checkboxes
+  allowOther?: boolean; // adds an "Other: ___" choice
   scale?: { min: number; max: number; minLabel?: string; maxLabel?: string };
   grid?: { rows: string[]; columns: string[] };
+  file?: { accept?: string[]; maxSizeMb?: number; maxFiles?: number };
+  phone?: { defaultDialCode?: string };
   validation?: FormValidation;
   // Per-answer branching (choice items): overrides the section's default next.
   branching?: { answer: string; goTo: string /* sectionId | 'submit' */ }[];
@@ -92,7 +112,7 @@ interface FormSection {
   title?: string;
   description?: string;
   items: FormItem[];
-  next?: string;              // default next: sectionId | 'submit' (else next in order)
+  next?: string; // default next: sectionId | 'submit' (else next in order)
 }
 
 interface FormSettings {
@@ -112,8 +132,13 @@ interface FormDefinition {
 **Answers** stay `Record<itemKey, value>` — sections are a _layout/navigation_
 concern, so the response shape is unchanged. Value by type: `string`
 (text/paragraph/date/time/radio/dropdown), `number` (number/linear_scale),
-`string[]` (checkboxes), `{ documentId, filename, mime?, size? }` (file),
-`Record<rowKey, string | string[]>` (grids).
+`string[]` (checkboxes), `{ dialCode, number }` (phone), a structured
+`{ formatted, line1?, city?, state?, country?, postalCode?, lat?, lng? }`
+(address — ready for autocomplete-populated data, works as plain text meanwhile),
+`{ documentId, filename, mime?, size? }` (file), `Record<rowKey, string |
+string[]>` (grids). `address` **autocomplete** needs an external places provider
+(Google Places / Mapbox → API key + per-lookup cost) and is wired in **P3**; the
+type ships in P1 as structured text.
 
 **Validation.** `validateAnswers(def, answers)` is **pure** (structural + type +
 required + `validation` rules + option membership + branching reachability) and
