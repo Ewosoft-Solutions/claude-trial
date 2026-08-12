@@ -554,6 +554,9 @@ importers:
       '@tanstack/react-table':
         specifier: ^8.20.0
         version: 8.21.3(react-dom@19.2.7(react@19.2.7))(react@19.2.7)
+      '@workspace/forms':
+        specifier: workspace:*
+        version: link:../forms
       class-variance-authority:
         specifier: ^0.7.1
         version: 0.7.1
