@@ -33,6 +33,7 @@ import {
 } from '@workspace/ui/components/card';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { PageTitle } from '@workspace/ui/custom/shell/page-title';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
 import {
   FORM_FIELD_TYPES,
@@ -155,7 +156,7 @@ export function FormsBuilder({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
+    <ShellMain className="gap-6">
       <div>
         <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
           <Link href="/students/admissions">
@@ -280,7 +281,7 @@ export function FormsBuilder({
           ))}
         </div>
       )}
-    </div>
+    </ShellMain>
   );
 }
 
@@ -320,7 +321,7 @@ function DraftEditor({
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6 p-4 sm:p-6">
+    <ShellMain className="gap-6">
       <div>
         <Button
           variant="ghost"
@@ -389,7 +390,7 @@ function DraftEditor({
           Save draft
         </Button>
       </div>
-    </div>
+    </ShellMain>
   );
 }
 
