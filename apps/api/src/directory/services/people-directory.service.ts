@@ -561,15 +561,59 @@ function baseDetail(id: string, type: PeopleType, name: string): PersonDetail {
   };
 }
 
-/** Admission pipeline: Submitted → Interview → Decision. */
+/**
+ * Admission pipeline summary — Submitted → Interview / assessment → Decision.
+ *
+ * Collapses the canonical WB3 stage machine (ADMISSION_STAGES in
+ * apps/api/src/admissions/dto/admissions.dto.ts —
+ * enquiry → applied → screening → interview → offer → accepted → enrolled, with
+ * rejected / withdrawn terminal) into the three milestones this compact
+ * directory timeline shows, driven by the stage's progress rank. This surface
+ * carries only the current stage + decision (not the AdmissionStageEvent
+ * history), so it summarises position rather than reconstructing the exact path.
+ */
 function buildAdmissionTimeline(row: {
   submittedDate: Date;
   stage: string;
   decision: string;
 }): PersonTimelineStep[] {
-  const order = ['application', 'interview', 'decision'];
-  const reached = (s: string) => order.indexOf(row.stage) >= order.indexOf(s);
-  const decided = row.decision !== 'pending';
+  // Linear progress rank; rejected / withdrawn are terminal and sit off the line.
+  const RANK: Record<string, number> = {
+    enquiry: 0,
+    applied: 1,
+    screening: 2,
+    interview: 3,
+    offer: 4,
+    accepted: 5,
+    enrolled: 6,
+  };
+  const rank = RANK[row.stage] ?? 0;
+  const terminal = row.stage === 'rejected' || row.stage === 'withdrawn';
+  // A decision is reached once it's non-pending or the application has ended.
+  const decided = row.decision !== 'pending' || terminal;
+
+  const interviewState: PersonTimelineStep['state'] =
+    decided || rank > 3
+      ? 'done'
+      : row.stage === 'interview' || row.stage === 'screening'
+        ? 'current'
+        : 'pending';
+
+  const decisionState: PersonTimelineStep['state'] = decided
+    ? 'done'
+    : row.stage === 'offer'
+      ? 'current'
+      : 'pending';
+
+  // Prefer the recorded decision; a withdrawal is named explicitly since its
+  // decision usually stays 'pending'.
+  const decisionDetail =
+    row.stage === 'withdrawn'
+      ? 'withdrawn'
+      : row.decision !== 'pending'
+        ? row.decision
+        : null;
+
   return [
     {
       key: 'submitted',
@@ -580,26 +624,17 @@ function buildAdmissionTimeline(row: {
     },
     {
       key: 'interview',
-      label: 'Interview',
+      label: 'Interview / assessment',
       date: null,
-      state:
-        row.stage === 'interview'
-          ? 'current'
-          : reached('interview')
-            ? 'done'
-            : 'pending',
+      state: interviewState,
       detail: null,
     },
     {
       key: 'decision',
       label: 'Decision',
       date: null,
-      state: decided
-        ? 'done'
-        : row.stage === 'decision'
-          ? 'current'
-          : 'pending',
-      detail: decided ? row.decision : null,
+      state: decisionState,
+      detail: decisionDetail,
     },
   ];
 }

@@ -1,4 +1,7 @@
-import { PeopleDirectoryService } from './people-directory.service';
+import {
+  PeopleDirectoryService,
+  type PersonTimelineStep,
+} from './people-directory.service';
 
 function personRow(overrides: Record<string, unknown> = {}) {
   return {
@@ -89,7 +92,7 @@ function prospectRow(overrides: Record<string, unknown> = {}) {
     guardianName: 'Ngozi Eze',
     guardianEmail: 'ngozi@example.test',
     guardianPhone: '08030000000',
-    stage: 'application',
+    stage: 'applied',
     decision: 'pending',
     submittedDate: new Date('2026-02-01'),
     ...overrides,
@@ -726,6 +729,68 @@ describe('PeopleDirectoryService', () => {
       expect(res?.timeline.find((s) => s.key === 'interview')?.state).toBe(
         'current',
       );
+      expect(res?.timeline.find((s) => s.key === 'decision')?.state).toBe(
+        'pending',
+      );
+    });
+
+    // The timeline is driven by the canonical WB3 stage machine (enquiry →
+    // applied → screening → interview → offer → accepted → enrolled, with
+    // rejected / withdrawn terminal), not the retired application|interview|
+    // decision strings.
+    const timelineState = (
+      steps: PersonTimelineStep[] | undefined,
+      key: string,
+    ) => steps?.find((s) => s.key === key)?.state;
+
+    it('marks screening as the current interview/assessment milestone', async () => {
+      admissionFindFirst.mockResolvedValue(
+        prospectRow({ stage: 'screening', decision: 'pending' }),
+      );
+      const res = await service.detail('t1', 'a1', 'prospect', allPerms, true);
+      expect(timelineState(res?.timeline, 'interview')).toBe('current');
+      expect(timelineState(res?.timeline, 'decision')).toBe('pending');
+    });
+
+    it('sets the decision milestone current once an offer is made', async () => {
+      admissionFindFirst.mockResolvedValue(
+        prospectRow({ stage: 'offer', decision: 'pending' }),
+      );
+      const res = await service.detail('t1', 'a1', 'prospect', allPerms, true);
+      expect(timelineState(res?.timeline, 'interview')).toBe('done');
+      expect(timelineState(res?.timeline, 'decision')).toBe('current');
+    });
+
+    it('completes the timeline for an accepted application', async () => {
+      admissionFindFirst.mockResolvedValue(
+        prospectRow({ stage: 'offer', decision: 'accepted' }),
+      );
+      const res = await service.detail('t1', 'a1', 'prospect', allPerms, true);
+      expect(timelineState(res?.timeline, 'interview')).toBe('done');
+      const decision = res?.timeline.find((s) => s.key === 'decision');
+      expect(decision?.state).toBe('done');
+      expect(decision?.detail).toBe('accepted');
+    });
+
+    it('treats a rejected stage as a concluded, negative decision', async () => {
+      admissionFindFirst.mockResolvedValue(
+        prospectRow({ stage: 'rejected', decision: 'rejected' }),
+      );
+      const res = await service.detail('t1', 'a1', 'prospect', allPerms, true);
+      expect(timelineState(res?.timeline, 'interview')).toBe('done');
+      const decision = res?.timeline.find((s) => s.key === 'decision');
+      expect(decision?.state).toBe('done');
+      expect(decision?.detail).toBe('rejected');
+    });
+
+    it('names a withdrawal even when its decision stays pending', async () => {
+      admissionFindFirst.mockResolvedValue(
+        prospectRow({ stage: 'withdrawn', decision: 'pending' }),
+      );
+      const res = await service.detail('t1', 'a1', 'prospect', allPerms, true);
+      const decision = res?.timeline.find((s) => s.key === 'decision');
+      expect(decision?.state).toBe('done');
+      expect(decision?.detail).toBe('withdrawn');
     });
   });
 
