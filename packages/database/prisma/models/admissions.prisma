@@ -81,7 +81,6 @@ model AdmissionApplication {
   stageEvents   AdmissionStageEvent[]
   guardians     AdmissionGuardian[]
   requirements  AdmissionApplicationRequirement[]
-  formResponses AdmissionFormResponse[] // WB3-3 typed responses to the school's versioned form
   interviews    AdmissionInterview[] // WB3-4 scheduled interviews / exams / quizzes
 
   @@index([tenantId])
@@ -250,82 +249,6 @@ model AdmissionStageEvent {
   @@index([applicationId])
   @@index([tenantId, applicationId])
   @@map("admission_stage_events")
-  @@schema("admissions")
-}
-
-// WB3-3 · a school-AUTHORED, VERSIONED application form. Beyond the fixed
-// structured intake (name/cascade/profile/guardians) + the requirements
-// checklist, a school configures its own questionnaire here. Editing a
-// published form forks a NEW draft version rather than mutating it, so a form
-// change never rewrites answers already captured (same immutability ethos as
-// the WB4 result snapshot + the AdmissionApplicationRequirement snapshot).
-// One PUBLISHED version is "current" at a time.
-model AdmissionFormVersion {
-  id       String @id @default(uuid())
-  tenantId String @map("tenant_id")
-
-  version     Int // per-tenant sequential (1, 2, 3…)
-  title       String
-  description String?
-
-  // 'draft' | 'published' | 'archived'. A published version is immutable; a new
-  // draft supersedes it on publish (the prior published version is archived).
-  status String @default("draft")
-
-  // Ordered field definitions:
-  // [{ key, label, type, required, options?, help?, placeholder? }]
-  // type: 'text' | 'paragraph' | 'number' | 'date' | 'select' | 'multiselect' | 'boolean'
-  fields Json
-
-  publishedAt DateTime? @map("published_at")
-  publishedBy String?   @map("published_by")
-
-  createdBy String?  @map("created_by")
-  updatedBy String?  @map("updated_by")
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  responses AdmissionFormResponse[]
-
-  @@unique([tenantId, version])
-  @@index([tenantId])
-  @@index([tenantId, status])
-  @@map("admission_form_versions")
-  @@schema("admissions")
-}
-
-// WB3-3 · an application's typed answers to one form version. Snapshots the
-// version number + the field definitions at submission (fieldsSnapshot) so a
-// later form edit never rewrites this record. One response per application per
-// version; re-submitting the same version updates in place.
-model AdmissionFormResponse {
-  id            String @id @default(uuid())
-  tenantId      String @map("tenant_id")
-  applicationId String @map("application_id")
-  formVersionId String @map("form_version_id")
-
-  // Snapshotted from the form version at submission time.
-  formVersion    Int  @map("form_version")
-  fieldsSnapshot Json @map("fields_snapshot")
-
-  // Answers keyed by field key: { [fieldKey]: value }.
-  answers Json
-
-  submittedAt DateTime @default(now()) @map("submitted_at")
-  submittedBy String?  @map("submitted_by")
-  updatedAt   DateTime @updatedAt @map("updated_at")
-
-  application    AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  // RESTRICT: a response snapshots a version — a published version referenced by
-  // any response must not be hard-deleted (versions are archived, not removed).
-  formVersionRef AdmissionFormVersion @relation(fields: [formVersionId], references: [id], onDelete: Restrict)
-
-  @@unique([applicationId, formVersionId])
-  @@index([tenantId])
-  @@index([applicationId])
-  @@index([tenantId, applicationId])
-  @@index([formVersionId])
-  @@map("admission_form_responses")
   @@schema("admissions")
 }
 
