@@ -131,7 +131,7 @@ export class AdmissionsController {
 
   @Patch('applications/:id')
   @RequirePermissions(['admissions.review'])
-  @ApiOperation({ summary: 'Update an application note' })
+  @ApiOperation({ summary: "Update an application's applicant details" })
   update(
     @Param('id') id: string,
     @Body() dto: UpdateApplicationDto,
