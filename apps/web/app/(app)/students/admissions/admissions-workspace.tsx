@@ -335,23 +335,27 @@ export function AdmissionsWorkspace({
 
       {/* Create sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent className="w-full overflow-y-auto p-4 sm:max-w-xl">
-          <SheetHeader className="p-0 pr-8">
-            <SheetTitle>New application</SheetTitle>
-            <SheetDescription>
+        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+          <SheetHeader className="gap-1.5 border-b border-border px-5 pb-4 pt-5">
+            <SheetTitle className="pr-8 font-display text-[calc(22px*var(--font-scale))] font-semibold leading-tight">
+              New application
+            </SheetTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Capture the applicant, what they&apos;re applying for, and their
               guardians. The requirement checklist is attached automatically.
             </SheetDescription>
           </SheetHeader>
-          <NewApplicationForm
-            structure={structure}
-            onCancel={() => setCreateOpen(false)}
-            onCreated={(id) => {
-              setCreateOpen(false);
-              router.refresh();
-              setSelectedId(id);
-            }}
-          />
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            <NewApplicationForm
+              structure={structure}
+              onCancel={() => setCreateOpen(false)}
+              onCreated={(id) => {
+                setCreateOpen(false);
+                router.refresh();
+                setSelectedId(id);
+              }}
+            />
+          </div>
         </SheetContent>
       </Sheet>
 
