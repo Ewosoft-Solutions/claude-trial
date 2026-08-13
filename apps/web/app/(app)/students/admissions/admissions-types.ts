@@ -2,6 +2,7 @@
  * WB3 structured-intake — shared client types for the admissions surfaces.
  */
 import type { StateTone } from '@workspace/ui/types/states.types';
+import type { FormDefinition } from '@workspace/forms';
 
 export interface Guardian {
   id?: string;
@@ -111,53 +112,12 @@ export interface Perms {
   interviews: boolean;
 }
 
-// ---- WB3-3 versioned application form + typed responses ----
-export type FormFieldType =
-  | 'text'
-  | 'paragraph'
-  | 'number'
-  | 'date'
-  | 'select'
-  | 'multiselect'
-  | 'boolean';
-
-export const FORM_FIELD_TYPES: FormFieldType[] = [
-  'text',
-  'paragraph',
-  'number',
-  'date',
-  'select',
-  'multiselect',
-  'boolean',
-];
-
-export const FORM_FIELD_TYPE_LABEL: Record<FormFieldType, string> = {
-  text: 'Short text',
-  paragraph: 'Paragraph',
-  number: 'Number',
-  date: 'Date',
-  select: 'Single choice',
-  multiselect: 'Multiple choice',
-  boolean: 'Yes / no',
-};
-
-export interface FormFieldDef {
-  key: string;
-  label: string;
-  type: FormFieldType;
-  required?: boolean;
-  options?: string[];
-  help?: string;
-  placeholder?: string;
-}
-
+// ---- WB3-3 application form — now the generic Form engine (@workspace/forms) ----
 export interface FormVersion {
   id: string;
   version: number;
-  title: string;
-  description?: string | null;
   status: 'draft' | 'published' | 'archived';
-  fields: FormFieldDef[];
+  definition: FormDefinition;
   publishedAt?: string | null;
   updatedAt?: string | null;
 }
@@ -165,8 +125,8 @@ export interface FormVersion {
 export interface FormResponse {
   id: string;
   formVersionId: string;
-  formVersion: number;
-  fieldsSnapshot: FormFieldDef[];
+  version: number;
+  definitionSnapshot: FormDefinition;
   answers: Record<string, unknown>;
   submittedAt: string;
 }

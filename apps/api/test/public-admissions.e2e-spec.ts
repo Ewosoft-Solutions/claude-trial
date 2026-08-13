@@ -109,8 +109,19 @@ d('Public admissions — apply + status portal', () => {
     await tenantDb.runScoped(tenantId, actorId, async () => {
       const draft = await forms.createDraft(tenantId, actorId, {
         title: 'Intake form',
-        fields: [
-          { key: 'previous_school', label: 'Previous school', type: 'text' },
+        sections: [
+          {
+            id: 's1',
+            title: 'Form',
+            items: [
+              {
+                id: 'i1',
+                key: 'previous_school',
+                type: 'short_text',
+                label: 'Previous school',
+              },
+            ],
+          },
         ],
       });
       await forms.publishVersion(tenantId, actorId, draft.id);
@@ -122,8 +133,9 @@ d('Public admissions — apply + status portal', () => {
       const where = { tenantId };
       await owner.secureLink.deleteMany({ where });
       await owner.document.deleteMany({ where });
-      await owner.admissionFormResponse.deleteMany({ where });
-      await owner.admissionFormVersion.deleteMany({ where });
+      await owner.formResponse.deleteMany({ where });
+      await owner.formVersion.deleteMany({ where });
+      await owner.form.deleteMany({ where });
       await owner.admissionStageEvent.deleteMany({ where });
       await owner.admissionReview.deleteMany({ where });
       await owner.admissionApplicationRequirement.deleteMany({ where });

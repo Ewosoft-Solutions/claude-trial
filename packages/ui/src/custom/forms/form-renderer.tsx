@@ -48,6 +48,9 @@ export interface FormRendererProps {
   submitting?: boolean;
   readOnly?: boolean;
   submitLabel?: string;
+  /** Render every section stacked (no pagination / nav) — for embedding inside a
+   *  larger form whose own submit sends the answers (e.g. the public apply page). */
+  flat?: boolean;
 }
 
 /** The section a choice's branch (or the section default, else order) leads to. */
@@ -75,6 +78,7 @@ export function FormRenderer({
   submitting,
   readOnly,
   submitLabel = 'Submit',
+  flat,
 }: FormRendererProps) {
   const first = definition.sections[0]?.id;
   const [path, setPath] = React.useState<string[]>(() =>
@@ -87,6 +91,30 @@ export function FormRenderer({
   const sectionIndex = definition.sections.findIndex((s) => s.id === currentId);
 
   if (!section) return null;
+
+  if (flat) {
+    return (
+      <div className="flex flex-col gap-6">
+        {definition.sections.map((s) => (
+          <div key={s.id} className="flex flex-col gap-5">
+            {s.title && <h3 className="text-base font-semibold">{s.title}</h3>}
+            {s.description && (
+              <p className="text-sm text-muted-foreground">{s.description}</p>
+            )}
+            {s.items.map((item) => (
+              <ItemControl
+                key={item.id}
+                item={item}
+                value={value[item.key]}
+                disabled={readOnly || submitting}
+                onChange={(v) => setAnswer(item.key, v)}
+              />
+            ))}
+          </div>
+        ))}
+      </div>
+    );
+  }
 
   const next = nextSectionId(definition, section, value);
   const isLast = !next || next === SUBMIT_TARGET;
@@ -132,6 +160,10 @@ export function FormRenderer({
   }
 
   function goNext() {
+    if (readOnly) {
+      if (!isLast) setPath([...path, next!]);
+      return;
+    }
     if (!validateSection()) return;
     if (isLast) {
       void submit();
@@ -183,7 +215,7 @@ export function FormRenderer({
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
-      {!readOnly && (
+      {(definition.sections.length > 1 || !readOnly) && (
         <div className="flex items-center justify-between gap-2">
           {path.length > 1 ? (
             <Button
@@ -197,9 +229,17 @@ export function FormRenderer({
           ) : (
             <span />
           )}
-          <Button type="button" disabled={submitting} onClick={goNext}>
-            {isLast ? (submitting ? 'Submitting…' : submitLabel) : 'Next'}
-          </Button>
+          {!(readOnly && isLast) && (
+            <Button type="button" disabled={submitting} onClick={goNext}>
+              {readOnly
+                ? 'Next'
+                : isLast
+                  ? submitting
+                    ? 'Submitting…'
+                    : submitLabel
+                  : 'Next'}
+            </Button>
+          )}
         </div>
       )}
     </div>
