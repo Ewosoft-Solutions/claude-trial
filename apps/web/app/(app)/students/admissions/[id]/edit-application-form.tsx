@@ -21,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
+import { NameFields } from '@workspace/ui/custom/forms/name-fields';
+import { type PersonNameParts } from '@workspace/forms';
 
 import {
   GENDERS,
@@ -44,7 +46,12 @@ export function EditApplicationForm({
   onCancel?: () => void;
 }) {
   const [busy, setBusy] = React.useState(false);
-  const [name, setName] = React.useState(detail.applicantName ?? '');
+  const [applicant, setApplicant] = React.useState<PersonNameParts>({
+    title: detail.applicantTitle ?? '',
+    firstName: detail.applicantFirstName ?? '',
+    middleName: detail.applicantMiddleName ?? '',
+    surname: detail.applicantSurname ?? '',
+  });
   const [dob, setDob] = React.useState(
     detail.dateOfBirth ? detail.dateOfBirth.slice(0, 10) : '',
   );
@@ -63,8 +70,10 @@ export function EditApplicationForm({
 
   const primary = guardians[0];
   const canSubmit =
-    !!name.trim() &&
-    !!primary?.fullName.trim() &&
+    !!applicant.firstName?.trim() &&
+    !!applicant.surname?.trim() &&
+    !!primary?.firstName?.trim() &&
+    !!primary?.surname?.trim() &&
     !!primary?.phoneNumber.trim();
 
   async function submit() {
@@ -72,7 +81,10 @@ export function EditApplicationForm({
     setBusy(true);
     try {
       const payload = {
-        applicantName: name.trim(),
+        applicantTitle: applicant.title?.trim() || undefined,
+        applicantFirstName: (applicant.firstName ?? '').trim(),
+        applicantMiddleName: applicant.middleName?.trim() || undefined,
+        applicantSurname: (applicant.surname ?? '').trim(),
         dateOfBirth: dob || undefined,
         gender: gender || undefined,
         stateOfOrigin: stateOfOrigin.trim(),
@@ -104,15 +116,11 @@ export function EditApplicationForm({
       {/* Applicant */}
       <section className="flex flex-col gap-3">
         <h3 className="text-sm font-semibold">Applicant</h3>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="ed-name">Full name</Label>
-          <Input
-            id="ed-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Ada Okoro"
-          />
-        </div>
+        <NameFields
+          idPrefix="edit-applicant"
+          value={applicant}
+          onChange={setApplicant}
+        />
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="ed-dob">Date of birth</Label>

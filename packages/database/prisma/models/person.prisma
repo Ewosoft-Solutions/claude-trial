@@ -29,7 +29,10 @@ model Person {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
-  // Names (searchable; no longer trapped in Student.personalInfo JSONB)
+  // Names (searchable; no longer trapped in Student.personalInfo JSONB). The
+  // person-name rule (see @workspace/forms): an optional title + first / middle
+  // / surname; display is composed via formatPersonName.
+  title         String? @map("title")
   firstName     String  @map("first_name")
   lastName      String  @map("last_name")
   middleName    String? @map("middle_name")

@@ -6,7 +6,13 @@ import type { FormDefinition } from '@workspace/forms';
 
 export interface Guardian {
   id?: string;
-  fullName: string;
+  // Person-name rule: structured parts are captured/sent; `fullName` is the
+  // composed display returned by the API (never sent by the editor).
+  fullName?: string | null;
+  title?: string | null;
+  firstName: string;
+  middleName?: string | null;
+  surname: string;
   relationship: string;
   email?: string | null;
   address?: string | null;
@@ -63,6 +69,11 @@ export interface Review {
 }
 
 export interface ApplicationDetail extends Application {
+  // Applicant name parts (person-name rule) — for the edit form to prefill.
+  applicantTitle?: string | null;
+  applicantFirstName?: string | null;
+  applicantMiddleName?: string | null;
+  applicantSurname?: string | null;
   stageId?: string | null;
   yearLevelId?: string | null;
   streamId?: string | null;

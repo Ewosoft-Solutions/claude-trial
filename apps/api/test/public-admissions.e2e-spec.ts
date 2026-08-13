@@ -49,11 +49,15 @@ d('Public admissions — apply + status portal', () => {
   let yearLevelId: string;
 
   const applyDto = () => ({
-    applicantName: 'Ada Portal Okoro',
+    applicantFirstName: 'Ada',
+    applicantMiddleName: 'Portal',
+    applicantSurname: 'Okoro',
     yearLevelId,
     guardians: [
       {
-        fullName: 'Mrs Okoro',
+        title: 'Mrs',
+        firstName: 'Ebele',
+        surname: 'Okoro',
         relationship: 'mother' as const,
         phoneCountryCode: '+234',
         phoneNumber: '8012345678',

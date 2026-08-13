@@ -80,11 +80,15 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
       admissions.createApplication(
         tenantAId,
         {
-          applicantName: `Ada ${tag} Okoro`,
+          applicantFirstName: 'Ada',
+          applicantMiddleName: tag,
+          applicantSurname: 'Okoro',
           yearLevelId,
           guardians: [
             {
-              fullName: 'Mrs Okoro',
+              title: 'Mrs',
+              firstName: 'Ebele',
+              surname: 'Okoro',
               relationship: 'mother',
               email: `okoro-${tag}-${stamp}@guardian.test`,
               phoneCountryCode: '+234',
@@ -312,11 +316,13 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     expect(created.applyingFor).toBe('Primary 5');
     expect(created.yearLevelId).toBe(yearLevelId);
     expect(created.guardians.length).toBe(1);
-    expect(created.guardians[0]!.fullName).toBe('Mrs Okoro');
+    expect(created.guardians[0]!.fullName).toBe('Mrs Ebele Okoro');
+    expect(created.guardians[0]!.firstName).toBe('Ebele');
+    expect(created.guardians[0]!.surname).toBe('Okoro');
     expect(created.guardians[0]!.relationship).toBe('mother');
     expect(created.guardians[0]!.isPrimary).toBe(true);
     // Legacy flat guardian fields mirror the primary for back-compat + search.
-    expect(created.guardianName).toBe('Mrs Okoro');
+    expect(created.guardianName).toBe('Mrs Ebele Okoro');
     expect(created.guardianPhone).toContain('8012345678');
   });
 
@@ -327,20 +333,25 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
         tenantAId,
         created.id,
         {
-          applicantName: 'Ada Renamed Okoro',
+          applicantFirstName: 'Ada',
+          applicantMiddleName: 'Renamed',
+          applicantSurname: 'Okoro',
           dateOfBirth: '2015-03-04',
           gender: 'female',
           stateOfOrigin: 'Lagos',
           guardians: [
             {
-              fullName: 'Mr New Primary',
+              title: 'Mr',
+              firstName: 'New',
+              surname: 'Primary',
               relationship: 'father',
               phoneNumber: '8033333333',
               whatsappSameAsPhone: true,
               isPrimary: true,
             },
             {
-              fullName: 'Aunt Secondary',
+              firstName: 'Aunt',
+              surname: 'Secondary',
               relationship: 'guardian',
               phoneNumber: '8044444444',
               whatsappSameAsPhone: true,
@@ -370,11 +381,14 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
       admissions.createApplication(
         tenantAId,
         {
-          applicantName: 'Multi Guardian Child',
+          applicantFirstName: 'Multi',
+          applicantMiddleName: 'Guardian',
+          applicantSurname: 'Child',
           yearLevelId,
           guardians: [
             {
-              fullName: 'Primary Parent',
+              firstName: 'Primary',
+              surname: 'Parent',
               relationship: 'mother',
               phoneNumber: '8010000000',
               whatsappSameAsPhone: true,
@@ -382,7 +396,8 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
               isPrimary: false,
             },
             {
-              fullName: 'Second Parent',
+              firstName: 'Second',
+              surname: 'Parent',
               relationship: 'father',
               phoneNumber: '8020000000',
               // Distinct WhatsApp with an explicit country code.

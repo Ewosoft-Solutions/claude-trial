@@ -1,9 +1,10 @@
 'use client';
 
 /**
- * Shared applicant form fields — the structured guardians editor (phone +
- * WhatsApp with a same-as-phone reuse, exactly-one-primary) used by BOTH the
- * New Application form and the Edit Applicant form, so the two never drift.
+ * Shared applicant form fields — the structured guardians editor (name PARTS +
+ * phone + WhatsApp with a same-as-phone reuse, exactly-one-primary) used by BOTH
+ * the New Application form and the Edit Applicant form, so the two never drift.
+ * Names follow the person-name rule (NameFields + @workspace/forms).
  */
 import * as React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
@@ -19,14 +20,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-
 import { PhoneField } from '@workspace/ui/custom/forms/phone-field';
+import { NameFields } from '@workspace/ui/custom/forms/name-fields';
 
 import { GUARDIAN_RELATIONSHIPS, type Guardian } from './admissions-types';
 
 export function emptyGuardian(isPrimary: boolean): Guardian {
   return {
-    fullName: '',
+    title: '',
+    firstName: '',
+    middleName: '',
+    surname: '',
     relationship: isPrimary ? 'mother' : 'father',
     email: '',
     address: '',
@@ -45,7 +49,10 @@ export function guardiansToEditor(
 ): Guardian[] {
   if (!guardians || guardians.length === 0) return [emptyGuardian(true)];
   return guardians.map((g, i) => ({
-    fullName: g.fullName ?? '',
+    title: g.title ?? '',
+    firstName: g.firstName ?? '',
+    middleName: g.middleName ?? '',
+    surname: g.surname ?? '',
     relationship: g.relationship ?? (i === 0 ? 'mother' : 'father'),
     email: g.email ?? '',
     address: g.address ?? '',
@@ -61,7 +68,10 @@ export function guardiansToEditor(
 /** The API payload shape for a guardian set (create + update share it). */
 export function guardiansPayload(guardians: Guardian[]) {
   return guardians.map((g, i) => ({
-    fullName: g.fullName.trim(),
+    title: g.title?.trim() || undefined,
+    firstName: (g.firstName ?? '').trim(),
+    middleName: g.middleName?.trim() || undefined,
+    surname: (g.surname ?? '').trim(),
     relationship: g.relationship,
     email: g.email?.trim() || undefined,
     address: g.address?.trim() || undefined,
@@ -118,15 +128,24 @@ export function GuardiansEditor({
               </button>
             )}
           </div>
+          <NameFields
+            idPrefix={`guardian-${i}`}
+            value={{
+              title: g.title,
+              firstName: g.firstName,
+              middleName: g.middleName,
+              surname: g.surname,
+            }}
+            onChange={(n) =>
+              setGuardian(i, {
+                title: n.title ?? '',
+                firstName: n.firstName ?? '',
+                middleName: n.middleName ?? '',
+                surname: n.surname ?? '',
+              })
+            }
+          />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label>Full name</Label>
-              <Input
-                value={g.fullName}
-                onChange={(e) => setGuardian(i, { fullName: e.target.value })}
-                placeholder="e.g. Mrs Ebele Okoro"
-              />
-            </div>
             <div className="flex flex-col gap-1.5">
               <Label>Relationship</Label>
               <Select

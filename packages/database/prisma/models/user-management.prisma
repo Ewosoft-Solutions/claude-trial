@@ -25,7 +25,11 @@ model User {
   id           String  @id @default(uuid())
   email        String  @unique
   passwordHash String? @map("password_hash") // bcrypt hash, nullable for invitation-based accounts
+  // Person-name rule (see @workspace/forms): optional title + first / middle /
+  // surname (lastName is the surname). Display is composed via formatPersonName.
+  title        String? @map("title")
   firstName    String? @map("first_name")
+  middleName   String? @map("middle_name")
   lastName     String? @map("last_name")
   phone        String?
 
