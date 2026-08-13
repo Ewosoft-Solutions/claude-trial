@@ -36,7 +36,7 @@ import {
 } from '@workspace/forms';
 
 import { Dropzone, fileToBase64 } from './dropzone';
-import { COUNTRIES, flagEmoji } from './countries';
+import { PhoneField } from './phone-field';
 
 type Answers = Record<string, unknown>;
 
@@ -368,35 +368,18 @@ function ItemControl({
       );
     case 'phone': {
       const v = (value as { dialCode?: string; number?: string }) ?? {};
-      const dialCode = v.dialCode || item.phone?.defaultDialCode || '+234';
+      const defaultDialCode = item.phone?.defaultDialCode || '+234';
+      const dialCode = v.dialCode || defaultDialCode;
       return wrap(
-        <div className="flex gap-2">
-          <Select
-            value={dialCode}
-            disabled={disabled}
-            onValueChange={(d) => onChange({ ...v, dialCode: d })}
-          >
-            <SelectTrigger className="w-32">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {COUNTRIES.map((c) => (
-                <SelectItem key={c.iso2} value={c.dial}>
-                  {flagEmoji(c.iso2)} {c.dial}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Input
-            id={id}
-            className="flex-1"
-            inputMode="tel"
-            value={v.number ?? ''}
-            placeholder="801 234 5678"
-            disabled={disabled}
-            onChange={(e) => onChange({ dialCode, number: e.target.value })}
-          />
-        </div>,
+        <PhoneField
+          id={id}
+          dialCode={dialCode}
+          number={v.number ?? ''}
+          disabled={disabled}
+          defaultDialCode={defaultDialCode}
+          onDialCodeChange={(d) => onChange({ ...v, dialCode: d })}
+          onNumberChange={(n) => onChange({ dialCode, number: n })}
+        />,
       );
     }
     case 'dropdown':

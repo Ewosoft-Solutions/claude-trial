@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
+import { PhoneField } from '@workspace/ui/custom/forms/phone-field';
 
 import {
   GENDERS,
@@ -389,25 +390,14 @@ export function NewApplicationForm({
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>Phone</Label>
-              <div className="flex gap-2">
-                <Input
-                  value={g.phoneCountryCode}
-                  onChange={(e) =>
-                    setGuardian(i, { phoneCountryCode: e.target.value })
-                  }
-                  className="w-20"
-                  aria-label="Country code"
-                />
-                <Input
-                  value={g.phoneNumber}
-                  onChange={(e) =>
-                    setGuardian(i, { phoneNumber: e.target.value })
-                  }
-                  className="flex-1"
-                  placeholder="801 234 5678"
-                  inputMode="tel"
-                />
-              </div>
+              <PhoneField
+                dialCode={g.phoneCountryCode}
+                number={g.phoneNumber}
+                onDialCodeChange={(d) =>
+                  setGuardian(i, { phoneCountryCode: d })
+                }
+                onNumberChange={(n) => setGuardian(i, { phoneNumber: n })}
+              />
             </div>
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
@@ -421,25 +411,14 @@ export function NewApplicationForm({
             {!g.whatsappSameAsPhone && (
               <div className="flex flex-col gap-1.5">
                 <Label>WhatsApp number</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={g.whatsappCountryCode ?? ''}
-                    onChange={(e) =>
-                      setGuardian(i, { whatsappCountryCode: e.target.value })
-                    }
-                    className="w-20"
-                    aria-label="WhatsApp country code"
-                  />
-                  <Input
-                    value={g.whatsappNumber ?? ''}
-                    onChange={(e) =>
-                      setGuardian(i, { whatsappNumber: e.target.value })
-                    }
-                    className="flex-1"
-                    placeholder="801 234 5678"
-                    inputMode="tel"
-                  />
-                </div>
+                <PhoneField
+                  dialCode={g.whatsappCountryCode ?? ''}
+                  number={g.whatsappNumber ?? ''}
+                  onDialCodeChange={(d) =>
+                    setGuardian(i, { whatsappCountryCode: d })
+                  }
+                  onNumberChange={(n) => setGuardian(i, { whatsappNumber: n })}
+                />
               </div>
             )}
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

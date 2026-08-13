@@ -32,6 +32,7 @@ import {
 } from '@workspace/ui/components/select';
 
 import { FormRenderer } from '@workspace/ui/custom/forms/form-renderer';
+import { PhoneField } from '@workspace/ui/custom/forms/phone-field';
 
 import {
   GENDERS,
@@ -446,25 +447,14 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label>Phone {i === 0 ? '*' : ''}</Label>
-                <div className="flex gap-2">
-                  <Input
-                    value={g.phoneCountryCode}
-                    onChange={(e) =>
-                      setGuardian(i, { phoneCountryCode: e.target.value })
-                    }
-                    className="w-20"
-                    aria-label="Country code"
-                  />
-                  <Input
-                    value={g.phoneNumber}
-                    onChange={(e) =>
-                      setGuardian(i, { phoneNumber: e.target.value })
-                    }
-                    className="flex-1"
-                    placeholder="801 234 5678"
-                    inputMode="tel"
-                  />
-                </div>
+                <PhoneField
+                  dialCode={g.phoneCountryCode}
+                  number={g.phoneNumber}
+                  onDialCodeChange={(d) =>
+                    setGuardian(i, { phoneCountryCode: d })
+                  }
+                  onNumberChange={(n) => setGuardian(i, { phoneNumber: n })}
+                />
               </div>
               <label className="flex items-center gap-2 text-sm">
                 <Checkbox
