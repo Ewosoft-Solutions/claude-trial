@@ -91,7 +91,9 @@ export function formatShortName(
  * remainder → middle name. Inherently lossy for ambiguous names — used ONLY to
  * backfill pre-existing data; every NEW record is captured as structured parts.
  */
-export function splitFullName(full: string | null | undefined): PersonNameParts {
+export function splitFullName(
+  full: string | null | undefined,
+): PersonNameParts {
   const tokens = (full ?? '').trim().split(/\s+/).filter(Boolean);
   if (tokens.length === 0) return {};
 
