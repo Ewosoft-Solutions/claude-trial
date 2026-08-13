@@ -1,424 +1,103 @@
 /**
- * WB3-3 · versioned application form + typed responses.
- *
- * Two layers, mirroring the requirements engine's template/snapshot split:
- *   • versions   — per-tenant AdmissionFormVersion rows. A version is a DRAFT
- *                  until published; publishing supersedes the prior published
- *                  version (archived) and a published version is IMMUTABLE —
- *                  editing forks a fresh draft. One published version is
- *                  "current" at a time.
- *   • responses  — an application's answers to the current published version.
- *                  Answers are validated by field type, then the response
- *                  SNAPSHOTS the version number + field defs so a later form
- *                  edit never rewrites captured answers.
- *
- * Runs on the request's tenant-scoped client (RLS) inside the @TenantScoped tx;
- * audited; no privileged DatabaseService.
+ * WB3-3 · the admissions application form — now a thin adapter over the generic
+ * Form engine (see docs/form-engine-plan.md). The application form is a `Form`
+ * owned by the tenant with purpose `admissions.application`; an application's
+ * answers are a `FormResponse` whose subject is the application. All the
+ * versioning, validation, branching and `file` materialisation live in the
+ * reusable FormsService.
  */
-import {
-  BadRequestException,
-  ConflictException,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
-import { Prisma } from '@workspace/database';
+import { BadRequestException, Injectable } from '@nestjs/common';
 
-import { TenantDbService } from '../../common/database/tenant-db.service';
-import { AuditService } from '../../common/audit/audit.service';
-import { AUDIT_EVENT } from '../../common/audit/audit.constants';
-import {
-  OPTION_FIELD_TYPES,
-  type CreateFormVersionDto,
-  type FormFieldDto,
-  type SubmitFormResponseDto,
-  type UpdateFormVersionDto,
-} from '../dto/admission-forms.dto';
+import { FormsService, type FormOwnerRef } from '../../forms/forms.service';
+import { type FormDefinition } from '@workspace/forms';
+
+const PURPOSE = 'admissions.application';
+const SUBJECT = 'AdmissionApplication';
 
 @Injectable()
 export class AdmissionFormsService {
-  constructor(
-    private readonly tenantDb: TenantDbService,
-    private readonly audit: AuditService,
-  ) {}
+  constructor(private readonly forms: FormsService) {}
 
-  private get client(): Prisma.TransactionClient {
-    return this.tenantDb.client;
+  private ref(tenantId: string): FormOwnerRef {
+    return { ownerType: 'Tenant', ownerId: tenantId, purpose: PURPOSE };
   }
 
-  private async writeAudit(
-    tenantId: string,
-    actorId: string,
-    action: string,
-    resourceId: string,
-    description: string,
-    metadata?: Record<string, unknown>,
-  ) {
-    await this.audit.write({
-      tenantId,
-      eventType: AUDIT_EVENT.DATA_CHANGE,
-      action,
-      resource: 'admission_form',
-      resourceId,
-      actorId,
-      description,
-      metadata,
-    });
-  }
+  // ---- versions ----
 
-  // ======================= versions =======================
-
-  /** Every version of the tenant's application form, newest first. */
   async listVersions(tenantId: string) {
-    return this.client.admissionFormVersion.findMany({
-      where: { tenantId },
-      orderBy: { version: 'desc' },
-    });
+    const form = await this.forms.findForm(tenantId, this.ref(tenantId));
+    return form ? this.forms.listVersions(tenantId, form.id) : [];
   }
 
-  /** The single published ("current") version, or null if none is published. */
   async getCurrentForm(tenantId: string) {
-    return this.client.admissionFormVersion.findFirst({
-      where: { tenantId, status: 'published' },
-      orderBy: { version: 'desc' },
-    });
+    const form = await this.forms.findForm(tenantId, this.ref(tenantId));
+    return form ? this.forms.getCurrentPublished(tenantId, form.id) : null;
   }
 
-  async getVersion(tenantId: string, id: string) {
-    const version = await this.client.admissionFormVersion.findFirst({
-      where: { id, tenantId },
-    });
-    if (!version) throw new NotFoundException('Form version not found');
-    return version;
+  getVersion(tenantId: string, id: string) {
+    return this.forms.getVersion(tenantId, id);
   }
 
-  /** Create a new DRAFT version (the next sequential number for the tenant). */
   async createDraft(
     tenantId: string,
     actorId: string,
-    dto: CreateFormVersionDto,
+    definition: FormDefinition,
   ) {
-    this.assertFields(dto.fields);
-    const latest = await this.client.admissionFormVersion.findFirst({
-      where: { tenantId },
-      orderBy: { version: 'desc' },
-      select: { version: true },
-    });
-    const version = (latest?.version ?? 0) + 1;
-
-    const created = await this.client.admissionFormVersion.create({
-      data: {
-        tenantId,
-        version,
-        title: dto.title.trim(),
-        description: dto.description?.trim() || null,
-        status: 'draft',
-        fields: dto.fields as unknown as Prisma.InputJsonValue,
-        createdBy: actorId,
-        updatedBy: actorId,
-      },
-    });
-    await this.writeAudit(
+    const title =
+      typeof definition?.title === 'string' && definition.title.trim()
+        ? definition.title
+        : 'Application form';
+    const form = await this.forms.getOrCreateForm(
       tenantId,
       actorId,
-      'admissions.form.create_draft',
-      created.id,
-      `created application form draft v${version} (${created.title})`,
+      this.ref(tenantId),
+      title,
     );
-    return created;
+    return this.forms.createDraft(tenantId, actorId, form.id, definition);
   }
 
-  /** Edit a DRAFT version. Published/archived versions are immutable. */
-  async updateDraft(
+  updateDraft(
     tenantId: string,
     actorId: string,
     id: string,
-    dto: UpdateFormVersionDto,
+    definition: FormDefinition,
   ) {
-    const version = await this.getVersion(tenantId, id);
-    if (version.status !== 'draft') {
-      throw new BadRequestException(
-        'Only a draft form can be edited — publish forks a new draft to change a live form.',
-      );
-    }
-    if (dto.fields) this.assertFields(dto.fields);
-
-    const updated = await this.client.admissionFormVersion.update({
-      where: { id },
-      data: {
-        title: dto.title?.trim(),
-        description:
-          dto.description === undefined
-            ? undefined
-            : dto.description.trim() || null,
-        fields:
-          dto.fields === undefined
-            ? undefined
-            : (dto.fields as unknown as Prisma.InputJsonValue),
-        updatedBy: actorId,
-      },
-    });
-    await this.writeAudit(
-      tenantId,
-      actorId,
-      'admissions.form.update_draft',
-      id,
-      `edited application form draft v${version.version}`,
-    );
-    return updated;
+    return this.forms.updateDraft(tenantId, actorId, id, definition);
   }
 
-  /**
-   * Publish a draft: it becomes the current form and any previously published
-   * version is archived. Atomic within the request's @TenantScoped tx.
-   */
-  async publishVersion(tenantId: string, actorId: string, id: string) {
-    const version = await this.getVersion(tenantId, id);
-    if (version.status === 'published') {
-      throw new ConflictException('This version is already published.');
-    }
-    if (version.status === 'archived') {
-      throw new BadRequestException(
-        'An archived version cannot be published — duplicate it into a new draft.',
-      );
-    }
-    const fields = version.fields as unknown as FormFieldDto[];
-    if (!Array.isArray(fields) || fields.length === 0) {
-      throw new BadRequestException(
-        'Add at least one field before publishing the form.',
-      );
-    }
-
-    // Archive whatever is currently published (there should be at most one).
-    await this.client.admissionFormVersion.updateMany({
-      where: { tenantId, status: 'published' },
-      data: { status: 'archived', updatedBy: actorId },
-    });
-
-    const published = await this.client.admissionFormVersion.update({
-      where: { id },
-      data: {
-        status: 'published',
-        publishedAt: new Date(),
-        publishedBy: actorId,
-        updatedBy: actorId,
-      },
-    });
-    await this.writeAudit(
-      tenantId,
-      actorId,
-      'admissions.form.publish',
-      id,
-      `published application form v${version.version} (${published.title})`,
-    );
-    return published;
+  publishVersion(tenantId: string, actorId: string, id: string) {
+    return this.forms.publishVersion(tenantId, actorId, id);
   }
 
-  /** Archive a version (a school retiring a form without publishing a new one). */
-  async archiveVersion(tenantId: string, actorId: string, id: string) {
-    const version = await this.getVersion(tenantId, id);
-    if (version.status === 'archived') return version;
-    const archived = await this.client.admissionFormVersion.update({
-      where: { id },
-      data: { status: 'archived', updatedBy: actorId },
-    });
-    await this.writeAudit(
-      tenantId,
-      actorId,
-      'admissions.form.archive',
-      id,
-      `archived application form v${version.version}`,
-    );
-    return archived;
+  archiveVersion(tenantId: string, actorId: string, id: string) {
+    return this.forms.archiveVersion(tenantId, actorId, id);
   }
 
-  // ======================= responses =======================
+  // ---- an application's response ----
 
-  /** The application's latest response (by form version), if any. */
   async getResponse(tenantId: string, applicationId: string) {
-    await this.assertApplication(tenantId, applicationId);
-    return this.client.admissionFormResponse.findFirst({
-      where: { tenantId, applicationId },
-      orderBy: { formVersion: 'desc' },
-    });
+    const current = await this.getCurrentForm(tenantId);
+    if (!current) return null;
+    return this.forms.getResponse(tenantId, current.id, SUBJECT, applicationId);
   }
 
-  /**
-   * Submit (or re-submit) an application's answers to the current published
-   * form. Answers are validated by field type, then the response snapshots the
-   * version number + field defs. One response per application per version.
-   */
   async submitResponse(
     tenantId: string,
     applicationId: string,
     actorId: string,
-    dto: SubmitFormResponseDto,
+    answers: Record<string, unknown>,
   ) {
-    await this.assertApplication(tenantId, applicationId);
     const current = await this.getCurrentForm(tenantId);
     if (!current) {
       throw new BadRequestException(
         'No published application form to respond to.',
       );
     }
-    const fields = current.fields as unknown as FormFieldDto[];
-    const answers = this.validateAnswers(fields, dto.answers);
-
-    const response = await this.client.admissionFormResponse.upsert({
-      where: {
-        applicationId_formVersionId: {
-          applicationId,
-          formVersionId: current.id,
-        },
-      },
-      create: {
-        tenantId,
-        applicationId,
-        formVersionId: current.id,
-        formVersion: current.version,
-        fieldsSnapshot: current.fields as Prisma.InputJsonValue,
-        answers: answers as Prisma.InputJsonValue,
-        submittedBy: actorId,
-      },
-      update: {
-        answers: answers as Prisma.InputJsonValue,
-        submittedBy: actorId,
-      },
+    return this.forms.submitResponse(tenantId, actorId, {
+      formVersionId: current.id,
+      subjectType: SUBJECT,
+      subjectId: applicationId,
+      answers,
     });
-    await this.writeAudit(
-      tenantId,
-      actorId,
-      'admissions.form.respond',
-      response.id,
-      `captured application-form response (v${current.version}) on application ${applicationId}`,
-    );
-    return response;
-  }
-
-  // ======================= validation =======================
-
-  /** Structural validation of a version's field list (keys + option sets). */
-  private assertFields(fields: FormFieldDto[]) {
-    const seen = new Set<string>();
-    for (const field of fields) {
-      const key = field.key?.trim();
-      if (!key) throw new BadRequestException('Every field needs a key.');
-      if (seen.has(key)) {
-        throw new BadRequestException(`Duplicate field key "${key}".`);
-      }
-      seen.add(key);
-      if (OPTION_FIELD_TYPES.includes(field.type)) {
-        const options = (field.options ?? [])
-          .map((o) => o.trim())
-          .filter(Boolean);
-        if (options.length === 0) {
-          throw new BadRequestException(
-            `Field "${key}" (${field.type}) needs at least one option.`,
-          );
-        }
-      }
-    }
-  }
-
-  /**
-   * Validate an answer set against the published field defs by type, returning
-   * the cleaned answers (unknown keys rejected; empty required fields rejected).
-   */
-  private validateAnswers(
-    fields: FormFieldDto[],
-    answers: Record<string, unknown>,
-  ): Record<string, unknown> {
-    const byKey = new Map(fields.map((f) => [f.key, f]));
-    for (const key of Object.keys(answers)) {
-      if (!byKey.has(key)) {
-        throw new BadRequestException(`"${key}" is not a field on this form.`);
-      }
-    }
-
-    const cleaned: Record<string, unknown> = {};
-    for (const field of fields) {
-      const raw = answers[field.key];
-      const empty =
-        raw === undefined ||
-        raw === null ||
-        raw === '' ||
-        (Array.isArray(raw) && raw.length === 0);
-      if (empty) {
-        if (field.required) {
-          throw new BadRequestException(`"${field.label}" is required.`);
-        }
-        continue;
-      }
-      cleaned[field.key] = this.coerceAnswer(field, raw);
-    }
-    return cleaned;
-  }
-
-  private coerceAnswer(field: FormFieldDto, raw: unknown): unknown {
-    switch (field.type) {
-      case 'text':
-      case 'paragraph': {
-        if (typeof raw !== 'string') {
-          throw new BadRequestException(`"${field.label}" must be text.`);
-        }
-        return raw;
-      }
-      case 'number': {
-        const n = typeof raw === 'number' ? raw : Number(raw);
-        if (!Number.isFinite(n)) {
-          throw new BadRequestException(`"${field.label}" must be a number.`);
-        }
-        return n;
-      }
-      case 'date': {
-        if (typeof raw !== 'string' || Number.isNaN(Date.parse(raw))) {
-          throw new BadRequestException(`"${field.label}" must be a date.`);
-        }
-        return raw;
-      }
-      case 'boolean': {
-        if (typeof raw !== 'boolean') {
-          throw new BadRequestException(`"${field.label}" must be yes/no.`);
-        }
-        return raw;
-      }
-      case 'select': {
-        const options = field.options ?? [];
-        if (typeof raw !== 'string' || !options.includes(raw)) {
-          throw new BadRequestException(
-            `"${field.label}" must be one of its options.`,
-          );
-        }
-        return raw;
-      }
-      case 'multiselect': {
-        if (!Array.isArray(raw)) {
-          throw new BadRequestException(
-            `"${field.label}" must be a list of options.`,
-          );
-        }
-        const options = field.options ?? [];
-        for (const v of raw) {
-          if (typeof v !== 'string' || !options.includes(v)) {
-            throw new BadRequestException(
-              `"${field.label}" has an invalid option.`,
-            );
-          }
-        }
-        return raw;
-      }
-      default:
-        throw new BadRequestException(
-          `Unsupported field type on "${field.label}".`,
-        );
-    }
-  }
-
-  private async assertApplication(tenantId: string, id: string) {
-    const app = await this.client.admissionApplication.findFirst({
-      where: { id, tenantId },
-      select: { id: true },
-    });
-    if (!app) throw new NotFoundException('Application not found');
-    return app;
   }
 }

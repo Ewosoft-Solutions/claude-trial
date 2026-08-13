@@ -128,8 +128,10 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
   afterAll(async () => {
     if (owner) {
       const inTenants = { tenantId: { in: [tenantAId, tenantBId] } };
-      await owner.admissionFormResponse.deleteMany({ where: inTenants });
-      await owner.admissionFormVersion.deleteMany({ where: inTenants });
+      // The application form now lives in the generic Form engine tables.
+      await owner.formResponse.deleteMany({ where: inTenants });
+      await owner.formVersion.deleteMany({ where: inTenants });
+      await owner.form.deleteMany({ where: inTenants });
       await owner.admissionInterview.deleteMany({ where: inTenants });
       await owner.admissionStageEvent.deleteMany({ where: inTenants });
       await owner.admissionReview.deleteMany({ where: inTenants });
@@ -150,22 +152,41 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
     if (app) await app.close();
   });
 
-  // ---- WB3-3 versioned form ----
+  // ---- WB3-3 application form (delegates to the generic Form engine) ----
 
-  it('versions the form: publishing v2 supersedes (archives) v1', async () => {
-    const v1 = await inA(() =>
-      forms.createDraft(tenantAId, actorId, {
-        title: 'Intake 2026',
-        fields: [
+  const draft = (title: string, withStream = false) => ({
+    title,
+    sections: [
+      {
+        id: 's1',
+        title: 'Form',
+        items: [
           {
+            id: 'i1',
             key: 'previous_school',
+            type: 'short_text' as const,
             label: 'Previous school',
-            type: 'text',
             required: true,
           },
-          { key: 'boarding', label: 'Boarding?', type: 'boolean' },
+          ...(withStream
+            ? [
+                {
+                  id: 'i2',
+                  key: 'stream_pref',
+                  type: 'dropdown' as const,
+                  label: 'Stream',
+                  options: ['Science', 'Arts'],
+                },
+              ]
+            : []),
         ],
-      }),
+      },
+    ],
+  });
+
+  it('versions the application form via the engine (publish supersedes, immutable)', async () => {
+    const v1 = await inA(() =>
+      forms.createDraft(tenantAId, actorId, draft('Intake 2026')),
     );
     expect(v1.version).toBe(1);
     await inA(() => forms.publishVersion(tenantAId, actorId, v1.id));
@@ -176,29 +197,11 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
 
     // A published version is immutable.
     await expect(
-      inA(() =>
-        forms.updateDraft(tenantAId, actorId, v1.id, { title: 'Nope' }),
-      ),
+      inA(() => forms.updateDraft(tenantAId, actorId, v1.id, draft('Nope'))),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     const v2 = await inA(() =>
-      forms.createDraft(tenantAId, actorId, {
-        title: 'Intake 2026 (rev)',
-        fields: [
-          {
-            key: 'previous_school',
-            label: 'Previous school',
-            type: 'text',
-            required: true,
-          },
-          {
-            key: 'stream_pref',
-            label: 'Stream preference',
-            type: 'select',
-            options: ['Science', 'Arts'],
-          },
-        ],
-      }),
+      forms.createDraft(tenantAId, actorId, draft('Intake 2026 (rev)', true)),
     );
     expect(v2.version).toBe(2);
     await inA(() => forms.publishVersion(tenantAId, actorId, v2.id));
@@ -209,21 +212,22 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
     expect(reloadedV1.status).toBe('archived');
   });
 
-  it('validates typed responses and snapshots the answered version', async () => {
+  it('validates an application response + snapshots the version', async () => {
     // Missing a required field is refused.
     await expect(
       inA(() =>
         forms.submitResponse(tenantAId, appId, actorId, {
-          answers: { stream_pref: 'Science' },
+          stream_pref: 'Science',
         }),
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
-    // A select value outside the options is refused.
+    // A dropdown value outside the options is refused.
     await expect(
       inA(() =>
         forms.submitResponse(tenantAId, appId, actorId, {
-          answers: { previous_school: 'Sunrise', stream_pref: 'Commerce' },
+          previous_school: 'Sunrise',
+          stream_pref: 'Commerce',
         }),
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
@@ -232,25 +236,28 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
     await expect(
       inA(() =>
         forms.submitResponse(tenantAId, appId, actorId, {
-          answers: { previous_school: 'Sunrise', nickname: 'Ada' },
+          previous_school: 'Sunrise',
+          nickname: 'Ada',
         }),
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     const res = await inA(() =>
       forms.submitResponse(tenantAId, appId, actorId, {
-        answers: { previous_school: 'Sunrise Primary', stream_pref: 'Science' },
+        previous_school: 'Sunrise Primary',
+        stream_pref: 'Science',
       }),
     );
-    expect(res.formVersion).toBe(2);
+    expect(res.version).toBe(2);
     expect((res.answers as Record<string, unknown>).previous_school).toBe(
       'Sunrise Primary',
     );
 
-    // Re-submitting updates in place (one response per version).
+    // Re-submitting updates in place (one response per subject per version).
     const res2 = await inA(() =>
       forms.submitResponse(tenantAId, appId, actorId, {
-        answers: { previous_school: 'Dawn Academy', stream_pref: 'Arts' },
+        previous_school: 'Dawn Academy',
+        stream_pref: 'Arts',
       }),
     );
     expect(res2.id).toBe(res.id);

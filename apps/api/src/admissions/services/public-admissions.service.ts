@@ -119,9 +119,7 @@ export class PublicAdmissionsService {
             school.id,
             application.id,
             PUBLIC_ACTOR,
-            {
-              answers: dto.formAnswers,
-            },
+            dto.formAnswers,
           );
         }
       }

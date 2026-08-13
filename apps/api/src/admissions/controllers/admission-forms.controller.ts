@@ -23,10 +23,10 @@ import {
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { AdmissionFormsService } from '../services/admission-forms.service';
 import {
-  CreateFormVersionDto,
+  SaveFormDefinitionDto,
   SubmitFormResponseDto,
-  UpdateFormVersionDto,
 } from '../dto/admission-forms.dto';
+import type { FormDefinition } from '@workspace/forms';
 import type { AuthenticatedRequest } from 'src/auth';
 
 /**
@@ -80,10 +80,14 @@ export class AdmissionFormsController {
   @RequirePermissions(['admissions.criteria'])
   @ApiOperation({ summary: 'Create a new draft form version' })
   createDraft(
-    @Body() dto: CreateFormVersionDto,
+    @Body() dto: SaveFormDefinitionDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.forms.createDraft(this.tenantId(req), this.actorId(req), dto);
+    return this.forms.createDraft(
+      this.tenantId(req),
+      this.actorId(req),
+      dto.definition as unknown as FormDefinition,
+    );
   }
 
   @Patch('forms/:id')
@@ -91,14 +95,14 @@ export class AdmissionFormsController {
   @ApiOperation({ summary: 'Edit a draft form version' })
   updateDraft(
     @Param('id') id: string,
-    @Body() dto: UpdateFormVersionDto,
+    @Body() dto: SaveFormDefinitionDto,
     @Request() req: AuthenticatedRequest,
   ) {
     return this.forms.updateDraft(
       this.tenantId(req),
       this.actorId(req),
       id,
-      dto,
+      dto.definition as unknown as FormDefinition,
     );
   }
 
@@ -138,7 +142,7 @@ export class AdmissionFormsController {
       this.tenantId(req),
       id,
       this.actorId(req),
-      dto,
+      dto.answers,
     );
   }
 }
