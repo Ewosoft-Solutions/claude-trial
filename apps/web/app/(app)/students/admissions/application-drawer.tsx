@@ -250,10 +250,10 @@ function OverviewTab({ detail }: { detail: ApplicationDetail }) {
               >
                 <Avatar className="size-8">
                   <AvatarFallback
-                    seed={g.fullName}
+                    seed={g.fullName ?? ''}
                     className="text-[calc(10px*var(--font-scale))] font-semibold"
                   >
-                    {initials(g.fullName)}
+                    {initials(g.fullName ?? '')}
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex min-w-0 flex-1 flex-col">

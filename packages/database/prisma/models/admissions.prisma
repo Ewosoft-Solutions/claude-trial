@@ -15,7 +15,14 @@ model AdmissionApplication {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
-  applicantName String @map("applicant_name")
+  // Applicant name — the structured parts are the source of truth (the
+  // person-name rule, @workspace/forms); `applicant_name` is the composed
+  // display string kept in step by the service.
+  applicantName       String  @map("applicant_name")
+  applicantTitle      String? @map("applicant_title")
+  applicantFirstName  String? @map("applicant_first_name")
+  applicantMiddleName String? @map("applicant_middle_name")
+  applicantSurname    String? @map("applicant_surname")
   // WB3 structured-intake: `applyingFor` is now the COMPOSED, STORED display
   // label (e.g. "SS1 Science", built from the cascade — never parsed, WB2-1
   // convention). The structured dimensions below are the clean data.
@@ -101,7 +108,13 @@ model AdmissionGuardian {
   tenantId      String @map("tenant_id")
   applicationId String @map("application_id")
 
+  // Guardian name — structured parts are the source of truth; `full_name` is the
+  // composed display kept in step by the service (the person-name rule).
   fullName     String  @map("full_name")
+  title        String? @map("title")
+  firstName    String? @map("first_name")
+  middleName   String? @map("middle_name")
+  surname      String? @map("surname")
   relationship String // father | mother | guardian | grandparent | sibling | other (GUARDIAN_RELATIONSHIPS)
   email        String?
   address      String?

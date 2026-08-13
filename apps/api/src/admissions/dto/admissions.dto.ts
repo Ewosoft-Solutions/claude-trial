@@ -59,11 +59,30 @@ export type ApplicationDecision = (typeof APPLICATION_DECISIONS)[number];
  * WhatsApp number so the parent doesn't re-type it.
  */
 export class GuardianInputDto {
-  @ApiProperty({ example: 'Mrs. Ebele Achebe' })
+  // Person-name rule: structured parts, never a single "full name".
+  @ApiPropertyOptional({ example: 'Mrs' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  title?: string;
+
+  @ApiProperty({ example: 'Ebele' })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(160)
-  fullName!: string;
+  @MaxLength(80)
+  firstName!: string;
+
+  @ApiPropertyOptional({ example: 'Ngozi' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  middleName?: string;
+
+  @ApiProperty({ example: 'Achebe' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  surname!: string;
 
   @ApiProperty({ enum: GUARDIAN_RELATIONSHIPS, example: 'mother' })
   @IsIn(GUARDIAN_RELATIONSHIPS)
@@ -119,11 +138,30 @@ export class GuardianInputDto {
 }
 
 export class CreateApplicationDto {
-  @ApiProperty({ example: 'Ngozi Achebe' })
+  // Applicant name — structured parts (person-name rule), never a full string.
+  @ApiPropertyOptional({ example: 'Master' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  applicantTitle?: string;
+
+  @ApiProperty({ example: 'Ngozi' })
   @IsString()
   @IsNotEmpty()
-  @MaxLength(160)
-  applicantName!: string;
+  @MaxLength(80)
+  applicantFirstName!: string;
+
+  @ApiPropertyOptional({ example: 'Amara' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  applicantMiddleName?: string;
+
+  @ApiProperty({ example: 'Achebe' })
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(80)
+  applicantSurname!: string;
 
   // ---- Structured "applying for" (WB2-1 academic structure) ----
   @ApiProperty({
@@ -215,12 +253,30 @@ export class CreateApplicationDto {
  * "applying for" cascade is not edited here (it re-derives the class label).
  */
 export class UpdateApplicationDto {
-  @ApiPropertyOptional({ example: 'Ngozi Achebe' })
+  // Applicant name parts (person-name rule) — all optional on a partial update.
+  @ApiPropertyOptional({ example: 'Master' })
   @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  @MaxLength(160)
-  applicantName?: string;
+  @MaxLength(40)
+  applicantTitle?: string;
+
+  @ApiPropertyOptional({ example: 'Ngozi' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  applicantFirstName?: string;
+
+  @ApiPropertyOptional({ example: 'Amara' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  applicantMiddleName?: string;
+
+  @ApiPropertyOptional({ example: 'Achebe' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  applicantSurname?: string;
 
   @ApiPropertyOptional({ example: '2014-09-01' })
   @IsOptional()

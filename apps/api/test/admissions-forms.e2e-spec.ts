@@ -106,11 +106,15 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
       admissions.createApplication(
         tenantAId,
         {
-          applicantName: 'Ada Forms Okoro',
+          applicantFirstName: 'Ada',
+          applicantMiddleName: 'Forms',
+          applicantSurname: 'Okoro',
           yearLevelId,
           guardians: [
             {
-              fullName: 'Mrs Okoro',
+              title: 'Mrs',
+              firstName: 'Ebele',
+              surname: 'Okoro',
               relationship: 'mother',
               phoneCountryCode: '+234',
               phoneNumber: '8012345678',

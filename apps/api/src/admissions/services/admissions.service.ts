@@ -27,6 +27,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@workspace/database';
+import { formatPersonName } from '@workspace/forms';
 
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -276,11 +277,21 @@ export class AdmissionsService {
     const cascade = await this.resolveCascade(tenantId, dto);
     const guardians = this.normalizeGuardians(dto.guardians);
     const primary = guardians.find((g) => g.isPrimary) ?? guardians[0]!;
+    const applicant = {
+      title: dto.applicantTitle?.trim() || null,
+      firstName: dto.applicantFirstName.trim(),
+      middleName: dto.applicantMiddleName?.trim() || null,
+      surname: dto.applicantSurname.trim(),
+    };
 
     const application = await this.client.admissionApplication.create({
       data: {
         tenantId,
-        applicantName: dto.applicantName.trim(),
+        applicantName: formatPersonName(applicant),
+        applicantTitle: applicant.title,
+        applicantFirstName: applicant.firstName,
+        applicantMiddleName: applicant.middleName,
+        applicantSurname: applicant.surname,
         applyingFor: cascade.label,
         stageId: cascade.stageId,
         yearLevelId: cascade.yearLevelId,
@@ -314,16 +325,7 @@ export class AdmissionsService {
       data: guardians.map((g) => ({
         tenantId,
         applicationId: application.id,
-        fullName: g.fullName,
-        relationship: g.relationship,
-        email: g.email,
-        address: g.address,
-        phoneCountryCode: g.phoneCountryCode,
-        phoneNumber: g.phoneNumber,
-        whatsappSameAsPhone: g.whatsappSameAsPhone,
-        whatsappCountryCode: g.whatsappCountryCode,
-        whatsappNumber: g.whatsappNumber,
-        isPrimary: g.isPrimary,
+        ...g,
         createdBy: actorId,
       })),
     });
@@ -423,8 +425,17 @@ export class AdmissionsService {
       // WhatsApp that would render as "+234 —".
       const whatsappSameAsPhone =
         (g.whatsappSameAsPhone ?? true) || !distinctWhatsapp;
+      // Person-name rule: parts are the source of truth, `fullName` is composed.
+      const title = g.title?.trim() || null;
+      const firstName = g.firstName.trim();
+      const middleName = g.middleName?.trim() || null;
+      const surname = g.surname.trim();
       return {
-        fullName: g.fullName.trim(),
+        fullName: formatPersonName({ title, firstName, middleName, surname }),
+        title,
+        firstName,
+        middleName,
+        surname,
         relationship: g.relationship,
         email: g.email?.trim() || null,
         address: g.address?.trim() || null,
@@ -454,8 +465,26 @@ export class AdmissionsService {
     const data: Prisma.AdmissionApplicationUncheckedUpdateInput = {
       updatedBy: actorId,
     };
-    if (dto.applicantName !== undefined)
-      data.applicantName = dto.applicantName.trim();
+    // Applicant name — the edit form sends the full set of parts together; set
+    // the part columns and recompose the `applicantName` display string.
+    if (
+      dto.applicantTitle !== undefined ||
+      dto.applicantFirstName !== undefined ||
+      dto.applicantMiddleName !== undefined ||
+      dto.applicantSurname !== undefined
+    ) {
+      const applicant = {
+        title: dto.applicantTitle?.trim() || null,
+        firstName: (dto.applicantFirstName ?? '').trim(),
+        middleName: dto.applicantMiddleName?.trim() || null,
+        surname: (dto.applicantSurname ?? '').trim(),
+      };
+      data.applicantTitle = applicant.title;
+      data.applicantFirstName = applicant.firstName;
+      data.applicantMiddleName = applicant.middleName;
+      data.applicantSurname = applicant.surname;
+      data.applicantName = formatPersonName(applicant);
+    }
     if (dto.dateOfBirth !== undefined)
       data.dateOfBirth = dto.dateOfBirth ? new Date(dto.dateOfBirth) : null;
     if (dto.gender !== undefined) data.gender = dto.gender ?? null;
@@ -765,13 +794,19 @@ export class AdmissionsService {
     await this.assertAcademicYear(tenantId, dto.academicYearId);
 
     const now = new Date();
-    const { firstName, lastName } = splitApplicantName(app.applicantName);
+    // Prefer the structured applicant parts (person-name rule); fall back to a
+    // best-effort split for legacy rows captured before the parts existed.
+    const legacyName = splitApplicantName(app.applicantName);
+    const firstName = app.applicantFirstName?.trim() || legacyName.firstName;
+    const lastName = app.applicantSurname?.trim() || legacyName.lastName;
 
     // 1. F1 Person for the applicant.
     const person = await this.client.person.create({
       data: {
         tenantId,
+        title: app.applicantTitle?.trim() || null,
         firstName,
+        middleName: app.applicantMiddleName?.trim() || null,
         lastName,
         status: 'active',
         createdBy: actor.userId,

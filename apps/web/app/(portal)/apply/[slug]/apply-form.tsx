@@ -33,6 +33,8 @@ import {
 
 import { FormRenderer } from '@workspace/ui/custom/forms/form-renderer';
 import { PhoneField } from '@workspace/ui/custom/forms/phone-field';
+import { NameFields } from '@workspace/ui/custom/forms/name-fields';
+import { type PersonNameParts } from '@workspace/forms';
 
 import {
   GENDERS,
@@ -46,7 +48,10 @@ const NONE = '__none__';
 
 function emptyGuardian(isPrimary: boolean): Guardian {
   return {
-    fullName: '',
+    title: '',
+    firstName: '',
+    middleName: '',
+    surname: '',
     relationship: isPrimary ? 'mother' : 'father',
     email: '',
     address: '',
@@ -67,7 +72,12 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
     statusToken: string;
   } | null>(null);
 
-  const [name, setName] = React.useState('');
+  const [applicant, setApplicant] = React.useState<PersonNameParts>({
+    title: '',
+    firstName: '',
+    middleName: '',
+    surname: '',
+  });
   const [dob, setDob] = React.useState('');
   const [gender, setGender] = React.useState('');
   const [stateOfOrigin, setStateOfOrigin] = React.useState('');
@@ -98,9 +108,11 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
 
   const primary = guardians[0];
   const canSubmit =
-    !!name.trim() &&
+    !!applicant.firstName?.trim() &&
+    !!applicant.surname?.trim() &&
     !!yearLevelId &&
-    !!primary?.fullName.trim() &&
+    !!primary?.firstName.trim() &&
+    !!primary?.surname.trim() &&
     !!primary?.phoneNumber.trim();
 
   async function submit() {
@@ -108,7 +120,10 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
     setBusy(true);
     try {
       const payload = {
-        applicantName: name.trim(),
+        applicantTitle: applicant.title?.trim() || undefined,
+        applicantFirstName: (applicant.firstName ?? '').trim(),
+        applicantMiddleName: applicant.middleName?.trim() || undefined,
+        applicantSurname: (applicant.surname ?? '').trim(),
         yearLevelId,
         stageId: stageId || undefined,
         streamId: streamId || undefined,
@@ -119,7 +134,10 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
         religion: religion.trim() || undefined,
         healthNotes: healthNotes.trim() || undefined,
         guardians: guardians.map((g, i) => ({
-          fullName: g.fullName.trim(),
+          title: g.title.trim() || undefined,
+          firstName: g.firstName.trim(),
+          middleName: g.middleName.trim() || undefined,
+          surname: g.surname.trim(),
           relationship: g.relationship,
           email: g.email.trim() || undefined,
           address: g.address.trim() || undefined,
@@ -224,15 +242,11 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
           <CardTitle className="text-base">Applicant</CardTitle>
         </CardHeader>
         <CardContent className="flex flex-col gap-3">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="ap-name">Child&apos;s full name *</Label>
-            <Input
-              id="ap-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Ada Okoro"
-            />
-          </div>
+          <NameFields
+            idPrefix="applicant"
+            value={applicant}
+            onChange={setApplicant}
+          />
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ap-dob">Date of birth</Label>
@@ -381,16 +395,8 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
       </Card>
 
       <Card>
-        <CardHeader className="flex-row items-center justify-between space-y-0">
+        <CardHeader>
           <CardTitle className="text-base">Parents / guardians</CardTitle>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={() => setGuardians((p) => [...p, emptyGuardian(false)])}
-          >
-            <Plus className="mr-1 size-3.5" aria-hidden /> Add
-          </Button>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {guardians.map((g, i) => (
@@ -415,17 +421,24 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
                   </button>
                 )}
               </div>
+              <NameFields
+                idPrefix={`guardian-${i}`}
+                value={{
+                  title: g.title,
+                  firstName: g.firstName,
+                  middleName: g.middleName,
+                  surname: g.surname,
+                }}
+                onChange={(n) =>
+                  setGuardian(i, {
+                    title: n.title ?? '',
+                    firstName: n.firstName ?? '',
+                    middleName: n.middleName ?? '',
+                    surname: n.surname ?? '',
+                  })
+                }
+              />
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label>Full name</Label>
-                  <Input
-                    value={g.fullName}
-                    onChange={(e) =>
-                      setGuardian(i, { fullName: e.target.value })
-                    }
-                    placeholder="e.g. Mrs Ebele Okoro"
-                  />
-                </div>
                 <div className="flex flex-col gap-1.5">
                   <Label>Relationship</Label>
                   <Select
@@ -476,6 +489,15 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
               </div>
             </div>
           ))}
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setGuardians((p) => [...p, emptyGuardian(false)])}
+            className="self-start"
+          >
+            <Plus className="mr-1 size-3.5" aria-hidden /> Add guardian
+          </Button>
         </CardContent>
       </Card>
 

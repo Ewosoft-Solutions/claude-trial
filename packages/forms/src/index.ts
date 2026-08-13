@@ -5,3 +5,4 @@
  */
 export * from './schema';
 export * from './validation';
+export * from './person-name';

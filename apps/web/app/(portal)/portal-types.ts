@@ -30,7 +30,12 @@ export interface Intake {
 }
 
 export interface Guardian {
-  fullName: string;
+  // Person-name rule: structured parts, never a single "full name" (the API
+  // composes the display string from these).
+  title: string;
+  firstName: string;
+  middleName: string;
+  surname: string;
   relationship: string;
   email: string;
   address: string;
