@@ -221,9 +221,18 @@ export function NavGroups({
               {group.label}
             </SectionLabel>
           ) : null}
-          {group.items.map((item) => (
-            <NavItemRow key={item.key} item={item} onNavigate={onNavigate} />
-          ))}
+          {/* A labeled section's items hang off a hierarchy guide line + indent,
+              so it reads as a submenu that belongs to the section. */}
+          <div
+            className={cn(
+              'flex flex-col gap-px',
+              group.label && 'ml-[0.875rem] border-l border-border/60 pl-1.5',
+            )}
+          >
+            {group.items.map((item) => (
+              <NavItemRow key={item.key} item={item} onNavigate={onNavigate} />
+            ))}
+          </div>
         </div>
       ))}
     </div>

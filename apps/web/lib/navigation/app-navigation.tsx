@@ -102,25 +102,18 @@ export const SCHOOL_NAV: NavigationConfig = {
           access: { anyPermission: ['grades.view', 'transcripts.view'] },
           items: [
             {
-              key: 'gradebook',
-              label: 'Gradebook',
-              icon: <BookOpen />,
-              href: '/students/gradebook',
+              key: 'reportcards',
+              label: 'Report cards',
+              icon: <FileText />,
+              href: '/students/gradebook/report-cards',
               access: { anyPermission: ['grades.view'] },
-              items: [
-                {
-                  key: 'reportcards',
-                  label: 'Report cards',
-                  href: '/students/gradebook/report-cards',
-                  access: { anyPermission: ['grades.view'] },
-                },
-                {
-                  key: 'transcripts',
-                  label: 'Transcripts',
-                  href: '/students/gradebook/transcripts',
-                  access: { anyPermission: ['transcripts.view'] },
-                },
-              ],
+            },
+            {
+              key: 'transcripts',
+              label: 'Transcripts',
+              icon: <ScrollText />,
+              href: '/students/gradebook/transcripts',
+              access: { anyPermission: ['transcripts.view'] },
             },
           ],
         },
