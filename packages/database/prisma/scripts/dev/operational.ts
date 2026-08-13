@@ -12,6 +12,8 @@
  * DEV-SEED identifiers so it can be queried and cleaned intentionally.
  */
 
+import { Prisma } from '@workspace/database';
+
 import { prisma } from '../../../src/singleton.js';
 import { assertDevSeedAllowed, DEV_SEED_TAG } from './guard.js';
 
@@ -578,6 +580,20 @@ async function profileByEmail(tenantId: string, email: string) {
   return profile;
 }
 
+/** The tenant owner's user id — used as the actor for seeded audited records. */
+async function ownerUserId(tenantId: string, domain: string): Promise<string> {
+  const profile = await prisma.userTenant.findFirst({
+    where: { tenantId, user: { email: `owner@${domain}` } },
+    select: { userId: true },
+  });
+  if (!profile) {
+    throw new Error(
+      `Missing owner profile owner@${domain}. Run db:seed:dev before db:seed:ops.`,
+    );
+  }
+  return profile.userId;
+}
+
 async function seedFinance(tenantId: string, seed: TenantOperationalSeed) {
   for (const item of seed.finance.invoices) {
     const student = await studentByNumber(tenantId, item.studentNumber);
@@ -718,6 +734,200 @@ async function seedLibrary(tenantId: string, seed: TenantOperationalSeed) {
   }
 }
 
+/**
+ * A realistic STARTER application questionnaire — the school's own questions,
+ * layered on top of the structured intake (identity / class / guardians are
+ * captured separately and are NOT repeated here). Seeded as a PUBLISHED v1 so a
+ * fresh install is never a blank page; it is an ordinary editable form (New
+ * version → draft → publish supersedes it, prior published version archived).
+ *
+ * Showcases the engine end-to-end: multiple sections, a paragraph with a live
+ * character countdown, checkboxes, a BRANCHING radio (Day skips the boarding
+ * page), the phone (flag + dial-code) and address controls, and file uploads.
+ */
+const STARTER_APPLICATION_FORM = {
+  title: 'Application form',
+  description:
+    'A few extra questions to help us get to know your child. Your identity, class and guardian details are captured on the previous step — no need to repeat them here.',
+  settings: { progressBar: true },
+  sections: [
+    {
+      id: 'sec-schooling',
+      title: 'Previous schooling',
+      description: 'Tell us where your child is coming from.',
+      items: [
+        {
+          id: 'it-prev-school',
+          key: 'previous_school',
+          type: 'short_text',
+          label: 'Most recent school attended',
+          placeholder: 'e.g. Little Stars Nursery & Primary',
+        },
+        {
+          id: 'it-current-class',
+          key: 'current_class',
+          type: 'short_text',
+          label: 'Current class / grade',
+          placeholder: 'e.g. Primary 3',
+        },
+        {
+          id: 'it-transfer-reason',
+          key: 'transfer_reason',
+          type: 'paragraph',
+          label: 'Reason for transferring (optional)',
+          validation: { maxLength: 300 },
+        },
+      ],
+    },
+    {
+      id: 'sec-about',
+      title: 'About the applicant',
+      items: [
+        {
+          id: 'it-languages',
+          key: 'languages_at_home',
+          type: 'checkboxes',
+          label: 'Languages spoken at home',
+          options: ['English', 'Yoruba', 'Igbo', 'Hausa', 'French', 'Other'],
+        },
+        {
+          id: 'it-boarding',
+          key: 'boarding_preference',
+          type: 'radio',
+          label: 'Will your child board or attend as a day student?',
+          required: true,
+          options: ['Boarding', 'Day'],
+          branching: [
+            { answer: 'Boarding', goTo: 'sec-boarding' },
+            { answer: 'Day', goTo: 'sec-documents' },
+          ],
+        },
+        {
+          id: 'it-support',
+          key: 'learning_support',
+          type: 'paragraph',
+          label: 'Any learning-support or medical needs we should know about?',
+          help: 'Optional — this helps our teachers prepare.',
+          validation: { maxLength: 500 },
+        },
+      ],
+    },
+    {
+      id: 'sec-boarding',
+      title: 'Boarding details',
+      description: 'Only needed for boarding applicants.',
+      items: [
+        {
+          id: 'it-pickup',
+          key: 'pickup_contact',
+          type: 'phone',
+          label: 'Emergency pickup contact',
+          required: true,
+          phone: { defaultDialCode: '+234' },
+        },
+        {
+          id: 'it-home-address',
+          key: 'home_address',
+          type: 'address',
+          label: 'Home address',
+          required: true,
+        },
+      ],
+    },
+    {
+      id: 'sec-documents',
+      title: 'Supporting documents',
+      description: 'Upload a clear photo or scan. PDF, JPG or PNG.',
+      items: [
+        {
+          id: 'it-birth-cert',
+          key: 'birth_certificate',
+          type: 'file',
+          label: 'Birth certificate',
+          required: true,
+          file: {
+            accept: ['application/pdf', 'image/jpeg', 'image/png'],
+            maxSizeMb: 5,
+          },
+        },
+        {
+          id: 'it-photo',
+          key: 'passport_photo',
+          type: 'file',
+          label: 'Recent passport photograph',
+          file: { accept: ['image/jpeg', 'image/png'], maxSizeMb: 2 },
+        },
+        {
+          id: 'it-referral',
+          key: 'how_heard',
+          type: 'dropdown',
+          label: 'How did you hear about us?',
+          options: [
+            'A friend or family',
+            'Social media',
+            'Our website',
+            'A school event',
+            'Other',
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+/**
+ * Seed the tenant's admissions application form as a PUBLISHED v1 — but only if
+ * the school has no form yet. Once any version exists (a real draft/publish), we
+ * never clobber it, so re-running the seed is safe and preserves school edits.
+ * Identity is (ownerType=Tenant, purpose=admissions.application) — exactly one
+ * per tenant — so no DEV-SEED tag is needed to find/clean it.
+ */
+async function seedAdmissionForm(tenantId: string, actorId: string) {
+  const owner = {
+    ownerType: 'Tenant',
+    ownerId: tenantId,
+    purpose: 'admissions.application',
+    key: null,
+  };
+
+  const existing = await prisma.form.findFirst({
+    where: { tenantId, ...owner },
+    select: { id: true, versions: { select: { id: true }, take: 1 } },
+  });
+  if (existing && existing.versions.length > 0) return;
+
+  const formId =
+    existing?.id ??
+    (
+      await prisma.form.create({
+        data: {
+          tenantId,
+          ...owner,
+          title: STARTER_APPLICATION_FORM.title,
+          description:
+            'Starter questionnaire seeded for development — edit freely (New version → publish).',
+          createdBy: actorId,
+          updatedBy: actorId,
+        },
+        select: { id: true },
+      })
+    ).id;
+
+  await prisma.formVersion.create({
+    data: {
+      tenantId,
+      formId,
+      version: 1,
+      status: 'published',
+      definition: STARTER_APPLICATION_FORM as unknown as Prisma.InputJsonValue,
+      publishedAt: new Date(),
+      publishedBy: actorId,
+      createdBy: actorId,
+      updatedBy: actorId,
+    },
+  });
+}
+
 async function seedAdmissions(tenantId: string, seed: TenantOperationalSeed) {
   for (const item of seed.admissions) {
     const existing = await prisma.admissionApplication.findFirst({
@@ -822,6 +1032,7 @@ async function verifyTenant(tenantId: string) {
     transportAssignments,
     libraryBooks,
     admissions,
+    admissionForms,
     events,
     payroll,
   ] = await Promise.all([
@@ -843,6 +1054,13 @@ async function verifyTenant(tenantId: string) {
     prisma.admissionApplication.count({
       where: { tenantId, notes: { contains: DEV_SEED_TAG } },
     }),
+    prisma.formVersion.count({
+      where: {
+        tenantId,
+        status: 'published',
+        form: { purpose: 'admissions.application' },
+      },
+    }),
     prisma.schoolEvent.count({
       where: { tenantId, title: { startsWith: DEV_SEED_TAG } },
     }),
@@ -858,6 +1076,7 @@ async function verifyTenant(tenantId: string) {
     transportAssignments,
     libraryBooks,
     admissions,
+    admissionForms,
     events,
     payroll,
   };
@@ -867,11 +1086,14 @@ async function seedTenant(seed: TenantOperationalSeed) {
   const tenant = await tenantBySlug(seed.slug);
   console.log(`\n[dev-ops] Seeding ${tenant.name} (${seed.slug})`);
 
+  const ownerId = await ownerUserId(tenant.id, seed.domain);
+
   await seedFinance(tenant.id, seed);
   await seedHealth(tenant.id, seed);
   await seedTransport(tenant.id, seed);
   await seedLibrary(tenant.id, seed);
   await seedAdmissions(tenant.id, seed);
+  await seedAdmissionForm(tenant.id, ownerId);
   await seedEvents(tenant.id, seed);
   await seedPayroll(tenant.id, seed);
 
@@ -880,6 +1102,7 @@ async function seedTenant(seed: TenantOperationalSeed) {
     `[dev-ops] ${seed.slug}: ${verification.invoices} invoices, ` +
       `${verification.healthRecords} health records, ${verification.transportAssignments} transport assignments, ` +
       `${verification.libraryBooks} library copies, ${verification.admissions} admissions, ` +
+      `${verification.admissionForms} published application form, ` +
       `${verification.events} events, ${verification.payroll} payroll rows`,
   );
 }
