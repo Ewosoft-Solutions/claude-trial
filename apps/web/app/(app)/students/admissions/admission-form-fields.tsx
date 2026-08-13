@@ -97,16 +97,11 @@ export function GuardiansEditor({
 
   return (
     <section className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold">Parents / guardians</h3>
-        <Button type="button" variant="outline" size="sm" onClick={addGuardian}>
-          <Plus className="mr-1 size-3.5" aria-hidden /> Add
-        </Button>
-      </div>
+      <h3 className="text-sm font-semibold">Parents / guardians</h3>
       {guardians.map((g, i) => (
         <div
           key={i}
-          className="flex flex-col gap-3 rounded-lg border border-border p-3"
+          className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-3"
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-medium text-muted-foreground">
@@ -203,6 +198,15 @@ export function GuardiansEditor({
           </div>
         </div>
       ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={addGuardian}
+        className="self-start"
+      >
+        <Plus className="mr-1 size-3.5" aria-hidden /> Add guardian
+      </Button>
     </section>
   );
 }

@@ -637,16 +637,18 @@ export function ApplicationDetailView({
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
         <SheetContent
           side="right"
-          className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-lg"
+          className="flex w-full flex-col gap-0 p-0 sm:max-w-lg"
         >
-          <SheetHeader>
-            <SheetTitle>Edit applicant</SheetTitle>
-            <SheetDescription>
+          <SheetHeader className="gap-1.5 border-b border-border px-5 pb-4 pt-5">
+            <SheetTitle className="pr-8 font-display text-[calc(22px*var(--font-scale))] font-semibold leading-tight">
+              Edit applicant
+            </SheetTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Correct the applicant&rsquo;s profile and guardians. The class
               they&rsquo;re applying for isn&rsquo;t changed here.
             </SheetDescription>
           </SheetHeader>
-          <div className="p-4">
+          <div className="flex-1 overflow-y-auto px-5 py-5">
             <EditApplicationForm
               detail={detail}
               onSaved={() => {
