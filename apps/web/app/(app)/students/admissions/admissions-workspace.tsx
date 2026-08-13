@@ -335,8 +335,8 @@ export function AdmissionsWorkspace({
 
       {/* Create sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent className="w-full overflow-y-auto sm:max-w-xl">
-          <SheetHeader className="mb-4">
+        <SheetContent className="w-full overflow-y-auto p-4 sm:max-w-xl">
+          <SheetHeader className="p-0 pr-8">
             <SheetTitle>New application</SheetTitle>
             <SheetDescription>
               Capture the applicant, what they&apos;re applying for, and their
