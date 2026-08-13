@@ -31,12 +31,12 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 
+import { FormRenderer } from '@workspace/ui/custom/forms/form-renderer';
+
 import {
   GENDERS,
   GUARDIAN_RELATIONSHIPS,
   errorMessage,
-  titleCase,
-  type FormFieldDef,
   type Guardian,
   type Intake,
 } from '../../portal-types';
@@ -489,20 +489,18 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
         </CardContent>
       </Card>
 
-      {form && form.fields.length > 0 && (
+      {form && form.definition.sections.some((s) => s.items.length > 0) && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{form.title}</CardTitle>
+            <CardTitle className="text-base">{form.definition.title}</CardTitle>
           </CardHeader>
-          <CardContent className="flex flex-col gap-4">
-            {form.fields.map((field) => (
-              <PortalField
-                key={field.key}
-                field={field}
-                value={answers[field.key]}
-                onChange={(v) => setAnswers((a) => ({ ...a, [field.key]: v }))}
-              />
-            ))}
+          <CardContent>
+            <FormRenderer
+              flat
+              definition={form.definition}
+              value={answers}
+              onChange={setAnswers}
+            />
           </CardContent>
         </Card>
       )}
@@ -517,122 +515,6 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
       >
         {busy ? 'Submitting…' : 'Submit application'}
       </Button>
-    </div>
-  );
-}
-
-function PortalField({
-  field,
-  value,
-  onChange,
-}: {
-  field: FormFieldDef;
-  value: unknown;
-  onChange: (value: unknown) => void;
-}) {
-  const id = `pf-${field.key}`;
-  const label = (
-    <Label htmlFor={id}>
-      {field.label}
-      {field.required && <span className="ml-1 text-destructive">*</span>}
-    </Label>
-  );
-
-  if (field.type === 'boolean') {
-    return (
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={value === true}
-          onCheckedChange={(c) => onChange(c === true)}
-        />
-        {field.label}
-      </label>
-    );
-  }
-  if (field.type === 'paragraph') {
-    return (
-      <div className="flex flex-col gap-1.5">
-        {label}
-        <Textarea
-          id={id}
-          value={(value as string) ?? ''}
-          placeholder={field.placeholder}
-          onChange={(e) => onChange(e.target.value)}
-        />
-      </div>
-    );
-  }
-  if (field.type === 'select') {
-    return (
-      <div className="flex flex-col gap-1.5">
-        {label}
-        <Select
-          value={(value as string) ?? ''}
-          onValueChange={(v) => onChange(v)}
-        >
-          <SelectTrigger id={id}>
-            <SelectValue placeholder="Choose…" />
-          </SelectTrigger>
-          <SelectContent>
-            {(field.options ?? []).map((opt) => (
-              <SelectItem key={opt} value={opt}>
-                {titleCase(opt)}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-    );
-  }
-  if (field.type === 'multiselect') {
-    const selected = Array.isArray(value) ? (value as string[]) : [];
-    return (
-      <div className="flex flex-col gap-1.5">
-        {label}
-        <div className="flex flex-col gap-1.5">
-          {(field.options ?? []).map((opt) => (
-            <label key={opt} className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={selected.includes(opt)}
-                onCheckedChange={() =>
-                  onChange(
-                    selected.includes(opt)
-                      ? selected.filter((o) => o !== opt)
-                      : [...selected, opt],
-                  )
-                }
-              />
-              {opt}
-            </label>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="flex flex-col gap-1.5">
-      {label}
-      <Input
-        id={id}
-        type={
-          field.type === 'number'
-            ? 'number'
-            : field.type === 'date'
-              ? 'date'
-              : 'text'
-        }
-        value={value === undefined || value === null ? '' : String(value)}
-        placeholder={field.placeholder}
-        onChange={(e) =>
-          onChange(
-            field.type === 'number'
-              ? e.target.value === ''
-                ? ''
-                : Number(e.target.value)
-              : e.target.value,
-          )
-        }
-      />
     </div>
   );
 }

@@ -4,24 +4,7 @@
  * no coupling to the authed app — the public API returns exactly these shapes.
  */
 
-export type FormFieldType =
-  | 'text'
-  | 'paragraph'
-  | 'number'
-  | 'date'
-  | 'select'
-  | 'multiselect'
-  | 'boolean';
-
-export interface FormFieldDef {
-  key: string;
-  label: string;
-  type: FormFieldType;
-  required?: boolean;
-  options?: string[];
-  help?: string;
-  placeholder?: string;
-}
+import type { FormDefinition } from '@workspace/forms';
 
 export interface IntakeStructure {
   campuses: { id: string; name: string; code: string }[];
@@ -41,9 +24,8 @@ export interface Intake {
   structure: IntakeStructure;
   form: {
     id: string;
-    title: string;
     version: number;
-    fields: FormFieldDef[];
+    definition: FormDefinition;
   } | null;
 }
 

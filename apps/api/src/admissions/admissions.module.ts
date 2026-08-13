@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AcademicStructureModule } from '../academic-structure/academic-structure.module';
 import { DocumentsModule } from '../documents/documents.module';
 import { CommunicationModule } from '../communication/communication.module';
+import { FormsModule } from '../forms/forms.module';
 import { AdmissionsController } from './controllers/admissions.controller';
 import { AdmissionFormsController } from './controllers/admission-forms.controller';
 import { AdmissionInterviewsController } from './controllers/admission-interviews.controller';
@@ -26,6 +27,7 @@ import { PublicAdmissionsService } from './services/public-admissions.service';
     AcademicStructureModule,
     DocumentsModule,
     CommunicationModule,
+    FormsModule,
   ],
   controllers: [
     AdmissionsController,
