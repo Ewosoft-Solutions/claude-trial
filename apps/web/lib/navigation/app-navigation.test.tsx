@@ -342,11 +342,10 @@ describe('SCHOOL_NAV panel resolution', () => {
       'attendance',
     ]);
 
-    // nested: gradebook is shown (grades.view) but its transcripts child
-    // (transcripts.view) is filtered out, leaving only report cards
+    // Academics items: report cards shown (grades.view); transcripts filtered
+    // out (needs transcripts.view, which the teacher lacks).
     const academics = navGroups.find((g) => g.key === 'academics');
-    const gradebook = academics?.items.find((i) => i.key === 'gradebook');
-    expect(gradebook?.items?.map((i) => i.key)).toEqual(['reportcards']);
+    expect(academics?.items.map((i) => i.key)).toEqual(['reportcards']);
   });
 
   it('gates the classes Materials leaf on lessons.view', () => {
