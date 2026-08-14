@@ -285,9 +285,9 @@ describe('resolveNavigation', () => {
     const resolved = resolveNavigation(makeConfig(), makeViewer(), '/overview');
 
     expect(resolved.navPanels.students?.header?.title).toBe('Students');
-    expect(resolved.navPanels.students?.groups.map((group) => group.key)).toEqual([
-      'directory',
-    ]);
+    expect(
+      resolved.navPanels.students?.groups.map((group) => group.key),
+    ).toEqual(['directory']);
   });
 
   it('flattens a section with one accessible destination into a direct link', () => {
@@ -452,18 +452,28 @@ describe('resolveNavigation — live counts', () => {
     r.railItems.find((item) => item.key === 'students');
 
   it('badges a leaf with its own count', () => {
-    const resolved = resolveNavigation(makeConfig(), makeViewer(), '/students', {
-      counts: { '/students/enrollment': 4 },
-    });
+    const resolved = resolveNavigation(
+      makeConfig(),
+      makeViewer(),
+      '/students',
+      {
+        counts: { '/students/enrollment': 4 },
+      },
+    );
     expect(findItem(resolved.navGroups, 'enroll')?.badge).toBe(4);
     // a leaf with no count carries no badge
     expect(findItem(resolved.navGroups, 'all')?.badge).toBeUndefined();
   });
 
   it('rolls child counts up onto the parent section', () => {
-    const resolved = resolveNavigation(makeConfig(), makeViewer(), '/overview', {
-      counts: { '/students': 3, '/students/enrollment': 4 },
-    });
+    const resolved = resolveNavigation(
+      makeConfig(),
+      makeViewer(),
+      '/overview',
+      {
+        counts: { '/students': 3, '/students/enrollment': 4 },
+      },
+    );
     expect(students(resolved)?.badge).toBe(7); // 3 + 4
   });
 
@@ -472,13 +482,15 @@ describe('resolveNavigation — live counts', () => {
     // Teacher's Students total must not include it — but a Finance viewer's does.
     const counts = { '/students/enrollment': 4, '/students/fees': 10 };
     expect(
-      students(resolveNavigation(makeConfig(), makeViewer(), '/overview', { counts }))
-        ?.badge,
+      students(
+        resolveNavigation(makeConfig(), makeViewer(), '/overview', { counts }),
+      )?.badge,
     ).toBe(4);
     const finance = makeViewer({ roles: ['Finance'] });
     expect(
-      students(resolveNavigation(makeConfig(), finance, '/overview', { counts }))
-        ?.badge,
+      students(
+        resolveNavigation(makeConfig(), finance, '/overview', { counts }),
+      )?.badge,
     ).toBe(14); // 4 + 10
   });
 
@@ -497,9 +509,14 @@ describe('resolveNavigation — live counts', () => {
   });
 
   it('badges a group-less link section from its own href count', () => {
-    const resolved = resolveNavigation(makeConfig(), makeViewer(), '/overview', {
-      counts: { '/help': 2 },
-    });
+    const resolved = resolveNavigation(
+      makeConfig(),
+      makeViewer(),
+      '/overview',
+      {
+        counts: { '/help': 2 },
+      },
+    );
     expect(
       resolved.railFooterItems.find((item) => item.key === 'help')?.badge,
     ).toBe(2);

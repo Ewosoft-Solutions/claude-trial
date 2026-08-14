@@ -45,15 +45,21 @@ describe('CountBadge', () => {
   });
 
   it('maps tone + size onto their tokens', () => {
-    render(
-      <CountBadge count={2} tone="neutral" size="sm" />,
+    render(<CountBadge count={2} tone="neutral" size="sm" />);
+    expect(badge()).toHaveClass(
+      'bg-muted',
+      'text-muted-foreground',
+      'h-[17px]',
     );
-    expect(badge()).toHaveClass('bg-muted', 'text-muted-foreground', 'h-[17px]');
   });
 
   it('merges a custom className and forwards span attributes', () => {
     render(
-      <CountBadge count={1} className="ml-2 border-2 border-background" id="cb" />,
+      <CountBadge
+        count={1}
+        className="ml-2 border-2 border-background"
+        id="cb"
+      />,
     );
     expect(badge()).toHaveClass('ml-2', 'border-2', 'rounded-badge');
     expect(badge()).toHaveAttribute('id', 'cb');

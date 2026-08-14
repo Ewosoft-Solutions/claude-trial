@@ -374,8 +374,7 @@ export function AppChrome({
   const notificationCount = React.useMemo(
     () =>
       [...nav.railItems, ...nav.railFooterItems].reduce(
-        (sum, item) =>
-          sum + (typeof item.badge === 'number' ? item.badge : 0),
+        (sum, item) => sum + (typeof item.badge === 'number' ? item.badge : 0),
         0,
       ),
     [nav.railItems, nav.railFooterItems],

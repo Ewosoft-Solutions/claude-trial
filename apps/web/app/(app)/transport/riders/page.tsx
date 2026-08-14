@@ -28,7 +28,7 @@ export default async function TransportPage() {
 
   const raw: ApiAssignment[] = Array.isArray(data)
     ? data
-    : (data as { data?: ApiAssignment[] } | null)?.data ?? [];
+    : ((data as { data?: ApiAssignment[] } | null)?.data ?? []);
 
   const riders: Rider[] = raw.map((a) => ({
     id: a.student.studentNumber,

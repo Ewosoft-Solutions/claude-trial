@@ -145,7 +145,9 @@ describe('AppSidebar — canonical collapsible navigation', () => {
       ?.getAttribute('fill');
     expect(fill).toBe('var(--sidebar-solid)');
 
-    expect(within(secondary).getByText('Greenfield School')).toBeInTheDocument();
+    expect(
+      within(secondary).getByText('Greenfield School'),
+    ).toBeInTheDocument();
     const dashboard = within(secondary).getByRole('button', {
       name: 'Dashboard',
     });
