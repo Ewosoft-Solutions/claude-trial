@@ -73,6 +73,14 @@ export interface NavSectionNode {
   groups?: NavGroupNode[];
 }
 
+/**
+ * Live per-destination counts, keyed by route `href` (e.g.
+ * `{ '/students/admissions': 21 }`). Fed into `resolveNavigation` to badge
+ * leaves; a parent/section badge becomes the sum of its accessible
+ * descendants, so a collapsed section still shows how much is waiting.
+ */
+export type NavCounts = Record<string, number>;
+
 /** A full navigation surface (platform or school). */
 export interface NavigationConfig {
   scope: NavScope;

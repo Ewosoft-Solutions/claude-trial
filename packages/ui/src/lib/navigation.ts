@@ -22,6 +22,7 @@ import type {
   ViewerContext,
 } from '@workspace/ui/types/access.types';
 import type {
+  NavCounts,
   NavGroupNode,
   NavNode,
   NavSectionNode,
@@ -133,6 +134,12 @@ export interface ResolveNavigationOptions {
   onNavigate?: (href: string) => void;
   /** Preload a likely destination without changing route state. */
   onPrefetch?: (href: string) => void;
+  /**
+   * Live per-destination counts keyed by href. A leaf is badged with its own
+   * count; a parent/section badge is the sum of its accessible descendants.
+   * An explicit `badge` in the config always wins over a derived count.
+   */
+  counts?: NavCounts;
 }
 
 /**
@@ -148,7 +155,7 @@ export function resolveNavigation(
   currentPath: string,
   options: ResolveNavigationOptions = {},
 ): ResolvedNavigation {
-  const { onNavigate, onPrefetch } = options;
+  const { onNavigate, onPrefetch, counts } = options;
 
   const sections = config.sections.filter((s) => canAccess(s.access, viewer));
   const footer = (config.footer ?? []).filter((s) =>
@@ -180,6 +187,7 @@ export function resolveNavigation(
             section.groups,
             viewer,
             activeHref,
+            counts,
             onNavigate,
             onPrefetch,
           )
@@ -207,6 +215,7 @@ export function resolveNavigation(
       section,
       section.key === activeSection?.key,
       panelHrefs.get(section.key) ?? [],
+      sectionBadge(section, viewer, counts),
       onNavigate,
       onPrefetch,
     );
@@ -247,6 +256,7 @@ function toRailItem(
   section: NavSectionNode,
   active: boolean,
   panelHrefs: string[],
+  badge: string | number | undefined,
   onNavigate?: (href: string) => void,
   onPrefetch?: (href: string) => void,
 ): RailItem {
@@ -265,7 +275,7 @@ function toRailItem(
     key: section.key,
     label: section.label,
     icon: section.icon,
-    badge: section.badge,
+    badge,
     hasPanel,
     active,
     ...navTarget(directHref ?? section.href, onNavigate, onPrefetch),
@@ -279,6 +289,7 @@ function resolveGroups(
   groups: NavGroupNode[],
   viewer: ViewerContext,
   activeHref: string | undefined,
+  counts: NavCounts | undefined,
   onNavigate?: (href: string) => void,
   onPrefetch?: (href: string) => void,
 ): NavGroup[] {
@@ -289,6 +300,7 @@ function resolveGroups(
       group.items,
       viewer,
       activeHref,
+      counts,
       onNavigate,
       onPrefetch,
     );
@@ -307,6 +319,7 @@ function resolveNodes(
   nodes: NavNode[],
   viewer: ViewerContext,
   activeHref: string | undefined,
+  counts: NavCounts | undefined,
   onNavigate?: (href: string) => void,
   onPrefetch?: (href: string) => void,
 ): NavItem[] {
@@ -314,13 +327,22 @@ function resolveNodes(
   for (const node of nodes) {
     if (!canAccess(node.access, viewer)) continue;
     const children = node.items
-      ? resolveNodes(node.items, viewer, activeHref, onNavigate, onPrefetch)
+      ? resolveNodes(
+          node.items,
+          viewer,
+          activeHref,
+          counts,
+          onNavigate,
+          onPrefetch,
+        )
       : undefined;
     out.push({
       key: node.key,
       label: node.label,
       icon: node.icon,
-      badge: node.badge,
+      // An explicit config badge wins; otherwise derive from live counts —
+      // a leaf shows its own count, a parent the sum of its descendants.
+      badge: node.badge ?? nodeCountBadge(node, viewer, counts),
       badgeTone: node.badgeTone,
       active: node.href != null && node.href === activeHref,
       items: children && children.length > 0 ? children : undefined,
@@ -328,6 +350,77 @@ function resolveNodes(
     });
   }
   return out;
+}
+
+/* ---- count aggregation ---------------------------------------- */
+
+/** A destination's own count from the map (0 when absent or non-positive). */
+function countFor(href: string | undefined, counts?: NavCounts): number {
+  if (!href) return 0;
+  const value = counts?.[href];
+  return typeof value === 'number' && value > 0 ? value : 0;
+}
+
+/** Sum the counts of every access-visible leaf under `nodes` (recursively). */
+function aggregateNodeCounts(
+  nodes: NavNode[],
+  viewer: ViewerContext,
+  counts?: NavCounts,
+): number {
+  let total = 0;
+  for (const node of nodes) {
+    if (!canAccess(node.access, viewer)) continue;
+    total +=
+      node.items && node.items.length > 0
+        ? aggregateNodeCounts(node.items, viewer, counts)
+        : countFor(node.href, counts);
+  }
+  return total;
+}
+
+/** Sum the counts across every access-visible group under a section. */
+function aggregateGroupCounts(
+  groups: NavGroupNode[] | undefined,
+  viewer: ViewerContext,
+  counts?: NavCounts,
+): number {
+  if (!groups) return 0;
+  let total = 0;
+  for (const group of groups) {
+    if (!canAccess(group.access, viewer)) continue;
+    total += aggregateNodeCounts(group.items, viewer, counts);
+  }
+  return total;
+}
+
+/** A node's badge count: a parent's rolled-up total, else its own leaf count. */
+function nodeCountBadge(
+  node: NavNode,
+  viewer: ViewerContext,
+  counts?: NavCounts,
+): number | undefined {
+  const total =
+    node.items && node.items.length > 0
+      ? aggregateNodeCounts(node.items, viewer, counts)
+      : countFor(node.href, counts);
+  return total > 0 ? total : undefined;
+}
+
+/**
+ * A section's rail badge: an explicit config badge wins; otherwise the
+ * rolled-up total of its accessible descendants, falling back to the section's
+ * own direct-route count (for group-less link sections).
+ */
+function sectionBadge(
+  section: NavSectionNode,
+  viewer: ViewerContext,
+  counts?: NavCounts,
+): string | number | undefined {
+  if (section.badge != null) return section.badge;
+  const grouped = aggregateGroupCounts(section.groups, viewer, counts);
+  if (grouped > 0) return grouped;
+  const own = countFor(section.href, counts);
+  return own > 0 ? own : undefined;
 }
 
 /** Either an `onSelect` callback (controlled) or an `href` (link). */

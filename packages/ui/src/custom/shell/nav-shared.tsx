@@ -181,7 +181,7 @@ export function NavItemRow({
           <CountBadge
             count={item.badge}
             size="md"
-            tone={item.badgeTone === 'hot' ? 'accent' : 'neutral'}
+            tone={item.badgeTone === 'hot' ? 'accent' : 'info'}
           />
         ) : null}
       </NavElement>

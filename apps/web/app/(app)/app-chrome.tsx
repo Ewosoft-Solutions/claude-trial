@@ -48,6 +48,7 @@ import type {
 
 import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
+import { useNavCounts } from '@/lib/navigation/use-nav-counts';
 import {
   claimMissingPasskeyIntent,
   clearBiometricReminderIntent,
@@ -351,9 +352,11 @@ export function AppChrome({
       : (activeSchool?.name ?? 'All schools');
 
   const config = configForViewer(viewer);
+  const navCounts = useNavCounts(viewer);
   const nav = useResolvedNavigation(config, viewer, pathname, {
     onNavigate: navigate,
     onPrefetch: prefetch,
+    counts: navCounts,
   });
   const sidebarPanels = React.useMemo(
     () =>
