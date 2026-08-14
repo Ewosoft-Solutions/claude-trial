@@ -32,6 +32,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
@@ -197,9 +198,7 @@ export function DirectoryToolbar({
       <SlidersHorizontal aria-hidden />
       Filters
       {filterCount > 0 ? (
-        <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-primary px-1 text-[calc(10px*var(--font-scale))] font-bold leading-none text-primary-foreground">
-          {filterCount}
-        </span>
+        <CountBadge count={filterCount} tone="primary" size="md" />
       ) : null}
     </Button>
   );

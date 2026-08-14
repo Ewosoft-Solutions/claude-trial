@@ -18,8 +18,8 @@ import type { StateTone } from './states.types';
 export interface WorkbenchTab {
   key: string;
   label: string;
-  /** Optional trailing adornment, e.g. a count badge. */
-  badge?: React.ReactNode;
+  /** Optional trailing count, rendered as a `CountBadge`. */
+  badge?: string | number;
   /** Optional leading icon. */
   icon?: React.ReactNode;
   disabled?: boolean;

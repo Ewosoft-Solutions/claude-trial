@@ -27,6 +27,7 @@ import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui/lib/utils';
 import { toTitleCase } from '@workspace/ui/lib/names';
 import { FlyoutContour } from '@workspace/ui/custom/shell/flyout-contour';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import { InitialsAvatar } from '@workspace/ui/custom/data-display/initials-avatar';
 import {
   DropdownMenu,
@@ -177,16 +178,11 @@ export function NavItemRow({
         {isSub ? <NestedItemBullet /> : null}
         <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
         {item.badge != null ? (
-          <span
-            className={cn(
-              'min-w-[22px] rounded-full px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold',
-              item.badgeTone === 'hot'
-                ? 'bg-primary/15 text-primary'
-                : 'bg-muted text-muted-foreground',
-            )}
-          >
-            {item.badge}
-          </span>
+          <CountBadge
+            count={item.badge}
+            size="md"
+            tone={item.badgeTone === 'hot' ? 'accent' : 'neutral'}
+          />
         ) : null}
       </NavElement>
       {item.items?.map((child) => (

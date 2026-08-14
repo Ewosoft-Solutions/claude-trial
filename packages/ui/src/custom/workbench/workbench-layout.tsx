@@ -16,6 +16,7 @@
 import * as React from 'react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import {
   Tabs,
   TabsContent,
@@ -121,9 +122,12 @@ export function WorkbenchLayout({
                 ) : null}
                 {tab.label}
                 {tab.badge != null ? (
-                  <span className="ml-1 inline-flex min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[calc(10.5px*var(--font-scale))] font-semibold text-muted-foreground tabular-nums">
-                    {tab.badge}
-                  </span>
+                  <CountBadge
+                    count={tab.badge}
+                    tone="neutral"
+                    size="md"
+                    className="ml-1"
+                  />
                 ) : null}
               </TabsTrigger>
             ))}

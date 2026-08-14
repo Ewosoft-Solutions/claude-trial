@@ -35,6 +35,7 @@ import {
   SidebarProfile,
   ThemeControl,
 } from '@workspace/ui/custom/shell/nav-shared';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import type {
   NavGroup,
   NavPanelData,
@@ -43,12 +44,14 @@ import type {
   UserProfile,
 } from '@workspace/ui/types/shell.types';
 
-/* ---- rail count badge ---- */
+/* ---- rail count badge — a small square chip overlaid on the icon ---- */
 function RailBadge({ badge }: { badge: string | number }) {
   return (
-    <span className="pointer-events-none absolute -right-2 -top-1.5 z-10 grid h-[17px] min-w-[17px] max-w-8 place-items-center truncate rounded-full border-2 border-background bg-info px-1 text-[calc(9px*var(--font-scale))] font-bold leading-none text-info-foreground">
-      {badge}
-    </span>
+    <CountBadge
+      count={badge}
+      size="sm"
+      className="pointer-events-none absolute -right-2 -top-1.5 z-10 border-2 border-background"
+    />
   );
 }
 
@@ -286,9 +289,7 @@ function Sidebar({
             {item.label}
           </span>
           {item.badge != null ? (
-            <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
-              {item.badge}
-            </span>
+            <CountBadge count={item.badge} size="md" />
           ) : null}
           {item.hasPanel ? (
             <ChevronDown
