@@ -22,10 +22,42 @@ function intakeForm(): FormDefinition {
         title: 'Applicant',
         system: true,
         items: [
-          { id: 'i1', key: 'first_name', type: 'short_text', label: 'First name', required: true, system: true, binding: BINDINGS.firstName },
-          { id: 'i2', key: 'surname', type: 'short_text', label: 'Surname', required: true, system: true, binding: BINDINGS.surname },
-          { id: 'i3', key: 'gender', type: 'dropdown', label: 'Gender', options: ['male', 'female', 'other'], system: true, binding: BINDINGS.gender },
-          { id: 'i4', key: 'religion', type: 'short_text', label: 'Religion', system: true, binding: BINDINGS.religion, hidden: true },
+          {
+            id: 'i1',
+            key: 'first_name',
+            type: 'short_text',
+            label: 'First name',
+            required: true,
+            system: true,
+            binding: BINDINGS.firstName,
+          },
+          {
+            id: 'i2',
+            key: 'surname',
+            type: 'short_text',
+            label: 'Surname',
+            required: true,
+            system: true,
+            binding: BINDINGS.surname,
+          },
+          {
+            id: 'i3',
+            key: 'gender',
+            type: 'dropdown',
+            label: 'Gender',
+            options: ['male', 'female', 'other'],
+            system: true,
+            binding: BINDINGS.gender,
+          },
+          {
+            id: 'i4',
+            key: 'religion',
+            type: 'short_text',
+            label: 'Religion',
+            system: true,
+            binding: BINDINGS.religion,
+            hidden: true,
+          },
         ],
       },
       {
@@ -33,7 +65,15 @@ function intakeForm(): FormDefinition {
         title: 'Applying for',
         system: true,
         items: [
-          { id: 'c1', key: 'applying_for', type: 'cascade', label: 'Class applying for', required: true, system: true, binding: BINDINGS.applyingFor },
+          {
+            id: 'c1',
+            key: 'applying_for',
+            type: 'cascade',
+            label: 'Class applying for',
+            required: true,
+            system: true,
+            binding: BINDINGS.applyingFor,
+          },
         ],
       },
       {
@@ -43,10 +83,43 @@ function intakeForm(): FormDefinition {
         binding: BINDINGS.guardians,
         repeatable: { min: 1, max: 4, entryNoun: 'guardian' },
         items: [
-          { id: 'g1', key: 'g_first', type: 'short_text', label: 'First name', required: true, system: true, binding: BINDINGS.guardianFirstName },
-          { id: 'g2', key: 'g_surname', type: 'short_text', label: 'Surname', required: true, system: true, binding: BINDINGS.guardianSurname },
-          { id: 'g3', key: 'g_rel', type: 'dropdown', label: 'Relationship', options: ['mother', 'father', 'guardian'], required: true, system: true, binding: BINDINGS.guardianRelationship },
-          { id: 'g4', key: 'g_phone', type: 'phone', label: 'Phone', required: true, system: true, binding: BINDINGS.guardianPhone },
+          {
+            id: 'g1',
+            key: 'g_first',
+            type: 'short_text',
+            label: 'First name',
+            required: true,
+            system: true,
+            binding: BINDINGS.guardianFirstName,
+          },
+          {
+            id: 'g2',
+            key: 'g_surname',
+            type: 'short_text',
+            label: 'Surname',
+            required: true,
+            system: true,
+            binding: BINDINGS.guardianSurname,
+          },
+          {
+            id: 'g3',
+            key: 'g_rel',
+            type: 'dropdown',
+            label: 'Relationship',
+            options: ['mother', 'father', 'guardian'],
+            required: true,
+            system: true,
+            binding: BINDINGS.guardianRelationship,
+          },
+          {
+            id: 'g4',
+            key: 'g_phone',
+            type: 'phone',
+            label: 'Phone',
+            required: true,
+            system: true,
+            binding: BINDINGS.guardianPhone,
+          },
         ],
       },
     ],
@@ -95,8 +168,18 @@ describe('answersToCreateApplicationInput (WB3 consolidation)', () => {
       surname: 'B',
       applying_for: { yearLevelId: 'yl' },
       [BINDINGS.guardians]: [
-        { g_first: 'One', g_surname: 'P', g_rel: 'mother', g_phone: { number: '111' } },
-        { g_first: 'Two', g_surname: 'Q', g_rel: 'father', g_phone: { number: '222' } },
+        {
+          g_first: 'One',
+          g_surname: 'P',
+          g_rel: 'mother',
+          g_phone: { number: '111' },
+        },
+        {
+          g_first: 'Two',
+          g_surname: 'Q',
+          g_rel: 'father',
+          g_phone: { number: '222' },
+        },
       ],
     };
     const dto = answersToCreateApplicationInput(def, answers);
@@ -110,7 +193,12 @@ describe('validateAnswers with the new types', () => {
     surname: 'Okoro',
     applying_for: { yearLevelId: 'yl_p5' },
     [BINDINGS.guardians]: [
-      { g_first: 'Ebele', g_surname: 'Okoro', g_rel: 'mother', g_phone: { number: '8012345678' } },
+      {
+        g_first: 'Ebele',
+        g_surname: 'Okoro',
+        g_rel: 'mother',
+        g_phone: { number: '8012345678' },
+      },
     ],
   };
 
@@ -120,7 +208,10 @@ describe('validateAnswers with the new types', () => {
 
   it('requires the cascade to carry a class', () => {
     expect(() =>
-      validateAnswers(intakeForm(), { ...valid, applying_for: { stageId: 'x' } }),
+      validateAnswers(intakeForm(), {
+        ...valid,
+        applying_for: { stageId: 'x' },
+      }),
     ).toThrow(FormValidationError);
   });
 

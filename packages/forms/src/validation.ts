@@ -403,7 +403,10 @@ export function validateAnswers(
   }
 
   for (const section of repeatables) {
-    cleaned[section.binding!] = validateRepeatable(section, answers[section.binding!]);
+    cleaned[section.binding!] = validateRepeatable(
+      section,
+      answers[section.binding!],
+    );
   }
   return cleaned;
 }
