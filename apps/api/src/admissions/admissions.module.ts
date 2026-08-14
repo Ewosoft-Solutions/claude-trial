@@ -5,12 +5,14 @@ import { AcademicStructureModule } from '../academic-structure/academic-structur
 import { DocumentsModule } from '../documents/documents.module';
 import { CommunicationModule } from '../communication/communication.module';
 import { FormsModule } from '../forms/forms.module';
+import { FinanceModule } from '../finance/finance.module';
 import { AdmissionsController } from './controllers/admissions.controller';
 import { AdmissionFormsController } from './controllers/admission-forms.controller';
 import { AdmissionInterviewsController } from './controllers/admission-interviews.controller';
 import { PublicAdmissionsController } from './controllers/public-admissions.controller';
 import { AdmissionsService } from './services/admissions.service';
 import { AdmissionRequirementsService } from './services/admission-requirements.service';
+import { AdmissionFeeService } from './services/admission-fee.service';
 import { AdmissionFormsService } from './services/admission-forms.service';
 import { AdmissionInterviewsService } from './services/admission-interviews.service';
 import { PublicAdmissionsService } from './services/public-admissions.service';
@@ -28,6 +30,9 @@ import { PublicAdmissionsService } from './services/public-admissions.service';
     DocumentsModule,
     CommunicationModule,
     FormsModule,
+    // WB3-5: admission fees become real Finance AR records via FinanceService /
+    // FinanceCatalogueService (shared request RLS tx).
+    FinanceModule,
   ],
   controllers: [
     AdmissionsController,
@@ -41,6 +46,7 @@ import { PublicAdmissionsService } from './services/public-admissions.service';
   providers: [
     AdmissionsService,
     AdmissionRequirementsService,
+    AdmissionFeeService,
     AdmissionFormsService,
     AdmissionInterviewsService,
     PublicAdmissionsService,
@@ -48,6 +54,7 @@ import { PublicAdmissionsService } from './services/public-admissions.service';
   exports: [
     AdmissionsService,
     AdmissionRequirementsService,
+    AdmissionFeeService,
     AdmissionFormsService,
     AdmissionInterviewsService,
     PublicAdmissionsService,

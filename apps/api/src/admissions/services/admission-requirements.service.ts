@@ -261,6 +261,12 @@ export class AdmissionRequirementsService {
         'This is a document requirement — upload the file instead.',
       );
     }
+    // Fee requirements settle through Finance (WB3-5), not a bare typed value.
+    if (req.type === 'fee') {
+      throw new BadRequestException(
+        'This is a fee requirement — bill it and record a payment instead.',
+      );
+    }
     const updated = await this.client.admissionApplicationRequirement.update({
       where: { id: appRequirementId },
       data: {

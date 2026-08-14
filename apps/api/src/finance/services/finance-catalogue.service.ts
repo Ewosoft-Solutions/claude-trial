@@ -58,6 +58,38 @@ export class FinanceCatalogueService {
     });
   }
 
+  /**
+   * Get-or-create a fee item by code (idempotent). Used by the admissions fee
+   * coupling (WB3-5) to provision an `admission:<key>` catalogue entry on demand,
+   * so admission-fee invoice lines reference a real, reportable {@link FeeItem}
+   * without the operator having to pre-create it. Re-activates a disabled match
+   * so a later bill against a soft-disabled admission item still works.
+   */
+  async ensureFeeItem(tenantId: string, input: { code: string; name: string }) {
+    const code = input.code.trim();
+    const existing = await this.client.feeItem.findFirst({
+      where: { tenantId, code },
+    });
+    if (existing) {
+      if (!existing.active) {
+        return this.client.feeItem.update({
+          where: { id: existing.id },
+          data: { active: true },
+        });
+      }
+      return existing;
+    }
+    return this.client.feeItem.create({
+      data: {
+        tenantId,
+        code,
+        name: input.name.trim(),
+        defaultAmount: null,
+        active: true,
+      },
+    });
+  }
+
   async updateFeeItem(tenantId: string, id: string, dto: UpdateFeeItemDto) {
     const item = await this.client.feeItem.findFirst({
       where: { id, tenantId },

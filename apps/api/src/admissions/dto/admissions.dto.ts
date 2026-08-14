@@ -23,6 +23,10 @@ import {
   GUARDIAN_RELATIONSHIPS,
   REQUIREMENT_TYPES,
 } from '../admission-requirements.constants';
+import {
+  PAYMENT_METHODS,
+  type PaymentMethod,
+} from '../../finance/dto/finance.dto';
 
 // WB3-1: the real admissions stage machine (was strings-only
 // application|interview|decision). Legacy 'interview' survives; the rest are new.
@@ -552,4 +556,52 @@ export class UpdateRequirementDto {
   @IsOptional()
   @IsObject()
   config?: Record<string, unknown>;
+}
+
+// ======================= WB3-5 fee → finance coupling =======================
+
+/**
+ * Bill a `fee`-type requirement — creates a real Finance invoice for the
+ * admission fee (keyed to the application until conversion). The amount is NOT
+ * accepted here: it is resolved server-side from the requirement's configured
+ * pricing (default + per-class / per-section overrides) for the applicant's
+ * class (WB3-5), so prices stay centrally controlled.
+ */
+export class BillFeeDto {
+  @ApiPropertyOptional({
+    example: '2026-09-01',
+    description: 'Optional due date.',
+  })
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string;
+}
+
+/** Record a payment against a fee requirement's Finance invoice. */
+export class SettleFeeDto {
+  @ApiProperty({
+    example: 500000,
+    description: 'Amount paid in minor units (kobo).',
+  })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  amount!: number;
+
+  @ApiProperty({ enum: PAYMENT_METHODS, example: 'transfer' })
+  @IsIn(PAYMENT_METHODS)
+  method!: PaymentMethod;
+
+  @ApiProperty({ example: '2026-08-14' })
+  @IsDateString()
+  paidAt!: string;
+
+  @ApiPropertyOptional({
+    example: 'PSK-3312',
+    description: 'Payment reference / receipt no.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(120)
+  reference?: string;
 }

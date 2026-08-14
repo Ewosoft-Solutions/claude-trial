@@ -36,6 +36,8 @@ import { AccessScopeService } from '../../auth/services/access-scope.service';
 import { StudentLifecycleService } from '../../academic-structure/services/student-lifecycle.service';
 import type { StructureActor } from '../../academic-structure/services/academic-structure-model.service';
 import { AdmissionRequirementsService } from './admission-requirements.service';
+import { resolveAdmissionFeeKobo } from '../admission-fee-pricing';
+import { FinanceService } from '../../finance/services/finance.service';
 import { SecureLinkService } from '../../communication/delivery/services/secure-link.service';
 import {
   STATUS_PURPOSE,
@@ -108,6 +110,7 @@ export class AdmissionsService {
     private readonly accessScope: AccessScopeService,
     private readonly lifecycle: StudentLifecycleService,
     private readonly requirements: AdmissionRequirementsService,
+    private readonly finance: FinanceService,
     private readonly secureLinks: SecureLinkService,
   ) {}
 
@@ -787,6 +790,49 @@ export class AdmissionsService {
         'Only an accepted application can be converted (accept the offer first).',
       );
     }
+
+    // Deposit gate (WB3-5): a required fee must be settled (its Finance invoice
+    // fully paid → status `provided`) or explicitly waived before a student
+    // record is created. A fully-paid fee is `provided`, a waived one `waived`;
+    // an unbilled/partial one is still `pending`. A pending fee that resolves to
+    // NO fee (0 / unset) for this applicant's class is auto-skipped — it does not
+    // block — so a class with e.g. a 0 acceptance fee converts straight through.
+    const pendingFees =
+      await this.client.admissionApplicationRequirement.findMany({
+        where: {
+          tenantId,
+          applicationId: id,
+          type: 'fee',
+          required: true,
+          status: 'pending',
+        },
+        select: { label: true, requirementId: true },
+      });
+    if (pendingFees.length > 0) {
+      const templates = await this.client.admissionRequirement.findMany({
+        where: {
+          tenantId,
+          id: { in: pendingFees.map((f) => f.requirementId) },
+        },
+        select: { id: true, config: true },
+      });
+      const configById = new Map(templates.map((t) => [t.id, t.config]));
+      const blocking = pendingFees.filter(
+        (f) =>
+          resolveAdmissionFeeKobo(configById.get(f.requirementId), {
+            yearLevelId: app.yearLevelId,
+            sectionId: app.targetClassSectionId,
+          }) != null,
+      );
+      if (blocking.length > 0) {
+        throw new BadRequestException(
+          `Settle or waive the required admission fee(s) before admitting: ${blocking
+            .map((f) => f.label)
+            .join(', ')}.`,
+        );
+      }
+    }
+
     const section = await this.assertSection(tenantId, dto.classSectionId);
     this.accessScope.assertWithinScope(actor.grantScope, {
       campusId: section.campusId,
@@ -874,6 +920,17 @@ export class AdmissionsService {
         updatedBy: actor.userId,
       },
     });
+    // 6. Re-key the applicant's admission-fee invoices/payments to the new
+    // student (WB3-5) — the AR history moves into the student ledger with no
+    // re-billing. No-op when the school didn't bill any admission fees.
+    const reassigned = await this.finance.reassignAdmissionInvoices(
+      tenantId,
+      id,
+      student.id,
+      app.applicantName,
+      actor.userId,
+    );
+
     await this.writeStageEvent(
       tenantId,
       id,
@@ -892,6 +949,7 @@ export class AdmissionsService {
         studentId: student.id,
         personId: person.id,
         classSectionId: dto.classSectionId,
+        reassignedInvoices: reassigned.invoices,
       },
     );
 

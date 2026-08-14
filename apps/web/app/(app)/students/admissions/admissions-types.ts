@@ -38,6 +38,16 @@ export interface Requirement {
   providedAt?: string | null;
 }
 
+/**
+ * The `value` a WB3-5 fee fulfilment carries once billed: the linked Finance
+ * invoice + the billed amount (kobo), and whether it has been fully paid.
+ */
+export interface FeeValue {
+  invoiceId?: string;
+  amount?: number;
+  paid?: boolean;
+}
+
 export interface Application {
   id: string;
   applicantName: string;

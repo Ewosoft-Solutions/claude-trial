@@ -29,6 +29,7 @@ import { AppModule } from '../src/app.module';
 import { TenantDbService } from '../src/common';
 import { AdmissionsService } from '../src/admissions/services/admissions.service';
 import { AdmissionRequirementsService } from '../src/admissions/services/admission-requirements.service';
+import { AdmissionFeeService } from '../src/admissions/services/admission-fee.service';
 import { makeSuperuserClient } from './helpers/superuser-client';
 
 // The requirement document-upload path writes bytes through the StorageProvider.
@@ -51,6 +52,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
   let tenantDb: TenantDbService;
   let admissions: AdmissionsService;
   let requirements: AdmissionRequirementsService;
+  let fees: AdmissionFeeService;
 
   const stamp = Date.now();
   const A = `wb3-a-${stamp}`;
@@ -103,6 +105,29 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     );
   }
 
+  /**
+   * Waive every required, unsettled fee requirement so the deposit gate (WB3-5)
+   * lets a conversion through — the pipeline/scope tests aren't about fees.
+   */
+  async function clearRequiredFees(applicationId: string) {
+    const reqs = await inA(() =>
+      requirements.listForApplication(tenantAId, applicationId),
+    );
+    for (const r of reqs.filter(
+      (x) => x.type === 'fee' && x.required && x.status === 'pending',
+    )) {
+      await inA(() =>
+        requirements.waiveRequirement(
+          tenantAId,
+          applicationId,
+          r.id,
+          { reason: 'Not part of this test' },
+          actorId,
+        ),
+      );
+    }
+  }
+
   beforeAll(async () => {
     // Pin the local-disk storage provider for this run (before the app boots).
     for (const k of R2_KEYS) {
@@ -120,6 +145,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     tenantDb = app.get(TenantDbService);
     admissions = app.get(AdmissionsService);
     requirements = app.get(AdmissionRequirementsService);
+    fees = app.get(AdmissionFeeService);
 
     const [ta, tb, actor] = await Promise.all([
       owner.tenant.create({
@@ -460,17 +486,19 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     const measurement = reqs.find((r) => r.type === 'measurement')!;
     expect(fee && doc && measurement).toBeTruthy();
 
-    // Provide a fee (typed value).
-    const paid = await inA(() =>
-      requirements.provideRequirement(
-        tenantAId,
-        created.id,
-        fee.id,
-        { value: { paid: true, reference: 'PSK-1' } },
-        actorId,
+    // A fee cannot be satisfied via the generic value path — it settles through
+    // Finance (WB3-5), so provide() rejects it (mirrors the document guard).
+    await expect(
+      inA(() =>
+        requirements.provideRequirement(
+          tenantAId,
+          created.id,
+          fee.id,
+          { value: { paid: true } },
+          actorId,
+        ),
       ),
-    );
-    expect(paid.status).toBe('provided');
+    ).rejects.toBeInstanceOf(BadRequestException);
 
     // Upload a document (local-disk provider in tests) → provided + linked.
     const uploaded = await inA(() =>
@@ -514,6 +542,144 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
         ),
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('WB3-5: bills a fee → studentless Finance invoice, settles it → provided', async () => {
+    const created = await makeApplication('fee-bill');
+    const reqs = await inA(() =>
+      requirements.listForApplication(tenantAId, created.id),
+    );
+    const fee = reqs.find(
+      (r) => r.type === 'fee' && r.collectStage === 'application',
+    )!;
+    expect(fee).toBeTruthy();
+
+    // Bill (no explicit amount → falls back to the template's ₦5,000 prefill).
+    const billed = await inA(() =>
+      fees.billFee(tenantAId, created.id, fee.id, {}, actorId),
+    );
+    const invoiceId = (billed.requirement.value as { invoiceId?: string })
+      ?.invoiceId;
+    expect(invoiceId).toBeTruthy();
+    expect(billed.requirement.status).toBe('pending'); // billed ≠ paid
+
+    const invoice = await owner.feeInvoice.findFirst({
+      where: { id: invoiceId!, tenantId: tenantAId },
+    });
+    expect(invoice?.studentId).toBeNull();
+    expect(invoice?.admissionApplicationId).toBe(created.id);
+    expect(invoice?.amountDue).toBe(500000);
+    expect(invoice?.status).toBe('issued');
+
+    // Idempotent: billing again returns the same invoice.
+    const again = await inA(() =>
+      fees.billFee(tenantAId, created.id, fee.id, {}, actorId),
+    );
+    expect(again.invoice.id).toBe(invoiceId);
+
+    // Settle in full → fulfilment `provided`, invoice `paid`, payment studentless.
+    const settled = await inA(() =>
+      fees.settleFee(
+        tenantAId,
+        created.id,
+        fee.id,
+        { amount: 500000, method: 'transfer', paidAt: '2026-08-14' },
+        actorId,
+      ),
+    );
+    expect(settled.requirement.status).toBe('provided');
+
+    const paidInvoice = await owner.feeInvoice.findFirst({
+      where: { id: invoiceId!, tenantId: tenantAId },
+    });
+    expect(paidInvoice?.status).toBe('paid');
+    expect(paidInvoice?.amountPaid).toBe(500000);
+    const payment = await owner.payment.findFirst({
+      where: { tenantId: tenantAId, invoiceId: invoiceId! },
+    });
+    expect(payment?.studentId).toBeNull();
+    expect(payment?.amount).toBe(500000);
+  });
+
+  it('WB3-5: an unpaid required fee blocks conversion; settling + waiving unblocks and re-keys to the student', async () => {
+    const created = await makeApplication('fee-gate');
+    await inA(() =>
+      admissions.makeOffer(
+        tenantAId,
+        created.id,
+        { targetClassSectionId: section1Id, academicYearId: yearId },
+        actorId,
+      ),
+    );
+    await inA(() =>
+      admissions.recordAcceptance(tenantAId, created.id, actorId),
+    );
+
+    const reqs = await inA(() =>
+      requirements.listForApplication(tenantAId, created.id),
+    );
+    const appFee = reqs.find(
+      (r) => r.type === 'fee' && r.collectStage === 'application',
+    )!;
+    const accFee = reqs.find(
+      (r) => r.type === 'fee' && r.collectStage === 'acceptance',
+    )!;
+
+    // Gate: required fees are still `pending` → conversion is refused.
+    await expect(
+      inA(() =>
+        admissions.convertToStudent(tenantAId, unscoped(), created.id, {
+          classSectionId: section1Id,
+          academicYearId: yearId,
+        }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // Settle the application fee (a real invoice) + waive the acceptance fee.
+    await inA(() =>
+      fees.billFee(tenantAId, created.id, appFee.id, {}, actorId),
+    );
+    const settled = await inA(() =>
+      fees.settleFee(
+        tenantAId,
+        created.id,
+        appFee.id,
+        { amount: 500000, method: 'cash', paidAt: '2026-08-14' },
+        actorId,
+      ),
+    );
+    const invoiceId = (settled.requirement.value as { invoiceId?: string })
+      .invoiceId!;
+    await inA(() =>
+      requirements.waiveRequirement(
+        tenantAId,
+        created.id,
+        accFee.id,
+        { reason: 'Scholarship' },
+        actorId,
+      ),
+    );
+
+    // Now conversion succeeds.
+    const result = await inA(() =>
+      admissions.convertToStudent(tenantAId, unscoped(), created.id, {
+        classSectionId: section1Id,
+        academicYearId: yearId,
+      }),
+    );
+    expect(result.studentId).toBeTruthy();
+
+    // Re-key: the admission invoice + payment now carry the new student id, and
+    // the invoice stays traceable back to the application.
+    const invoice = await owner.feeInvoice.findFirst({
+      where: { id: invoiceId, tenantId: tenantAId },
+    });
+    expect(invoice?.studentId).toBe(result.studentId);
+    expect(invoice?.admissionApplicationId).toBe(created.id);
+    const payment = await owner.payment.findFirst({
+      where: { tenantId: tenantAId, invoiceId },
+    });
+    expect(payment?.studentId).toBe(result.studentId);
   });
 
   it('advance cannot reach a terminal stage (use the dedicated action)', async () => {
@@ -584,6 +750,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
       ),
     );
     await inA(() => admissions.recordAcceptance(tenantAId, appId, actorId));
+    await clearRequiredFees(appId); // deposit gate: waive fees for this flow
 
     const result = await inA(() =>
       admissions.convertToStudent(tenantAId, unscoped(), appId, {
@@ -644,6 +811,7 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     const id = application.id;
     await inA(() => admissions.makeOffer(tenantAId, id, {}, actorId));
     await inA(() => admissions.recordAcceptance(tenantAId, id, actorId));
+    await clearRequiredFees(id); // deposit gate fires before the scope check
 
     // section1 is on campus1; a campus2-scoped actor cannot convert into it.
     const campus2Actor = {
@@ -667,6 +835,83 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
       }),
     );
     expect(ok.studentId).toBeTruthy();
+  });
+
+  it('WB3-5: bills the price configured for the class, and a 0-priced fee is skipped (never blocks)', async () => {
+    // Runs last among the functional tests: it mutates the shared fee template
+    // config, which must not perturb the earlier bill/settle assertions.
+    const created = await makeApplication('fee-pricing');
+    const reqs = await inA(() =>
+      requirements.listForApplication(tenantAId, created.id),
+    );
+    const appFee = reqs.find(
+      (r) => r.type === 'fee' && r.collectStage === 'application',
+    )!;
+    const accFee = reqs.find(
+      (r) => r.type === 'fee' && r.collectStage === 'acceptance',
+    )!;
+
+    // Per-class override for the application fee (₦7,500, above the ₦5,000
+    // default); acceptance fee set to 0 (free) for this class.
+    await inA(() =>
+      requirements.updateRequirement(tenantAId, actorId, appFee.requirementId, {
+        config: {
+          currency: 'NGN',
+          amount: 500000,
+          classPrices: { [yearLevelId]: 750000 },
+        },
+      }),
+    );
+    await inA(() =>
+      requirements.updateRequirement(tenantAId, actorId, accFee.requirementId, {
+        config: { currency: 'NGN', classPrices: { [yearLevelId]: 0 } },
+      }),
+    );
+
+    // Billing uses the class price, not the default.
+    const billed = await inA(() =>
+      fees.billFee(tenantAId, created.id, appFee.id, {}, actorId),
+    );
+    const invoiceId = (billed.requirement.value as { invoiceId?: string })
+      .invoiceId!;
+    const invoice = await owner.feeInvoice.findFirst({
+      where: { id: invoiceId, tenantId: tenantAId },
+    });
+    expect(invoice?.amountDue).toBe(750000);
+    await inA(() =>
+      fees.settleFee(
+        tenantAId,
+        created.id,
+        appFee.id,
+        { amount: 750000, method: 'transfer', paidAt: '2026-08-14' },
+        actorId,
+      ),
+    );
+
+    // The acceptance fee resolves to no fee (0) for this class → billing it is
+    // refused, and it does not block conversion.
+    await expect(
+      inA(() => fees.billFee(tenantAId, created.id, accFee.id, {}, actorId)),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await inA(() =>
+      admissions.makeOffer(
+        tenantAId,
+        created.id,
+        { targetClassSectionId: section1Id, academicYearId: yearId },
+        actorId,
+      ),
+    );
+    await inA(() =>
+      admissions.recordAcceptance(tenantAId, created.id, actorId),
+    );
+    const result = await inA(() =>
+      admissions.convertToStudent(tenantAId, unscoped(), created.id, {
+        classSectionId: section1Id,
+        academicYearId: yearId,
+      }),
+    );
+    expect(result.studentId).toBeTruthy();
   });
 
   it('isolates tenants via RLS and rejects anon at the HTTP boundary', async () => {

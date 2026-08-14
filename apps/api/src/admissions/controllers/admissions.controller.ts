@@ -23,10 +23,12 @@ import {
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { AdmissionsService } from '../services/admissions.service';
 import { AdmissionRequirementsService } from '../services/admission-requirements.service';
+import { AdmissionFeeService } from '../services/admission-fee.service';
 import type { StructureActor } from '../../academic-structure/services/academic-structure-model.service';
 import {
   AddReviewDto,
   AdvanceStageDto,
+  BillFeeDto,
   ConvertToStudentDto,
   CreateApplicationDto,
   CreateRequirementDto,
@@ -34,6 +36,7 @@ import {
   ListApplicationsDto,
   MakeOfferDto,
   ProvideRequirementDto,
+  SettleFeeDto,
   UpdateApplicationDto,
   UpdateRequirementDto,
   UploadRequirementDocumentDto,
@@ -58,6 +61,7 @@ export class AdmissionsController {
   constructor(
     private readonly admissions: AdmissionsService,
     private readonly requirements: AdmissionRequirementsService,
+    private readonly fees: AdmissionFeeService,
   ) {}
 
   private tenantId(req: AuthenticatedRequest): string {
@@ -372,6 +376,49 @@ export class AdmissionsController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.requirements.uploadRequirementDocument(
+      this.tenantId(req),
+      id,
+      reqId,
+      dto,
+      this.actorId(req),
+    );
+  }
+
+  // ---- fee requirements → Finance (WB3-5) ----
+  @Post('applications/:id/requirements/:reqId/bill')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.documents'])
+  @ApiOperation({
+    summary: 'Bill a fee requirement — create its Finance invoice',
+  })
+  billFee(
+    @Param('id') id: string,
+    @Param('reqId') reqId: string,
+    @Body() dto: BillFeeDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.fees.billFee(
+      this.tenantId(req),
+      id,
+      reqId,
+      dto,
+      this.actorId(req),
+    );
+  }
+
+  @Post('applications/:id/requirements/:reqId/settle')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['admissions.documents'])
+  @ApiOperation({
+    summary: "Record a payment against a fee requirement's Finance invoice",
+  })
+  settleFee(
+    @Param('id') id: string,
+    @Param('reqId') reqId: string,
+    @Body() dto: SettleFeeDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.fees.settleFee(
       this.tenantId(req),
       id,
       reqId,

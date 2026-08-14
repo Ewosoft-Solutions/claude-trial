@@ -8,6 +8,7 @@ import { notFound } from 'next/navigation';
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
+import { resolveAdmissionFeeKobo } from '@/lib/admissions/fee-pricing';
 import { ApplicationDetailView } from './application-detail';
 import type {
   ApplicationDetail,
@@ -77,8 +78,17 @@ export default async function AdmissionApplicationPage({
     string,
     Record<string, unknown> | undefined
   > = {};
+  // Resolve each fee requirement's price for THIS applicant's class/section
+  // (default + per-class / per-section overrides), so the checklist shows the
+  // amount read-only and bills it — the staff never type an amount. Same
+  // resolver the API uses at bill time + at the deposit gate.
+  const resolvedFeeByRequirementId: Record<string, number | null> = {};
   for (const row of template ?? []) {
     configByRequirementId[row.id] = row.config ?? undefined;
+    resolvedFeeByRequirementId[row.id] = resolveAdmissionFeeKobo(row.config, {
+      yearLevelId: detail.yearLevelId,
+      sectionId: detail.targetClassSectionId,
+    });
   }
 
   return (
@@ -97,6 +107,7 @@ export default async function AdmissionApplicationPage({
       sections={sections ?? []}
       years={toArray<YearOption>(years)}
       configByRequirementId={configByRequirementId}
+      resolvedFeeByRequirementId={resolvedFeeByRequirementId}
       currentForm={currentForm ?? null}
       formResponse={formResponse ?? null}
       interviews={Array.isArray(interviews) ? interviews : []}
