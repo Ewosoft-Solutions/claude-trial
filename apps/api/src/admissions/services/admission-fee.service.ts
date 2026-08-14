@@ -28,6 +28,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { FinanceService } from '../../finance/services/finance.service';
 import { FinanceCatalogueService } from '../../finance/services/finance-catalogue.service';
+import { resolveAdmissionFeeKobo } from '../admission-fee-pricing';
 import type { BillFeeDto, SettleFeeDto } from '../dto/admissions.dto';
 
 @Injectable()
@@ -67,23 +68,32 @@ export class AdmissionFeeService {
       return { requirement: fulfilment, invoice };
     }
 
-    // Amount: explicit override, else the template's configured amount.
+    // The amount is RESOLVED from the requirement's configured pricing (default
+    // + per-class / per-section overrides) against the applicant's class/section
+    // — never taken from the caller, so a school controls prices centrally and an
+    // applicant is billed the price set for their class (WB3-5). Same resolver as
+    // the deposit gate and the applicant UI.
     const template = await this.client.admissionRequirement.findFirst({
       where: { id: fulfilment.requirementId, tenantId },
       select: { key: true, config: true },
     });
-    const configuredAmount = this.configuredAmount(template?.config);
-    const amount = dto.amount ?? configuredAmount;
-    if (amount == null || amount <= 0) {
-      throw new BadRequestException(
-        'No fee amount set for this requirement — pass an amount to bill it.',
-      );
-    }
-
     const application = await this.client.admissionApplication.findFirst({
       where: { id: applicationId, tenantId },
-      select: { applicantName: true },
+      select: {
+        applicantName: true,
+        yearLevelId: true,
+        targetClassSectionId: true,
+      },
     });
+    const amount = resolveAdmissionFeeKobo(template?.config, {
+      yearLevelId: application?.yearLevelId,
+      sectionId: application?.targetClassSectionId,
+    });
+    if (amount == null) {
+      throw new BadRequestException(
+        'No fee is configured for this class — set a price in the admission requirements before billing.',
+      );
+    }
 
     const feeItem = await this.catalogue.ensureFeeItem(tenantId, {
       code: `admission:${template?.key ?? 'fee'}`,
@@ -234,17 +244,6 @@ export class AdmissionFeeService {
     return value && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
-  }
-
-  /** The `amount` (kobo) from a fee requirement template's `config`, if a number. */
-  private configuredAmount(
-    config: Prisma.JsonValue | null | undefined,
-  ): number | null {
-    if (!config || typeof config !== 'object' || Array.isArray(config)) {
-      return null;
-    }
-    const amount = (config as Record<string, unknown>)['amount'];
-    return typeof amount === 'number' && amount > 0 ? amount : null;
   }
 
   private async writeAudit(

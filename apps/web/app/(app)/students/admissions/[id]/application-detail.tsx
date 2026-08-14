@@ -97,6 +97,7 @@ export function ApplicationDetailView({
   sections,
   years,
   configByRequirementId,
+  resolvedFeeByRequirementId,
   currentForm,
   formResponse,
   interviews,
@@ -106,6 +107,7 @@ export function ApplicationDetailView({
   sections: SectionOption[];
   years: YearOption[];
   configByRequirementId: Record<string, Record<string, unknown> | undefined>;
+  resolvedFeeByRequirementId: Record<string, number | null>;
   currentForm: FormVersion | null;
   formResponse: FormResponse | null;
   interviews: Interview[];
@@ -528,6 +530,7 @@ export function ApplicationDetailView({
                 applicationId={detail.id}
                 requirements={detail.requirements}
                 configByRequirementId={configByRequirementId}
+                resolvedFeeByRequirementId={resolvedFeeByRequirementId}
                 canManage={perms.documents}
               />
             </CardContent>

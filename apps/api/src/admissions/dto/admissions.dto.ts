@@ -562,21 +562,12 @@ export class UpdateRequirementDto {
 
 /**
  * Bill a `fee`-type requirement — creates a real Finance invoice for the
- * admission fee (keyed to the application until conversion).
+ * admission fee (keyed to the application until conversion). The amount is NOT
+ * accepted here: it is resolved server-side from the requirement's configured
+ * pricing (default + per-class / per-section overrides) for the applicant's
+ * class (WB3-5), so prices stay centrally controlled.
  */
 export class BillFeeDto {
-  @ApiPropertyOptional({
-    example: 500000,
-    description:
-      'Amount to bill in minor units (kobo). Falls back to the requirement ' +
-      "template's configured amount when omitted.",
-  })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt()
-  @Min(1)
-  amount?: number;
-
   @ApiPropertyOptional({
     example: '2026-09-01',
     description: 'Optional due date.',

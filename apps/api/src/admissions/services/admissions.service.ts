@@ -36,6 +36,7 @@ import { AccessScopeService } from '../../auth/services/access-scope.service';
 import { StudentLifecycleService } from '../../academic-structure/services/student-lifecycle.service';
 import type { StructureActor } from '../../academic-structure/services/academic-structure-model.service';
 import { AdmissionRequirementsService } from './admission-requirements.service';
+import { resolveAdmissionFeeKobo } from '../admission-fee-pricing';
 import { FinanceService } from '../../finance/services/finance.service';
 import { SecureLinkService } from '../../communication/delivery/services/secure-link.service';
 import {
@@ -792,9 +793,11 @@ export class AdmissionsService {
 
     // Deposit gate (WB3-5): a required fee must be settled (its Finance invoice
     // fully paid → status `provided`) or explicitly waived before a student
-    // record is created. Only fees block — a fully-paid fee is `provided`, a
-    // waived one `waived`; an unbilled/partial one is still `pending`.
-    const unpaidFees =
+    // record is created. A fully-paid fee is `provided`, a waived one `waived`;
+    // an unbilled/partial one is still `pending`. A pending fee that resolves to
+    // NO fee (0 / unset) for this applicant's class is auto-skipped — it does not
+    // block — so a class with e.g. a 0 acceptance fee converts straight through.
+    const pendingFees =
       await this.client.admissionApplicationRequirement.findMany({
         where: {
           tenantId,
@@ -803,14 +806,31 @@ export class AdmissionsService {
           required: true,
           status: 'pending',
         },
-        select: { label: true },
+        select: { label: true, requirementId: true },
       });
-    if (unpaidFees.length > 0) {
-      throw new BadRequestException(
-        `Settle or waive the required admission fee(s) before admitting: ${unpaidFees
-          .map((f) => f.label)
-          .join(', ')}.`,
+    if (pendingFees.length > 0) {
+      const templates = await this.client.admissionRequirement.findMany({
+        where: {
+          tenantId,
+          id: { in: pendingFees.map((f) => f.requirementId) },
+        },
+        select: { id: true, config: true },
+      });
+      const configById = new Map(templates.map((t) => [t.id, t.config]));
+      const blocking = pendingFees.filter(
+        (f) =>
+          resolveAdmissionFeeKobo(configById.get(f.requirementId), {
+            yearLevelId: app.yearLevelId,
+            sectionId: app.targetClassSectionId,
+          }) != null,
       );
+      if (blocking.length > 0) {
+        throw new BadRequestException(
+          `Settle or waive the required admission fee(s) before admitting: ${blocking
+            .map((f) => f.label)
+            .join(', ')}.`,
+        );
+      }
     }
 
     const section = await this.assertSection(tenantId, dto.classSectionId);

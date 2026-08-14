@@ -48,11 +48,15 @@ export function RequirementsPanel({
   applicationId,
   requirements,
   configByRequirementId,
+  resolvedFeeByRequirementId,
   canManage,
 }: {
   applicationId: string;
   requirements: Requirement[];
   configByRequirementId: ConfigMap;
+  /** Fee amount (kobo) resolved from config for THIS applicant's class, or null
+   *  (= no fee). Keyed by requirementId; set on the server, never typed here. */
+  resolvedFeeByRequirementId: Record<string, number | null>;
   canManage: boolean;
 }) {
   const grouped = React.useMemo(() => {
@@ -85,6 +89,9 @@ export function RequirementsPanel({
                 applicationId={applicationId}
                 requirement={r}
                 config={configByRequirementId[r.requirementId]}
+                resolvedFee={
+                  resolvedFeeByRequirementId[r.requirementId] ?? null
+                }
                 canManage={canManage}
               />
             ))}
@@ -99,11 +106,13 @@ function RequirementRow({
   applicationId,
   requirement: r,
   config,
+  resolvedFee,
   canManage,
 }: {
   applicationId: string;
   requirement: Requirement;
   config?: Record<string, unknown>;
+  resolvedFee: number | null;
   canManage: boolean;
 }) {
   const router = useRouter();
@@ -187,8 +196,12 @@ function RequirementRow({
           </span>
           <span className="text-xs capitalize text-muted-foreground">
             {r.type}
-            {fee?.amount != null
-              ? ` · billed ${formatNaira(fee.amount)}${fee.paid ? ' · paid' : ''}`
+            {r.type === 'fee'
+              ? fee?.amount != null
+                ? ` · billed ${formatNaira(fee.amount)}${fee.paid ? ' · paid' : ''}`
+                : resolvedFee != null
+                  ? ` · ${formatNaira(resolvedFee)}`
+                  : ' · no fee'
               : ''}
             {r.status === 'waived' && r.waivedReason
               ? ` · waived: ${r.waivedReason}`
@@ -229,9 +242,9 @@ function RequirementRow({
             <FeeControls
               fee={fee ?? {}}
               status={r.status}
-              config={config}
+              resolvedAmount={resolvedFee}
               busy={busy}
-              onBill={(amount) => void send('bill', { amount }, 'Billed')}
+              onBill={() => void send('bill', {}, 'Billed')}
               onSettle={(body) => void send('settle', body, 'Payment recorded')}
             />
           ) : !open ? (
@@ -305,23 +318,26 @@ function RequirementRow({
 }
 
 /**
- * WB3-5 fee controls: bill the fee (create its Finance invoice) then record a
- * payment against it. A not-yet-billed fee shows "Bill"; a billed-but-unpaid fee
- * shows "Record payment"; a settled fee (status `provided`) shows nothing.
+ * WB3-5 fee controls. The fee AMOUNT is configured centrally (admission
+ * requirements) and resolved from the applicant's class — it is NOT entered
+ * here. A fee that resolves to no amount reads "No fee for this class" and is
+ * skipped. Otherwise: a not-yet-billed fee shows "Bill ₦X" (one click creates
+ * the invoice at the resolved price); a billed-but-unpaid fee shows "Record
+ * payment"; a settled fee (`provided`) shows nothing.
  */
 function FeeControls({
   fee,
   status,
-  config,
+  resolvedAmount,
   busy,
   onBill,
   onSettle,
 }: {
   fee: FeeValue;
   status: Requirement['status'];
-  config?: Record<string, unknown>;
+  resolvedAmount: number | null;
   busy: boolean;
-  onBill: (amount: number) => void;
+  onBill: () => void;
   onSettle: (body: {
     amount: number;
     method: string;
@@ -330,12 +346,7 @@ function FeeControls({
   }) => void;
 }) {
   const billed = typeof fee.invoiceId === 'string';
-  const configAmount =
-    typeof config?.['amount'] === 'number'
-      ? (config['amount'] as number)
-      : undefined;
-
-  const [mode, setMode] = React.useState<null | 'bill' | 'pay'>(null);
+  const [paying, setPaying] = React.useState(false);
   const [amount, setAmount] = React.useState('');
   const [method, setMethod] = React.useState<string>('transfer');
   const [reference, setReference] = React.useState('');
@@ -343,38 +354,48 @@ function FeeControls({
     new Date().toISOString().slice(0, 10),
   );
 
-  const nairaOf = (kobo?: number) => (kobo != null ? String(kobo / 100) : '');
+  const nairaOf = (kobo?: number | null) =>
+    kobo != null ? String(kobo / 100) : '';
   const toKobo = (s: string) => Math.round(Number.parseFloat(s) * 100);
 
-  if (mode === null) {
+  if (!paying) {
     if (status === 'provided') return null;
-    return billed ? (
+    if (billed) {
+      return (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={busy}
+          onClick={() => {
+            setAmount(nairaOf(fee.amount ?? resolvedAmount));
+            setPaying(true);
+          }}
+        >
+          <Banknote className="mr-1 size-3.5" aria-hidden />
+          Record payment
+        </Button>
+      );
+    }
+    // Not billed yet: bill at the centrally-configured price, or show that this
+    // class has no fee (so nothing to collect, and it won't block admission).
+    if (resolvedAmount == null) {
+      return (
+        <span className="text-xs text-muted-foreground">
+          No fee for this class
+        </span>
+      );
+    }
+    return (
       <Button
         type="button"
         size="sm"
         variant="outline"
         disabled={busy}
-        onClick={() => {
-          setAmount(nairaOf(fee.amount ?? configAmount));
-          setMode('pay');
-        }}
+        onClick={() => onBill()}
       >
         <Banknote className="mr-1 size-3.5" aria-hidden />
-        Record payment
-      </Button>
-    ) : (
-      <Button
-        type="button"
-        size="sm"
-        variant="outline"
-        disabled={busy}
-        onClick={() => {
-          setAmount(nairaOf(configAmount));
-          setMode('bill');
-        }}
-      >
-        <Banknote className="mr-1 size-3.5" aria-hidden />
-        Bill
+        Bill {formatNaira(resolvedAmount)}
       </Button>
     );
   }
@@ -385,7 +406,7 @@ function FeeControls({
   return (
     <div className="flex w-full flex-col gap-2 rounded-md bg-muted/40 p-2">
       <div className="flex flex-col gap-1">
-        <Label className="text-xs">Amount (₦)</Label>
+        <Label className="text-xs">Amount paid (₦)</Label>
         <Input
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
@@ -395,48 +416,44 @@ function FeeControls({
           autoFocus
         />
       </div>
-      {mode === 'pay' && (
-        <>
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">Method</Label>
-            <select
-              value={method}
-              onChange={(e) => setMethod(e.target.value)}
-              className="h-8 rounded-md border border-input bg-transparent px-2 text-sm capitalize"
-            >
-              {PAYMENT_METHODS.map((m) => (
-                <option key={m} value={m}>
-                  {m}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">Paid on</Label>
-            <Input
-              type="date"
-              value={paidAt}
-              onChange={(e) => setPaidAt(e.target.value)}
-              className="h-8"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <Label className="text-xs">Payment reference (optional)</Label>
-            <Input
-              value={reference}
-              onChange={(e) => setReference(e.target.value)}
-              placeholder="e.g. PSK-3312"
-              className="h-8"
-            />
-          </div>
-        </>
-      )}
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">Method</Label>
+        <select
+          value={method}
+          onChange={(e) => setMethod(e.target.value)}
+          className="h-8 rounded-md border border-input bg-transparent px-2 text-sm capitalize"
+        >
+          {PAYMENT_METHODS.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">Paid on</Label>
+        <Input
+          type="date"
+          value={paidAt}
+          onChange={(e) => setPaidAt(e.target.value)}
+          className="h-8"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <Label className="text-xs">Payment reference (optional)</Label>
+        <Input
+          value={reference}
+          onChange={(e) => setReference(e.target.value)}
+          placeholder="e.g. PSK-3312"
+          className="h-8"
+        />
+      </div>
       <div className="flex justify-end gap-2">
         <Button
           size="sm"
           variant="ghost"
           disabled={busy}
-          onClick={() => setMode(null)}
+          onClick={() => setPaying(false)}
         >
           Cancel
         </Button>
@@ -444,20 +461,17 @@ function FeeControls({
           size="sm"
           disabled={busy || !valid}
           onClick={() => {
-            if (mode === 'bill') onBill(kobo);
-            else
-              onSettle({
-                amount: kobo,
-                method,
-                paidAt,
-                reference: reference.trim() || undefined,
-              });
-            // Collapse the inline form; the refresh re-renders the row's new
-            // state (billed → "Record payment", or settled → provided).
-            setMode(null);
+            onSettle({
+              amount: kobo,
+              method,
+              paidAt,
+              reference: reference.trim() || undefined,
+            });
+            // Collapse the form; the refresh re-renders the row's new state.
+            setPaying(false);
           }}
         >
-          {mode === 'bill' ? 'Bill' : 'Record payment'}
+          Record payment
         </Button>
       </div>
     </div>

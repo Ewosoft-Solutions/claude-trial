@@ -837,6 +837,83 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     expect(ok.studentId).toBeTruthy();
   });
 
+  it('WB3-5: bills the price configured for the class, and a 0-priced fee is skipped (never blocks)', async () => {
+    // Runs last among the functional tests: it mutates the shared fee template
+    // config, which must not perturb the earlier bill/settle assertions.
+    const created = await makeApplication('fee-pricing');
+    const reqs = await inA(() =>
+      requirements.listForApplication(tenantAId, created.id),
+    );
+    const appFee = reqs.find(
+      (r) => r.type === 'fee' && r.collectStage === 'application',
+    )!;
+    const accFee = reqs.find(
+      (r) => r.type === 'fee' && r.collectStage === 'acceptance',
+    )!;
+
+    // Per-class override for the application fee (₦7,500, above the ₦5,000
+    // default); acceptance fee set to 0 (free) for this class.
+    await inA(() =>
+      requirements.updateRequirement(tenantAId, actorId, appFee.requirementId, {
+        config: {
+          currency: 'NGN',
+          amount: 500000,
+          classPrices: { [yearLevelId]: 750000 },
+        },
+      }),
+    );
+    await inA(() =>
+      requirements.updateRequirement(tenantAId, actorId, accFee.requirementId, {
+        config: { currency: 'NGN', classPrices: { [yearLevelId]: 0 } },
+      }),
+    );
+
+    // Billing uses the class price, not the default.
+    const billed = await inA(() =>
+      fees.billFee(tenantAId, created.id, appFee.id, {}, actorId),
+    );
+    const invoiceId = (billed.requirement.value as { invoiceId?: string })
+      .invoiceId!;
+    const invoice = await owner.feeInvoice.findFirst({
+      where: { id: invoiceId, tenantId: tenantAId },
+    });
+    expect(invoice?.amountDue).toBe(750000);
+    await inA(() =>
+      fees.settleFee(
+        tenantAId,
+        created.id,
+        appFee.id,
+        { amount: 750000, method: 'transfer', paidAt: '2026-08-14' },
+        actorId,
+      ),
+    );
+
+    // The acceptance fee resolves to no fee (0) for this class → billing it is
+    // refused, and it does not block conversion.
+    await expect(
+      inA(() => fees.billFee(tenantAId, created.id, accFee.id, {}, actorId)),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    await inA(() =>
+      admissions.makeOffer(
+        tenantAId,
+        created.id,
+        { targetClassSectionId: section1Id, academicYearId: yearId },
+        actorId,
+      ),
+    );
+    await inA(() =>
+      admissions.recordAcceptance(tenantAId, created.id, actorId),
+    );
+    const result = await inA(() =>
+      admissions.convertToStudent(tenantAId, unscoped(), created.id, {
+        classSectionId: section1Id,
+        academicYearId: yearId,
+      }),
+    );
+    expect(result.studentId).toBeTruthy();
+  });
+
   it('isolates tenants via RLS and rejects anon at the HTTP boundary', async () => {
     // Tenant B cannot see tenant A's application (RLS hides it).
     await expect(
