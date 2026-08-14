@@ -2440,9 +2440,9 @@ New app surfaces (`apps/web`):
 - **`students/fees`** — per-student fee balances (student-centric, vs the
   `/finance/invoices` ledger): StatGrid summary + balances table (paid /
   part-paid / owing pills).
-- **`students/transport`** — bus-route assignments (route · stop · pickup;
+- **`transport/riders`** — bus-route assignments (route · stop · pickup;
   assigned / waitlist / unassigned pills).
-- **`students/attendance`** — per-student attendance *history* (distinct from the
+- **`attendance/students`** — per-student attendance *history* (distinct from the
   class daily register): present-rate `Meter` per row + absence/lateness tally +
   on-track / at-risk flag.
 - **`students/gradebook/report-cards`** — term report cards (average + grade pill
@@ -3144,8 +3144,8 @@ held 3001) and reverted to 3001 — not part of the committed diff.
 Created:
 
 - apps/web/app/(app)/students/fees/page.tsx (per-student fee balances)
-- apps/web/app/(app)/students/transport/page.tsx (route assignments)
-- apps/web/app/(app)/students/attendance/page.tsx (attendance history; uses Meter)
+- apps/web/app/(app)/transport/riders/page.tsx (route assignments)
+- apps/web/app/(app)/attendance/students/page.tsx (attendance history; uses Meter)
 - apps/web/app/(app)/students/gradebook/report-cards/page.tsx (term report cards)
 - apps/web/app/(app)/students/gradebook/transcripts/page.tsx (cumulative transcripts)
 - apps/web/app/(app)/students/gradebook/page.tsx (→ report-cards redirect)
