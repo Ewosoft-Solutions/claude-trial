@@ -48,6 +48,7 @@ const TYPE_LABELS: Record<FormItemType, string> = {
   file: 'File upload',
   grid_radio: 'Multiple-choice grid',
   grid_checkbox: 'Checkbox grid',
+  cascade: 'Applying for (class)',
   heading: 'Section heading',
   description: 'Description text',
 };
@@ -122,16 +123,32 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
           className="flex flex-col gap-4 rounded-xl border border-border p-4"
         >
           <div className="flex items-center justify-between gap-2">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Section {si + 1}
+              {section.system && (
+                <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium normal-case tracking-normal text-primary">
+                  Standard{section.repeatable ? ' · repeats' : ''}
+                </span>
+              )}
             </span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-2">
+              {section.system && (
+                <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <Checkbox
+                    checked={section.hidden === true}
+                    onCheckedChange={(c) =>
+                      updateSection(si, { hidden: c === true })
+                    }
+                  />
+                  Hide
+                </label>
+              )}
               <MoveButtons
                 index={si}
                 length={def.sections.length}
                 onMove={(from, to) => setSections(move(def.sections, from, to))}
               />
-              {def.sections.length > 1 && (
+              {def.sections.length > 1 && !section.system && (
                 <IconBtn
                   label="Remove section"
                   onClick={() =>
@@ -171,6 +188,7 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
                 key={item.id}
                 item={item}
                 sections={def.sections}
+                locked={!!item.system || !!section.system}
                 onChange={(patch) => updateItem(si, ii, patch)}
                 onRemove={() =>
                   updateSection(si, {
@@ -186,17 +204,19 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
             ))}
           </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="w-full border-dashed"
-            onClick={() =>
-              updateSection(si, { items: [...section.items, emptyItem()] })
-            }
-          >
-            <Plus className="mr-1 size-4" aria-hidden /> Add question
-          </Button>
+          {!section.system && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full border-dashed"
+              onClick={() =>
+                updateSection(si, { items: [...section.items, emptyItem()] })
+              }
+            >
+              <Plus className="mr-1 size-4" aria-hidden /> Add question
+            </Button>
+          )}
 
           {def.sections.length > 1 && (
             <div className="flex items-center gap-2">
@@ -245,6 +265,7 @@ export function FormBuilder({ value, onChange }: FormBuilderProps) {
 function ItemEditor({
   item,
   sections,
+  locked,
   onChange,
   onRemove,
   onMove,
@@ -253,6 +274,9 @@ function ItemEditor({
 }: {
   item: FormItem;
   sections: FormSection[];
+  /** A `system` (bound) item: relabel / help / required / reorder / hide only —
+   *  its type, key and existence are locked (it feeds a structured column). */
+  locked?: boolean;
   onChange: (patch: Partial<FormItem>) => void;
   onRemove: () => void;
   onMove: (from: number, to: number) => void;
@@ -260,9 +284,9 @@ function ItemEditor({
   length: number;
 }) {
   const isDisplay = DISPLAY_ITEM_TYPES.includes(item.type);
-  const isChoice = CHOICE_ITEM_TYPES.includes(item.type);
-  const isGrid = GRID_ITEM_TYPES.includes(item.type);
-  const isText = TEXT_TYPES.includes(item.type);
+  const isChoice = !locked && CHOICE_ITEM_TYPES.includes(item.type);
+  const isGrid = !locked && GRID_ITEM_TYPES.includes(item.type);
+  const isText = !locked && TEXT_TYPES.includes(item.type);
 
   return (
     <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-3">
@@ -283,6 +307,7 @@ function ItemEditor({
           />
           <Select
             value={item.type}
+            disabled={locked}
             onValueChange={(v) => onChange({ type: v as FormItemType })}
           >
             <SelectTrigger className="h-9">
@@ -299,9 +324,11 @@ function ItemEditor({
         </div>
         <div className="flex flex-col">
           <MoveButtons index={index} length={length} onMove={onMove} />
-          <IconBtn label="Remove question" onClick={onRemove}>
-            <Trash2 className="size-4" aria-hidden />
-          </IconBtn>
+          {!locked && (
+            <IconBtn label="Remove question" onClick={onRemove}>
+              <Trash2 className="size-4" aria-hidden />
+            </IconBtn>
+          )}
         </div>
       </div>
 
@@ -327,7 +354,7 @@ function ItemEditor({
         />
       )}
 
-      {item.type === 'linear_scale' && (
+      {!locked && item.type === 'linear_scale' && (
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span className="text-xs text-muted-foreground">From</span>
           <Input
@@ -436,7 +463,7 @@ function ItemEditor({
         </div>
       )}
 
-      {item.type === 'number' && (
+      {!locked && item.type === 'number' && (
         <div className="flex flex-wrap items-center gap-2">
           <label className="flex items-center gap-1.5 text-xs">
             <Checkbox
@@ -488,13 +515,24 @@ function ItemEditor({
       )}
 
       {!isDisplay && (
-        <label className="flex items-center gap-2 text-sm">
-          <Checkbox
-            checked={item.required === true}
-            onCheckedChange={(c) => onChange({ required: c === true })}
-          />
-          Required
-        </label>
+        <div className="flex flex-wrap items-center gap-4">
+          <label className="flex items-center gap-2 text-sm">
+            <Checkbox
+              checked={item.required === true}
+              onCheckedChange={(c) => onChange({ required: c === true })}
+            />
+            Required
+          </label>
+          {locked && (
+            <label className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Checkbox
+                checked={item.hidden === true}
+                onCheckedChange={(c) => onChange({ hidden: c === true })}
+              />
+              Hide from the form
+            </label>
+          )}
+        </div>
       )}
     </div>
   );

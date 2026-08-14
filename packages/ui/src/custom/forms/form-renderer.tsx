@@ -30,6 +30,8 @@ import {
   SUBMIT_TARGET,
   FormValidationError,
   validateAnswers,
+  visibleItems,
+  type CascadeAnswer,
   type FormDefinition,
   type FormItem,
   type FormSection,
@@ -39,6 +41,14 @@ import { Dropzone, fileToBase64 } from './dropzone';
 import { PhoneField } from './phone-field';
 
 type Answers = Record<string, unknown>;
+
+/** The tenant academic structure a `cascade` item selects from. */
+export interface CascadeStructure {
+  campuses: { id: string; name: string }[];
+  stages: { id: string; name: string }[];
+  yearLevels: { id: string; name: string; stageId: string }[];
+  streams: { id: string; name: string }[];
+}
 
 export interface FormRendererProps {
   definition: FormDefinition;
@@ -51,6 +61,8 @@ export interface FormRendererProps {
   /** Render every section stacked (no pagination / nav) — for embedding inside a
    *  larger form whose own submit sends the answers (e.g. the public apply page). */
   flat?: boolean;
+  /** Academic structure for any `cascade` item (the "applying for" picker). */
+  structure?: CascadeStructure;
 }
 
 /** The section a choice's branch (or the section default, else order) leads to. */
@@ -79,6 +91,7 @@ export function FormRenderer({
   readOnly,
   submitLabel = 'Submit',
   flat,
+  structure,
 }: FormRendererProps) {
   const first = definition.sections[0]?.id;
   const [path, setPath] = React.useState<string[]>(() =>
@@ -92,26 +105,33 @@ export function FormRenderer({
 
   if (!section) return null;
 
+  const setAnswer = (key: string, v: unknown) => {
+    setError(null);
+    onChange({ ...value, [key]: v });
+  };
+
   if (flat) {
     return (
       <div className="flex flex-col gap-6">
-        {definition.sections.map((s) => (
-          <div key={s.id} className="flex flex-col gap-5">
-            {s.title && <h3 className="text-base font-semibold">{s.title}</h3>}
-            {s.description && (
-              <p className="text-sm text-muted-foreground">{s.description}</p>
-            )}
-            {s.items.map((item) => (
-              <ItemControl
-                key={item.id}
-                item={item}
-                value={value[item.key]}
+        {definition.sections
+          .filter((s) => !s.hidden)
+          .map((s) => (
+            <div key={s.id} className="flex flex-col gap-5">
+              {s.title && (
+                <h3 className="text-base font-semibold">{s.title}</h3>
+              )}
+              {s.description && (
+                <p className="text-sm text-muted-foreground">{s.description}</p>
+              )}
+              <SectionBody
+                section={s}
+                value={value}
                 disabled={readOnly || submitting}
-                onChange={(v) => setAnswer(item.key, v)}
+                structure={structure}
+                setAnswer={setAnswer}
               />
-            ))}
-          </div>
-        ))}
+            </div>
+          ))}
       </div>
     );
   }
@@ -122,11 +142,6 @@ export function FormRenderer({
     definition.sections.length > 0
       ? ((sectionIndex + 1) / definition.sections.length) * 100
       : 0;
-
-  const setAnswer = (key: string, v: unknown) => {
-    setError(null);
-    onChange({ ...value, [key]: v });
-  };
 
   /** Validate just the current section (a single-section slice of the form). */
   function validateSection(): boolean {
@@ -201,17 +216,13 @@ export function FormRenderer({
         </div>
       )}
 
-      <div className="flex flex-col gap-5">
-        {section.items.map((item) => (
-          <ItemControl
-            key={item.id}
-            item={item}
-            value={value[item.key]}
-            disabled={readOnly || submitting}
-            onChange={(v) => setAnswer(item.key, v)}
-          />
-        ))}
-      </div>
+      <SectionBody
+        section={section}
+        value={value}
+        disabled={readOnly || submitting}
+        structure={structure}
+        setAnswer={setAnswer}
+      />
 
       {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -246,17 +257,139 @@ export function FormRenderer({
   );
 }
 
+// ------------------------------------------------------------- section body
+
+/** A section's controls — a repeatable group (e.g. Guardians) or a flat list. */
+function SectionBody({
+  section,
+  value,
+  disabled,
+  structure,
+  setAnswer,
+}: {
+  section: FormSection;
+  value: Answers;
+  disabled?: boolean;
+  structure?: CascadeStructure;
+  setAnswer: (key: string, v: unknown) => void;
+}) {
+  if (section.repeatable && section.binding) {
+    const key = section.binding;
+    return (
+      <RepeatableSection
+        section={section}
+        entries={Array.isArray(value[key]) ? (value[key] as Answers[]) : []}
+        disabled={disabled}
+        structure={structure}
+        onChange={(entries) => setAnswer(key, entries)}
+      />
+    );
+  }
+  return (
+    <div className="flex flex-col gap-5">
+      {visibleItems(section).map((item) => (
+        <ItemControl
+          key={item.id}
+          item={item}
+          value={value[item.key]}
+          disabled={disabled}
+          structure={structure}
+          onChange={(v) => setAnswer(item.key, v)}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** A repeatable section: its items rendered once per entry, with add/remove. */
+function RepeatableSection({
+  section,
+  entries,
+  disabled,
+  structure,
+  onChange,
+}: {
+  section: FormSection;
+  entries: Answers[];
+  disabled?: boolean;
+  structure?: CascadeStructure;
+  onChange: (entries: Answers[]) => void;
+}) {
+  const noun = section.repeatable?.entryNoun ?? 'entry';
+  const min = section.repeatable?.min ?? 0;
+  const max = section.repeatable?.max;
+  const items = visibleItems(section);
+  // Show at least one blank entry when the section demands one.
+  const list = entries.length === 0 && min > 0 ? [{}] : entries;
+
+  const setEntry = (i: number, key: string, v: unknown) =>
+    onChange(list.map((e, idx) => (idx === i ? { ...e, [key]: v } : e)));
+
+  return (
+    <div className="flex flex-col gap-3">
+      {list.map((entry, i) => (
+        <div
+          key={i}
+          className="flex flex-col gap-4 rounded-lg border border-border p-3"
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium capitalize text-muted-foreground">
+              {noun} {i + 1}
+              {i === 0 ? ' · primary' : ''}
+            </span>
+            {list.length > Math.max(min, 1) && (
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                disabled={disabled}
+                onClick={() => onChange(list.filter((_, idx) => idx !== i))}
+              >
+                Remove
+              </Button>
+            )}
+          </div>
+          {items.map((item) => (
+            <ItemControl
+              key={item.id}
+              item={item}
+              value={entry[item.key]}
+              disabled={disabled}
+              structure={structure}
+              onChange={(v) => setEntry(i, item.key, v)}
+            />
+          ))}
+        </div>
+      ))}
+      {(max == null || list.length < max) && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          disabled={disabled}
+          onClick={() => onChange([...list, {}])}
+          className="w-fit"
+        >
+          Add {noun}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 // --------------------------------------------------------------- item control
 
 function ItemControl({
   item,
   value,
   disabled,
+  structure,
   onChange,
 }: {
   item: FormItem;
   value: unknown;
   disabled?: boolean;
+  structure?: CascadeStructure;
   onChange: (value: unknown) => void;
 }) {
   const id = `fi-${item.id}`;
@@ -566,9 +699,136 @@ function ItemControl({
         </div>,
       );
     }
+    case 'cascade':
+      return wrap(
+        <CascadeControl
+          value={(value as CascadeAnswer) ?? {}}
+          structure={structure}
+          disabled={disabled}
+          onChange={onChange}
+        />,
+      );
     default:
       return null;
   }
+}
+
+/** The "applying for" academic-structure picker (stage → class → stream/campus). */
+function CascadeControl({
+  value,
+  structure,
+  disabled,
+  onChange,
+}: {
+  value: CascadeAnswer;
+  structure?: CascadeStructure;
+  disabled?: boolean;
+  onChange: (v: CascadeAnswer) => void;
+}) {
+  const stages = structure?.stages ?? [];
+  const campuses = structure?.campuses ?? [];
+  const streams = structure?.streams ?? [];
+  const yearLevels = (structure?.yearLevels ?? []).filter(
+    (y) => !value.stageId || y.stageId === value.stageId,
+  );
+  const sel = (patch: Partial<CascadeAnswer>) =>
+    onChange({ ...value, ...patch });
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {campuses.length > 1 && (
+        <PickerField label="Campus">
+          <Select
+            value={value.campusId ?? ''}
+            disabled={disabled}
+            onValueChange={(v) => sel({ campusId: v })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Choose campus…" />
+            </SelectTrigger>
+            <SelectContent>
+              {campuses.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PickerField>
+      )}
+      <PickerField label="Level">
+        <Select
+          value={value.stageId ?? ''}
+          disabled={disabled}
+          onValueChange={(v) => sel({ stageId: v, yearLevelId: undefined })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Choose level…" />
+          </SelectTrigger>
+          <SelectContent>
+            {stages.map((s) => (
+              <SelectItem key={s.id} value={s.id}>
+                {s.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </PickerField>
+      <PickerField label="Class">
+        <Select
+          value={value.yearLevelId ?? ''}
+          disabled={disabled}
+          onValueChange={(v) => sel({ yearLevelId: v })}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Choose class…" />
+          </SelectTrigger>
+          <SelectContent>
+            {yearLevels.map((y) => (
+              <SelectItem key={y.id} value={y.id}>
+                {y.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </PickerField>
+      {streams.length > 0 && (
+        <PickerField label="Department (optional)">
+          <Select
+            value={value.streamId ?? ''}
+            disabled={disabled}
+            onValueChange={(v) => sel({ streamId: v })}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Choose…" />
+            </SelectTrigger>
+            <SelectContent>
+              {streams.map((s) => (
+                <SelectItem key={s.id} value={s.id}>
+                  {s.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </PickerField>
+      )}
+    </div>
+  );
+}
+
+function PickerField({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      {children}
+    </div>
+  );
 }
 
 function CharCount({ value, max }: { value: string; max: number }) {
