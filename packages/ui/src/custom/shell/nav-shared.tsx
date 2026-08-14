@@ -170,7 +170,7 @@ export function NavItemRow({
       active={item.active}
       style={MOBILE_NAV_ROW_STYLE}
       className={cn(
-        'group flex items-center rounded-[var(--radius-sm)] px-2 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
+        'group flex items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
         'transition-colors hover:bg-accent hover:text-foreground',
         'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
         'aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
