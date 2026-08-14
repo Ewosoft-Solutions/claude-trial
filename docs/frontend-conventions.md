@@ -45,7 +45,8 @@ Never hand-pick a colour on a row.
 A screen lives under the URL segment of the domain it belongs to, and the **nav label matches the route**:
 
 - student lifecycle **including admissions** → `/students/*` (e.g. `/students/admissions`,
-  `/students/directory`, `/students/attendance`);
+  `/students/directory`, `/students/fees`) — the attendance/transport rosters
+  live under their modules (`/attendance/students`, `/transport/riders`);
 - academics (structure, class enrolment, lifecycle, promotion, results) → `/academics/*`;
 - finance → `/finance/*`.
 

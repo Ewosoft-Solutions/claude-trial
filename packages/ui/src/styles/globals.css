@@ -606,6 +606,49 @@ html:not(.classic-dark) [data-chart] .recharts-dot {
   filter: drop-shadow(0 0 6px var(--chart-glow));
 }
 
+/* --- sidebar submenu hierarchy line ------------------------------
+   One continuous trunk on the parent icon's centre + a smooth curve to each
+   item. Trunk and curve are BOTH 1px borders in the SAME colour — the
+   active-parent outline (primary at 40%, flattened to opaque so the curve can
+   overlap the trunk without a translucent double-up). The trunk stops exactly
+   where the last item's curve begins. Suppressed in the collapsed-rail flyout
+   (NavGroups renders a flat list there). Consumed by nav-shared's NavGroups
+   (data-slot="nav-group") + NavItemRow (nav-branch). */
+[data-slot='nav-group'] {
+  gap: 1px; /* the same gap as the primary menu rows */
+  padding-top: 0.375rem; /* a small break from the parent row */
+}
+[data-slot='nav-branch'] {
+  position: relative;
+  margin-left: 1.375rem; /* 22px: row px-2 (8) + icon half (14) = icon centre */
+  padding-left: 1.125rem; /* inset the pill past the curve */
+  --nav-line: color-mix(in srgb, var(--sidebar-solid) 60%, var(--primary));
+}
+/* continuous trunk — a 1px border, bridging the 1px row gap to the next item.
+   The last item has none, so the tree ends where its curve begins. */
+[data-slot='nav-branch']:not([data-last='true'])::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: -1px;
+  border-left: 1px solid var(--nav-line);
+  pointer-events: none;
+}
+/* the smooth curve — the same 1px border, overlapping the trunk seamlessly */
+[data-slot='nav-branch']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 0.75rem;
+  height: 50%;
+  border-left: 1px solid var(--nav-line);
+  border-bottom: 1px solid var(--nav-line);
+  border-bottom-left-radius: 0.5rem;
+  pointer-events: none;
+}
+
 /* the app is neon on dark; honour reduced-motion by never animating the
    field (it is static anyway) — nothing to disable here, kept for intent */
 

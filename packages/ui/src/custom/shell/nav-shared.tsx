@@ -27,6 +27,7 @@ import { useTheme } from 'next-themes';
 import { cn } from '@workspace/ui/lib/utils';
 import { toTitleCase } from '@workspace/ui/lib/names';
 import { FlyoutContour } from '@workspace/ui/custom/shell/flyout-contour';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import { InitialsAvatar } from '@workspace/ui/custom/data-display/initials-avatar';
 import {
   DropdownMenu,
@@ -146,10 +147,17 @@ export function SectionLabel({
 export function NavItemRow({
   item,
   depth = 0,
+  isLast = false,
+  tree = true,
   onNavigate,
 }: {
   item: NavItem;
   depth?: number;
+  /** Last item at the top submenu level — the trunk stops at its curve. */
+  isLast?: boolean;
+  /** Hang top-level items off the hierarchy line. False = a flat list (the
+   *  collapsed-rail flyout, which needs no tree). */
+  tree?: boolean;
   onNavigate?: () => void;
 }) {
   const isSub = depth > 0;
@@ -158,42 +166,53 @@ export function NavItemRow({
     onNavigate?.();
   };
 
+  const row = (
+    <NavElement
+      href={item.href}
+      onSelect={handleSelect}
+      onPrefetch={item.onPrefetch}
+      active={item.active}
+      style={MOBILE_NAV_ROW_STYLE}
+      className={cn(
+        // w-full so the pill fills the row even when it renders as a <button>
+        // (buttons shrink-to-fit by default, unlike the block-level rows).
+        'group flex w-full items-center gap-2 rounded-[var(--radius-sm)] px-2.5 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
+        'transition-colors hover:bg-accent hover:text-foreground',
+        'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
+        'aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
+        isSub && 'text-[calc(12.5px*var(--font-scale))]',
+      )}
+    >
+      {isSub ? <NestedItemBullet /> : null}
+      <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+      {item.badge != null ? (
+        <CountBadge
+          count={item.badge}
+          size="md"
+          tone={item.badgeTone === 'hot' ? 'accent' : 'info'}
+        />
+      ) : null}
+    </NavElement>
+  );
+
   return (
     <>
-      <NavElement
-        href={item.href}
-        onSelect={handleSelect}
-        onPrefetch={item.onPrefetch}
-        active={item.active}
-        style={MOBILE_NAV_ROW_STYLE}
-        className={cn(
-          'group flex items-center rounded-[var(--radius-sm)] px-2 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
-          'transition-colors hover:bg-accent hover:text-foreground',
-          'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
-          'aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
-          isSub && 'text-[calc(12.5px*var(--font-scale))]',
-        )}
-      >
-        {isSub ? <NestedItemBullet /> : null}
-        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-        {item.badge != null ? (
-          <span
-            className={cn(
-              'min-w-[22px] rounded-full px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold',
-              item.badgeTone === 'hot'
-                ? 'bg-primary/15 text-primary'
-                : 'bg-muted text-muted-foreground',
-            )}
-          >
-            {item.badge}
-          </span>
-        ) : null}
-      </NavElement>
+      {/* Top-level items hang off the hierarchy line; nested items keep the
+          simple bullet (the real nav does not nest, but the flyout may). The
+          flyout passes tree=false for a plain flat list. */}
+      {isSub || !tree ? (
+        row
+      ) : (
+        <div data-slot="nav-branch" data-last={isLast ? 'true' : undefined}>
+          {row}
+        </div>
+      )}
       {item.items?.map((child) => (
         <NavItemRow
           key={child.key}
           item={child}
           depth={depth + 1}
+          tree={tree}
           onNavigate={onNavigate}
         />
       ))}
@@ -204,36 +223,32 @@ export function NavItemRow({
 export function NavGroups({
   groups,
   onNavigate,
+  tree = true,
 }: {
   groups: NavGroup[];
   onNavigate?: () => void;
+  /** Draw the hierarchy line (default). False renders a flat list — used by
+   *  the collapsed-rail flyout, where the tree isn't needed. */
+  tree?: boolean;
 }) {
+  // Submenu headings are gone: every (already access-resolved) group flattens
+  // into one list that hangs off the parent's single hierarchy line, so the
+  // eye travels one continuous tree instead of several labelled clusters.
+  const items = groups.flatMap((group) => group.items);
+  if (items.length === 0) return null;
   return (
-    <div className="flex flex-col gap-0.5">
-      {groups.map((group, groupIndex) => (
-        <div
-          key={group.key}
-          data-slot="nav-group"
-          className={cn('flex flex-col gap-px', groupIndex > 0 && 'mt-2.5')}
-        >
-          {group.label ? (
-            <SectionLabel className="px-2 pb-1 pt-1.5">
-              {group.label}
-            </SectionLabel>
-          ) : null}
-          {/* A labeled section's items hang off a hierarchy guide line + indent,
-              so it reads as a submenu that belongs to the section. */}
-          <div
-            className={cn(
-              'flex flex-col gap-px',
-              group.label && 'ml-[0.875rem] border-l border-border/60 pl-1.5',
-            )}
-          >
-            {group.items.map((item) => (
-              <NavItemRow key={item.key} item={item} onNavigate={onNavigate} />
-            ))}
-          </div>
-        </div>
+    <div
+      data-slot={tree ? 'nav-group' : undefined}
+      className={cn('flex flex-col', !tree && 'gap-px')}
+    >
+      {items.map((item, index) => (
+        <NavItemRow
+          key={item.key}
+          item={item}
+          isLast={index === items.length - 1}
+          tree={tree}
+          onNavigate={onNavigate}
+        />
       ))}
     </div>
   );

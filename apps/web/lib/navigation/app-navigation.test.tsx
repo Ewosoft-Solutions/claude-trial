@@ -58,6 +58,11 @@ const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
   'grades.view',
   'transcripts.view',
   'timetable.view',
+  'academics.structure.view',
+  'academics.enrollment.view',
+  'academics.lifecycle.view',
+  'academics.promotion.view',
+  'academics.results.view',
   'fees.view',
   'billing.view',
   'payments.view',
@@ -188,6 +193,7 @@ describe('SCHOOL_NAV section visibility', () => {
       'overview',
       'students',
       'classes',
+      'academics',
       'attendance',
       'finance',
       'reports',
@@ -337,10 +343,9 @@ describe('SCHOOL_NAV panel resolution', () => {
 
     const records = navGroups.find((g) => g.key === 'records');
     // enrollment needs admissions.view (teacher lacks it)
-    expect(records?.items.map((i) => i.key)).toEqual([
-      'directory',
-      'attendance',
-    ]);
+    // attendance moved to its own module, so records is just directory here
+    // (admissions needs admissions.view, which the teacher lacks).
+    expect(records?.items.map((i) => i.key)).toEqual(['directory']);
 
     // Academics items: report cards shown (grades.view); transcripts filtered
     // out (needs transcripts.view, which the teacher lacks).
@@ -443,6 +448,63 @@ describe('SCHOOL_NAV panel resolution', () => {
       true,
     );
   });
+
+  it('exposes the Academics section split out of Classes', () => {
+    const resolved = resolveNavigation(
+      SCHOOL_NAV,
+      OWNER,
+      '/academics/structure',
+    );
+    expect(resolved.activeSectionKey).toBe('academics');
+    const structure = resolved.navGroups.find((g) => g.key === 'structure');
+    expect(structure?.items.map((i) => i.key)).toEqual([
+      'academic-structure',
+      'enrollment',
+      'student-lifecycle',
+      'promotion',
+      'results',
+    ]);
+    // …and those items no longer clutter the Classes panel.
+    const teaching = resolveNavigation(
+      SCHOOL_NAV,
+      OWNER,
+      '/classes',
+    ).navGroups.find((g) => g.key === 'teaching');
+    expect(teaching?.items.map((i) => i.key)).not.toContain('results');
+  });
+
+  it('homes the moved student rosters under their modules', () => {
+    // Attendance "By student" (per-student history) lives under Attendance,
+    // and the section is active on its route.
+    const att = resolveNavigation(SCHOOL_NAV, OWNER, '/attendance/students');
+    expect(att.activeSectionKey).toBe('attendance');
+    expect(
+      att.navGroups
+        .find((g) => g.key === 'attendance-views')
+        ?.items.map((i) => i.key),
+    ).toContain('attendance-students');
+
+    // Transport "Riders" (route assignments) lives under Transport.
+    const trans = resolveNavigation(
+      SCHOOL_NAV,
+      PRIMARY_OWNER,
+      '/transport/riders',
+    );
+    expect(trans.activeSectionKey).toBe('transport');
+    expect(
+      trans.navGroups.find((g) => g.key === 'routes')?.items.map((i) => i.key),
+    ).toContain('riders');
+  });
+
+  it('keeps the teacher’s attendance as a single-leaf register (roster is reporting-gated)', () => {
+    // "By student" needs attendance.export / reports.attendance, which the
+    // teacher lacks — so their Attendance stays a direct link to the register.
+    const resolved = resolveNavigation(SCHOOL_NAV, TEACHER, '/overview', {
+      onNavigate: vi.fn(),
+    });
+    const attendance = resolved.railItems.find((i) => i.key === 'attendance');
+    expect(attendance?.hasPanel).toBe(false);
+  });
 });
 
 /* ---- SCHOOL_NAV — schoolType-gated sections -------------------- */
@@ -484,24 +546,14 @@ describe('SCHOOL_NAV schoolType visibility', () => {
     expect(keys).not.toContain('hr');
   });
 
-  it('hides the students/transport sub-item for a university viewer', () => {
-    const { navGroups } = resolveNavigation(
-      SCHOOL_NAV,
-      UNIVERSITY_OWNER,
-      '/students',
-    );
-    const ops = navGroups.find((g) => g.key === 'student-ops');
-    expect(ops?.items.map((i) => i.key)).not.toContain('transport');
-  });
-
-  it('shows the students/transport sub-item for a primary school viewer', () => {
+  it('leaves only fees under student operations (transport moved to its module)', () => {
     const { navGroups } = resolveNavigation(
       SCHOOL_NAV,
       PRIMARY_OWNER,
       '/students',
     );
     const ops = navGroups.find((g) => g.key === 'student-ops');
-    expect(ops?.items.map((i) => i.key)).toContain('transport');
+    expect(ops?.items.map((i) => i.key)).toEqual(['fees']);
   });
 });
 

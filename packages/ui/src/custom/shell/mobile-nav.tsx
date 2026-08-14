@@ -43,6 +43,7 @@ import {
   SidebarProfile,
   ThemeControl,
 } from '@workspace/ui/custom/shell/nav-shared';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import type {
   NavPanelData,
   RailItem,
@@ -82,12 +83,14 @@ export interface MobileNavProps {
   className?: string;
 }
 
-/* ---- bottom-bar count badge ---- */
+/* ---- bottom-bar count badge — a small square chip overlaid on the icon ---- */
 function TabBadge({ badge }: { badge: string | number }) {
   return (
-    <span className="pointer-events-none absolute -right-1.5 -top-1 grid h-[16px] min-w-[16px] max-w-7 place-items-center truncate rounded-full border-2 border-sidebar bg-info px-1 text-[calc(9px*var(--font-scale))] font-bold leading-none text-info-foreground">
-      {badge}
-    </span>
+    <CountBadge
+      count={badge}
+      size="sm"
+      className="pointer-events-none absolute -right-1.5 -top-1 z-10 border-2 border-sidebar"
+    />
   );
 }
 
@@ -175,9 +178,7 @@ function DrawerSection({
         </span>
         <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
         {item.badge != null ? (
-          <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
-            {item.badge}
-          </span>
+          <CountBadge count={item.badge} size="md" />
         ) : null}
       </NavElement>
     );
@@ -185,7 +186,11 @@ function DrawerSection({
 
   const panelHasActive =
     panel?.groups.some((group) => group.items.some(hasActiveNavItem)) ?? false;
-  const showParentActive = Boolean(item.active) && !(open && panelHasActive);
+  // A selected submenu item owns the highlight; the parent keeps only an
+  // outline (mirrors the desktop rail's inline accordion).
+  const childActive = open && panelHasActive;
+  const showParentActive = Boolean(item.active) && !childActive;
+  const showParentOutline = Boolean(item.active) && childActive;
 
   return (
     <>
@@ -196,16 +201,18 @@ function DrawerSection({
         style={MOBILE_NAV_ROW_STYLE}
         aria-controls={controls}
         aria-expanded={open}
-        className={DRAWER_ROW_CLASS}
+        className={cn(
+          DRAWER_ROW_CLASS,
+          showParentOutline &&
+            'font-semibold text-foreground ring-1 ring-inset ring-primary/40',
+        )}
       >
         <span className="relative grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[18px]">
           {item.icon}
         </span>
         <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
         {item.badge != null ? (
-          <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
-            {item.badge}
-          </span>
+          <CountBadge count={item.badge} size="md" />
         ) : null}
         <ChevronDown
           className={cn(
@@ -216,7 +223,7 @@ function DrawerSection({
         />
       </NavElement>
       {open ? (
-        <div id={controls} className="mb-px ml-3 pl-1">
+        <div id={controls} className="mb-px">
           <NavGroups groups={panel?.groups ?? []} onNavigate={onNavigate} />
         </div>
       ) : null}

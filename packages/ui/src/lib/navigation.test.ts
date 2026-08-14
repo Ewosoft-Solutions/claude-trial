@@ -8,7 +8,7 @@ import type {
   ViewerContext,
 } from '@workspace/ui/types/access.types';
 import type { NavigationConfig } from '@workspace/ui/types/navigation.types';
-import type { NavItem } from '@workspace/ui/types/shell.types';
+import type { NavGroup, NavItem } from '@workspace/ui/types/shell.types';
 
 import {
   canAccess,
@@ -285,9 +285,9 @@ describe('resolveNavigation', () => {
     const resolved = resolveNavigation(makeConfig(), makeViewer(), '/overview');
 
     expect(resolved.navPanels.students?.header?.title).toBe('Students');
-    expect(resolved.navPanels.students?.groups.map((group) => group.key)).toEqual([
-      'directory',
-    ]);
+    expect(
+      resolved.navPanels.students?.groups.map((group) => group.key),
+    ).toEqual(['directory']);
   });
 
   it('flattens a section with one accessible destination into a direct link', () => {
@@ -430,5 +430,95 @@ describe('findActiveNavItem', () => {
       { key: 'b', label: 'B', active: false },
     ];
     expect(findActiveNavItem(items)).toBeUndefined();
+  });
+});
+
+/* ---- live counts + roll-up ------------------------------------- */
+
+describe('resolveNavigation — live counts', () => {
+  /** Find a resolved nav item by key across groups (one level of nesting). */
+  function findItem(groups: NavGroup[], key: string): NavItem | undefined {
+    for (const group of groups) {
+      for (const item of group.items) {
+        if (item.key === key) return item;
+        const nested = item.items?.find((child) => child.key === key);
+        if (nested) return nested;
+      }
+    }
+    return undefined;
+  }
+
+  const students = (r: ReturnType<typeof resolveNavigation>) =>
+    r.railItems.find((item) => item.key === 'students');
+
+  it('badges a leaf with its own count', () => {
+    const resolved = resolveNavigation(
+      makeConfig(),
+      makeViewer(),
+      '/students',
+      {
+        counts: { '/students/enrollment': 4 },
+      },
+    );
+    expect(findItem(resolved.navGroups, 'enroll')?.badge).toBe(4);
+    // a leaf with no count carries no badge
+    expect(findItem(resolved.navGroups, 'all')?.badge).toBeUndefined();
+  });
+
+  it('rolls child counts up onto the parent section', () => {
+    const resolved = resolveNavigation(
+      makeConfig(),
+      makeViewer(),
+      '/overview',
+      {
+        counts: { '/students': 3, '/students/enrollment': 4 },
+      },
+    );
+    expect(students(resolved)?.badge).toBe(7); // 3 + 4
+  });
+
+  it('excludes access-gated descendants from the roll-up', () => {
+    // The finance group (and its /students/fees leaf) is Finance-only, so a
+    // Teacher's Students total must not include it — but a Finance viewer's does.
+    const counts = { '/students/enrollment': 4, '/students/fees': 10 };
+    expect(
+      students(
+        resolveNavigation(makeConfig(), makeViewer(), '/overview', { counts }),
+      )?.badge,
+    ).toBe(4);
+    const finance = makeViewer({ roles: ['Finance'] });
+    expect(
+      students(
+        resolveNavigation(makeConfig(), finance, '/overview', { counts }),
+      )?.badge,
+    ).toBe(14); // 4 + 10
+  });
+
+  it('lets an explicit config badge win over a derived count', () => {
+    const config = makeConfig();
+    config.sections[1]!.badge = 'NEW'; // the students section
+    const resolved = resolveNavigation(config, makeViewer(), '/overview', {
+      counts: { '/students/enrollment': 4 },
+    });
+    expect(students(resolved)?.badge).toBe('NEW');
+  });
+
+  it('omits the badge entirely when there are no counts', () => {
+    const resolved = resolveNavigation(makeConfig(), makeViewer(), '/overview');
+    expect(students(resolved)?.badge).toBeUndefined();
+  });
+
+  it('badges a group-less link section from its own href count', () => {
+    const resolved = resolveNavigation(
+      makeConfig(),
+      makeViewer(),
+      '/overview',
+      {
+        counts: { '/help': 2 },
+      },
+    );
+    expect(
+      resolved.railFooterItems.find((item) => item.key === 'help')?.badge,
+    ).toBe(2);
   });
 });

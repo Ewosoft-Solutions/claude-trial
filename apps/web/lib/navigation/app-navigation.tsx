@@ -86,13 +86,8 @@ export const SCHOOL_NAV: NavigationConfig = {
               href: '/students/directory',
               access: { anyPermission: ['students.view'] },
             },
-            {
-              key: 'attendance',
-              label: 'Attendance',
-              icon: <CalendarDays />,
-              href: '/students/attendance',
-              access: { anyPermission: ['attendance.view'] },
-            },
+            // Attendance moved to the dedicated Attendance module (same audience
+            // — attendance.view — so a second top-level entry only duplicated it).
           ],
         },
         {
@@ -121,23 +116,18 @@ export const SCHOOL_NAV: NavigationConfig = {
           key: 'student-ops',
           label: 'Operations',
           items: [
+            // Kept: a student/parent-facing fees view. Unlike the Finance module
+            // (clearance 5+), this has no clearance floor, so lower-clearance
+            // viewers (e.g. parents with fees.view) reach fees only here.
             {
               key: 'fees',
-              label: 'Fees & billing',
+              label: 'Fees',
               icon: <CreditCard />,
               href: '/students/fees',
               access: { anyPermission: ['fees.view'] },
             },
-            {
-              key: 'transport',
-              label: 'Transport',
-              icon: <Bus />,
-              href: '/students/transport',
-              access: {
-                anyPermission: ['transportation.view'],
-                schoolTypes: ['nursery', 'primary', 'secondary'],
-              },
-            },
+            // Transport moved to the dedicated Transport module (same audience,
+            // so the Students entry was a pure duplicate).
           ],
         },
       ],
@@ -189,41 +179,9 @@ export const SCHOOL_NAV: NavigationConfig = {
               href: '/classes/subjects',
               access: { anyPermission: ['subjects.view', 'courses.view'] },
             },
-            {
-              key: 'academic-structure',
-              label: 'Academic structure',
-              icon: <GraduationCap />,
-              href: '/academics/structure',
-              access: { anyPermission: ['academics.structure.view'] },
-            },
-            {
-              key: 'enrollment',
-              label: 'Class enrolment',
-              icon: <UserPlus />,
-              href: '/academics/enrollment',
-              access: { anyPermission: ['academics.enrollment.view'] },
-            },
-            {
-              key: 'student-lifecycle',
-              label: 'Student lifecycle',
-              icon: <UserPlus />,
-              href: '/academics/lifecycle',
-              access: { anyPermission: ['academics.lifecycle.view'] },
-            },
-            {
-              key: 'promotion',
-              label: 'Promotion',
-              icon: <GraduationCap />,
-              href: '/academics/promotion',
-              access: { anyPermission: ['academics.promotion.view'] },
-            },
-            {
-              key: 'results',
-              label: 'Results',
-              icon: <ClipboardCheck />,
-              href: '/academics/results',
-              access: { anyPermission: ['academics.results.view'] },
-            },
+            // Academic-administration items (structure / enrolment / lifecycle /
+            // promotion / results) moved to their own Academics section below —
+            // they live under /academics and were overloading the Classes list.
             {
               key: 'materials',
               label: 'Materials',
@@ -271,6 +229,67 @@ export const SCHOOL_NAV: NavigationConfig = {
       ],
     },
     {
+      // Split out of Classes: the /academics administration surfaces (structure,
+      // enrolment, lifecycle, promotion, results) as their own section, so
+      // Classes stays teaching-focused and neither list runs long.
+      key: 'academics',
+      label: 'Academics',
+      icon: <GraduationCap />,
+      href: '/academics/structure',
+      access: {
+        anyPermission: [
+          'academics.structure.view',
+          'academics.enrollment.view',
+          'academics.lifecycle.view',
+          'academics.promotion.view',
+          'academics.results.view',
+        ],
+      },
+      panelHeader: { icon: <GraduationCap />, title: 'Academics' },
+      groups: [
+        {
+          key: 'structure',
+          items: [
+            {
+              key: 'academic-structure',
+              label: 'Academic structure',
+              icon: <GraduationCap />,
+              href: '/academics/structure',
+              access: { anyPermission: ['academics.structure.view'] },
+            },
+            {
+              key: 'enrollment',
+              label: 'Class enrolment',
+              icon: <UserPlus />,
+              href: '/academics/enrollment',
+              access: { anyPermission: ['academics.enrollment.view'] },
+            },
+            {
+              key: 'student-lifecycle',
+              label: 'Student lifecycle',
+              icon: <UserPlus />,
+              href: '/academics/lifecycle',
+              access: { anyPermission: ['academics.lifecycle.view'] },
+            },
+            {
+              key: 'promotion',
+              label: 'Promotion',
+              icon: <GraduationCap />,
+              href: '/academics/promotion',
+              access: { anyPermission: ['academics.promotion.view'] },
+            },
+            {
+              key: 'results',
+              label: 'Results',
+              icon: <ClipboardCheck />,
+              href: '/academics/results',
+              access: { anyPermission: ['academics.results.view'] },
+            },
+          ],
+        },
+      ],
+    },
+    {
       key: 'attendance',
       label: 'Attendance',
       icon: <CalendarDays />,
@@ -287,6 +306,17 @@ export const SCHOOL_NAV: NavigationConfig = {
               icon: <CalendarDays />,
               href: '/attendance/daily',
               access: { anyPermission: ['attendance.view'] },
+            },
+            // Per-student attendance history (moved here from Students). An
+            // all-students roster, so it sits with the reporting-level audience.
+            {
+              key: 'attendance-students',
+              label: 'By student',
+              icon: <Users />,
+              href: '/attendance/students',
+              access: {
+                anyPermission: ['attendance.export', 'reports.attendance'],
+              },
             },
             {
               key: 'reports',
@@ -421,6 +451,14 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Pickups & drops',
               icon: <Contact />,
               href: '/transport/pickups',
+              access: { anyPermission: ['transportation.view'] },
+            },
+            // Who rides which bus — route assignments (moved here from Students).
+            {
+              key: 'riders',
+              label: 'Riders',
+              icon: <Users />,
+              href: '/transport/riders',
               access: { anyPermission: ['transportation.view'] },
             },
           ],

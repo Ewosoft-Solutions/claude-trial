@@ -35,6 +35,7 @@ import {
   SidebarProfile,
   ThemeControl,
 } from '@workspace/ui/custom/shell/nav-shared';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import type {
   NavGroup,
   NavPanelData,
@@ -43,12 +44,14 @@ import type {
   UserProfile,
 } from '@workspace/ui/types/shell.types';
 
-/* ---- rail count badge ---- */
+/* ---- rail count badge — a small square chip overlaid on the icon ---- */
 function RailBadge({ badge }: { badge: string | number }) {
   return (
-    <span className="pointer-events-none absolute -right-2 -top-1.5 z-10 grid h-[17px] min-w-[17px] max-w-8 place-items-center truncate rounded-full border-2 border-background bg-info px-1 text-[calc(9px*var(--font-scale))] font-bold leading-none text-info-foreground">
-      {badge}
-    </span>
+    <CountBadge
+      count={badge}
+      size="sm"
+      className="pointer-events-none absolute -right-2 -top-1.5 z-10 border-2 border-background"
+    />
   );
 }
 
@@ -259,7 +262,11 @@ function Sidebar({
     const panelHasActiveItem =
       panel?.groups.some((group) => group.items.some(hasActiveNavItem)) ??
       false;
-    const showParentActive = item.active && !(panelOpen && panelHasActiveItem);
+    // A selected submenu item owns the highlight; the parent then keeps only
+    // an outline so the two don't compete for "you are here".
+    const childActive = panelOpen && panelHasActiveItem;
+    const showParentActive = item.active && !childActive;
+    const showParentOutline = item.active && childActive;
     const controls = item.hasPanel ? `nav-inline-${item.key}` : undefined;
 
     return (
@@ -277,6 +284,9 @@ function Sidebar({
             'transition-colors hover:bg-accent hover:text-foreground',
             'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
             'aria-[current=page]:font-semibold aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
+            // Active-via-child: outline only, no gradient wash (that's the child's).
+            showParentOutline &&
+              'font-semibold text-foreground ring-1 ring-inset ring-primary/40',
           )}
         >
           <span className="relative grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[18px]">
@@ -286,9 +296,7 @@ function Sidebar({
             {item.label}
           </span>
           {item.badge != null ? (
-            <span className="min-w-[22px] rounded-full bg-info px-1.5 py-0.5 text-center text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
-              {item.badge}
-            </span>
+            <CountBadge count={item.badge} size="md" />
           ) : null}
           {item.hasPanel ? (
             <ChevronDown
@@ -301,7 +309,7 @@ function Sidebar({
           ) : null}
         </NavElement>
         {panelOpen ? (
-          <div id={controls} className="relative mb-px ml-3 pl-1">
+          <div id={controls} className="mb-px">
             <NavGroups groups={panel?.groups ?? []} />
           </div>
         ) : null}
@@ -477,9 +485,12 @@ function Sidebar({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
+              {/* The flyout is already a compact panel beside the rail — no
+                  hierarchy line needed, so render a plain flat list. */}
               <NavGroups
                 groups={selectedFlyoutPanel?.groups ?? []}
                 onNavigate={() => setFlyoutSectionKey(null)}
+                tree={false}
               />
             </div>
           </div>

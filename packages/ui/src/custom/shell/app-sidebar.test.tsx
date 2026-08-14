@@ -119,6 +119,10 @@ describe('AppSidebar — canonical collapsible navigation', () => {
     expect(
       within(primary).getByRole('button', { name: 'Dashboard' }),
     ).toHaveAttribute('aria-current', 'page');
+    // The inline (expanded) submenu hangs off the hierarchy line.
+    expect(
+      primary.querySelectorAll('[data-slot="nav-branch"]').length,
+    ).toBeGreaterThan(0);
   });
 
   it('opens the active section as an opaque flyout beside the rail and closes after navigation', () => {
@@ -141,7 +145,9 @@ describe('AppSidebar — canonical collapsible navigation', () => {
       ?.getAttribute('fill');
     expect(fill).toBe('var(--sidebar-solid)');
 
-    expect(within(secondary).getByText('Greenfield School')).toBeInTheDocument();
+    expect(
+      within(secondary).getByText('Greenfield School'),
+    ).toBeInTheDocument();
     const dashboard = within(secondary).getByRole('button', {
       name: 'Dashboard',
     });
@@ -153,8 +159,14 @@ describe('AppSidebar — canonical collapsible navigation', () => {
     expect(
       nestedItem.querySelector('[data-slot="nav-nested-bullet"]'),
     ).toBeTruthy();
-    const groups = secondary.querySelectorAll('[data-slot="nav-group"]');
-    expect(groups).toHaveLength(2);
+    // The collapsed flyout renders a FLAT list — no hierarchy line — so it
+    // carries no tree branches; items from both source groups still appear.
+    expect(secondary.querySelectorAll('[data-slot="nav-branch"]')).toHaveLength(
+      0,
+    );
+    expect(
+      within(secondary).getByRole('button', { name: 'Transport' }),
+    ).toBeInTheDocument();
 
     fireEvent.click(dashboard);
     expect(onDashboard).toHaveBeenCalledOnce();

@@ -34,13 +34,14 @@ export function useResolvedNavigation(
   currentPath: string,
   options: ResolveNavigationOptions = {},
 ): ResolvedNavigation {
-  const { onNavigate, onPrefetch } = options;
+  const { onNavigate, onPrefetch, counts } = options;
   return React.useMemo(
     () =>
       resolveNavigation(config, viewer, currentPath, {
         onNavigate,
         onPrefetch,
+        counts,
       }),
-    [config, viewer, currentPath, onNavigate, onPrefetch],
+    [config, viewer, currentPath, onNavigate, onPrefetch, counts],
   );
 }

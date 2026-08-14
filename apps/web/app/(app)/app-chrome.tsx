@@ -39,6 +39,7 @@ import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
 import { MobileNav } from '@workspace/ui/custom/shell/mobile-nav';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
+import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
 import { useResolvedNavigation } from '@workspace/ui/hooks/use-navigation';
 import { findActiveNavItem } from '@workspace/ui/lib/navigation';
 import type {
@@ -48,6 +49,7 @@ import type {
 
 import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
+import { useNavCounts } from '@/lib/navigation/use-nav-counts';
 import {
   claimMissingPasskeyIntent,
   clearBiometricReminderIntent,
@@ -95,7 +97,7 @@ const USER_MENU: UserMenuItem[] = [
   },
 ];
 
-function HeaderActions() {
+function HeaderActions({ notifications }: { notifications: number }) {
   return (
     <>
       <Button
@@ -109,13 +111,21 @@ function HeaderActions() {
       <Button
         variant="ghost"
         size="icon-sm"
-        aria-label="Notifications"
+        aria-label={
+          notifications > 0
+            ? `Notifications, ${notifications} needing attention`
+            : 'Notifications'
+        }
         className="relative"
       >
         <Bell />
-        <span className="absolute -right-0.5 -top-0.5 grid size-4 place-items-center rounded-full bg-info text-[calc(10px*var(--font-scale))] font-bold text-info-foreground">
-          3
-        </span>
+        {/* Rolled-up total of the actionable counts across the viewer's
+            accessible sections. CountBadge hides itself at zero. */}
+        <CountBadge
+          count={notifications}
+          size="sm"
+          className="pointer-events-none absolute -right-1 -top-1 border-2 border-sidebar"
+        />
       </Button>
     </>
   );
@@ -351,10 +361,24 @@ export function AppChrome({
       : (activeSchool?.name ?? 'All schools');
 
   const config = configForViewer(viewer);
+  const navCounts = useNavCounts(viewer);
   const nav = useResolvedNavigation(config, viewer, pathname, {
     onNavigate: navigate,
     onPrefetch: prefetch,
+    counts: navCounts,
   });
+  // The header bell = the grand total of the rolled-up section badges, i.e.
+  // every actionable count across the sections THIS viewer can see (the rail
+  // items are already permission-filtered, so restricted users aren't
+  // over-counted for destinations they can't reach).
+  const notificationCount = React.useMemo(
+    () =>
+      [...nav.railItems, ...nav.railFooterItems].reduce(
+        (sum, item) => sum + (typeof item.badge === 'number' ? item.badge : 0),
+        0,
+      ),
+    [nav.railItems, nav.railFooterItems],
+  );
   const sidebarPanels = React.useMemo(
     () =>
       Object.fromEntries(
@@ -414,7 +438,7 @@ export function AppChrome({
               />
             }
             searchAction={<AiWorkspaceLauncher />}
-            actions={<HeaderActions />}
+            actions={<HeaderActions notifications={notificationCount} />}
           />
         }
         sidebar={

@@ -36,7 +36,7 @@ Resolved this session:
 3. **Frontend ↔ backend not wired** — `apps/web` imports neither `@workspace/api`
    nor `@workspace/database`; `getSession()` is a mock. Biggest architectural gap.
 4. **Attendance** — no model/API at all, yet the frontend ships
-   `/attendance/daily` + `/students/attendance`. Core academic gap.
+   `/attendance/daily` + `/attendance/students`. Core academic gap.
 5. **Finance/billing** — no model/API, yet the frontend ships `/finance/*`.
 6. **Polymorphism not realized server-side** — `schoolType` modeled but unused;
    no feature-toggle backing (`/settings/features` is mock).
@@ -204,7 +204,7 @@ shared, no shape drift.
 ### Step 4 — Attendance domain
 **Why:** core academic requirement; frontend already assumes it.
 **Do:** Prisma model(s) (tenant-scoped — follow the RLS checklist), API endpoints,
-wire `/attendance/daily` + `/students/attendance` to real data.
+wire `/attendance/daily` + `/attendance/students` to real data.
 **Acceptance:** mark/list attendance per class/day; RLS-covered (`db:rls:check`
 green); frontend surfaces read/write real data.
 
