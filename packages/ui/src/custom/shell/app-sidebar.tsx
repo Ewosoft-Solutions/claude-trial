@@ -485,9 +485,12 @@ function Sidebar({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
+              {/* The flyout is already a compact panel beside the rail — no
+                  hierarchy line needed, so render a plain flat list. */}
               <NavGroups
                 groups={selectedFlyoutPanel?.groups ?? []}
                 onNavigate={() => setFlyoutSectionKey(null)}
+                tree={false}
               />
             </div>
           </div>
