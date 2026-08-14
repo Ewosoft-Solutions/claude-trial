@@ -307,6 +307,17 @@ export const SCHOOL_NAV: NavigationConfig = {
               href: '/attendance/daily',
               access: { anyPermission: ['attendance.view'] },
             },
+            // Per-student attendance history (moved here from Students). An
+            // all-students roster, so it sits with the reporting-level audience.
+            {
+              key: 'attendance-students',
+              label: 'By student',
+              icon: <Users />,
+              href: '/attendance/students',
+              access: {
+                anyPermission: ['attendance.export', 'reports.attendance'],
+              },
+            },
             {
               key: 'reports',
               label: 'Reports',
@@ -440,6 +451,14 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Pickups & drops',
               icon: <Contact />,
               href: '/transport/pickups',
+              access: { anyPermission: ['transportation.view'] },
+            },
+            // Who rides which bus — route assignments (moved here from Students).
+            {
+              key: 'riders',
+              label: 'Riders',
+              icon: <Users />,
+              href: '/transport/riders',
               access: { anyPermission: ['transportation.view'] },
             },
           ],

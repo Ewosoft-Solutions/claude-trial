@@ -1,5 +1,5 @@
 /* ============================================================
-   /students/transport — route assignments (server component)
+   /transport/riders — route assignments (server component)
 
    Fetches assignments from the NestJS backend (server-side,
    cookie-authenticated) and passes them to TransportClient.

@@ -472,6 +472,39 @@ describe('SCHOOL_NAV panel resolution', () => {
     ).navGroups.find((g) => g.key === 'teaching');
     expect(teaching?.items.map((i) => i.key)).not.toContain('results');
   });
+
+  it('homes the moved student rosters under their modules', () => {
+    // Attendance "By student" (per-student history) lives under Attendance,
+    // and the section is active on its route.
+    const att = resolveNavigation(SCHOOL_NAV, OWNER, '/attendance/students');
+    expect(att.activeSectionKey).toBe('attendance');
+    expect(
+      att.navGroups
+        .find((g) => g.key === 'attendance-views')
+        ?.items.map((i) => i.key),
+    ).toContain('attendance-students');
+
+    // Transport "Riders" (route assignments) lives under Transport.
+    const trans = resolveNavigation(
+      SCHOOL_NAV,
+      PRIMARY_OWNER,
+      '/transport/riders',
+    );
+    expect(trans.activeSectionKey).toBe('transport');
+    expect(
+      trans.navGroups.find((g) => g.key === 'routes')?.items.map((i) => i.key),
+    ).toContain('riders');
+  });
+
+  it('keeps the teacher’s attendance as a single-leaf register (roster is reporting-gated)', () => {
+    // "By student" needs attendance.export / reports.attendance, which the
+    // teacher lacks — so their Attendance stays a direct link to the register.
+    const resolved = resolveNavigation(SCHOOL_NAV, TEACHER, '/overview', {
+      onNavigate: vi.fn(),
+    });
+    const attendance = resolved.railItems.find((i) => i.key === 'attendance');
+    expect(attendance?.hasPanel).toBe(false);
+  });
 });
 
 /* ---- SCHOOL_NAV — schoolType-gated sections -------------------- */
