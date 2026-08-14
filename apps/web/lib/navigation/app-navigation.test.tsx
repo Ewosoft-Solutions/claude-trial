@@ -58,6 +58,11 @@ const ALL_SCHOOL_PERMISSIONS = new Set<PermissionKey>([
   'grades.view',
   'transcripts.view',
   'timetable.view',
+  'academics.structure.view',
+  'academics.enrollment.view',
+  'academics.lifecycle.view',
+  'academics.promotion.view',
+  'academics.results.view',
   'fees.view',
   'billing.view',
   'payments.view',
@@ -188,6 +193,7 @@ describe('SCHOOL_NAV section visibility', () => {
       'overview',
       'students',
       'classes',
+      'academics',
       'attendance',
       'finance',
       'reports',
@@ -337,10 +343,9 @@ describe('SCHOOL_NAV panel resolution', () => {
 
     const records = navGroups.find((g) => g.key === 'records');
     // enrollment needs admissions.view (teacher lacks it)
-    expect(records?.items.map((i) => i.key)).toEqual([
-      'directory',
-      'attendance',
-    ]);
+    // attendance moved to its own module, so records is just directory here
+    // (admissions needs admissions.view, which the teacher lacks).
+    expect(records?.items.map((i) => i.key)).toEqual(['directory']);
 
     // Academics items: report cards shown (grades.view); transcripts filtered
     // out (needs transcripts.view, which the teacher lacks).
@@ -443,6 +448,30 @@ describe('SCHOOL_NAV panel resolution', () => {
       true,
     );
   });
+
+  it('exposes the Academics section split out of Classes', () => {
+    const resolved = resolveNavigation(
+      SCHOOL_NAV,
+      OWNER,
+      '/academics/structure',
+    );
+    expect(resolved.activeSectionKey).toBe('academics');
+    const structure = resolved.navGroups.find((g) => g.key === 'structure');
+    expect(structure?.items.map((i) => i.key)).toEqual([
+      'academic-structure',
+      'enrollment',
+      'student-lifecycle',
+      'promotion',
+      'results',
+    ]);
+    // …and those items no longer clutter the Classes panel.
+    const teaching = resolveNavigation(
+      SCHOOL_NAV,
+      OWNER,
+      '/classes',
+    ).navGroups.find((g) => g.key === 'teaching');
+    expect(teaching?.items.map((i) => i.key)).not.toContain('results');
+  });
 });
 
 /* ---- SCHOOL_NAV — schoolType-gated sections -------------------- */
@@ -484,24 +513,14 @@ describe('SCHOOL_NAV schoolType visibility', () => {
     expect(keys).not.toContain('hr');
   });
 
-  it('hides the students/transport sub-item for a university viewer', () => {
-    const { navGroups } = resolveNavigation(
-      SCHOOL_NAV,
-      UNIVERSITY_OWNER,
-      '/students',
-    );
-    const ops = navGroups.find((g) => g.key === 'student-ops');
-    expect(ops?.items.map((i) => i.key)).not.toContain('transport');
-  });
-
-  it('shows the students/transport sub-item for a primary school viewer', () => {
+  it('leaves only fees under student operations (transport moved to its module)', () => {
     const { navGroups } = resolveNavigation(
       SCHOOL_NAV,
       PRIMARY_OWNER,
       '/students',
     );
     const ops = navGroups.find((g) => g.key === 'student-ops');
-    expect(ops?.items.map((i) => i.key)).toContain('transport');
+    expect(ops?.items.map((i) => i.key)).toEqual(['fees']);
   });
 });
 
