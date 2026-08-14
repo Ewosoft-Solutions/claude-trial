@@ -26,6 +26,7 @@ import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
+import { TruncatedText } from '@/components/truncated-text';
 
 export type PaymentMethod = 'transfer' | 'card' | 'cash' | 'cheque';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
@@ -82,14 +83,21 @@ export function PaymentsClient({ payments }: Props) {
       id: 'receipt',
       header: 'Receipt',
       sortable: true,
+      // Cap the column responsively so a long payer id / receipt number
+      // truncates with an ellipsis — wider on bigger screens — instead of
+      // wrapping; the full value is one hover away (TruncatedText tooltip).
+      className:
+        'max-w-[52vw] sm:max-w-[15rem] md:max-w-[20rem] lg:max-w-[26rem] xl:max-w-[34rem]',
       cell: (p) => (
         <div className="flex min-w-0 flex-col">
-          <span className="break-words font-medium text-foreground">
-            {p.student ?? p.studentId ?? '—'}
-          </span>
-          <span className="break-words text-xs text-muted-foreground">
-            {p.receiptNumber ?? p.id}
-          </span>
+          <TruncatedText
+            text={p.student ?? p.studentId ?? '—'}
+            className="font-medium text-foreground"
+          />
+          <TruncatedText
+            text={p.receiptNumber ?? p.id}
+            className="text-xs text-muted-foreground"
+          />
         </div>
       ),
     },
