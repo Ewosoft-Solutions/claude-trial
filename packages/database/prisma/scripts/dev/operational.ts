@@ -929,6 +929,7 @@ async function seedAdmissionForm(tenantId: string, actorId: string) {
 }
 
 async function seedAdmissions(tenantId: string, seed: TenantOperationalSeed) {
+  let firstApplicationId: string | null = null;
   for (const item of seed.admissions) {
     const existing = await prisma.admissionApplication.findFirst({
       where: {
@@ -950,15 +951,104 @@ async function seedAdmissions(tenantId: string, seed: TenantOperationalSeed) {
       notes: `${DEV_SEED_TAG}: seeded admissions pipeline row`,
     };
 
+    let appId: string;
     if (existing) {
       await prisma.admissionApplication.update({
         where: { id: existing.id },
         data,
       });
+      appId = existing.id;
     } else {
-      await prisma.admissionApplication.create({ data: { tenantId, ...data } });
+      const created = await prisma.admissionApplication.create({
+        data: { tenantId, ...data },
+      });
+      appId = created.id;
     }
+    firstApplicationId ??= appId;
   }
+
+  // WB3-5: seed one billed + paid admission-fee invoice keyed to an application
+  // (studentless — the applicant isn't a student yet) so the finance AR list
+  // shows the coupling at rest. Never-clobber (upsert by a stable DEV number).
+  if (firstApplicationId) {
+    await seedAdmissionFee(tenantId, seed, firstApplicationId);
+  }
+}
+
+/** A paid application-fee invoice + receipt keyed to an application (no student). */
+async function seedAdmissionFee(
+  tenantId: string,
+  seed: TenantOperationalSeed,
+  applicationId: string,
+) {
+  const amount = 500000; // ₦5,000 in kobo
+  const feeItem = await prisma.feeItem.upsert({
+    where: { tenantId_code: { tenantId, code: 'admission:application_fee' } },
+    update: {},
+    create: {
+      tenantId,
+      code: 'admission:application_fee',
+      name: 'Application / form fee',
+      active: true,
+    },
+  });
+
+  const invoiceNumber = `DEV-ADM-INV-${seed.key.toUpperCase()}`;
+  const invoice = await prisma.feeInvoice.upsert({
+    where: { tenantId_invoiceNumber: { tenantId, invoiceNumber } },
+    update: {
+      admissionApplicationId: applicationId,
+      amountDue: amount,
+      amountPaid: amount,
+      status: 'paid',
+    },
+    create: {
+      tenantId,
+      invoiceNumber,
+      studentId: null,
+      admissionApplicationId: applicationId,
+      studentName: `${DEV_SEED_TAG} applicant`,
+      amountDue: amount,
+      amountPaid: amount,
+      status: 'paid',
+      notes: `${DEV_SEED_TAG}: seeded admission fee`,
+    },
+  });
+
+  const existingLine = await prisma.feeInvoiceLine.findFirst({
+    where: { tenantId, invoiceId: invoice.id, feeItemId: feeItem.id },
+    select: { id: true },
+  });
+  if (!existingLine) {
+    await prisma.feeInvoiceLine.create({
+      data: {
+        tenantId,
+        invoiceId: invoice.id,
+        feeItemId: feeItem.id,
+        description: 'Application / form fee',
+        amount,
+        quantity: 1,
+      },
+    });
+  }
+
+  const receiptNumber = `DEV-ADM-PMT-${seed.key.toUpperCase()}`;
+  await prisma.payment.upsert({
+    where: { tenantId_receiptNumber: { tenantId, receiptNumber } },
+    update: { invoiceId: invoice.id, studentId: null, amount },
+    create: {
+      tenantId,
+      receiptNumber,
+      invoiceId: invoice.id,
+      studentId: null,
+      method: 'transfer',
+      paidAt: seed.finance.issuedDate,
+      amount,
+      status: 'completed',
+      reference: `${DEV_SEED_TAG}-${receiptNumber}`,
+      notes: `${DEV_SEED_TAG}: seeded admission fee receipt`,
+    },
+  });
 }
 
 async function seedEvents(tenantId: string, seed: TenantOperationalSeed) {

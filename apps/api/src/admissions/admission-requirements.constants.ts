@@ -86,7 +86,9 @@ export const DEFAULT_ADMISSION_REQUIREMENTS: RequirementSeed[] = [
     collectStage: 'application',
     required: true,
     order: 40,
-    config: { currency: 'NGN', amount: null },
+    // amount in minor units (kobo); ₦5,000. A prefill for billing — editable per
+    // application, and a school can change or clear it on the template.
+    config: { currency: 'NGN', amount: 500000 },
   },
   // ---- On acceptance (post-offer) ----
   {
@@ -96,7 +98,8 @@ export const DEFAULT_ADMISSION_REQUIREMENTS: RequirementSeed[] = [
     collectStage: 'acceptance',
     required: true,
     order: 50,
-    config: { currency: 'NGN', amount: null },
+    // amount in minor units (kobo); ₦50,000. Prefill for billing (editable).
+    config: { currency: 'NGN', amount: 5000000 },
   },
   {
     key: 'medical_form',

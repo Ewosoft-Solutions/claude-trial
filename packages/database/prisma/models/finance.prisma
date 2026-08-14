@@ -108,13 +108,22 @@ model FeeInvoice {
   // changes; unset invoices still bill the student directly.
   householdId String? @map("household_id")
 
-  studentId String  @map("student_id")
+  // Nullable so an ADMISSION-fee invoice can be billed to an applicant who is
+  // not yet a student (WB3-5). On convert-to-student the applicant's admission
+  // invoices are re-keyed to the new student id, so student billing is unchanged.
+  studentId String? @map("student_id")
   classId   String? @map("class_id")
+
+  // Set when this invoice bills an admission fee (application/acceptance fee) for
+  // an application that has no student yet (WB3-5). Lets the admissions detail
+  // page + the AR list find/badge the invoice, and lets convert-to-student
+  // re-key every admission invoice to the resulting student in one pass.
+  admissionApplicationId String? @map("admission_application_id")
 
   // Denormalized payer snapshot. Finance is decoupled from the student schema
   // (no relation, by the "not a custodian" ADR), so the invoices list searches
   // and sorts on this column instead of an impossible cross-schema join. Set at
-  // invoice creation; captures the student's name as billed.
+  // invoice creation; captures the student's (or applicant's) name as billed.
   studentName String? @map("student_name")
 
   // Term / period
@@ -151,6 +160,7 @@ model FeeInvoice {
   @@index([tenantId, studentId])
   @@index([tenantId, status])
   @@index([tenantId, householdId])
+  @@index([tenantId, admissionApplicationId])
   @@index([studentId])
   @@map("fee_invoices")
   @@schema("finance")
@@ -160,9 +170,11 @@ model Payment {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
-  receiptNumber String @map("receipt_number")
-  invoiceId     String @map("invoice_id")
-  studentId     String @map("student_id")
+  receiptNumber String  @map("receipt_number")
+  invoiceId     String  @map("invoice_id")
+  // Nullable to mirror FeeInvoice: an admission-fee payment settles an invoice
+  // that has no student yet (WB3-5); re-keyed to the student on conversion.
+  studentId     String? @map("student_id")
 
   method    String   @default("transfer") // transfer | card | cash | cheque
   paidAt    DateTime @map("paid_at") @db.Date

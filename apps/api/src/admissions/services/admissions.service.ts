@@ -36,6 +36,7 @@ import { AccessScopeService } from '../../auth/services/access-scope.service';
 import { StudentLifecycleService } from '../../academic-structure/services/student-lifecycle.service';
 import type { StructureActor } from '../../academic-structure/services/academic-structure-model.service';
 import { AdmissionRequirementsService } from './admission-requirements.service';
+import { FinanceService } from '../../finance/services/finance.service';
 import { SecureLinkService } from '../../communication/delivery/services/secure-link.service';
 import {
   STATUS_PURPOSE,
@@ -108,6 +109,7 @@ export class AdmissionsService {
     private readonly accessScope: AccessScopeService,
     private readonly lifecycle: StudentLifecycleService,
     private readonly requirements: AdmissionRequirementsService,
+    private readonly finance: FinanceService,
     private readonly secureLinks: SecureLinkService,
   ) {}
 
@@ -787,6 +789,30 @@ export class AdmissionsService {
         'Only an accepted application can be converted (accept the offer first).',
       );
     }
+
+    // Deposit gate (WB3-5): a required fee must be settled (its Finance invoice
+    // fully paid → status `provided`) or explicitly waived before a student
+    // record is created. Only fees block — a fully-paid fee is `provided`, a
+    // waived one `waived`; an unbilled/partial one is still `pending`.
+    const unpaidFees =
+      await this.client.admissionApplicationRequirement.findMany({
+        where: {
+          tenantId,
+          applicationId: id,
+          type: 'fee',
+          required: true,
+          status: 'pending',
+        },
+        select: { label: true },
+      });
+    if (unpaidFees.length > 0) {
+      throw new BadRequestException(
+        `Settle or waive the required admission fee(s) before admitting: ${unpaidFees
+          .map((f) => f.label)
+          .join(', ')}.`,
+      );
+    }
+
     const section = await this.assertSection(tenantId, dto.classSectionId);
     this.accessScope.assertWithinScope(actor.grantScope, {
       campusId: section.campusId,
@@ -874,6 +900,17 @@ export class AdmissionsService {
         updatedBy: actor.userId,
       },
     });
+    // 6. Re-key the applicant's admission-fee invoices/payments to the new
+    // student (WB3-5) — the AR history moves into the student ledger with no
+    // re-billing. No-op when the school didn't bill any admission fees.
+    const reassigned = await this.finance.reassignAdmissionInvoices(
+      tenantId,
+      id,
+      student.id,
+      app.applicantName,
+      actor.userId,
+    );
+
     await this.writeStageEvent(
       tenantId,
       id,
@@ -892,6 +929,7 @@ export class AdmissionsService {
         studentId: student.id,
         personId: person.id,
         classSectionId: dto.classSectionId,
+        reassignedInvoices: reassigned.invoices,
       },
     );
 

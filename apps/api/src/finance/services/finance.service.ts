@@ -76,6 +76,15 @@ export class FinanceService {
     return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
   }
 
+  /** A unique-enough human-readable invoice/receipt number (ms + 2 random bytes). */
+  private newInvoiceNumber(): string {
+    return `INV-${Date.now()}-${randomBytes(2).toString('hex').toUpperCase()}`;
+  }
+
+  private newReceiptNumber(): string {
+    return `PMT-${Date.now()}-${randomBytes(2).toString('hex').toUpperCase()}`;
+  }
+
   // ---- Invoices -------------------------------------------------------
 
   async listInvoices(tenantId: string, query: ListInvoicesDto) {
@@ -216,7 +225,7 @@ export class FinanceService {
   }
 
   async createInvoice(tenantId: string, dto: CreateInvoiceDto, userId: string) {
-    const invoiceNumber = `INV-${Date.now()}-${randomBytes(2).toString('hex').toUpperCase()}`;
+    const invoiceNumber = this.newInvoiceNumber();
     const studentName = await this.resolveStudentName(tenantId, dto.studentId);
     return this.client.feeInvoice.create({
       data: {
@@ -342,7 +351,7 @@ export class FinanceService {
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
 
-    const receiptNumber = `PMT-${Date.now()}-${randomBytes(2).toString('hex').toUpperCase()}`;
+    const receiptNumber = this.newReceiptNumber();
 
     const payment = await this.client.payment.create({
       data: {
@@ -379,5 +388,156 @@ export class FinanceService {
     });
 
     return payment;
+  }
+
+  // ---- Admissions coupling (WB3-5) ------------------------------------
+  //
+  // Admission fees (application/acceptance fee) are billed to an APPLICATION
+  // before it has a student, then re-keyed to the resulting student on
+  // conversion. These three methods keep every admission-fee DB write inside the
+  // finance module (one source of truth for invoice/payment/status), so the
+  // admissions side only orchestrates + audits. All run on the same request RLS
+  // transaction as the caller (shared via AsyncLocalStorage).
+
+  /**
+   * Bill an admission fee: a studentless `issued` invoice keyed to the
+   * application, with a single line against the given (admission) fee item. The
+   * flat `amountDue` equals the line so the derived balance and the compat column
+   * agree, matching the catalogue's syncing.
+   */
+  async createAdmissionInvoice(
+    tenantId: string,
+    input: {
+      applicationId: string;
+      applicantName: string | null;
+      feeItemId: string;
+      amount: number;
+      label: string;
+      dueDate?: string | null;
+    },
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.create({
+      data: {
+        tenantId,
+        invoiceNumber: this.newInvoiceNumber(),
+        studentId: null,
+        admissionApplicationId: input.applicationId,
+        studentName: input.applicantName,
+        dueDate: input.dueDate ? new Date(input.dueDate) : null,
+        amountDue: input.amount,
+        amountPaid: 0,
+        status: 'issued',
+        notes: `Admission fee — ${input.label}`,
+        createdBy: userId,
+        updatedBy: userId,
+      },
+    });
+    await this.client.feeInvoiceLine.create({
+      data: {
+        tenantId,
+        invoiceId: invoice.id,
+        feeItemId: input.feeItemId,
+        description: input.label,
+        amount: input.amount,
+        quantity: 1,
+      },
+    });
+    return this.getInvoice(tenantId, invoice.id);
+  }
+
+  /**
+   * Settle (fully or partially) an admission-fee invoice. Mirrors
+   * {@link recordPayment} but the payment carries no student (the invoice has
+   * none yet). Returns the payment plus the invoice's derived financials so the
+   * caller can flip the requirement to `provided` once the balance hits zero.
+   */
+  async settleAdmissionInvoice(
+    tenantId: string,
+    invoiceId: string,
+    input: {
+      amount: number;
+      method: string;
+      paidAt: string;
+      reference?: string | null;
+    },
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id: invoiceId, tenantId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    const payment = await this.client.payment.create({
+      data: {
+        tenantId,
+        receiptNumber: this.newReceiptNumber(),
+        invoiceId,
+        studentId: null,
+        method: input.method,
+        paidAt: new Date(input.paidAt),
+        amount: input.amount,
+        reference: input.reference ?? null,
+        status: 'completed',
+        recordedBy: userId,
+        createdBy: userId,
+        updatedBy: userId,
+      },
+    });
+
+    const newAmountPaid = invoice.amountPaid + input.amount;
+    let newStatus: string;
+    if (newAmountPaid >= invoice.amountDue) {
+      newStatus = 'paid';
+    } else if (newAmountPaid > 0) {
+      newStatus = 'partial';
+    } else {
+      newStatus = invoice.status;
+    }
+    await this.client.feeInvoice.update({
+      where: { id: invoiceId },
+      data: { amountPaid: newAmountPaid, status: newStatus, updatedBy: userId },
+    });
+
+    const withFinancials = await this.getInvoice(tenantId, invoiceId);
+    return {
+      payment,
+      invoice: withFinancials,
+      financials: withFinancials.financials,
+    };
+  }
+
+  /**
+   * Re-key every studentless admission invoice (and its payments) of an
+   * application to the resulting student on conversion — so the AR history moves
+   * cleanly into the student ledger with zero re-billing. Returns the count moved.
+   */
+  async reassignAdmissionInvoices(
+    tenantId: string,
+    applicationId: string,
+    studentId: string,
+    studentName: string | null,
+    userId: string,
+  ): Promise<{ invoices: number }> {
+    const invoices = await this.client.feeInvoice.findMany({
+      where: {
+        tenantId,
+        admissionApplicationId: applicationId,
+        studentId: null,
+      },
+      select: { id: true },
+    });
+    if (invoices.length === 0) return { invoices: 0 };
+    const ids = invoices.map((i) => i.id);
+
+    await this.client.feeInvoice.updateMany({
+      where: { tenantId, id: { in: ids } },
+      data: { studentId, studentName, updatedBy: userId },
+    });
+    await this.client.payment.updateMany({
+      where: { tenantId, invoiceId: { in: ids }, studentId: null },
+      data: { studentId, updatedBy: userId },
+    });
+    return { invoices: ids.length };
   }
 }
