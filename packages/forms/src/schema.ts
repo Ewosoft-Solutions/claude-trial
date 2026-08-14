@@ -22,6 +22,10 @@ export const FORM_ITEM_TYPES = [
   'file',
   'grid_radio',
   'grid_checkbox',
+  // WB3 consolidation: the "applying for" academic-structure picker (stage →
+  // year level → optional stream → optional campus). Sourced from the tenant's
+  // structure at render time; a `system` item bound to `applying_for`.
+  'cascade',
   'heading',
   'description',
 ] as const;
@@ -77,6 +81,15 @@ export interface FormItem {
   phone?: { defaultDialCode?: string };
   validation?: FormValidation;
   branching?: FormBranch[];
+
+  // ---- WB3 consolidation: SYSTEM (bound) items ----
+  // A `system` item is seeded by the platform and mapped to a structured column
+  // that drives conversion (see BINDINGS). A school may relabel / reorder / toggle
+  // required / hide it, but NOT delete it or change its type/key. `binding` is the
+  // stable target key; `hidden` drops it from the rendered intake form.
+  system?: boolean;
+  binding?: string;
+  hidden?: boolean;
 }
 
 export interface FormSection {
@@ -85,6 +98,15 @@ export interface FormSection {
   description?: string;
   items: FormItem[];
   next?: string; // a section id, or SUBMIT_TARGET; default = next in order
+
+  // ---- WB3 consolidation ----
+  system?: boolean;
+  binding?: string;
+  hidden?: boolean;
+  // A repeatable section renders its items once per entry (e.g. Guardians). The
+  // answer for a repeatable section is an ARRAY of per-entry answer maps keyed by
+  // the section's item keys. `entryNoun` labels the add button ("Add guardian").
+  repeatable?: { min?: number; max?: number; entryNoun?: string };
 }
 
 export interface FormSettings {
@@ -135,9 +157,58 @@ export interface AddressAnswer {
   lng?: number;
 }
 
+// ---- WB3 consolidation: the standard admission-intake bindings ----
+// Stable keys a `system` item/section binds to, mapped by
+// `answersToCreateApplicationInput` onto the structured intake payload that
+// drives conversion. Adding a binding here + a case in the mapper keeps the two
+// in lock-step.
+export const BINDINGS = {
+  title: 'applicant.title',
+  firstName: 'applicant.firstName',
+  middleName: 'applicant.middleName',
+  surname: 'applicant.surname',
+  dateOfBirth: 'applicant.dateOfBirth',
+  gender: 'applicant.gender',
+  stateOfOrigin: 'applicant.stateOfOrigin',
+  religion: 'applicant.religion',
+  healthNotes: 'applicant.healthNotes',
+  /** The `cascade` item — an academic-structure selection. */
+  applyingFor: 'applying_for',
+  /** The repeatable Guardians section. */
+  guardians: 'guardians',
+  // Per-guardian item bindings (inside the repeatable Guardians section).
+  guardianTitle: 'guardian.title',
+  guardianFirstName: 'guardian.firstName',
+  guardianMiddleName: 'guardian.middleName',
+  guardianSurname: 'guardian.surname',
+  guardianRelationship: 'guardian.relationship',
+  guardianEmail: 'guardian.email',
+  guardianAddress: 'guardian.address',
+  guardianPhone: 'guardian.phone',
+  guardianWhatsapp: 'guardian.whatsapp',
+} as const;
+
+/** A `cascade` item's answer — an academic-structure selection. */
+export interface CascadeAnswer {
+  stageId?: string;
+  yearLevelId?: string;
+  streamId?: string;
+  campusId?: string;
+}
+
 /** Flatten every item across all sections (in order). */
 export function allItems(def: FormDefinition): FormItem[] {
   return def.sections.flatMap((s) => s.items);
+}
+
+/** Sections that are actually rendered (drops `hidden` ones). */
+export function visibleSections(def: FormDefinition): FormSection[] {
+  return def.sections.filter((s) => !s.hidden);
+}
+
+/** A section's rendered items (drops `hidden` ones). */
+export function visibleItems(section: FormSection): FormItem[] {
+  return section.items.filter((i) => !i.hidden);
 }
 
 /** The answer-bearing items (skips headings/descriptions). */

@@ -17,6 +17,7 @@ import {
   type FileUploadMarker,
   type FormDefinition,
   type FormItem,
+  type FormSection,
   type PhoneAnswer,
 } from './schema';
 
@@ -105,6 +106,8 @@ function isEmpty(type: FormItem['type'], raw: unknown): boolean {
         return !String(v.formatted ?? v.line1 ?? '').trim();
       case 'file':
         return !v.documentId && !v.contentBase64;
+      case 'cascade':
+        return !String(v.yearLevelId ?? '').trim();
       default:
         return Object.keys(v).length === 0;
     }
@@ -292,6 +295,19 @@ function coerce(item: FormItem, raw: unknown): unknown {
       }
       return out;
     }
+    case 'cascade': {
+      // An academic-structure selection. Ids are validated against the tenant's
+      // structure server-side (createApplication); here we only shape-check.
+      const v = raw as Record<string, unknown>;
+      const yearLevelId = str(v.yearLevelId);
+      if (!yearLevelId) fail(`"${item.label}" needs a class.`);
+      return {
+        yearLevelId,
+        stageId: str(v.stageId),
+        streamId: str(v.streamId),
+        campusId: str(v.campusId),
+      };
+    }
     default:
       return fail(`Unsupported item type on "${item.label}".`);
   }
@@ -317,8 +333,14 @@ export function reachedItemKeys(
     visited.add(currentId);
     const section = byId.get(currentId);
     if (!section) break;
-    for (const item of section.items) {
-      if (!DISPLAY_ITEM_TYPES.includes(item.type)) reached.add(item.key);
+    // Repeatable sections are validated per-entry (not as flat top-level keys),
+    // and a hidden section/item is never demanded.
+    if (!section.repeatable && !section.hidden) {
+      for (const item of section.items) {
+        if (!DISPLAY_ITEM_TYPES.includes(item.type) && !item.hidden) {
+          reached.add(item.key);
+        }
+      }
     }
 
     let next: string | undefined;
@@ -349,16 +371,27 @@ export function validateAnswers(
   def: FormDefinition,
   answers: Record<string, unknown>,
 ): Record<string, unknown> {
-  const items = questionItems(def);
-  const byKey = new Map(items.map((i) => [i.key, i]));
+  // Repeatable sections carry their answers as an array under the section's
+  // `binding` key; every other question is a flat top-level key.
+  const repeatables = def.sections.filter((s) => s.repeatable && !s.hidden);
+  const repeatableKeys = new Set(
+    repeatables.map((s) => s.binding).filter((k): k is string => !!k),
+  );
+  const flatItems = questionItems(def).filter((i) => {
+    const section = def.sections.find((s) => s.items.includes(i));
+    return section && !section.repeatable && !section.hidden && !i.hidden;
+  });
+  const byKey = new Map(flatItems.map((i) => [i.key, i]));
 
   for (const key of Object.keys(answers)) {
-    if (!byKey.has(key)) fail(`"${key}" is not a field on this form.`);
+    if (!byKey.has(key) && !repeatableKeys.has(key)) {
+      fail(`"${key}" is not a field on this form.`);
+    }
   }
 
   const reached = reachedItemKeys(def, answers);
   const cleaned: Record<string, unknown> = {};
-  for (const item of items) {
+  for (const item of flatItems) {
     const raw = answers[item.key];
     if (isEmpty(item.type, raw)) {
       if (item.required && reached.has(item.key)) {
@@ -368,7 +401,41 @@ export function validateAnswers(
     }
     cleaned[item.key] = coerce(item, raw);
   }
+
+  for (const section of repeatables) {
+    cleaned[section.binding!] = validateRepeatable(section, answers[section.binding!]);
+  }
   return cleaned;
+}
+
+/** Validate a repeatable section's answer — an array of per-entry answer maps. */
+function validateRepeatable(section: FormSection, raw: unknown): unknown[] {
+  const entries = Array.isArray(raw) ? raw : [];
+  const min = section.repeatable?.min ?? 0;
+  const max = section.repeatable?.max;
+  const noun = section.repeatable?.entryNoun ?? 'entry';
+  if (entries.length < min) {
+    fail(`Add at least ${min} ${noun}${min === 1 ? '' : 's'}.`);
+  }
+  if (max != null && entries.length > max) {
+    fail(`Add at most ${max} ${noun}${max === 1 ? '' : 's'}.`);
+  }
+  const items = section.items.filter(
+    (i) => !DISPLAY_ITEM_TYPES.includes(i.type) && !i.hidden,
+  );
+  return entries.map((entry) => {
+    const e = (entry ?? {}) as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const item of items) {
+      const val = e[item.key];
+      if (isEmpty(item.type, val)) {
+        if (item.required) fail(`"${item.label}" is required.`);
+        continue;
+      }
+      out[item.key] = coerce(item, val);
+    }
+    return out;
+  });
 }
 
 /** The keys of every `file` item in the form (server uses these to materialise). */
