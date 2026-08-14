@@ -91,6 +91,126 @@ describe('FormRenderer', () => {
   });
 });
 
+// ---- WB3 consolidation: system fields (cascade + repeatable + hidden) ----
+
+const systemDef: FormDefinition = {
+  title: 'Application form',
+  sections: [
+    {
+      id: 'sa',
+      title: 'Applicant',
+      system: true,
+      items: [
+        {
+          id: 'a1',
+          key: 'first_name',
+          type: 'short_text',
+          label: 'First name',
+          required: true,
+          system: true,
+          binding: 'applicant.firstName',
+        },
+        {
+          id: 'a2',
+          key: 'religion',
+          type: 'short_text',
+          label: 'Religion',
+          system: true,
+          binding: 'applicant.religion',
+          hidden: true,
+        },
+      ],
+    },
+    {
+      id: 'sc',
+      title: 'Applying for',
+      system: true,
+      items: [
+        {
+          id: 'c1',
+          key: 'applying_for',
+          type: 'cascade',
+          label: 'Class applying for',
+          required: true,
+          system: true,
+          binding: 'applying_for',
+        },
+      ],
+    },
+    {
+      id: 'sg',
+      title: 'Guardians',
+      system: true,
+      binding: 'guardians',
+      repeatable: { min: 1, max: 3, entryNoun: 'guardian' },
+      items: [
+        {
+          id: 'g1',
+          key: 'g_first',
+          type: 'short_text',
+          label: 'Guardian first name',
+          required: true,
+          system: true,
+          binding: 'guardian.firstName',
+        },
+      ],
+    },
+  ],
+};
+
+const structure = {
+  campuses: [{ id: 'cm', name: 'Main' }],
+  stages: [{ id: 'st', name: 'Primary' }],
+  yearLevels: [{ id: 'yl', name: 'Primary 5', stageId: 'st' }],
+  streams: [],
+};
+
+describe('FormRenderer — system fields', () => {
+  function SystemHarness() {
+    const [value, setValue] = React.useState<Record<string, unknown>>({});
+    return (
+      <FormRenderer
+        definition={systemDef}
+        value={value}
+        onChange={setValue}
+        structure={structure}
+        flat
+      />
+    );
+  }
+
+  it('renders the cascade pickers and hides a hidden field', () => {
+    render(<SystemHarness />);
+    expect(screen.getByText('Level')).toBeInTheDocument();
+    expect(screen.getByText('Class')).toBeInTheDocument();
+    // `religion` is hidden → its label never renders.
+    expect(screen.queryByText('Religion')).not.toBeInTheDocument();
+  });
+
+  it('adds a repeatable guardian entry', () => {
+    render(<SystemHarness />);
+    expect(screen.getByText(/guardian 1/i)).toBeInTheDocument();
+    expect(screen.queryByText(/guardian 2/i)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /add guardian/i }));
+    expect(screen.getByText(/guardian 2/i)).toBeInTheDocument();
+  });
+});
+
+describe('FormBuilder — system sections are locked', () => {
+  it('marks a system section standard and offers hide, not delete/add', () => {
+    render(<FormBuilder value={systemDef} onChange={() => {}} />);
+    expect(screen.getAllByText(/standard/i).length).toBeGreaterThan(0);
+    // A system item exposes a "Hide from the form" toggle instead of delete.
+    expect(screen.getAllByText(/hide from the form/i).length).toBeGreaterThan(
+      0,
+    );
+    // No "Add question" on a system section.
+    expect(
+      screen.queryByRole('button', { name: /add question/i }),
+    ).not.toBeInTheDocument();
+  });
+});
+
 describe('FormBuilder', () => {
   it('adds a section', () => {
     function BuilderHarness() {
