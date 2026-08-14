@@ -33,6 +33,10 @@ overrides:
   # Dev/build tooling only (jest-snapshot's istanbul loader + eslint's eslintrc).
   'js-yaml@<3.15.1': '3.15.1'
   'js-yaml@>=4.0.0 <4.3.1': '4.3.1'
+  # GHSA-2v37-7h3g-55p8 — nanoid custom generators can loop indefinitely on a
+  # non-integer size. Transitive via apps/web>postcss>nanoid (build-time CSS
+  # tooling; not called with untrusted sizes). Clean same-major patch.
+  'nanoid@<3.3.18': '3.3.18'
   # GHSA-fxqj-rqcc-2cmp (incomplete fix of GHSA-6g55-p6wh-862q) covers <=8.5.22,
   # so the earlier <8.5.18 pin no longer clears it; bump the floor to 8.5.23.
   'postcss@<8.5.23': '8.5.23'
