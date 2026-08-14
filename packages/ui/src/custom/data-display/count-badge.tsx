@@ -31,8 +31,11 @@ export type CountBadgeSize = 'sm' | 'md';
  * is the muted chip used for passive counts (tabs, filters).
  */
 const TONE_SURFACE: Record<CountBadgeTone, string> = {
-  info: 'bg-info text-info-foreground',
-  primary: 'bg-primary text-primary-foreground',
+  // Solid-fill tones keep white text in BOTH themes — the tone tokens' own
+  // foregrounds go dark on dark, which reads poorly on a count chip.
+  info: 'bg-info text-white',
+  primary: 'bg-primary text-white',
+  // Tinted tones stay tone-coloured; white would be illegible on their fills.
   accent: 'bg-primary/15 text-primary',
   neutral: 'bg-muted text-muted-foreground',
 };

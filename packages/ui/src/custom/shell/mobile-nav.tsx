@@ -186,7 +186,11 @@ function DrawerSection({
 
   const panelHasActive =
     panel?.groups.some((group) => group.items.some(hasActiveNavItem)) ?? false;
-  const showParentActive = Boolean(item.active) && !(open && panelHasActive);
+  // A selected submenu item owns the highlight; the parent keeps only an
+  // outline (mirrors the desktop rail's inline accordion).
+  const childActive = open && panelHasActive;
+  const showParentActive = Boolean(item.active) && !childActive;
+  const showParentOutline = Boolean(item.active) && childActive;
 
   return (
     <>
@@ -197,7 +201,11 @@ function DrawerSection({
         style={MOBILE_NAV_ROW_STYLE}
         aria-controls={controls}
         aria-expanded={open}
-        className={DRAWER_ROW_CLASS}
+        className={cn(
+          DRAWER_ROW_CLASS,
+          showParentOutline &&
+            'font-semibold text-foreground ring-1 ring-inset ring-primary/40',
+        )}
       >
         <span className="relative grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[18px]">
           {item.icon}
@@ -215,7 +223,7 @@ function DrawerSection({
         />
       </NavElement>
       {open ? (
-        <div id={controls} className="mb-px ml-3 pl-1">
+        <div id={controls} className="mb-px">
           <NavGroups groups={panel?.groups ?? []} onNavigate={onNavigate} />
         </div>
       ) : null}

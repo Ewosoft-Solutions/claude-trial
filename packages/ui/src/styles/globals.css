@@ -606,6 +606,41 @@ html:not(.classic-dark) [data-chart] .recharts-dot {
   filter: drop-shadow(0 0 6px var(--chart-glow));
 }
 
+/* --- sidebar submenu hierarchy line ------------------------------
+   A trunk aligned to the parent icon's vertical centre, with a curved
+   elbow branching to each submenu item. The pill is inset past the elbow
+   so an active item's ring has room to breathe. Consumed by nav-shared's
+   NavItemRow (data-slot="nav-branch"); the container's left edge lines up
+   with the parent row's, so the trunk sits on the icon centre. */
+[data-slot='nav-branch'] {
+  position: relative;
+  margin-left: 1.375rem; /* 22px: row px-2 (8) + icon half (14) = icon centre */
+  padding-left: 1.375rem; /* inset the pill, leaving a gap after the elbow */
+}
+[data-slot='nav-branch']::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 12px;
+  height: 50%;
+  border-left: 1.5px solid var(--border);
+  border-bottom: 1.5px solid var(--border);
+  border-bottom-left-radius: 9px;
+  pointer-events: none;
+}
+/* the trunk continues down to the next branch (every item but the last) */
+[data-slot='nav-branch']:not([data-last='true'])::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  bottom: 0;
+  width: 1.5px;
+  background: var(--border);
+  pointer-events: none;
+}
+
 /* the app is neon on dark; honour reduced-motion by never animating the
    field (it is static anyway) — nothing to disable here, kept for intent */
 

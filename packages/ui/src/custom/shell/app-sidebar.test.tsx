@@ -153,8 +153,13 @@ describe('AppSidebar — canonical collapsible navigation', () => {
     expect(
       nestedItem.querySelector('[data-slot="nav-nested-bullet"]'),
     ).toBeTruthy();
+    // Headings removed: the two source groups flatten into one hierarchy list,
+    // so items from both groups (Dashboard + Transport) sit under one tree.
     const groups = secondary.querySelectorAll('[data-slot="nav-group"]');
-    expect(groups).toHaveLength(2);
+    expect(groups).toHaveLength(1);
+    expect(
+      within(secondary).getByRole('button', { name: 'Transport' }),
+    ).toBeInTheDocument();
 
     fireEvent.click(dashboard);
     expect(onDashboard).toHaveBeenCalledOnce();

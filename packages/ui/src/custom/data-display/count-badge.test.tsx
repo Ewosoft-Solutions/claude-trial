@@ -39,9 +39,9 @@ describe('CountBadge', () => {
     expect(screen.getByText('0')).toBeInTheDocument();
   });
 
-  it('applies the info tone (notification accent) by default', () => {
+  it('applies the info tone with white text by default (both themes)', () => {
     render(<CountBadge count={3} />);
-    expect(badge()).toHaveClass('bg-info', 'text-info-foreground');
+    expect(badge()).toHaveClass('bg-info', 'text-white');
   });
 
   it('maps tone + size onto their tokens', () => {

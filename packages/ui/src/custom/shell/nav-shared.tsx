@@ -147,10 +147,13 @@ export function SectionLabel({
 export function NavItemRow({
   item,
   depth = 0,
+  isLast = false,
   onNavigate,
 }: {
   item: NavItem;
   depth?: number;
+  /** Last item at the top submenu level — the trunk stops at its elbow. */
+  isLast?: boolean;
   onNavigate?: () => void;
 }) {
   const isSub = depth > 0;
@@ -159,32 +162,44 @@ export function NavItemRow({
     onNavigate?.();
   };
 
+  const row = (
+    <NavElement
+      href={item.href}
+      onSelect={handleSelect}
+      onPrefetch={item.onPrefetch}
+      active={item.active}
+      style={MOBILE_NAV_ROW_STYLE}
+      className={cn(
+        'group flex items-center rounded-[var(--radius-sm)] px-2 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
+        'transition-colors hover:bg-accent hover:text-foreground',
+        'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
+        'aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
+        isSub && 'text-[calc(12.5px*var(--font-scale))]',
+      )}
+    >
+      {isSub ? <NestedItemBullet /> : null}
+      <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
+      {item.badge != null ? (
+        <CountBadge
+          count={item.badge}
+          size="md"
+          tone={item.badgeTone === 'hot' ? 'accent' : 'info'}
+        />
+      ) : null}
+    </NavElement>
+  );
+
   return (
     <>
-      <NavElement
-        href={item.href}
-        onSelect={handleSelect}
-        onPrefetch={item.onPrefetch}
-        active={item.active}
-        style={MOBILE_NAV_ROW_STYLE}
-        className={cn(
-          'group flex items-center rounded-[var(--radius-sm)] px-2 text-[calc(13.5px*var(--font-scale))] font-medium text-muted-foreground outline-none',
-          'transition-colors hover:bg-accent hover:text-foreground',
-          'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
-          'aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:font-semibold aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
-          isSub && 'text-[calc(12.5px*var(--font-scale))]',
-        )}
-      >
-        {isSub ? <NestedItemBullet /> : null}
-        <span className="min-w-0 flex-1 truncate text-left">{item.label}</span>
-        {item.badge != null ? (
-          <CountBadge
-            count={item.badge}
-            size="md"
-            tone={item.badgeTone === 'hot' ? 'accent' : 'info'}
-          />
-        ) : null}
-      </NavElement>
+      {/* Top-level submenu items hang off the hierarchy line; nested items keep
+          the simple bullet (the real nav does not nest, but the flyout may). */}
+      {isSub ? (
+        row
+      ) : (
+        <div data-slot="nav-branch" data-last={isLast ? 'true' : undefined}>
+          {row}
+        </div>
+      )}
       {item.items?.map((child) => (
         <NavItemRow
           key={child.key}
@@ -204,32 +219,20 @@ export function NavGroups({
   groups: NavGroup[];
   onNavigate?: () => void;
 }) {
+  // Submenu headings are gone: every (already access-resolved) group flattens
+  // into one list that hangs off the parent's single hierarchy line, so the
+  // eye travels one continuous tree instead of several labelled clusters.
+  const items = groups.flatMap((group) => group.items);
+  if (items.length === 0) return null;
   return (
-    <div className="flex flex-col gap-0.5">
-      {groups.map((group, groupIndex) => (
-        <div
-          key={group.key}
-          data-slot="nav-group"
-          className={cn('flex flex-col gap-px', groupIndex > 0 && 'mt-2.5')}
-        >
-          {group.label ? (
-            <SectionLabel className="px-2 pb-1 pt-1.5">
-              {group.label}
-            </SectionLabel>
-          ) : null}
-          {/* A labeled section's items hang off a hierarchy guide line + indent,
-              so it reads as a submenu that belongs to the section. */}
-          <div
-            className={cn(
-              'flex flex-col gap-px',
-              group.label && 'ml-[0.875rem] border-l border-border/60 pl-1.5',
-            )}
-          >
-            {group.items.map((item) => (
-              <NavItemRow key={item.key} item={item} onNavigate={onNavigate} />
-            ))}
-          </div>
-        </div>
+    <div data-slot="nav-group" className="flex flex-col">
+      {items.map((item, index) => (
+        <NavItemRow
+          key={item.key}
+          item={item}
+          isLast={index === items.length - 1}
+          onNavigate={onNavigate}
+        />
       ))}
     </div>
   );

@@ -262,7 +262,11 @@ function Sidebar({
     const panelHasActiveItem =
       panel?.groups.some((group) => group.items.some(hasActiveNavItem)) ??
       false;
-    const showParentActive = item.active && !(panelOpen && panelHasActiveItem);
+    // A selected submenu item owns the highlight; the parent then keeps only
+    // an outline so the two don't compete for "you are here".
+    const childActive = panelOpen && panelHasActiveItem;
+    const showParentActive = item.active && !childActive;
+    const showParentOutline = item.active && childActive;
     const controls = item.hasPanel ? `nav-inline-${item.key}` : undefined;
 
     return (
@@ -280,6 +284,9 @@ function Sidebar({
             'transition-colors hover:bg-accent hover:text-foreground',
             'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
             'aria-[current=page]:font-semibold aria-[current=page]:bg-primary/10 aria-[current=page]:[background-image:var(--grad-nav-active)] aria-[current=page]:text-foreground aria-[current=page]:ring-1 aria-[current=page]:ring-inset aria-[current=page]:ring-white/10',
+            // Active-via-child: outline only, no gradient wash (that's the child's).
+            showParentOutline &&
+              'font-semibold text-foreground ring-1 ring-inset ring-primary/40',
           )}
         >
           <span className="relative grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[18px]">
@@ -302,7 +309,7 @@ function Sidebar({
           ) : null}
         </NavElement>
         {panelOpen ? (
-          <div id={controls} className="relative mb-px ml-3 pl-1">
+          <div id={controls} className="mb-px">
             <NavGroups groups={panel?.groups ?? []} />
           </div>
         ) : null}
