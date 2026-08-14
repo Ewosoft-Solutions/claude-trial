@@ -30,6 +30,7 @@ import { CommunicationModule } from './communication/communication.module';
 import { CurriculumModule } from './curriculum/curriculum.module';
 import { ReportingAnalyticsModule } from './reporting-analytics/reporting-analytics.module';
 import { OverviewModule } from './overview/overview.module';
+import { NavModule } from './nav/nav.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { FinanceModule } from './finance/finance.module';
 import { AdmissionsModule } from './admissions/admissions.module';
@@ -124,6 +125,7 @@ import { AppController } from './app.controller';
     CurriculumModule,
     ReportingAnalyticsModule,
     OverviewModule,
+    NavModule,
     AttendanceModule,
     FinanceModule,
     AdmissionsModule,
