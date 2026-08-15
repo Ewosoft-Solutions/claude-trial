@@ -366,6 +366,48 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  // ---- WB3 consolidation: per-campus form variants ----
+
+  it('resolves a per-campus form variant, falling back to the school default', async () => {
+    const [campusA, campusB] = await Promise.all([
+      owner.campus.create({
+        data: { tenantId: tenantAId, name: 'Campus A', code: 'CA' },
+      }),
+      owner.campus.create({
+        data: { tenantId: tenantAId, name: 'Campus B', code: 'CB' },
+      }),
+    ]);
+
+    // A published school default + a published Campus-A override.
+    const base = await inA(() =>
+      forms.createDraft(tenantAId, actorId, draft('School default')),
+    );
+    await inA(() => forms.publishVersion(tenantAId, actorId, base.id));
+    const camp = await inA(() =>
+      forms.createDraft(tenantAId, actorId, draft('Campus A form'), campusA.id),
+    );
+    await inA(() => forms.publishVersion(tenantAId, actorId, camp.id));
+
+    // Campus A → its own form; Campus B (no override) + no campus → the default.
+    const titleOf = (v: { definition: unknown } | null) =>
+      (v?.definition as { title?: string })?.title;
+    expect(
+      titleOf(await inA(() => forms.getCurrentForm(tenantAId, campusA.id))),
+    ).toBe('Campus A form');
+    expect(
+      titleOf(await inA(() => forms.getCurrentForm(tenantAId, campusB.id))),
+    ).toBe('School default');
+    expect(titleOf(await inA(() => forms.getCurrentForm(tenantAId)))).toBe(
+      'School default',
+    );
+
+    // Only Campus A authors its own form.
+    const owners = await inA(() =>
+      forms.campusesWithOwnForm(tenantAId, [campusA.id, campusB.id]),
+    );
+    expect(owners).toEqual([campusA.id]);
+  });
+
   // ---- RLS isolation on the new tables ----
 
   it('isolates form versions + interviews across tenants (RLS)', async () => {
