@@ -25,6 +25,7 @@
     "db:sync-permissions": "tsx prisma/scripts/sync-permissions.ts",
     "bootstrap:architect-token": "tsx prisma/scripts/bootstrap-architect-token.ts",
     "db:backfill:health-encryption": "tsx prisma/scripts/backfill-health-encryption.ts",
+    "db:backfill:admission-system-sections": "tsx prisma/scripts/backfill-admission-system-sections.ts",
     "db:rotate:health-encryption": "tsx prisma/scripts/rotate-health-encryption.ts",
     "db:seed:dev": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/personas.ts",
     "db:seed:academics": "ENABLE_DEV_SEEDS=true tsx prisma/scripts/dev/academics.ts",
