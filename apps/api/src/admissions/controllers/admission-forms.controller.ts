@@ -77,6 +77,23 @@ export class AdmissionFormsController {
     return this.forms.getCurrentForm(this.tenantId(req), campusId);
   }
 
+  // Declared before `forms/:id` so this isn't captured as an id.
+  @Get('forms/campus-overrides')
+  @RequirePermissions(['admissions.view'])
+  @ApiOperation({
+    summary: 'Which of the given campuses author their own form variant',
+  })
+  campusOverrides(
+    @Request() req: AuthenticatedRequest,
+    @Query('campusIds') campusIds?: string,
+  ) {
+    const ids = (campusIds ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return this.forms.campusesWithOwnForm(this.tenantId(req), ids);
+  }
+
   @Get('forms/:id')
   @RequirePermissions(['admissions.view'])
   @ApiOperation({ summary: 'A single form version' })

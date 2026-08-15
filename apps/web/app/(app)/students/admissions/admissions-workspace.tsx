@@ -12,7 +12,7 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { FileText, ListChecks, Plus } from 'lucide-react';
+import { FileText, Plus } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
@@ -245,14 +245,7 @@ export function AdmissionsWorkspace({
             <>
               {perms.criteria && (
                 <Button asChild variant="outline" size="sm">
-                  <Link href="/students/admissions/requirements">
-                    <ListChecks /> Requirements
-                  </Link>
-                </Button>
-              )}
-              {perms.criteria && (
-                <Button asChild variant="outline" size="sm">
-                  <Link href="/students/admissions/forms">
+                  <Link href="/students/admissions/form">
                     <FileText /> Application form
                   </Link>
                 </Button>
