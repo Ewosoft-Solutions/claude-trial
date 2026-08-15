@@ -44,6 +44,8 @@ import {
   titleCase,
 } from '@/lib/admissions/status';
 
+import type { FormDefinition } from '@workspace/forms';
+
 import { NewApplicationForm } from './new-application-form';
 import { ApplicationDrawer } from './application-drawer';
 import {
@@ -86,10 +88,14 @@ export function AdmissionsWorkspace({
   perms,
   applications,
   structure,
+  formDefinition,
 }: {
   perms: Perms;
   applications: Application[];
   structure: IntakeStructure;
+  /** The school's current published form; its system sections drive New
+   *  Application. Null → the built-in structured layout. */
+  formDefinition?: FormDefinition | null;
 }) {
   const router = useRouter();
   const [createOpen, setCreateOpen] = React.useState(false);
@@ -348,6 +354,7 @@ export function AdmissionsWorkspace({
           <div className="flex-1 overflow-y-auto px-5 py-5">
             <NewApplicationForm
               structure={structure}
+              formDefinition={formDefinition}
               onCancel={() => setCreateOpen(false)}
               onCreated={(id) => {
                 setCreateOpen(false);

@@ -34,7 +34,7 @@ import {
 import { FormRenderer } from '@workspace/ui/custom/forms/form-renderer';
 import { PhoneField } from '@workspace/ui/custom/forms/phone-field';
 import { NameFields } from '@workspace/ui/custom/forms/name-fields';
-import { type PersonNameParts } from '@workspace/forms';
+import { withoutSystemSections, type PersonNameParts } from '@workspace/forms';
 
 import {
   GENDERS,
@@ -94,6 +94,15 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
     emptyGuardian(true),
   ]);
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
+
+  // The applicant / cascade / guardian fields are captured by the structured
+  // cards above; the school's own questions are the form's CUSTOM sections only.
+  // (The standard fields live in the published form as bound `system` sections —
+  // exclude them here so they aren't asked twice.)
+  const customDefinition = React.useMemo(
+    () => (form ? withoutSystemSections(form.definition) : null),
+    [form],
+  );
 
   const yearLevels = React.useMemo(
     () => structure.yearLevels.filter((y) => !stageId || y.stageId === stageId),
@@ -501,21 +510,24 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
         </CardContent>
       </Card>
 
-      {form && form.definition.sections.some((s) => s.items.length > 0) && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{form.definition.title}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <FormRenderer
-              flat
-              definition={form.definition}
-              value={answers}
-              onChange={setAnswers}
-            />
-          </CardContent>
-        </Card>
-      )}
+      {customDefinition &&
+        customDefinition.sections.some((s) => s.items.length > 0) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">
+                {customDefinition.title}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormRenderer
+                flat
+                definition={customDefinition}
+                value={answers}
+                onChange={setAnswers}
+              />
+            </CardContent>
+          </Card>
+        )}
 
       <Separator />
 
