@@ -112,8 +112,8 @@ export default function OnboardSchoolPage() {
             <CardDescription>
               <strong>{created.name}</strong> was created as{' '}
               <code>{created.slug}</code> and is currently{' '}
-              <strong>{created.status}</strong>. Activate it from the schools
-              list, then invite its owner.
+              <strong className="capitalize">{created.status}</strong>. Activate
+              it from the schools list, then invite its owner.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex gap-3">

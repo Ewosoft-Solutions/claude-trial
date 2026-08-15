@@ -532,7 +532,7 @@ export function PromotionWorkbench({
                               </SelectContent>
                             </Select>
                           ) : (
-                            <span>{item.decision}</span>
+                            <span className="capitalize">{item.decision}</span>
                           )}
                         </td>
                         <td className="px-2 py-2">
