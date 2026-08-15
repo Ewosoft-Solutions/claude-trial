@@ -2,9 +2,14 @@
 
 /**
  * Public apply form — the branded, self-service version of the internal New
- * Application form. Same structured cascade + guardians + published form, but
- * submits to the public API and, on success, shows a confirmation with a
- * reference and a copyable status-portal link (no account needed).
+ * Application form. Submits to the public API and, on success, shows a
+ * confirmation with a reference and a copyable status-portal link (no account).
+ *
+ * When the school's published form carries the standard intake as bound `system`
+ * sections, the form is rendered FROM that definition (so the school's relabel /
+ * reorder / optional / hide edits take effect) and mapped to the same
+ * createApplication payload. Otherwise (a form that predates system sections) the
+ * built-in structured layout is used unchanged.
  */
 import * as React from 'react';
 import Link from 'next/link';
@@ -31,10 +36,22 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 
-import { FormRenderer } from '@workspace/ui/custom/forms/form-renderer';
+import {
+  FormRenderer,
+  type CascadeStructure,
+} from '@workspace/ui/custom/forms/form-renderer';
 import { PhoneField } from '@workspace/ui/custom/forms/phone-field';
 import { NameFields } from '@workspace/ui/custom/forms/name-fields';
-import { withoutSystemSections, type PersonNameParts } from '@workspace/forms';
+import {
+  FormValidationError,
+  answersToCreateApplicationInput,
+  hasSystemIntake,
+  systemSectionsOnly,
+  validateAnswers,
+  withoutSystemSections,
+  type FormDefinition,
+  type PersonNameParts,
+} from '@workspace/forms';
 
 import {
   GENDERS,
@@ -42,9 +59,12 @@ import {
   errorMessage,
   type Guardian,
   type Intake,
+  type IntakeStructure,
 } from '../../portal-types';
 
 const NONE = '__none__';
+
+type DoneState = { reference: string; statusToken: string };
 
 function emptyGuardian(isPrimary: boolean): Guardian {
   return {
@@ -64,13 +84,262 @@ function emptyGuardian(isPrimary: boolean): Guardian {
   };
 }
 
+/** Adapt the public IntakeStructure to the cascade renderer's shape. */
+function toCascadeStructure(structure: IntakeStructure): CascadeStructure {
+  return {
+    campuses: structure.campuses.map((c) => ({ id: c.id, name: c.name })),
+    stages: structure.stages.map((s) => ({ id: s.id, name: s.name })),
+    yearLevels: structure.yearLevels.map((y) => ({
+      id: y.id,
+      name: y.name,
+      stageId: y.stageId,
+    })),
+    streams: structure.streams.map((s) => ({ id: s.id, name: s.name })),
+  };
+}
+
+async function postApply(
+  slug: string,
+  payload: unknown,
+): Promise<DoneState | null> {
+  const res = await fetch(
+    `/api/public/admissions/schools/${encodeURIComponent(slug)}/apply`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+  );
+  if (!res.ok) {
+    toast.error(await errorMessage(res, 'Could not submit your application'));
+    return null;
+  }
+  return (await res.json()) as DoneState;
+}
+
 export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
   const { school, structure, form } = intake;
+  const [done, setDone] = React.useState<DoneState | null>(null);
+
+  if (done) return <ApplicationReceived schoolName={school.name} done={done} />;
+
+  const definitionDriven = !!form && hasSystemIntake(form.definition);
+
+  return (
+    <div className="flex flex-col gap-6">
+      <header className="flex flex-col gap-1">
+        <span className="text-xs font-medium uppercase tracking-wide text-primary">
+          Admissions
+        </span>
+        <h1 className="text-2xl font-semibold">Apply to {school.name}</h1>
+        <p className="text-sm text-muted-foreground">
+          Fill in the applicant and guardian details below. You&apos;ll get a
+          reference and a link to track progress.
+        </p>
+      </header>
+
+      {definitionDriven ? (
+        <DefinitionDrivenApplyForm
+          slug={slug}
+          structure={structure}
+          definition={form!.definition}
+          onDone={setDone}
+        />
+      ) : (
+        <BespokeApplyForm
+          slug={slug}
+          structure={structure}
+          form={form}
+          onDone={setDone}
+        />
+      )}
+    </div>
+  );
+}
+
+// ------------------------------------------------------ confirmation screen
+
+function ApplicationReceived({
+  schoolName,
+  done,
+}: {
+  schoolName: string;
+  done: DoneState;
+}) {
+  const statusPath = `/status/${done.statusToken}`;
+  const statusUrl =
+    typeof window !== 'undefined'
+      ? `${window.location.origin}${statusPath}`
+      : statusPath;
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
+        <CheckCircle2 className="size-12 text-success" aria-hidden />
+        <div>
+          <h1 className="text-xl font-semibold">Application received</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Thank you for applying to {schoolName}. Save your tracking link to
+            check progress and upload any documents.
+          </p>
+        </div>
+        <div className="w-full rounded-lg border border-border bg-muted/40 p-3 text-sm">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">
+            Reference
+          </div>
+          <div className="font-mono">{done.reference}</div>
+        </div>
+        <div className="flex w-full flex-col gap-2 sm:flex-row">
+          <Button asChild className="flex-1">
+            <Link href={statusPath}>Track my application</Link>
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="flex-1"
+            onClick={() => {
+              void navigator.clipboard?.writeText(statusUrl);
+              toast.success('Tracking link copied');
+            }}
+          >
+            <Copy className="mr-1 size-4" aria-hidden /> Copy link
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ------------------------------------------------ definition-driven variant
+
+/**
+ * Render the school's published form: its SYSTEM sections (applicant, applying-for
+ * cascade, guardians) via the shared FormRenderer, then its own CUSTOM questions.
+ * On submit the bound answers map onto the unchanged createApplication payload;
+ * the custom answers ride along as `formAnswers`.
+ */
+function DefinitionDrivenApplyForm({
+  slug,
+  structure,
+  definition,
+  onDone,
+}: {
+  slug: string;
+  structure: IntakeStructure;
+  definition: FormDefinition;
+  onDone: (d: DoneState) => void;
+}) {
   const [busy, setBusy] = React.useState(false);
-  const [done, setDone] = React.useState<{
-    reference: string;
-    statusToken: string;
-  } | null>(null);
+  const [sysAnswers, setSysAnswers] = React.useState<Record<string, unknown>>(
+    {},
+  );
+  const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
+
+  const sysDef = React.useMemo(
+    () => systemSectionsOnly(definition),
+    [definition],
+  );
+  const customDef = React.useMemo(
+    () => withoutSystemSections(definition),
+    [definition],
+  );
+  const cascadeStructure = React.useMemo(
+    () => toCascadeStructure(structure),
+    [structure],
+  );
+  const hasCustom = customDef.sections.some((s) => s.items.length > 0);
+
+  async function submit() {
+    try {
+      validateAnswers(sysDef, sysAnswers);
+    } catch (e) {
+      toast.error(
+        e instanceof FormValidationError
+          ? e.message
+          : 'Please check your answers.',
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      const input = answersToCreateApplicationInput(definition, sysAnswers);
+      const payload = {
+        ...input,
+        formAnswers: hasCustom ? answers : undefined,
+      };
+      const result = await postApply(slug, payload);
+      if (result) onDone(result);
+    } catch {
+      toast.error('Network error — please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <>
+      <Card>
+        <CardContent className="pt-6">
+          <FormRenderer
+            flat
+            definition={sysDef}
+            value={sysAnswers}
+            onChange={setSysAnswers}
+            structure={cascadeStructure}
+            submitting={busy}
+          />
+        </CardContent>
+      </Card>
+
+      {hasCustom && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{customDef.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <FormRenderer
+              flat
+              definition={customDef}
+              value={answers}
+              onChange={setAnswers}
+              submitting={busy}
+            />
+          </CardContent>
+        </Card>
+      )}
+
+      <Separator />
+
+      <Button
+        type="button"
+        size="lg"
+        onClick={() => void submit()}
+        disabled={busy}
+      >
+        {busy ? 'Submitting…' : 'Submit application'}
+      </Button>
+    </>
+  );
+}
+
+// --------------------------------------------------------- bespoke fallback
+
+/**
+ * The built-in structured layout — used when the published form has no bound
+ * system sections (a tenant whose form predates the consolidation). The form's
+ * CUSTOM questions (if any) are rendered below via `withoutSystemSections`.
+ */
+function BespokeApplyForm({
+  slug,
+  structure,
+  form,
+  onDone,
+}: {
+  slug: string;
+  structure: IntakeStructure;
+  form: Intake['form'];
+  onDone: (d: DoneState) => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
 
   const [applicant, setApplicant] = React.useState<PersonNameParts>({
     title: '',
@@ -95,10 +364,6 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
   ]);
   const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
 
-  // The applicant / cascade / guardian fields are captured by the structured
-  // cards above; the school's own questions are the form's CUSTOM sections only.
-  // (The standard fields live in the published form as bound `system` sections —
-  // exclude them here so they aren't asked twice.)
   const customDefinition = React.useMemo(
     () => (form ? withoutSystemSections(form.definition) : null),
     [form],
@@ -163,25 +428,8 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
         })),
         formAnswers: form ? answers : undefined,
       };
-      const res = await fetch(
-        `/api/public/admissions/schools/${encodeURIComponent(slug)}/apply`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        },
-      );
-      if (!res.ok) {
-        toast.error(
-          await errorMessage(res, 'Could not submit your application'),
-        );
-        return;
-      }
-      const data = (await res.json()) as {
-        reference: string;
-        statusToken: string;
-      };
-      setDone({ reference: data.reference, statusToken: data.statusToken });
+      const result = await postApply(slug, payload);
+      if (result) onDone(result);
     } catch {
       toast.error('Network error — please try again.');
     } finally {
@@ -189,63 +437,8 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
     }
   }
 
-  if (done) {
-    const statusPath = `/status/${done.statusToken}`;
-    const statusUrl =
-      typeof window !== 'undefined'
-        ? `${window.location.origin}${statusPath}`
-        : statusPath;
-    return (
-      <Card>
-        <CardContent className="flex flex-col items-center gap-4 py-10 text-center">
-          <CheckCircle2 className="size-12 text-success" aria-hidden />
-          <div>
-            <h1 className="text-xl font-semibold">Application received</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Thank you for applying to {school.name}. Save your tracking link
-              to check progress and upload any documents.
-            </p>
-          </div>
-          <div className="w-full rounded-lg border border-border bg-muted/40 p-3 text-sm">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">
-              Reference
-            </div>
-            <div className="font-mono">{done.reference}</div>
-          </div>
-          <div className="flex w-full flex-col gap-2 sm:flex-row">
-            <Button asChild className="flex-1">
-              <Link href={statusPath}>Track my application</Link>
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1"
-              onClick={() => {
-                void navigator.clipboard?.writeText(statusUrl);
-                toast.success('Tracking link copied');
-              }}
-            >
-              <Copy className="mr-1 size-4" aria-hidden /> Copy link
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
-    <div className="flex flex-col gap-6">
-      <header className="flex flex-col gap-1">
-        <span className="text-xs font-medium uppercase tracking-wide text-primary">
-          Admissions
-        </span>
-        <h1 className="text-2xl font-semibold">Apply to {school.name}</h1>
-        <p className="text-sm text-muted-foreground">
-          Fill in the applicant and guardian details below. You&apos;ll get a
-          reference and a link to track progress.
-        </p>
-      </header>
-
+    <>
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Applicant</CardTitle>
@@ -539,6 +732,6 @@ export function ApplyForm({ slug, intake }: { slug: string; intake: Intake }) {
       >
         {busy ? 'Submitting…' : 'Submit application'}
       </Button>
-    </div>
+    </>
   );
 }
