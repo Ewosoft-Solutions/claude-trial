@@ -27,6 +27,7 @@ import {
   isFileUploadMarker,
   validateAnswers,
   validateDefinition,
+  withoutSystemSections,
   type FormDefinition,
 } from '@workspace/forms';
 
@@ -288,7 +289,12 @@ export class FormsService {
     if (version.status === 'draft') {
       throw new BadRequestException('Cannot respond to a draft form.');
     }
-    const definition = version.definition as unknown as FormDefinition;
+    // A form RESPONSE covers the respondent-facing (custom) questions only —
+    // SYSTEM sections are bound to structured data captured at intake, not part
+    // of the response. (Forms with no system sections are unaffected.)
+    const definition = withoutSystemSections(
+      version.definition as unknown as FormDefinition,
+    );
 
     let cleaned: Record<string, unknown>;
     try {

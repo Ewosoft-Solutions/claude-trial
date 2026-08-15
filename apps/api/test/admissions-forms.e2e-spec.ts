@@ -366,7 +366,55 @@ d('Admissions — forms + interviews/quiz (WB3-3 + WB3-4)', () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
-  // ---- WB3 consolidation: per-campus form variants ----
+  // ---- WB3 consolidation: system sections + per-campus variants ----
+
+  it('a form response covers only the custom sections (system fields skipped)', async () => {
+    const unified = {
+      title: 'Unified application form',
+      sections: [
+        {
+          id: 'u-sys',
+          title: 'Applicant',
+          system: true,
+          items: [
+            {
+              id: 'u-sf',
+              key: 'sys_first',
+              type: 'short_text' as const,
+              label: 'First name',
+              required: true,
+              system: true,
+              binding: 'applicant.firstName',
+            },
+          ],
+        },
+        {
+          id: 'u-cus',
+          title: 'Extra',
+          items: [
+            {
+              id: 'u-cf',
+              key: 'fav_colour',
+              type: 'short_text' as const,
+              label: 'Favourite colour',
+              required: true,
+            },
+          ],
+        },
+      ],
+    };
+    const v = await inA(() => forms.createDraft(tenantAId, actorId, unified));
+    await inA(() => forms.publishVersion(tenantAId, actorId, v.id));
+
+    // A response with ONLY the custom answer validates — the required system
+    // field is captured at intake (via bindings), not demanded of the response.
+    const res = await inA(() =>
+      forms.submitResponse(tenantAId, appId, actorId, { fav_colour: 'blue' }),
+    );
+    const answers = res.answers as Record<string, unknown>;
+    expect(answers.fav_colour).toBe('blue');
+    expect(answers.sys_first).toBeUndefined();
+  });
 
   it('resolves a per-campus form variant, falling back to the school default', async () => {
     const [campusA, campusB] = await Promise.all([
