@@ -10,13 +10,30 @@
    tones read consistently across the product.
 
    Presentational and server-safe (no hooks). Copy is consumer-
-   supplied; the component fixes only the colour and shape.
+   supplied; the component fixes the colour, shape, and — for a raw
+   status STRING — the display casing: DB values are lowercase (e.g.
+   `published`, `on_loan`), so a plain-string child is normalised for
+   display (separators → spaces, first letter capitalised) → "Published",
+   "On loan". Idempotent for already-capitalised labels; only single
+   string children are touched (composed children like `{n} assigned`
+   pass through). Pass `preserveCase` to opt out.
    ============================================================ */
 
 import * as React from 'react';
 
 import { cn } from '@workspace/ui/lib/utils';
 import type { StatusTone } from '@workspace/ui/types/states.types';
+
+/**
+ * Normalise a raw status value for display: collapse `_`/`-` separators to
+ * spaces and capitalise the first letter (sentence case, matching the app's
+ * `titleCase` convention). `paid` → "Paid", `on_loan` → "On loan". Idempotent
+ * for values that are already capitalised.
+ */
+export function formatStatusLabel(value: string): string {
+  const text = value.replace(/[_-]+/g, ' ').trim();
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : text;
+}
 
 /**
  * Tone → matching border + tinted background + foreground. The border and
@@ -57,16 +74,25 @@ export interface StatusBadgeProps extends React.HTMLAttributes<HTMLSpanElement> 
   tone?: StatusTone;
   /** Show a leading status dot. */
   dot?: boolean;
+  /** Render a plain-string child verbatim instead of normalising its casing. */
+  preserveCase?: boolean;
   children: React.ReactNode;
 }
 
 export function StatusBadge({
   tone = 'neutral',
   dot = false,
+  preserveCase = false,
   className,
   children,
   ...props
 }: StatusBadgeProps) {
+  // A raw status VALUE (a single string child) is display-normalised; composed
+  // children (arrays / elements, e.g. `{n} assigned`) pass through untouched.
+  const content =
+    !preserveCase && typeof children === 'string'
+      ? formatStatusLabel(children)
+      : children;
   return (
     <span
       data-slot="status-badge"
@@ -83,7 +109,7 @@ export function StatusBadge({
           className={cn('size-1.5 shrink-0 rounded-full', TONE_DOT[tone])}
         />
       ) : null}
-      {children}
+      {content}
     </span>
   );
 }
