@@ -89,11 +89,14 @@ export function RequirementsEditor({
   yearLevels,
   sections,
   canManage,
+  embedded,
 }: {
   requirements: RequirementTemplateRow[];
   yearLevels: { id: string; name: string }[];
   sections: { id: string; displayLabel: string }[];
   canManage: boolean;
+  /** Rendered inside the unified authoring shell — skip the page chrome. */
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
@@ -140,43 +143,51 @@ export function RequirementsEditor({
 
   const stages = STAGES.filter((s) => grouped[s]?.length);
 
-  return (
-    <ShellMain>
-      <PageHeader
-        title="Admission requirements"
-        description="Configure what the school collects across the admissions journey — documents, measurements and fees. Fee prices are set here (a default, with optional per-class and per-section overrides) and billed automatically from the applicant's class."
-        actions={
-          canManage ? (
-            <div className="flex items-center gap-2">
-              {requirements.length === 0 && (
-                <Button
-                  type="button"
-                  variant="outline"
-                  disabled={busy}
-                  onClick={() =>
-                    void send(
-                      'POST',
-                      'requirements/ensure-defaults',
-                      undefined,
-                      'Seeded the standard checklist',
-                    )
-                  }
-                >
-                  Seed standard checklist
-                </Button>
-              )}
-              <Button
-                type="button"
-                disabled={busy}
-                onClick={() => setAdding(true)}
-              >
-                <Plus className="mr-1 size-4" aria-hidden />
-                Add requirement
-              </Button>
-            </div>
-          ) : undefined
-        }
-      />
+  const headerActions = canManage ? (
+    <div className="flex items-center gap-2">
+      {requirements.length === 0 && (
+        <Button
+          type="button"
+          variant="outline"
+          disabled={busy}
+          onClick={() =>
+            void send(
+              'POST',
+              'requirements/ensure-defaults',
+              undefined,
+              'Seeded the standard checklist',
+            )
+          }
+        >
+          Seed standard checklist
+        </Button>
+      )}
+      <Button type="button" disabled={busy} onClick={() => setAdding(true)}>
+        <Plus className="mr-1 size-4" aria-hidden />
+        Add requirement
+      </Button>
+    </div>
+  ) : undefined;
+
+  const body = (
+    <>
+      {embedded ? (
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            Documents, measurements and fees the school collects across the
+            admissions journey. Fee prices are set here (a default, with
+            optional per-class and per-section overrides) and billed
+            automatically from the applicant&rsquo;s class.
+          </p>
+          {headerActions}
+        </div>
+      ) : (
+        <PageHeader
+          title="Admission requirements"
+          description="Configure what the school collects across the admissions journey — documents, measurements and fees. Fee prices are set here (a default, with optional per-class and per-section overrides) and billed automatically from the applicant's class."
+          actions={headerActions}
+        />
+      )}
 
       {requirements.length === 0 ? (
         <EmptyState
@@ -228,7 +239,13 @@ export function RequirementsEditor({
           ))}
         </div>
       )}
-    </ShellMain>
+    </>
+  );
+
+  return embedded ? (
+    <div className="flex flex-col gap-6">{body}</div>
+  ) : (
+    <ShellMain>{body}</ShellMain>
   );
 }
 

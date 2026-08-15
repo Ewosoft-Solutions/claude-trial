@@ -9,6 +9,7 @@ import {
   Patch,
   Post,
   Put,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -54,19 +55,43 @@ export class AdmissionFormsController {
   }
 
   // ---- form versions ----
+  // `campusId` targets a per-campus variant; omitted = the school default.
   @Get('forms')
   @RequirePermissions(['admissions.view'])
   @ApiOperation({ summary: 'List every version of the application form' })
-  listVersions(@Request() req: AuthenticatedRequest) {
-    return this.forms.listVersions(this.tenantId(req));
+  listVersions(
+    @Request() req: AuthenticatedRequest,
+    @Query('campusId') campusId?: string,
+  ) {
+    return this.forms.listVersions(this.tenantId(req), campusId);
   }
 
   // Declared before `forms/:id` so "current" isn't captured as an id.
   @Get('forms/current')
   @RequirePermissions(['admissions.view'])
   @ApiOperation({ summary: 'The current published application form (or null)' })
-  current(@Request() req: AuthenticatedRequest) {
-    return this.forms.getCurrentForm(this.tenantId(req));
+  current(
+    @Request() req: AuthenticatedRequest,
+    @Query('campusId') campusId?: string,
+  ) {
+    return this.forms.getCurrentForm(this.tenantId(req), campusId);
+  }
+
+  // Declared before `forms/:id` so this isn't captured as an id.
+  @Get('forms/campus-overrides')
+  @RequirePermissions(['admissions.view'])
+  @ApiOperation({
+    summary: 'Which of the given campuses author their own form variant',
+  })
+  campusOverrides(
+    @Request() req: AuthenticatedRequest,
+    @Query('campusIds') campusIds?: string,
+  ) {
+    const ids = (campusIds ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    return this.forms.campusesWithOwnForm(this.tenantId(req), ids);
   }
 
   @Get('forms/:id')
@@ -82,11 +107,13 @@ export class AdmissionFormsController {
   createDraft(
     @Body() dto: SaveFormDefinitionDto,
     @Request() req: AuthenticatedRequest,
+    @Query('campusId') campusId?: string,
   ) {
     return this.forms.createDraft(
       this.tenantId(req),
       this.actorId(req),
       dto.definition as unknown as FormDefinition,
+      campusId,
     );
   }
 
@@ -126,8 +153,12 @@ export class AdmissionFormsController {
   @Get('applications/:id/form-response')
   @RequirePermissions(['admissions.view'])
   @ApiOperation({ summary: "An application's application-form response" })
-  getResponse(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.forms.getResponse(this.tenantId(req), id);
+  getResponse(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+    @Query('campusId') campusId?: string,
+  ) {
+    return this.forms.getResponse(this.tenantId(req), id, campusId);
   }
 
   @Put('applications/:id/form-response')
@@ -137,12 +168,14 @@ export class AdmissionFormsController {
     @Param('id') id: string,
     @Body() dto: SubmitFormResponseDto,
     @Request() req: AuthenticatedRequest,
+    @Query('campusId') campusId?: string,
   ) {
     return this.forms.submitResponse(
       this.tenantId(req),
       id,
       this.actorId(req),
       dto.answers,
+      campusId,
     );
   }
 }

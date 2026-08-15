@@ -5,6 +5,12 @@
  * answers are a `FormResponse` whose subject is the application. All the
  * versioning, validation, branching and `file` materialisation live in the
  * reusable FormsService.
+ *
+ * WB3 consolidation: a school can author a PER-CAMPUS variant — a `Form` owned by
+ * `{Campus, campusId}` that overrides the school default `{Tenant, tenantId}`.
+ * Resolution (for the intake/apply forms) prefers the applicant's campus form and
+ * falls back to the default; the editor targets one exact form (default or a
+ * chosen campus), with no fallback.
  */
 import { BadRequestException, Injectable } from '@nestjs/common';
 
@@ -18,20 +24,59 @@ const SUBJECT = 'AdmissionApplication';
 export class AdmissionFormsService {
   constructor(private readonly forms: FormsService) {}
 
-  private ref(tenantId: string): FormOwnerRef {
-    return { ownerType: 'Tenant', ownerId: tenantId, purpose: PURPOSE };
+  /** The owner of the exact form: a specific campus, else the school default. */
+  private ref(tenantId: string, campusId?: string | null): FormOwnerRef {
+    return campusId
+      ? { ownerType: 'Campus', ownerId: campusId, purpose: PURPOSE }
+      : { ownerType: 'Tenant', ownerId: tenantId, purpose: PURPOSE };
   }
 
-  // ---- versions ----
+  // ---- versions (editor targets ONE exact form: default or a campus) ----
 
-  async listVersions(tenantId: string) {
-    const form = await this.forms.findForm(tenantId, this.ref(tenantId));
+  async listVersions(tenantId: string, campusId?: string | null) {
+    const form = await this.forms.findForm(
+      tenantId,
+      this.ref(tenantId, campusId),
+    );
     return form ? this.forms.listVersions(tenantId, form.id) : [];
   }
 
-  async getCurrentForm(tenantId: string) {
-    const form = await this.forms.findForm(tenantId, this.ref(tenantId));
-    return form ? this.forms.getCurrentPublished(tenantId, form.id) : null;
+  /**
+   * The current PUBLISHED form to render for an applicant of `campusId`: the
+   * campus variant if it has a published version, else the school default.
+   */
+  async getCurrentForm(tenantId: string, campusId?: string | null) {
+    if (campusId) {
+      const own = await this.forms.findForm(
+        tenantId,
+        this.ref(tenantId, campusId),
+      );
+      if (own) {
+        const published = await this.forms.getCurrentPublished(
+          tenantId,
+          own.id,
+        );
+        if (published) return published;
+      }
+    }
+    const base = await this.forms.findForm(tenantId, this.ref(tenantId));
+    return base ? this.forms.getCurrentPublished(tenantId, base.id) : null;
+  }
+
+  /** Which of the given campuses author their OWN form (vs. using the default). */
+  async campusesWithOwnForm(
+    tenantId: string,
+    campusIds: string[],
+  ): Promise<string[]> {
+    const out: string[] = [];
+    for (const campusId of campusIds) {
+      const form = await this.forms.findForm(
+        tenantId,
+        this.ref(tenantId, campusId),
+      );
+      if (form) out.push(campusId);
+    }
+    return out;
   }
 
   getVersion(tenantId: string, id: string) {
@@ -42,6 +87,7 @@ export class AdmissionFormsService {
     tenantId: string,
     actorId: string,
     definition: FormDefinition,
+    campusId?: string | null,
   ) {
     const title =
       typeof definition?.title === 'string' && definition.title.trim()
@@ -50,7 +96,7 @@ export class AdmissionFormsService {
     const form = await this.forms.getOrCreateForm(
       tenantId,
       actorId,
-      this.ref(tenantId),
+      this.ref(tenantId, campusId),
       title,
     );
     return this.forms.createDraft(tenantId, actorId, form.id, definition);
@@ -75,8 +121,12 @@ export class AdmissionFormsService {
 
   // ---- an application's response ----
 
-  async getResponse(tenantId: string, applicationId: string) {
-    const current = await this.getCurrentForm(tenantId);
+  async getResponse(
+    tenantId: string,
+    applicationId: string,
+    campusId?: string | null,
+  ) {
+    const current = await this.getCurrentForm(tenantId, campusId);
     if (!current) return null;
     return this.forms.getResponse(tenantId, current.id, SUBJECT, applicationId);
   }
@@ -86,8 +136,9 @@ export class AdmissionFormsService {
     applicationId: string,
     actorId: string,
     answers: Record<string, unknown>,
+    campusId?: string | null,
   ) {
-    const current = await this.getCurrentForm(tenantId);
+    const current = await this.getCurrentForm(tenantId, campusId);
     if (!current) {
       throw new BadRequestException(
         'No published application form to respond to.',

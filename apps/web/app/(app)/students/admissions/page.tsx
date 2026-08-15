@@ -8,7 +8,11 @@ import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
 import { AdmissionsWorkspace } from './admissions-workspace';
-import type { Application, IntakeStructure } from './admissions-types';
+import type {
+  Application,
+  FormVersion,
+  IntakeStructure,
+} from './admissions-types';
 
 export const dynamic = 'force-dynamic';
 
@@ -35,9 +39,12 @@ export default async function AdmissionsPage() {
     );
   }
 
-  const [applications, structure] = await Promise.all([
+  const [applications, structure, currentForm] = await Promise.all([
     serverApiGet<Application[]>('/admissions/applications'),
     serverApiGet<IntakeStructure>('/admissions/intake-structure'),
+    // The school's current published application form (the tenant default). Its
+    // system sections drive the New Application layout; null → the built-in one.
+    serverApiGet<FormVersion>('/admissions/forms/current'),
   ]);
 
   return (
@@ -54,6 +61,7 @@ export default async function AdmissionsPage() {
       }}
       applications={applications ?? []}
       structure={structure ?? EMPTY_STRUCTURE}
+      formDefinition={currentForm?.definition ?? null}
     />
   );
 }

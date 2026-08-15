@@ -25,7 +25,19 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 import { NameFields } from '@workspace/ui/custom/forms/name-fields';
-import { type PersonNameParts } from '@workspace/forms';
+import {
+  FormValidationError,
+  answersToCreateApplicationInput,
+  hasSystemIntake,
+  systemSectionsOnly,
+  validateAnswers,
+  type FormDefinition,
+  type PersonNameParts,
+} from '@workspace/forms';
+import {
+  FormRenderer,
+  type CascadeStructure,
+} from '@workspace/ui/custom/forms/form-renderer';
 
 import {
   GENDERS,
@@ -41,7 +53,168 @@ import {
 
 const NONE = '__none__';
 
+/**
+ * New Application. When the school's published form carries the standard intake
+ * as bound `system` sections, the form is rendered from that definition (so the
+ * school's relabel / reorder / optional / hide edits take effect) and mapped to
+ * the SAME `createApplication` payload. Otherwise (a tenant whose form predates
+ * the system sections) the built-in structured layout is used unchanged.
+ */
 export function NewApplicationForm({
+  structure,
+  formDefinition,
+  onCreated,
+  onCancel,
+}: {
+  structure: IntakeStructure;
+  formDefinition?: FormDefinition | null;
+  onCreated: (id: string) => void;
+  onCancel?: () => void;
+}) {
+  if (formDefinition && hasSystemIntake(formDefinition)) {
+    return (
+      <SystemDrivenApplication
+        definition={formDefinition}
+        structure={structure}
+        onCreated={onCreated}
+        onCancel={onCancel}
+      />
+    );
+  }
+  return (
+    <BespokeApplicationForm
+      structure={structure}
+      onCreated={onCreated}
+      onCancel={onCancel}
+    />
+  );
+}
+
+/** Adapt the admissions IntakeStructure to the cascade renderer's shape. */
+function toCascadeStructure(structure: IntakeStructure): CascadeStructure {
+  return {
+    campuses: structure.campuses.map((c) => ({ id: c.id, name: c.name })),
+    stages: structure.stages.map((s) => ({ id: s.id, name: s.name })),
+    yearLevels: structure.yearLevels.map((y) => ({
+      id: y.id,
+      name: y.name,
+      stageId: y.stageId,
+    })),
+    streams: structure.streams.map((s) => ({ id: s.id, name: s.name })),
+  };
+}
+
+/**
+ * The definition-driven variant: render the form's SYSTEM sections (applicant,
+ * applying-for cascade, guardians) via the shared FormRenderer, then map the
+ * bound answers onto the unchanged createApplication payload. A staff-only
+ * "Admissions notes" field is appended (it is not part of the applicant-facing
+ * form).
+ */
+function SystemDrivenApplication({
+  definition,
+  structure,
+  onCreated,
+  onCancel,
+}: {
+  definition: FormDefinition;
+  structure: IntakeStructure;
+  onCreated: (id: string) => void;
+  onCancel?: () => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+  const [answers, setAnswers] = React.useState<Record<string, unknown>>({});
+  const [notes, setNotes] = React.useState('');
+
+  const sysDef = React.useMemo(
+    () => systemSectionsOnly(definition),
+    [definition],
+  );
+  const cascadeStructure = React.useMemo(
+    () => toCascadeStructure(structure),
+    [structure],
+  );
+
+  async function submit() {
+    // Client-side check mirrors the renderer's own submit (nice inline error);
+    // the server re-validates the mapped payload regardless.
+    try {
+      validateAnswers(sysDef, answers);
+    } catch (e) {
+      toast.error(
+        e instanceof FormValidationError
+          ? e.message
+          : 'Please check your answers.',
+      );
+      return;
+    }
+    setBusy(true);
+    try {
+      const input = answersToCreateApplicationInput(definition, answers);
+      const payload = { ...input, notes: notes.trim() || undefined };
+      const res = await fetch('/api/admissions/applications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) {
+        toast.error(await errorMessage(res, 'Could not submit application'));
+        return;
+      }
+      const data = (await res.json()) as { id: string };
+      toast.success('Application submitted');
+      onCreated(data.id);
+    } catch {
+      toast.error('Network error — please try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <FormRenderer
+        flat
+        definition={sysDef}
+        value={answers}
+        onChange={setAnswers}
+        structure={cascadeStructure}
+        submitting={busy}
+      />
+
+      <Separator />
+
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="ap-notes">Admissions notes</Label>
+        <Textarea
+          id="ap-notes"
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          placeholder="e.g. Sibling already enrolled in SSS 2 (optional)"
+          rows={2}
+        />
+      </div>
+
+      <div className="flex items-center justify-end gap-2">
+        {onCancel && (
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={onCancel}
+            disabled={busy}
+          >
+            Cancel
+          </Button>
+        )}
+        <Button type="button" onClick={() => void submit()} disabled={busy}>
+          {busy ? 'Submitting…' : 'Submit application'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function BespokeApplicationForm({
   structure,
   onCreated,
   onCancel,

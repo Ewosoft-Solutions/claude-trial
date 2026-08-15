@@ -206,6 +206,23 @@ export function visibleSections(def: FormDefinition): FormSection[] {
   return def.sections.filter((s) => !s.hidden);
 }
 
+/**
+ * The definition with only the SYSTEM (bound) sections — the standard intake
+ * fields the New Application / apply forms render + map to `createApplication`.
+ */
+export function systemSectionsOnly(def: FormDefinition): FormDefinition {
+  return { ...def, sections: def.sections.filter((s) => s.system) };
+}
+
+/**
+ * The definition WITHOUT the system sections — the respondent-facing custom
+ * questions that make up a form RESPONSE (the bound system data is captured via
+ * bindings at intake, not as a response answer).
+ */
+export function withoutSystemSections(def: FormDefinition): FormDefinition {
+  return { ...def, sections: def.sections.filter((s) => !s.system) };
+}
+
 /** A section's rendered items (drops `hidden` ones). */
 export function visibleItems(section: FormSection): FormItem[] {
   return section.items.filter((i) => !i.hidden);

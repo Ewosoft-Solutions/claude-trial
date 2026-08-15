@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 
 import { Button } from '@workspace/ui/components/button';
 import { FormRenderer } from '@workspace/ui/custom/forms/form-renderer';
+import { withoutSystemSections } from '@workspace/forms';
 
 import {
   errorMessage,
@@ -43,7 +44,7 @@ export function FormResponsePanel({
         <p>No application form has been published yet.</p>
         {perms.criteria && (
           <Button asChild variant="outline" size="sm" className="w-fit">
-            <Link href="/students/admissions/forms">
+            <Link href="/students/admissions/form">
               Build the application form
             </Link>
           </Button>
@@ -53,6 +54,22 @@ export function FormResponsePanel({
   }
 
   const readOnly = !perms.create;
+
+  // The response covers the school's own (custom) questions; the standard fields
+  // are the bound system sections, captured structurally on the application.
+  const customDefinition = withoutSystemSections(form.definition);
+  const hasCustomQuestions = customDefinition.sections.some(
+    (s) => s.items.length > 0,
+  );
+
+  if (!hasCustomQuestions) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        This form has no additional questions beyond the standard applicant,
+        class and guardian details.
+      </p>
+    );
+  }
 
   async function save(a: Record<string, unknown>) {
     setBusy(true);
@@ -81,10 +98,10 @@ export function FormResponsePanel({
   return (
     <div className="flex flex-col gap-4">
       <span className="text-xs text-muted-foreground">
-        {form.definition.title} · v{form.version}
+        {customDefinition.title} · v{form.version}
       </span>
       <FormRenderer
-        definition={form.definition}
+        definition={customDefinition}
         value={answers}
         onChange={setAnswers}
         onSubmit={readOnly ? undefined : save}

@@ -48,14 +48,21 @@ type Draft = { id: string | null; definition: FormDefinition };
 export function FormsBuilder({
   versions,
   canManage,
+  campusId,
+  embedded,
 }: {
   versions: FormVersion[];
   canManage: boolean;
+  /** Author a per-campus variant; omitted / '' = the school default. */
+  campusId?: string;
+  /** Rendered inside the unified authoring shell — skip the page chrome. */
+  embedded?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
   const [draft, setDraft] = React.useState<Draft | null>(null);
   const current = versions.find((v) => v.status === 'published');
+  const q = campusId ? `?campusId=${encodeURIComponent(campusId)}` : '';
 
   async function send(
     path: string,
@@ -65,7 +72,7 @@ export function FormsBuilder({
   ): Promise<boolean> {
     setBusy(true);
     try {
-      const res = await fetch(`/api/admissions/${path}`, {
+      const res = await fetch(`/api/admissions/${path}${q}`, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -104,8 +111,8 @@ export function FormsBuilder({
   }
 
   if (draft) {
-    return (
-      <ShellMain className="gap-6">
+    const draftBody = (
+      <>
         <div>
           <Button
             variant="ghost"
@@ -136,25 +143,32 @@ export function FormsBuilder({
             Save draft
           </Button>
         </div>
-      </ShellMain>
+      </>
+    );
+    return embedded ? (
+      <div className="flex flex-col gap-6">{draftBody}</div>
+    ) : (
+      <ShellMain className="gap-6">{draftBody}</ShellMain>
     );
   }
 
-  return (
-    <ShellMain className="gap-6">
-      <div>
-        <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
-          <Link href="/students/admissions">
-            <ArrowLeft className="mr-1 size-4" aria-hidden /> Admissions
-          </Link>
-        </Button>
-        <PageTitle>Application form</PageTitle>
-        <p className="text-sm text-muted-foreground">
-          The school&rsquo;s own questionnaire — sections, question types and
-          branching. Publishing a new version supersedes the current one without
-          touching answers already captured.
-        </p>
-      </div>
+  const listBody = (
+    <>
+      {!embedded && (
+        <div>
+          <Button asChild variant="ghost" size="sm" className="mb-2 -ml-2">
+            <Link href="/students/admissions">
+              <ArrowLeft className="mr-1 size-4" aria-hidden /> Admissions
+            </Link>
+          </Button>
+          <PageTitle>Application form</PageTitle>
+          <p className="text-sm text-muted-foreground">
+            The school&rsquo;s own questionnaire — sections, question types and
+            branching. Publishing a new version supersedes the current one
+            without touching answers already captured.
+          </p>
+        </div>
+      )}
 
       {canManage && (
         <div>
@@ -262,6 +276,12 @@ export function FormsBuilder({
           })}
         </div>
       )}
-    </ShellMain>
+    </>
+  );
+
+  return embedded ? (
+    <div className="flex flex-col gap-6">{listBody}</div>
+  ) : (
+    <ShellMain className="gap-6">{listBody}</ShellMain>
   );
 }
