@@ -101,7 +101,7 @@ async function main() {
         if (!code) {
           resolved.push(null);
           unmapped.push({
-            tenant: tenant.slug,
+            tenant: tenant.slug ?? tenant.id,
             kind: 'year level',
             name: level.name,
             code: level.code,
@@ -142,7 +142,7 @@ async function main() {
         console.log(`  stage ${stage.name} → ${bands[0]}`);
       } else {
         unmapped.push({
-          tenant: tenant.slug,
+          tenant: tenant.slug ?? tenant.id,
           kind: 'stage',
           name: stage.name,
           code: stage.code,

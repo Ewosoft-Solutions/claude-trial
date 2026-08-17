@@ -147,9 +147,6 @@ async function main() {
     );
     let candidates = bySubject;
     if (bySubject.length > 1) {
-      const sectionLabel = [klass.name, klass.section]
-        .filter(Boolean)
-        .join(' ');
       const sections = await prisma.classSection.findMany({
         where: {
           tenantId: assessment.tenantId,
@@ -157,12 +154,38 @@ async function main() {
         },
         select: { id: true, displayLabel: true },
       });
-      const wanted = sections.filter(
-        (s) => fold(s.displayLabel) === fold(sectionLabel),
-      );
-      candidates = bySubject.filter((o) =>
-        wanted.some((s) => s.id === o.classSectionId),
-      );
+
+      // The ARM is `class.section` ("JSS2-A"); `ClassSection.displayLabel` is
+      // composed from level + stream + arm ("JSS2 A"), and folding makes those
+      // equal. Comparing `name + section` — where `name` is a descriptive
+      // "Mathematics JSS2-A" — produced "Mathematics JSS2-A JSS2-A", which can
+      // never equal a section label, so every subject with more than one
+      // offering was reported as "no matching offering" while the offering sat
+      // right there. Try the arm first, then the older composed forms.
+      const labels = [
+        klass.section,
+        [klass.name, klass.section].filter(Boolean).join(' '),
+        klass.name,
+      ].filter((label): label is string => Boolean(label?.trim()));
+
+      for (const label of labels) {
+        const wanted = sections.filter(
+          (s) => fold(s.displayLabel) === fold(label),
+        );
+        const narrowed = bySubject.filter((o) =>
+          wanted.some((s) => s.id === o.classSectionId),
+        );
+        if (narrowed.length === 1) {
+          candidates = narrowed;
+          break;
+        }
+        // A narrowing that is still ambiguous is better than none, but keep
+        // looking for one that resolves outright.
+        if (narrowed.length > 1) candidates = narrowed;
+      }
+      // If no label matched at all, candidates stays as `bySubject` so the
+      // report says "N offerings match — attach it by hand", which is true,
+      // rather than "no matching offering", which was not.
     }
 
     if (candidates.length === 1) {
