@@ -30,9 +30,11 @@ import {
 
 type Paginated<T> = { data?: T[] };
 
+/** Labels come resolved from whichever anchor the assessment carries. */
 interface ApiAssessment {
   id: string;
-  class?: { name?: string | null; section?: string | null } | null;
+  subjectLabel?: string | null;
+  classLabel?: string | null;
 }
 
 /**
@@ -84,8 +86,7 @@ function studentName(grade: ApiGrade): string {
 }
 
 function classLabel(assessment: ApiAssessment): string {
-  const cls = assessment.class;
-  return [cls?.name, cls?.section].filter(Boolean).join(' ') || 'Unassigned';
+  return assessment.classLabel || assessment.subjectLabel || 'Unassigned';
 }
 
 export default async function TranscriptsPage() {

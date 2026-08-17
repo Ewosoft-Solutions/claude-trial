@@ -554,7 +554,20 @@ export class ListAssessmentsDto extends PaginationDto {
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by classId',
+    description:
+      'Filter by subject offering (section × subject × year/term). Preferred; ' +
+      'takes precedence over classId when both are supplied.',
+    example: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
+  })
+  @IsOptional()
+  @IsString()
+  subjectOfferingId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'DEPRECATED legacy filter — the labelled-bag Class. Prefer ' +
+      'subjectOfferingId. With neither, the list is narrowed to everything ' +
+      'the caller teaches under EITHER anchor.',
     example: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
   })
   @IsOptional()

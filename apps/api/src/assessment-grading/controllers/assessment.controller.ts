@@ -79,6 +79,22 @@ export class AssessmentController {
     );
   }
 
+  // Declared before ':id' so the literal path is not captured as an id.
+  @Get('offerings')
+  @RequirePermissions(['assessments.view'])
+  @ApiOperation({
+    summary: 'Subject offerings the caller may author assessments for',
+    description:
+      'The workbench picker. Narrowed to the actor’s active teaching ' +
+      'assignments unless they hold the manage-all override.',
+  })
+  async offerings(@Request() req: AuthenticatedRequest) {
+    return this.gradingService.listTeachableOfferings(
+      req.user.tenantId,
+      this.actorFrom(req),
+    );
+  }
+
   @Get(':id')
   @RequirePermissions(['assessments.view'])
   @ApiOperation({ summary: 'Get assessment by ID' })

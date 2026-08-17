@@ -307,6 +307,120 @@ export class AssessmentGradingService {
     });
   }
 
+  /**
+   * Name the subject and class an assessment belongs to, from whichever anchor
+   * it carries.
+   *
+   * Without this, a structured assessment reaches the UI with a null `class`
+   * and renders as "Unassigned" — the offering that actually names it is a
+   * soft reference, so nothing follows it automatically. Resolved for a whole
+   * page at once rather than per row.
+   */
+  private async describeAssessmentAnchors<
+    T extends {
+      id: string;
+      subjectOfferingId: string | null;
+      classId: string | null;
+      class?: { name: string | null; section: string; course?: unknown } | null;
+    },
+  >(tenantId: string, assessments: T[]) {
+    const offeringIds = Array.from(
+      new Set(
+        assessments
+          .map((a) => a.subjectOfferingId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const offerings =
+      offeringIds.length > 0
+        ? await this.client.subjectOffering.findMany({
+            where: { id: { in: offeringIds }, tenantId },
+            select: {
+              id: true,
+              subjectLabel: true,
+              classSection: { select: { displayLabel: true } },
+            },
+          })
+        : [];
+    const offeringById = new Map(offerings.map((o) => [o.id, o]));
+
+    return assessments.map((assessment) => {
+      const offering = assessment.subjectOfferingId
+        ? offeringById.get(assessment.subjectOfferingId)
+        : undefined;
+      const legacyClass = assessment.class as
+        | {
+            name: string | null;
+            section: string;
+            course?: { subject?: string | null; name?: string | null } | null;
+          }
+        | null
+        | undefined;
+
+      return {
+        ...assessment,
+        anchor: (assessment.subjectOfferingId ? 'offering' : 'class') as
+          | 'offering'
+          | 'class',
+        subjectLabel: assessment.subjectOfferingId
+          ? (offering?.subjectLabel ?? null)
+          : (legacyClass?.course?.subject ?? legacyClass?.course?.name ?? null),
+        classLabel: assessment.subjectOfferingId
+          ? (offering?.classSection?.displayLabel ?? null)
+          : [legacyClass?.name, legacyClass?.section]
+              .filter(Boolean)
+              .join(' ') || null,
+      };
+    });
+  }
+
+  /**
+   * The subject offerings this actor may author assessments for — the picker
+   * behind the assessments workbench.
+   *
+   * Served from here rather than pointing the workbench at
+   * `/academics/structure/offerings`, which requires `academics.structure.view`:
+   * a teacher holds `assessments.view`, not the registrar's structure
+   * permission, so that endpoint would 403 exactly the people who need the
+   * picker. Mirrors how the workbench's old class picker was already narrowed
+   * to the actor's teaching assignments.
+   */
+  async listTeachableOfferings(tenantId: string, actor: AcademicsActor) {
+    const offerings = await this.client.subjectOffering.findMany({
+      where: {
+        tenantId,
+        status: 'active',
+        ...(actor.canManageAll
+          ? {}
+          : {
+              id: {
+                in: await this.access.getTaughtOfferingIds(
+                  tenantId,
+                  actor.profileId,
+                ),
+              },
+            }),
+      },
+      select: {
+        id: true,
+        subjectLabel: true,
+        academicYearId: true,
+        termId: true,
+        classSection: { select: { id: true, displayLabel: true } },
+      },
+      orderBy: [{ subjectLabel: 'asc' }],
+    });
+
+    return offerings.map((offering) => ({
+      id: offering.id,
+      subjectLabel: offering.subjectLabel,
+      classLabel: offering.classSection?.displayLabel ?? null,
+      classSectionId: offering.classSection?.id ?? null,
+      academicYearId: offering.academicYearId,
+      termId: offering.termId,
+    }));
+  }
+
   async listAssessments(
     tenantId: string,
     actor: AcademicsActor,
@@ -320,7 +434,21 @@ export class AssessmentGradingService {
       academicYear: { tenantId },
     };
 
-    if (filters.classId) {
+    // Narrowing to one anchor is an explicit filter; narrowing to "what this
+    // teacher takes" has to ask BOTH questions, because the two anchors coexist.
+    // Asking only the class question — as this did — meant a teacher's list
+    // omitted every structured assessment, so the work they were assigned to
+    // simply was not there.
+    if (filters.subjectOfferingId) {
+      if (!actor.canManageAll) {
+        await this.access.assertCanManageOffering(
+          tenantId,
+          actor,
+          filters.subjectOfferingId,
+        );
+      }
+      where.subjectOfferingId = filters.subjectOfferingId;
+    } else if (filters.classId) {
       if (!actor.canManageAll) {
         await this.access.assertCanManageClass(
           tenantId,
@@ -330,9 +458,14 @@ export class AssessmentGradingService {
       }
       where.classId = filters.classId;
     } else if (!actor.canManageAll) {
-      where.classId = {
-        in: await this.access.getTaughtClassIds(tenantId, actor.profileId),
-      };
+      const [taughtOfferingIds, taughtClassIds] = await Promise.all([
+        this.access.getTaughtOfferingIds(tenantId, actor.profileId),
+        this.access.getTaughtClassIds(tenantId, actor.profileId),
+      ]);
+      where.OR = [
+        { subjectOfferingId: { in: taughtOfferingIds } },
+        { subjectOfferingId: null, classId: { in: taughtClassIds } },
+      ];
     }
     if (filters.status) {
       this.assertValue(
@@ -371,7 +504,7 @@ export class AssessmentGradingService {
     ]);
 
     return {
-      data,
+      data: await this.describeAssessmentAnchors(tenantId, data),
       pagination: {
         page,
         limit,
@@ -394,14 +527,11 @@ export class AssessmentGradingService {
       },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    if (!actor.canManageAll) {
-      await this.access.assertCanManageClass(
-        tenantId,
-        actor,
-        assessment.classId,
-      );
-    }
-    return assessment;
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
+    const [described] = await this.describeAssessmentAnchors(tenantId, [
+      assessment,
+    ]);
+    return described;
   }
 
   async updateAssessment(
@@ -422,7 +552,7 @@ export class AssessmentGradingService {
       where: { id, academicYear: { tenantId } },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
     if (dto.gradingSystemId) {
       const gs = await this.client.gradingSystem.findFirst({
@@ -456,10 +586,10 @@ export class AssessmentGradingService {
   async deleteAssessment(tenantId: string, actor: AcademicsActor, id: string) {
     const assessment = await this.client.assessment.findFirst({
       where: { id, academicYear: { tenantId } },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, subjectOfferingId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
     await this.client.assessment.delete({ where: { id } });
     return { success: true };

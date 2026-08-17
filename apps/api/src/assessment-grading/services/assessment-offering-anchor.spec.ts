@@ -26,7 +26,10 @@ const teacher = {
 
 function makeService() {
   const client = {
-    subjectOffering: { findFirst: jest.fn() },
+    subjectOffering: {
+      findFirst: jest.fn(),
+      findMany: jest.fn(async () => [] as unknown[]),
+    },
     class: { findFirst: jest.fn() },
     term: { findFirst: jest.fn() },
     gradingSystem: { findFirst: jest.fn() },
@@ -34,11 +37,20 @@ function makeService() {
     student: { findMany: jest.fn(async () => [] as unknown[]) },
     enrollment: { findFirst: jest.fn() },
     offeringTeacher: { findFirst: jest.fn() },
-    assessment: { create: jest.fn(), findFirst: jest.fn() },
+    assessment: {
+      create: jest.fn(),
+      findFirst: jest.fn(),
+      findMany: jest.fn(async () => [] as unknown[]),
+      count: jest.fn(async () => 0),
+      update: jest.fn(async () => ({ id: 'a1' })),
+      delete: jest.fn(async () => ({ id: 'a1' })),
+    },
   };
   const access = {
     assertCanManageClass: jest.fn(),
     assertCanManageOffering: jest.fn(async () => undefined),
+    getTaughtOfferingIds: jest.fn(async () => ['off-1']),
+    getTaughtClassIds: jest.fn(async () => ['c-1']),
   };
   // Real signature: (db, tenantDb, prismaTx, access). The private `client`
   // getter picks tenantDb when scoped, so a scoped stub is all this needs.
@@ -470,5 +482,209 @@ describe('assessment analytics follows the anchor too', () => {
       'off-1',
     );
     expect(ctx.access.assertCanManageClass).not.toHaveBeenCalled();
+  });
+});
+
+describe('the /assessments family follows the anchor', () => {
+  let ctx: ReturnType<typeof makeService>;
+
+  beforeEach(() => {
+    ctx = makeService();
+  });
+
+  it("narrows a teacher's list to BOTH anchors, not just their classes", async () => {
+    // Regression: filtering only on `classId in taughtClassIds` omitted every
+    // structured assessment, so a teacher's list simply did not contain the
+    // work they had been assigned.
+    await ctx.service.listAssessments(TENANT, teacher as never, {} as never);
+
+    const arg = ctx.client.assessment.findMany.mock.calls[0]![0] as {
+      where: Record<string, any>;
+    };
+    expect(arg.where.OR).toEqual([
+      { subjectOfferingId: { in: ['off-1'] } },
+      { subjectOfferingId: null, classId: { in: ['c-1'] } },
+    ]);
+    expect(arg.where.classId).toBeUndefined();
+  });
+
+  it('filters by an explicit offering, guarded by the offering rule', async () => {
+    await ctx.service.listAssessments(
+      TENANT,
+      teacher as never,
+      {
+        subjectOfferingId: 'off-2',
+      } as never,
+    );
+
+    expect(ctx.access.assertCanManageOffering).toHaveBeenCalledWith(
+      TENANT,
+      teacher,
+      'off-2',
+    );
+    const arg = ctx.client.assessment.findMany.mock.calls[0]![0] as {
+      where: Record<string, any>;
+    };
+    expect(arg.where.subjectOfferingId).toBe('off-2');
+    expect(arg.where.OR).toBeUndefined();
+  });
+
+  it('does not narrow at all for the manage-all override', async () => {
+    await ctx.service.listAssessments(TENANT, admin as never, {} as never);
+
+    expect(ctx.access.getTaughtOfferingIds).not.toHaveBeenCalled();
+    const arg = ctx.client.assessment.findMany.mock.calls[0]![0] as {
+      where: Record<string, any>;
+    };
+    expect(arg.where.OR).toBeUndefined();
+  });
+
+  it('names the subject and class of a structured assessment', async () => {
+    ctx.client.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a1',
+        subjectOfferingId: 'off-1',
+        classId: null,
+        class: null,
+        name: 'Maths CA1',
+      },
+    ] as never);
+    ctx.client.subjectOffering.findMany.mockResolvedValue([
+      {
+        id: 'off-1',
+        subjectLabel: 'Mathematics',
+        classSection: { displayLabel: 'JSS 1 Gold' },
+      },
+    ] as never);
+
+    const page = await ctx.service.listAssessments(
+      TENANT,
+      admin as never,
+      {} as never,
+    );
+
+    // Without this the UI reads a null `class` and labels the row "Unassigned".
+    expect(page.data[0]).toMatchObject({
+      anchor: 'offering',
+      subjectLabel: 'Mathematics',
+      classLabel: 'JSS 1 Gold',
+    });
+  });
+
+  it('still names a LEGACY assessment from its class and course', async () => {
+    ctx.client.assessment.findMany.mockResolvedValue([
+      {
+        id: 'a2',
+        subjectOfferingId: null,
+        classId: 'c1',
+        class: {
+          name: 'JSS 1',
+          section: 'B',
+          course: { subject: 'English', name: 'English Language' },
+        },
+      },
+    ] as never);
+
+    const page = await ctx.service.listAssessments(
+      TENANT,
+      admin as never,
+      {} as never,
+    );
+
+    expect(page.data[0]).toMatchObject({
+      anchor: 'class',
+      subjectLabel: 'English',
+      classLabel: 'JSS 1 B',
+    });
+    expect(ctx.client.subjectOffering.findMany).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['getAssessment', (s: AssessmentGradingService) => s.getAssessment],
+    ['deleteAssessment', (s: AssessmentGradingService) => s.deleteAssessment],
+  ])(
+    'lets the assigned teacher through %s on a structured assessment',
+    async (_name, pick) => {
+      ctx.client.assessment.findFirst.mockResolvedValue({
+        id: 'a1',
+        classId: null,
+        subjectOfferingId: 'off-1',
+        class: null,
+      } as never);
+
+      await pick(ctx.service).call(ctx.service, TENANT, teacher as never, 'a1');
+
+      expect(ctx.access.assertCanManageOffering).toHaveBeenCalledWith(
+        TENANT,
+        teacher,
+        'off-1',
+      );
+      expect(ctx.access.assertCanManageClass).not.toHaveBeenCalled();
+    },
+  );
+
+  it('lets the assigned teacher edit a structured assessment', async () => {
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a1',
+      classId: null,
+      subjectOfferingId: 'off-1',
+    } as never);
+
+    await ctx.service.updateAssessment(TENANT, teacher as never, 'a1', {
+      name: 'Renamed',
+    } as never);
+
+    expect(ctx.access.assertCanManageOffering).toHaveBeenCalledWith(
+      TENANT,
+      teacher,
+      'off-1',
+    );
+    expect(ctx.client.assessment.update).toHaveBeenCalled();
+  });
+});
+
+describe('the workbench offering picker', () => {
+  it("lists only the teacher's own offerings", async () => {
+    const ctx = makeService();
+    ctx.client.subjectOffering.findMany.mockResolvedValue([
+      {
+        id: 'off-1',
+        subjectLabel: 'Mathematics',
+        academicYearId: 'y1',
+        termId: 't1',
+        classSection: { id: 'sec-1', displayLabel: 'JSS 1 Gold' },
+      },
+    ] as never);
+
+    const offerings = await ctx.service.listTeachableOfferings(
+      TENANT,
+      teacher as never,
+    );
+
+    const arg = ctx.client.subjectOffering.findMany.mock.calls[0]![0] as {
+      where: Record<string, any>;
+    };
+    expect(arg.where.id).toEqual({ in: ['off-1'] });
+    expect(offerings[0]).toEqual({
+      id: 'off-1',
+      subjectLabel: 'Mathematics',
+      classLabel: 'JSS 1 Gold',
+      classSectionId: 'sec-1',
+      academicYearId: 'y1',
+      termId: 't1',
+    });
+  });
+
+  it('lists every active offering for the manage-all override', async () => {
+    const ctx = makeService();
+
+    await ctx.service.listTeachableOfferings(TENANT, admin as never);
+
+    expect(ctx.access.getTaughtOfferingIds).not.toHaveBeenCalled();
+    const arg = ctx.client.subjectOffering.findMany.mock.calls[0]![0] as {
+      where: Record<string, any>;
+    };
+    expect(arg.where.id).toBeUndefined();
+    expect(arg.where.status).toBe('active');
   });
 });

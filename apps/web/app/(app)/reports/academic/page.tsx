@@ -22,10 +22,11 @@ type Paginated<T> = { data?: T[] };
 
 interface ApiAssessment {
   id: string;
-  title?: string | null;
+  name?: string | null;
   dueDate?: string | null;
   createdAt?: string | null;
-  class?: { name?: string | null; section?: string | null } | null;
+  subjectLabel?: string | null;
+  classLabel?: string | null;
 }
 
 interface ApiGrade {
@@ -63,7 +64,9 @@ function letterFor(grade: ApiGrade): string {
 }
 
 function assessmentLabel(assessment: ApiAssessment): string {
-  return assessment.title ?? assessment.class?.name ?? assessment.id;
+  // The model field is `name`; `title` never existed, so this fell through to
+  // the class name — and to a raw UUID once assessments stopped having a class.
+  return assessment.name ?? assessment.subjectLabel ?? assessment.id;
 }
 
 function dateLabel(value: string | null | undefined): string {

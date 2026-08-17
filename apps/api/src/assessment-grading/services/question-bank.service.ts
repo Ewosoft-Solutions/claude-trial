@@ -275,16 +275,33 @@ export class QuestionBankService {
     assessmentId: string,
   ) {
     const assessment = await this.client.assessment.findFirst({
-      where: { id: assessmentId, class: { academicYear: { tenantId } } },
+      // Scoped through `academicYear`, not `class`. A relation filter on
+      // `class` is a NOT-NULL test: a structured assessment has no class, so
+      // every paper operation on one returned "Assessment not found" — the row
+      // was there, the filter could not see it.
+      where: { id: assessmentId, academicYear: { tenantId } },
       select: {
         id: true,
         classId: true,
+        subjectOfferingId: true,
         status: true,
         class: { select: { courseId: true } },
       },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    if (assessment.subjectOfferingId) {
+      await this.access.assertCanManageOffering(
+        tenantId,
+        actor,
+        assessment.subjectOfferingId,
+      );
+    } else {
+      await this.access.assertCanManageClass(
+        tenantId,
+        actor,
+        assessment.classId,
+      );
+    }
     return assessment;
   }
 
@@ -303,6 +320,19 @@ export class QuestionBankService {
     const questionIds = dto.questions.map((q) => q.questionId);
     if (new Set(questionIds).size !== questionIds.length) {
       throw new BadRequestException('Duplicate questionIds in request');
+    }
+
+    // The bank is keyed on the legacy `Course`, which a structured assessment
+    // does not have — and an offering names a CurriculumSubject, with no bridge
+    // to a Course. Rather than read `assessment.class.courseId` off a null
+    // class, say plainly that the bank has not been re-keyed yet. Attaching
+    // from an unrelated course's bank would be the alternative, and that is
+    // worse than refusing.
+    if (!assessment.class) {
+      throw new BadRequestException(
+        'The question bank is still scoped to the legacy course, so questions ' +
+          'cannot be attached to a subject-offering assessment yet.',
+      );
     }
 
     // Paper questions must come from the bank of the course being assessed.

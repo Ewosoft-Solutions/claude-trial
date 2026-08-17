@@ -109,9 +109,34 @@ export interface QuestionSummary {
   updatedAt: string;
 }
 
+/**
+ * A subject offering — section × subject × year/term — as the assessments
+ * picker needs it. This is the structured anchor that replaces the legacy
+ * `Class` as the thing an assessment belongs to.
+ */
+export interface OfferingSummary {
+  id: string;
+  subjectLabel: string;
+  classLabel?: string | null;
+  classSectionId?: string | null;
+  academicYearId?: string | null;
+  termId?: string | null;
+}
+
 export interface AssessmentSummary {
   id: string;
-  classId: string;
+  /**
+   * An assessment carries ONE of two anchors: `subjectOfferingId` (section ×
+   * subject × year/term — what new ones key on) or the legacy `classId`. Both
+   * are nullable: a structured assessment has no class, and `class` on it is
+   * null. Read `subjectLabel`/`classLabel`, which the API resolves from
+   * whichever anchor is present, rather than reaching into `class`.
+   */
+  subjectOfferingId?: string | null;
+  classId?: string | null;
+  anchor?: 'offering' | 'class';
+  subjectLabel?: string | null;
+  classLabel?: string | null;
   name: string;
   type: string;
   maxPoints: number | string;
@@ -276,6 +301,17 @@ export function classLabel(cls: ClassSummary | null | undefined): string {
   const section = cls.name ?? `Section ${cls.section}`;
   const term = cls.term?.name ? `(${cls.term.name})` : null;
   return [course, section, term].filter(Boolean).join(' - ');
+}
+
+/** "Mathematics — JSS 1 Gold", falling back to whichever half is known. */
+export function offeringLabel(
+  offering: OfferingSummary | null | undefined,
+): string {
+  if (!offering) return 'Subject';
+  return (
+    [offering.subjectLabel, offering.classLabel].filter(Boolean).join(' — ') ||
+    'Subject'
+  );
 }
 
 export function courseLabel(course: CourseSummary): string {

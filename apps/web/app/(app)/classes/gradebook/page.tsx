@@ -21,11 +21,17 @@ import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
 type Paginated<T> = { data?: T[] };
 
+/**
+ * `subjectLabel`/`classLabel` are resolved by the API from whichever anchor the
+ * assessment carries. Reading `class` directly labelled every structured
+ * assessment "Unassigned", since those have no legacy class.
+ */
 interface ApiAssessment {
   id: string;
-  title?: string | null;
+  name?: string | null;
   maxPoints?: number | string | null;
-  class?: { name?: string | null; section?: string | null } | null;
+  subjectLabel?: string | null;
+  classLabel?: string | null;
 }
 
 /**
@@ -93,8 +99,11 @@ function studentName(grade: ApiGrade): string {
 }
 
 function classLabel(assessment: ApiAssessment | undefined): string {
-  const cls = assessment?.class;
-  return [cls?.name, cls?.section].filter(Boolean).join(' ') || 'Unassigned';
+  return (
+    [assessment?.subjectLabel, assessment?.classLabel]
+      .filter(Boolean)
+      .join(' · ') || 'Unassigned'
+  );
 }
 
 function gradeTone(letter: string, percentage: number | null): StateTone {
@@ -151,7 +160,9 @@ export default async function GradebookPage() {
         id: grade.id,
         student: studentName(grade),
         studentNumber: grade.student?.studentNumber ?? 'Unassigned',
-        assessment: assessment.title ?? assessment.id,
+        // The model field is `name`; reading `title` was always undefined, so
+        // this column showed a raw UUID.
+        assessment: assessment.name ?? assessment.id,
         className: classLabel(assessment),
         points: numeric(grade.pointsEarned),
         maxPoints: numeric(assessment.maxPoints),
