@@ -135,6 +135,10 @@ export class LearningService {
         where: {
           tenantId,
           ...(query.classId ? { classId: query.classId } : {}),
+          ...(query.curriculumSubjectId
+            ? { curriculumSubjectId: query.curriculumSubjectId }
+            : {}),
+          ...(query.chapterId ? { chapterId: query.chapterId } : {}),
           ...(query.status ? { status: query.status } : {}),
           ...(query.reviewStatus ? { reviewStatus: query.reviewStatus } : {}),
           ...restricted,

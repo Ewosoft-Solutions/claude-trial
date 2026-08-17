@@ -289,6 +289,15 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['academics.results.view'] },
             },
             {
+              // Under Academics, not Classes: a library lesson belongs to a
+              // SUBJECT and is taught by every section offering it.
+              key: 'lesson-library',
+              label: 'Lesson library',
+              icon: <BookOpen />,
+              href: '/academics/lessons',
+              access: { anyPermission: ['lessons.view'] },
+            },
+            {
               // Its own route, not a panel in the results workbench: a
               // transcript spans every published term rather than one cycle.
               key: 'transcripts',

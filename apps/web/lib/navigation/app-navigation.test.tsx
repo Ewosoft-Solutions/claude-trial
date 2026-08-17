@@ -463,6 +463,7 @@ describe('SCHOOL_NAV panel resolution', () => {
       'student-placement',
       'promotion',
       'results',
+      'lesson-library',
       'transcripts',
     ]);
     // …and those items no longer clutter the Classes panel.

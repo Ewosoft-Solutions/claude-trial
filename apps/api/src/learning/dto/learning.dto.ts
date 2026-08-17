@@ -98,10 +98,22 @@ export class UpdateLessonDto {
 }
 
 export class ListLessonsDto {
-  @ApiPropertyOptional({ example: 'a1b2c3d4-0000-0000-0000-000000000000' })
+  @ApiPropertyOptional({
+    description: 'DEPRECATED legacy filter — library lessons have no class',
+  })
   @IsOptional()
   @IsString()
   classId?: string;
+
+  @ApiPropertyOptional({ description: 'Library filter: the curriculum subject' })
+  @IsOptional()
+  @IsString()
+  curriculumSubjectId?: string;
+
+  @ApiPropertyOptional({ description: 'Library filter: the chapter' })
+  @IsOptional()
+  @IsString()
+  chapterId?: string;
 
   @ApiPropertyOptional({ enum: LESSON_STATUSES, example: 'published' })
   @IsOptional()
