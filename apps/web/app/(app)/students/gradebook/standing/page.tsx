@@ -35,20 +35,20 @@ interface ApiAssessment {
   class?: { name?: string | null; section?: string | null } | null;
 }
 
+/**
+ * The API resolves the student from whichever anchor the grade carries, so it
+ * arrives flat. Reaching it through `enrollment` (as this did) lost every grade
+ * on a structured assessment, where the enrolment is null.
+ */
 interface ApiGrade {
-  enrollmentId?: string | null;
+  studentId?: string | null;
   percentage?: number | string | null;
-  enrollment?: {
-    student?: {
-      studentNumber?: string | null;
-      userTenant?: {
-        user?: {
-          firstName?: string | null;
-          lastName?: string | null;
-          email?: string | null;
-        } | null;
-      } | null;
-    } | null;
+  student?: {
+    id?: string | null;
+    studentNumber?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
   } | null;
 }
 
@@ -75,10 +75,10 @@ function standingFor(averageScore: number): Standing {
 }
 
 function studentName(grade: ApiGrade): string {
-  const user = grade.enrollment?.student?.userTenant?.user;
+  const student = grade.student;
   return (
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-    user?.email ||
+    [student?.firstName, student?.lastName].filter(Boolean).join(' ') ||
+    student?.email ||
     'Unknown student'
   );
 }
@@ -111,12 +111,15 @@ export default async function TranscriptsPage() {
     for (const item of group.grades) {
       const score = numeric(item.percentage);
       if (score === null) continue;
+      // Group on the STUDENT: keying on the enrolment split one child's record
+      // across their enrolments, and left structured grades with no key at all.
       const key =
-        item.enrollmentId ??
-        item.enrollment?.student?.studentNumber ??
+        item.student?.id ??
+        item.studentId ??
+        item.student?.studentNumber ??
         studentName(item);
       const current = grouped.get(key) ?? {
-        id: item.enrollment?.student?.studentNumber ?? key,
+        id: item.student?.studentNumber ?? key,
         name: studentName(item),
         className: classLabel(group.assessment),
         scores: [],

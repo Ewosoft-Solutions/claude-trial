@@ -30,7 +30,8 @@ function makeService() {
     class: { findFirst: jest.fn() },
     term: { findFirst: jest.fn() },
     gradingSystem: { findFirst: jest.fn() },
-    grade: { findFirst: jest.fn(), create: jest.fn() },
+    grade: { findFirst: jest.fn(), create: jest.fn(), findMany: jest.fn() },
+    student: { findMany: jest.fn(async () => [] as unknown[]) },
     enrollment: { findFirst: jest.fn() },
     offeringTeacher: { findFirst: jest.fn() },
     assessment: { create: jest.fn(), findFirst: jest.fn() },
@@ -283,6 +284,32 @@ describe('grading an assessment follows ITS anchor', () => {
     expect(arg.data.studentId).toBe('stu-9');
   });
 
+  it('updates a grade on a STRUCTURED assessment through the offering guard', async () => {
+    ctx.client.grade.findFirst.mockResolvedValue({
+      id: 'g1',
+      pointsEarned: 40,
+      assessment: {
+        id: 'a1',
+        classId: null,
+        subjectOfferingId: 'off-1',
+        maxPoints: 100,
+        gradingSystem: null,
+      },
+    } as never);
+    ctx.client.grade.update = jest.fn(async () => ({ id: 'g1' })) as never;
+
+    await ctx.service.updateGrade(TENANT, teacher as never, 'g1', {
+      pointsEarned: 90,
+    } as never);
+
+    expect(ctx.access.assertCanManageOffering).toHaveBeenCalledWith(
+      TENANT,
+      teacher,
+      'off-1',
+    );
+    expect(ctx.access.assertCanManageClass).not.toHaveBeenCalled();
+  });
+
   it('refuses when neither a student nor an enrollment is named', async () => {
     ctx.client.assessment.findFirst.mockResolvedValue({
       id: 'a1',
@@ -303,5 +330,145 @@ describe('grading an assessment follows ITS anchor', () => {
         } as never,
       ),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+});
+
+describe('listGradesForAssessment names the student from either anchor', () => {
+  let ctx: ReturnType<typeof makeService>;
+
+  beforeEach(() => {
+    ctx = makeService();
+    ctx.client.student.findMany.mockResolvedValue([
+      {
+        id: 'stu-1',
+        studentNumber: 'STU-001',
+        userTenant: {
+          user: {
+            id: 'u1',
+            email: 'ada@school.test',
+            firstName: 'Ada',
+            lastName: 'Okoro',
+          },
+        },
+      },
+      {
+        id: 'stu-9',
+        studentNumber: 'STU-009',
+        userTenant: {
+          user: {
+            id: 'u9',
+            email: 'bola@school.test',
+            firstName: 'Bola',
+            lastName: 'Eze',
+          },
+        },
+      },
+    ] as never);
+  });
+
+  it('names the student on a STRUCTURED grade, which had no enrolment to reach through', async () => {
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a1',
+      classId: null,
+      subjectOfferingId: 'off-1',
+    } as never);
+    ctx.client.grade.findMany.mockResolvedValue([
+      { id: 'g1', studentId: 'stu-1', enrollmentId: null, enrollment: null },
+    ] as never);
+
+    const grades = await ctx.service.listGradesForAssessment(
+      TENANT,
+      teacher as never,
+      'a1',
+    );
+
+    // Before this, the include reached the student through `enrollment` — null
+    // on every structured grade — so the gradebook rendered a blank name.
+    expect(grades[0]!.student).toMatchObject({
+      id: 'stu-1',
+      studentNumber: 'STU-001',
+      firstName: 'Ada',
+      lastName: 'Okoro',
+    });
+    expect(ctx.access.assertCanManageOffering).toHaveBeenCalledWith(
+      TENANT,
+      teacher,
+      'off-1',
+    );
+  });
+
+  it('still names the student on a LEGACY grade, through its enrolment', async () => {
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a2',
+      classId: 'c1',
+      subjectOfferingId: null,
+    } as never);
+    ctx.client.grade.findMany.mockResolvedValue([
+      {
+        id: 'g2',
+        studentId: null,
+        enrollmentId: 'enr-1',
+        enrollment: { id: 'enr-1', studentId: 'stu-9' },
+      },
+    ] as never);
+
+    const grades = await ctx.service.listGradesForAssessment(
+      TENANT,
+      teacher as never,
+      'a2',
+    );
+
+    expect(grades[0]!.student).toMatchObject({ studentNumber: 'STU-009' });
+    // The resolved student is surfaced on the row itself, so a consumer never
+    // has to know which anchor the grade happened to carry.
+    expect(grades[0]!.studentId).toBe('stu-9');
+    expect(ctx.access.assertCanManageClass).toHaveBeenCalled();
+  });
+
+  it('returns a null student rather than throwing when the row names nobody', async () => {
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a1',
+      classId: null,
+      subjectOfferingId: 'off-1',
+    } as never);
+    ctx.client.grade.findMany.mockResolvedValue([
+      { id: 'g3', studentId: null, enrollmentId: null, enrollment: null },
+    ] as never);
+
+    const grades = await ctx.service.listGradesForAssessment(
+      TENANT,
+      teacher as never,
+      'a1',
+    );
+
+    expect(grades[0]!.student).toBeNull();
+    expect(ctx.client.student.findMany).not.toHaveBeenCalled();
+  });
+});
+
+describe('assessment analytics follows the anchor too', () => {
+  it('does not ask the class question for a structured assessment', async () => {
+    const ctx = makeService();
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a1',
+      classId: null,
+      subjectOfferingId: 'off-1',
+    } as never);
+    ctx.client.grade.findMany.mockResolvedValue([] as never);
+    ctx.client.grade.aggregate = jest.fn(async () => ({
+      _avg: {},
+      _min: {},
+      _max: {},
+      _count: { _all: 0 },
+    })) as never;
+
+    await ctx.service.getAssessmentAnalytics(TENANT, teacher as never, 'a1');
+
+    expect(ctx.access.assertCanManageOffering).toHaveBeenCalledWith(
+      TENANT,
+      teacher,
+      'off-1',
+    );
+    expect(ctx.access.assertCanManageClass).not.toHaveBeenCalled();
   });
 });

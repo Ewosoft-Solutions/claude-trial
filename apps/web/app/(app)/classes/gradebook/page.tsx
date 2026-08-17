@@ -28,6 +28,13 @@ interface ApiAssessment {
   class?: { name?: string | null; section?: string | null } | null;
 }
 
+/**
+ * The grade's student is resolved by the API from whichever anchor the row
+ * carries — `studentId` on a re-keyed grade, its enrolment on a legacy one —
+ * so it is a flat object here. It used to be reached through `enrollment`,
+ * which is null on every grade of a structured assessment; those rows showed
+ * up as "Unknown student".
+ */
 interface ApiGrade {
   id: string;
   assessmentId?: string | null;
@@ -35,17 +42,12 @@ interface ApiGrade {
   percentage?: number | string | null;
   letterGrade?: string | null;
   status?: string | null;
-  enrollment?: {
-    student?: {
-      studentNumber?: string | null;
-      userTenant?: {
-        user?: {
-          firstName?: string | null;
-          lastName?: string | null;
-          email?: string | null;
-        } | null;
-      } | null;
-    } | null;
+  student?: {
+    id?: string | null;
+    studentNumber?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
   } | null;
 }
 
@@ -82,10 +84,10 @@ function initials(name: string): string {
 }
 
 function studentName(grade: ApiGrade): string {
-  const user = grade.enrollment?.student?.userTenant?.user;
+  const student = grade.student;
   return (
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-    user?.email ||
+    [student?.firstName, student?.lastName].filter(Boolean).join(' ') ||
+    student?.email ||
     'Unknown student'
   );
 }
@@ -148,7 +150,7 @@ export default async function GradebookPage() {
       return {
         id: grade.id,
         student: studentName(grade),
-        studentNumber: grade.enrollment?.student?.studentNumber ?? 'Unassigned',
+        studentNumber: grade.student?.studentNumber ?? 'Unassigned',
         assessment: assessment.title ?? assessment.id,
         className: classLabel(assessment),
         points: numeric(grade.pointsEarned),

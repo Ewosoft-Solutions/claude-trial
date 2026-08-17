@@ -524,19 +524,7 @@ export class AssessmentGradingService {
     // Access follows the assessment's OWN anchor. A structured assessment has
     // no class, so asking the class-teacher question would refuse every teacher
     // — which is exactly what happened until this branch existed.
-    if (assessment.subjectOfferingId) {
-      await this.access.assertCanManageOffering(
-        tenantId,
-        actor,
-        assessment.subjectOfferingId,
-      );
-    } else {
-      await this.access.assertCanManageClass(
-        tenantId,
-        actor,
-        assessment.classId,
-      );
-    }
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
     // Resolve who is being graded. `studentId` is the anchor a grade keeps;
     // `enrollmentId` is the legacy path and is translated to a student here so
@@ -624,10 +612,10 @@ export class AssessmentGradingService {
       },
     });
     if (!grade) throw new NotFoundException('Grade not found');
-    await this.access.assertCanManageClass(
+    await this.assertCanManageAssessmentAnchor(
       tenantId,
       actor,
-      grade.assessment.classId,
+      grade.assessment,
     );
 
     const currentPoints =
@@ -664,6 +652,88 @@ export class AssessmentGradingService {
     });
   }
 
+  /**
+   * Guard anything hanging off an assessment by following the assessment's OWN
+   * anchor. A structured assessment has no class, so asking the class-teacher
+   * question refuses every teacher — the defect fixed for createGrade, and the
+   * same trap is set for every other reader that assumes a `classId`.
+   */
+  private async assertCanManageAssessmentAnchor(
+    tenantId: string,
+    actor: AcademicsActor,
+    assessment: { classId: string | null; subjectOfferingId: string | null },
+  ): Promise<void> {
+    if (assessment.subjectOfferingId) {
+      await this.access.assertCanManageOffering(
+        tenantId,
+        actor,
+        assessment.subjectOfferingId,
+      );
+      return;
+    }
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+  }
+
+  /**
+   * Who each of these grades belongs to, by student id.
+   *
+   * `Grade.studentId` has no Prisma relation (the re-key added the column and
+   * the DB foreign key, not a relation), so naming the student is its own read
+   * rather than an include — and it has to be, because the include that WAS
+   * here reached the student through `enrollment`, which is null on every
+   * structured grade. Those rows rendered with a blank name.
+   */
+  private async resolveGradeStudents(
+    tenantId: string,
+    studentIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        id: string;
+        studentNumber: string | null;
+        firstName: string | null;
+        lastName: string | null;
+        email: string | null;
+      }
+    >
+  > {
+    if (studentIds.length === 0) return new Map();
+
+    const students = await this.client.student.findMany({
+      where: { id: { in: studentIds }, tenantId },
+      select: {
+        id: true,
+        studentNumber: true,
+        userTenant: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return new Map(
+      students.map((student) => [
+        student.id,
+        {
+          id: student.id,
+          studentNumber: student.studentNumber ?? null,
+          firstName: student.userTenant?.user?.firstName ?? null,
+          lastName: student.userTenant?.user?.lastName ?? null,
+          email: student.userTenant?.user?.email ?? null,
+        },
+      ]),
+    );
+  }
+
   async listGradesForAssessment(
     tenantId: string,
     actor: AcademicsActor,
@@ -671,35 +741,36 @@ export class AssessmentGradingService {
   ) {
     const assessment = await this.client.assessment.findFirst({
       where: { id: assessmentId, academicYear: { tenantId } },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, subjectOfferingId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
-    return this.client.grade.findMany({
+    const grades = await this.client.grade.findMany({
       where: { assessmentId },
-      include: {
-        enrollment: {
-          include: {
-            student: {
-              include: {
-                userTenant: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: { enrollment: { select: { id: true, studentId: true } } },
+    });
+
+    // Either anchor names the student: `studentId` on a re-keyed row, the
+    // enrolment on one the backfill has not reached yet.
+    const studentById = await this.resolveGradeStudents(
+      tenantId,
+      Array.from(
+        new Set(
+          grades
+            .map((g) => g.studentId ?? g.enrollment?.studentId ?? null)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ),
+    );
+
+    return grades.map((grade) => {
+      const studentId = grade.studentId ?? grade.enrollment?.studentId ?? null;
+      return {
+        ...grade,
+        studentId,
+        student: (studentId ? studentById.get(studentId) : undefined) ?? null,
+      };
     });
   }
 
@@ -776,10 +847,10 @@ export class AssessmentGradingService {
   ) {
     const assessment = await this.client.assessment.findFirst({
       where: { id: assessmentId, academicYear: { tenantId } },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, subjectOfferingId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
     const grades = await this.client.grade.findMany({
       where: { assessmentId },

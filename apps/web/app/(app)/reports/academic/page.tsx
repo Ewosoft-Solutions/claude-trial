@@ -29,7 +29,7 @@ interface ApiAssessment {
 }
 
 interface ApiGrade {
-  enrollmentId?: string | null;
+  studentId?: string | null;
   percentage?: number | string | null;
   letterGrade?: string | null;
 }
@@ -100,7 +100,11 @@ export default async function AcademicReportPage() {
   const scored = grades.map(percentageOf).filter((value): value is number => value !== null);
   const passCount = scored.filter((value) => value >= 50).length;
   const atRisk = scored.filter((value) => value < 50).length;
-  const assessedStudents = new Set(grades.map((grade) => grade.enrollmentId).filter(Boolean)).size;
+  // Count distinct STUDENTS. Counting enrolment ids skipped every grade on a
+  // structured assessment, which has none — the headline undercounted.
+  const assessedStudents = new Set(
+    grades.map((grade) => grade.studentId).filter(Boolean),
+  ).size;
 
   const stats: StatItem[] = [
     { key: 'avg', label: 'Average score', value: `${average(scored)}%` },
