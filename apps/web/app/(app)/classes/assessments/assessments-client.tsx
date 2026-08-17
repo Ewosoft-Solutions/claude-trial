@@ -138,9 +138,10 @@ export function AssessmentsClient({
     assessments.find((assessment) => assessment.id === selectedId) ?? null;
   const selectedOffering =
     initialOfferings.find((offering) => offering.id === offeringId) ?? null;
-  // A structured assessment has no legacy course, and the question bank is
-  // still keyed on one — so its paper cannot be built here yet.
-  const bankUnavailable = selected ? selected.anchor !== 'class' : false;
+  // Read inside the detail loader without making the offerings a dependency of
+  // it — the list is stable for the life of the page.
+  const offeringsRef = React.useRef(initialOfferings);
+  offeringsRef.current = initialOfferings;
   const visibleAssessments = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
     return assessments.filter((assessment) => {
@@ -166,18 +167,26 @@ export function AssessmentsClient({
       setLoadingDetail(true);
       setError(null);
       try {
-        // Only a legacy class-anchored assessment has a course, and the bank is
-        // keyed on the course. For a structured one there is nothing to fetch.
-        const courseId = assessment.class?.course?.id;
+        // The bank follows the assessment's own anchor: a structured one draws
+        // from its offering's SUBJECT bank, a legacy one from its course's.
+        const curriculumSubjectId = assessment.subjectOfferingId
+          ? (offeringsRef.current.find(
+              (offering) => offering.id === assessment.subjectOfferingId,
+            )?.curriculumSubjectId ?? null)
+          : null;
+        const bankQuery = curriculumSubjectId
+          ? new URLSearchParams({ curriculumSubjectId, limit: '100' })
+          : !assessment.subjectOfferingId && assessment.class?.course?.id
+            ? new URLSearchParams({
+                courseId: assessment.class.course.id,
+                limit: '100',
+              })
+            : null;
         const [paperRes, submissionsRes, bankRes] = await Promise.all([
           fetch(academicsApi(`assessments/${assessment.id}/questions`)),
           fetch(academicsApi(`assessments/${assessment.id}/submissions`)),
-          courseId
-            ? fetch(
-                academicsApi(
-                  `questions?${new URLSearchParams({ courseId, limit: '100' })}`,
-                ),
-              )
+          bankQuery
+            ? fetch(academicsApi(`questions?${bankQuery}`))
             : Promise.resolve(null),
         ]);
         if (!paperRes.ok) throw new Error(await readError(paperRes));
@@ -193,7 +202,7 @@ export function AssessmentsClient({
             ((await bankRes.json()) as QuestionSummary[] | null) ?? [];
           setBank(nextBank);
           setQuestionId(nextBank[0]?.id ?? '');
-        } else if (!courseId) {
+        } else if (!bankQuery) {
           setBank([]);
           setQuestionId('');
         }
@@ -433,13 +442,6 @@ export function AssessmentsClient({
           tone="info"
           title="No assigned subjects"
           description="Only subjects from your active teaching assignments are available here."
-        />
-      ) : null}
-      {bankUnavailable ? (
-        <NoticeBanner
-          tone="warning"
-          title="Question paper unavailable for this subject"
-          description="The question bank is still organised by the legacy course, which a subject offering has no link to. Marks can be entered for this assessment, but its question paper cannot be built here yet."
         />
       ) : null}
       {error ? (
@@ -713,13 +715,7 @@ export function AssessmentsClient({
                         {paper.length} questions attached
                       </p>
                     </div>
-                    {canEdit && bankUnavailable ? (
-                      <p className="max-w-prose text-xs text-muted-foreground">
-                        The question bank is organised by the legacy course, so
-                        there is none to draw from for a subject offering yet.
-                      </p>
-                    ) : null}
-                    {canEdit && !bankUnavailable ? (
+                    {canEdit ? (
                       <div className="grid gap-2 @3xl/main:grid-cols-[minmax(14rem,1fr)_6rem_auto] @3xl/main:items-end">
                         <div className="grid gap-1.5">
                           <Label htmlFor="bank-question">Question</Label>

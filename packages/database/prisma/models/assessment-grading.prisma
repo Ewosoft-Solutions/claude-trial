@@ -204,7 +204,18 @@ model Grade {
 model Question {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
-  courseId String @map("course_id") // Bank is scoped to a course (outlives any one class)
+
+  /// The structured anchor: the CURRICULUM SUBJECT this bank entry belongs to.
+  /// A soft reference to curriculum.curriculum_subjects (nullable tenant_id, so
+  /// rows may be shared national content) validated in-service — the same
+  /// convention SubjectOffering.curriculumSubjectId uses. A bank keyed here
+  /// outlives any one course, class or section, which is the whole point of a
+  /// bank.
+  curriculumSubjectId String? @map("curriculum_subject_id")
+
+  /// DEPRECATED legacy pointer to the labelled-bag `Course`. Nullable so a new
+  /// entry need not fabricate one; dropped once every reader uses the subject.
+  courseId String? @map("course_id")
 
   style       String  @default("mcq") // 'mcq' | 'true_false' | 'short_answer' | 'essay'
   instruction String? // e.g., "Choose the correct option"
@@ -229,11 +240,12 @@ model Question {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  course              Course               @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  course              Course?              @relation(fields: [courseId], references: [id], onDelete: Cascade)
   assessmentQuestions AssessmentQuestion[]
 
   @@index([tenantId])
   @@index([tenantId, courseId])
+  @@index([tenantId, curriculumSubjectId])
   @@index([tenantId, style])
   @@index([tenantId, isActive])
   @@map("questions")

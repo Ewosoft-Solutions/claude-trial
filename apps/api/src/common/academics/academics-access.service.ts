@@ -100,6 +100,32 @@ export class AcademicsAccessService {
   }
 
   /**
+   * Curriculum subject ids this profile teaches at least one offering of — the
+   * subject-scoped counterpart to getTaughtCourseIds, for the question bank and
+   * any other library content that belongs to a SUBJECT rather than a class.
+   */
+  async getTaughtCurriculumSubjectIds(
+    tenantId: string,
+    profileId: string,
+  ): Promise<string[]> {
+    // OfferingTeacher has no Prisma relation to SubjectOffering (the WB2
+    // convention keeps the modules decoupled), so this is two reads.
+    const assignments = await this.client.offeringTeacher.findMany({
+      where: { tenantId, userTenantId: profileId, isActive: true },
+      select: { subjectOfferingId: true },
+    });
+    if (assignments.length === 0) return [];
+    const offerings = await this.client.subjectOffering.findMany({
+      where: {
+        tenantId,
+        id: { in: assignments.map((a) => a.subjectOfferingId) },
+      },
+      select: { curriculumSubjectId: true },
+    });
+    return Array.from(new Set(offerings.map((o) => o.curriculumSubjectId)));
+  }
+
+  /**
    * Does this actor teach ANY offering of a curriculum subject? This is the
    * right question for LIBRARY content, which belongs to a subject rather than
    * to one class, so no single offering can answer it.

@@ -93,9 +93,21 @@ export interface QuestionOption {
   imageKey?: string;
 }
 
+/** A curriculum subject, as the question-bank picker needs it. */
+export interface SubjectSummary {
+  id: string;
+  name: string;
+}
+
 export interface QuestionSummary {
   id: string;
-  courseId: string;
+  /**
+   * A bank entry carries ONE of two anchors: `curriculumSubjectId` (the
+   * subject the bank belongs to — what new entries key on) or the legacy
+   * `courseId`. Both are nullable while the backfill runs.
+   */
+  curriculumSubjectId?: string | null;
+  courseId?: string | null;
   style: QuestionStyle;
   instruction: string | null;
   text: string;
@@ -117,6 +129,8 @@ export interface QuestionSummary {
 export interface OfferingSummary {
   id: string;
   subjectLabel: string;
+  /** The curriculum subject whose question bank this offering draws from. */
+  curriculumSubjectId?: string | null;
   classLabel?: string | null;
   classSectionId?: string | null;
   academicYearId?: string | null;

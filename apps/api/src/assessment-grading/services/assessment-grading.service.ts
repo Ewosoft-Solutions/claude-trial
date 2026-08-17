@@ -404,6 +404,7 @@ export class AssessmentGradingService {
       select: {
         id: true,
         subjectLabel: true,
+        curriculumSubjectId: true,
         academicYearId: true,
         termId: true,
         classSection: { select: { id: true, displayLabel: true } },
@@ -414,6 +415,8 @@ export class AssessmentGradingService {
     return offerings.map((offering) => ({
       id: offering.id,
       subjectLabel: offering.subjectLabel,
+      // The bank an assessment on this offering draws from.
+      curriculumSubjectId: offering.curriculumSubjectId,
       classLabel: offering.classSection?.displayLabel ?? null,
       classSectionId: offering.classSection?.id ?? null,
       academicYearId: offering.academicYearId,

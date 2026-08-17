@@ -46,6 +46,7 @@ async function main() {
     classTeachers,
     assessmentsUnmapped,
     lessonsUnmapped,
+    questionsUnmapped,
     gradesUnmapped,
     submissionsUnmapped,
   ] = await Promise.all([
@@ -55,6 +56,7 @@ async function main() {
     prisma.classTeacher.count(),
     prisma.assessment.count({ where: { subjectOfferingId: null } }),
     prisma.lesson.count({ where: { curriculumSubjectId: null } }),
+    prisma.question.count({ where: { curriculumSubjectId: null } }),
     prisma.grade.count({ where: { studentId: null } }),
     prisma.assessmentSubmission.count({ where: { studentId: null } }),
   ]);
@@ -75,6 +77,15 @@ async function main() {
       consequence:
         'assessments.class_id cascades — dropping Class DELETES these assessments and their grades',
       fix: 'db:backfill:assessment-offerings, then attach whatever it reports by hand',
+    });
+  }
+  if (questionsUnmapped > 0) {
+    blockers.push({
+      what: 'question bank entries with no curriculum subject',
+      count: questionsUnmapped,
+      consequence:
+        'questions.course_id cascades — dropping Course DELETES these bank entries, and any assessment paper built from them',
+      fix: 'db:backfill:question-subjects, then attach whatever it reports by hand',
     });
   }
   if (lessonsUnmapped > 0) {

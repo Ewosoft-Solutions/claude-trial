@@ -70,7 +70,7 @@ export class QuestionController {
   @Get()
   @RequirePermissions(['questions.view'])
   @ApiOperation({
-    summary: 'List question bank entries (filter by course/style/difficulty)',
+    summary: 'List question bank entries (filter by subject/style/difficulty)',
   })
   async list(
     @Query() query: ListQuestionsDto,
@@ -80,6 +80,22 @@ export class QuestionController {
       req.user.tenantId,
       this.actorFrom(req),
       query,
+    );
+  }
+
+  // Declared before ':id' so the literal path is not captured as an id.
+  @Get('subjects')
+  @RequirePermissions(['questions.view'])
+  @ApiOperation({
+    summary: 'Curriculum subjects the caller may author bank entries for',
+    description:
+      'The question-bank picker. Narrowed to the actor’s active teaching ' +
+      'assignments unless they hold the manage-all override.',
+  })
+  async subjects(@Request() req: AuthenticatedRequest) {
+    return this.questionBank.listTeachableSubjects(
+      req.user.tenantId,
+      this.actorFrom(req),
     );
   }
 

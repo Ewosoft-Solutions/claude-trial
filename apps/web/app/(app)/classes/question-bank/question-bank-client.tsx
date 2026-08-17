@@ -13,9 +13,8 @@ import {
 import { useViewer } from '@/app/providers/viewer-provider';
 import {
   academicsApi,
-  courseLabel,
   readError,
-  type CourseSummary,
+  type SubjectSummary,
   type QuestionOption,
   type QuestionStyle,
   type QuestionSummary,
@@ -91,9 +90,9 @@ function formFromQuestion(question: QuestionSummary | null): QuestionForm {
   };
 }
 
-function cleanPayload(courseId: string, form: QuestionForm) {
+function cleanPayload(curriculumSubjectId: string, form: QuestionForm) {
   const base = {
-    courseId,
+    curriculumSubjectId,
     style: form.style,
     instruction: form.instruction.trim() || undefined,
     text: form.text.trim(),
@@ -127,20 +126,22 @@ function cleanPayload(courseId: string, form: QuestionForm) {
 
 export function QuestionBankClient({
   live,
-  initialCourses,
+  initialSubjects,
   initialQuestions,
 }: {
   live: boolean;
-  initialCourses: CourseSummary[];
+  initialSubjects: SubjectSummary[];
   initialQuestions: QuestionSummary[];
 }) {
   const { viewer } = useViewer();
   const canCreate = viewer.permissions.has('questions.create');
   const canEdit = viewer.permissions.has('questions.edit');
   const canDelete = viewer.permissions.has('questions.delete');
-  const hasCourses = initialCourses.length > 0;
+  const hasSubjects = initialSubjects.length > 0;
 
-  const [courseId, setCourseId] = React.useState(initialCourses[0]?.id ?? '');
+  const [subjectId, setSubjectId] = React.useState(
+    initialSubjects[0]?.id ?? '',
+  );
   const [questions, setQuestions] = React.useState(initialQuestions);
   const [selectedId, setSelectedId] = React.useState(
     initialQuestions[0]?.id ?? '',
@@ -177,8 +178,8 @@ export function QuestionBankClient({
     });
   }, [questions, query, styleFilter]);
 
-  async function loadQuestions(nextCourseId: string) {
-    setCourseId(nextCourseId);
+  async function loadQuestions(nextSubjectId: string) {
+    setSubjectId(nextSubjectId);
     setLoading(true);
     setError(null);
     try {
@@ -188,7 +189,7 @@ export function QuestionBankClient({
         return;
       }
       const params = new URLSearchParams({
-        courseId: nextCourseId,
+        curriculumSubjectId: nextSubjectId,
         limit: '100',
       });
       const res = await fetch(academicsApi(`questions?${params}`));
@@ -219,20 +220,20 @@ export function QuestionBankClient({
   }
 
   async function saveQuestion() {
-    if (!courseId || !form.text.trim() || !live) return;
+    if (!subjectId || !form.text.trim() || !live) return;
     const editing = Boolean(selected);
     if ((editing && !canEdit) || (!editing && !canCreate)) return;
     setBusy(true);
     setError(null);
     try {
-      const payload = cleanPayload(courseId, form);
+      const payload = cleanPayload(subjectId, form);
       const res = await fetch(
         academicsApi(editing ? `questions/${selected!.id}` : 'questions'),
         {
           method: editing ? 'PATCH' : 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(
-            editing ? { ...payload, courseId: undefined } : payload,
+            editing ? { ...payload, curriculumSubjectId: undefined } : payload,
           ),
         },
       );
@@ -282,14 +283,14 @@ export function QuestionBankClient({
         title="Question bank"
         meta={[
           {
-            key: 'course',
-            label: `${initialCourses.length} courses`,
+            key: 'subject',
+            label: `${initialSubjects.length} subjects`,
             emphasis: true,
           },
           { key: 'questions', label: `${questions.length} questions` },
         ]}
         actions={
-          canCreate && hasCourses ? (
+          canCreate && hasSubjects ? (
             <Button size="sm" onClick={newQuestion}>
               <Plus /> New question
             </Button>
@@ -297,11 +298,11 @@ export function QuestionBankClient({
         }
       />
 
-      {live && !hasCourses ? (
+      {live && !hasSubjects ? (
         <NoticeBanner
           tone="info"
-          title="No assigned courses"
-          description="Only courses from your active teaching assignments are available here."
+          title="No assigned subjects"
+          description="Only subjects from your active teaching assignments are available here."
         />
       ) : null}
       {error ? (
@@ -315,19 +316,19 @@ export function QuestionBankClient({
 
       <div className="mb-4 mt-4 flex flex-wrap gap-3">
         <div className="grid min-w-0 basis-64 flex-1 gap-2">
-          <Label htmlFor="question-course">Course</Label>
+          <Label htmlFor="question-subject">Subject</Label>
           <Select
-            value={courseId}
+            value={subjectId}
             onValueChange={(value) => void loadQuestions(value)}
-            disabled={!hasCourses}
+            disabled={!hasSubjects}
           >
-            <SelectTrigger id="question-course" aria-label="Select course">
-              <SelectValue placeholder="Select course" />
+            <SelectTrigger id="question-subject" aria-label="Select subject">
+              <SelectValue placeholder="Select subject" />
             </SelectTrigger>
             <SelectContent>
-              {initialCourses.map((course) => (
-                <SelectItem key={course.id} value={course.id}>
-                  {courseLabel(course)}
+              {initialSubjects.map((subject) => (
+                <SelectItem key={subject.id} value={subject.id}>
+                  {subject.name}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -385,11 +386,11 @@ export function QuestionBankClient({
             ) : filtered.length === 0 ? (
               <EmptyState
                 compact
-                title={hasCourses ? 'No questions' : 'No assigned courses'}
+                title={hasSubjects ? 'No questions' : 'No assigned subjects'}
                 description={
-                  hasCourses
+                  hasSubjects
                     ? 'Create a question or adjust the filters.'
-                    : 'Question banks appear after a course is assigned to you.'
+                    : 'Question banks appear after a subject is assigned to you.'
                 }
               />
             ) : (
@@ -458,7 +459,7 @@ export function QuestionBankClient({
                   <Button
                     size="sm"
                     onClick={() => void saveQuestion()}
-                    disabled={!live || busy || !courseId || !form.text.trim()}
+                    disabled={!live || busy || !subjectId || !form.text.trim()}
                   >
                     <CheckCircle2 /> {busy ? 'Saving' : 'Save'}
                   </Button>
