@@ -7,7 +7,5 @@
   "src/directory/services/people-directory.service.ts": 1,
   "src/learning/services/learning.service.ts": 1,
   "src/overview/services/overview.service.ts": 3,
-  "src/reporting-analytics/services/reporting-analytics.service.ts": 1,
-  "src/search/search.service.ts": 1,
   "src/student/services/student.service.ts": 4
 }

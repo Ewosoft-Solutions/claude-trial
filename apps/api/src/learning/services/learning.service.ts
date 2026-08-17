@@ -180,13 +180,41 @@ export class LearningService {
     actor: AcademicsActor,
   ) {
     return this.scoped(tenantId, actor.userId, async () => {
-      const klass = await this.tenantDb.client.class.findFirst({
-        where: { id: dto.classId, tenantId },
-        select: { id: true },
-      });
-      if (!klass) throw new BadRequestException('Class not found');
+      // A lesson now belongs in the LIBRARY, against a curriculum subject, so
+      // every class teaching that subject can schedule it. The legacy
+      // class-keyed path still works while callers migrate, but exactly one
+      // anchor is required and the subject wins when both arrive.
+      if (!dto.curriculumSubjectId && !dto.classId) {
+        throw new BadRequestException(
+          'A lesson needs a curriculum subject (or, for legacy callers, a class).',
+        );
+      }
 
-      await this.access.assertCanManageClass(tenantId, actor, dto.classId);
+      if (dto.curriculumSubjectId) {
+        // curriculum_subjects is nullable-tenant (shared national + own); the
+        // RLS-scoped client already limits this to what the school may see.
+        const subject = await this.tenantDb.client.curriculumSubject.findFirst({
+          where: { id: dto.curriculumSubjectId },
+          select: { id: true },
+        });
+        if (!subject) {
+          throw new BadRequestException(
+            'Curriculum subject not found or not visible to this school.',
+          );
+        }
+        await this.access.assertCanManageCurriculumSubject(
+          tenantId,
+          actor,
+          dto.curriculumSubjectId,
+        );
+      } else {
+        const klass = await this.tenantDb.client.class.findFirst({
+          where: { id: dto.classId, tenantId },
+          select: { id: true },
+        });
+        if (!klass) throw new BadRequestException('Class not found');
+        await this.access.assertCanManageClass(tenantId, actor, dto.classId!);
+      }
 
       if (dto.status === 'published') {
         throw new BadRequestException(
@@ -197,7 +225,9 @@ export class LearningService {
       return this.tenantDb.client.lesson.create({
         data: {
           tenantId,
-          classId: dto.classId,
+          curriculumSubjectId: dto.curriculumSubjectId ?? null,
+          chapterId: dto.chapterId ?? null,
+          classId: dto.classId ?? null,
           title: dto.title,
           description: dto.description ?? null,
           content: dto.content ?? null,

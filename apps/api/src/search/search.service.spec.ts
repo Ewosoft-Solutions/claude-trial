@@ -17,12 +17,12 @@ function context(permissions: string[]): UserPermissionContext {
 
 describe('SearchService', () => {
   const studentFindMany = jest.fn();
-  const classFindMany = jest.fn();
+  const sectionFindMany = jest.fn();
   const personFindMany = jest.fn();
   const getTaughtClassIds = jest.fn();
   const client = {
     student: { findMany: studentFindMany },
-    class: { findMany: classFindMany },
+    classSection: { findMany: sectionFindMany },
     userTenant: { findMany: personFindMany },
   };
   const service = new SearchService(
@@ -33,7 +33,7 @@ describe('SearchService', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     studentFindMany.mockResolvedValue([]);
-    classFindMany.mockResolvedValue([]);
+    sectionFindMany.mockResolvedValue([]);
     personFindMany.mockResolvedValue([]);
     getTaughtClassIds.mockResolvedValue(['class-1']);
   });
@@ -58,7 +58,7 @@ describe('SearchService', () => {
     });
 
     expect(studentFindMany).not.toHaveBeenCalled();
-    expect(classFindMany).not.toHaveBeenCalled();
+    expect(sectionFindMany).not.toHaveBeenCalled();
     expect(personFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({ tenantId: 'tenant-1' }),
@@ -96,7 +96,7 @@ describe('SearchService', () => {
         }),
       }),
     );
-    expect(classFindMany).toHaveBeenCalledWith(
+    expect(sectionFindMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
           tenantId: 'tenant-1',

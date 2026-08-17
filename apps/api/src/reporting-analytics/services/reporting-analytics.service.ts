@@ -132,7 +132,9 @@ export class ReportingAnalyticsService {
     const [students, classes, assessments, messages, announcements] =
       await Promise.all([
         this.client.student.count({ where: { tenantId } }),
-        this.client.class.count({ where: { academicYear: { tenantId } } }),
+        // The structured ClassSection is what a school actually runs; the
+        // legacy Class is being retired and its rows no longer track reality.
+        this.client.classSection.count({ where: { tenantId } }),
         this.client.assessment.count({
           where: {
             academicYear: { tenantId },

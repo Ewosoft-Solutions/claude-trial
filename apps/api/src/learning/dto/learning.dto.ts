@@ -25,10 +25,28 @@ export type ReviewStatus = (typeof REVIEW_STATUSES)[number];
 const MAX_CONTENT_LENGTH = 100_000; // Rich-text lesson note body
 
 export class CreateLessonDto {
-  @ApiProperty({ example: 'a1b2c3d4-0000-0000-0000-000000000000' })
+  @ApiPropertyOptional({
+    description:
+      'Library anchor — the curriculum subject this lesson is authored for. ' +
+      'Preferred; supply this OR classId.',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  classId!: string;
+  curriculumSubjectId?: string;
+
+  @ApiPropertyOptional({ description: "Chapter within the subject's library" })
+  @IsOptional()
+  @IsString()
+  chapterId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'DEPRECATED legacy anchor — the labelled-bag Class being retired.',
+    example: 'a1b2c3d4-0000-0000-0000-000000000000',
+  })
+  @IsOptional()
+  @IsString()
+  classId?: string;
 
   @ApiProperty({ example: 'Photosynthesis' })
   @IsString()
@@ -105,7 +123,9 @@ export class ListLessonsDto {
   @IsString()
   classId?: string;
 
-  @ApiPropertyOptional({ description: 'Library filter: the curriculum subject' })
+  @ApiPropertyOptional({
+    description: 'Library filter: the curriculum subject',
+  })
   @IsOptional()
   @IsString()
   curriculumSubjectId?: string;
