@@ -21,6 +21,11 @@ import {
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import type { AuthenticatedRequest } from 'src/auth';
 import {
+  EDUCATION_LEVELS,
+  EDUCATION_LEVEL_LABELS,
+  LEVEL_SPINE,
+} from '@workspace/database';
+import {
   AcademicStructureModelService,
   type StructureActor,
 } from '../services/academic-structure-model.service';
@@ -209,6 +214,30 @@ export class AcademicStructureModelController {
   ) {
     const { tenantId, actor } = this.ctx(req);
     return this.structure.listSubjectOfferings(tenantId, actor, query);
+  }
+
+  @Get('level-spine')
+  @RequirePermissions(['academics.structure.view'])
+  @ApiOperation({
+    summary:
+      'The fixed education bands + national level rungs (reference data)',
+  })
+  levelSpine() {
+    // Static reference data, served from the API so the web app never imports
+    // the database package (which would drag Prisma into the browser bundle)
+    // while one place still owns the taxonomy.
+    return {
+      bands: EDUCATION_LEVELS.map((band) => ({
+        value: band,
+        label: EDUCATION_LEVEL_LABELS[band],
+      })),
+      levels: LEVEL_SPINE.map((entry) => ({
+        code: entry.code,
+        canonicalName: entry.canonicalName,
+        educationLevel: entry.educationLevel,
+        aliases: entry.aliases,
+      })),
+    };
   }
 
   @Get('offerable-subjects')

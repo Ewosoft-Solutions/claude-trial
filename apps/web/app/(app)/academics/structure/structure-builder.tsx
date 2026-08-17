@@ -74,6 +74,18 @@ export interface Stream {
   order?: number;
   status?: string;
 }
+export interface BandOption {
+  value: string;
+  label: string;
+}
+
+export interface LevelSpineOption {
+  code: string;
+  canonicalName: string;
+  educationLevel: string;
+  aliases: string[];
+}
+
 export interface SubjectOffering {
   id: string;
   classSectionId: string;
@@ -166,6 +178,8 @@ export function StructureBuilder({
   offerableSubjects,
   years,
   termsByYear,
+  bands,
+  levelSpine,
 }: {
   canManage: boolean;
   initialCampuses: Campus[];
@@ -177,6 +191,8 @@ export function StructureBuilder({
   offerableSubjects: OfferableSubject[];
   years: YearOption[];
   termsByYear: Record<string, TermOption[]>;
+  bands: BandOption[];
+  levelSpine: LevelSpineOption[];
 }) {
   const router = useRouter();
   const [sectionOpen, setSectionOpen] = React.useState(false);
@@ -452,13 +468,16 @@ export function StructureBuilder({
               <div className="flex flex-col gap-3">
                 <h3 className="text-sm font-semibold">Stages</h3>
                 <SimpleBlockForm
+                  variant="stage"
+                  bands={bands}
                   disabled={busy}
-                  onCreate={(name, code) =>
+                  onCreate={(name, code, extra) =>
                     run(
                       () =>
                         postJson('/api/academics/structure/stages', {
                           name,
                           code,
+                          ...extra,
                         }),
                       `Added stage ${name}`,
                     )
@@ -477,14 +496,16 @@ export function StructureBuilder({
                 <h3 className="text-sm font-semibold">Year levels</h3>
                 <YearLevelForm
                   stages={initialStages}
+                  levelSpine={levelSpine}
                   disabled={busy}
-                  onCreate={(name, code, stageId) =>
+                  onCreate={(name, code, stageId, levelCode) =>
                     run(
                       () =>
                         postJson('/api/academics/structure/year-levels', {
                           name,
                           code,
                           stageId,
+                          levelCode,
                         }),
                       `Added year level ${name}`,
                     )
@@ -502,13 +523,15 @@ export function StructureBuilder({
               <div className="flex flex-col gap-3">
                 <h3 className="text-sm font-semibold">Streams</h3>
                 <SimpleBlockForm
+                  variant="arm"
                   disabled={busy}
-                  onCreate={(name, code) =>
+                  onCreate={(name, code, extra) =>
                     run(
                       () =>
                         postJson('/api/academics/structure/streams', {
                           name,
                           code,
+                          ...extra,
                         }),
                       `Added stream ${name}`,
                     )
@@ -749,6 +772,30 @@ function Field({
 }
 
 /** The current list of a dimension (stages / year levels / streams). */
+/** Fold a label the same way the server's matcher does. */
+function foldLabel(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[\s_\-./]+/g, '')
+    .trim();
+}
+
+/**
+ * Client-side echo of the server's level matcher, over the alias data the API
+ * ships. It only powers the live hint as the user types — the server infers the
+ * same code on save, so the two agree and this is never the source of truth.
+ */
+function matchLevel(levels: LevelSpineOption[], text: string): string | null {
+  const folded = foldLabel(text);
+  if (!folded) return null;
+  for (const level of levels) {
+    if (foldLabel(level.code) === folded) return level.code;
+    if (foldLabel(level.canonicalName) === folded) return level.code;
+    if (level.aliases.some((a) => foldLabel(a) === folded)) return level.code;
+  }
+  return null;
+}
+
 function DimensionList({ items }: { items: { id: string; label: string }[] }) {
   if (items.length === 0) {
     return <p className="text-xs text-muted-foreground">None yet.</p>;
@@ -767,12 +814,27 @@ function DimensionList({ items }: { items: { id: string; label: string }[] }) {
 function SimpleBlockForm({
   disabled,
   onCreate,
+  variant,
+  bands,
 }: {
   disabled?: boolean;
-  onCreate: (name: string, code: string) => Promise<boolean>;
+  bands?: BandOption[];
+  onCreate: (
+    name: string,
+    code: string,
+    extra?: Record<string, unknown>,
+  ) => Promise<boolean>;
+  /**
+   * 'stage' adds the fixed education band; 'arm' adds the description +
+   * alternate names that let a school explain what an arm means here.
+   */
+  variant?: 'stage' | 'arm';
 }) {
   const [name, setName] = React.useState('');
   const [code, setCode] = React.useState('');
+  const [band, setBand] = React.useState('');
+  const [description, setDescription] = React.useState('');
+  const [aliases, setAliases] = React.useState('');
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
@@ -792,15 +854,61 @@ function SimpleBlockForm({
           maxLength={24}
         />
       </div>
+      {variant === 'stage' && (
+        <Select value={band} onValueChange={setBand}>
+          <SelectTrigger aria-label="Education level">
+            <SelectValue placeholder="Education level (recommended)" />
+          </SelectTrigger>
+          <SelectContent>
+            {(bands ?? []).map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+      {variant === 'arm' && (
+        <>
+          <Input
+            aria-label="What this arm means"
+            placeholder="What this arm means (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            maxLength={280}
+          />
+          <Input
+            aria-label="Other names for this arm"
+            placeholder="Other names, comma separated (optional)"
+            value={aliases}
+            onChange={(e) => setAliases(e.target.value)}
+          />
+        </>
+      )}
       <Button
         variant="outline"
         size="sm"
         disabled={disabled || !name.trim() || !code.trim()}
         onClick={async () => {
-          const ok = await onCreate(name.trim(), code.trim());
+          const extra =
+            variant === 'stage'
+              ? { educationLevel: band || undefined }
+              : variant === 'arm'
+                ? {
+                    description: description.trim() || undefined,
+                    aliases: aliases
+                      .split(',')
+                      .map((a) => a.trim())
+                      .filter(Boolean),
+                  }
+                : undefined;
+          const ok = await onCreate(name.trim(), code.trim(), extra);
           if (ok) {
             setName('');
             setCode('');
+            setBand('');
+            setDescription('');
+            setAliases('');
           }
         }}
       >
@@ -812,16 +920,32 @@ function SimpleBlockForm({
 
 function YearLevelForm({
   stages,
+  levelSpine,
   disabled,
   onCreate,
 }: {
   stages: Stage[];
+  levelSpine: LevelSpineOption[];
   disabled?: boolean;
-  onCreate: (name: string, code: string, stageId: string) => Promise<boolean>;
+  onCreate: (
+    name: string,
+    code: string,
+    stageId: string,
+    levelCode?: string,
+  ) => Promise<boolean>;
 }) {
   const [name, setName] = React.useState('');
   const [code, setCode] = React.useState('');
   const [stageId, setStageId] = React.useState('');
+  // The school types its own name ("Basic 3"); this is the fixed national rung
+  // it maps to. Inferred from the name as they type, and overridable — the
+  // server does the same inference, so leaving it alone is safe.
+  const [levelCode, setLevelCode] = React.useState('');
+  const inferred = React.useMemo(
+    () => matchLevel(levelSpine, name) ?? matchLevel(levelSpine, code) ?? '',
+    [levelSpine, name, code],
+  );
+  const effectiveLevelCode = levelCode || inferred;
   return (
     <div className="flex flex-col gap-2">
       <div className="flex gap-2">
@@ -853,15 +977,40 @@ function YearLevelForm({
           ))}
         </SelectContent>
       </Select>
+      <Select value={effectiveLevelCode} onValueChange={setLevelCode}>
+        <SelectTrigger aria-label="National level">
+          <SelectValue placeholder="National level (inferred from the name)" />
+        </SelectTrigger>
+        <SelectContent>
+          {levelSpine.map((o) => (
+            <SelectItem key={o.code} value={o.code}>
+              {o.canonicalName} · {o.code}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {effectiveLevelCode && (
+        <p className="text-xs text-muted-foreground">
+          Stored as <code>{effectiveLevelCode}</code> so other schools and
+          national reports can line this level up. Students only ever see
+          &ldquo;{name || 'your name'}&rdquo;.
+        </p>
+      )}
       <Button
         variant="outline"
         size="sm"
         disabled={disabled || !name.trim() || !code.trim() || !stageId}
         onClick={async () => {
-          const ok = await onCreate(name.trim(), code.trim(), stageId);
+          const ok = await onCreate(
+            name.trim(),
+            code.trim(),
+            stageId,
+            effectiveLevelCode || undefined,
+          );
           if (ok) {
             setName('');
             setCode('');
+            setLevelCode('');
           }
         }}
       >

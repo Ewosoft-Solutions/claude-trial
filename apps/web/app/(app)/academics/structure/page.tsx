@@ -26,6 +26,8 @@ import {
   type OfferableSubject,
   type YearOption,
   type TermOption,
+  type BandOption,
+  type LevelSpineOption,
 } from './structure-builder';
 
 export const dynamic = 'force-dynamic';
@@ -56,6 +58,7 @@ export default async function AcademicStructurePage() {
     offerings,
     offerableSubjects,
     years,
+    spine,
   ] = await Promise.all([
     serverApiGet<Campus[]>('/campuses'),
     serverApiGet<Stage[]>('/academics/structure/stages'),
@@ -65,6 +68,11 @@ export default async function AcademicStructurePage() {
     serverApiGet<SubjectOffering[]>('/academics/structure/offerings'),
     serverApiGet<OfferableSubject[]>('/academics/structure/offerable-subjects'),
     serverApiGet<YearOption[]>('/academic-years'),
+    // The fixed spine is reference data served by the API, so the web bundle
+    // never imports the database package.
+    serverApiGet<{ bands: BandOption[]; levels: LevelSpineOption[] }>(
+      '/academics/structure/level-spine',
+    ),
   ]);
 
   // Terms per year (the list endpoint omits them); a handful of years at most.
@@ -90,6 +98,8 @@ export default async function AcademicStructurePage() {
       offerableSubjects={offerableSubjects ?? []}
       years={yearList}
       termsByYear={Object.fromEntries(termEntries)}
+      bands={spine?.bands ?? []}
+      levelSpine={spine?.levels ?? []}
     />
   );
 }
