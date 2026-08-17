@@ -58,3 +58,12 @@ auditConfig:
     # a 3-major override just to satisfy the scanner isn't worth the breakage
     # risk given there's no runtime exposure.
     - 'GHSA-w5hq-g745-h8pq'
+    # deepmerge-ts GHSA-ggr8-5vv4-36mx — stack exhaustion when merging RECURSIVE
+    # object graphs. Reached only as prisma > @prisma/config > deepmerge-ts:
+    # build/CLI tooling that merges `prisma.config.ts`, a file in this repo, so
+    # there is no untrusted input and nothing of it ships in the deployed
+    # runtime. The patch is deepmerge-ts 8.0.0 — a MAJOR bump forced underneath
+    # the loader that supplies the datasource for every migration and backfill,
+    # which is a worse risk than the advisory it would clear. Same reasoning as
+    # the uuid entry above. Revisit when Prisma bumps @prisma/config upstream.
+    - 'GHSA-ggr8-5vv4-36mx'
