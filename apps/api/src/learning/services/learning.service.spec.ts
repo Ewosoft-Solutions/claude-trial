@@ -169,7 +169,12 @@ describe('LearningService review workflow', () => {
   it('refuses publishing while unapproved', async () => {
     const { service } = makeService();
     await expect(
-      service.updateLesson(TENANT, 'lesson-1', { status: 'published' }, TEACHER),
+      service.updateLesson(
+        TENANT,
+        'lesson-1',
+        { status: 'published' },
+        TEACHER,
+      ),
     ).rejects.toThrow(/approved before publishing/);
   });
 
@@ -182,7 +187,12 @@ describe('LearningService review workflow', () => {
         reviewStatus: 'approved',
       },
     });
-    await service.updateLesson(TENANT, 'lesson-1', { content: 'new body' }, TEACHER);
+    await service.updateLesson(
+      TENANT,
+      'lesson-1',
+      { content: 'new body' },
+      TEACHER,
+    );
     const data = lessonUpdates[0].data;
     expect(data.reviewStatus).toBe('draft');
     expect(data.status).toBe('draft');

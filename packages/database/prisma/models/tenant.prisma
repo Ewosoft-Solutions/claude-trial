@@ -67,6 +67,8 @@ model Tenant {
   aiUsageMonthly                         AiUsageMonthly[]
   aiConcurrencyLeases                    AiConcurrencyLease[]
   lessons                                Lesson[]
+  lessonChapters                         LessonChapter[]
+  lessonInstances                        LessonInstance[]
   lessonMaterials                        LessonMaterial[]
   materialChunks                         MaterialChunk[]
   sensitiveOperationPolicyChangeRequests SensitiveOperationPolicyChangeRequest[]

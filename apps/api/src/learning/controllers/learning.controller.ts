@@ -38,6 +38,13 @@ import {
   type AcademicsActor,
 } from '../../common/academics/academics-access.service';
 import { LearningService } from '../services/learning.service';
+import { LessonLibraryService } from '../services/lesson-library.service';
+import {
+  CreateLessonChapterDto,
+  CreateLessonInstanceDto,
+  UpdateLessonChapterDto,
+  UpdateLessonInstanceDto,
+} from '../dto/lesson-library.dto';
 import { LearningRetrievalService } from '../services/learning-retrieval.service';
 import {
   CreateLessonDto,
@@ -69,6 +76,7 @@ export class LearningController {
   constructor(
     private readonly learningService: LearningService,
     private readonly retrievalService: LearningRetrievalService,
+    private readonly library: LessonLibraryService,
   ) {}
 
   /** Record-level access facts from the guard's cached permission context. */
@@ -85,7 +93,10 @@ export class LearningController {
 
   @Get('lessons')
   @RequirePermissions(VIEW_PERMISSIONS, PermissionMode.ANY)
-  @ApiOperation({ summary: 'List lessons (students: published + approved, enrolled classes only)' })
+  @ApiOperation({
+    summary:
+      'List lessons (students: published + approved, enrolled classes only)',
+  })
   async listLessons(
     @Query() query: ListLessonsDto,
     @Request() req: AuthenticatedRequest,
@@ -210,7 +221,9 @@ export class LearningController {
 
   @Post('materials/:id/approve')
   @RequirePermissions(['lessons.approve'])
-  @ApiOperation({ summary: 'Approve an uploaded material (makes it visible to students)' })
+  @ApiOperation({
+    summary: 'Approve an uploaded material (makes it visible to students)',
+  })
   async approveMaterial(
     @Param('id') id: string,
     @Body() dto: ReviewDecisionDto,
@@ -246,7 +259,9 @@ export class LearningController {
 
   @Get('lessons/:id/materials')
   @RequirePermissions(VIEW_PERMISSIONS, PermissionMode.ANY)
-  @ApiOperation({ summary: 'List materials for a lesson (students: approved only)' })
+  @ApiOperation({
+    summary: 'List materials for a lesson (students: approved only)',
+  })
   async listMaterials(
     @Param('id') lessonId: string,
     @Request() req: AuthenticatedRequest,
@@ -285,7 +300,9 @@ export class LearningController {
     @Request() req: AuthenticatedRequest,
   ) {
     if (!file) {
-      throw new BadRequestException('A file is required (multipart field "file")');
+      throw new BadRequestException(
+        'A file is required (multipart field "file")',
+      );
     }
     return this.learningService.uploadMaterial(
       req.user!.tenantId,
@@ -320,7 +337,9 @@ export class LearningController {
 
   @Post('materials/:id/reprocess')
   @RequirePermissions(['lessons.materials.upload'])
-  @ApiOperation({ summary: 'Re-queue extraction + embedding for a document material' })
+  @ApiOperation({
+    summary: 'Re-queue extraction + embedding for a document material',
+  })
   async reprocessMaterial(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -350,7 +369,7 @@ export class LearningController {
   @RequirePermissions(VIEW_PERMISSIONS, PermissionMode.ANY)
   @ApiOperation({
     summary:
-      'Similarity search over one lesson\'s material chunks (tutor retrieval)',
+      "Similarity search over one lesson's material chunks (tutor retrieval)",
   })
   async searchLesson(
     @Param('id') lessonId: string,
@@ -370,6 +389,115 @@ export class LearningController {
       dto.query,
       dto.topK ?? 5,
       req.user!.userId,
+    );
+  }
+  // ==================== lesson library: chapters ====================
+
+  @Get('chapters')
+  @RequirePermissions(['lessons.view'])
+  @ApiOperation({ summary: 'Library chapters, optionally for one subject' })
+  listChapters(
+    @Query('curriculumSubjectId') curriculumSubjectId: string | undefined,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.library.listChapters(
+      req.user!.tenantId,
+      this.actorFrom(req),
+      curriculumSubjectId,
+    );
+  }
+
+  @Post('chapters')
+  @RequirePermissions(['lessons.create'])
+  @ApiOperation({ summary: 'Create a library chapter' })
+  createChapter(
+    @Body() dto: CreateLessonChapterDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.library.createChapter(
+      req.user!.tenantId,
+      this.actorFrom(req),
+      dto,
+    );
+  }
+
+  @Patch('chapters/:id')
+  @RequirePermissions(['lessons.edit'])
+  @ApiOperation({ summary: 'Update a library chapter' })
+  updateChapter(
+    @Param('id') id: string,
+    @Body() dto: UpdateLessonChapterDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.library.updateChapter(
+      req.user!.tenantId,
+      this.actorFrom(req),
+      id,
+      dto,
+    );
+  }
+
+  // ============ per-class instances of a library lesson ============
+
+  @Get('offerings/:subjectOfferingId/lessons')
+  @RequirePermissions(['lessons.view'])
+  @ApiOperation({ summary: 'What this class is taught (scheduled lessons)' })
+  listInstances(
+    @Param('subjectOfferingId') subjectOfferingId: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.library.listInstancesForOffering(
+      req.user!.tenantId,
+      this.actorFrom(req),
+      subjectOfferingId,
+    );
+  }
+
+  @Post('lesson-instances')
+  @RequirePermissions(['lessons.create'])
+  @ApiOperation({
+    summary: 'Schedule a library lesson for one class (never a content copy)',
+  })
+  createInstance(
+    @Body() dto: CreateLessonInstanceDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.library.createInstance(
+      req.user!.tenantId,
+      this.actorFrom(req),
+      dto,
+    );
+  }
+
+  @Patch('lesson-instances/:id')
+  @RequirePermissions(['lessons.edit'])
+  @ApiOperation({ summary: 'Reschedule, annotate, or mark taught/skipped' })
+  updateInstance(
+    @Param('id') id: string,
+    @Body() dto: UpdateLessonInstanceDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.library.updateInstance(
+      req.user!.tenantId,
+      this.actorFrom(req),
+      id,
+      dto,
+    );
+  }
+
+  @Delete('lesson-instances/:id')
+  @RequirePermissions(['lessons.delete'])
+  @ApiOperation({
+    summary: 'Unschedule for this class (the library lesson is untouched)',
+  })
+  deleteInstance(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.library.deleteInstance(
+      req.user!.tenantId,
+      this.actorFrom(req),
+      id,
     );
   }
 }

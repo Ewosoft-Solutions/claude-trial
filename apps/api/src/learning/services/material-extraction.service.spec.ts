@@ -20,13 +20,19 @@ describe('resolveMaterialKind', () => {
       ),
     ).toBe('pptx');
     expect(resolveMaterialKind('text/plain', 'x.bin')).toBe('txt');
-    expect(resolveMaterialKind('text/plain; charset=utf-8', 'x.bin')).toBe('txt');
+    expect(resolveMaterialKind('text/plain; charset=utf-8', 'x.bin')).toBe(
+      'txt',
+    );
   });
 
   it('falls back to the file extension for generic mimes', () => {
-    expect(resolveMaterialKind('application/octet-stream', 'notes.PDF')).toBe('pdf');
+    expect(resolveMaterialKind('application/octet-stream', 'notes.PDF')).toBe(
+      'pdf',
+    );
     expect(resolveMaterialKind(undefined, 'slides.pptx')).toBe('pptx');
-    expect(resolveMaterialKind('application/octet-stream', 'readme.md')).toBe('txt');
+    expect(resolveMaterialKind('application/octet-stream', 'readme.md')).toBe(
+      'txt',
+    );
   });
 
   it('returns null for unsupported uploads (video/OCR deferred)', () => {
@@ -54,8 +60,14 @@ describe('MaterialExtractionService', () => {
       `</p:sld>`;
     // Add out of order to prove numeric sorting (slide10 after slide2).
     zip.file('ppt/slides/slide10.xml', slideXml(['Third slide']));
-    zip.file('ppt/slides/slide1.xml', slideXml(['Cells &amp; Energy', 'Intro']));
-    zip.file('ppt/slides/slide2.xml', slideXml(['Mitochondria &lt;matter&gt;']));
+    zip.file(
+      'ppt/slides/slide1.xml',
+      slideXml(['Cells &amp; Energy', 'Intro']),
+    );
+    zip.file(
+      'ppt/slides/slide2.xml',
+      slideXml(['Mitochondria &lt;matter&gt;']),
+    );
     zip.file('ppt/notesSlides/notesSlide1.xml', slideXml(['ignored notes']));
     const buffer = await zip.generateAsync({ type: 'nodebuffer' });
 

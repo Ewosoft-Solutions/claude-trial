@@ -26,7 +26,8 @@ export interface RetrievedChunk {
 export class LearningRetrievalService {
   constructor(
     private readonly tenantDb: TenantDbService,
-    @Inject(EMBEDDINGS_PROVIDER) private readonly embeddings: EmbeddingsProvider,
+    @Inject(EMBEDDINGS_PROVIDER)
+    private readonly embeddings: EmbeddingsProvider,
   ) {}
 
   async searchLesson(
@@ -37,7 +38,13 @@ export class LearningRetrievalService {
     userId?: string,
   ): Promise<RetrievedChunk[]> {
     const [queryVector] = await this.embeddings.embed([query], 'query');
-    return this.searchLessonByVector(tenantId, lessonId, queryVector, topK, userId);
+    return this.searchLessonByVector(
+      tenantId,
+      lessonId,
+      queryVector,
+      topK,
+      userId,
+    );
   }
 
   /** Vector-level entry point (isolation tests inject vectors directly). */
@@ -49,16 +56,19 @@ export class LearningRetrievalService {
     userId?: string,
   ): Promise<RetrievedChunk[]> {
     const literal = toVectorLiteral(queryVector);
-    const rows = await this.tenantDb.runScoped(tenantId, userId, () =>
-      this.tenantDb.client.$queryRaw<
-        Array<{
-          id: string;
-          material_id: string;
-          chunk_index: number;
-          content: string;
-          similarity: number;
-        }>
-      >`
+    const rows = await this.tenantDb.runScoped(
+      tenantId,
+      userId,
+      () =>
+        this.tenantDb.client.$queryRaw<
+          Array<{
+            id: string;
+            material_id: string;
+            chunk_index: number;
+            content: string;
+            similarity: number;
+          }>
+        >`
         SELECT
           "id",
           "material_id",

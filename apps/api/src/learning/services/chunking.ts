@@ -27,7 +27,10 @@ const DEFAULT_OVERLAP_CHARS = 150;
 /** Chunks shorter than this are noise (page numbers, stray headers). */
 const MIN_CHUNK_CHARS = 20;
 
-export function chunkText(text: string, options: ChunkOptions = {}): TextChunk[] {
+export function chunkText(
+  text: string,
+  options: ChunkOptions = {},
+): TextChunk[] {
   const maxChars = options.maxChars ?? DEFAULT_MAX_CHARS;
   const overlapChars = Math.min(
     options.overlapChars ?? DEFAULT_OVERLAP_CHARS,

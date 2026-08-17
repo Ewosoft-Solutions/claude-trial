@@ -92,13 +92,24 @@ export class AcademicsAccessService {
   async assertCanManageClass(
     tenantId: string,
     actor: AcademicsActor,
-    classId: string,
+    /**
+     * Nullable since the lesson library landed: a library lesson belongs to a
+     * curriculum subject, not a class. This app is NOT strict-null-checked, so
+     * nothing would have flagged the null flowing in here — and a bare
+     * `isClassTeacher(…, null)` would have quietly denied every teacher. Callers
+     * holding a class-less record must use the library check instead, and this
+     * says so out loud rather than 403-ing with a misleading message.
+     */
+    classId: string | null,
   ): Promise<void> {
     if (actor.canManageAll) return;
+    if (!classId) {
+      throw new ForbiddenException(
+        'This content is not scoped to a class; check subject-level access instead',
+      );
+    }
     if (await this.isClassTeacher(tenantId, actor.profileId, classId)) return;
-    throw new ForbiddenException(
-      'You are not assigned to teach this class',
-    );
+    throw new ForbiddenException('You are not assigned to teach this class');
   }
 
   /**

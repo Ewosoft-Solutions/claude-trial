@@ -4,6 +4,7 @@ import { AuthModule } from '../auth/auth.module';
 import { AiModule } from '../ai/ai.module';
 import { LearningController } from './controllers/learning.controller';
 import { LearningService } from './services/learning.service';
+import { LessonLibraryService } from './services/lesson-library.service';
 import { LearningRetrievalService } from './services/learning-retrieval.service';
 import { MaterialExtractionService } from './services/material-extraction.service';
 import { MaterialIngestionService } from './services/material-ingestion.service';
@@ -18,10 +19,11 @@ import { MaterialIngestionService } from './services/material-ingestion.service'
   controllers: [LearningController],
   providers: [
     LearningService,
+    LessonLibraryService,
     LearningRetrievalService,
     MaterialExtractionService,
     MaterialIngestionService,
   ],
-  exports: [LearningService, LearningRetrievalService],
+  exports: [LearningService, LearningRetrievalService, LessonLibraryService],
 })
 export class LearningModule {}
