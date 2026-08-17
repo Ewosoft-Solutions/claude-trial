@@ -30,6 +30,7 @@ function makeService() {
       findFirst: jest.fn(),
       findMany: jest.fn(async () => [] as unknown[]),
     },
+    campus: { findMany: jest.fn(async () => [] as unknown[]) },
     class: { findFirst: jest.fn() },
     term: { findFirst: jest.fn() },
     gradingSystem: { findFirst: jest.fn() },
@@ -652,7 +653,11 @@ describe('the workbench offering picker', () => {
         subjectLabel: 'Mathematics',
         academicYearId: 'y1',
         termId: 't1',
-        classSection: { id: 'sec-1', displayLabel: 'JSS 1 Gold' },
+        classSection: {
+          id: 'sec-1',
+          displayLabel: 'JSS 1 Gold',
+          campusId: 'camp-1',
+        },
       },
     ] as never);
 
@@ -670,6 +675,7 @@ describe('the workbench offering picker', () => {
       subjectLabel: 'Mathematics',
       classLabel: 'JSS 1 Gold',
       classSectionId: 'sec-1',
+      campusId: 'camp-1',
       academicYearId: 'y1',
       termId: 't1',
     });
@@ -686,5 +692,93 @@ describe('the workbench offering picker', () => {
     };
     expect(arg.where.id).toBeUndefined();
     expect(arg.where.status).toBe('active');
+  });
+});
+
+describe('the offering picker disambiguates identical section labels', () => {
+  it('appends the campus only when two campuses share a label', async () => {
+    const ctx = makeService();
+    // `displayLabel` is composed from year level + stream + arm and omits the
+    // campus, so a two-campus school really does have two "SSS1 Science A".
+    ctx.client.subjectOffering.findMany.mockResolvedValue([
+      {
+        id: 'off-1',
+        subjectLabel: 'Economics',
+        curriculumSubjectId: 'subj-1',
+        academicYearId: 'y1',
+        termId: null,
+        classSection: {
+          id: 'sec-1',
+          displayLabel: 'SSS1 Science A',
+          campusId: 'camp-main',
+        },
+      },
+      {
+        id: 'off-2',
+        subjectLabel: 'Economics',
+        curriculumSubjectId: 'subj-1',
+        academicYearId: 'y1',
+        termId: null,
+        classSection: {
+          id: 'sec-2',
+          displayLabel: 'SSS1 Science A',
+          campusId: 'camp-annex',
+        },
+      },
+      {
+        id: 'off-3',
+        subjectLabel: 'Mathematics',
+        curriculumSubjectId: 'subj-2',
+        academicYearId: 'y1',
+        termId: null,
+        classSection: {
+          id: 'sec-3',
+          displayLabel: 'JSS1 A',
+          campusId: 'camp-main',
+        },
+      },
+    ] as never);
+    ctx.client.campus.findMany.mockResolvedValue([
+      { id: 'camp-main', name: 'Main Campus' },
+      { id: 'camp-annex', name: 'Lakeside Annex' },
+    ] as never);
+
+    const offerings = await ctx.service.listTeachableOfferings(
+      TENANT,
+      admin as never,
+    );
+
+    expect(offerings.map((o) => o.classLabel)).toEqual([
+      'SSS1 Science A \u00b7 Main Campus',
+      'SSS1 Science A \u00b7 Lakeside Annex',
+      // Unambiguous on its own, so it stays clean.
+      'JSS1 A',
+    ]);
+  });
+
+  it('does not read campuses at all for a single-campus school', async () => {
+    const ctx = makeService();
+    ctx.client.subjectOffering.findMany.mockResolvedValue([
+      {
+        id: 'off-1',
+        subjectLabel: 'Mathematics',
+        curriculumSubjectId: 'subj-1',
+        academicYearId: 'y1',
+        termId: null,
+        classSection: {
+          id: 'sec-1',
+          displayLabel: 'JSS1 A',
+          campusId: 'camp-main',
+        },
+      },
+    ] as never);
+
+    const offerings = await ctx.service.listTeachableOfferings(
+      TENANT,
+      admin as never,
+    );
+
+    expect(offerings[0]!.classLabel).toBe('JSS1 A');
+    expect(ctx.client.campus.findMany).not.toHaveBeenCalled();
   });
 });

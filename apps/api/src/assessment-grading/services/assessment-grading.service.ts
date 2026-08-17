@@ -407,21 +407,61 @@ export class AssessmentGradingService {
         curriculumSubjectId: true,
         academicYearId: true,
         termId: true,
-        classSection: { select: { id: true, displayLabel: true } },
+        classSection: {
+          select: { id: true, displayLabel: true, campusId: true },
+        },
       },
       orderBy: [{ subjectLabel: 'asc' }],
     });
 
-    return offerings.map((offering) => ({
-      id: offering.id,
-      subjectLabel: offering.subjectLabel,
-      // The bank an assessment on this offering draws from.
-      curriculumSubjectId: offering.curriculumSubjectId,
-      classLabel: offering.classSection?.displayLabel ?? null,
-      classSectionId: offering.classSection?.id ?? null,
-      academicYearId: offering.academicYearId,
-      termId: offering.termId,
-    }));
+    // `displayLabel` is composed from year level + stream + arm and does NOT
+    // carry the campus, so a two-campus school has two sections reading exactly
+    // "SSS1 Science A". Picking a subject from a list of identical labels is a
+    // coin toss, so the campus is appended — but only where it actually
+    // disambiguates, to keep the common single-campus school uncluttered.
+    const campusIds = Array.from(
+      new Set(
+        offerings
+          .map((o) => o.classSection?.campusId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const campuses =
+      campusIds.length > 1
+        ? await this.client.campus.findMany({
+            where: { id: { in: campusIds }, tenantId },
+            select: { id: true, name: true },
+          })
+        : [];
+    const campusName = new Map(campuses.map((c) => [c.id, c.name]));
+
+    const labelCounts = new Map<string, Set<string>>();
+    for (const offering of offerings) {
+      const label = offering.classSection?.displayLabel;
+      if (!label || !offering.classSection) continue;
+      const seen = labelCounts.get(label) ?? new Set<string>();
+      seen.add(offering.classSection.campusId);
+      labelCounts.set(label, seen);
+    }
+
+    return offerings.map((offering) => {
+      const section = offering.classSection;
+      const label = section?.displayLabel ?? null;
+      const ambiguous = label ? (labelCounts.get(label)?.size ?? 0) > 1 : false;
+      const campus = section ? campusName.get(section.campusId) : undefined;
+
+      return {
+        id: offering.id,
+        subjectLabel: offering.subjectLabel,
+        // The bank an assessment on this offering draws from.
+        curriculumSubjectId: offering.curriculumSubjectId,
+        classLabel: ambiguous && campus ? `${label} · ${campus}` : label,
+        classSectionId: section?.id ?? null,
+        campusId: section?.campusId ?? null,
+        academicYearId: offering.academicYearId,
+        termId: offering.termId,
+      };
+    });
   }
 
   async listAssessments(

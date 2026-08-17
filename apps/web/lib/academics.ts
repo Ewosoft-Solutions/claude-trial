@@ -131,7 +131,13 @@ export interface OfferingSummary {
   subjectLabel: string;
   /** The curriculum subject whose question bank this offering draws from. */
   curriculumSubjectId?: string | null;
+  /**
+   * Section label, already disambiguated by the API: `displayLabel` omits the
+   * campus, so a two-campus school has two sections reading "SSS1 Science A"
+   * and the campus is appended where — and only where — it is needed.
+   */
   classLabel?: string | null;
+  campusId?: string | null;
   classSectionId?: string | null;
   academicYearId?: string | null;
   termId?: string | null;
