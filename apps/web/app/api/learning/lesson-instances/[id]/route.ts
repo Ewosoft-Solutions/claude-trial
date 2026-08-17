@@ -12,7 +12,10 @@ export async function PATCH(
   ctx: { params: Promise<{ id: string }> },
 ) {
   const { id } = await ctx.params;
-  return proxyPatch(req, `/learning/lesson-instances/${encodeURIComponent(id)}`);
+  return proxyPatch(
+    req,
+    `/learning/lesson-instances/${encodeURIComponent(id)}`,
+  );
 }
 
 export async function DELETE(

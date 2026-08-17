@@ -36,7 +36,9 @@ interface ApiGrade {
 }
 
 const GRADE_SERIES: ChartSeries[] = [{ key: 'students', label: 'Students' }];
-const TREND_SERIES: ChartSeries[] = [{ key: 'average', label: 'Average score' }];
+const TREND_SERIES: ChartSeries[] = [
+  { key: 'average', label: 'Average score' },
+];
 const PASS_SERIES: ChartSeries[] = [
   { key: 'pass', label: 'Pass rate %', color: 'var(--chart-2)' },
 ];
@@ -73,11 +75,16 @@ function dateLabel(value: string | null | undefined): string {
   if (!value) return 'Unscheduled';
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Unscheduled';
-  return new Intl.DateTimeFormat('en-GB', { day: '2-digit', month: 'short' }).format(date);
+  return new Intl.DateTimeFormat('en-GB', {
+    day: '2-digit',
+    month: 'short',
+  }).format(date);
 }
 
 function average(values: number[]): number {
-  return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : 0;
+  return values.length
+    ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+    : 0;
 }
 
 function percent(numerator: number, denominator: number): number {
@@ -85,22 +92,25 @@ function percent(numerator: number, denominator: number): number {
 }
 
 export default async function AcademicReportPage() {
-  const assessmentData = await serverApiGet<ApiAssessment[] | Paginated<ApiAssessment>>(
-    '/assessments?limit=100',
-  );
+  const assessmentData = await serverApiGet<
+    ApiAssessment[] | Paginated<ApiAssessment>
+  >('/assessments?limit=100');
   const assessments = asArray(assessmentData);
 
   const gradeGroups = await Promise.all(
-    assessments
-      .slice(0, 20)
-      .map(async (assessment) => ({
-        assessment,
-        grades: (await serverApiGet<ApiGrade[]>(`/grades/assessment/${assessment.id}`)) ?? [],
-      })),
+    assessments.slice(0, 20).map(async (assessment) => ({
+      assessment,
+      grades:
+        (await serverApiGet<ApiGrade[]>(
+          `/grades/assessment/${assessment.id}`,
+        )) ?? [],
+    })),
   );
 
   const grades = gradeGroups.flatMap((group) => group.grades);
-  const scored = grades.map(percentageOf).filter((value): value is number => value !== null);
+  const scored = grades
+    .map(percentageOf)
+    .filter((value): value is number => value !== null);
   const passCount = scored.filter((value) => value >= 50).length;
   const atRisk = scored.filter((value) => value < 50).length;
   // Count distinct STUDENTS. Counting enrolment ids skipped every grade on a
@@ -111,9 +121,21 @@ export default async function AcademicReportPage() {
 
   const stats: StatItem[] = [
     { key: 'avg', label: 'Average score', value: `${average(scored)}%` },
-    { key: 'pass', label: 'Pass rate', value: `${percent(passCount, scored.length)}%` },
-    { key: 'assessed', label: 'Students assessed', value: assessedStudents.toLocaleString() },
-    { key: 'atrisk', label: 'At-risk students', value: atRisk.toLocaleString() },
+    {
+      key: 'pass',
+      label: 'Pass rate',
+      value: `${percent(passCount, scored.length)}%`,
+    },
+    {
+      key: 'assessed',
+      label: 'Students assessed',
+      value: assessedStudents.toLocaleString(),
+    },
+    {
+      key: 'atrisk',
+      label: 'At-risk students',
+      value: atRisk.toLocaleString(),
+    },
   ];
 
   const meta: PageHeaderMeta[] = [
@@ -121,14 +143,18 @@ export default async function AcademicReportPage() {
     { key: 'assessments', label: `${assessments.length} assessments` },
   ];
 
-  const distribution = ['A', 'B', 'C', 'D', 'E', 'F', 'Ungraded'].map((grade) => ({
-    grade,
-    students: grades.filter((item) => letterFor(item) === grade).length,
-  }));
+  const distribution = ['A', 'B', 'C', 'D', 'E', 'F', 'Ungraded'].map(
+    (grade) => ({
+      grade,
+      students: grades.filter((item) => letterFor(item) === grade).length,
+    }),
+  );
 
   const trend: ChartDatum[] = gradeGroups
     .map((group) => {
-      const values = group.grades.map(percentageOf).filter((value): value is number => value !== null);
+      const values = group.grades
+        .map(percentageOf)
+        .filter((value): value is number => value !== null);
       return {
         term: dateLabel(group.assessment.dueDate ?? group.assessment.createdAt),
         average: average(values),
@@ -139,10 +165,15 @@ export default async function AcademicReportPage() {
 
   const passByAssessment: ChartDatum[] = gradeGroups
     .map((group) => {
-      const values = group.grades.map(percentageOf).filter((value): value is number => value !== null);
+      const values = group.grades
+        .map(percentageOf)
+        .filter((value): value is number => value !== null);
       return {
         assessment: assessmentLabel(group.assessment),
-        pass: percent(values.filter((value) => value >= 50).length, values.length),
+        pass: percent(
+          values.filter((value) => value >= 50).length,
+          values.length,
+        ),
       };
     })
     .filter((row) => row.pass > 0)
@@ -167,7 +198,9 @@ export default async function AcademicReportPage() {
           <Card className="shadow-card">
             <CardHeader>
               <CardTitle className="text-base">Grade distribution</CardTitle>
-              <CardDescription>Grouped from recorded assessment grades</CardDescription>
+              <CardDescription>
+                Grouped from recorded assessment grades
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <CategoryBarChart
@@ -201,7 +234,9 @@ export default async function AcademicReportPage() {
         <Card className="shadow-card">
           <CardHeader>
             <CardTitle className="text-base">Pass rate by assessment</CardTitle>
-            <CardDescription>Share of recorded grades at or above the pass mark</CardDescription>
+            <CardDescription>
+              Share of recorded grades at or above the pass mark
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <CategoryBarChart
