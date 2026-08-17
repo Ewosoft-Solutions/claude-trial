@@ -8,7 +8,7 @@
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
-import { PageTitle } from '@workspace/ui/custom/shell/page-title';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
   PromotionWorkbench,
   type CampusOption,
@@ -35,12 +35,12 @@ export default async function PromotionPage() {
 
   if (!canView) {
     return (
-      <div className="p-6">
+      <ShellMain>
         <PermissionDeniedState
           title="You don't have access to promotion"
           description="Ask an administrator for the “View promotion runs” permission."
         />
-      </div>
+      </ShellMain>
     );
   }
 
@@ -54,25 +54,14 @@ export default async function PromotionPage() {
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-1">
-        <PageTitle>Promotion workbench</PageTitle>
-        <p className="text-sm text-muted-foreground">
-          Roll a cohort into the next year in one reviewable operation —
-          preview, mark exceptions, then a second approver commits. The prior
-          year is never touched.
-        </p>
-      </header>
-
-      <PromotionWorkbench
-        canManage={canManage}
-        canApprove={canApprove}
-        runs={runs ?? []}
-        years={toArray<YearOption>(years)}
-        yearLevels={yearLevels ?? []}
-        sections={sections ?? []}
-        campuses={campuses ?? []}
-      />
-    </div>
+    <PromotionWorkbench
+      canManage={canManage}
+      canApprove={canApprove}
+      runs={runs ?? []}
+      years={toArray<YearOption>(years)}
+      yearLevels={yearLevels ?? []}
+      sections={sections ?? []}
+      campuses={campuses ?? []}
+    />
   );
 }

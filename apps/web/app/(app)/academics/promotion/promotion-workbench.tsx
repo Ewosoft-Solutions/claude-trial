@@ -32,6 +32,15 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
+import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { ApprovalPanel } from '@workspace/ui/custom/approval/approval-panel';
 
 export interface PromotionRun {
@@ -121,6 +130,7 @@ export function PromotionWorkbench({
   sections: SectionOption[];
   campuses: CampusOption[];
 }) {
+  const [createOpen, setCreateOpen] = React.useState(false);
   const [runList, setRunList] = React.useState<PromotionRun[]>(runs);
   const [selectedId, setSelectedId] = React.useState<string>('');
   const [run, setRun] = React.useState<PromotionRun | null>(null);
@@ -261,71 +271,83 @@ export function PromotionWorkbench({
     canManage && name.trim() && fromYear && toYear && fromLevel && toLevel;
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Create a run */}
+    <ShellMain>
+      <PageHeader
+        title="Promotion workbench"
+        description="Roll a year over as ONE reviewable operation — preview who advances, set exceptions, then a second approver commits. The prior year is never touched."
+        actions={
+          canManage ? (
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus aria-hidden /> New run
+            </Button>
+          ) : undefined
+        }
+      />
+
       {canManage && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="size-4" aria-hidden /> New promotion run
-            </CardTitle>
-            <CardDescription>
-              Declare the from → to year and year level for the rollover.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
-              <Label htmlFor="pr-name">Name</Label>
-              <Input
-                id="pr-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. SS1 → SS2 (2026/27 → 2027/28)"
+        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>New promotion run</DialogTitle>
+              <DialogDescription>
+                Choose the year you are promoting from and the year the cohort
+                moves into.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2">
+              <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
+                <Label htmlFor="pr-name">Name</Label>
+                <Input
+                  id="pr-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. SS1 → SS2 (2026/27 → 2027/28)"
+                />
+              </div>
+              <YearLevelSelect
+                id="pr-from-level"
+                label="From year level"
+                value={fromLevel}
+                onChange={setFromLevel}
+                options={yearLevels}
               />
+              <YearLevelSelect
+                id="pr-to-level"
+                label="To year level"
+                value={toLevel}
+                onChange={setToLevel}
+                options={yearLevels}
+              />
+              <YearSelect
+                id="pr-campus"
+                label="Campus (optional)"
+                value={campus}
+                onChange={setCampus}
+                options={campuses.map((c) => ({ id: c.id, name: c.name }))}
+                placeholder="Whole school"
+              />
+              <YearSelect
+                id="pr-from-year"
+                label="From academic year"
+                value={fromYear}
+                onChange={setFromYear}
+                options={years}
+              />
+              <YearSelect
+                id="pr-to-year"
+                label="To academic year"
+                value={toYear}
+                onChange={setToYear}
+                options={years}
+              />
+              <div className="flex items-end">
+                <Button onClick={createRun} disabled={busy || !canCreate}>
+                  Create run
+                </Button>
+              </div>
             </div>
-            <YearLevelSelect
-              id="pr-from-level"
-              label="From year level"
-              value={fromLevel}
-              onChange={setFromLevel}
-              options={yearLevels}
-            />
-            <YearLevelSelect
-              id="pr-to-level"
-              label="To year level"
-              value={toLevel}
-              onChange={setToLevel}
-              options={yearLevels}
-            />
-            <YearSelect
-              id="pr-campus"
-              label="Campus (optional)"
-              value={campus}
-              onChange={setCampus}
-              options={campuses.map((c) => ({ id: c.id, name: c.name }))}
-              placeholder="Whole school"
-            />
-            <YearSelect
-              id="pr-from-year"
-              label="From academic year"
-              value={fromYear}
-              onChange={setFromYear}
-              options={years}
-            />
-            <YearSelect
-              id="pr-to-year"
-              label="To academic year"
-              value={toYear}
-              onChange={setToYear}
-              options={years}
-            />
-            <div className="flex items-end">
-              <Button onClick={createRun} disabled={busy || !canCreate}>
-                Create run
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Pick a run */}
@@ -551,7 +573,7 @@ export function PromotionWorkbench({
           </CardContent>
         </Card>
       )}
-    </div>
+    </ShellMain>
   );
 }
 

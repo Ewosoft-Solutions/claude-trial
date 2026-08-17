@@ -97,21 +97,15 @@ export const SCHOOL_NAV: NavigationConfig = {
           access: { anyPermission: ['grades.view', 'transcripts.view'] },
           items: [
             {
-              key: 'reportcards',
-              label: 'Report cards',
-              icon: <FileText />,
-              href: '/students/gradebook/report-cards',
-              access: { anyPermission: ['grades.view'] },
-            },
-            {
-              key: 'transcripts',
-              // Renamed to stop it competing with the WB4-4 transcript of
-              // record (results workbench) — this page is the live gradebook
-              // standing view, not the published document.
+              // ONE live standing view. The former "Report cards" entry read the
+              // same endpoints and averaged the same numbers, so it was merged
+              // in here (its letter-grade column came along). Official report
+              // cards + transcripts are published artifacts under /academics.
+              key: 'standing',
               label: 'Gradebook standing',
               icon: <ScrollText />,
-              href: '/students/gradebook/transcripts',
-              access: { anyPermission: ['transcripts.view'] },
+              href: '/students/gradebook/standing',
+              access: { anyPermission: ['grades.view', 'transcripts.view'] },
             },
           ],
         },
@@ -286,6 +280,15 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Results',
               icon: <ClipboardCheck />,
               href: '/academics/results',
+              access: { anyPermission: ['academics.results.view'] },
+            },
+            {
+              // Its own route, not a panel in the results workbench: a
+              // transcript spans every published term rather than one cycle.
+              key: 'transcripts',
+              label: 'Transcripts',
+              icon: <FileText />,
+              href: '/academics/transcripts',
               access: { anyPermission: ['academics.results.view'] },
             },
           ],

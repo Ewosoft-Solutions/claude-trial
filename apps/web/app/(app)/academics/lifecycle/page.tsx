@@ -7,7 +7,8 @@
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
-import { PageTitle } from '@workspace/ui/custom/shell/page-title';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import {
   LifecycleManager,
   type SectionOption,
@@ -31,12 +32,12 @@ export default async function StudentLifecyclePage() {
 
   if (!canView) {
     return (
-      <div className="p-6">
+      <ShellMain>
         <PermissionDeniedState
           title="You don't have access to the student lifecycle"
           description="Ask an administrator for the “View student lifecycle” permission."
         />
-      </div>
+      </ShellMain>
     );
   }
 
@@ -50,14 +51,11 @@ export default async function StudentLifecyclePage() {
   ]);
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-1">
-        <PageTitle>Student lifecycle</PageTitle>
-        <p className="text-sm text-muted-foreground">
-          Register, transfer, withdraw and graduate students — every change is a
-          durable, dated event, so a placement is never overwritten.
-        </p>
-      </header>
+    <ShellMain>
+      <PageHeader
+        title="Student lifecycle"
+        description="Register, transfer, withdraw and graduate students — every change is a durable, dated event, so a placement is never overwritten."
+      />
 
       <LifecycleManager
         canManage={canManage}
@@ -65,6 +63,6 @@ export default async function StudentLifecyclePage() {
         years={toArray<YearOption>(years)}
         students={toArray<StudentOption>(studentsRaw)}
       />
-    </div>
+    </ShellMain>
   );
 }

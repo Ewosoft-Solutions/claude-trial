@@ -1,13 +1,32 @@
-import { Download } from 'lucide-react';
+/**
+ * Gradebook standing — THE single live view of where students stand, computed
+ * from the CURRENT `Grade` rows, so it moves as teachers mark.
+ *
+ * Merged from the former Report cards + Gradebook standing pages: both read the
+ * same two endpoints (`/assessments` then `/grades/assessment/:id`) and averaged
+ * the same numbers, differing only in the columns they chose to show. This view
+ * carries all of them — letter grade, GPA and standing band.
+ *
+ * It is deliberately NOT the transcript of record: an official transcript is
+ * assembled from published, checksum-addressed result snapshots and lives at
+ * `/academics/transcripts`. That is the "one fact, one owner" rule — this page
+ * explains where a class stands today; that one is the document a family can
+ * hold the school to.
+ */
+import { Download, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 import { serverApiGet } from '@/lib/server-api';
 import { Button } from '@workspace/ui/components/button';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import type { StateTone } from '@workspace/ui/types/states.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
-import { ReportCardsClient, type ReportRow } from './report-cards-client';
+import {
+  StandingClient,
+  type Standing,
+  type StandingRow,
+} from './standing-client';
 
 type Paginated<T> = { data?: T[] };
 
@@ -49,12 +68,10 @@ function average(values: number[]): number {
     : 0;
 }
 
-function grade(avg: number): { letter: string; tone: StateTone } {
-  if (avg >= 70) return { letter: 'A', tone: 'success' };
-  if (avg >= 60) return { letter: 'B', tone: 'success' };
-  if (avg >= 50) return { letter: 'C', tone: 'info' };
-  if (avg >= 40) return { letter: 'D', tone: 'warning' };
-  return { letter: 'F', tone: 'destructive' };
+function standingFor(averageScore: number): Standing {
+  if (averageScore >= 70) return 'honors';
+  if (averageScore >= 50) return 'good';
+  return 'watch';
 }
 
 function studentName(grade: ApiGrade): string {
@@ -71,7 +88,7 @@ function classLabel(assessment: ApiAssessment): string {
   return [cls?.name, cls?.section].filter(Boolean).join(' ') || 'Unassigned';
 }
 
-export default async function ReportCardsPage() {
+export default async function TranscriptsPage() {
   const assessmentData = await serverApiGet<
     ApiAssessment[] | Paginated<ApiAssessment>
   >('/assessments?limit=100');
@@ -109,40 +126,55 @@ export default async function ReportCardsPage() {
     }
   }
 
-  const rows: ReportRow[] = Array.from(grouped.entries()).map(([key, item]) => {
-    const avg = average(item.scores);
-    const computed = grade(avg);
-    return {
-      key,
-      id: item.id,
-      name: item.name,
-      className: item.className,
-      average: avg,
-      grade: computed.letter,
-      tone: computed.tone,
-      records: item.scores.length,
-    };
-  });
+  const rows: StandingRow[] = Array.from(grouped.entries()).map(
+    ([key, item]) => {
+      const avg = average(item.scores);
+      return {
+        key,
+        id: item.id,
+        name: item.name,
+        className: item.className,
+        average: avg,
+        gpa: Math.round((avg / 100) * 400) / 100,
+        records: item.scores.length,
+        standing: standingFor(avg),
+      };
+    },
+  );
 
   const meta: PageHeaderMeta[] = [
-    { key: 'source', label: 'computed from grades', emphasis: true },
-    { key: 'cards', label: `${rows.length} students` },
+    { key: 'source', label: 'live, computed from grades', emphasis: true },
+    { key: 'scope', label: `${rows.length} students` },
   ];
 
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
-          title="Report cards"
+          title="Gradebook standing"
           meta={meta}
           actions={
-            <Button variant="outline" size="sm">
-              <Download /> Export
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/academics/results">
+                  <ExternalLink /> Official transcripts
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download /> Export
+              </Button>
+            </div>
           }
         />
 
-        <ReportCardsClient rows={rows} />
+        <p className="text-sm text-muted-foreground">
+          Averages here are computed from the live gradebook and move as
+          teachers mark. An <strong>official transcript</strong> is assembled
+          from published result snapshots — issue one from the results
+          workbench.
+        </p>
+
+        <StandingClient rows={rows} />
       </div>
     </ShellMain>
   );

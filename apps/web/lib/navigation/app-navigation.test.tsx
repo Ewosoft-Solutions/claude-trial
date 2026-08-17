@@ -347,10 +347,10 @@ describe('SCHOOL_NAV panel resolution', () => {
     // (admissions needs admissions.view, which the teacher lacks).
     expect(records?.items.map((i) => i.key)).toEqual(['directory']);
 
-    // Academics items: report cards shown (grades.view); transcripts filtered
-    // out (needs transcripts.view, which the teacher lacks).
+    // Academics items: the single merged standing view is shown — it accepts
+    // EITHER grades.view or transcripts.view, and the teacher has grades.view.
     const academics = navGroups.find((g) => g.key === 'academics');
-    expect(academics?.items.map((i) => i.key)).toEqual(['reportcards']);
+    expect(academics?.items.map((i) => i.key)).toEqual(['standing']);
   });
 
   it('gates the classes Materials leaf on lessons.view', () => {
@@ -463,6 +463,7 @@ describe('SCHOOL_NAV panel resolution', () => {
       'student-lifecycle',
       'promotion',
       'results',
+      'transcripts',
     ]);
     // …and those items no longer clutter the Classes panel.
     const teaching = resolveNavigation(

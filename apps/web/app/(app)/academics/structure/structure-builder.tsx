@@ -35,6 +35,15 @@ import {
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
+import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
 export interface Campus {
   id: string;
@@ -130,6 +139,8 @@ export function StructureBuilder({
   initialSections: ClassSection[];
 }) {
   const router = useRouter();
+  const [sectionOpen, setSectionOpen] = React.useState(false);
+  const [blocksOpen, setBlocksOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
   // Guided section-builder form state.
@@ -192,106 +203,217 @@ export function StructureBuilder({
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      {/* Guided section builder */}
+    <ShellMain>
+      <PageHeader
+        title="Academic structure"
+        description="Build classes from dimensions — campus, stage, year level, stream and section — instead of typing a name like “SS1 Science A”. The label is composed for you."
+        actions={
+          canManage ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setBlocksOpen(true)}
+              >
+                <Layers aria-hidden /> Building blocks
+              </Button>
+              <Button size="sm" onClick={() => setSectionOpen(true)}>
+                <Plus aria-hidden /> New section
+              </Button>
+            </div>
+          ) : undefined
+        }
+      />
+
       {canManage && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="size-4" aria-hidden /> New class section
-            </CardTitle>
-            <CardDescription>
-              Pick the dimensions — the label is composed for you, never typed.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {initialCampuses.length === 0 || initialYearLevels.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                Add at least one campus and one year level (below) before you
-                can build a class section.
-              </p>
-            ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <Field label="Campus" htmlFor="sb-campus">
-                  <Select value={campusId} onValueChange={setCampusId}>
-                    <SelectTrigger id="sb-campus">
-                      <SelectValue placeholder="Choose campus" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {initialCampuses.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+        <Dialog open={sectionOpen} onOpenChange={setSectionOpen}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>New class section</DialogTitle>
+              <DialogDescription>
+                Pick the dimensions — the label is composed for you, never
+                typed.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2">
+              {initialCampuses.length === 0 ||
+              initialYearLevels.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Add at least one campus and one year level (below) before you
+                  can build a class section.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <Field label="Campus" htmlFor="sb-campus">
+                    <Select value={campusId} onValueChange={setCampusId}>
+                      <SelectTrigger id="sb-campus">
+                        <SelectValue placeholder="Choose campus" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {initialCampuses.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                <Field label="Year level" htmlFor="sb-year">
-                  <Select value={yearLevelId} onValueChange={setYearLevelId}>
-                    <SelectTrigger id="sb-year">
-                      <SelectValue placeholder="Choose year" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {initialYearLevels.map((y) => (
-                        <SelectItem key={y.id} value={y.id}>
-                          {y.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                  <Field label="Year level" htmlFor="sb-year">
+                    <Select value={yearLevelId} onValueChange={setYearLevelId}>
+                      <SelectTrigger id="sb-year">
+                        <SelectValue placeholder="Choose year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {initialYearLevels.map((y) => (
+                          <SelectItem key={y.id} value={y.id}>
+                            {y.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                <Field label="Stream (optional)" htmlFor="sb-stream">
-                  <Select value={streamId} onValueChange={setStreamId}>
-                    <SelectTrigger id="sb-stream">
-                      <SelectValue placeholder="No stream" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">No stream</SelectItem>
-                      {initialStreams.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          {s.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
+                  <Field label="Stream (optional)" htmlFor="sb-stream">
+                    <Select value={streamId} onValueChange={setStreamId}>
+                      <SelectTrigger id="sb-stream">
+                        <SelectValue placeholder="No stream" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No stream</SelectItem>
+                        {initialStreams.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
 
-                <Field label="Section / arm" htmlFor="sb-name">
-                  <Input
-                    id="sb-name"
-                    placeholder="e.g. A"
-                    value={sectionName}
-                    onChange={(e) => setSectionName(e.target.value)}
-                    maxLength={60}
-                  />
-                </Field>
+                  <Field label="Section / arm" htmlFor="sb-name">
+                    <Input
+                      id="sb-name"
+                      placeholder="e.g. A"
+                      value={sectionName}
+                      onChange={(e) => setSectionName(e.target.value)}
+                      maxLength={60}
+                    />
+                  </Field>
 
-                <div className="flex flex-col justify-end gap-2 sm:col-span-2 lg:col-span-4">
-                  <div
-                    className="text-sm"
-                    aria-live="polite"
-                    data-testid="section-preview"
-                  >
-                    <span className="text-muted-foreground">
-                      Preview label:{' '}
-                    </span>
-                    <span className="font-medium">{previewLabel || '—'}</span>
-                  </div>
-                  <div>
-                    <Button
-                      onClick={createSection}
-                      disabled={!canCreateSection || busy}
+                  <div className="flex flex-col justify-end gap-2 sm:col-span-2 lg:col-span-4">
+                    <div
+                      className="text-sm"
+                      aria-live="polite"
+                      data-testid="section-preview"
                     >
-                      Create class section
-                    </Button>
+                      <span className="text-muted-foreground">
+                        Preview label:{' '}
+                      </span>
+                      <span className="font-medium">{previewLabel || '—'}</span>
+                    </div>
+                    <div>
+                      <Button
+                        onClick={createSection}
+                        disabled={!canCreateSection || busy}
+                      >
+                        Create class section
+                      </Button>
+                    </div>
                   </div>
                 </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
+      {canManage && (
+        <Dialog open={blocksOpen} onOpenChange={setBlocksOpen}>
+          <DialogContent className="sm:max-w-3xl">
+            <DialogHeader>
+              <DialogTitle>Building blocks</DialogTitle>
+              <DialogDescription>
+                Stages, year levels and streams are the structured dimensions
+                your sections are built from.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="py-2">
+              {/* Stages */}
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm font-semibold">Stages</h3>
+                <SimpleBlockForm
+                  disabled={busy}
+                  onCreate={(name, code) =>
+                    run(
+                      () =>
+                        postJson('/api/academics/structure/stages', {
+                          name,
+                          code,
+                        }),
+                      `Added stage ${name}`,
+                    )
+                  }
+                />
+                <DimensionList
+                  items={initialStages.map((s) => ({
+                    id: s.id,
+                    label: `${s.name} (${s.code})`,
+                  }))}
+                />
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              {/* Year levels */}
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm font-semibold">Year levels</h3>
+                <YearLevelForm
+                  stages={initialStages}
+                  disabled={busy}
+                  onCreate={(name, code, stageId) =>
+                    run(
+                      () =>
+                        postJson('/api/academics/structure/year-levels', {
+                          name,
+                          code,
+                          stageId,
+                        }),
+                      `Added year level ${name}`,
+                    )
+                  }
+                />
+                <DimensionList
+                  items={initialYearLevels.map((y) => ({
+                    id: y.id,
+                    label: `${y.name} (${y.code})`,
+                  }))}
+                />
+              </div>
+
+              {/* Streams */}
+              <div className="flex flex-col gap-3">
+                <h3 className="text-sm font-semibold">Streams</h3>
+                <SimpleBlockForm
+                  disabled={busy}
+                  onCreate={(name, code) =>
+                    run(
+                      () =>
+                        postJson('/api/academics/structure/streams', {
+                          name,
+                          code,
+                        }),
+                      `Added stream ${name}`,
+                    )
+                  }
+                />
+                <DimensionList
+                  items={initialStreams.map((s) => ({
+                    id: s.id,
+                    label: `${s.name} (${s.code})`,
+                  }))}
+                />
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
 
       {/* Sections list */}
@@ -354,95 +476,7 @@ export function StructureBuilder({
           )}
         </CardContent>
       </Card>
-
-      {/* Building blocks */}
-      {canManage && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Building blocks</CardTitle>
-            <CardDescription>
-              Stages, year levels and streams are the structured dimensions your
-              sections are built from.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-            {/* Stages */}
-            <div className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold">Stages</h3>
-              <SimpleBlockForm
-                disabled={busy}
-                onCreate={(name, code) =>
-                  run(
-                    () =>
-                      postJson('/api/academics/structure/stages', {
-                        name,
-                        code,
-                      }),
-                    `Added stage ${name}`,
-                  )
-                }
-              />
-              <DimensionList
-                items={initialStages.map((s) => ({
-                  id: s.id,
-                  label: `${s.name} (${s.code})`,
-                }))}
-              />
-            </div>
-
-            {/* Year levels */}
-            <div className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold">Year levels</h3>
-              <YearLevelForm
-                stages={initialStages}
-                disabled={busy}
-                onCreate={(name, code, stageId) =>
-                  run(
-                    () =>
-                      postJson('/api/academics/structure/year-levels', {
-                        name,
-                        code,
-                        stageId,
-                      }),
-                    `Added year level ${name}`,
-                  )
-                }
-              />
-              <DimensionList
-                items={initialYearLevels.map((y) => ({
-                  id: y.id,
-                  label: `${y.name} (${y.code})`,
-                }))}
-              />
-            </div>
-
-            {/* Streams */}
-            <div className="flex flex-col gap-3">
-              <h3 className="text-sm font-semibold">Streams</h3>
-              <SimpleBlockForm
-                disabled={busy}
-                onCreate={(name, code) =>
-                  run(
-                    () =>
-                      postJson('/api/academics/structure/streams', {
-                        name,
-                        code,
-                      }),
-                    `Added stream ${name}`,
-                  )
-                }
-              />
-              <DimensionList
-                items={initialStreams.map((s) => ({
-                  id: s.id,
-                  label: `${s.name} (${s.code})`,
-                }))}
-              />
-            </div>
-          </CardContent>
-        </Card>
-      )}
-    </div>
+    </ShellMain>
   );
 }
 

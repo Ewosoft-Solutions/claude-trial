@@ -23,7 +23,7 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 
-import { apiGet, apiPost } from './results-api';
+import { apiGet, apiPost } from '../results/results-api';
 
 export interface TranscriptStudentOption {
   id: string;
