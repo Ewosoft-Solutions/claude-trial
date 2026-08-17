@@ -1,12 +1,14 @@
 'use client';
 
 /**
- * WB3-5 · Admission requirements editor. The per-tenant, configurable checklist
- * (documents / measurements / fees) collected across the admissions journey.
- * Fee rows carry pricing — a default plus optional per-class and per-section
- * overrides — which the applicant detail page resolves and bills (never typed by
- * hand there). All writes hit the `/api/admissions/requirements*` proxy;
- * `admissions.criteria` is enforced server-side.
+ * WB3-5 · Admission requirements editor — a master–detail view (matching the
+ * Application-form authoring tab): the per-tenant checklist (documents /
+ * measurements / fees) collected across the admissions journey, grouped by stage
+ * in the left rail, with the selected requirement edited in the right pane. Fee
+ * rows carry pricing (a default plus optional per-class and per-section overrides)
+ * which the applicant detail page resolves and bills. All writes hit the
+ * `/api/admissions/requirements*` proxy; `admissions.criteria` is enforced
+ * server-side.
  */
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
@@ -21,6 +23,7 @@ import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { cn } from '@workspace/ui/lib/utils';
 
 import { formatNaira } from '@/lib/format';
 
@@ -50,6 +53,12 @@ const STAGE_LABEL: Record<string, string> = {
   offer: 'On offer',
   acceptance: 'On acceptance',
   enrolment: 'At enrolment',
+};
+const STAGE_ORDER: Record<string, number> = {
+  application: 0,
+  offer: 1,
+  acceptance: 2,
+  enrolment: 3,
 };
 
 /** Parse a ₦ amount (naira, optional decimals) into kobo; null when blank. */
@@ -100,7 +109,47 @@ export function RequirementsEditor({
 }) {
   const router = useRouter();
   const [busy, setBusy] = React.useState(false);
-  const [adding, setAdding] = React.useState(false);
+  const [dirty, setDirty] = React.useState(false);
+  const [mode, setMode] = React.useState<'view' | 'add'>('view');
+
+  const sorted = React.useMemo(
+    () =>
+      [...requirements].sort(
+        (a, b) =>
+          (STAGE_ORDER[a.collectStage] ?? 9) -
+            (STAGE_ORDER[b.collectStage] ?? 9) ||
+          a.order - b.order ||
+          a.label.localeCompare(b.label),
+      ),
+    [requirements],
+  );
+  const [selectedId, setSelectedId] = React.useState<string | null>(
+    () => sorted[0]?.id ?? null,
+  );
+  const selected = requirements.find((r) => r.id === selectedId) ?? null;
+
+  const grouped = React.useMemo(() => {
+    const by: Record<string, RequirementTemplateRow[]> = {};
+    for (const r of sorted) (by[r.collectStage] ??= []).push(r);
+    return by;
+  }, [sorted]);
+  const stages = STAGES.filter((s) => grouped[s]?.length);
+
+  function guardDirty(): boolean {
+    return !dirty || window.confirm('Discard unsaved changes?');
+  }
+  function selectRequirement(id: string) {
+    if (id === selectedId && mode === 'view') return;
+    if (!guardDirty()) return;
+    setDirty(false);
+    setMode('view');
+    setSelectedId(id);
+  }
+  function startAdd() {
+    if (!guardDirty()) return;
+    setDirty(false);
+    setMode('add');
+  }
 
   async function send(
     method: 'POST' | 'PATCH',
@@ -131,65 +180,55 @@ export function RequirementsEditor({
     }
   }
 
-  const grouped = React.useMemo(() => {
-    const by: Record<string, RequirementTemplateRow[]> = {};
-    for (const r of [...requirements].sort(
-      (a, b) => a.order - b.order || a.label.localeCompare(b.label),
-    )) {
-      (by[r.collectStage] ??= []).push(r);
+  async function addRequirement(body: Record<string, unknown>) {
+    setBusy(true);
+    try {
+      const res = await fetch('/api/admissions/requirements', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        toast.error(text?.slice(0, 200) || 'Could not add the requirement');
+        return;
+      }
+      const created = (await res.json()) as RequirementTemplateRow;
+      toast.success('Requirement added');
+      setDirty(false);
+      setMode('view');
+      if (created?.id) setSelectedId(created.id);
+      router.refresh();
+    } catch {
+      toast.error('Network error — please try again.');
+    } finally {
+      setBusy(false);
     }
-    return by;
-  }, [requirements]);
+  }
 
-  const stages = STAGES.filter((s) => grouped[s]?.length);
+  const description = (
+    <p className="max-w-3xl text-sm text-muted-foreground">
+      Documents, measurements and fees the school collects across the admissions
+      journey. Fee prices are set here (a default, with optional per-class and
+      per-section overrides) and billed automatically from the applicant&rsquo;s
+      class.
+    </p>
+  );
 
-  const headerActions = canManage ? (
-    <div className="flex items-center gap-2">
-      {requirements.length === 0 && (
-        <Button
-          type="button"
-          variant="outline"
-          disabled={busy}
-          onClick={() =>
-            void send(
-              'POST',
-              'requirements/ensure-defaults',
-              undefined,
-              'Seeded the standard checklist',
-            )
-          }
-        >
-          Seed standard checklist
-        </Button>
-      )}
-      <Button type="button" disabled={busy} onClick={() => setAdding(true)}>
-        <Plus className="mr-1 size-4" aria-hidden />
-        Add requirement
-      </Button>
-    </div>
-  ) : undefined;
+  const empty = requirements.length === 0;
 
   const body = (
     <>
       {embedded ? (
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <p className="max-w-3xl text-sm text-muted-foreground">
-            Documents, measurements and fees the school collects across the
-            admissions journey. Fee prices are set here (a default, with
-            optional per-class and per-section overrides) and billed
-            automatically from the applicant&rsquo;s class.
-          </p>
-          {headerActions}
-        </div>
+        description
       ) : (
         <PageHeader
           title="Admission requirements"
           description="Configure what the school collects across the admissions journey — documents, measurements and fees. Fee prices are set here (a default, with optional per-class and per-section overrides) and billed automatically from the applicant's class."
-          actions={headerActions}
         />
       )}
 
-      {requirements.length === 0 ? (
+      {empty && mode === 'view' ? (
         <EmptyState
           title="No requirements yet"
           description={
@@ -197,46 +236,137 @@ export function RequirementsEditor({
               ? 'Seed the standard Nigerian checklist to get started, or add your own.'
               : 'An administrator has not configured the admission requirements yet.'
           }
+          primaryAction={
+            canManage
+              ? { label: 'Add requirement', onClick: startAdd }
+              : undefined
+          }
+          secondaryAction={
+            canManage
+              ? {
+                  label: 'Seed standard checklist',
+                  variant: 'outline',
+                  onClick: () =>
+                    void send(
+                      'POST',
+                      'requirements/ensure-defaults',
+                      undefined,
+                      'Seeded the standard checklist',
+                    ),
+                }
+              : undefined
+          }
         />
       ) : (
-        <div className="flex flex-col gap-6">
-          {adding && canManage && (
-            <AddRequirement
-              busy={busy}
-              onCancel={() => setAdding(false)}
-              onSubmit={async (body) => {
-                const ok = await send(
-                  'POST',
-                  'requirements',
-                  body,
-                  'Requirement added',
-                );
-                if (ok) setAdding(false);
-              }}
-            />
-          )}
-          {stages.map((stage) => (
-            <section key={stage} className="flex flex-col gap-3">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {STAGE_LABEL[stage] ?? stage}
-              </h3>
-              <div className="flex flex-col gap-3">
-                {grouped[stage]!.map((r) => (
-                  <RequirementCard
-                    key={r.id}
-                    requirement={r}
-                    yearLevels={yearLevels}
-                    sections={sections}
-                    canManage={canManage}
-                    busy={busy}
-                    onSave={(body) =>
-                      send('PATCH', `requirements/${r.id}`, body, 'Saved')
-                    }
-                  />
-                ))}
-              </div>
-            </section>
-          ))}
+        <div className="grid min-h-0 gap-4 @4xl/main:min-h-[34rem] @4xl/main:grid-cols-[minmax(15rem,20rem)_1fr]">
+          {/* ---- requirement list ---- */}
+          <section
+            aria-label="Requirements"
+            className="flex min-h-0 flex-col gap-3 rounded-xl border border-border bg-card p-4"
+          >
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">Requirements</h3>
+              <span className="text-xs text-muted-foreground">
+                {requirements.length}
+              </span>
+            </div>
+
+            {canManage && (
+              <Button
+                size="sm"
+                variant={mode === 'add' ? 'default' : 'outline'}
+                className="w-full"
+                disabled={busy}
+                onClick={startAdd}
+              >
+                <Plus className="mr-1 size-4" aria-hidden /> Add requirement
+              </Button>
+            )}
+
+            <div
+              className="flex min-h-0 flex-col gap-3 overflow-y-auto"
+              role="list"
+            >
+              {stages.map((stage) => (
+                <div key={stage} className="flex flex-col gap-1">
+                  <span className="px-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {STAGE_LABEL[stage] ?? stage}
+                  </span>
+                  {grouped[stage]!.map((r) => {
+                    const active = mode === 'view' && r.id === selected?.id;
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        onClick={() => selectRequirement(r.id)}
+                        className={cn(
+                          'w-full rounded-md border px-3 py-2 text-left transition-colors',
+                          active
+                            ? 'border-primary bg-primary/5'
+                            : 'border-transparent hover:bg-muted',
+                        )}
+                      >
+                        <span className="flex items-center gap-1.5 text-sm">
+                          <span className="min-w-0 truncate font-medium">
+                            {r.label}
+                          </span>
+                          {r.required && (
+                            <span className="text-destructive">*</span>
+                          )}
+                        </span>
+                        <span className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] capitalize text-muted-foreground">
+                          {r.type === 'fee' && (
+                            <Banknote className="size-3.5" aria-hidden />
+                          )}
+                          {r.type}
+                          {!r.active && (
+                            <StatusBadge tone="neutral">disabled</StatusBadge>
+                          )}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* ---- detail / editor ---- */}
+          <section
+            aria-label="Requirement detail"
+            className="flex min-h-0 flex-col gap-4 rounded-xl border border-border bg-card p-4"
+          >
+            {mode === 'add' && canManage ? (
+              <AddRequirement
+                busy={busy}
+                onDirty={setDirty}
+                onCancel={() => {
+                  setDirty(false);
+                  setMode('view');
+                }}
+                onSubmit={(payload) => void addRequirement(payload)}
+              />
+            ) : selected ? (
+              <RequirementDetail
+                key={selected.id}
+                requirement={selected}
+                yearLevels={yearLevels}
+                sections={sections}
+                canManage={canManage}
+                busy={busy}
+                onDirty={setDirty}
+                onSave={(patch) =>
+                  send('PATCH', `requirements/${selected.id}`, patch, 'Saved')
+                }
+              />
+            ) : (
+              <EmptyState
+                compact
+                title="Select a requirement"
+                description="Choose a requirement to view or edit its details."
+              />
+            )}
+          </section>
         </div>
       )}
     </>
@@ -249,12 +379,15 @@ export function RequirementsEditor({
   );
 }
 
-function RequirementCard({
+// -------------------------------------------------------- requirement detail
+
+function RequirementDetail({
   requirement: r,
   yearLevels,
   sections,
   canManage,
   busy,
+  onDirty,
   onSave,
 }: {
   requirement: RequirementTemplateRow;
@@ -262,154 +395,36 @@ function RequirementCard({
   sections: { id: string; displayLabel: string }[];
   canManage: boolean;
   busy: boolean;
+  onDirty: (dirty: boolean) => void;
   onSave: (body: Record<string, unknown>) => Promise<boolean>;
 }) {
-  const [editing, setEditing] = React.useState(false);
+  const isFee = r.type === 'fee';
+  const initialFee = React.useMemo(() => readFeeConfig(r.config), [r.config]);
+
   const [label, setLabel] = React.useState(r.label);
   const [collectStage, setCollectStage] = React.useState(r.collectStage);
   const [required, setRequired] = React.useState(r.required);
   const [active, setActive] = React.useState(r.active);
-
-  return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex min-w-0 flex-col">
-          <span className="truncate text-sm font-medium">
-            {r.label}
-            {r.required && <span className="ml-1 text-destructive">*</span>}
-          </span>
-          <span className="text-xs capitalize text-muted-foreground">
-            {r.type}
-            {!r.active ? ' · disabled' : ''}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {!r.active && <StatusBadge tone="neutral">disabled</StatusBadge>}
-          {canManage && (
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => setEditing((v) => !v)}
-            >
-              {editing ? 'Close' : 'Edit'}
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {canManage && editing && (
-        <div className="mt-3 flex flex-col gap-3 rounded-md bg-muted/40 p-3">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Label</Label>
-              <Input
-                value={label}
-                onChange={(e) => setLabel(e.target.value)}
-                className="h-8"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <Label className="text-xs">Collected at</Label>
-              <select
-                value={collectStage}
-                onChange={(e) =>
-                  setCollectStage(
-                    e.target.value as RequirementTemplateRow['collectStage'],
-                  )
-                }
-                className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-              >
-                {STAGES.map((s) => (
-                  <option key={s} value={s}>
-                    {STAGE_LABEL[s]}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={required}
-                onCheckedChange={(v) => setRequired(v === true)}
-              />
-              Required
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox
-                checked={active}
-                onCheckedChange={(v) => setActive(v === true)}
-              />
-              Active
-            </label>
-          </div>
-          <div className="flex justify-end">
-            <Button
-              size="sm"
-              disabled={busy || !label.trim()}
-              onClick={async () => {
-                const ok = await onSave({
-                  label: label.trim(),
-                  collectStage,
-                  required,
-                  active,
-                });
-                if (ok) setEditing(false);
-              }}
-            >
-              Save details
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {r.type === 'fee' && (
-        <FeePricingEditor
-          requirement={r}
-          yearLevels={yearLevels}
-          sections={sections}
-          canManage={canManage}
-          busy={busy}
-          onSave={onSave}
-        />
-      )}
-    </div>
-  );
-}
-
-function FeePricingEditor({
-  requirement: r,
-  yearLevels,
-  sections,
-  canManage,
-  busy,
-  onSave,
-}: {
-  requirement: RequirementTemplateRow;
-  yearLevels: { id: string; name: string }[];
-  sections: { id: string; displayLabel: string }[];
-  canManage: boolean;
-  busy: boolean;
-  onSave: (body: Record<string, unknown>) => Promise<boolean>;
-}) {
-  const initial = React.useMemo(() => readFeeConfig(r.config), [r.config]);
-  const [amount, setAmount] = React.useState(nairaValue(initial.amount));
+  const [amount, setAmount] = React.useState(nairaValue(initialFee.amount));
   const [classPrices, setClassPrices] = React.useState<Record<string, string>>(
     () =>
       Object.fromEntries(
-        yearLevels.map((y) => [y.id, nairaValue(initial.classPrices?.[y.id])]),
+        yearLevels.map((y) => [
+          y.id,
+          nairaValue(initialFee.classPrices?.[y.id]),
+        ]),
       ),
   );
   const [sectionPrices, setSectionPrices] = React.useState<
     Record<string, string>
   >(() =>
     Object.fromEntries(
-      sections.map((s) => [s.id, nairaValue(initial.sectionPrices?.[s.id])]),
+      sections.map((s) => [s.id, nairaValue(initialFee.sectionPrices?.[s.id])]),
     ),
   );
-  const [open, setOpen] = React.useState(false);
+  const [overridesOpen, setOverridesOpen] = React.useState(false);
+
+  const mark = () => onDirty(true);
 
   function collectMap(prices: Record<string, string>): Record<string, number> {
     const out: Record<string, number> = {};
@@ -421,121 +436,232 @@ function FeePricingEditor({
   }
 
   async function save() {
-    // Preserve any non-pricing keys already on the config (e.g. currency).
-    const base =
-      r.config && typeof r.config === 'object' && !Array.isArray(r.config)
-        ? (r.config as Record<string, unknown>)
-        : {};
-    const config: Record<string, unknown> = {
-      ...base,
-      currency: 'NGN',
-      amount: koboFromNaira(amount),
-      classPrices: collectMap(classPrices),
-      sectionPrices: collectMap(sectionPrices),
+    const body: Record<string, unknown> = {
+      label: label.trim(),
+      collectStage,
+      required,
+      active,
     };
-    await onSave({ config });
+    if (isFee) {
+      const base =
+        r.config && typeof r.config === 'object' && !Array.isArray(r.config)
+          ? (r.config as Record<string, unknown>)
+          : {};
+      body.config = {
+        ...base,
+        currency: 'NGN',
+        amount: koboFromNaira(amount),
+        classPrices: collectMap(classPrices),
+        sectionPrices: collectMap(sectionPrices),
+      };
+    }
+    const ok = await onSave(body);
+    if (ok) onDirty(false);
   }
 
   const defaultKobo = koboFromNaira(amount);
 
   return (
-    <div className="mt-3 rounded-md border border-dashed border-border p-3">
-      <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Banknote className="size-4 text-muted-foreground" aria-hidden />
-          Fee pricing
+    <>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="flex items-center gap-2 text-base font-semibold">
+            <span className="min-w-0 truncate">{r.label}</span>
+            {r.required && <span className="text-destructive">*</span>}
+          </h3>
+          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs capitalize text-muted-foreground">
+            <StatusBadge tone={isFee ? 'blue' : 'neutral'}>
+              {r.type}
+            </StatusBadge>
+            {STAGE_LABEL[r.collectStage] ?? r.collectStage}
+            {!r.active && <StatusBadge tone="neutral">disabled</StatusBadge>}
+          </div>
         </div>
-        <span className="text-xs text-muted-foreground">
-          Default: {defaultKobo != null ? formatNaira(defaultKobo) : 'no fee'}
-        </span>
+        {canManage && (
+          <Button
+            size="sm"
+            disabled={busy || !label.trim()}
+            onClick={() => void save()}
+          >
+            Save
+          </Button>
+        )}
       </div>
 
-      {canManage ? (
-        <div className="mt-3 flex flex-col gap-3">
-          <div className="flex max-w-xs flex-col gap-1">
-            <Label className="text-xs">Default amount (₦)</Label>
-            <Input
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              inputMode="decimal"
-              placeholder="e.g. 5000 — leave blank for no fee"
-              className="h-8"
-            />
-            <p className="text-[11px] text-muted-foreground">
-              Blank or 0 means this fee doesn&apos;t apply (auto-skipped, never
-              blocks admission).
-            </p>
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setOpen((v) => !v)}
-            className="w-fit text-xs font-medium text-primary hover:underline"
-          >
-            {open ? 'Hide' : 'Set'} per-class / per-section overrides
-          </button>
-
-          {open && (
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Per class (wins over section)
-                </span>
-                {yearLevels.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No classes configured.
-                  </p>
-                ) : (
-                  yearLevels.map((y) => (
-                    <PriceRow
-                      key={y.id}
-                      label={y.name}
-                      value={classPrices[y.id] ?? ''}
-                      onChange={(v) =>
-                        setClassPrices((p) => ({ ...p, [y.id]: v }))
-                      }
-                    />
-                  ))
-                )}
+      <div className="flex min-h-0 flex-col gap-4 overflow-y-auto border-t border-border pt-4">
+        {canManage ? (
+          <>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Label</Label>
+                <Input
+                  value={label}
+                  onChange={(e) => {
+                    setLabel(e.target.value);
+                    mark();
+                  }}
+                  className="h-9"
+                />
               </div>
-              <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Per section
-                </span>
-                {sections.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No sections available.
-                  </p>
-                ) : (
-                  sections.map((s) => (
-                    <PriceRow
-                      key={s.id}
-                      label={s.displayLabel}
-                      value={sectionPrices[s.id] ?? ''}
-                      onChange={(v) =>
-                        setSectionPrices((p) => ({ ...p, [s.id]: v }))
-                      }
-                    />
-                  ))
-                )}
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-xs">Collected at</Label>
+                <select
+                  value={collectStage}
+                  onChange={(e) => {
+                    setCollectStage(
+                      e.target.value as RequirementTemplateRow['collectStage'],
+                    );
+                    mark();
+                  }}
+                  className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+                >
+                  {STAGES.map((s) => (
+                    <option key={s} value={s}>
+                      {STAGE_LABEL[s]}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
-          )}
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={required}
+                  onCheckedChange={(v) => {
+                    setRequired(v === true);
+                    mark();
+                  }}
+                />
+                Required
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={active}
+                  onCheckedChange={(v) => {
+                    setActive(v === true);
+                    mark();
+                  }}
+                />
+                Active
+              </label>
+            </div>
+          </>
+        ) : (
+          <dl className="grid grid-cols-[8rem_1fr] gap-y-2 text-sm">
+            <dt className="text-muted-foreground">Collected at</dt>
+            <dd>{STAGE_LABEL[r.collectStage] ?? r.collectStage}</dd>
+            <dt className="text-muted-foreground">Required</dt>
+            <dd>{r.required ? 'Yes' : 'No'}</dd>
+            <dt className="text-muted-foreground">Status</dt>
+            <dd>{r.active ? 'Active' : 'Disabled'}</dd>
+          </dl>
+        )}
 
-          <div className="flex justify-end">
-            <Button size="sm" disabled={busy} onClick={() => void save()}>
-              Save pricing
-            </Button>
+        {isFee && (
+          <div className="rounded-md border border-dashed border-border p-3">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Banknote
+                  className="size-4 text-muted-foreground"
+                  aria-hidden
+                />
+                Fee pricing
+              </div>
+              <span className="text-xs text-muted-foreground">
+                Default:{' '}
+                {defaultKobo != null ? formatNaira(defaultKobo) : 'no fee'}
+              </span>
+            </div>
+
+            {canManage ? (
+              <div className="mt-3 flex flex-col gap-3">
+                <div className="flex max-w-xs flex-col gap-1.5">
+                  <Label className="text-xs">Default amount (₦)</Label>
+                  <Input
+                    value={amount}
+                    onChange={(e) => {
+                      setAmount(e.target.value);
+                      mark();
+                    }}
+                    inputMode="decimal"
+                    placeholder="e.g. 5000 — leave blank for no fee"
+                    className="h-9"
+                  />
+                  <p className="text-[11px] text-muted-foreground">
+                    Blank or 0 means this fee doesn&apos;t apply (auto-skipped,
+                    never blocks admission).
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setOverridesOpen((v) => !v)}
+                  className="w-fit text-xs font-medium text-primary hover:underline"
+                >
+                  {overridesOpen ? 'Hide' : 'Set'} per-class / per-section
+                  overrides
+                </button>
+
+                {overridesOpen && (
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Per class (wins over section)
+                      </span>
+                      {yearLevels.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No classes configured.
+                        </p>
+                      ) : (
+                        yearLevels.map((y) => (
+                          <PriceRow
+                            key={y.id}
+                            label={y.name}
+                            value={classPrices[y.id] ?? ''}
+                            onChange={(v) => {
+                              setClassPrices((p) => ({ ...p, [y.id]: v }));
+                              mark();
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-2">
+                      <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        Per section
+                      </span>
+                      {sections.length === 0 ? (
+                        <p className="text-xs text-muted-foreground">
+                          No sections available.
+                        </p>
+                      ) : (
+                        sections.map((s) => (
+                          <PriceRow
+                            key={s.id}
+                            label={s.displayLabel}
+                            value={sectionPrices[s.id] ?? ''}
+                            onChange={(v) => {
+                              setSectionPrices((p) => ({ ...p, [s.id]: v }));
+                              mark();
+                            }}
+                          />
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {defaultKobo != null
+                  ? `Default ${formatNaira(defaultKobo)}, with per-class overrides where set.`
+                  : 'No fee configured.'}
+              </p>
+            )}
           </div>
-        </div>
-      ) : (
-        <p className="mt-2 text-xs text-muted-foreground">
-          {defaultKobo != null
-            ? `Default ${formatNaira(defaultKobo)}, with per-class overrides where set.`
-            : 'No fee configured.'}
-        </p>
-      )}
-    </div>
+        )}
+      </div>
+    </>
   );
 }
 
@@ -562,12 +688,16 @@ function PriceRow({
   );
 }
 
+// --------------------------------------------------------- add a requirement
+
 function AddRequirement({
   busy,
+  onDirty,
   onCancel,
   onSubmit,
 }: {
   busy: boolean;
+  onDirty: (dirty: boolean) => void;
   onCancel: () => void;
   onSubmit: (body: Record<string, unknown>) => void;
 }) {
@@ -580,92 +710,109 @@ function AddRequirement({
   const [required, setRequired] = React.useState(true);
 
   const slug = key.trim() || label.trim().toLowerCase().replace(/\s+/g, '_');
+  const mark = () => onDirty(true);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-muted/40 p-4">
-      <h3 className="text-sm font-semibold">New requirement</h3>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs">Label</Label>
-          <Input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Development levy"
-            className="h-8"
-            autoFocus
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs">Key (stable id)</Label>
-          <Input
-            value={key}
-            onChange={(e) => setKey(e.target.value)}
-            placeholder={slug || 'auto from label'}
-            className="h-8"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs">Type</Label>
-          <select
-            value={type}
-            onChange={(e) =>
-              setType(e.target.value as RequirementTemplateRow['type'])
+    <>
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="text-base font-semibold">New requirement</h3>
+        <div className="flex gap-2">
+          <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            disabled={busy || !label.trim() || !slug}
+            onClick={() =>
+              onSubmit({
+                key: slug,
+                label: label.trim(),
+                type,
+                collectStage,
+                required,
+              })
             }
-            className="h-8 rounded-md border border-input bg-transparent px-2 text-sm capitalize"
           >
-            {TYPES.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="flex flex-col gap-1">
-          <Label className="text-xs">Collected at</Label>
-          <select
-            value={collectStage}
-            onChange={(e) =>
-              setCollectStage(
-                e.target.value as RequirementTemplateRow['collectStage'],
-              )
-            }
-            className="h-8 rounded-md border border-input bg-transparent px-2 text-sm"
-          >
-            {STAGES.map((s) => (
-              <option key={s} value={s}>
-                {STAGE_LABEL[s]}
-              </option>
-            ))}
-          </select>
+            Add requirement
+          </Button>
         </div>
       </div>
-      <label className="flex items-center gap-2 text-sm">
-        <Checkbox
-          checked={required}
-          onCheckedChange={(v) => setRequired(v === true)}
-        />
-        Required
-      </label>
-      <div className="flex justify-end gap-2">
-        <Button size="sm" variant="ghost" disabled={busy} onClick={onCancel}>
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          disabled={busy || !label.trim() || !slug}
-          onClick={() =>
-            onSubmit({
-              key: slug,
-              label: label.trim(),
-              type,
-              collectStage,
-              required,
-            })
-          }
-        >
-          Add requirement
-        </Button>
+
+      <div className="flex flex-col gap-3 border-t border-border pt-4">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Label</Label>
+            <Input
+              value={label}
+              onChange={(e) => {
+                setLabel(e.target.value);
+                mark();
+              }}
+              placeholder="e.g. Development levy"
+              className="h-9"
+              autoFocus
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Key (stable id)</Label>
+            <Input
+              value={key}
+              onChange={(e) => {
+                setKey(e.target.value);
+                mark();
+              }}
+              placeholder={slug || 'auto from label'}
+              className="h-9"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Type</Label>
+            <select
+              value={type}
+              onChange={(e) => {
+                setType(e.target.value as RequirementTemplateRow['type']);
+                mark();
+              }}
+              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm capitalize"
+            >
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-xs">Collected at</Label>
+            <select
+              value={collectStage}
+              onChange={(e) => {
+                setCollectStage(
+                  e.target.value as RequirementTemplateRow['collectStage'],
+                );
+                mark();
+              }}
+              className="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
+            >
+              {STAGES.map((s) => (
+                <option key={s} value={s}>
+                  {STAGE_LABEL[s]}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <Checkbox
+            checked={required}
+            onCheckedChange={(v) => {
+              setRequired(v === true);
+              mark();
+            }}
+          />
+          Required
+        </label>
       </div>
-    </div>
+    </>
   );
 }
