@@ -6,6 +6,5 @@
   "src/common/academics/academics-access.service.ts": 6,
   "src/directory/services/people-directory.service.ts": 1,
   "src/learning/services/learning.service.ts": 1,
-  "src/overview/services/overview.service.ts": 3,
   "src/student/services/student.service.ts": 4
 }

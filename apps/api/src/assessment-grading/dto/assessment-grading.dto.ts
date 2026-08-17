@@ -365,12 +365,22 @@ export class UpdateAssessmentDto {
 }
 
 export class CreateGradeDto {
-  @ApiProperty({
-    description: 'Enrollment ID (student in class)',
+  @ApiPropertyOptional({
+    description:
+      'The student being graded. Preferred — a grade belongs to the child, ' +
+      'not to a membership row. Supply this OR enrollmentId.',
+  })
+  @IsOptional()
+  @IsString()
+  studentId?: string;
+
+  @ApiPropertyOptional({
+    description: 'DEPRECATED legacy path — enrollment ID (student in class).',
     example: 'e5f6a7b8-c9d0-4123-9abc-123456789012',
   })
+  @IsOptional()
   @IsString()
-  enrollmentId: string;
+  enrollmentId?: string;
 
   @ApiProperty({
     description: 'Assessment ID',

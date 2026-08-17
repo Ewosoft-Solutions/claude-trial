@@ -59,7 +59,9 @@ export class OverviewService {
           userTenantRole: { role: { clearanceLevel: { gte: 3, lte: 8 } } },
         },
       }),
-      this.client.class.count({ where: { tenantId } }),
+      // ClassSection is what a school actually runs; the legacy Class rows have
+      // stopped tracking reality, so this tile was drifting.
+      this.client.classSection.count({ where: { tenantId } }),
       this.client.schoolEvent.count({
         where: {
           tenantId,
@@ -89,8 +91,11 @@ export class OverviewService {
       }),
       // personal — teacher: active class assignments for this profile
       profileId
-        ? this.client.classTeacher.count({
-            where: { tenantId, userTenantId: profileId, unassignedAt: null },
+        ? // Teaching load is per OFFERING now (subject × section), which is also
+          // the truer number: a teacher taking two subjects for one class has
+          // two assignments, not one.
+          this.client.offeringTeacher.count({
+            where: { tenantId, userTenantId: profileId, isActive: true },
           })
         : Promise.resolve(0),
       // personal — parent: children linked to this profile
@@ -113,8 +118,12 @@ export class OverviewService {
 
     let myEnrollments = 0;
     if (studentRecord) {
-      myEnrollments = await this.client.enrollment.count({
-        where: { studentId: studentRecord.id, status: 'active' },
+      myEnrollments = await this.client.sectionEnrollment.count({
+        where: {
+          tenantId,
+          studentId: studentRecord.id,
+          status: 'active',
+        },
       });
     }
 

@@ -496,22 +496,59 @@ export class AssessmentGradingService {
     });
     if (!assessment)
       throw new BadRequestException('Assessment not found for tenant');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    // Access follows the assessment's OWN anchor. A structured assessment has
+    // no class, so asking the class-teacher question would refuse every teacher
+    // — which is exactly what happened until this branch existed.
+    if (assessment.subjectOfferingId) {
+      await this.access.assertCanManageOffering(
+        tenantId,
+        actor,
+        assessment.subjectOfferingId,
+      );
+    } else {
+      await this.access.assertCanManageClass(
+        tenantId,
+        actor,
+        assessment.classId,
+      );
+    }
 
-    // Validate enrollment belongs to same class/academic year
-    const enrollment = await this.client.enrollment.findFirst({
-      where: {
-        id: dto.enrollmentId,
-        classId: assessment.classId,
-        academicYearId: assessment.academicYearId,
-      },
-      include: { student: true },
-    });
-    if (!enrollment)
-      throw new BadRequestException('Enrollment not found for this assessment');
+    // Resolve who is being graded. `studentId` is the anchor a grade keeps;
+    // `enrollmentId` is the legacy path and is translated to a student here so
+    // both routes store the same thing.
+    if (!dto.studentId && !dto.enrollmentId) {
+      throw new BadRequestException(
+        'A grade needs a student (or, for legacy callers, an enrollment).',
+      );
+    }
+    let studentId = dto.studentId ?? null;
+    if (!studentId && dto.enrollmentId) {
+      const enrollment = await this.client.enrollment.findFirst({
+        where: {
+          id: dto.enrollmentId,
+          ...(assessment.classId ? { classId: assessment.classId } : {}),
+          academicYearId: assessment.academicYearId,
+        },
+        select: { studentId: true },
+      });
+      if (!enrollment) {
+        throw new BadRequestException(
+          'Enrollment not found for this assessment',
+        );
+      }
+      studentId = enrollment.studentId;
+    }
 
+    // One grade per student per assessment, whichever route was used to name
+    // the student.
     const existing = await this.client.grade.findFirst({
-      where: { enrollmentId: dto.enrollmentId, assessmentId: dto.assessmentId },
+      where: {
+        assessmentId: dto.assessmentId,
+        OR: [
+          { studentId },
+          ...(dto.enrollmentId ? [{ enrollmentId: dto.enrollmentId }] : []),
+        ],
+      },
       select: { id: true },
     });
     if (existing)
@@ -526,7 +563,8 @@ export class AssessmentGradingService {
     return this.client.grade.create({
       data: {
         tenantId,
-        enrollmentId: dto.enrollmentId,
+        studentId,
+        enrollmentId: dto.enrollmentId ?? null,
         assessmentId: dto.assessmentId,
         pointsEarned: dto.pointsEarned as any,
         percentage: dto.percentage ?? computed.percentage,

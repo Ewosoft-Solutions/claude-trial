@@ -30,8 +30,10 @@ function makeService() {
     class: { findFirst: jest.fn() },
     term: { findFirst: jest.fn() },
     gradingSystem: { findFirst: jest.fn() },
+    grade: { findFirst: jest.fn(), create: jest.fn() },
+    enrollment: { findFirst: jest.fn() },
     offeringTeacher: { findFirst: jest.fn() },
-    assessment: { create: jest.fn() },
+    assessment: { create: jest.fn(), findFirst: jest.fn() },
   };
   const access = {
     assertCanManageClass: jest.fn(),
@@ -201,5 +203,105 @@ describe('createAssessment anchors', () => {
       subjectOfferingId: null,
       academicYearId: 'y9',
     });
+  });
+});
+
+describe('grading an assessment follows ITS anchor', () => {
+  let ctx: ReturnType<typeof makeService>;
+
+  beforeEach(() => {
+    ctx = makeService();
+    ctx.client.grade.findFirst.mockResolvedValue(null as never);
+    ctx.client.grade.create.mockResolvedValue({ id: 'g1' } as never);
+  });
+
+  it('grades a STRUCTURED assessment via the offering guard', async () => {
+    // Regression: while assessments could be offering-anchored but grading
+    // still asked the class-teacher question, `classId` was null and every
+    // teacher was refused — grading a structured assessment was impossible.
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a1',
+      classId: null,
+      subjectOfferingId: 'off-1',
+      academicYearId: 'y1',
+      maxPoints: 100,
+      gradingSystem: null,
+    } as never);
+
+    await ctx.service.createGrade(
+      TENANT,
+      admin as never,
+      {
+        studentId: 'stu-1',
+        assessmentId: 'a1',
+        pointsEarned: 80,
+      } as never,
+    );
+
+    expect(ctx.access.assertCanManageOffering).toHaveBeenCalledWith(
+      TENANT,
+      admin,
+      'off-1',
+    );
+    expect(ctx.access.assertCanManageClass).not.toHaveBeenCalled();
+    const arg = ctx.client.grade.create.mock.calls[0]![0] as {
+      data: { studentId: string; enrollmentId: string | null };
+    };
+    expect(arg.data.studentId).toBe('stu-1');
+    expect(arg.data.enrollmentId).toBeNull();
+  });
+
+  it('still grades a LEGACY assessment through the class guard', async () => {
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a2',
+      classId: 'c1',
+      subjectOfferingId: null,
+      academicYearId: 'y1',
+      maxPoints: 100,
+      gradingSystem: null,
+    } as never);
+    ctx.client.enrollment.findFirst.mockResolvedValue({
+      studentId: 'stu-9',
+    } as never);
+
+    await ctx.service.createGrade(
+      TENANT,
+      admin as never,
+      {
+        enrollmentId: 'enr-1',
+        assessmentId: 'a2',
+        pointsEarned: 55,
+      } as never,
+    );
+
+    expect(ctx.access.assertCanManageClass).toHaveBeenCalled();
+    // The legacy route still lands on a student, so both routes store the same
+    // thing and the enrolment column can eventually be dropped.
+    const arg = ctx.client.grade.create.mock.calls[0]![0] as {
+      data: { studentId: string };
+    };
+    expect(arg.data.studentId).toBe('stu-9');
+  });
+
+  it('refuses when neither a student nor an enrollment is named', async () => {
+    ctx.client.assessment.findFirst.mockResolvedValue({
+      id: 'a1',
+      classId: null,
+      subjectOfferingId: 'off-1',
+      academicYearId: 'y1',
+      maxPoints: 100,
+      gradingSystem: null,
+    } as never);
+
+    await expect(
+      ctx.service.createGrade(
+        TENANT,
+        admin as never,
+        {
+          assessmentId: 'a1',
+          pointsEarned: 80,
+        } as never,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
   });
 });
