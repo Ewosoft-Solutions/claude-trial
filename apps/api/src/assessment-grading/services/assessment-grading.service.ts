@@ -1,6 +1,5 @@
 import {
   BadRequestException,
-  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -185,33 +184,6 @@ export class AssessmentGradingService {
   }
 
   // ---------- Assessments ----------
-  /**
-   * Offering-scoped equivalent of assertCanManageClass. A structured assessment
-   * has no Class, so "are you this class's teacher?" cannot be asked — the
-   * question is whether the actor teaches this OFFERING.
-   */
-  private async assertCanManageOffering(
-    tenantId: string,
-    actor: AcademicsActor,
-    subjectOfferingId: string,
-  ): Promise<void> {
-    if (actor.canManageAll) return;
-    const teaches = await this.client.offeringTeacher.findFirst({
-      where: {
-        tenantId,
-        subjectOfferingId,
-        userTenantId: actor.profileId,
-        isActive: true,
-      },
-      select: { id: true },
-    });
-    if (!teaches) {
-      throw new ForbiddenException(
-        'You are not assigned to teach this subject for this class',
-      );
-    }
-  }
-
   async createAssessment(
     tenantId: string,
     actor: AcademicsActor,
@@ -266,7 +238,7 @@ export class AssessmentGradingService {
       }
       academicYearId = offering.academicYearId;
       termId = term;
-      await this.assertCanManageOffering(tenantId, actor, offering.id);
+      await this.access.assertCanManageOffering(tenantId, actor, offering.id);
     } else {
       const cls = await this.client.class.findFirst({
         where: { id: dto.classId, academicYear: { tenantId } },

@@ -33,7 +33,10 @@ function makeService() {
     offeringTeacher: { findFirst: jest.fn() },
     assessment: { create: jest.fn() },
   };
-  const access = { assertCanManageClass: jest.fn() };
+  const access = {
+    assertCanManageClass: jest.fn(),
+    assertCanManageOffering: jest.fn(async () => undefined),
+  };
   // Real signature: (db, tenantDb, prismaTx, access). The private `client`
   // getter picks tenantDb when scoped, so a scoped stub is all this needs.
   const service = new AssessmentGradingService(
@@ -130,7 +133,11 @@ describe('createAssessment anchors', () => {
       termId: 't1',
       classSectionId: 'sec-1',
     } as never);
-    ctx.client.offeringTeacher.findFirst.mockResolvedValue(null as never);
+    // The guard now lives in AcademicsAccessService — this asserts the service
+    // DELEGATES to it and refuses to write when it says no.
+    ctx.access.assertCanManageOffering.mockRejectedValue(
+      new ForbiddenException('nope') as never,
+    );
 
     await expect(
       ctx.service.createAssessment(
@@ -154,10 +161,6 @@ describe('createAssessment anchors', () => {
       termId: 't1',
       classSectionId: 'sec-1',
     } as never);
-    ctx.client.offeringTeacher.findFirst.mockResolvedValue({
-      id: 'ot-1',
-    } as never);
-
     await expect(
       ctx.service.createAssessment(
         TENANT,

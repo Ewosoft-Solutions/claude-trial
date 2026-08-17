@@ -1,0 +1,13 @@
+{
+  "src/academic-structure/services/academic-structure.service.ts": 34,
+  "src/assessment-grading/services/assessment-grading.service.ts": 3,
+  "src/assessment-grading/services/question-bank.service.ts": 1,
+  "src/attendance/services/attendance.service.ts": 1,
+  "src/common/academics/academics-access.service.ts": 6,
+  "src/directory/services/people-directory.service.ts": 1,
+  "src/learning/services/learning.service.ts": 1,
+  "src/overview/services/overview.service.ts": 3,
+  "src/reporting-analytics/services/reporting-analytics.service.ts": 1,
+  "src/search/search.service.ts": 1,
+  "src/student/services/student.service.ts": 4
+}

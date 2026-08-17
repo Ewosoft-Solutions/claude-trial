@@ -56,6 +56,99 @@ export class AcademicsAccessService {
   }
 
   /** True if the actor holds an active teaching assignment for the class. */
+  /**
+   * Does this actor teach a given OFFERING (section × subject × year/term)?
+   *
+   * The offering-scoped counterpart to isClassTeacher, and the check that
+   * replaces it as the legacy `Class` retires. Written here once because both
+   * the lesson library and the assessment re-key grew their own copy of it —
+   * three subtly different answers to "can this teacher touch this content" is
+   * exactly how an authorisation hole gets in.
+   */
+  async teachesOffering(
+    tenantId: string,
+    profileId: string,
+    subjectOfferingId: string,
+  ): Promise<boolean> {
+    const assignment = await this.client.offeringTeacher.findFirst({
+      where: {
+        tenantId,
+        subjectOfferingId,
+        userTenantId: profileId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    return assignment !== null;
+  }
+
+  /**
+   * Does this actor teach ANY offering of a curriculum subject? This is the
+   * right question for LIBRARY content, which belongs to a subject rather than
+   * to one class, so no single offering can answer it.
+   */
+  async teachesCurriculumSubject(
+    tenantId: string,
+    profileId: string,
+    curriculumSubjectId: string,
+  ): Promise<boolean> {
+    // OfferingTeacher has no Prisma relation to SubjectOffering (the WB2
+    // convention keeps the modules decoupled), so this is two reads.
+    const offerings = await this.client.subjectOffering.findMany({
+      where: { tenantId, curriculumSubjectId },
+      select: { id: true },
+    });
+    if (offerings.length === 0) return false;
+    const assignment = await this.client.offeringTeacher.findFirst({
+      where: {
+        tenantId,
+        userTenantId: profileId,
+        isActive: true,
+        subjectOfferingId: { in: offerings.map((o) => o.id) },
+      },
+      select: { id: true },
+    });
+    return assignment !== null;
+  }
+
+  /** Offering-scoped equivalent of assertCanManageClass. */
+  async assertCanManageOffering(
+    tenantId: string,
+    actor: AcademicsActor,
+    subjectOfferingId: string,
+  ): Promise<void> {
+    if (actor.canManageAll) return;
+    if (
+      await this.teachesOffering(tenantId, actor.profileId, subjectOfferingId)
+    ) {
+      return;
+    }
+    throw new ForbiddenException(
+      'You are not assigned to teach this subject for this class',
+    );
+  }
+
+  /** Subject-scoped guard for library content (no class to check). */
+  async assertCanManageCurriculumSubject(
+    tenantId: string,
+    actor: AcademicsActor,
+    curriculumSubjectId: string,
+  ): Promise<void> {
+    if (actor.canManageAll) return;
+    if (
+      await this.teachesCurriculumSubject(
+        tenantId,
+        actor.profileId,
+        curriculumSubjectId,
+      )
+    ) {
+      return;
+    }
+    throw new ForbiddenException(
+      'You do not teach this subject, so you cannot change its library content',
+    );
+  }
+
   async isClassTeacher(
     tenantId: string,
     profileId: string,

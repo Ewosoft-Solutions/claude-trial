@@ -53,8 +53,18 @@ function makeService() {
     ) => fn(),
   };
   const audit = { write: jest.fn() };
-  const service = new LessonLibraryService(tenantDb as never, audit as never);
-  return { service, client, audit };
+  // Access is a collaborator now — the "may this teacher touch this subject?"
+  // rule lives in AcademicsAccessService, so it is asserted there rather than
+  // re-implemented in three services (which is what this consolidation fixed).
+  const access = {
+    assertCanManageCurriculumSubject: jest.fn(async () => undefined),
+  };
+  const service = new LessonLibraryService(
+    tenantDb as never,
+    audit as never,
+    access as never,
+  );
+  return { service, client, audit, access };
 }
 
 describe('createInstance', () => {
@@ -160,7 +170,7 @@ describe('createInstance', () => {
   });
 });
 
-describe('library access (a library lesson has no class to check)', () => {
+describe('library access delegation', () => {
   let ctx: ReturnType<typeof makeService>;
 
   beforeEach(() => {
@@ -179,45 +189,29 @@ describe('library access (a library lesson has no class to check)', () => {
     ctx.client.lessonInstance.create.mockResolvedValue({ id: 'i' } as never);
   });
 
-  it('allows a teacher who teaches an offering of that subject', async () => {
-    ctx.client.subjectOffering.findMany.mockResolvedValue([
-      { id: 'off-1' },
-      { id: 'off-9' },
-    ] as never);
-    ctx.client.offeringTeacher.findFirst.mockResolvedValue({
-      id: 'assignment-1',
+  it('asks the shared guard about the SUBJECT, not a class', async () => {
+    await ctx.service.createInstance(TENANT, teacher, {
+      lessonId: 'lesson-1',
+      subjectOfferingId: 'off-1',
     } as never);
-
-    await expect(
-      ctx.service.createInstance(TENANT, teacher, {
-        lessonId: 'lesson-1',
-        subjectOfferingId: 'off-1',
-      } as never),
-    ).resolves.toBeDefined();
+    expect(ctx.access.assertCanManageCurriculumSubject).toHaveBeenCalledWith(
+      TENANT,
+      teacher,
+      'maths',
+    );
   });
 
-  it('denies a teacher who teaches none of that subject’s offerings', async () => {
-    ctx.client.subjectOffering.findMany.mockResolvedValue([
-      { id: 'off-1' },
-    ] as never);
-    ctx.client.offeringTeacher.findFirst.mockResolvedValue(null as never);
-
+  it('does not write when the shared guard refuses', async () => {
+    ctx.access.assertCanManageCurriculumSubject.mockRejectedValue(
+      new ForbiddenException('nope') as never,
+    );
     await expect(
       ctx.service.createInstance(TENANT, teacher, {
         lessonId: 'lesson-1',
         subjectOfferingId: 'off-1',
       } as never),
     ).rejects.toBeInstanceOf(ForbiddenException);
-  });
-
-  it('lets an admin through without consulting teacher assignments', async () => {
-    await expect(
-      ctx.service.createInstance(TENANT, admin, {
-        lessonId: 'lesson-1',
-        subjectOfferingId: 'off-1',
-      } as never),
-    ).resolves.toBeDefined();
-    expect(ctx.client.offeringTeacher.findFirst).not.toHaveBeenCalled();
+    expect(ctx.client.lessonInstance.create).not.toHaveBeenCalled();
   });
 });
 

@@ -29,7 +29,10 @@ import {
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
-import type { AcademicsActor } from '../../common/academics/academics-access.service';
+import {
+  AcademicsAccessService,
+  type AcademicsActor,
+} from '../../common/academics/academics-access.service';
 import type {
   CreateLessonChapterDto,
   CreateLessonInstanceDto,
@@ -44,6 +47,7 @@ export class LessonLibraryService {
   constructor(
     private readonly tenantDb: TenantDbService,
     private readonly audit: AuditService,
+    private readonly access: AcademicsAccessService,
   ) {}
 
   private get client() {
@@ -75,42 +79,6 @@ export class LessonLibraryService {
       actorId,
       description,
     });
-  }
-
-  /**
-   * A library lesson belongs to a curriculum subject, not a class, so "are you
-   * this class's teacher?" is the wrong question. An admin override passes; a
-   * teacher passes when they teach ANY active offering of that subject, which is
-   * exactly the population that has a legitimate reason to author it.
-   */
-  private async assertCanManageLibrary(
-    tenantId: string,
-    actor: AcademicsActor,
-    curriculumSubjectId: string,
-  ): Promise<void> {
-    if (actor.canManageAll) return;
-    // OfferingTeacher has no Prisma relation to SubjectOffering (the WB2
-    // convention keeps the modules decoupled with a DB-level FK only), so this
-    // is two reads rather than a join.
-    const offerings = await this.client.subjectOffering.findMany({
-      where: { tenantId, curriculumSubjectId },
-      select: { id: true },
-    });
-    if (offerings.length > 0) {
-      const teaches = await this.client.offeringTeacher.findFirst({
-        where: {
-          tenantId,
-          userTenantId: actor.profileId,
-          isActive: true,
-          subjectOfferingId: { in: offerings.map((o) => o.id) },
-        },
-        select: { id: true },
-      });
-      if (teaches) return;
-    }
-    throw new ForbiddenException(
-      'You do not teach this subject, so you cannot change its library content',
-    );
   }
 
   /** The F6 subject is a soft reference, so prove it exists and is visible. */
@@ -157,7 +125,7 @@ export class LessonLibraryService {
   ) {
     return this.scoped(tenantId, actor.userId, async () => {
       await this.assertCurriculumSubject(dto.curriculumSubjectId);
-      await this.assertCanManageLibrary(
+      await this.access.assertCanManageCurriculumSubject(
         tenantId,
         actor,
         dto.curriculumSubjectId,
@@ -197,7 +165,7 @@ export class LessonLibraryService {
         select: { id: true, curriculumSubjectId: true, title: true },
       });
       if (!existing) throw new NotFoundException('Chapter not found');
-      await this.assertCanManageLibrary(
+      await this.access.assertCanManageCurriculumSubject(
         tenantId,
         actor,
         existing.curriculumSubjectId,
@@ -298,7 +266,7 @@ export class LessonLibraryService {
           `This lesson belongs to a different subject than ${offering.subjectLabel}.`,
         );
       }
-      await this.assertCanManageLibrary(
+      await this.access.assertCanManageCurriculumSubject(
         tenantId,
         actor,
         lesson.curriculumSubjectId,
@@ -359,7 +327,11 @@ export class LessonLibraryService {
       if (!existing) throw new NotFoundException('Lesson instance not found');
       const subjectId = existing.lesson?.curriculumSubjectId;
       if (subjectId) {
-        await this.assertCanManageLibrary(tenantId, actor, subjectId);
+        await this.access.assertCanManageCurriculumSubject(
+          tenantId,
+          actor,
+          subjectId,
+        );
       } else if (!actor.canManageAll) {
         throw new ForbiddenException(
           'You cannot change this scheduled lesson.',
@@ -423,7 +395,11 @@ export class LessonLibraryService {
       if (!existing) throw new NotFoundException('Lesson instance not found');
       const subjectId = existing.lesson?.curriculumSubjectId;
       if (subjectId) {
-        await this.assertCanManageLibrary(tenantId, actor, subjectId);
+        await this.access.assertCanManageCurriculumSubject(
+          tenantId,
+          actor,
+          subjectId,
+        );
       } else if (!actor.canManageAll) {
         throw new ForbiddenException(
           'You cannot remove this scheduled lesson.',
