@@ -20,6 +20,12 @@
 //                          offering. Absent ≠ zero; exempt is excluded.
 //   RemarkRuleSet/Rule   — STRUCTURED band→comment rules (typed subject vs
 //                          principal), replacing the 724 prose remark rows.
+//   ResultTrait          — a cycle's AFFECTIVE / PSYCHOMOTOR rubric row (the
+//                          behavioural domains a Nigerian report card carries
+//                          beside the academic subjects), rated on a small
+//                          ordinal scale rather than scored out of a max.
+//   ResultTraitRating    — one student's rating for one trait. Unrated ≠ zero:
+//                          an unrated trait is simply absent from the snapshot.
 //   ResultPublication    — an IMMUTABLE snapshot (config + scale + remark rules
 //                          + promotion policy + per-subject results), checksum-
 //                          addressed and anchor-ready (ADR-13). Amendments create
@@ -80,11 +86,13 @@ model ResultCycle {
   createdAt DateTime @default(now()) @map("created_at")
   updatedAt DateTime @updatedAt @map("updated_at")
 
-  components   ResultComponent[]
-  sections     ResultCycleSection[]
-  entries      ResultEntry[]
-  publications ResultPublication[]
-  amendments   ResultAmendment[]
+  components    ResultComponent[]
+  sections      ResultCycleSection[]
+  entries       ResultEntry[]
+  publications  ResultPublication[]
+  amendments    ResultAmendment[]
+  traits        ResultTrait[]
+  traitRatings  ResultTraitRating[]
 
   @@index([tenantId])
   @@index([tenantId, status])
@@ -218,6 +226,64 @@ model RemarkRule {
   @@schema("academic-structure")
 }
 
+// ResultTrait - one behavioural rubric row on a cycle (affective or
+// psychomotor). Rated on an ordinal scale (1..maxRating, e.g. 1-5 "Rarely" →
+// "Always"), NOT scored out of a max — a trait never enters the academic total.
+model ResultTrait {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+  cycleId  String @map("cycle_id")
+
+  domain    String // 'affective' | 'psychomotor'
+  key       String // stable key, e.g. 'punctuality'
+  label     String // display, e.g. 'Punctuality'
+  maxRating Int    @default(5) @map("max_rating")
+  order     Int    @default(0)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cycle   ResultCycle         @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  ratings ResultTraitRating[]
+
+  @@unique([cycleId, key])
+  @@index([tenantId])
+  @@index([cycleId])
+  @@index([cycleId, domain])
+  @@map("result_traits")
+  @@schema("academic-structure")
+}
+
+// ResultTraitRating - one student's rating for one trait of a cycle. A trait a
+// teacher never rated stays absent (unrated ≠ the lowest rating), mirroring the
+// absent ≠ zero rule on the academic side.
+model ResultTraitRating {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  cycleId   String @map("cycle_id")
+  traitId   String @map("trait_id")
+  studentId String @map("student_id") // student-management.students(id)
+
+  rating Int? // 1..trait.maxRating; null = not rated
+
+  ratedBy String?  @map("rated_by")
+  ratedAt DateTime @default(now()) @map("rated_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  cycle ResultCycle @relation(fields: [cycleId], references: [id], onDelete: Cascade)
+  trait ResultTrait @relation(fields: [traitId], references: [id], onDelete: Cascade)
+
+  @@unique([cycleId, studentId, traitId])
+  @@index([tenantId])
+  @@index([cycleId])
+  @@index([cycleId, studentId])
+  @@index([studentId])
+  @@map("result_trait_ratings")
+  @@schema("academic-structure")
+}
+
 // ResultPublication - an IMMUTABLE snapshot of a cycle's published results.
 // Amendments create a NEW version and supersede the prior one; a published row
 // is never overwritten (checksum-addressed, anchor-ready per ADR-13).
@@ -275,6 +341,10 @@ model PublishedStudentResult {
   // label, score, max, isAbsent, isExempt}], total, maxTotal, percentage,
   // letterGrade, gradePoints, remark }].
   subjects Json
+
+  // Behavioural snapshot: [{ domain, key, label, rating, maxRating }] — only the
+  // traits actually rated for this student. Null on a cycle with no rubric.
+  traits Json?
 
   overallTotal Decimal? @map("overall_total")
   overallMax   Decimal? @map("overall_max")

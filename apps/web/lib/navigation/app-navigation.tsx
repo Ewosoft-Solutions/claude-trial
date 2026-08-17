@@ -105,7 +105,10 @@ export const SCHOOL_NAV: NavigationConfig = {
             },
             {
               key: 'transcripts',
-              label: 'Transcripts',
+              // Renamed to stop it competing with the WB4-4 transcript of
+              // record (results workbench) — this page is the live gradebook
+              // standing view, not the published document.
+              label: 'Gradebook standing',
               icon: <ScrollText />,
               href: '/students/gradebook/transcripts',
               access: { anyPermission: ['transcripts.view'] },

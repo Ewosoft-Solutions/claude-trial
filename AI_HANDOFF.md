@@ -1,6 +1,45 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-11
+Last Updated: 2026-08-17
+
+---
+
+## Session Summary (2026-08-17) — Claude: WB4 completed (WB4-2 import · WB4-3 traits · WB4-4 transcript) + WB4 board/handoff drift fixed
+
+**Item(s):** **WB4-2 + WB4-3 + WB4-4** on one branch `feat/wb4-import-traits-transcript`, closing out **Workbench-4 (results parity)**. Also a **drift correction**: the WB4 spine (WB4-1) merged on 2026-08-08 as **[PR #83](https://github.com/Ewosoft-Solutions/claude-trial/pull/83) → `2bc552b`** but never got a board row or a handoff entry, so WB4 still read as untouched in "Later workbenches". The board now carries a Workbench-4 section (WB4-1 `done`; WB4-2/3/4 claimed→built).
+
+**Starting point (what #83 already shipped, verified on `main`):** 10 result tables, configure→enter→validate/moderate→maker-checker publish→immutable checksum snapshot→amend/supersede, `FinancialHold`, report-card + broadsheet artifacts rendered off-request on the F3 job substrate, promotion recommendation, ranking-as-policy default-off, `/academics/results` workbench, **352 permissions**. The three parity gaps that survived it are what this session built.
+
+**What changed & why**
+
+- **WB4-2 · Bulk score import (parity job #54 — "direct entry _+ Excel import_ in ONE flow").** The merged build had only a best-effort name-matching gradebook seed; a school that keys results in Excel had no path in.
+  - **API (`apps/api/src/results`):** `ResultImportService` — `buildTemplate` (a pre-filled CSV per section: identity columns + one column per component, either single-subject or with a `Subject` column) and `importScores` (**dry run by default** → a report naming every unmatched row and unreadable cell; `commit: true` is **refused while any error stands**). `.csv` parses through the **F2 `parseCsv`** (reused, not re-written); `.xlsx` through **exceljs** (already a dependency), walking the row width so a blank cell stays a blank column rather than shifting the row.
+  - **One owner for entry writes:** the commit path calls **`ResultEntryService.upsertEntries`**, so the cycle-open gate, the in-scope (student · offering) check, the per-component max and the audit entry are byte-identical to keyed entry. The import service only translates a sheet into that command.
+  - **Absent ≠ zero survives the round trip:** `ABS`/`A`/`Absent` → absent, `EXM`/`EX`/`N/A` → exempt, **blank → no row written at all**, unreadable text → a reported error (never a degraded 0). A duplicated (student · subject · component) row is refused rather than silently last-write-wins.
+  - **Routes:** `GET /academics/results/cycles/:id/import-template` (`.view`) + `POST /academics/results/cycles/:id/import` (`.enter`). The sheet arrives base64 in a JSON body — the same shape the F2 platform uses for a source file — so the web proxy needs no multipart handling.
+- **WB4-3 · Affective / psychomotor traits.** The behavioural block every Nigerian report card carries ([BACKLOG](design-export/product-expansion/action-plan/BACKLOG.md) §2D, [plan 05](design-export/product-expansion/plan/05-academic-nigeria-international.md)) had no model at all.
+  - **Domain:** `academic-structure.ResultTrait` (per-cycle rubric row: `domain` affective|psychomotor, key, label, ordinal `maxRating` 2–10) + `ResultTraitRating` (per student × trait; `rating` nullable) + an additive `published_student_results.traits` JSONB column. Migration `20260817120000_wb4_result_traits` (hand-written, additive, idempotent; own+platform RLS + `app_runtime` grants on both tables).
+  - **Two invariants mirror the academic side:** the rubric is **draft-only** (so a rubric change can never strand captured ratings) and an **unrated trait is ABSENT from the snapshot** — never published as the lowest rating.
+  - **Publish integration:** `ResultTraitService.snapshotRatingsByStudent` feeds the publication build; both the **ratings per student** and the **rubric itself** are snapshotted (so a report card still renders labels + scales after the cycle is gone), and rubric order drives the serialisation order because the publication **checksum** depends on it. The report-card renderer gained a per-domain behavioural table.
+  - **Routes:** `GET/PUT …/cycles/:id/traits` (view / `.manage`), `GET …/cycles/:id/trait-grid`, `POST …/cycles/:id/trait-ratings` (`.enter`).
+- **WB4-4 · Cumulative transcript (parity jobs #63/#66 remainder).** The pre-existing `/students/gradebook/transcripts` page computes from the **mutable** gradebook, so a transcript could not be reproduced or defended — the exact thing ADR-04 exists to prevent.
+  - **API:** `ResultTranscriptService.getTranscript` assembles a student's record from **`PublishedStudentResult` rows of non-superseded publications only** — nothing reads the live gradebook — carrying each term's **publication version + snapshot checksum**, and campus-filtering by the reader's WB1-6 grant scope. `summariseTranscript` (pure) rolls up a subject-weighted cumulative average that **excludes** absent/exempt subjects instead of zeroing them, plus per-subject (terms/average/best/worst) and per-year summaries. `issueTranscript` renders + stores an immutable, checksum-addressed **F4 DocumentArtifact** (`ownerType: 'Student'`, sensitive, audited — a transcript leaves the building).
+  - **Routes:** `GET …/students/:studentId/transcript` (`.view`) + `POST` the same path to issue (`.manage`).
+- **Web (`apps/web/app/(app)/academics/results`):** three additions to the workbench — an **import panel** under the entry grid (template download → file pick → "Check sheet" dry-run report with a per-row problem table → "Import", the commit button disabled until the report is clean, and a new file invalidating a stale clean report), a **Behaviour tab** (rubric editor with a one-click standard Nigerian rubric starter, draft-gated, + a rating grid), and a cycle-independent **Transcripts card** (student picker → per-term tables citing version + checksum, subject summary, hold badge, Issue button).
+- **Permissions: zero new — stays 352 / 32 sensitive ops.** All three slices reuse `academics.results.view`/`.enter`/`.manage`. **No privileged client** (`TenantDbService` throughout).
+
+**Verification run + result**
+
+- api `check-types` ✔ · api eslint (results module) **0 errors** ✔ · web `tsc --noEmit` ✔ · web eslint `--max-warnings 0` on the results route ✔ (one `prefer-optional-chain` warning found + fixed) · prettier ✔
+- `check:privileged-db` ✔ (no new privileged usage; 28 grandfathered unchanged) · `db:rls:check` ✔ (both new tables covered) · `db:verify` **352 permissions / 11 pools / 32 sensitive-ops** ✔ (the "Platform Bootstrap" item fails **locally only** by seed design — pre-existing, unrelated)
+- api unit **45/45** in the results module (+33 new across three specs: `result-import.spec.ts` — ABS/EXM/blank/unreadable/over-max cell semantics + header matching by key OR label + format inference; `result-transcript.spec.ts` — absent excluded from the cumulative average, per-subject/per-year rollups, empty-safe, defensive snapshot JSON reads; `result-artifact.spec.ts` — ABS in the rendered card, the behavioural block appearing only when traits exist, HTML escaping, transcript citing version + checksum)
+- **e2e `results-import-traits-transcript.e2e-spec.ts` on real pg** — dry-run reports every problem class and writes NOTHING (+ commit refused while errors stand) · a clean multi-subject CSV commits with ABS→absent / blank→no row · a real `.xlsx` workbook imports with EXM→exempt · trait rubric draft-only + over-scale rating refused · publish snapshots rated traits per student and **omits the unrated one** + snapshots the rubric · transcript reads published snapshots only, excludes the superseded version after an amendment, and excludes an absent subject from the average · issuing stores an audited `Student`-owned artifact · RLS isolation on both new tables + 401 boundary. _(result: see the board entry — run in this session on `APP_RUNTIME_DATABASE_URL`)_
+- Migration applied locally the additive way (`db execute` → **DDL asserted present** via a raising `DO` block → `migrate resolve --applied`), then `pnpm run db:generate`. Isolated `next build`/`nest build` deferred to CI per the shared-`.next` gotcha.
+
+**What's next**
+
+- Owner review → PR → CI green → merge → WB4-2/3/4 `done` = **Workbench-4 complete**, which leaves **`F9`** (export/retention) as the only open Phase-1 foundation and clears WB8's dependency on WB1–4.
+- Deliberately out of scope (fast-follows, none blocking): a **PDF** binary render (the artifact seam already takes any bytes; today's artifacts are print-ready HTML); rewiring the legacy `/students/gradebook/transcripts` page onto the new snapshot endpoint (the authoritative transcript now lives in the results workbench — that page is still gradebook-derived and should either be pointed at `/academics/results/students/:id/transcript` or retired); a searchable student picker past the `/students?limit=100` cap (shared with lifecycle/enrollment); trait-rating import via the same spreadsheet flow; skill-area analytics (job #64, phase 3).
 
 ---
 
@@ -156,7 +195,7 @@ Last Updated: 2026-08-11
 
 - [PR #67](https://github.com/Ewosoft-Solutions/claude-trial/pull/67) is **open** (pushed) → independent (maker-checker) review → merge → WB1-6 `done` (**Workbench-1 6/6 complete**). On merge, CD applies migration `20260805020000_access_grants_scope_expiry`. **WB2-1 is being built in a parallel session** (ADR-02 academic structure model) — it consumes the `Campus` this PR introduces, so land WB1-6 first (or rebase WB2-1 onto it) to avoid a `Campus`-model duplication.
 
-**New gotcha** — after a Prisma schema change, a cross-package return type (e.g. `@workspace/api`'s `getUserTenantProfile`) won't surface new model scalars in a *dependent* package's isolated `tsc` until the producing package's dist is **force-rebuilt** (`tsc -b --force`) — plain `tsc -b` sees inputs "up to date" because it doesn't track the generated client. `pnpm ci:quick` (turbo, full build) handles this in order; a scoped `tsc` in one app does not.
+**New gotcha** — after a Prisma schema change, a cross-package return type (e.g. `@workspace/api`'s `getUserTenantProfile`) won't surface new model scalars in a _dependent_ package's isolated `tsc` until the producing package's dist is **force-rebuilt** (`tsc -b --force`) — plain `tsc -b` sees inputs "up to date" because it doesn't track the generated client. `pnpm ci:quick` (turbo, full build) handles this in order; a scoped `tsc` in one app does not.
 
 ## Session Summary (2026-08-05) — Claude: WB1-2 + WB1-5 merged → done; WB1-6 unblocked
 
@@ -188,6 +227,7 @@ Last Updated: 2026-08-11
 **Decisions / ADRs** — none new. Reaffirmed the WB1-1 board split: campus-scope enforcement + expiry + maker-checker/step-up for high-risk grants live in **WB1-6** (dep WB1-5).
 
 **Independent review (same session) → APPROVE-WITH-NITS; all findings applied.** A cold second-agent maker-checker ran the full contract itself (reproduced api 544 · web 138 · e2e 15/15 · ci:quick/rls/privileged-db green) and confirmed every acceptance item against code. Corrections applied on top:
+
 - **(moderate) ungated role reads** — `GET /roles/:id/effective-access`, `POST /roles/:id/explain`, `GET /roles/:id/affected` (+ `GET /roles/templates`, `POST /roles/preview`) were only auth+tenant-guarded; `affected` even returned holder emails. Root cause: `ClearanceLevelGuard` was **not** in this controller's `@UseGuards`, so the `@RequireClearanceLevel(7)` decorators (incl. the pre-existing create/updateClearance ones) were inert — create was really enforced by its in-handler `canCreateCustomRole` check. Fixed by adding `ClearanceLevelGuard` to the class chain (it no-ops where no `@RequireClearanceLevel` is set, so `getRoles`/`getRole` keep their open-to-tenant behaviour) + `@RequireClearanceLevel(7)` on the four management/effective-access reads. Web `settings/roles` stays resilient (serverApiGet returns null on 403 → `templates ?? []`; preview row-click now gated on `canManage`).
 - **(nits)** deterministic source-pool attribution (sort pools by clearance in `assemble`); added an audit-write assertion to the WB1-2 unit spec. Left as-is (documented): the `role_templates` `FOR ALL` RLS permitting a tenant to DELETE a shared template matches the **pre-existing `roles`/`permission_pools`** pattern (no endpoint exposes template writes) — a repo-wide tightening, not a WB1-5 regression.
 
@@ -200,6 +240,7 @@ Last Updated: 2026-08-11
 **Item(s):** WB1-3 + WB1-4 → **done** — [PR #60](https://github.com/Ewosoft-Solutions/claude-trial/pull/60) squash-merged to `main` (`97ac560`), **CI green on the `main` merge commit** (gate met: CI-green + merged). An **independent maker-checker review** (cold second pass, ran the full suite itself) returned **APPROVE-WITH-NITS** — all acceptance items verified, zero blocking; all findings applied.
 
 **Corrections applied before marking done:**
+
 - **(moderate) single-primary concurrency backstop** — the exactly-one-primary-per-ward invariant was app-only (two concurrent promotions could race to two primaries). Added a **partial unique index** `guardian_relationships_one_primary_per_ward` (`WHERE is_primary AND effective_to IS NULL`, migration `20260804140000` with a DO-block dedup of any pre-existing dupes), reordered create/update to **demote-before-promote** (so the happy path never transiently violates it — both writes share the runScoped tx), and the loser of a real race now gets a clean **409** (`isPrimaryConflict`). e2e proves the index rejects a 2nd active primary.
 - **(nits)** dropped 3 unused audit constants (the events are audited via `AuditService` `provisioning.account.*`; kept `USER_PASSWORD_RESET_ISSUED`); corrected the SecureLink docstring (it mirrors/governs — redemption resolves via `UserTenant.invitationToken` / `User.passwordResetToken`) + the reactivate docstring; added e2e for admin-reset token issuance.
 
@@ -236,7 +277,7 @@ Last Updated: 2026-08-11
 
 **Decisions / ADRs**
 
-- **No new ADR.** Notable choices: (1) **evolve, don't fork** — reuse the mature invitation creation + accept page + RLS token scope, adding F5 delivery + SecureLink governance over the *same* token (shared-token via a hashed-once `SecureLinkService.create({token})`), rather than a parallel invite flow; (2) user-row writes stay on the **grandfathered** privileged client so `check:privileged-db` stays at 29; (3) **login-block via state** — suspend sets the flags the existing login guard already reads (enforcement point unchanged), and the e2e asserts those flags + the 401 boundary; (4) guardianship built on **F1 `GuardianRelationship`**, not the legacy `StudentGuardian` (the workbench-people spec text predates F1; the F1 model comment already reserved "WB1-4 adds consent depth"); (5) maker-checker / step-up on these actions is **deferred to WB1-6** (per the workbench plan) — WB1-3/4 use permission + audit + login-block.
+- **No new ADR.** Notable choices: (1) **evolve, don't fork** — reuse the mature invitation creation + accept page + RLS token scope, adding F5 delivery + SecureLink governance over the _same_ token (shared-token via a hashed-once `SecureLinkService.create({token})`), rather than a parallel invite flow; (2) user-row writes stay on the **grandfathered** privileged client so `check:privileged-db` stays at 29; (3) **login-block via state** — suspend sets the flags the existing login guard already reads (enforcement point unchanged), and the e2e asserts those flags + the 401 boundary; (4) guardianship built on **F1 `GuardianRelationship`**, not the legacy `StudentGuardian` (the workbench-people spec text predates F1; the F1 model comment already reserved "WB1-4 adds consent depth"); (5) maker-checker / step-up on these actions is **deferred to WB1-6** (per the workbench plan) — WB1-3/4 use permission + audit + login-block.
 
 **Next step (so the next agent can resume)**
 
@@ -363,11 +404,12 @@ Last Updated: 2026-08-11
 **Next step (so the next agent can resume)**
 
 - Open the F8 PR → review → merge → flip **F8 → done**. That makes **Phase-1 foundations F1–F8 all done/in-review**, and **WB1 (People directory)** fully unblocked — WB1-1 composes `WorkbenchLayout` (People workbench) + F7 `DirectoryTable` + F1 person projection. Also newly composable: WB1-5 role editor on `PolicyVersionPanel`, WB1-6 high-risk changes on `ApprovalPanel`, F6 curriculum versions on `PolicyVersionPanel`, results lifecycle on `LifecycleBar`. `F9` (export/retention) is the last Phase-1 item still `blocked` (deps F3+F4 both done — can be flipped `ready`).
+
 ## Session Summary (2026-08-02) — Claude: F6 maker-checker review + fixes (still in-review, PR #49)
 
 **Item(s):** F6 (PR #49) — a maker-checker review found 1 moderate + 4 minor issues; **all addressed on `feat/F6-academic-profile`.** e2e now **8/8** (5 + 3 new), api unit 470/470, `ci:quick` + `check:privileged-db` + `db:rls:check` + Prettier green.
 
-- **[moderate — RLS backstop] Tenants could UPDATE/DELETE national rows.** The reference tables' single `FOR ALL tenant_isolation` policy's `USING (tenant_id IS NULL …)` exposed national (null-tenant) rows to *every* command, so a raw tenant-scoped `app_runtime` query could DELETE a national row (removing it for all tenants) or UPDATE it to reclaim it — national immutability held only at the service layer, not the mandatory RLS backstop (and this pattern is earmarked for WB2/WB4 reuse). **Fixed with per-command policies:** `tenant_isolation` is now `FOR SELECT` (shared read — still the permissive policy `db:rls:check` requires) + a new `tenant_write` `FOR ALL` scoped to own+platform (national rows not writable/deletable by tenants). New e2e proves a raw tenant UPDATE/DELETE of a national row is a **no-op**. Migration edited + applied to local DB.
+- **[moderate — RLS backstop] Tenants could UPDATE/DELETE national rows.** The reference tables' single `FOR ALL tenant_isolation` policy's `USING (tenant_id IS NULL …)` exposed national (null-tenant) rows to _every_ command, so a raw tenant-scoped `app_runtime` query could DELETE a national row (removing it for all tenants) or UPDATE it to reclaim it — national immutability held only at the service layer, not the mandatory RLS backstop (and this pattern is earmarked for WB2/WB4 reuse). **Fixed with per-command policies:** `tenant_isolation` is now `FOR SELECT` (shared read — still the permissive policy `db:rls:check` requires) + a new `tenant_write` `FOR ALL` scoped to own+platform (national rows not writable/deletable by tenants). New e2e proves a raw tenant UPDATE/DELETE of a national row is a **no-op**. Migration edited + applied to local DB.
 - **[minor] `is_national_immutable` was dead metadata** → now a real guard: `assertWritableVersion` rejects mutation when the version is flagged immutable **or already published** (`active`/`retired`) — a published version is frozen (clone to a new draft), which also pairs with ADR-04. New e2e.
 - **[minor] Provenance gate was self-attestable** — `addNode` accepted `reviewedBy` at creation, letting an AI/imported node ship "pre-reviewed". Removed `reviewedBy` from `addNode` + the DTO: a node is created unreviewed and only cleared via the actor-stamped `reviewNode` step (existing AI-gate e2e still passes).
 - **[minor] Overlapping cohort adoptions** — `adopt()` now supersedes a prior open-ended active adoption for the same cohort+campus (status `superseded`, `effectiveTo` = new start), so `resolveForCohort` never disambiguates two open-ended adoptions. New e2e.
@@ -407,6 +449,7 @@ Last Updated: 2026-08-11
 **Next step (so the next agent can resume)**
 
 - Open the F6 PR → review → merge → flip **F6 → done** (unblocks **WB2** subject catalog, **WB4** results-reference-a-version, **WB8** curriculum coverage). Reconcile the board + `seed.ts` (`EXPECTED_PERMISSION_COUNTS`) with F5 at merge (F5 +5, F6 +4 → 329). Optional follow-ups: seed the official NERDC 2020/2025 framework versions as production reference data (ADR-03 lists this — the e2e uses fixtures); apply overlays into the read-time version tree; cite `LearningOutcome` from lessons/offerings/results (WB8/ADR-04).
+
 ## Session Summary (2026-08-02) — Claude: F5 maker-checker review + fixes (still in-review, PR #48)
 
 **Item(s):** F5 (PR #48) — an independent maker-checker review found 6 issues; **all addressed on `feat/F5-communication-delivery`.** e2e now **10/10** (6 + 4 new), api unit 472/472, `ci:quick` + `check:privileged-db` + Prettier green.
@@ -428,7 +471,7 @@ Last Updated: 2026-08-11
 
 **Item(s):** F5 → **in-review**. **Branch/PR:** `feat/F5-communication-delivery` → PR open. Claim committed first (`board: claim F5 (claude)`) on the branch, then built (one item = one branch = one PR). Kicked off as "pick up F5, F6, F7" — F7 was already `done` (PR #44 merged), so this session is F5; **F6 is next** (foundation-to-DoD, per the owner's chosen scope).
 
-**What changed & why** — a provider-agnostic delivery layer with a first-class evidence ledger (ADR-07). No domain calls a provider SDK directly; a domain publishes a *message intent* and the layer resolves audience → consent → channel → provider, records a `DeliveryAttempt`, and sends idempotently on the F3 job substrate. Reproduces the legacy metered SMS balance + delivery log (cost + DND) while fixing its two hazards (public result URLs → SecureLink; gender-label targeting → real consent).
+**What changed & why** — a provider-agnostic delivery layer with a first-class evidence ledger (ADR-07). No domain calls a provider SDK directly; a domain publishes a _message intent_ and the layer resolves audience → consent → channel → provider, records a `DeliveryAttempt`, and sends idempotently on the F3 job substrate. Reproduces the legacy metered SMS balance + delivery log (cost + DND) while fixing its two hazards (public result URLs → SecureLink; gender-label targeting → real consent).
 
 - **`packages/database` (`communication` schema, +7 tables):** `ContactPreference` (per-person/channel consent + DND + quiet-hours — the "richer model" `person.ContactPoint` explicitly deferred to), `MessageTemplate`+`TemplateVersion` (versioned copy per channel/locale), `Campaign`+`CampaignRecipient` (bulk), the **`DeliveryAttempt` ledger** (channel/provider/status/failureClass/**costUnits+dndFlag**/redactedDestination/attemptNo/dedupeKey), and **`SecureLink`** (sha256-hashed token, `requiredPermission`/audience binding, mandatory expiry, useCount/maxUses/revoked). Hand-written migration `20260802000000_communication_delivery` — tables + indexes + tenant-FK cascade + person scalar-FKs + all 7 tables `ENABLE`/`FORCE ROW LEVEL SECURITY` + PERMISSIVE `tenant_isolation` + `app_runtime` grants (infra convention: DB FK, no Prisma relation to Tenant, mirrors jobs/directory). Applied via `db:deploy`; `communication` already in `rls-coverage-check.sql` so coverage is automatic.
 - **`apps/api` `communication/delivery/`:**
@@ -527,7 +570,7 @@ Last Updated: 2026-08-11
 - **F1 (ADR-01)** — new `person` schema: `Person` (tenant-scoped human anchor, `merged_into_id`, `(tenant, sourceSystem, sourceId)` unique), `ContactPoint` (+verification, masked-by-default), `Address`, `StaffProfile` (retire payroll-as-directory), `GuardianRelationship` (Person→Person), `RelationshipHistory`. Additive nullable `students.person_id` (+FK). Migration does an **RLS-safe DO-block back-fill** (one Person per legacy account + student/guardian links + history) **before** enabling RLS on the new tables. `PersonService` (CRUD/search/profiles/contacts+verification/masking) + `PersonMergeService` (dedup re-points all owned records to the survivor, marks the duplicate `merged`, writes history on **both** — evidence preserved). Cross-schema back-refs added to `UserTenant` (profile) + `Student`.
 - **F4 (ADR-08)** — new `documents` schema: `Document`/`DocumentVersion`/`DocumentType`/`SigningAuthority` (`person_id`→person via DB-FK, not a Prisma relation)/`SignatureUse`. Bytes go through the existing `StorageProvider` port (tenant-keyed); **HMAC signed short-lived download URLs** (`DocumentUrlSigner`, constant-time verify, 5-min TTL) minted only after a server-side permission check; **scan + thumbnail run as F3 jobs** (`DocumentJobRegistrar`), quarantine-until-clean (`HeuristicDocumentScanner`, EICAR-aware); signatures are governed assets (raw image never listed; use authorized per-artifact). New env `DOCUMENT_URL_SIGNING_SECRET` (dev default, grouped with storage config).
 - **F2 (ADR-09)** — new `imports` schema: **full 11-entity set** (ImportDefinition/ImportJob/SourceFile/ColumnMapping/TransformRule/ImportRow/ValidationIssue/DuplicateCandidate/ImportCommit/ReconciliationRule/ReconciliationResult). `ImportService` drives upload→map→validate→dry-run→approve→**commit (idempotent upsert on `(tenant,sourceSystem,sourceId)` into Person)**→reconcile→rollback. Dependency-free CSV parser + pure TransformRule executor. **Invalid rows go to an explicit exception queue — never committed around the good ones.** Duplicate detection vs Person source ref; count/sum/checksum reconciliation (money exact); controlled rollback. Commit/reconcile also registered as F3 handlers; controller gates commit with clearance + step-up (`DATA_BULK_IMPORT`) and maker-checker `approve` for financial/grade/history domains.
-- Permissions +15 (people.*/documents.*/signatures.*/imports.*); `EXPECTED_PERMISSION_COUNTS` 305→320. `rls-coverage-check.sql` extended to `person`/`documents`/`imports`. e2e suite set to **`--runInBand`** (see gotcha).
+- Permissions +15 (people._/documents._/signatures._/imports._); `EXPECTED_PERMISSION_COUNTS` 305→320. `rls-coverage-check.sql` extended to `person`/`documents`/`imports`. e2e suite set to **`--runInBand`** (see gotcha).
 
 **Verification** (what was actually run + result) — on a throwaway local Postgres (roles `app_runtime`/`app_privileged`, migrations applied via `db:deploy`)
 
@@ -543,7 +586,7 @@ Last Updated: 2026-08-11
 
 - **[PR #42](https://github.com/Ewosoft-Solutions/claude-trial/pull/42) is open** — awaiting a **second-agent review** (L/XL items warrant it) + green GitHub Actions → merge, then flip F1/F4/F2 → `done`. After F1 merges, **WB1 (People directory)** is unblocked (needs F1+F7+F8). Separately, **[PR #43](https://github.com/Ewosoft-Solutions/claude-trial/pull/43)** adds a changed-files Prettier gate + editor format-on-save (see `docs/local-ci.md`). Follow-ups: migrate `QueueService` email callers to F3; wire F5 `SecureLink`/delivery to reuse the Document + signed-URL patterns; add non-`people` commit executors (opening_debt/grades) behind the existing dispatch.
 
-**New gotcha** → **The durable F3 `JobWorker.processOnce()` claims the oldest READY job across ALL tenants.** Any e2e spec that enqueues F3 jobs (now F4 documents + F2 imports, not just jobs.e2e) will have its jobs grabbed by a *parallel* jobs.e2e worker on the shared CI Postgres, breaking its exactly-once/mark-dead assertions. Fix applied: `apps/api` `test:e2e` runs **`--runInBand`** so each spec cleans up (tenant-cascade) before the next. If you re-parallelize, scope the jobs specs' worker to their own tenants instead.
+**New gotcha** → **The durable F3 `JobWorker.processOnce()` claims the oldest READY job across ALL tenants.** Any e2e spec that enqueues F3 jobs (now F4 documents + F2 imports, not just jobs.e2e) will have its jobs grabbed by a _parallel_ jobs.e2e worker on the shared CI Postgres, breaking its exactly-once/mark-dead assertions. Fix applied: `apps/api` `test:e2e` runs **`--runInBand`** so each spec cleans up (tenant-cascade) before the next. If you re-parallelize, scope the jobs specs' worker to their own tenants instead.
 
 ---
 
@@ -722,21 +765,25 @@ Last Updated: 2026-08-11
 
 ## Session Summary (2026-07-31) — Claude: The legacy system parity assessment + action-plan + multi-agent workflow (docs-only)
 
-**Item(s):** new initiative bootstrapped (no board item yet — the board *is* a deliverable). **Branch/PR:** none — nothing committed/pushed this session.
+**Item(s):** new initiative bootstrapped (no board item yet — the board _is_ a deliverable). **Branch/PR:** none — nothing committed/pushed this session.
 
 **What changed & why**
+
 - **Assessment** (`design-export/product-expansion/plan/`, 9 docs): reviewed all 135 reference screenshots image-by-image (register C001–C135), grounded against the live repo (verified 71 routes · 58 models/22 files · 305 permissions/28 cats/11 pools · Aurora tokens). Thesis: **capability parity WITHOUT IA parity**; deepen a few shared aggregates (People, Admission, ResultCycle, Family/Student Account+Ledger, Engagement Delivery, Curriculum Version, Migration Job). Includes a 116-row parity matrix (07) + an Aurora design-system bridge (08).
 - **Action plan** (`design-export/product-expansion/action-plan/`): README, WORKFLOW, **TASK-BOARD** (the coordination point), BACKLOG (Phases 2–5), detailed Phase-0/Phase-1/Workbench-1(People) docs, **all 12 ADRs drafted** (`Proposed`; ADR-10/11 are owner decision-briefs), templates (work-item, session-log-entry).
 - **Multi-agent workflow**: added agent-neutral **`/AGENTS.md`** (contract, validation commands, gotchas, claim/branch rules, session-close ritual) — the file Codex reads by convention. Realiased **`CLAUDE_TRIAL_NEXT_RECOMMENDED_PROMPT.md`** into a thin pointer to it. Moved the durable "Known Gotchas" from the Claude prompt into `AGENTS.md §7` so all agents share them.
 
 **Verification**
+
 - **Docs-only session — no product code, no schema, no commits, no push.** CI not run (would need a commit). Before committing these docs, run `pnpm ci:quick` (markdown format/lint is part of the contract) — I did **not** run `pnpm format:check` on the new markdown.
 - Assessment numbers were verified directly against the repo (routes/models/seed/tokens), not quoted from status docs.
 
 **Decisions / ADRs**
-- Workflow decisions made *with the user* this session: plan+workflow only (no code yet); detail near-term + backlog the rest; adopt AGENTS.md + shared board + handoff ritual; lead with Shared foundations + People. The 12 architecture ADRs are opened as `Proposed` in `action-plan/adr/` — none accepted yet.
+
+- Workflow decisions made _with the user_ this session: plan+workflow only (no code yet); detail near-term + backlog the rest; adopt AGENTS.md + shared board + handoff ritual; lead with Shared foundations + People. The 12 architecture ADRs are opened as `Proposed` in `action-plan/adr/` — none accepted yet.
 
 **Next step (so the next agent can resume)**
+
 - All 12 ADRs are drafted (`Proposed`) — next is **review→accept** (`P0-3`); accepting ADR-01/06/07/08 flips `F1/F4/F5` to `ready`. Owner input still needed on `P0-1` (Release-1 profile), `P0-2` (design partners + exports), and sign-off on **ADR-03** (academic), **ADR-05** (finance), and the **ADR-10/11** owner briefs. In parallel, any agent can claim a `ready` board item now: **`H1`** (reconcile the 274/297/305 permission-count drift + fix the stale "mock data" line in `AI_CONTEXT.md`), **`H2`** (states in `custom/states`), **`H3`**, or foundations **`F3`** (jobs/outbox), **`F7`** (directory pattern), **`F8`** (Aurora shells).
 
 **New gotcha** → none introduced; existing gotchas consolidated into `AGENTS.md §7`.
@@ -795,6 +842,7 @@ The two remaining "not closed" AI items are done: the Step 3 assistant
 markdown/chart polish and the Step 2 current-term system-prompt context.
 
 **Step 3 polish (frontend, `packages/ui`):**
+
 - New `MarkdownLite` renderer (`custom/chat/markdown-lite.tsx`): a tiny,
   dependency-free, `dangerouslySetInnerHTML`-free markdown subset —
   paragraphs, soft breaks, unordered/ordered lists, ATX headings, and inline
@@ -813,6 +861,7 @@ markdown/chart polish and the Step 2 current-term system-prompt context.
   verbatim; non-http links dropped but labels kept). ui vitest **85/85**.
 
 **Step 2 term context (backend, `apps/api`):**
+
 - New `CurrentTermService`
   (`academic-structure/services/current-term.service.ts`, exported from
   `AcademicStructureModule`): read-only, side-effect-free, explicitly
@@ -831,6 +880,7 @@ markdown/chart polish and the Step 2 current-term system-prompt context.
 
 **Verification (all green, Node 22.21.1 — active shell was v20.18.0, below the
 ≥20.19 floor; had to `nvm use`):**
+
 - api build ✅, api unit **192/192** ✅, api lint 0 errors (pre-existing
   warnings) ✅
 - web check-types ✅, web lint ✅, web vitest **38/38** ✅, web build ✅
@@ -852,6 +902,7 @@ Step 5 live acceptance is now complete with the real spend-capped
 `ANTHROPIC_API_KEY`, keeping paid calls minimal.
 
 **What changed:**
+
 - Restarted the user's dev API on `http://localhost:3030`; the route map now
   includes `/ai/admin/usage`, `/ai/academic/chat`, academic sessions, and tutor
   usage.
@@ -865,6 +916,7 @@ Step 5 live acceptance is now complete with the real spend-capped
   `aaa63db feat(ai): complete AI integration rollout`.
 
 **Live verification:**
+
 - `AI_LIVE=1` focused live e2e with `.env` preloaded:
   - grounded/cited answer from uploaded lesson material ✅
   - direct homework-answer request gets guided help/refusal ✅
@@ -878,7 +930,8 @@ Step 5 live acceptance is now complete with the real spend-capped
   used `pnpm --filter api exec jest --config ./test/jest-e2e.json ...` from a
   small Node wrapper that loads `apps/api/.env` before Jest setup.
 
-**Still open:** *(as of pt. 4 — the first two were closed in pt. 5 above)*
+**Still open:** _(as of pt. 4 — the first two were closed in pt. 5 above)_
+
 - ~~Step 3 polish: assistant markdown-lite rendering and chart y-axis
   clipping.~~ **DONE (pt. 5).**
 - ~~Step 2 term-context-in-system-prompt (no "current term" read service).~~
@@ -895,6 +948,7 @@ governance, hardening coverage, RLS coverage for new AI tables, and an admin
 usage view.
 
 **Backend / database:**
+
 - Migration `20260709000000_ai_governance` adds three RLS-protected tables in
   the `ai` schema:
   - `ai_settings`: one row per tenant, model tier, feature toggles
@@ -906,8 +960,8 @@ usage view.
     last provider/model, and one-shot threshold alert timestamp.
   - `ai_concurrency_leases`: short-lived active-request leases for the
     per-tenant concurrency cap (TTL backstop, released in `finally`).
-  Existing tenants are backfilled with a default `ai_settings` row. RLS
-  policies + `app_runtime` grants are in the migration; `db:rls:check` passes.
+    Existing tenants are backfilled with a default `ai_settings` row. RLS
+    policies + `app_runtime` grants are in the migration; `db:rls:check` passes.
 - `AiUsageService` (`apps/api/src/ai/services/ai-usage.service.ts`) owns the
   Step 6 enforcement layer. It opens only short `runScoped` units: start
   request (feature toggle + monthly quota + concurrency lease), record usage
@@ -929,6 +983,7 @@ usage view.
   the seed catalog.
 
 **Frontend:**
+
 - New `/settings/ai-usage` server page shows monthly quota used/remaining,
   request count, active concurrency, cost controls, and per-feature usage rows.
 - New Route Handler `app/api/ai/admin/usage/route.ts` proxies the admin usage
@@ -939,6 +994,7 @@ usage view.
   `settings.*` permissions. Nav tests cover that access.
 
 **Hardening coverage:**
+
 - `ai-usage.service.spec.ts`: default settings, quota denial shape, concurrency
   cleanup/cap, monthly usage increment, threshold alert marker, admin summary.
 - `analytics-tools.service.spec.ts`: the six-tool permission/clearance matrix
@@ -953,6 +1009,7 @@ usage view.
   `APP_RUNTIME_DATABASE_URL` is set to the real `app_runtime` role.
 
 **Verification:**
+
 - `corepack pnpm --filter @workspace/database db:generate` ✅
 - `corepack pnpm --filter @workspace/database db:deploy` ✅ applied
   `20260709000000_ai_governance` locally
@@ -970,12 +1027,13 @@ usage view.
   ✅ skipped locally as expected (no `APP_RUNTIME_DATABASE_URL`)
 
 **Previous-step leftovers intentionally NOT closed:**
+
 - Step 5 live browser acceptance was still pending here, but was closed in the
   2026-07-09 pt. 4 session above.
 - Step 3 polish candidates remain: assistant markdown-lite rendering and chart
-  y-axis clipping for large currency values. *(Closed 2026-07-09 pt. 5.)*
+  y-axis clipping for large currency values. _(Closed 2026-07-09 pt. 5.)_
 - Step 2 term-context-in-system-prompt remains pending because there is still no
-  "current term" read service. *(Closed 2026-07-09 pt. 5 — `CurrentTermService`.)*
+  "current term" read service. _(Closed 2026-07-09 pt. 5 — `CurrentTermService`.)_
 - Parked non-AI items remain parked (PWA/offline/push, subdomain tenant
   resolution, Step 8 sub-surfaces, runtime cutover to `app_runtime`, etc.).
 
@@ -997,6 +1055,7 @@ the LlmProvider port) — Haiku rejects adaptive thinking, and grounded RAG does
 need it. Analytics still defaults to adaptive.
 
 **Backend** (`apps/api/src/ai/`):
+
 - `services/academic-chat.service.ts` — the tutor orchestration. `getLesson`
   (student visibility rules: published + approved + enrolled, 404s otherwise)
   gates access, then `LearningRetrievalService.searchLesson` (pinned to
@@ -1033,13 +1092,14 @@ need it. Analytics still defaults to adaptive.
   no schema/seed/RLS changes this step (reuses `learning` + `ai` tables).
 
 **Frontend** (`apps/web`):
+
 - Student `/classes/tutor` (`layout` guards `ai.chat.use`; server page fetches
   student-visible lessons + own sessions; `tutor-client.tsx` island). Reuses
   the Step 3 chat kit (`ChatThread`/`ChatMessageBubble`/`ChatComposer`), adds a
   lesson `Select` (locks to the session's lesson once a conversation starts),
   renders citations under the assistant bubble, and shows the assessment 403
   block as a warning banner with alternatives. SSE state machine over
-  `readSseStream` folds session → sources → delta* → complete | error.
+  `readSseStream` folds session → sources → delta\* → complete | error.
 - Teacher `/classes/tutor-usage` (guards `lessons.view`; server page → table
   of student/lesson/class/questions/last-activity with honest empty state).
 - 4 route handlers under `app/api/ai/academic/` (chat pipes SSE + forwards the
@@ -1062,6 +1122,7 @@ capped workspace); prior AI steps were accepted the same way with the user
 pasting a key. Don't loop paid calls.
 
 **Fixes made in passing (pre-existing, uncommitted, unrelated to Step 5):**
+
 - `learning.service.spec.ts` "teachers/admins list" case was stale — mocked
   only `getEnrolledClassIds`, asserted teachers get NO class filter. Current
   code scopes teachers to `getTaughtClassIds` (documented record-level
@@ -1091,7 +1152,7 @@ pasting a key. Don't loop paid calls.
 > ⚠ **Correction (2026-06-20) — the auth/RBAC backend DOES exist.** Earlier
 > hand-offs (and the pt.1 "task 4" note below) wrongly stated there is no auth
 > backend. That conclusion only inspected `packages/api` (a NestJS service
-> *library*). The real backend is the **`apps/api` NestJS application**: DB-backed
+> _library_). The real backend is the **`apps/api` NestJS application**: DB-backed
 > (Prisma, via `packages/database`), with `POST /auth/login` → `verify-mfa-login`
 > → `select-school` → `refresh` / `logout` + password reset
 > (`apps/api/src/auth/auth.controller.ts`), and 20 controllers covering
@@ -1159,6 +1220,7 @@ the operational UI layer on top of those endpoints, leaving Step 5 (Academic AI
 tutor) as the next AI-plan item.
 
 **Frontend surfaces added/updated (`apps/web`):**
+
 - Shared academic UI contract/helper file:
   `apps/web/lib/academics.ts` (class/course labels, status metadata, academic
   DTO-ish types, API path helper, fetch error helper).
@@ -1175,9 +1237,9 @@ tutor) as the next AI-plan item.
   with approve/reject (rejection note required), previous review notes, material
   download preview, and publish-after-approval for lessons.
 - `/classes/teachers`: class teacher allocation UI with class selector, active
-  + historical roster, teacher profile selector (from tenant user profiles when
-  available), assign roles (`teacher`, `assistant`, `co-teacher`,
-  `substitute`), and soft-unassign.
+  - historical roster, teacher profile selector (from tenant user profiles when
+    available), assign roles (`teacher`, `assistant`, `co-teacher`,
+    `substitute`), and soft-unassign.
 - `/classes/question-bank`: course-scoped question bank editor for `mcq`,
   `true_false`, `short_answer`, and `essay` questions, including options,
   correct answers/model answers, solutions, difficulty, create/edit/delete.
@@ -1196,6 +1258,7 @@ tutor) as the next AI-plan item.
   seeded catalog.
 
 **Verification:**
+
 - `CI=true corepack pnpm --filter web check-types` ✅
 - `CI=true corepack pnpm --filter web test` ✅ (2 files, 32 tests)
 - `CI=true corepack pnpm --filter web lint` ✅ (Next warns `next lint` is
@@ -1228,13 +1291,14 @@ teacher-subject allocation) and what was deliberately not adopted.
 
 **Schema (migration `20260708000000_academics_content_domain`, applied +
 `db:rls:check` green, no drift):**
+
 - `learning.lessons`: + `content` (lesson-note body), + review workflow
   (`review_status` draft/pending_review/approved/rejected, submitted/
   reviewedBy/At/note). Students need `status='published' AND
-  review_status='approved'`.
+review_status='approved'`.
 - `learning.lesson_materials`: + `category` (document/video/image/audio),
-  + same review fields (default `pending_review`; pre-existing rows
-  grandfathered to `approved` in the migration).
+  - same review fields (default `pending_review`; pre-existing rows
+    grandfathered to `approved` in the migration).
 - `academic-structure`: `assessments` + `duration_minutes`/`max_attempts`;
   new tables `questions` (course-scoped bank; style mcq/true_false/
   short_answer/essay, options JSONB, correct_answer, solution),
@@ -1243,6 +1307,7 @@ teacher-subject allocation) and what was deliberately not adopted.
   NULL + RESTRICTIVE `tenant_isolation` RLS + app_runtime grants.
 
 **API:**
+
 - `common/academics/AcademicsAccessService` (new, exported from
   CommonModule): `buildAcademicsActor` (from the guard's cached permission
   context) + record-level rules — `assertCanManageClass` (ClassTeacher or
@@ -1305,6 +1370,7 @@ at 0.57 cosine, a sibling lesson's search returned `[]` (no leak), and a
 bogus lesson id got a 404 (probe-proof).
 
 **Database (`learning` schema — new)** — `packages/database/prisma/models/learning.prisma`:
+
 - `Lesson` (→ `Class`), `LessonMaterial` (storage key, mime, `extractionStatus`
   pending|processing|completed|failed, `chunkCount`), `MaterialChunk`
   (`content` + `embedding Unsupported("vector(1024)")` + denormalized
@@ -1322,6 +1388,7 @@ bogus lesson id got a 404 (probe-proof).
   `verify-seed.ts` bumped. Re-seeded (286 permissions, 1590 pool assignments).
 
 **Ports (mirroring the `src/ai/llm` provider-port pattern):**
+
 - `src/common/storage/` — `StorageProvider` port (`STORAGE_PROVIDER` token) +
   `LocalDiskStorageService` (root `STORAGE_LOCAL_ROOT`, default `./storage`,
   read raw off `process.env` so tests can point it at a temp dir; key-escape
@@ -1329,11 +1396,12 @@ bogus lesson id got a 404 (probe-proof).
 - `src/ai/embeddings/` — `EmbeddingsProvider` port (`EMBEDDINGS_PROVIDER`
   token, `document`/`query` input types) + `VoyageEmbeddingsService` (plain
   fetch, batches of 128, index-ordered, `voyage-3.5-lite`, 1024-dim). Provided
-  + exported by `AiModule`. Config in `ai.config.ts`: `VOYAGE_API_KEY`
-  (`.allow('')` so the placeholder line validates), `AI_EMBEDDINGS_MODEL`,
-  `AI_EMBEDDINGS_DIMENSIONS` (**must equal the `vector(1024)` column**).
+  - exported by `AiModule`. Config in `ai.config.ts`: `VOYAGE_API_KEY`
+    (`.allow('')` so the placeholder line validates), `AI_EMBEDDINGS_MODEL`,
+    `AI_EMBEDDINGS_DIMENSIONS` (**must equal the `vector(1024)` column**).
 
 **Pipeline + module** (`src/learning/`):
+
 - `material-extraction.service.ts` — PDF (pdf-parse v2 `new PDFParse().getText()`),
   DOCX (mammoth), PPTX (jszip + `<a:t>` regex, slide-ordered), TXT/MD. Video/OCR
   deferred. `resolveMaterialKind()` falls back to extension for
@@ -1368,6 +1436,7 @@ under Classes (gated `lessons.view`, `FileText` icon). `session.ts` mock +
 `app-navigation.test.tsx` fixtures carry the `lessons.*` perms.
 
 **Gotchas surfaced this session:**
+
 - `GET /classes` rejects its own default query params (`page`/`limit`/`sortBy`/
   `sortOrder` → 400 "property should not exist"). **Pre-existing DTO/whitelist
   bug, unrelated to Step 4** — the materials page uses `/classes?limit=100`
@@ -1388,8 +1457,8 @@ a stack trace. Three fixes:
 
 - `PermissionGuard` no longer puts the machine-readable reason in the HTTP
   message — it logs it server-side (`Logger.warn` with method/path/profile)
-  and throws a toast-ready generic: *"You do not have permission to perform
-  this action"*. The reason codes still flow unchanged into the audit paths
+  and throws a toast-ready generic: _"You do not have permission to perform
+  this action"_. The reason codes still flow unchanged into the audit paths
   and the AI mediator's in-chat refusal shape (requirements shape — not an
   HTTP error).
 - `HttpExceptionFilter`: debug payloads (`details`, `stack`, and the new
@@ -1415,7 +1484,7 @@ first name when natural, always name students/children from tool results —
 never "your child"/"the student". Verified live on a fresh instance on 3031:
 parent's reply led with the child's name. **NB the dev-persona child is
 literally named "Student Greenfield"** (`seed-dev-personas.ts` names
-personas after their roles), so demo replies still *look* generic — the
+personas after their roles), so demo replies still _look_ generic — the
 model is using the real name. Rename the seed personas if demo polish
 matters.
 
@@ -1509,12 +1578,12 @@ login is two-step — `/auth/login` returns a pre-auth token, then
 
 - Assistant text renders as plain text — model markdown (`**bold**`, lists)
   shows literally. Markdown-lite rendering is a candidate Step 6 polish.
-  *(RESOLVED 2026-07-09 pt. 5 — `MarkdownLite`.)*
+  _(RESOLVED 2026-07-09 pt. 5 — `MarkdownLite`.)_
 - Large ₦ values clip on chart y-axes (the wrappers' fixed 32px axis width —
   pre-existing, also affects /reports). Cosmetic.
-  *(RESOLVED 2026-07-09 pt. 5 — compact-number tick formatter + 44px width.)*
+  _(RESOLVED 2026-07-09 pt. 5 — compact-number tick formatter + 44px width.)_
 - Term context in the system prompt still absent (backend note from Step 2).
-  *(RESOLVED 2026-07-09 pt. 5 — `CurrentTermService`.)*
+  _(RESOLVED 2026-07-09 pt. 5 — `CurrentTermService`.)_
 - The `web` preview config serves a production snapshot — after source edits:
   `pnpm --filter web build`, re-copy `.next/standalone` + `.next/static` into
   `/tmp/swe-web`, restart. `/tmp/swe-run.cjs` was recreated this session
@@ -1567,14 +1636,14 @@ port, the six-tool set, the manual tool loop, and `POST /ai/analytics/chat`
 `requiredPermission` + `minClearance` and delegates to an existing
 permission-gated read service — no raw SQL, no new query paths:
 
-| tool | delegates to | permission / floor |
-|---|---|---|
-| `get_enrollment_stats` | ReportingAnalyticsService.dashboard + StudentService.list (per-status `pagination.total`) | `reports.view` / 3 |
-| `get_attendance_summary` | AttendanceService.list (+ status aggregation) | `attendance.view` / 3 |
-| `get_academic_performance` | ReportingAnalyticsService.academicPerformance | `reports.academic` / 3 |
-| `get_finance_summary` | FinanceService.invoiceSummary | `financial_reports.view` / 5 |
-| `get_student_overview` | ParentPortalService.getMyChildren (caller's own children only) | `students.view.own` / 1 |
-| `get_upcoming_events` | EventsService.listEvents (+ upcoming filter) | `events.view` / 1 |
+| tool                       | delegates to                                                                              | permission / floor           |
+| -------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------- |
+| `get_enrollment_stats`     | ReportingAnalyticsService.dashboard + StudentService.list (per-status `pagination.total`) | `reports.view` / 3           |
+| `get_attendance_summary`   | AttendanceService.list (+ status aggregation)                                             | `attendance.view` / 3        |
+| `get_academic_performance` | ReportingAnalyticsService.academicPerformance                                             | `reports.academic` / 3       |
+| `get_finance_summary`      | FinanceService.invoiceSummary                                                             | `financial_reports.view` / 5 |
+| `get_student_overview`     | ParentPortalService.getMyChildren (caller's own children only)                            | `students.view.own` / 1      |
+| `get_upcoming_events`      | EventsService.listEvents (+ upcoming filter)                                              | `events.view` / 1            |
 
 All six permissions already exist in the seed catalog (checked — the
 `hr.view` lesson). All tools are always exposed to the model (stable tool
@@ -1586,7 +1655,7 @@ denials are auditable.
 - Before EVERY execution: `AIMediatorService.validateAIQueryAccessScope`
   (clearance) + `PermissionService.checkPermission` (named permission).
   Denial → tool_result with the requirements' shape (`error: "Insufficient
-  clearance level for this query"`, required/user clearance) + audit log; the
+clearance level for this query"`, required/user clearance) + audit log; the
   model is told, never the data. After every execution: `logAIMediatorQuery`
   (success with timing, or error). One overall exchange audit row at the end.
 - Iteration cap `AI_TOOL_LOOP_MAX_ITERATIONS` (default 5): past the cap,
@@ -1603,8 +1672,7 @@ denials are auditable.
 - Envelope `{ data, visualization, insights }`: `data` = tool-call traces
   (input/result/allowed), `insights` = final model text, `visualization` = a
   chart spec parsed from a trailing ```chart fenced block the system prompt
-  asks for (donut/bar/trend, matching the `packages/ui` wrapper contracts in
-  `chart.types.ts`); unparseable blocks are dropped, never fatal.
+asks for (donut/bar/trend, matching the `packages/ui`wrapper contracts in`chart.types.ts`); unparseable blocks are dropped, never fatal.
 - System prompt: frozen cacheable prefix (data rules, refusal policy, chart
   convention — no timestamps), then a volatile block after the breakpoint
   with today's DATE, tenant id, caller clearance/scope. Term context is NOT
@@ -1613,7 +1681,7 @@ denials are auditable.
 **Endpoints** (`controllers/ai-analytics.controller.ts`, gated
 `ai.analytics.query`):
 
-- `POST /ai/analytics/chat` — SSE stream (`session` → `delta`* → `tool`* →
+- `POST /ai/analytics/chat` — SSE stream (`session` → `delta`_ → `tool`_ →
   `complete{envelope}` | `error`, then `done`). Manual `res.write` SSE (Nest
   `@Sse()` is GET-only). Loads or creates the owned ChatSession (foreign/
   unknown sessionId silently gets a fresh session — no existence leak),
@@ -1828,6 +1896,7 @@ so "Try it out" pre-fills request bodies instead of requiring the tester to
 hand-type field names.
 
 **Auth/RBAC audit — triggered by live Swagger testing, several real findings:**
+
 - **Bearer token parsing**: centralized `extractBearerToken()` tolerant of a
   doubled `Bearer Bearer <token>` prefix (a Swagger UI copy-paste footgun);
   `JwtAuthGuard` now gives a specific diagnostic when a pre-auth token is
@@ -1835,7 +1904,7 @@ hand-type field names.
 - **Permission resolution had two paths, only one populated**: a direct
   `RolePermission` join (never seeded) and a pool-based path
   (`Role → RolePermissionPool → PermissionPool → PermissionPoolPermission →
-  Permission`, always seeded but never read) — meaning `/auth/me` returned
+Permission`, always seeded but never read) — meaning `/auth/me` returned
   empty `permissions[]` for everyone. Made pools canonical everywhere, then
   **removed the direct `RolePermission` model, table, and every caller
   entirely** (migration `20260630010000_drop_role_permissions`) so there is
@@ -1871,7 +1940,7 @@ hand-type field names.
   (`groupProfilesBySchool()`); `apps/web` session shape, `ViewerProvider`,
   and the school switcher all updated to match.
 - **Password-reset token leaked in the API response**: `POST
-  /auth/request-password-reset` returned `{ token, expiresAt }` directly —
+/auth/request-password-reset` returned `{ token, expiresAt }` directly —
   anyone who knew or guessed an email got a live reset token with no need to
   touch the inbox. Now returns a generic success message only; the token
   still flows internally for whenever email delivery is wired up.
@@ -1881,6 +1950,7 @@ hand-type field names.
   (login route) to prevent open-redirect.
 
 **Profile switching + default sign-in profile**
+
 - `POST /auth/switch-profile` (new, `JwtAuthGuard`-protected) lets an
   already-authenticated user switch into a different profile they hold —
   reuses `AuthenticationService.selectSchool`'s existing ownership
@@ -1901,6 +1971,7 @@ hand-type field names.
   insertion order.
 
 **Parent-portal: guardian-scoped multi-child dashboard**
+
 - New `GET /parent-portal/children` (`parent_portal.view` permission),
   strictly self-scoped via the calling profile's `StudentGuardian` rows —
   there is no parameter to query another guardian's children. Returns real
@@ -1920,6 +1991,7 @@ hand-type field names.
   aggregation is visibly meaningful, not just non-empty.
 
 **App-shell UX pass** (multi-round, based on live screenshots)
+
 - `AppHeader` rebuilt as a true 3-column grid so the center search no longer
   drifts with breadcrumb length; the left column is capped and
   `AppBreadcrumbs` collapses a long trail (first / … / last-two) instead of
@@ -1929,7 +2001,7 @@ hand-type field names.
   command palette, not a text field, so this loses no functionality.
 - `AppSidebar`'s previously-unused `navFooter` slot now shows a compact
   identity card (avatar, name, active profile's role) — the top bar only
-  ever showed which *school* was active, not which *profile*.
+  ever showed which _school_ was active, not which _profile_.
 
 **Verification**: 102 API unit tests + 30 web tests pass throughout; full
 `pnpm build` (types/lint/build/test across all three packages) green;
@@ -2023,12 +2095,12 @@ fully verified.
     `ListPaymentsDto` (with `INVOICE_STATUSES` / `PAYMENT_STATUSES` / `PAYMENT_METHODS` consts).
   - `FinanceService`: RLS-scoped `client` getter; `listInvoices`, `getInvoice` (with payments),
     `createInvoice` (auto-generates `invoiceNumber`), `updateInvoice`, `invoiceSummary` (totals
-    + statusCounts), `listPayments`, `recordPayment` (creates payment, updates invoice
-    `amountPaid` + `status` atomically).
+    - statusCounts), `listPayments`, `recordPayment` (creates payment, updates invoice
+      `amountPaid` + `status` atomically).
   - `FinanceController` (`@TenantScoped`): `GET /finance/invoices`, `GET /finance/invoices/summary`,
     `GET /finance/invoices/:id`, `POST /finance/invoices`, `PATCH /finance/invoices/:id`,
     `GET /finance/payments`, `POST /finance/payments` — all behind `JwtAuthGuard +
-    TenantContextGuard + PermissionGuard`. Permissions `finance.view` / `finance.manage`.
+TenantContextGuard + PermissionGuard`. Permissions `finance.view` / `finance.manage`.
   - `SwaggerTags.finance` added; module registered in `AppModule`.
 - **Frontend wiring** (`/finance/invoices`, `/finance/payments`):
   - Pages split into server component (data fetch via `serverApiGet`) + client island
@@ -2118,11 +2190,12 @@ file applies it via `vi.mock('recharts', …)`. New suites:
 `custom/charts/donut-chart.test.tsx` (**5** — accessible name, one sector per
 slice, legend on/off, pie variant), `trend-chart.test.tsx` (**6** — accessible
 name, area vs line per series, multi-series legend, single-series legend default
-+ override) and `category-bar-chart.test.tsx` (**5** — accessible name, one bar
-layer per series, column/bar orientation, legend behaviour). Assertions lean on
-the `role="img"` name (forwarded by `ChartContainer`), legend label text, and
-recharts layer classes (`.recharts-area` / `.recharts-line` / `.recharts-bar` /
-`.recharts-pie-sector`).
+
+- override) and `category-bar-chart.test.tsx` (**5** — accessible name, one bar
+  layer per series, column/bar orientation, legend behaviour). Assertions lean on
+  the `role="img"` name (forwarded by `ChartContainer`), legend label text, and
+  recharts layer classes (`.recharts-area` / `.recharts-line` / `.recharts-bar` /
+  `.recharts-pie-sector`).
 
 **2 — `DonutChart` second consumer.** `/reports/analytics`
 (`apps/web/app/(app)/reports/analytics/page.tsx`) now renders an enrolment-by-level
@@ -2174,6 +2247,7 @@ through recharts' `ResponsiveContainer`, which collapses to zero size in jsdom
 (legend/cells never mount), so a container-size mock is needed first.
 
 **4 — `getSession()` real-auth wiring: ~~still blocked (inspected)~~.**
+
 > ⚠ **Superseded 2026-06-20 — this conclusion was WRONG.** It inspected only
 > `packages/api` (a service library) and missed the real **`apps/api`** NestJS
 > auth backend. See the correction at the top of Current Status. The seam is
@@ -2198,7 +2272,7 @@ composition chart wrapper.
 into `apps/web` (added `vitest` + `@workspace/vitest-config` devDeps, a `test`
 script, and `vitest.config.ts` re-exporting `baseConfig` — node env, since
 config resolution is pure). New `apps/web/lib/navigation/app-navigation.test.tsx`
-(**13 cases**) asserts the *shipped* `SCHOOL_NAV` / `PLATFORM_NAV` configs
+(**13 cases**) asserts the _shipped_ `SCHOOL_NAV` / `PLATFORM_NAV` configs
 resolve correctly for representative viewers (owner / teacher / bursar / minimal
 student / platform admin / scoped operator): `configForViewer` scope routing,
 section visibility, the finance clearance gate (denied at clearance 3 even with
@@ -2222,7 +2296,7 @@ zero-max clamping, `valueLabel` override, `hideValue`, tone fill. `@workspace/ui
 is now **39 tests** across 3 files (26 resolver + 13 component).
 
 > The jsdom tests require **Node ≥20.19** (jsdom 27 → `html-encoding-sniffer@6`
-> → an ESM dep `require()`d only on ≥20.19) — the *same* threshold the repo's
+> → an ESM dep `require()`d only on ≥20.19) — the _same_ threshold the repo's
 > `engines` and the existing `@workspace/database` build already demand. Run the
 > UI/component suites under e.g. `nvm` v22; the pure resolver + web suites still
 > run on the default 20.18.
@@ -2353,9 +2427,10 @@ seam**, so the eventual auth swap is a one-function change and no session data
 ships in the client bundle. (Investigation first confirmed the full auth swap is
 still blocked: `apps/web` has no `middleware`, no `app/api` route handlers, no
 NextAuth, and does not depend on `@workspace/api`; `packages/api` is a NestJS
-*library* — tenant-context / JWT-secret / school-selection / suspension services
+_library_ — tenant-context / JWT-secret / school-selection / suspension services
 — with no authentication endpoint. There is nothing real to wire into yet, so
 this session does the in-scope prep toward it.)
+
 > ⚠ **Correction 2026-06-20:** the "nothing real to wire into yet" claim was
 > wrong — the **`apps/api`** NestJS app provides the real auth endpoints
 > (`/auth/login`, `/select-school`, `/refresh`, …). See Current Status. The seam
@@ -2442,11 +2517,11 @@ New app surfaces (`apps/web`):
   part-paid / owing pills).
 - **`transport/riders`** — bus-route assignments (route · stop · pickup;
   assigned / waitlist / unassigned pills).
-- **`attendance/students`** — per-student attendance *history* (distinct from the
+- **`attendance/students`** — per-student attendance _history_ (distinct from the
   class daily register): present-rate `Meter` per row + absence/lateness tally +
   on-track / at-risk flag.
 - **`students/gradebook/report-cards`** — term report cards (average + grade pill
-  + published / ready / draft).
+  - published / ready / draft).
 - **`students/gradebook/transcripts`** — cumulative transcripts (CGPA · credits ·
   honors / good / probation standing).
 - **`students/gradebook/page.tsx`** — `/students/gradebook` redirects to
@@ -2547,7 +2622,7 @@ New app surfaces (`apps/web`):
 
 Built the Classes area and added the one shared component it needed (in
 `packages/ui` first, per the rules). The timetable is the first in-app surface
-that is a *grid*, not a table.
+that is a _grid_, not a table.
 
 New shared UI (`packages/ui`):
 
@@ -2610,7 +2685,7 @@ New app surfaces (`apps/web`):
   copy live in the page.
 
 The sibling `/students/attendance` leaf is intentionally left on the `[...slug]`
-placeholder — it is a *per-student* attendance history, a distinct surface from
+placeholder — it is a _per-student_ attendance history, a distinct surface from
 the class daily register (a good follow-up).
 
 ### Verification (Phase 2 · Enrollment + Attendance)
@@ -2671,14 +2746,14 @@ New app surface (`apps/web`):
 
 ## Session Summary (2026-06-17) — Phase 2 · Nav wiring + first authenticated surface
 
-Replaced the design-system shell preview's *simulated* in-page route + persona
+Replaced the design-system shell preview's _simulated_ in-page route + persona
 switcher with the **real** session + router wiring, and built the first product
 dashboard. Also repointed the git remote to the new repo (see Known Issues).
 
 New shared UI (built in `packages/ui` first, per the rules):
 
 - **`hooks/use-navigation.ts`** — `useResolvedNavigation(config, viewer,
-  currentPath, { onNavigate? })`: a memoized React wrapper over the pure
+currentPath, { onNavigate? })`: a memoized React wrapper over the pure
   `resolveNavigation`. Carries no `next/navigation` dependency — the host passes
   the path (`usePathname()`) and an `onNavigate` (`router.push`).
 - **`lib/navigation.ts`** — promoted `findActiveNavItem(items)` (deepest active
@@ -2700,7 +2775,7 @@ New app infrastructure (`apps/web`):
 - **`app/(app)/layout.tsx`** + **`app/(app)/app-chrome.tsx`** — the authenticated
   shell. `layout` mounts `ViewerProvider`; `AppChrome` (client) resolves the nav
   via `useResolvedNavigation(config, viewer, usePathname(), { onNavigate:
-  router.push })` and renders `AppShell` (header + `SchoolSwitcher` + `UserMenu` +
+router.push })` and renders `AppShell` (header + `SchoolSwitcher` + `UserMenu` +
   resolved `AppSidebar`). Breadcrumbs derive from the active section/leaf; the
   switcher supplies the tenant (so the trail starts at the section, no
   duplication).
@@ -2731,8 +2806,6 @@ New app infrastructure (`apps/web`):
   (`/students/enrollment`) set `aria-current` on Enrollment and rendered the M5
   placeholder. No console errors. Breadcrumb starts at the section (no tenant
   duplication beside the switcher).
-
-
 
 ## Session Summary (2026-06-17) — Milestone 7: Verification And Documentation
 
@@ -2975,7 +3048,7 @@ merged/pushed). See `TECHNICAL_DEBT.md` for the per-item record.
 - **TD-004 (resolved)** — deleted the dead `pnpm.overrides` field from root
   `package.json` (pnpm 10 ignored it and warned each install). The five legacy
   overrides were deliberately **not** migrated to `pnpm-workspace.yaml`:
-  `glob`/`rimraf` were stale upward pins that would now *downgrade* the newer
+  `glob`/`rimraf` were stale upward pins that would now _downgrade_ the newer
   resolved versions (`glob@13`, `rimraf@6`); `lodash.get` and `@types/minimatch`
   are absent from the dependency graph; and the `inflight` swap was left out to
   keep the change resolution-neutral (available as an optional follow-up).
@@ -2990,7 +3063,7 @@ pending.
   (no red), no console errors.
 - Note: the committed `pnpm-lock.yaml` is still on legacy `lockfileVersion 5.4`
   (pnpm 6 era) while the repo uses pnpm 10.4.1; a `pnpm install` regenerates it
-  to `9.0`. That lockfile regeneration was intentionally *not* bundled into this
+  to `9.0`. That lockfile regeneration was intentionally _not_ bundled into this
   commit and remains a separate cleanup (see Known Issues).
 
 ## Session Summary (2026-06-13) — Milestone 3: Core Shell Components
@@ -3525,7 +3598,7 @@ Low Priority (cleanups)
 - Preview launcher blocked by macOS Privacy (TCC): `preview_start` fails because
   the Claude app's preview-launcher helper has **not been granted access to the
   `~/Documents` folder**, where this project lives. Symptoms seen: `EPERM:
-  uv_cwd` (can't stat its cwd under Documents) and `EPERM: open/access` on
+uv_cwd` (can't stat its cwd under Documents) and `EPERM: open/access` on
   `apps/web/package.json`. Confirmed by isolation — the launcher reads a script
   in `/tmp` fine but `EPERM`s on any file under the project tree. Not a project
   or `launch.json` issue: the Bash tool (different entitlement) reads the tree
@@ -3539,27 +3612,27 @@ Low Priority (cleanups)
   a self-contained build from `/tmp`, which the launcher can read; `web-pnpm`
   holds the original `pnpm --filter web exec next dev` form for once the grant
   is in place. Reproducible refresh after any source change —
-  1) `output: 'standalone'` is set in `apps/web/next.config.ts`;
-  2) `pnpm --filter web build`;
-  3) `rm -rf /tmp/swe-web && cp -R apps/web/.next/standalone/. /tmp/swe-web/`,
+  1. `output: 'standalone'` is set in `apps/web/next.config.ts`;
+  2. `pnpm --filter web build`;
+  3. `rm -rf /tmp/swe-web && cp -R apps/web/.next/standalone/. /tmp/swe-web/`,
      then `cp -R apps/web/.next/static /tmp/swe-web/apps/web/.next/static`
      (and `public` if present) — as of 2026-07-07 the snapshot dir is
      `/tmp/swe-web` (recreated after a tmp wipe; older notes say
      `/tmp/swe-preview`);
-  4) `/tmp/swe-run.cjs` chdir's to `/tmp/swe-web/apps/web` and `import()`s
+  4. `/tmp/swe-run.cjs` chdir's to `/tmp/swe-web/apps/web` and `import()`s
      `server.js` (ESM) with `PORT=3013` (3013, not 3001 — a sibling project,
      `codex_trial/apps/api`, permanently holds 3001; the `web` launch config's
      `port` is set to 3013 to match);
-  5) restart via `preview_start web` (port 3013). NB: it serves a production
-     *snapshot* — rebuild + re-copy after source changes — and `/tmp` clears on
+  5. restart via `preview_start web` (port 3013). NB: it serves a production
+     _snapshot_ — rebuild + re-copy after source changes — and `/tmp` clears on
      reboot.
-  Hit again 2026-07-01: `pnpm build`-ing after source edits does **not** by
-  itself refresh what `preview_start` serves — the snapshot step above (copy
-  into `/tmp` or `/private/tmp/swe-web`, whichever this environment uses) is a
-  separate, required step. Burned significant time this session assuming a
-  rebuild alone was sufficient before finding the stale-snapshot cause via
-  `ps -p <pid> -o cwd`. Confirm the snapshot dir is actually refreshed before
-  trusting any preview screenshot after a source change.
+     Hit again 2026-07-01: `pnpm build`-ing after source edits does **not** by
+     itself refresh what `preview_start` serves — the snapshot step above (copy
+     into `/tmp` or `/private/tmp/swe-web`, whichever this environment uses) is a
+     separate, required step. Burned significant time this session assuming a
+     rebuild alone was sufficient before finding the stale-snapshot cause via
+     `ps -p <pid> -o cwd`. Confirm the snapshot dir is actually refreshed before
+     trusting any preview screenshot after a source change.
 - TD-002: notification service not implemented. Unbuilt feature (not cleanup);
   remains the only pending item in TECHNICAL_DEBT.md.
 - TD-001, TD-003, TD-004: resolved this session (branch
@@ -3595,23 +3668,23 @@ Breaking Changes: None.
 # Testing Status
 
 TypeScript: ✅ Passed (`pnpm --filter web check-types`)
-Lint:       ✅ Passed (`pnpm --filter web lint`, 0 warnings)
-Build:      ✅ Passed (`pnpm --filter web build`, 33 routes)
-Visual:     ✅ Students sub-pages verified in the preview browser
-            (standalone-in-/tmp): fees (StatGrid + balance pills), transport
-            (assignment pills), attendance history (present-rate Meters +
-            on-track/at-risk), report-cards (grade + publish pills), transcripts
-            (CGPA + standing), `/students/gradebook` redirect → report-cards; no
-            console errors. Earlier: Settings (6 sections + interactive toggles),
-            Finance (invoices/payments/reports + Meter), Classes, enrollment,
-            `/attendance/daily` (live toggles 10/0/0 → 7/1/2), directory
-            (search → EmptyState → reset; light + dark), `/overview`; M5–M7.
-Docs:       ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
-            notes, Phase-2 known gaps)
+Lint: ✅ Passed (`pnpm --filter web lint`, 0 warnings)
+Build: ✅ Passed (`pnpm --filter web build`, 33 routes)
+Visual: ✅ Students sub-pages verified in the preview browser
+(standalone-in-/tmp): fees (StatGrid + balance pills), transport
+(assignment pills), attendance history (present-rate Meters +
+on-track/at-risk), report-cards (grade + publish pills), transcripts
+(CGPA + standing), `/students/gradebook` redirect → report-cards; no
+console errors. Earlier: Settings (6 sections + interactive toggles),
+Finance (invoices/payments/reports + Meter), Classes, enrollment,
+`/attendance/daily` (live toggles 10/0/0 → 7/1/2), directory
+(search → EmptyState → reset; light + dark), `/overview`; M5–M7.
+Docs: ✅ packages/ui/README.md (usage, catalog, a11y checklist, responsive
+notes, Phase-2 known gaps)
 Unit Tests: ⚠ None added (presentational components + pure resolver; resolver
-            cross-checked via a throwaway tsx harness — a real unit test for
-            `resolveNavigation` is a good Phase-2 follow-up)
-E2E:        ⚠ Not applicable yet
+cross-checked via a throwaway tsx harness — a real unit test for
+`resolveNavigation` is a good Phase-2 follow-up)
+E2E: ⚠ Not applicable yet
 
 ---
 

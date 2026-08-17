@@ -33,6 +33,7 @@ import { MakerCheckerService } from '../../auth/services/maker-checker.service';
 import { SignatureService } from '../../documents/services/signature.service';
 import { JobService } from '../../common/jobs/job.service';
 import { ResultCycleService } from './result-cycle.service';
+import { ResultTraitService } from './result-trait.service';
 import {
   RESULT_ARTIFACTS_JOB,
   type ResultArtifactsPayload,
@@ -75,6 +76,13 @@ interface SnapshotSubject {
   gradePoints: number | null;
   remark: string | null;
 }
+interface SnapshotTrait {
+  domain: string;
+  key: string;
+  label: string;
+  rating: number;
+  maxRating: number;
+}
 interface SnapshotStudent {
   studentId: string;
   studentNumber: string | null;
@@ -82,6 +90,8 @@ interface SnapshotStudent {
   classSectionId: string | null;
   sectionLabel: string | null;
   subjects: SnapshotSubject[];
+  // Only the traits this student was actually rated on (unrated ≠ lowest).
+  traits: SnapshotTrait[];
   overallTotal: number | null;
   overallMax: number | null;
   average: number | null;
@@ -99,6 +109,7 @@ export class ResultPublicationService {
     private readonly audit: AuditService,
     private readonly makerChecker: MakerCheckerService,
     private readonly cycles: ResultCycleService,
+    private readonly traits: ResultTraitService,
     private readonly signatures: SignatureService,
     private readonly jobs: JobService,
   ) {}
@@ -512,6 +523,7 @@ export class ResultPublicationService {
         studentName: r.studentName,
         sectionLabel: r.sectionLabel,
         subjects: r.subjects,
+        traits: r.traits,
         average: r.average === null ? null : Number(r.average),
         overallGrade: r.overallGrade,
         position: r.position,
@@ -553,6 +565,7 @@ export class ResultPublicationService {
       subjectRules,
       principalRules,
       meta,
+      traitSnapshot,
     ] = await Promise.all([
       this.client.resultComponent.findMany({
         where: { tenantId, cycleId: cycle.id },
@@ -568,6 +581,7 @@ export class ResultPublicationService {
       this.loadRules(tenantId, cycle.subjectRemarkRuleSetId),
       this.loadRules(tenantId, cycle.principalRemarkRuleSetId),
       this.loadMeta(tenantId, cycle.academicYearId, cycle.termId),
+      this.traits.snapshotRatingsByStudent(tenantId, cycle.id),
     ]);
 
     const components: ComponentLite[] = componentsRaw.map((c) => ({
@@ -661,6 +675,7 @@ export class ResultPublicationService {
           classSectionId: section.id,
           sectionLabel: section.displayLabel,
           subjects,
+          traits: traitSnapshot.byStudent.get(student.id) ?? [],
           overallTotal: overall.overallTotal,
           overallMax: overall.overallMax,
           average: overall.average,
@@ -715,6 +730,9 @@ export class ResultPublicationService {
       })),
       subjectRemarkRuleSet: subjectRules,
       principalRemarkRuleSet: principalRules,
+      // The rubric itself is snapshotted (not just the ratings) so a report card
+      // still renders every trait's label + scale after the cycle is gone.
+      traitRubric: traitSnapshot.rubric,
       promotionPolicy: policy,
       students,
     };
@@ -748,6 +766,10 @@ export class ResultPublicationService {
           classSectionId: s.classSectionId,
           sectionLabel: s.sectionLabel,
           subjects: s.subjects as unknown as Prisma.InputJsonValue,
+          traits:
+            s.traits.length === 0
+              ? Prisma.DbNull
+              : (s.traits as unknown as Prisma.InputJsonValue),
           overallTotal:
             s.overallTotal === null ? null : new Prisma.Decimal(s.overallTotal),
           overallMax:

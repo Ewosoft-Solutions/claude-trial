@@ -2,7 +2,9 @@
  * WB4 · Results workbench (ADR-04) — configure a result cycle, capture component
  * scores, moderate, publish an immutable snapshot (maker-checker) with report-
  * card + broadsheet artifacts, amend by supersession, and gate visibility with
- * audited financial holds. Reads gated `academics.results.view`; entry needs
+ * audited financial holds. Scores can also be imported from a spreadsheet, a
+ * cycle can carry an affective/psychomotor rubric, and a student's cumulative
+ * transcript reads from published snapshots only. Reads gated `academics.results.view`; entry needs
  * `.enter`, configuration/publish-request `.manage`, publish/amend approval
  * `.approve`, holds `.financial_hold` — all enforced server-side.
  */
@@ -21,6 +23,7 @@ import {
   type YearLevelOption,
   type YearOption,
 } from './results-workbench';
+import type { TranscriptStudentOption } from './transcript-panel';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,6 +56,7 @@ export default async function ResultsPage() {
     campuses,
     gradingSystems,
     remarkSets,
+    studentsRaw,
   ] = await Promise.all([
     serverApiGet<ResultCycle[]>('/academics/results/cycles'),
     serverApiGet<YearOption[]>('/academic-years'),
@@ -61,6 +65,9 @@ export default async function ResultsPage() {
     serverApiGet<CampusOption[]>('/campuses'),
     serverApiGet<GradingSystemOption[]>('/grading-systems'),
     serverApiGet<RemarkRuleSetOption[]>('/academics/results/remark-rule-sets'),
+    // /students caps `limit` at 100 (PaginationDto @Max(100)) — a higher value
+    // is rejected 400 and serverApiGet returns null, blanking the picker.
+    serverApiGet<unknown>('/students?limit=100'),
   ]);
 
   const yearList = toArray<YearOption>(years);
@@ -99,6 +106,7 @@ export default async function ResultsPage() {
         campuses={toArray<CampusOption>(campuses)}
         gradingSystems={toArray<GradingSystemOption>(gradingSystems)}
         remarkSets={toArray<RemarkRuleSetOption>(remarkSets)}
+        students={toArray<TranscriptStudentOption>(studentsRaw)}
       />
     </div>
   );

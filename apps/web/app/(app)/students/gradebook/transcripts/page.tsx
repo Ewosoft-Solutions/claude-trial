@@ -1,4 +1,15 @@
-import { Download } from 'lucide-react';
+/**
+ * Gradebook standing — a live, at-a-glance cohort view computed from the CURRENT
+ * `Grade` rows, so it moves as teachers mark.
+ *
+ * It is deliberately NOT the transcript of record: an official transcript is
+ * assembled from published, checksum-addressed result snapshots and lives in the
+ * results workbench (WB4-4, `/academics/results` → Transcripts). Keeping the two
+ * apart is the "one fact, one owner" rule — this page explains where a class
+ * stands today; that one is the document a family can hold the school to.
+ */
+import { Download, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
 
 import { serverApiGet } from '@/lib/server-api';
 import { Button } from '@workspace/ui/components/button';
@@ -127,7 +138,7 @@ export default async function TranscriptsPage() {
   );
 
   const meta: PageHeaderMeta[] = [
-    { key: 'source', label: 'computed from grades', emphasis: true },
+    { key: 'source', label: 'live, computed from grades', emphasis: true },
     { key: 'scope', label: `${rows.length} students` },
   ];
 
@@ -135,14 +146,28 @@ export default async function TranscriptsPage() {
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
-          title="Transcripts"
+          title="Gradebook standing"
           meta={meta}
           actions={
-            <Button variant="outline" size="sm">
-              <Download /> Export
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/academics/results">
+                  <ExternalLink /> Official transcripts
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download /> Export
+              </Button>
+            </div>
           }
         />
+
+        <p className="text-sm text-muted-foreground">
+          Averages here are computed from the live gradebook and move as
+          teachers mark. An <strong>official transcript</strong> is assembled
+          from published result snapshots — issue one from the results
+          workbench.
+        </p>
 
         <TranscriptsClient rows={rows} />
       </div>

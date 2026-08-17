@@ -8,7 +8,7 @@
  */
 import * as React from 'react';
 import { toast } from 'sonner';
-import { Plus, ListChecks } from 'lucide-react';
+import { Plus, ListChecks, FileText } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import { Label } from '@workspace/ui/components/label';
@@ -42,6 +42,11 @@ import { ConfigPanel } from './config-panel';
 import { EntryGrid } from './entry-grid';
 import { PublicationsPanel } from './publications-panel';
 import { FinancialHoldsPanel } from './financial-holds-panel';
+import { TraitsPanel } from './traits-panel';
+import {
+  TranscriptPanel,
+  type TranscriptStudentOption,
+} from './transcript-panel';
 
 export interface ResultCycle {
   id: string;
@@ -138,6 +143,7 @@ export function ResultsWorkbench(props: {
   campuses: CampusOption[];
   gradingSystems: GradingSystemOption[];
   remarkSets: RemarkRuleSetOption[];
+  students: TranscriptStudentOption[];
 }) {
   const [cycleList, setCycleList] = React.useState<ResultCycle[]>(props.cycles);
   const [selectedId, setSelectedId] = React.useState<string>('');
@@ -313,6 +319,25 @@ export function ResultsWorkbench(props: {
         </CardContent>
       </Card>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <FileText className="size-4" aria-hidden /> Transcripts
+          </CardTitle>
+          <CardDescription>
+            A student’s cumulative record across every published term — read
+            from the immutable snapshots, not the live gradebook, so it
+            reproduces.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <TranscriptPanel
+            students={props.students}
+            canManage={props.canManage}
+          />
+        </CardContent>
+      </Card>
+
       {detail && (
         <Card>
           <CardHeader>
@@ -337,6 +362,7 @@ export function ResultsWorkbench(props: {
               <TabsList className="mb-4 flex flex-wrap">
                 <TabsTrigger value="configure">Configure</TabsTrigger>
                 <TabsTrigger value="enter">Enter scores</TabsTrigger>
+                <TabsTrigger value="behaviour">Behaviour</TabsTrigger>
                 <TabsTrigger value="publish">Publish</TabsTrigger>
                 {props.canHold && (
                   <TabsTrigger value="holds">Financial holds</TabsTrigger>
@@ -359,6 +385,15 @@ export function ResultsWorkbench(props: {
                 <EntryGrid
                   cycleId={detail.cycle.id}
                   editable={status === 'entry_open'}
+                  canEnter={props.canEnter}
+                />
+              </TabsContent>
+
+              <TabsContent value="behaviour">
+                <TraitsPanel
+                  cycleId={detail.cycle.id}
+                  status={detail.cycle.status}
+                  canManage={props.canManage}
                   canEnter={props.canEnter}
                 />
               </TabsContent>
