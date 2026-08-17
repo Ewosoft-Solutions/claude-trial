@@ -83,6 +83,23 @@ export class AcademicsAccessService {
   }
 
   /**
+   * Active offering ids taught by this profile — the offering-scoped
+   * counterpart to getTaughtClassIds, for LIST reads that must be narrowed to
+   * "the subjects this teacher actually takes" rather than checked one record
+   * at a time.
+   */
+  async getTaughtOfferingIds(
+    tenantId: string,
+    profileId: string,
+  ): Promise<string[]> {
+    const assignments = await this.client.offeringTeacher.findMany({
+      where: { tenantId, userTenantId: profileId, isActive: true },
+      select: { subjectOfferingId: true },
+    });
+    return assignments.map((assignment) => assignment.subjectOfferingId);
+  }
+
+  /**
    * Does this actor teach ANY offering of a curriculum subject? This is the
    * right question for LIBRARY content, which belongs to a subject rather than
    * to one class, so no single offering can answer it.

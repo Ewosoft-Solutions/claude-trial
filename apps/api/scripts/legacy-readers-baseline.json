@@ -1,6 +1,6 @@
 {
   "src/academic-structure/services/academic-structure.service.ts": 34,
-  "src/assessment-grading/services/assessment-grading.service.ts": 3,
+  "src/assessment-grading/services/assessment-grading.service.ts": 2,
   "src/assessment-grading/services/question-bank.service.ts": 1,
   "src/attendance/services/attendance.service.ts": 1,
   "src/common/academics/academics-access.service.ts": 6,
