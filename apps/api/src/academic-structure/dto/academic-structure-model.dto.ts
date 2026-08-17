@@ -9,6 +9,8 @@
  * accepted property carries a class-validator decorator.
  */
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -19,6 +21,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { EDUCATION_LEVELS, LEVEL_CODES } from '@workspace/database';
 
 export const STRUCTURE_STATUSES = ['active', 'inactive'] as const;
 export const SECTION_STATUSES = ['active', 'archived'] as const;
@@ -27,6 +30,16 @@ export const OFFERING_STATUSES = ['active', 'archived'] as const;
 // ---- Stage --------------------------------------------------------------
 
 export class CreateStageDto {
+  @ApiPropertyOptional({
+    enum: EDUCATION_LEVELS,
+    description:
+      'The fixed band this stage belongs to. Optional only for legacy rows; ' +
+      'set it on anything new so cross-school reporting can line stages up.',
+  })
+  @IsOptional()
+  @IsIn(EDUCATION_LEVELS as unknown as string[])
+  educationLevel?: string;
+
   @ApiProperty({ example: 'Senior Secondary' })
   @IsString()
   @MinLength(1)
@@ -69,6 +82,16 @@ export class UpdateStageDto {
 // ---- YearLevel ----------------------------------------------------------
 
 export class CreateYearLevelDto {
+  @ApiPropertyOptional({
+    enum: LEVEL_CODES,
+    description:
+      'The fixed national rung this level maps to (PRY_3, JSS_1, L_200…). ' +
+      '`name` stays whatever the school calls it — "Basic 3", "Year 3".',
+  })
+  @IsOptional()
+  @IsIn(LEVEL_CODES as unknown as string[])
+  levelCode?: string;
+
   @ApiProperty({ description: 'The stage this year sits in' })
   @IsString()
   @MaxLength(64)
@@ -116,6 +139,25 @@ export class UpdateYearLevelDto {
 // ---- Stream -------------------------------------------------------------
 
 export class CreateStreamDto {
+  @ApiPropertyOptional({
+    description: 'What this arm means here, in the school’s own words',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(280)
+  description?: string;
+
+  @ApiPropertyOptional({
+    description: 'Other names this arm answers to (search + import matching)',
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(12)
+  @IsString({ each: true })
+  @MaxLength(60, { each: true })
+  aliases?: string[];
+
   @ApiProperty({ example: 'Science' })
   @IsString()
   @MinLength(1)

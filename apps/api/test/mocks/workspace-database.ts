@@ -47,3 +47,22 @@ export {
   SENSITIVE_OPERATION_NAMES,
   getSensitiveOperationDefinition,
 } from '../../../../packages/database/dist/sensitive-operations.cjs';
+
+// Same treatment for the education-level spine: it is pure reference data with
+// no Prisma dependency, so unit tests should exercise the REAL taxonomy rather
+// than a copy that could drift from it.
+export {
+  EDUCATION_LEVELS,
+  EDUCATION_LEVEL_LABELS,
+  LEVEL_CODES,
+  LEVEL_SPINE,
+  bandsForSchoolType,
+  defaultLadderFor,
+  educationLevelOf,
+  isEducationLevel,
+  isLevelCode,
+  ladderForBands,
+  levelCodesFor,
+  levelSpineEntry,
+  matchLevelCode,
+} from '../../../../packages/database/dist/education-levels.cjs';

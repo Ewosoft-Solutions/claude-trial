@@ -274,6 +274,11 @@ model Stage {
 
   name   String // e.g. "Senior Secondary"
   code   String // short code, unique per tenant (e.g. "SSS")
+
+  // The FIXED band this stage belongs to: 'nursery' | 'primary' | 'secondary'
+  // | 'tertiary' | 'special' (see EDUCATION_LEVELS in @workspace/database).
+  // Nullable only so existing rows can be backfilled; new stages set it.
+  educationLevel String? @map("education_level")
   order  Int    @default(0)
   status String @default("active") // 'active' | 'inactive'
 
@@ -286,6 +291,7 @@ model Stage {
 
   @@unique([tenantId, code])
   @@index([tenantId])
+  @@index([tenantId, educationLevel])
   @@index([status])
   @@map("stages")
   @@schema("academic-structure")
@@ -297,8 +303,14 @@ model YearLevel {
   tenantId String @map("tenant_id")
   stageId  String @map("stage_id")
 
+  // `name` is the SCHOOL's word for this rung ("Basic 3", "Year 3") and is
+  // freely edited. `levelCode` is the fixed national rung it maps to (PRY_3) —
+  // never shown, never edited, and what every cross-school comparison, transfer
+  // and report keys on. See LEVEL_SPINE in @workspace/database.
   name   String // e.g. "SS1"
   code   String // unique per tenant (e.g. "SS1")
+
+  levelCode String? @map("level_code")
   order  Int    @default(0)
   status String @default("active") // 'active' | 'inactive'
 
@@ -312,6 +324,7 @@ model YearLevel {
 
   @@unique([tenantId, code])
   @@index([tenantId])
+  @@index([tenantId, levelCode])
   @@index([stageId])
   @@index([status])
   @@map("year_levels")
@@ -321,12 +334,20 @@ model YearLevel {
 // Stream - a pathway / arm-of-study (e.g. "Science", "Arts", "Commercial").
 // The dimension that distinguishes SS1 SCIENCE from SS1 ARTS — a structured row,
 // not a substring of a class name.
+/// Stream = the ARM of a class level (Science / Arts / A / B / Gold). Named
+/// "stream" in ADR-02; most Nigerian schools say "arm", so the UI says arm and
+/// carries `description` + `aliases` to explain it in the school's own words.
 model Stream {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
   name   String // e.g. "Science"
   code   String // unique per tenant (e.g. "SCI")
+
+  /// What this arm means here — e.g. "Science track, offers Further Maths".
+  description String?
+  /// Other names this arm answers to, for search + import matching.
+  aliases     String[] @default([])
   order  Int    @default(0)
   status String @default("active") // 'active' | 'inactive'
 

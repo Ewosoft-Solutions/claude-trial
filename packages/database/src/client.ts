@@ -7,3 +7,4 @@ export type PrismaClientType = PrismaClient;
 
 export * from '@prisma/client';
 export * from './sensitive-operations.js';
+export * from './education-levels.js';

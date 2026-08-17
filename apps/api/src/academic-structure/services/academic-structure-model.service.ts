@@ -21,7 +21,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma } from '@workspace/database';
+import { matchLevelCode, Prisma } from '@workspace/database';
 
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { AuditService } from '../../common/audit/audit.service';
@@ -131,6 +131,7 @@ export class AcademicStructureModelService {
         tenantId,
         name: dto.name.trim(),
         code: dto.code.trim(),
+        educationLevel: dto.educationLevel ?? null,
         order: dto.order ?? 0,
         createdBy: actorId,
       },
@@ -200,6 +201,11 @@ export class AcademicStructureModelService {
         stageId: dto.stageId,
         name: dto.name.trim(),
         code: dto.code.trim(),
+        // The school's own name goes in `name`; the fixed national rung goes in
+        // `levelCode`. When the caller omits the code we try to infer it from
+        // the name they typed — a best-effort convenience, never a guess that
+        // overrides an explicit choice.
+        levelCode: dto.levelCode ?? matchLevelCode(dto.name) ?? null,
         order: dto.order ?? 0,
         createdBy: actorId,
       },
@@ -258,6 +264,8 @@ export class AcademicStructureModelService {
         tenantId,
         name: dto.name.trim(),
         code: dto.code.trim(),
+        description: dto.description?.trim() || null,
+        aliases: (dto.aliases ?? []).map((a) => a.trim()).filter(Boolean),
         order: dto.order ?? 0,
         createdBy: actorId,
       },
