@@ -782,6 +782,17 @@ export class AssessmentGradingService {
       ? undefined
       : await this.access.getTaughtClassIds(tenantId, actor.profileId);
 
+    // KNOWN GAP (alignment stage B): this report starts from legacy
+    // Enrollment rows and groups by them, so a grade recorded against a
+    // STRUCTURED assessment — which carries studentId and a null enrollmentId —
+    // does not appear here at all. It is silently missing, not wrong.
+    //
+    // The fix is a re-shape, not a re-key: read grades by studentId, group by
+    // the assessment's subjectOfferingId (falling back to classId for legacy
+    // rows), and aggregate terms from the offering's term rather than
+    // `enrollment.class.termId`. That changes the response contract — consumers
+    // read `class` and `course` off each row — so it needs to move with its
+    // callers. Tracked on the board; do not re-key this query in isolation.
     const enrollments = await this.client.enrollment.findMany({
       where: {
         studentId,
