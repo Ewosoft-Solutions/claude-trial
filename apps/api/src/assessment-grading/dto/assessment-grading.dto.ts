@@ -155,12 +155,24 @@ export class UpdateGradingSystemDto {
 }
 
 export class CreateAssessmentDto {
-  @ApiProperty({
-    description: 'Class ID',
+  @ApiPropertyOptional({
+    description:
+      'The structured anchor (section × subject × year/term). Preferred — ' +
+      'classId is the retiring legacy path and one of the two is required.',
+  })
+  @IsOptional()
+  @IsString()
+  subjectOfferingId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'DEPRECATED legacy path — the labelled-bag Class. Supply this OR ' +
+      'subjectOfferingId; new callers should use the offering.',
     example: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
   })
+  @IsOptional()
   @IsString()
-  classId: string;
+  classId?: string;
 
   @ApiProperty({
     description: 'Assessment name',

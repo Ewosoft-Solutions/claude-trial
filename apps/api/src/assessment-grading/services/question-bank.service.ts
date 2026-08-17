@@ -118,7 +118,9 @@ export class QuestionBankService {
         instruction: dto.instruction ?? null,
         text: dto.text,
         imageKey: dto.imageKey ?? null,
-        options: dto.options ? (dto.options.map((o) => ({ ...o })) as object[]) : undefined,
+        options: dto.options
+          ? (dto.options.map((o) => ({ ...o })) as object[])
+          : undefined,
         correctAnswer: dto.correctAnswer ?? null,
         solution: dto.solution ?? null,
         difficulty: dto.difficulty ?? null,
@@ -206,14 +208,17 @@ export class QuestionBankService {
     const style = (dto.style ?? question.style) as QuestionStyle;
     const options =
       dto.options ?? (question.options as unknown[] | null) ?? undefined;
-    const correctAnswer = dto.correctAnswer ?? question.correctAnswer ?? undefined;
+    const correctAnswer =
+      dto.correctAnswer ?? question.correctAnswer ?? undefined;
     this.validateStyleFields(style, options ?? undefined, correctAnswer);
 
     return this.client.question.update({
       where: { id },
       data: {
         ...(dto.style !== undefined ? { style: dto.style } : {}),
-        ...(dto.instruction !== undefined ? { instruction: dto.instruction } : {}),
+        ...(dto.instruction !== undefined
+          ? { instruction: dto.instruction }
+          : {}),
         ...(dto.text !== undefined ? { text: dto.text } : {}),
         ...(dto.imageKey !== undefined ? { imageKey: dto.imageKey } : {}),
         ...(dto.options !== undefined
@@ -279,11 +284,7 @@ export class QuestionBankService {
       },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(
-      tenantId,
-      actor,
-      assessment.classId,
-    );
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
     return assessment;
   }
 
@@ -360,7 +361,9 @@ export class QuestionBankService {
       select: { id: true },
     });
     if (!attachment) {
-      throw new NotFoundException('Question is not attached to this assessment');
+      throw new NotFoundException(
+        'Question is not attached to this assessment',
+      );
     }
 
     await this.client.assessmentQuestion.delete({

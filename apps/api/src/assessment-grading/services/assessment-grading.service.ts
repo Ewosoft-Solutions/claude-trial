@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -184,6 +185,33 @@ export class AssessmentGradingService {
   }
 
   // ---------- Assessments ----------
+  /**
+   * Offering-scoped equivalent of assertCanManageClass. A structured assessment
+   * has no Class, so "are you this class's teacher?" cannot be asked — the
+   * question is whether the actor teaches this OFFERING.
+   */
+  private async assertCanManageOffering(
+    tenantId: string,
+    actor: AcademicsActor,
+    subjectOfferingId: string,
+  ): Promise<void> {
+    if (actor.canManageAll) return;
+    const teaches = await this.client.offeringTeacher.findFirst({
+      where: {
+        tenantId,
+        subjectOfferingId,
+        userTenantId: actor.profileId,
+        isActive: true,
+      },
+      select: { id: true },
+    });
+    if (!teaches) {
+      throw new ForbiddenException(
+        'You are not assigned to teach this subject for this class',
+      );
+    }
+  }
+
   async createAssessment(
     tenantId: string,
     actor: AcademicsActor,
@@ -195,12 +223,60 @@ export class AssessmentGradingService {
       'Invalid assessment status',
     );
 
-    const cls = await this.client.class.findFirst({
-      where: { id: dto.classId, academicYear: { tenantId } },
-      include: { term: true, academicYear: true },
-    });
-    if (!cls) throw new BadRequestException('Class not found for tenant');
-    await this.access.assertCanManageClass(tenantId, actor, dto.classId);
+    // Two anchors during the migration: the structured SubjectOffering (what
+    // everything should key on) and the legacy Class. Exactly one is required,
+    // and the offering wins when both arrive.
+    if (!dto.subjectOfferingId && !dto.classId) {
+      throw new BadRequestException(
+        'An assessment needs a subject offering (or, for legacy callers, a class).',
+      );
+    }
+
+    let academicYearId: string;
+    let termId: string;
+
+    if (dto.subjectOfferingId) {
+      const offering = await this.client.subjectOffering.findFirst({
+        where: { id: dto.subjectOfferingId, tenantId },
+        select: {
+          id: true,
+          academicYearId: true,
+          termId: true,
+          classSectionId: true,
+        },
+      });
+      if (!offering) {
+        throw new BadRequestException('Subject offering not found for tenant');
+      }
+      // An offering may be year-long (no term); the legacy column is NOT NULL,
+      // so fall back to the year's current/first term rather than inventing one.
+      const term =
+        offering.termId ??
+        (
+          await this.client.term.findFirst({
+            where: { tenantId, academicYearId: offering.academicYearId },
+            orderBy: { order: 'asc' },
+            select: { id: true },
+          })
+        )?.id;
+      if (!term) {
+        throw new BadRequestException(
+          'That academic year has no terms yet, so an assessment cannot be dated.',
+        );
+      }
+      academicYearId = offering.academicYearId;
+      termId = term;
+      await this.assertCanManageOffering(tenantId, actor, offering.id);
+    } else {
+      const cls = await this.client.class.findFirst({
+        where: { id: dto.classId, academicYear: { tenantId } },
+        include: { term: true, academicYear: true },
+      });
+      if (!cls) throw new BadRequestException('Class not found for tenant');
+      await this.access.assertCanManageClass(tenantId, actor, dto.classId!);
+      academicYearId = cls.academicYearId;
+      termId = cls.termId;
+    }
 
     if (dto.gradingSystemId) {
       const gs = await this.client.gradingSystem.findFirst({
@@ -213,9 +289,10 @@ export class AssessmentGradingService {
 
     return this.client.assessment.create({
       data: {
-        classId: dto.classId,
-        academicYearId: cls.academicYearId,
-        termId: cls.termId,
+        subjectOfferingId: dto.subjectOfferingId ?? null,
+        classId: dto.classId ?? null,
+        academicYearId,
+        termId,
         name: dto.name,
         type: dto.type,
         maxPoints: dto.maxPoints as any,

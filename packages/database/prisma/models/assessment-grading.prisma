@@ -72,8 +72,15 @@ model GradingSystem {
 
 // Assessment - Assessment/assignment definition (quiz, test, project, homework, etc.)
 model Assessment {
-  id             String  @id @default(uuid())
-  classId        String  @map("class_id")
+  id String @id @default(uuid())
+
+  /// The structured anchor (WB2 ADR-02): section × subject × year/term. New
+  /// assessments key on this; `classId` is the retiring legacy pointer.
+  subjectOfferingId String? @map("subject_offering_id")
+
+  /// DEPRECATED legacy pointer to the labelled-bag `Class`. Nullable so new
+  /// rows need not fabricate one; dropped once every reader uses the offering.
+  classId String? @map("class_id")
   academicYearId String  @map("academic_year_id") // Denormalized for easier queries
   termId         String  @map("term_id") // Denormalized for easier queries
   tenantId       String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
@@ -111,7 +118,7 @@ model Assessment {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  class               Class                  @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class               Class?                 @relation(fields: [classId], references: [id], onDelete: Cascade)
   academicYear        AcademicYear           @relation(fields: [academicYearId], references: [id], onDelete: Cascade)
   term                Term                   @relation(fields: [termId], references: [id], onDelete: Cascade)
   gradingSystem       GradingSystem?         @relation(fields: [gradingSystemId], references: [id], onDelete: SetNull)
@@ -127,14 +134,23 @@ model Assessment {
   @@index([type])
   @@index([tenantId])
   @@index([tenantId, classId])
+  @@index([tenantId, subjectOfferingId])
   @@map("assessments")
   @@schema("academic-structure")
 }
 
 // Grade - Individual student grade for an assessment
 model Grade {
-  id           String  @id @default(uuid())
-  enrollmentId String  @map("enrollment_id")
+  id String @id @default(uuid())
+
+  /// A grade belongs to the STUDENT, not to a membership row — the same choice
+  /// WB4's ResultEntry makes. An enrolment can end, transfer or be corrected;
+  /// the mark the child earned must outlive all of that.
+  studentId String? @map("student_id")
+
+  /// DEPRECATED legacy pointer to `Enrollment`, kept until the backfill has
+  /// moved every row onto `studentId`.
+  enrollmentId String? @map("enrollment_id")
   assessmentId String  @map("assessment_id")
   tenantId     String? @map("tenant_id") // Denormalized for RLS + tenant-scoped queries
 
@@ -166,7 +182,7 @@ model Grade {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
 
   @@unique([enrollmentId, assessmentId]) // One grade per student per assessment
@@ -257,7 +273,13 @@ model AssessmentSubmission {
   id           String @id @default(uuid())
   tenantId     String @map("tenant_id")
   assessmentId String @map("assessment_id")
-  enrollmentId String @map("enrollment_id") // Student-in-class (same key Grade uses)
+
+  /// Same re-key as Grade: the submission is the student's, not the
+  /// enrolment's.
+  studentId String? @map("student_id")
+
+  /// DEPRECATED legacy pointer (see Grade.enrollmentId).
+  enrollmentId String? @map("enrollment_id")
 
   attempt Int @default(1) // 1-based attempt number
 
@@ -283,7 +305,7 @@ model AssessmentSubmission {
 
   // Relations
   assessment Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  enrollment Enrollment? @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
 
   @@unique([assessmentId, enrollmentId, attempt]) // Attempts are numbered per student
   @@index([assessmentId])

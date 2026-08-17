@@ -79,7 +79,9 @@ export class AssessmentTakingController {
 
   @Post(':id/questions')
   @RequirePermissions(['assessments.edit'])
-  @ApiOperation({ summary: 'Attach bank questions to the assessment (ordered, weighted)' })
+  @ApiOperation({
+    summary: 'Attach bank questions to the assessment (ordered, weighted)',
+  })
   async attachQuestions(
     @Param('id') id: string,
     @Body() dto: AttachQuestionsDto,
@@ -114,7 +116,9 @@ export class AssessmentTakingController {
 
   @Get(':id/take')
   @RequirePermissions(['assessments.take'])
-  @ApiOperation({ summary: 'The paper without answers (enrolled students, published only)' })
+  @ApiOperation({
+    summary: 'The paper without answers (enrolled students, published only)',
+  })
   async take(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.taking.getPaperForStudent(
       req.user.tenantId,
@@ -127,11 +131,7 @@ export class AssessmentTakingController {
   @RequirePermissions(['assessments.take'])
   @ApiOperation({ summary: 'Start (or resume) a timed attempt' })
   async start(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.taking.startAttempt(
-      req.user.tenantId,
-      this.actorFrom(req),
-      id,
-    );
+    return this.taking.startAttempt(req.user.tenantId, this.actorFrom(req), id);
   }
 
   @Post(':id/submissions')
@@ -145,12 +145,7 @@ export class AssessmentTakingController {
     @Body() dto: SubmitAssessmentDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.taking.submit(
-      req.user.tenantId,
-      this.actorFrom(req),
-      id,
-      dto,
-    );
+    return this.taking.submit(req.user.tenantId, this.actorFrom(req), id, dto);
   }
 
   @Patch(':id/submissions/draft')
@@ -187,7 +182,9 @@ export class AssessmentTakingController {
 
   @Get(':id/submissions')
   @RequirePermissions(['assessments.view'])
-  @ApiOperation({ summary: 'All submissions for an assessment (teachers of the class)' })
+  @ApiOperation({
+    summary: 'All submissions for an assessment (teachers of the class)',
+  })
   async listSubmissions(
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
@@ -201,7 +198,10 @@ export class AssessmentTakingController {
 
   @Patch('submissions/:id/grade')
   @RequirePermissions(['grades.edit'])
-  @ApiOperation({ summary: 'Manually grade a submission (essays) — upserts the gradebook Grade' })
+  @ApiOperation({
+    summary:
+      'Manually grade a submission (essays) — upserts the gradebook Grade',
+  })
   async gradeSubmission(
     @Param('id') id: string,
     @Body() dto: GradeSubmissionDto,

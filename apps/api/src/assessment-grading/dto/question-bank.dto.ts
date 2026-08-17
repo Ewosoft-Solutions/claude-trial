@@ -192,7 +192,11 @@ export class AttachQuestionDto {
   @Min(0)
   order?: number;
 
-  @ApiPropertyOptional({ example: 2, description: 'Points for this question', default: 1 })
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Points for this question',
+    default: 1,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)

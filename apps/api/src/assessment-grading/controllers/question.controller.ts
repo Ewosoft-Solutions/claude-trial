@@ -53,7 +53,9 @@ export class QuestionController {
 
   @Post()
   @RequirePermissions(['questions.create'])
-  @ApiOperation({ summary: 'Create a question in a course bank (teachers of the course)' })
+  @ApiOperation({
+    summary: 'Create a question in a course bank (teachers of the course)',
+  })
   async create(
     @Body() dto: CreateQuestionDto,
     @Request() req: AuthenticatedRequest,
@@ -67,7 +69,9 @@ export class QuestionController {
 
   @Get()
   @RequirePermissions(['questions.view'])
-  @ApiOperation({ summary: 'List question bank entries (filter by course/style/difficulty)' })
+  @ApiOperation({
+    summary: 'List question bank entries (filter by course/style/difficulty)',
+  })
   async list(
     @Query() query: ListQuestionsDto,
     @Request() req: AuthenticatedRequest,
@@ -81,7 +85,9 @@ export class QuestionController {
 
   @Get(':id')
   @RequirePermissions(['questions.view'])
-  @ApiOperation({ summary: 'Get a question (with answer/solution — teacher view)' })
+  @ApiOperation({
+    summary: 'Get a question (with answer/solution — teacher view)',
+  })
   async get(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.questionBank.getQuestion(
       req.user.tenantId,
@@ -108,7 +114,9 @@ export class QuestionController {
 
   @Delete(':id')
   @RequirePermissions(['questions.delete'])
-  @ApiOperation({ summary: 'Delete a question (retires it if already used on a paper)' })
+  @ApiOperation({
+    summary: 'Delete a question (retires it if already used on a paper)',
+  })
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.questionBank.deleteQuestion(
       req.user.tenantId,
