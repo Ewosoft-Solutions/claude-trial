@@ -8,6 +8,7 @@
  */
 import { Injectable } from '@nestjs/common';
 import { DocumentService } from '../../documents/services/document.service';
+import { TRANSCRIPT_SOURCE_SYSTEM } from './result-transcript';
 import type {
   SubjectSummary,
   TranscriptSummary,
@@ -115,6 +116,11 @@ export class ResultArtifactService {
       ownerType: 'Student',
       ownerId: studentId,
       typeKey: 'transcript',
+      // Machine provenance: a student may own other documents a human titled
+      // "Transcript …" (a prior-school record, say), so the tag — not the title
+      // — is what identifies one this system issued.
+      sourceSystem: TRANSCRIPT_SOURCE_SYSTEM,
+      sourceId: studentId,
       title: `Transcript — ${transcript.student.studentName ?? transcript.student.studentNumber} (as at ${transcript.generatedAt})`,
       visibility: 'restricted',
       sensitive: true,

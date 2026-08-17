@@ -49,8 +49,20 @@ export function parseScoreCell(raw: string, maxScore: number): ParsedCell {
   if (ABSENT_TOKENS.has(token)) return { kind: 'absent', score: null };
   if (EXEMPT_TOKENS.has(token)) return { kind: 'exempt', score: null };
 
-  // Tolerate a trailing "%" or a stray thousands separator from a spreadsheet.
-  const numeric = Number(text.replace(/[%,]/g, ''));
+  // A comma is REFUSED rather than stripped. A component score is at most a
+  // couple of digits, so a thousands separator buys nothing, while "1,5" (a
+  // decimal comma, which is what a sheet saved under many locales emits) would
+  // strip to 15 — a silent ten-fold score on an immutable published result.
+  if (text.includes(',')) {
+    return {
+      kind: 'error',
+      score: null,
+      message: `"${text}" contains a comma — use a full stop for decimals (e.g. 1.5)`,
+    };
+  }
+
+  // A trailing "%" is harmless: the number in front of it is still the score.
+  const numeric = Number(text.replace(/%/g, ''));
   if (!Number.isFinite(numeric)) {
     return {
       kind: 'error',

@@ -255,15 +255,27 @@ export class ResultImportService {
       const nameCell = nameColumn >= 0 ? (cells[nameColumn] ?? '') : '';
       if (numberCell.trim() === '' && nameCell.trim() === '') return; // spacer row
 
-      const student =
-        students.find(
-          (s) =>
-            numberCell.trim() !== '' &&
-            labelsMatch(s.studentNumber, numberCell),
-        ) ??
-        students.find(
-          (s) => nameCell.trim() !== '' && labelsMatch(s.name, nameCell),
-        );
+      // Student number first (it is unique). Only fall back to the NAME when
+      // there is no number, and then only if exactly one student matches — two
+      // learners can share a name, and quietly picking the first would post one
+      // child's marks onto another's record.
+      const byNumber =
+        numberCell.trim() === ''
+          ? undefined
+          : students.find((s) => labelsMatch(s.studentNumber, numberCell));
+      let student = byNumber;
+      if (!student && nameCell.trim() !== '') {
+        const byName = students.filter((s) => labelsMatch(s.name, nameCell));
+        if (byName.length > 1) {
+          this.addIssue(report, {
+            row: rowNumber,
+            column: sheet.headers[nameColumn],
+            message: `${byName.length} students in ${section.displayLabel} are called "${nameCell.trim()}" — add a Student number column to say which`,
+          });
+          return;
+        }
+        student = byName[0];
+      }
       if (!student) {
         unmatchedStudents.add((numberCell || nameCell).trim());
         this.addIssue(report, {

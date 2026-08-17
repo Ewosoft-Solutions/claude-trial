@@ -25,6 +25,7 @@ import { ResultArtifactService } from './result-artifact.service';
 import {
   sortTranscriptTerms,
   summariseTranscript,
+  TRANSCRIPT_SOURCE_SYSTEM,
   type TranscriptSubject,
   type TranscriptSummary,
   type TranscriptTerm,
@@ -42,6 +43,11 @@ export interface Transcript {
   summary: TranscriptSummary;
   /** False while an audited FinancialHold gates the family's view. */
   visibleToGuardian: boolean;
+  /**
+   * Published terms this reader's campus scope hides. Non-zero means the record
+   * below is PARTIAL, so it may be read but not issued as an official document.
+   */
+  withheldTerms: number;
   transcriptDocumentId: string | null;
   generatedAt: string;
 }
@@ -127,7 +133,9 @@ export class ResultTranscriptService {
     const [years, terms, tenant] = await Promise.all([
       this.client.academicYear.findMany({
         where: { tenantId, id: { in: cycles.map((c) => c.academicYearId) } },
-        select: { id: true, name: true },
+        // startDate + order are the CHRONOLOGICAL keys the transcript sorts on;
+        // the names are free text and do not sort (see sortTranscriptTerms).
+        select: { id: true, name: true, startDate: true },
       }),
       this.client.term.findMany({
         where: {
@@ -136,31 +144,42 @@ export class ResultTranscriptService {
             in: cycles.flatMap((c) => (c.termId ? [c.termId] : [])),
           },
         },
-        select: { id: true, name: true },
+        select: { id: true, name: true, order: true },
       }),
       this.client.tenant.findFirst({
         where: { id: tenantId },
         select: { name: true },
       }),
     ]);
-    const yearName = new Map(years.map((y) => [y.id, y.name]));
-    const termName = new Map(terms.map((t) => [t.id, t.name]));
+    const yearById = new Map(years.map((y) => [y.id, y]));
+    const termById = new Map(terms.map((t) => [t.id, t]));
 
     const transcriptTerms: TranscriptTerm[] = [];
+    // Terms this reader may not see. An official transcript must be COMPLETE, so
+    // the count is surfaced and issuing is refused while it is non-zero, rather
+    // than quietly producing a short record.
+    let withheldTerms = 0;
     for (const row of rows) {
       const cycle = cycleById.get(row.cycleId);
       if (!cycle) continue;
       // A campus-scoped reader only sees results from cycles in their scope
       // (a whole-school cycle has no campus and stays visible).
-      if (!this.withinScope(actor, cycle.campusId)) continue;
+      if (!this.withinScope(actor, cycle.campusId)) {
+        withheldTerms += 1;
+        continue;
+      }
 
+      const year = yearById.get(cycle.academicYearId);
+      const term = cycle.termId ? termById.get(cycle.termId) : undefined;
       transcriptTerms.push({
         cycleId: cycle.id,
         cycleName: cycle.name,
         academicYearId: cycle.academicYearId,
-        academicYearName: yearName.get(cycle.academicYearId) ?? 'Academic year',
+        academicYearName: year?.name ?? 'Academic year',
+        yearStart: year?.startDate.toISOString() ?? null,
+        termOrder: term?.order ?? null,
         termId: cycle.termId,
-        termName: cycle.termId ? (termName.get(cycle.termId) ?? null) : null,
+        termName: term?.name ?? null,
         publicationId: row.publicationId,
         version: row.publication?.version ?? 1,
         checksum: row.checksum,
@@ -182,12 +201,16 @@ export class ResultTranscriptService {
       where: { tenantId, studentId, status: 'active' },
       select: { id: true },
     });
+    // Matched on the machine tag this service stamps, NOT on the title — a
+    // student can own plenty of documents a human called "Transcript …" (a
+    // prior-school record uploaded at admission, say), and none of those are a
+    // transcript THIS system issued.
     const existing = await this.client.document.findFirst({
       where: {
         tenantId,
         ownerType: 'Student',
         ownerId: studentId,
-        title: { startsWith: 'Transcript' },
+        sourceSystem: TRANSCRIPT_SOURCE_SYSTEM,
       },
       orderBy: { createdAt: 'desc' },
       select: { id: true },
@@ -205,6 +228,7 @@ export class ResultTranscriptService {
       terms: ordered,
       summary: summariseTranscript(ordered),
       visibleToGuardian: !hold,
+      withheldTerms,
       transcriptDocumentId: existing?.id ?? null,
       generatedAt: new Date().toISOString().slice(0, 10),
     };
@@ -224,6 +248,15 @@ export class ResultTranscriptService {
     if (transcript.terms.length === 0) {
       throw new BadRequestException(
         'This student has no published results to put on a transcript.',
+      );
+    }
+    // A transcript is an official, complete record that leaves the school. If
+    // this actor's campus scope hides any published term, issuing would produce
+    // a document that reads as complete while omitting part of the student's
+    // record — refuse rather than under-report.
+    if (transcript.withheldTerms > 0) {
+      throw new BadRequestException(
+        `This student has ${transcript.withheldTerms} published term(s) on a campus outside your scope, so any transcript you issue would be incomplete. Ask someone with school-wide access to issue it.`,
       );
     }
     const stored = await this.artifacts.storeTranscript(

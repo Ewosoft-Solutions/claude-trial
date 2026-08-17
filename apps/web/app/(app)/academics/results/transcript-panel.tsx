@@ -81,6 +81,7 @@ interface Transcript {
     }[];
   };
   visibleToGuardian: boolean;
+  withheldTerms: number;
   transcriptDocumentId: string | null;
   generatedAt: string;
 }
@@ -173,11 +174,14 @@ export function TranscriptPanel({
             </SelectContent>
           </Select>
         </div>
-        {canManage && transcript && transcript.terms.length > 0 && (
-          <Button onClick={issue} disabled={busy}>
-            <FileText className="size-4" aria-hidden /> Issue transcript
-          </Button>
-        )}
+        {canManage &&
+          transcript &&
+          transcript.terms.length > 0 &&
+          transcript.withheldTerms === 0 && (
+            <Button onClick={issue} disabled={busy}>
+              <FileText className="size-4" aria-hidden /> Issue transcript
+            </Button>
+          )}
       </div>
 
       {!studentId && (
@@ -186,7 +190,18 @@ export function TranscriptPanel({
         </p>
       )}
 
-      {transcript?.terms.length === 0 && (
+      {transcript && transcript.withheldTerms > 0 && (
+        <div className="flex flex-wrap items-center gap-2 rounded-sm border border-dashed p-3 text-sm">
+          <StatusBadge tone="warning">Partial record</StatusBadge>
+          <span className="text-muted-foreground">
+            {transcript.withheldTerms} published term(s) sit on a campus outside
+            your access, so they are not shown and no official transcript can be
+            issued from here — ask someone with school-wide access.
+          </span>
+        </div>
+      )}
+
+      {transcript?.terms.length === 0 && transcript.withheldTerms === 0 && (
         <EmptyState
           title="No published results yet"
           description="A transcript only ever reads published snapshots, so it stays empty until a result cycle is published for this student."

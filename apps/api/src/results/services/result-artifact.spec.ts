@@ -147,6 +147,8 @@ describe('renderTranscriptHtml', () => {
     cycleName: 'First Term Results',
     academicYearId: 'y1',
     academicYearName: '2026/2027',
+    yearStart: '2026-09-01T00:00:00.000Z',
+    termOrder: 1,
     termId: 't1',
     termName: 'First Term',
     publicationId: 'p1',

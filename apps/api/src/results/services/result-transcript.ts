@@ -5,6 +5,15 @@
  * the maths here (side-effect-free) makes those two properties testable.
  */
 
+/**
+ * The machine tag stamped on every transcript artifact this module issues, so
+ * "has a transcript been issued?" is answered by provenance rather than by
+ * guessing from a human-written document title. Lives here (the dependency-free
+ * module) so both the artifact writer and the transcript reader can share it
+ * without importing each other.
+ */
+export const TRANSCRIPT_SOURCE_SYSTEM = 'results.transcript';
+
 export interface TranscriptSubject {
   subjectLabel: string;
   percentage: number | null;
@@ -18,6 +27,14 @@ export interface TranscriptTerm {
   cycleName: string;
   academicYearId: string;
   academicYearName: string;
+  /**
+   * Chronological sort keys, carried alongside the display names because a
+   * school names its years freely ("2025/2026", "Academic Year 2027") and a name
+   * does not sort. `yearStart` is the academic year's start date (ISO) and
+   * `termOrder` the term's declared sequence.
+   */
+  yearStart: string | null;
+  termOrder: number | null;
   termId: string | null;
   termName: string | null;
   publicationId: string;
@@ -128,17 +145,29 @@ export function summariseTranscript(
 }
 
 /**
- * Chronological order for the transcript: academic year, then term, then the
- * publish time as the tie-break (a year-long cycle sorts before its terms).
+ * Chronological order for the transcript: academic year by its START DATE, then
+ * term by its declared order, then the publish time as the tie-break (a
+ * year-long cycle, which has no term order, sorts before that year's terms).
+ *
+ * Deliberately not by NAME: a school names years and terms freely, so
+ * "Academic Year 2027" would sort before "2025/2026" and "Term 10" before
+ * "Term 2". The names are for display only. Where a sort key is missing the
+ * name is the last-resort fallback, so ordering degrades rather than throws.
  */
 export function sortTranscriptTerms(terms: TranscriptTerm[]): TranscriptTerm[] {
   return terms.slice().sort((a, b) => {
-    if (a.academicYearName !== b.academicYearName) {
-      return a.academicYearName.localeCompare(b.academicYearName);
+    if (a.academicYearId !== b.academicYearId) {
+      if (a.yearStart && b.yearStart && a.yearStart !== b.yearStart) {
+        return a.yearStart.localeCompare(b.yearStart);
+      }
+      if (a.academicYearName !== b.academicYearName) {
+        return a.academicYearName.localeCompare(b.academicYearName);
+      }
     }
-    const aTerm = a.termName ?? '';
-    const bTerm = b.termName ?? '';
-    if (aTerm !== bTerm) return aTerm.localeCompare(bTerm);
+    // A year-long cycle (no term) precedes the same year's termed cycles.
+    const aOrder = a.termOrder ?? -1;
+    const bOrder = b.termOrder ?? -1;
+    if (aOrder !== bOrder) return aOrder - bOrder;
     return a.publishedAt.localeCompare(b.publishedAt);
   });
 }

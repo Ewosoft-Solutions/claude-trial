@@ -774,12 +774,20 @@ d('Results — import · traits · transcript (WB4-2/3/4)', () => {
 
     const doc = await owner.document.findFirstOrThrow({
       where: { id: issued.documentId },
-      select: { ownerType: true, ownerId: true, title: true, sensitive: true },
+      select: {
+        ownerType: true,
+        ownerId: true,
+        title: true,
+        sensitive: true,
+        sourceSystem: true,
+      },
     });
     expect(doc.ownerType).toBe('Student');
     expect(doc.ownerId).toBe(adaId);
     expect(doc.sensitive).toBe(true);
     expect(doc.title).toContain('Transcript');
+    // Provenance, not the title, is what marks a transcript this system issued.
+    expect(doc.sourceSystem).toBe('results.transcript');
 
     const audited = await owner.auditLog.count({
       where: {
@@ -795,6 +803,61 @@ d('Results — import · traits · transcript (WB4-2/3/4)', () => {
       transcripts.getTranscript(tenantAId, maker(), adaId),
     );
     expect(transcript.transcriptDocumentId).toBe(issued.documentId);
+  });
+
+  it('does not mistake an uploaded document titled "Transcript…" for an issued one', async () => {
+    const fresh = await makeStudent('dele', 'Dele');
+    // A prior-school record, uploaded at admission against the student.
+    await owner.document.create({
+      data: {
+        tenantId: tenantAId,
+        ownerType: 'Student',
+        ownerId: fresh.id,
+        title: "Transcript from St Mary's",
+        visibility: 'restricted',
+        scanStatus: 'clean',
+      },
+    });
+    const transcript = await inA(() =>
+      transcripts.getTranscript(tenantAId, maker(), fresh.id),
+    );
+    // No transcript has been ISSUED for this student, whatever the upload is called.
+    expect(transcript.transcriptDocumentId).toBeNull();
+  });
+
+  it('refuses to issue a transcript a campus scope would make partial', async () => {
+    // A reader scoped to a different campus sees none of this cycle's terms.
+    const otherCampus = await owner.campus.create({
+      data: {
+        tenantId: tenantAId,
+        name: 'Annex',
+        code: `ANNEX-${stamp}`,
+        isPrimary: false,
+      },
+    });
+    const scoped = (): ResultActor => ({
+      userId: makerId,
+      clearanceLevel: 7,
+      grantScope: { type: 'campus', value: otherCampus.id },
+    });
+
+    const partial = await inA(() =>
+      transcripts.getTranscript(tenantAId, scoped(), adaId),
+    );
+    // The record READS as empty-but-flagged rather than silently short…
+    expect(partial.terms).toHaveLength(0);
+    expect(partial.withheldTerms).toBeGreaterThan(0);
+    // …and issuing an official document from it is refused.
+    await expect(
+      inA(() => transcripts.issueTranscript(tenantAId, scoped(), adaId)),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // A school-wide reader still sees the whole record and can issue it.
+    const full = await inA(() =>
+      transcripts.getTranscript(tenantAId, maker(), adaId),
+    );
+    expect(full.withheldTerms).toBe(0);
+    expect(full.terms.length).toBeGreaterThan(0);
   });
 
   it('refuses a transcript for a student with no published results', async () => {

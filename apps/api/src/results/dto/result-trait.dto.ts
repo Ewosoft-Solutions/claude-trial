@@ -10,6 +10,7 @@ import {
   IsArray,
   IsIn,
   IsInt,
+  IsNotEmpty,
   IsOptional,
   IsString,
   Max,
@@ -29,11 +30,15 @@ export class ResultTraitInputDto {
 
   @ApiProperty({ example: 'punctuality' })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(48)
   key: string;
 
+  // A blank label would publish an unnamed row on an immutable report card, so
+  // it is rejected here as well as in the service.
   @ApiProperty({ example: 'Punctuality' })
   @IsString()
+  @IsNotEmpty()
   @MaxLength(120)
   label: string;
 

@@ -17,6 +17,8 @@ function term(over: Partial<TranscriptTerm> = {}): TranscriptTerm {
     cycleName: 'First Term Results',
     academicYearId: 'y1',
     academicYearName: '2025/2026',
+    yearStart: '2025-09-01T00:00:00.000Z',
+    termOrder: 1,
     termId: 't1',
     termName: 'First Term',
     publicationId: 'p1',
@@ -202,16 +204,73 @@ describe('summariseTranscript', () => {
 });
 
 describe('sortTranscriptTerms', () => {
-  it('orders by year, then term, then publish date', () => {
+  const y2 = {
+    academicYearId: 'y2',
+    academicYearName: '2026/2027',
+    yearStart: '2026-09-01T00:00:00.000Z',
+  };
+
+  it('orders by the year start date, then the term order', () => {
     const ordered = sortTranscriptTerms([
-      term({ academicYearName: '2026/2027', termName: 'First Term' }),
-      term({ academicYearName: '2025/2026', termName: 'Second Term' }),
-      term({ academicYearName: '2025/2026', termName: 'First Term' }),
+      term({ ...y2, termName: 'First Term', termOrder: 1 }),
+      term({ termName: 'Second Term', termOrder: 2 }),
+      term({ termName: 'First Term', termOrder: 1 }),
     ]);
     expect(ordered.map((t) => `${t.academicYearName}/${t.termName}`)).toEqual([
       '2025/2026/First Term',
       '2025/2026/Second Term',
       '2026/2027/First Term',
+    ]);
+  });
+
+  it('ignores misleading year NAMES in favour of the real start date', () => {
+    // A school may name a later year in a way that sorts earlier as text.
+    const ordered = sortTranscriptTerms([
+      term({
+        academicYearId: 'y3',
+        academicYearName: 'Academic Year 2027',
+        yearStart: '2027-09-01T00:00:00.000Z',
+      }),
+      term({ academicYearName: '2025/2026' }),
+    ]);
+    expect(ordered.map((t) => t.academicYearName)).toEqual([
+      '2025/2026',
+      'Academic Year 2027',
+    ]);
+  });
+
+  it('orders term 2 before term 10 (a name sort would not)', () => {
+    const ordered = sortTranscriptTerms([
+      term({ termName: 'Term 10', termOrder: 10 }),
+      term({ termName: 'Term 2', termOrder: 2 }),
+    ]);
+    expect(ordered.map((t) => t.termName)).toEqual(['Term 2', 'Term 10']);
+  });
+
+  it('puts a year-long cycle (no term) before that year’s termed cycles', () => {
+    const ordered = sortTranscriptTerms([
+      term({ termName: 'First Term', termOrder: 1 }),
+      term({ termId: null, termName: null, termOrder: null }),
+    ]);
+    expect(ordered.map((t) => t.termName)).toEqual([null, 'First Term']);
+  });
+
+  it('falls back to the year name when a start date is missing', () => {
+    const ordered = sortTranscriptTerms([
+      term({
+        academicYearId: 'yB',
+        academicYearName: '2026/2027',
+        yearStart: null,
+      }),
+      term({
+        academicYearId: 'yA',
+        academicYearName: '2025/2026',
+        yearStart: null,
+      }),
+    ]);
+    expect(ordered.map((t) => t.academicYearName)).toEqual([
+      '2025/2026',
+      '2026/2027',
     ]);
   });
 });

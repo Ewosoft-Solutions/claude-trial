@@ -391,6 +391,11 @@ export function ResultsWorkbench(props: {
 
               <TabsContent value="behaviour">
                 <TraitsPanel
+                  // Keyed on the cycle so switching cycles REMOUNTS the panel:
+                  // its section/grid/ratings state belongs to one cycle, and
+                  // carrying it across would re-fetch the old section against
+                  // the new cycle (a spurious error over a stale grid).
+                  key={detail.cycle.id}
                   cycleId={detail.cycle.id}
                   status={detail.cycle.status}
                   canManage={props.canManage}

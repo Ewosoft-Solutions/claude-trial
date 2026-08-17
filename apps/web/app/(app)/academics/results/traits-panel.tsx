@@ -166,6 +166,11 @@ export function TraitsPanel({
   }, [sectionId, loadSection]);
 
   async function saveRubric() {
+    const unnamed = draft.findIndex((t) => t.label.trim() === '');
+    if (unnamed >= 0) {
+      toast.error(`Trait ${unnamed + 1} needs a name`);
+      return;
+    }
     setBusy(true);
     try {
       await apiPut<Trait[]>(`/cycles/${cycleId}/traits`, {

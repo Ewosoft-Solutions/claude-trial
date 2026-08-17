@@ -64,6 +64,12 @@ export class ResultTraitService {
     if (keys.some((k) => k.length === 0)) {
       throw new BadRequestException('A trait needs a key.');
     }
+    // A blank label survives to the report card, where it renders as an unnamed
+    // row beside a rating — and a published card can only be corrected by
+    // amendment, so refuse it here.
+    if (dto.traits.some((t) => t.label.trim().length === 0)) {
+      throw new BadRequestException('Every trait needs a name.');
+    }
     if (new Set(keys).size !== keys.length) {
       throw new BadRequestException('Trait keys must be unique.');
     }

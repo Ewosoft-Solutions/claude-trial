@@ -72,12 +72,18 @@ describe('parseScoreCell', () => {
     expect(parseScoreCell('-3', 20).kind).toBe('error');
   });
 
-  it('tolerates spreadsheet noise around a real number', () => {
+  it('tolerates a trailing percent sign', () => {
     expect(parseScoreCell('85%', 100)).toEqual({ kind: 'score', score: 85 });
-    expect(parseScoreCell('1,000', 1000)).toEqual({
-      kind: 'score',
-      score: 1000,
-    });
+  });
+
+  it('REFUSES a comma rather than silently multiplying a decimal score', () => {
+    // "1,5" is 1.5 under a decimal-comma locale; stripping the comma would post
+    // it as 15 — under the max, so silently wrong on an immutable result.
+    const cell = parseScoreCell('1,5', 20);
+    expect(cell.kind).toBe('error');
+    expect(cell.score).toBeNull();
+    expect(cell.message).toContain('comma');
+    expect(parseScoreCell('1,000', 1000).kind).toBe('error');
   });
 });
 
