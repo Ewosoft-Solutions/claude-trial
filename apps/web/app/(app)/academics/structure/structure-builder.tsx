@@ -14,7 +14,7 @@
 import * as React from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { Layers, Plus } from 'lucide-react';
+import { BookOpen, Layers, Plus } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
@@ -39,9 +39,11 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
+import { Checkbox } from '@workspace/ui/components/checkbox';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
@@ -72,6 +74,36 @@ export interface Stream {
   order?: number;
   status?: string;
 }
+export interface SubjectOffering {
+  id: string;
+  classSectionId: string;
+  academicYearId: string;
+  termId: string | null;
+  subjectLabel: string;
+  isElective: boolean;
+  status: string;
+}
+
+export interface OfferableSubject {
+  id: string;
+  code: string;
+  name: string;
+  versionId: string | null;
+  versionName: string | null;
+  versionState: string | null;
+  isShared: boolean;
+}
+
+export interface YearOption {
+  id: string;
+  name: string;
+}
+
+export interface TermOption {
+  id: string;
+  name: string;
+}
+
 export interface ClassSection {
   id: string;
   campusId: string;
@@ -130,6 +162,10 @@ export function StructureBuilder({
   initialYearLevels,
   initialStreams,
   initialSections,
+  initialOfferings,
+  offerableSubjects,
+  years,
+  termsByYear,
 }: {
   canManage: boolean;
   initialCampuses: Campus[];
@@ -137,10 +173,23 @@ export function StructureBuilder({
   initialYearLevels: YearLevel[];
   initialStreams: Stream[];
   initialSections: ClassSection[];
+  initialOfferings: SubjectOffering[];
+  offerableSubjects: OfferableSubject[];
+  years: YearOption[];
+  termsByYear: Record<string, TermOption[]>;
 }) {
   const router = useRouter();
   const [sectionOpen, setSectionOpen] = React.useState(false);
   const [blocksOpen, setBlocksOpen] = React.useState(false);
+  const [offerOpen, setOfferOpen] = React.useState(false);
+  const [offerings, setOfferings] =
+    React.useState<SubjectOffering[]>(initialOfferings);
+  const [offerSection, setOfferSection] = React.useState('');
+  const [offerYear, setOfferYear] = React.useState('');
+  const [offerTerm, setOfferTerm] = React.useState('');
+  const [offerSubject, setOfferSubject] = React.useState('');
+  const [offerElective, setOfferElective] = React.useState(false);
+  const [offerBusy, setOfferBusy] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
   // Guided section-builder form state.
@@ -202,6 +251,60 @@ export function StructureBuilder({
     sectionsByCampus.set(s.campusId, arr);
   }
 
+  const offeringsBySection = React.useMemo(() => {
+    const map = new Map<string, SubjectOffering[]>();
+    for (const o of offerings) {
+      const list = map.get(o.classSectionId) ?? [];
+      list.push(o);
+      map.set(o.classSectionId, list);
+    }
+    return map;
+  }, [offerings]);
+
+  /**
+   * Offer a curriculum subject to a section — the section × subject join the
+   * whole structured model turns on (WB2 resolves a student's subjects through
+   * it, and results are captured per offering). The endpoint existed from WB2-1;
+   * until now nothing in the app called it.
+   */
+  async function submitOffering() {
+    setOfferBusy(true);
+    try {
+      const res = await fetch('/api/academics/structure/offerings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          classSectionId: offerSection,
+          academicYearId: offerYear,
+          termId: offerTerm || undefined,
+          curriculumSubjectId: offerSubject,
+          isElective: offerElective,
+        }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as {
+          message?: string | string[];
+        };
+        const m = Array.isArray(data.message)
+          ? data.message.join(', ')
+          : data.message;
+        throw new Error(m || 'Could not offer that subject');
+      }
+      const created = (await res.json()) as SubjectOffering;
+      setOfferings((prev) => [...prev, created]);
+      toast.success('Subject offered to the section');
+      setOfferOpen(false);
+      setOfferSubject('');
+      setOfferElective(false);
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : 'Could not offer that subject',
+      );
+    } finally {
+      setOfferBusy(false);
+    }
+  }
+
   return (
     <ShellMain>
       <PageHeader
@@ -216,6 +319,13 @@ export function StructureBuilder({
                 onClick={() => setBlocksOpen(true)}
               >
                 <Layers aria-hidden /> Building blocks
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setOfferOpen(true)}
+              >
+                <BookOpen aria-hidden /> Offer a subject
               </Button>
               <Button size="sm" onClick={() => setSectionOpen(true)}>
                 <Plus aria-hidden /> New section
@@ -417,6 +527,127 @@ export function StructureBuilder({
       )}
 
       {/* Sections list */}
+      {canManage && (
+        <Dialog open={offerOpen} onOpenChange={setOfferOpen}>
+          <DialogContent className="sm:max-w-xl">
+            <DialogHeader>
+              <DialogTitle>Offer a subject to a section</DialogTitle>
+              <DialogDescription>
+                An offering is what the rest of the system reads: a student’s
+                subjects resolve through it, and results are captured against
+                it. Subjects come from the curriculum, not free text.
+              </DialogDescription>
+            </DialogHeader>
+            {initialSections.length === 0 || offerableSubjects.length === 0 ? (
+              <p className="py-2 text-sm text-muted-foreground">
+                {initialSections.length === 0
+                  ? 'Create a class section first.'
+                  : 'No curriculum subjects are available yet — adopt or author a curriculum version before offering subjects.'}
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
+                  <Field label="Section" htmlFor="of-section">
+                    <Select
+                      value={offerSection}
+                      onValueChange={setOfferSection}
+                    >
+                      <SelectTrigger id="of-section">
+                        <SelectValue placeholder="Choose section" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {initialSections.map((sec) => (
+                          <SelectItem key={sec.id} value={sec.id}>
+                            {sec.displayLabel}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Subject" htmlFor="of-subject">
+                    <Select
+                      value={offerSubject}
+                      onValueChange={setOfferSubject}
+                    >
+                      <SelectTrigger id="of-subject">
+                        <SelectValue placeholder="Choose subject" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {offerableSubjects.map((sub) => (
+                          <SelectItem key={sub.id} value={sub.id}>
+                            {sub.name}
+                            {sub.versionName ? ` · ${sub.versionName}` : ''}
+                            {sub.versionState && sub.versionState !== 'active'
+                              ? ` (${sub.versionState})`
+                              : ''}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Academic year" htmlFor="of-year">
+                    <Select
+                      value={offerYear}
+                      onValueChange={(v) => {
+                        setOfferYear(v);
+                        setOfferTerm('');
+                      }}
+                    >
+                      <SelectTrigger id="of-year">
+                        <SelectValue placeholder="Choose year" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {years.map((y) => (
+                          <SelectItem key={y.id} value={y.id}>
+                            {y.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <Field label="Term (optional)" htmlFor="of-term">
+                    <Select
+                      value={offerTerm}
+                      onValueChange={setOfferTerm}
+                      disabled={!offerYear}
+                    >
+                      <SelectTrigger id="of-term">
+                        <SelectValue placeholder="Year-long" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {(termsByYear[offerYear] ?? []).map((t) => (
+                          <SelectItem key={t.id} value={t.id}>
+                            {t.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </Field>
+                  <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                    <Checkbox
+                      checked={offerElective}
+                      onCheckedChange={(v) => setOfferElective(!!v)}
+                    />
+                    Elective — students elect it individually rather than taking
+                    it as part of the section
+                  </label>
+                </div>
+                <DialogFooter>
+                  <Button
+                    onClick={submitOffering}
+                    disabled={
+                      offerBusy || !offerSection || !offerSubject || !offerYear
+                    }
+                  >
+                    Offer subject
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
+
       <Card>
         <CardHeader>
           <CardTitle>Class sections</CardTitle>
@@ -460,6 +691,13 @@ export function StructureBuilder({
                           )}
                         </div>
                         <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                          <span>
+                            {(offeringsBySection.get(s.id) ?? []).length}{' '}
+                            subject
+                            {(offeringsBySection.get(s.id) ?? []).length === 1
+                              ? ''
+                              : 's'}
+                          </span>
                           <span>Capacity {s.capacity}</span>
                           <StatusBadge
                             tone={s.status === 'active' ? 'success' : 'neutral'}
@@ -467,6 +705,19 @@ export function StructureBuilder({
                             {s.status}
                           </StatusBadge>
                         </div>
+                        {(offeringsBySection.get(s.id) ?? []).length > 0 && (
+                          <ul className="flex w-full flex-wrap gap-1.5">
+                            {(offeringsBySection.get(s.id) ?? []).map((o) => (
+                              <li
+                                key={o.id}
+                                className="rounded bg-muted px-1.5 py-0.5 text-xs text-muted-foreground"
+                              >
+                                {o.subjectLabel}
+                                {o.isElective ? ' · elective' : ''}
+                              </li>
+                            ))}
+                          </ul>
+                        )}
                       </li>
                     ))}
                   </ul>

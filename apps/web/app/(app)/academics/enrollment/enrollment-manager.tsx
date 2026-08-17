@@ -38,8 +38,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
-import { PageHeader } from '@workspace/ui/custom/shell/page-header';
-import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
 export interface ResolvedModel {
   model: 'class' | 'course';
@@ -180,18 +178,14 @@ export function EnrollmentManager({
         : 'neutral';
 
   return (
-    <ShellMain>
-      <PageHeader
-        title="Class enrolment"
-        description="Enrol a student into a class section and see the subjects that resolves to — through offerings, never a typed label."
-        actions={
-          canManage && model.model === 'class' ? (
-            <Button size="sm" onClick={() => setEnrolOpen(true)}>
-              <UserPlus aria-hidden /> Enrol student
-            </Button>
-          ) : undefined
-        }
-      />
+    <div className="flex flex-col gap-6">
+      {canManage && model.model === 'class' && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setEnrolOpen(true)}>
+            <UserPlus aria-hidden /> Enrol student
+          </Button>
+        </div>
+      )}
 
       {/* Active model */}
       <Card>
@@ -380,6 +374,6 @@ export function EnrollmentManager({
             ))}
         </CardContent>
       </Card>
-    </ShellMain>
+    </div>
   );
 }

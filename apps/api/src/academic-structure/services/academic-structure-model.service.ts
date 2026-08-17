@@ -610,6 +610,41 @@ export class AcademicStructureModelService {
     });
   }
 
+  /**
+   * The curriculum subjects a section can be offered, for the offering picker.
+   *
+   * Deliberately served from the STRUCTURE domain rather than sending the client
+   * to the curriculum module: offering a subject is `academics.structure.manage`
+   * work, and a registrar who can build sections should not also need
+   * `curriculum.view` just to populate a dropdown. `curriculum_subjects` carries
+   * a nullable tenant_id (shared national rows + own), so the RLS-scoped client
+   * already returns exactly the rows this tenant may see.
+   */
+  async listOfferableSubjects() {
+    const subjects = await this.client.curriculumSubject.findMany({
+      orderBy: [{ order: 'asc' }, { name: 'asc' }],
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        tenantId: true,
+        version: {
+          select: { id: true, versionLabel: true, approvalState: true },
+        },
+      },
+    });
+    return subjects.map((s) => ({
+      id: s.id,
+      code: s.code,
+      name: s.name,
+      versionId: s.version?.id ?? null,
+      versionName: s.version?.versionLabel ?? null,
+      versionState: s.version?.approvalState ?? null,
+      /** National (shared) content this tenant reads but cannot edit. */
+      isShared: s.tenantId === null,
+    }));
+  }
+
   async updateSubjectOffering(
     tenantId: string,
     actor: StructureActor,

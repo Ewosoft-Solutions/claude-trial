@@ -170,8 +170,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['grades.view'] },
             },
             {
+              // The legacy `Course` catalogue. It CANNOT be retired yet:
+              // Assessment.classId → Class (cascade) means the gradebook,
+              // assessments, question bank and standing view all still hang off
+              // it. Relabelled so it stops competing with Academics → Academic
+              // structure, which owns what a section actually offers.
               key: 'subjects',
-              label: 'Subjects',
+              label: 'Course catalogue',
               icon: <GraduationCap />,
               href: '/classes/subjects',
               access: { anyPermission: ['subjects.view', 'courses.view'] },
@@ -255,18 +260,19 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['academics.structure.view'] },
             },
             {
-              key: 'enrollment',
-              label: 'Class enrolment',
-              icon: <UserPlus />,
-              href: '/academics/enrollment',
-              access: { anyPermission: ['academics.enrollment.view'] },
-            },
-            {
-              key: 'student-lifecycle',
-              label: 'Student lifecycle',
+              // Class enrolment merged in here: both screens wrote the same
+              // section-membership fact, and the lifecycle service is the
+              // authoritative writer, so it hosts enrolment as a tab.
+              key: 'student-placement',
+              label: 'Student placement',
               icon: <UserPlus />,
               href: '/academics/lifecycle',
-              access: { anyPermission: ['academics.lifecycle.view'] },
+              access: {
+                anyPermission: [
+                  'academics.lifecycle.view',
+                  'academics.enrollment.view',
+                ],
+              },
             },
             {
               key: 'promotion',

@@ -459,8 +459,8 @@ describe('SCHOOL_NAV panel resolution', () => {
     const structure = resolved.navGroups.find((g) => g.key === 'structure');
     expect(structure?.items.map((i) => i.key)).toEqual([
       'academic-structure',
-      'enrollment',
-      'student-lifecycle',
+      // enrolment merged into placement (one page, two tabs)
+      'student-placement',
       'promotion',
       'results',
       'transcripts',

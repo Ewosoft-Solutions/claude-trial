@@ -211,6 +211,17 @@ export class AcademicStructureModelController {
     return this.structure.listSubjectOfferings(tenantId, actor, query);
   }
 
+  @Get('offerable-subjects')
+  @RequirePermissions(['academics.structure.view'])
+  @ApiOperation({
+    summary: 'Curriculum subjects that can be offered (for the picker)',
+  })
+  offerableSubjects() {
+    // Auth + tenant scope come from the class guards + @TenantScoped; the read
+    // itself is RLS-scoped and spans shared national rows, so it takes no actor.
+    return this.structure.listOfferableSubjects();
+  }
+
   @Post('offerings')
   @RequirePermissions(['academics.structure.manage'])
   @ApiOperation({ summary: 'Offer an F6 curriculum subject to a section' })

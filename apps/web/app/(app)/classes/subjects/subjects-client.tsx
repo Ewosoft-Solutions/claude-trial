@@ -169,7 +169,8 @@ export function SubjectsClient({ subjects }: Props) {
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader
-          title="Subjects"
+          title="Course catalogue"
+          description="The teaching catalogue the gradebook, assessments and question bank are keyed on. Which subjects a CLASS actually offers is set in Academics → Academic structure, on the section itself."
           meta={meta}
           actions={
             <Button size="sm">
