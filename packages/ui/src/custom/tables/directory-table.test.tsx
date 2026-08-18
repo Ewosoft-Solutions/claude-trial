@@ -57,6 +57,55 @@ describe('DirectoryTable', () => {
     expect(screen.getByText('bola@example.com')).toBeInTheDocument();
   });
 
+  it('clamps a truncate column and still renders its cell content', () => {
+    renderTable({
+      columns: [
+        COLUMNS[0]!,
+        { ...COLUMNS[1]!, truncate: true },
+      ] as DirectoryColumn<Row>[],
+    });
+    // the value is still rendered (truncation is visual, never data loss)
+    expect(screen.getByText('bola@example.com')).toBeInTheDocument();
+    // the cell carries the width clamp AND the single-line wrapper, which is
+    // the pair a long value needs inside a `min-w-max` table
+    const cell = screen.getByText('bola@example.com').closest('td');
+    expect(cell?.className).toMatch(/max-w-/);
+    expect(cell?.querySelector('.truncate')).not.toBeNull();
+  });
+
+  it('leaves a column unclamped when truncate is not set', () => {
+    renderTable();
+    const cell = screen.getByText('bola@example.com').closest('td');
+    expect(cell?.className).not.toMatch(/max-w-/);
+    expect(cell?.querySelector('.truncate')).toBeNull();
+  });
+
+  it('accepts a custom width clamp on truncate', () => {
+    renderTable({
+      columns: [
+        COLUMNS[0]!,
+        { ...COLUMNS[1]!, truncate: 'max-w-[8rem]' },
+      ] as DirectoryColumn<Row>[],
+    });
+    const cell = screen.getByText('bola@example.com').closest('td');
+    expect(cell?.className).toContain('max-w-[8rem]');
+  });
+
+  it('honours isRowClickable so a row with no detail advertises none', () => {
+    const onRowClick = vi.fn();
+    renderTable({ onRowClick, isRowClickable: (r: Row) => r.id === 'r2' });
+    const [first, second] = screen.getAllByRole('row').slice(1);
+    // r1 opts out: no tab stop, no "View …" label, and clicking does nothing
+    expect(first).not.toHaveAttribute('tabindex');
+    expect(first).not.toHaveAttribute('aria-label');
+    fireEvent.click(first!);
+    expect(onRowClick).not.toHaveBeenCalled();
+    // r2 stays fully clickable
+    expect(second).toHaveAttribute('tabindex', '0');
+    fireEvent.click(second!);
+    expect(onRowClick).toHaveBeenCalledTimes(1);
+  });
+
   it('marks a masked cell for assistive tech (not colour-only)', () => {
     renderTable();
     expect(

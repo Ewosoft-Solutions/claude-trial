@@ -171,6 +171,8 @@ export default function TenantApprovalsPage() {
       id: 'reason',
       header: 'Reason',
       hideable: true,
+      // Free text with no length bound.
+      truncate: true,
       cell: (r) => (
         <span className="text-sm text-muted-foreground">{r.reason ?? '—'}</span>
       ),

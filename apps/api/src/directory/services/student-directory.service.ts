@@ -37,6 +37,7 @@ type FeeStatus = keyof typeof FEE_TONE;
 /** Safe, non-sensitive columns. Health/medical/safeguarding are omitted here. */
 const STUDENT_SELECT = {
   id: true,
+  personId: true,
   studentNumber: true,
   gradeLevel: true,
   enrollmentStatus: true,
@@ -77,6 +78,14 @@ type StudentRow = Prisma.StudentGetPayload<{ select: typeof STUDENT_SELECT }>;
 
 export interface StudentDirectoryRow {
   id: string;
+  /**
+   * The Person this student anchors to (F1), when one exists. Nullable by
+   * design: `Student.personId` is back-filled, so records created before the
+   * person schema — or by a path that predates it — have none. The directory
+   * uses it to open the shared person detail drawer; a null simply means that
+   * drill-in is unavailable for the row, never an error.
+   */
+  personId: string | null;
   studentNumber: string;
   name: string;
   gradeLevel: string | null;
@@ -234,6 +243,7 @@ export class StudentDirectoryService {
     const email = row.userTenant.user.email;
     return {
       id: row.id,
+      personId: row.personId,
       studentNumber: row.studentNumber,
       name: displayName(row.userTenant.user, row.studentNumber),
       gradeLevel: row.gradeLevel,

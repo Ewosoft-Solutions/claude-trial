@@ -29,6 +29,8 @@ import {
   type DirectoryBulkAction,
 } from '@workspace/ui/custom/tables/directory-table';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
+
+import { PersonDetailDrawer } from '@/app/(app)/people/person-detail-drawer';
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 
 import { DEFAULT_PAGE_SIZE, savePageSizePreference } from '@/lib/page-size';
@@ -37,6 +39,12 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 
 export interface StudentRow {
   id: string;
+  /**
+   * The Person behind this student (F1), when the link exists. Drives the
+   * shared detail drawer; null for records whose `Student.personId` was never
+   * back-filled, which simply have no drill-in.
+   */
+  personId: string | null;
   studentNumber: string;
   name: string;
   gradeLevel: string | null;
@@ -254,6 +262,9 @@ export function StudentDirectoryClient({
       header: 'Contact',
       cell: (s) => <MaskedValue value={s.contact} masked={s.contactMasked} />,
       hideable: true,
+      // Machine-generated student emails run very long; clamp + tooltip so one
+      // address cannot widen the table past the status/fees columns.
+      truncate: true,
     },
     {
       id: 'status',
@@ -306,6 +317,8 @@ export function StudentDirectoryClient({
     : [];
 
   const [saveViewOpen, setSaveViewOpen] = React.useState(false);
+  /** Person behind the row being drilled into; null closes the drawer. */
+  const [openPersonId, setOpenPersonId] = React.useState<string | null>(null);
 
   return (
     <ShellMain>
@@ -339,6 +352,12 @@ export function StudentDirectoryClient({
           onSortChange={toggleSort}
           selectable
           bulkActions={bulkActions}
+          // Rows without a back-filled person have no detail to open; leaving
+          // them un-clickable is honest, rather than opening an empty drawer.
+          onRowClick={(s) => {
+            if (s.personId) setOpenPersonId(s.personId);
+          }}
+          isRowClickable={(s) => Boolean(s.personId)}
           caption="Student directory"
           emptyState={
             <EmptyState
@@ -392,6 +411,21 @@ export function StudentDirectoryClient({
           onSaved={applyView}
         />
       </div>
+
+      {/* The SAME governed drawer the People workbench opens for a student.
+          Reused rather than rebuilt so the layered access rules (Finance on
+          `finance.view`, staff detail on `staff.view`, guardian detail on
+          `guardians.view`, contact masked without `people.view_contact`) stay
+          enforced in ONE place on the server — duplicating them here is how a
+          teacher ends up seeing a fee balance. */}
+      <PersonDetailDrawer
+        personId={openPersonId}
+        type="student"
+        onOpenChange={(open) => {
+          if (!open) setOpenPersonId(null);
+        }}
+        onOpenPerson={(id) => setOpenPersonId(id)}
+      />
     </ShellMain>
   );
 }

@@ -77,6 +77,7 @@ export function RosterClient({ attendees }: { attendees: Attendee[] }) {
       id: 'email',
       header: 'Email',
       hideable: true,
+      truncate: true,
       cell: (a) => (
         <span className="text-muted-foreground">{a.email ?? '—'}</span>
       ),

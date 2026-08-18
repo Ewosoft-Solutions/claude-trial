@@ -222,6 +222,7 @@ function columnsFor(type: PeopleType): DirectoryColumn<PeopleRow>[] {
     header: 'Contact',
     cell: (r) => <ContactCell row={r} />,
     hideable: true,
+    truncate: true,
   };
   const status: DirectoryColumn<PeopleRow> = {
     id: 'status',
