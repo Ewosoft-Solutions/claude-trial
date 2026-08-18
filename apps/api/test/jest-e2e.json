@@ -19,6 +19,7 @@
     "^@workspace/database/(.*)$": "<rootDir>/../../packages/database/src/$1",
     "^@workspace/forms$": "<rootDir>/../../packages/forms/src/index.ts",
     "^\\.\\/sensitive-operations\\.js$": "<rootDir>/../../packages/database/src/sensitive-operations.ts",
+    "^\\.\\/education-levels\\.js$": "<rootDir>/../../packages/database/src/education-levels.ts",
     "^\\.\\/tenant-context\\.js$": "<rootDir>/../../packages/database/src/rls/tenant-context.ts"
   }
 }
