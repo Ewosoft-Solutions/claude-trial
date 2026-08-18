@@ -17,7 +17,7 @@ const Checkbox = React.forwardRef<
       // (~12px) clamps to a circle, which reads as a radio. A checkbox must be
       // square. Border stays subtle (--input) until checked, matching the
       // filter/column checkboxes.
-      'grid place-content-center peer h-4 w-4 shrink-0 rounded-[4px] border border-input shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground',
+      'grid place-content-center peer h-4 w-4 shrink-0 rounded-[4px] border border-input shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:border-primary-surface data-[state=checked]:bg-primary-surface data-[state=checked]:text-primary-surface-foreground',
       className,
     )}
     {...props}

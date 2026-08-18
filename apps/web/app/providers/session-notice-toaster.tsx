@@ -99,7 +99,7 @@ export function SessionNoticeToaster() {
           description:
             'text-[calc(12.5px*var(--font-scale))] text-[var(--toast-ink)] opacity-80',
           actionButton:
-            'rounded-[var(--radius-sm)] bg-primary text-primary-foreground',
+            'rounded-[var(--radius-sm)] bg-primary-surface text-primary-surface-foreground',
           cancelButton:
             'rounded-[var(--radius-sm)] bg-muted text-muted-foreground',
           closeButton:

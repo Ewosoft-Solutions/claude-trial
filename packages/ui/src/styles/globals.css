@@ -63,8 +63,22 @@
   --popover-foreground: #191b38;
 
   /* primary action (aurora --accent / --accent-ink, light) */
-  --primary: #4f6df5;
+  /* the same blue the CTA ramp starts on, so a flat `bg-primary` surface and
+     a gradient button are one colour. Clears AA in both roles this token
+     plays on light: white label on it 5.22:1, and `text-primary` as link
+     ink 4.92:1 on the canvas / 5.22:1 on a card. */
+  --primary: #445fe6;
   --primary-foreground: #ffffff;
+
+  /* PRIMARY AS A FILLED SURFACE — badge, AI chat bubble, checked checkbox,
+     selected chip/option, text selection. Split from `--primary` because that
+     token must ALSO work as `text-primary` ink on the canvas, and on dark the
+     two pull apart: ink wants to be light against near-black, a filled surface
+     wants to be dark enough to carry a white label. This role is the same blue
+     as the CTA ramp in EVERY theme, so a badge, a chat bubble and a button read
+     as one colour, and the label is always white. 5.22:1 — clears AA. */
+  --primary-surface: #445fe6;
+  --primary-surface-foreground: #ffffff;
 
   /* muted / secondary surfaces — neutral (no blue cast) */
   --secondary: #f2f3f7;
@@ -138,7 +152,14 @@
 
   /* gradient recipes */
   --h1-grad: linear-gradient(92deg, #4f6df5, #a855f7 55%, #ff5fa8);
-  --grad-primary: linear-gradient(120deg, #4f6df5, #7c5cff);
+  /* CTA ramp — IDENTICAL in light and dark so a primary button is one colour
+     app-wide. Tuned for WCAG AA against the white label: the darkest point
+     holds 5.22:1 at rest and 4.59:1 under the `hover:brightness-[1.08]` the
+     Button applies (hover raises luminance, so it is the binding constraint,
+     not rest). Derived from the old #4f6df5 → #7c5cff by scaling OKLCH
+     lightness ×0.926 with hue and chroma held, so the brand blue→violet is
+     unchanged in character. Re-check both states before retuning. */
+  --grad-primary: linear-gradient(120deg, #445fe6, #704def);
   --grad-nav-active: linear-gradient(
     110deg,
     rgba(79, 109, 245, 0.16),
@@ -232,8 +253,24 @@
   --popover: #17152a; /* opaque so dropdowns/dialogs stay legible */
   --popover-foreground: #eef0ff;
 
+  /* INTENTIONALLY lighter than light-mode `--primary` (#445fe6) — do not
+     "unify" the two. On dark this token plays two roles that pull apart:
+     a `bg-primary` surface (needs to be dark enough for its label) and
+     `text-primary` link ink on the near-black canvas (needs to be light
+     enough to read). No single value clears AA for both — surface wants
+     luminance <= 0.175, ink wants >= 0.184. This pair resolves it by
+     pairing a LIGHT accent with DARK ink: 6.25:1 as a surface, 6.37:1 as
+     ink. The CTA button escapes the tension via `--grad-primary`, which
+     IS unified across themes. Light has no conflict, so one value serves
+     both there. */
   --primary: #5b8cff; /* aurora --accent (dark) */
   --primary-foreground: #06081f; /* aurora --accent-ink */
+
+  /* identical to light — see `--primary-surface` in `:root`. This is what lets
+     a filled primary surface keep a WHITE label on dark instead of the dark
+     ink `--primary-foreground` pairs with. */
+  --primary-surface: #445fe6;
+  --primary-surface-foreground: #ffffff;
 
   --secondary: rgba(255, 255, 255, 0.06);
   --secondary-foreground: #eef0ff;
@@ -300,7 +337,11 @@
     0 18px 40px -28px rgba(0, 0, 0, 0.6);
 
   --h1-grad: linear-gradient(92deg, #a9c2ff, #d9b8ff 55%, #ffc2e0);
-  --grad-primary: linear-gradient(120deg, #5b8cff, #8c5cff);
+  /* same CTA ramp as light — see the note on `--grad-primary` in `:root`. The
+     dark-tuned #5b8cff → #8c5cff this replaced fell to 3.16:1 against the white
+     label. The flat `--primary` below stays dark-tuned: it drives rings, nav
+     and the accent glow, none of which sit under the button label. */
+  --grad-primary: linear-gradient(120deg, #445fe6, #704def);
   --grad-nav-active: linear-gradient(
     110deg,
     rgba(91, 140, 255, 0.32),
@@ -353,6 +394,8 @@
 
   --primary: #5b8cff;
   --primary-foreground: #06081f;
+  --primary-surface: #445fe6;
+  --primary-surface-foreground: #ffffff;
 
   --secondary: #1e1c3a;
   --secondary-foreground: #eef0ff;
@@ -461,6 +504,8 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-surface: var(--primary-surface);
+  --color-primary-surface-foreground: var(--primary-surface-foreground);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);

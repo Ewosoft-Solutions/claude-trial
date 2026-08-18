@@ -62,7 +62,7 @@ export function ChatMessageBubble({
         className={cn(
           'flex max-w-[85%] flex-col gap-2.5 rounded-[var(--radius)] px-3.5 py-2.5 text-sm sm:max-w-[75%]',
           isUser
-            ? 'bg-primary text-primary-foreground'
+            ? 'bg-primary-surface text-primary-surface-foreground'
             : 'border border-border bg-card text-card-foreground',
         )}
       >

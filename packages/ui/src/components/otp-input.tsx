@@ -145,7 +145,7 @@ export function OtpInput({
             'h-10 w-10 md:h-11 md:w-11',
             'focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
             'disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50',
-            'selection:bg-primary selection:text-primary-foreground',
+            'selection:bg-primary-surface selection:text-primary-surface-foreground',
             // Filled visual cue
             digit && 'border-ring/60',
           )}
