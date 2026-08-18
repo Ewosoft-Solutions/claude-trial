@@ -2,6 +2,8 @@
 
 import useSWR from 'swr';
 
+import { isAbortError } from '@/lib/swr-abort';
+
 /** Shape returned by GET /api/overview (-> NestJS /overview/stats). */
 export interface OverviewStats {
   school: {
@@ -49,10 +51,24 @@ export function useOverviewStats(): OverviewStatsResult {
   const { data, error, isLoading, isValidating, mutate } =
     useSWR<OverviewStats>('/api/overview');
 
+  // An aborted read is NOT a failure the reader should see. `abortOnUnmount`
+  // cancels the in-flight request whenever a newer one supersedes it or the
+  // component unmounts — which a React StrictMode double-mount and a
+  // revalidate-on-focus both do routinely — and SWR surfaces that rejection as
+  // an ordinary error. Rendered, it reads as "signal is aborted without
+  // reason" on the dashboard. SWR retries straight after, so the honest state
+  // while that happens is still LOADING, not failed.
+  const aborted = isAbortError(error);
+
   return {
     stats: data ?? null,
-    loading: isLoading,
-    error: error instanceof Error ? error.message : error ? 'Error' : null,
+    loading: isLoading || (aborted && !data),
+    error:
+      !error || aborted
+        ? null
+        : error instanceof Error
+          ? error.message
+          : 'Error',
     refreshing: isValidating,
     refresh: () => {
       void mutate();

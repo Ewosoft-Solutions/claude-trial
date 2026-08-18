@@ -40,11 +40,14 @@ import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { greeting, useGreetingSubtitle } from './greeting';
 import { formatNaira } from '@/lib/format';
+import { isAbortError } from '@/lib/swr-abort';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+
+import { DASHBOARD_SHAPES } from '../dashboard-shape';
 
 import { DashboardQuickActions } from './dashboard-quick-actions';
 import { RefreshButton } from '../../_shared/refresh-button';
@@ -106,15 +109,24 @@ export function ParentDashboard({ userName, schoolName }: Props) {
     data,
     error: loadError,
     isValidating: refreshing,
-    isLoading: loading,
+    isLoading: isLoadingSwr,
     mutate,
   } = useSWR<{ children: ChildSummary[] }>('/api/parent-portal/children');
   const children = data?.children ?? null;
-  const error = loadError
-    ? loadError instanceof Error
-      ? loadError.message
-      : 'Failed to load children'
-    : null;
+  // An aborted read is not a failure the parent should see: `abortOnUnmount`
+  // cancels the in-flight request when a newer one supersedes it or the
+  // component unmounts (a StrictMode double-mount and revalidate-on-focus both
+  // do this routinely), and SWR reports that as an ordinary error — which
+  // rendered reads as "signal is aborted without reason". SWR retries
+  // immediately, so the honest state meanwhile is still loading.
+  const aborted = isAbortError(loadError);
+  const loading = isLoadingSwr || (aborted && !data);
+  const error =
+    loadError && !aborted
+      ? loadError instanceof Error
+        ? loadError.message
+        : 'Failed to load children'
+      : null;
   const [selectedId, setSelectedId] = React.useState<string>('all');
 
   const selected =
@@ -201,7 +213,7 @@ export function ParentDashboard({ userName, schoolName }: Props) {
   const subtitle = useGreetingSubtitle();
 
   if (loading) {
-    return <DashboardPageSkeleton stats={3} wideStats={[false, false, true]} />;
+    return <DashboardPageSkeleton {...DASHBOARD_SHAPES.parent} />;
   }
 
   return (

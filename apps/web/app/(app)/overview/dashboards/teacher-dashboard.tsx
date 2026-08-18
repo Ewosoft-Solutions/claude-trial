@@ -19,6 +19,8 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
+import { DASHBOARD_SHAPES } from '../dashboard-shape';
+
 import { DashboardQuickActions } from './dashboard-quick-actions';
 import { RefreshButton } from '../../_shared/refresh-button';
 import { formatCount, useOverviewStats } from '../use-overview-stats';
@@ -86,7 +88,7 @@ export function TeacherDashboard({ userName }: { userName: string }) {
   const subtitle = useGreetingSubtitle();
 
   if (loading) {
-    return <DashboardPageSkeleton stats={STATS.length} />;
+    return <DashboardPageSkeleton {...DASHBOARD_SHAPES.teacher} />;
   }
 
   return (
