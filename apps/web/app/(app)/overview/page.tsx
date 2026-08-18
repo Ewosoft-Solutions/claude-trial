@@ -16,6 +16,7 @@
    ============================================================ */
 
 import { useViewer } from '@/app/providers/viewer-provider';
+import { dashboardKindFor } from './dashboard-shape';
 import { PlatformDashboard } from './dashboards/platform-dashboard';
 import { AdminDashboard } from './dashboards/admin-dashboard';
 import { FinanceDashboard } from './dashboards/finance-dashboard';
@@ -32,41 +33,33 @@ export default function OverviewPage() {
   const salutationName =
     user.firstName?.trim() || user.name.trim().split(/\s+/)[0] || user.name;
 
-  const { clearanceLevel } = viewer;
-
-  // Scope is the primary axis, above clearance: a platform operator lands on the
-  // platform overview, not a school dashboard. (A platform viewer has no active
-  // school, so the school dashboards below would have nothing to render anyway.)
-  if (viewer.scope === 'platform') {
-    return <PlatformDashboard userName={salutationName} />;
+  // Routing lives in `dashboardKindFor` so the loading skeleton (which must
+  // pick a shape BEFORE this renders) can resolve the same dashboard from the
+  // session and cannot describe a different one. Custom per-profile
+  // permissions may have stripped access to specific sections, but clearance
+  // is the routing axis for the surface itself; the backend enforces the data.
+  switch (dashboardKindFor(viewer.scope, viewer.clearanceLevel)) {
+    case 'platform':
+      return <PlatformDashboard userName={salutationName} />;
+    case 'admin':
+      return (
+        <AdminDashboard userName={salutationName} schoolName={schoolName} />
+      );
+    case 'it':
+      return <ITDashboard userName={salutationName} />;
+    case 'finance':
+      return (
+        <FinanceDashboard userName={salutationName} schoolName={schoolName} />
+      );
+    case 'operations':
+      return <OperationsDashboard userName={salutationName} />;
+    case 'teacher':
+      return <TeacherDashboard userName={salutationName} />;
+    case 'parent':
+      return (
+        <ParentDashboard userName={salutationName} schoolName={schoolName} />
+      );
+    default:
+      return <StudentDashboard userName={salutationName} />;
   }
-
-  // Render per clearance level. Custom per-profile permissions may have
-  // stripped access to specific sections — but clearance level is the
-  // primary routing axis for the dashboard surface itself.
-  // The backend enforces data access; this only selects the right UI.
-  if (clearanceLevel >= 7) {
-    return <AdminDashboard userName={salutationName} schoolName={schoolName} />;
-  }
-  if (clearanceLevel === 6) {
-    return <ITDashboard userName={salutationName} />;
-  }
-  if (clearanceLevel === 5) {
-    return (
-      <FinanceDashboard userName={salutationName} schoolName={schoolName} />
-    );
-  }
-  if (clearanceLevel === 4) {
-    return <OperationsDashboard userName={salutationName} />;
-  }
-  if (clearanceLevel === 3) {
-    return <TeacherDashboard userName={salutationName} />;
-  }
-  if (clearanceLevel === 2) {
-    return (
-      <ParentDashboard userName={salutationName} schoolName={schoolName} />
-    );
-  }
-  // L0–L1: Student or Guest
-  return <StudentDashboard userName={salutationName} />;
 }

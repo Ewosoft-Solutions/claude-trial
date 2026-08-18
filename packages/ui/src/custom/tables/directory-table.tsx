@@ -15,6 +15,9 @@
      · integrated loading / empty / error states (custom/states)
      · privacy-aware cells (MaskedValue) — the projection masks the value;
        this only renders the "masked" affordance.
+     · overflow-safe cells — `truncate` on a column clamps it to one line and
+       reveals the full value in a tooltip, so one long email/id cannot widen
+       the whole table (see TRUNCATE_MAX_W).
 
    Presentational + controlled: pagination/sort are props+callbacks so the
    host binds them to the URL. Copy is consumer-supplied. Aurora-token
@@ -34,6 +37,7 @@ import {
 } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
+import { TruncatedText } from '@workspace/ui/custom/tables/truncated-text';
 import { Button } from '@workspace/ui/components/button';
 import { Checkbox } from '@workspace/ui/components/checkbox';
 import {
@@ -88,6 +92,29 @@ const ALIGN_CLASS: Record<Align, string> = {
   center: 'text-center',
 };
 
+/**
+ * Default width clamp for a `truncate` column. Responsive on purpose — a wide
+ * screen shows more of the value before the ellipsis rather than pinning every
+ * viewport to the phone-sized budget. Override per column by passing a class
+ * string to `truncate`.
+ *
+ * Sized to stay PROPORTIONATE to ordinary columns: measured against a realistic
+ * student row, this lands the column at ~1.5x the average of the neighbouring
+ * columns while still showing ~32 characters — enough to recognise a value,
+ * with the rest one hover away. The first attempt here topped out at 34rem,
+ * which is WIDER than a full machine-generated student email needs (~550px):
+ * it never truncated at all on a desktop, so the column just ran to full width
+ * and pushed the trailing columns out of view.
+ *
+ * The clamp belongs on the CELL, not on the inner wrapper. `max-width` on an
+ * auto-layout `td` is not honoured as a hard width, but it does cap the
+ * column's max-content contribution — which is what actually shrinks the
+ * column — and the wrapper then fills whatever width the column settles at,
+ * so a roomy table still reveals more text instead of stranding blank space.
+ */
+const TRUNCATE_MAX_W =
+  'max-w-[38vw] sm:max-w-[8rem] md:max-w-[9rem] lg:max-w-[10rem] xl:max-w-[11rem]';
+
 export interface DirectoryColumn<TRow> {
   /** Stable id; doubles as the sort field passed to `onSortChange`. */
   id: string;
@@ -105,6 +132,17 @@ export interface DirectoryColumn<TRow> {
   defaultHidden?: boolean;
   /** Accessible label for the column when `header` is not plain text. */
   ariaLabel?: string;
+  /**
+   * Clamp this column to a single line, revealing the full value in a tooltip
+   * when it is actually clipped. Use it for any value with no natural length
+   * bound — email, external ids, addresses, free text.
+   *
+   * The table applies BOTH halves of the recipe: the responsive max-width on
+   * the cell (the table is `min-w-max`, so without it a long value just widens
+   * the table) and the `TruncatedText` wrapper inside. Pass a string to
+   * override the default width clamp with your own `max-w-*` classes.
+   */
+  truncate?: boolean | string;
   className?: string;
 }
 
@@ -148,6 +186,13 @@ export interface DirectoryTableProps<TRow> {
    * Keyboard: the row is focusable and responds to Enter/Space.
    */
   onRowClick?: (row: TRow) => void;
+  /**
+   * Per-row opt-out of `onRowClick`. Returning false leaves that row without
+   * the pointer cursor, the tab stop and the "View …" label, so a row with no
+   * detail to open does not advertise one. Defaults to every row clickable
+   * whenever `onRowClick` is set.
+   */
+  isRowClickable?: (row: TRow) => boolean;
 
   loading?: boolean;
   /** Error message; when set the table body is replaced by an ErrorState. */
@@ -214,6 +259,7 @@ export function DirectoryTable<TRow>({
   selectable = false,
   bulkActions = [],
   onRowClick,
+  isRowClickable,
   loading = false,
   error,
   onRetry,
@@ -632,7 +678,8 @@ export function DirectoryTable<TRow>({
           {rows.map((row) => {
             const id = getRowId(row);
             const isSelected = selected.has(id);
-            const clickable = Boolean(onRowClick);
+            const clickable =
+              Boolean(onRowClick) && (isRowClickable?.(row) ?? true);
             return (
               <TableRow
                 key={id}
@@ -683,10 +730,18 @@ export function DirectoryTable<TRow>({
                     key={col.id}
                     className={cn(
                       ALIGN_CLASS[col.align ?? 'start'],
+                      col.truncate &&
+                        (typeof col.truncate === 'string'
+                          ? col.truncate
+                          : TRUNCATE_MAX_W),
                       col.className,
                     )}
                   >
-                    {col.cell(row)}
+                    {col.truncate ? (
+                      <TruncatedText>{col.cell(row)}</TruncatedText>
+                    ) : (
+                      col.cell(row)
+                    )}
                   </TableCell>
                 ))}
               </TableRow>

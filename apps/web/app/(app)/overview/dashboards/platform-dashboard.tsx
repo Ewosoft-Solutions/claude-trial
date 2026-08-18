@@ -31,11 +31,14 @@ import {
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { greeting, useGreetingSubtitle } from './greeting';
 import { formatCount } from '@/lib/format';
+import { isAbortError } from '@/lib/swr-abort';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+
+import { DASHBOARD_SHAPES } from '../dashboard-shape';
 import { RefreshButton } from '../../_shared/refresh-button';
 
 interface PlatformOverview {
@@ -80,10 +83,14 @@ interface Props {
 export function PlatformDashboard({ userName }: Props) {
   const {
     data,
-    isLoading: loading,
+    error,
+    isLoading: isLoadingSwr,
     isValidating: refreshing,
     mutate,
   } = useSWR<PlatformOverview>('/api/platform/overview');
+  // See the note in use-overview-stats: a superseded/unmounted read aborts, and
+  // that must read as "still loading", not as an empty dashboard.
+  const loading = isLoadingSwr || (isAbortError(error) && !data);
 
   const t = data?.tenants;
 
@@ -123,7 +130,7 @@ export function PlatformDashboard({ userName }: Props) {
   const subtitle = useGreetingSubtitle();
 
   if (loading) {
-    return <DashboardPageSkeleton stats={STATS.length} />;
+    return <DashboardPageSkeleton {...DASHBOARD_SHAPES.platform} />;
   }
 
   return (

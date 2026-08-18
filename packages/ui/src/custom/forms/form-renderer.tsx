@@ -599,7 +599,7 @@ function ItemControl({
                 className={cn(
                   'size-9 rounded-md border text-sm transition-colors',
                   selected === n
-                    ? 'border-primary bg-primary text-primary-foreground'
+                    ? 'border-primary-surface bg-primary-surface text-primary-surface-foreground'
                     : 'border-border hover:bg-muted',
                 )}
               >

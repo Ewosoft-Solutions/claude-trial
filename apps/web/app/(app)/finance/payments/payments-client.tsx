@@ -26,7 +26,7 @@ import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
-import { TruncatedText } from '@/components/truncated-text';
+import { TruncatedText } from '@workspace/ui/custom/tables/truncated-text';
 
 export type PaymentMethod = 'transfer' | 'card' | 'cash' | 'cheque';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';

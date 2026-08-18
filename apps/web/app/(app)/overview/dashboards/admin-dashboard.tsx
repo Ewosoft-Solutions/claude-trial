@@ -28,6 +28,8 @@ import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
+import { DASHBOARD_SHAPES } from '../dashboard-shape';
+
 import { DashboardQuickActions } from './dashboard-quick-actions';
 import { RefreshButton } from '../../_shared/refresh-button';
 import { OnboardingChecklist } from '../onboarding-checklist';
@@ -163,12 +165,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
   const subtitle = useGreetingSubtitle();
 
   if (loading) {
-    return (
-      <DashboardPageSkeleton
-        stats={STATS.length}
-        wideStats={STATS.map((s) => !!s.wide)}
-      />
-    );
+    return <DashboardPageSkeleton {...DASHBOARD_SHAPES.admin} />;
   }
 
   return (

@@ -570,7 +570,7 @@ function CheckOptionRow({
         className={cn(
           'grid size-4 shrink-0 place-items-center rounded-[4px] border transition-colors',
           checked
-            ? 'border-primary bg-primary text-primary-foreground'
+            ? 'border-primary-surface bg-primary-surface text-primary-surface-foreground'
             : 'border-input',
         )}
       >

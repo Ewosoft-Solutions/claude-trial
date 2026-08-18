@@ -24,6 +24,11 @@ const colorVariables = [
   { name: 'popover-foreground', display: 'Popover Foreground' },
   { name: 'primary', display: 'Primary' },
   { name: 'primary-foreground', display: 'Primary Foreground' },
+  { name: 'primary-surface', display: 'Primary Surface' },
+  {
+    name: 'primary-surface-foreground',
+    display: 'Primary Surface Foreground',
+  },
   { name: 'secondary', display: 'Secondary' },
   { name: 'secondary-foreground', display: 'Secondary Foreground' },
   { name: 'muted', display: 'Muted' },
