@@ -93,9 +93,21 @@ export interface QuestionOption {
   imageKey?: string;
 }
 
+/** A curriculum subject, as the question-bank picker needs it. */
+export interface SubjectSummary {
+  id: string;
+  name: string;
+}
+
 export interface QuestionSummary {
   id: string;
-  courseId: string;
+  /**
+   * A bank entry carries ONE of two anchors: `curriculumSubjectId` (the
+   * subject the bank belongs to — what new entries key on) or the legacy
+   * `courseId`. Both are nullable while the backfill runs.
+   */
+  curriculumSubjectId?: string | null;
+  courseId?: string | null;
   style: QuestionStyle;
   instruction: string | null;
   text: string;
@@ -109,9 +121,42 @@ export interface QuestionSummary {
   updatedAt: string;
 }
 
+/**
+ * A subject offering — section × subject × year/term — as the assessments
+ * picker needs it. This is the structured anchor that replaces the legacy
+ * `Class` as the thing an assessment belongs to.
+ */
+export interface OfferingSummary {
+  id: string;
+  subjectLabel: string;
+  /** The curriculum subject whose question bank this offering draws from. */
+  curriculumSubjectId?: string | null;
+  /**
+   * Section label, already disambiguated by the API: `displayLabel` omits the
+   * campus, so a two-campus school has two sections reading "SSS1 Science A"
+   * and the campus is appended where — and only where — it is needed.
+   */
+  classLabel?: string | null;
+  campusId?: string | null;
+  classSectionId?: string | null;
+  academicYearId?: string | null;
+  termId?: string | null;
+}
+
 export interface AssessmentSummary {
   id: string;
-  classId: string;
+  /**
+   * An assessment carries ONE of two anchors: `subjectOfferingId` (section ×
+   * subject × year/term — what new ones key on) or the legacy `classId`. Both
+   * are nullable: a structured assessment has no class, and `class` on it is
+   * null. Read `subjectLabel`/`classLabel`, which the API resolves from
+   * whichever anchor is present, rather than reaching into `class`.
+   */
+  subjectOfferingId?: string | null;
+  classId?: string | null;
+  anchor?: 'offering' | 'class';
+  subjectLabel?: string | null;
+  classLabel?: string | null;
   name: string;
   type: string;
   maxPoints: number | string;
@@ -276,6 +321,17 @@ export function classLabel(cls: ClassSummary | null | undefined): string {
   const section = cls.name ?? `Section ${cls.section}`;
   const term = cls.term?.name ? `(${cls.term.name})` : null;
   return [course, section, term].filter(Boolean).join(' - ');
+}
+
+/** "Mathematics — JSS 1 Gold", falling back to whichever half is known. */
+export function offeringLabel(
+  offering: OfferingSummary | null | undefined,
+): string {
+  if (!offering) return 'Subject';
+  return (
+    [offering.subjectLabel, offering.classLabel].filter(Boolean).join(' — ') ||
+    'Subject'
+  );
 }
 
 export function courseLabel(course: CourseSummary): string {

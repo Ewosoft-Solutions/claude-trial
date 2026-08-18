@@ -44,7 +44,8 @@ export class MaterialIngestionService {
     private readonly queue: QueueService,
     private readonly extraction: MaterialExtractionService,
     @Inject(STORAGE_PROVIDER) private readonly storage: StorageProvider,
-    @Inject(EMBEDDINGS_PROVIDER) private readonly embeddings: EmbeddingsProvider,
+    @Inject(EMBEDDINGS_PROVIDER)
+    private readonly embeddings: EmbeddingsProvider,
   ) {}
 
   /** Kick off ingestion without blocking the caller. */

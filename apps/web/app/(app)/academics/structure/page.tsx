@@ -4,11 +4,17 @@
  * · section + offerings). Reads are gated `academics.structure.view`; the create
  * controls are shown only with `academics.structure.manage` (the server enforces
  * it regardless — this is a UI hint).
+ *
+ * This page also owns SUBJECT OFFERINGS (the section × curriculum-subject join).
+ * Nothing in the app authored one before, so offerings existed only from seed
+ * data while `Classes → Subjects` still edited the legacy `Course` catalogue
+ * ADR-02 retired — the gap that made the Classes/Academics boundary read as
+ * arbitrary.
  */
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
-import { PageTitle } from '@workspace/ui/custom/shell/page-title';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
   StructureBuilder,
   type Campus,
@@ -16,6 +22,12 @@ import {
   type YearLevel,
   type Stream,
   type ClassSection,
+  type SubjectOffering,
+  type OfferableSubject,
+  type YearOption,
+  type TermOption,
+  type BandOption,
+  type LevelSpineOption,
 } from './structure-builder';
 
 export const dynamic = 'force-dynamic';
@@ -28,42 +40,66 @@ export default async function AcademicStructurePage() {
 
   if (!canView) {
     return (
-      <div className="p-6">
+      <ShellMain>
         <PermissionDeniedState
           title="You don't have access to the academic structure"
           description="Ask an administrator for the “View academic structure” permission."
         />
-      </div>
+      </ShellMain>
     );
   }
 
-  const [campuses, stages, yearLevels, streams, sections] = await Promise.all([
+  const [
+    campuses,
+    stages,
+    yearLevels,
+    streams,
+    sections,
+    offerings,
+    offerableSubjects,
+    years,
+    spine,
+  ] = await Promise.all([
     serverApiGet<Campus[]>('/campuses'),
     serverApiGet<Stage[]>('/academics/structure/stages'),
     serverApiGet<YearLevel[]>('/academics/structure/year-levels'),
     serverApiGet<Stream[]>('/academics/structure/streams'),
     serverApiGet<ClassSection[]>('/academics/structure/sections'),
+    serverApiGet<SubjectOffering[]>('/academics/structure/offerings'),
+    serverApiGet<OfferableSubject[]>('/academics/structure/offerable-subjects'),
+    serverApiGet<YearOption[]>('/academic-years'),
+    // The fixed spine is reference data served by the API, so the web bundle
+    // never imports the database package.
+    serverApiGet<{ bands: BandOption[]; levels: LevelSpineOption[] }>(
+      '/academics/structure/level-spine',
+    ),
   ]);
 
-  return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-1">
-        <PageTitle>Academic structure</PageTitle>
-        <p className="text-sm text-muted-foreground">
-          Build classes from dimensions — campus, stage, year level, stream and
-          section — instead of typing a name like “SS1 Science A”. The label is
-          composed for you.
-        </p>
-      </header>
+  // Terms per year (the list endpoint omits them); a handful of years at most.
+  const yearList = Array.isArray(years) ? years : [];
+  const termEntries = await Promise.all(
+    yearList.map(async (y) => {
+      const terms = await serverApiGet<TermOption[]>(
+        `/academic-years/${y.id}/terms`,
+      );
+      return [y.id, Array.isArray(terms) ? terms : []] as const;
+    }),
+  );
 
-      <StructureBuilder
-        canManage={canManage}
-        initialCampuses={campuses ?? []}
-        initialStages={stages ?? []}
-        initialYearLevels={yearLevels ?? []}
-        initialStreams={streams ?? []}
-        initialSections={sections ?? []}
-      />
-    </div>
+  return (
+    <StructureBuilder
+      canManage={canManage}
+      initialCampuses={campuses ?? []}
+      initialStages={stages ?? []}
+      initialYearLevels={yearLevels ?? []}
+      initialStreams={streams ?? []}
+      initialSections={sections ?? []}
+      initialOfferings={offerings ?? []}
+      offerableSubjects={offerableSubjects ?? []}
+      years={yearList}
+      termsByYear={Object.fromEntries(termEntries)}
+      bands={spine?.bands ?? []}
+      levelSpine={spine?.levels ?? []}
+    />
   );
 }

@@ -28,10 +28,14 @@ function scheduleLength(schedule: unknown): number {
   return Array.isArray(schedule) ? schedule.length : 0;
 }
 
-function levelFromGrades(grades: string[] | null | undefined): Subject['level'] {
+function levelFromGrades(
+  grades: string[] | null | undefined,
+): Subject['level'] {
   if (!grades?.length) return 'all';
-  if (grades.some((grade) => grade.toUpperCase().startsWith('SSS'))) return 'senior';
-  if (grades.some((grade) => grade.toUpperCase().startsWith('JSS'))) return 'junior';
+  if (grades.some((grade) => grade.toUpperCase().startsWith('SSS')))
+    return 'senior';
+  if (grades.some((grade) => grade.toUpperCase().startsWith('JSS')))
+    return 'junior';
   return 'all';
 }
 
@@ -58,9 +62,15 @@ export default async function SubjectsPage() {
       name: course.name ?? course.subject ?? course.code ?? course.id,
       category: course.category ?? course.subject ?? 'Uncategorised',
       classes: courseClasses.length,
-      periods: courseClasses.reduce((sum, cls) => sum + scheduleLength(cls.schedule), 0),
+      periods: courseClasses.reduce(
+        (sum, cls) => sum + scheduleLength(cls.schedule),
+        0,
+      ),
       level: levelFromGrades(course.gradeLevels),
-      status: course.status === 'draft' || course.status === 'archived' ? course.status : 'active',
+      status:
+        course.status === 'draft' || course.status === 'archived'
+          ? course.status
+          : 'active',
     };
   });
 

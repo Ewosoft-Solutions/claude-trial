@@ -21,13 +21,26 @@ import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
 type Paginated<T> = { data?: T[] };
 
+/**
+ * `subjectLabel`/`classLabel` are resolved by the API from whichever anchor the
+ * assessment carries. Reading `class` directly labelled every structured
+ * assessment "Unassigned", since those have no legacy class.
+ */
 interface ApiAssessment {
   id: string;
-  title?: string | null;
+  name?: string | null;
   maxPoints?: number | string | null;
-  class?: { name?: string | null; section?: string | null } | null;
+  subjectLabel?: string | null;
+  classLabel?: string | null;
 }
 
+/**
+ * The grade's student is resolved by the API from whichever anchor the row
+ * carries — `studentId` on a re-keyed grade, its enrolment on a legacy one —
+ * so it is a flat object here. It used to be reached through `enrollment`,
+ * which is null on every grade of a structured assessment; those rows showed
+ * up as "Unknown student".
+ */
 interface ApiGrade {
   id: string;
   assessmentId?: string | null;
@@ -35,17 +48,12 @@ interface ApiGrade {
   percentage?: number | string | null;
   letterGrade?: string | null;
   status?: string | null;
-  enrollment?: {
-    student?: {
-      studentNumber?: string | null;
-      userTenant?: {
-        user?: {
-          firstName?: string | null;
-          lastName?: string | null;
-          email?: string | null;
-        } | null;
-      } | null;
-    } | null;
+  student?: {
+    id?: string | null;
+    studentNumber?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
   } | null;
 }
 
@@ -82,17 +90,20 @@ function initials(name: string): string {
 }
 
 function studentName(grade: ApiGrade): string {
-  const user = grade.enrollment?.student?.userTenant?.user;
+  const student = grade.student;
   return (
-    [user?.firstName, user?.lastName].filter(Boolean).join(' ') ||
-    user?.email ||
+    [student?.firstName, student?.lastName].filter(Boolean).join(' ') ||
+    student?.email ||
     'Unknown student'
   );
 }
 
 function classLabel(assessment: ApiAssessment | undefined): string {
-  const cls = assessment?.class;
-  return [cls?.name, cls?.section].filter(Boolean).join(' ') || 'Unassigned';
+  return (
+    [assessment?.subjectLabel, assessment?.classLabel]
+      .filter(Boolean)
+      .join(' · ') || 'Unassigned'
+  );
 }
 
 function gradeTone(letter: string, percentage: number | null): StateTone {
@@ -148,8 +159,10 @@ export default async function GradebookPage() {
       return {
         id: grade.id,
         student: studentName(grade),
-        studentNumber: grade.enrollment?.student?.studentNumber ?? 'Unassigned',
-        assessment: assessment.title ?? assessment.id,
+        studentNumber: grade.student?.studentNumber ?? 'Unassigned',
+        // The model field is `name`; reading `title` was always undefined, so
+        // this column showed a raw UUID.
+        assessment: assessment.name ?? assessment.id,
         className: classLabel(assessment),
         points: numeric(grade.pointsEarned),
         maxPoints: numeric(assessment.maxPoints),

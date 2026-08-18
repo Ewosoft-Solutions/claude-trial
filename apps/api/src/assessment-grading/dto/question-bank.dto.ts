@@ -53,10 +53,24 @@ export class QuestionOptionDto {
 }
 
 export class CreateQuestionDto {
-  @ApiProperty({ description: 'Course the question bank entry belongs to' })
+  @ApiPropertyOptional({
+    description:
+      'The curriculum subject this bank entry belongs to. Preferred — a bank ' +
+      'belongs to a SUBJECT, which outlives any one course. Supply this OR ' +
+      'courseId; one of the two is required.',
+  })
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  courseId!: string;
+  curriculumSubjectId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'DEPRECATED legacy anchor — the labelled-bag Course. Supply this OR ' +
+      'curriculumSubjectId; new callers should use the subject.',
+  })
+  @IsOptional()
+  @IsString()
+  courseId?: string;
 
   @ApiPropertyOptional({ enum: QUESTION_STYLES, default: 'mcq' })
   @IsOptional()
@@ -164,7 +178,20 @@ export class UpdateQuestionDto {
 }
 
 export class ListQuestionsDto extends PaginationDto {
-  @ApiPropertyOptional({ description: 'Filter by course' })
+  @ApiPropertyOptional({
+    description:
+      'Filter by curriculum subject. Preferred; takes precedence over ' +
+      'courseId when both are supplied.',
+  })
+  @IsOptional()
+  @IsString()
+  curriculumSubjectId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'DEPRECATED legacy filter — by course. With neither, the bank is ' +
+      'narrowed to everything the caller teaches under EITHER anchor.',
+  })
   @IsOptional()
   @IsString()
   courseId?: string;
@@ -192,7 +219,11 @@ export class AttachQuestionDto {
   @Min(0)
   order?: number;
 
-  @ApiPropertyOptional({ example: 2, description: 'Points for this question', default: 1 })
+  @ApiPropertyOptional({
+    example: 2,
+    description: 'Points for this question',
+    default: 1,
+  })
   @IsOptional()
   @IsNumber()
   @Min(0)

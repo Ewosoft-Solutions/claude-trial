@@ -21,12 +21,17 @@ import {
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import type { AuthenticatedRequest } from 'src/auth';
 import { ResultEntryService } from '../services/result-entry.service';
+import { ResultImportService } from '../services/result-import.service';
 import { resultContext } from './result-context';
-import { SeedFromGradebookDto, UpsertResultEntriesDto } from '../dto';
+import {
+  ImportResultScoresDto,
+  SeedFromGradebookDto,
+  UpsertResultEntriesDto,
+} from '../dto';
 
 /**
- * WB4 · Result score entry (ADR-04). Viewing the grid needs
- * `academics.results.view`; entering/seeding scores needs
+ * WB4 · Result score entry (ADR-04). Viewing the grid + template needs
+ * `academics.results.view`; entering, seeding or importing scores needs
  * `academics.results.enter` and is only allowed while the cycle is open.
  */
 @ApiTags('Results')
@@ -35,7 +40,10 @@ import { SeedFromGradebookDto, UpsertResultEntriesDto } from '../dto';
 @TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class ResultEntryController {
-  constructor(private readonly entries: ResultEntryService) {}
+  constructor(
+    private readonly entries: ResultEntryService,
+    private readonly imports: ResultImportService,
+  ) {}
 
   @Get('cycles/:id/grid')
   @RequirePermissions(['academics.results.view'])
@@ -60,6 +68,40 @@ export class ResultEntryController {
   ) {
     const { tenantId, actor } = resultContext(req);
     return this.entries.upsertEntries(tenantId, actor, id, dto);
+  }
+
+  @Get('cycles/:id/import-template')
+  @RequirePermissions(['academics.results.view'])
+  @ApiOperation({ summary: 'A pre-filled CSV score template for one section' })
+  template(
+    @Param('id') id: string,
+    @Query('sectionId') sectionId: string,
+    @Query('subjectOfferingId') subjectOfferingId: string | undefined,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const { tenantId, actor } = resultContext(req);
+    return this.imports.buildTemplate(
+      tenantId,
+      actor,
+      id,
+      sectionId,
+      subjectOfferingId,
+    );
+  }
+
+  @Post('cycles/:id/import')
+  @HttpCode(HttpStatus.OK)
+  @RequirePermissions(['academics.results.enter'])
+  @ApiOperation({
+    summary: 'Import scores from a CSV/XLSX sheet (dry run unless commit=true)',
+  })
+  import(
+    @Param('id') id: string,
+    @Body() dto: ImportResultScoresDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    const { tenantId, actor } = resultContext(req);
+    return this.imports.importScores(tenantId, actor, id, dto);
   }
 
   @Post('cycles/:id/seed-from-gradebook')

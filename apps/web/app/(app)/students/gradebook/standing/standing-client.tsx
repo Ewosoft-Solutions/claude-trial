@@ -1,11 +1,19 @@
 'use client';
 
 /* ============================================================
-   TranscriptsClient — cumulative grade summaries (client-side DirectoryTable)
+   StandingClient — live gradebook standing (client-side DirectoryTable)
 
-   The server computes the per-student transcript summaries and passes them in
-   full, so search / standing + class filters / sort / paging run in-memory.
-   Both filters collapse into the Pattern-B Filters button.
+   The single live view of where each student stands, merged from the former
+   Report cards + Gradebook standing pages (they read the same two endpoints and
+   averaged the same numbers). Letter grade came from Report cards; GPA and the
+   standing band from Gradebook standing.
+
+   NOT the transcript of record — that is assembled from published result
+   snapshots at /academics/transcripts. These figures move as teachers mark.
+
+   The server computes the per-student summaries and passes them in full, so
+   search / standing + class filters / sort / paging run in-memory. Both filters
+   collapse into the Pattern-B Filters button.
    ============================================================ */
 
 import * as React from 'react';
@@ -24,7 +32,7 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export type Standing = 'honors' | 'good' | 'watch';
 
-export interface TranscriptRow {
+export interface StandingRow {
   key: string;
   id: string;
   name: string;
@@ -33,6 +41,15 @@ export interface TranscriptRow {
   gpa: number;
   records: number;
   standing: Standing;
+}
+
+/** Letter grade from the average — carried over from the Report cards view. */
+function letterGrade(average: number): { letter: string; tone: StateTone } {
+  if (average >= 70) return { letter: 'A', tone: 'success' };
+  if (average >= 60) return { letter: 'B', tone: 'success' };
+  if (average >= 50) return { letter: 'C', tone: 'info' };
+  if (average >= 40) return { letter: 'D', tone: 'warning' };
+  return { letter: 'F', tone: 'destructive' };
 }
 
 const STANDING_META: Record<Standing, { label: string; tone: StateTone }> = {
@@ -50,7 +67,7 @@ function initials(name: string): string {
     .toUpperCase();
 }
 
-export function TranscriptsClient({ rows }: { rows: TranscriptRow[] }) {
+export function StandingClient({ rows }: { rows: StandingRow[] }) {
   const [term, setTerm] = React.useState('');
   const [filters, setFilters] = React.useState<
     Record<string, string | null | undefined>
@@ -66,7 +83,7 @@ export function TranscriptsClient({ rows }: { rows: TranscriptRow[] }) {
     [rows],
   );
 
-  const columns: DirectoryColumn<TranscriptRow>[] = [
+  const columns: DirectoryColumn<StandingRow>[] = [
     {
       id: 'name',
       header: 'Student',
@@ -105,6 +122,16 @@ export function TranscriptsClient({ rows }: { rows: TranscriptRow[] }) {
           {r.average}%
         </span>
       ),
+    },
+    {
+      id: 'grade',
+      header: 'Grade',
+      align: 'end',
+      sortable: true,
+      cell: (r) => {
+        const g = letterGrade(r.average);
+        return <StatusBadge tone={g.tone}>{g.letter}</StatusBadge>;
+      },
     },
     {
       id: 'gpa',
@@ -164,7 +191,7 @@ export function TranscriptsClient({ rows }: { rows: TranscriptRow[] }) {
   const hasQuery = term.trim() !== '' || Object.values(filters).some(Boolean);
 
   return (
-    <DirectoryTable<TranscriptRow>
+    <DirectoryTable<StandingRow>
       title="Cumulative grade summaries"
       description={`${filtered.length} students with recorded grades`}
       columns={columns}

@@ -15,12 +15,12 @@ import { useViewer } from '@/app/providers/viewer-provider';
 import {
   academicsApi,
   ASSESSMENT_STATUS_META,
-  classLabel,
   formatDate,
+  offeringLabel,
   readError,
   type AssessmentSubmission,
   type AssessmentSummary,
-  type ClassSummary,
+  type OfferingSummary,
   type PaperQuestion,
   type QuestionSummary,
 } from '@/lib/academics';
@@ -90,12 +90,12 @@ function studentName(submission: AssessmentSubmission): string {
 
 export function AssessmentsClient({
   live,
-  initialClasses,
+  initialOfferings,
   initialAssessments,
   initialQuestions,
 }: {
   live: boolean;
-  initialClasses: ClassSummary[];
+  initialOfferings: OfferingSummary[];
   initialAssessments: AssessmentSummary[];
   initialQuestions: QuestionSummary[];
 }) {
@@ -103,9 +103,11 @@ export function AssessmentsClient({
   const canCreate = viewer.permissions.has('assessments.create');
   const canEdit = viewer.permissions.has('assessments.edit');
   const canGrade = viewer.permissions.has('grades.edit');
-  const hasClasses = initialClasses.length > 0;
+  const hasOfferings = initialOfferings.length > 0;
 
-  const [classId, setClassId] = React.useState(initialClasses[0]?.id ?? '');
+  const [offeringId, setOfferingId] = React.useState(
+    initialOfferings[0]?.id ?? '',
+  );
   const [assessments, setAssessments] = React.useState(initialAssessments);
   const [selectedId, setSelectedId] = React.useState(
     initialAssessments[0]?.id ?? '',
@@ -134,17 +136,26 @@ export function AssessmentsClient({
 
   const selected =
     assessments.find((assessment) => assessment.id === selectedId) ?? null;
-  const selectedClass =
-    initialClasses.find((cls) => cls.id === classId) ?? null;
+  const selectedOffering =
+    initialOfferings.find((offering) => offering.id === offeringId) ?? null;
+  // Read inside the detail loader without making the offerings a dependency of
+  // it — the list is stable for the life of the page.
+  const offeringsRef = React.useRef(initialOfferings);
+  offeringsRef.current = initialOfferings;
   const visibleAssessments = React.useMemo(() => {
     const needle = query.trim().toLowerCase();
     return assessments.filter((assessment) => {
-      const matchesClass = !classId || assessment.classId === classId;
+      // The server already scoped the list to the selected offering; this only
+      // narrows further when a legacy row for another anchor is still in state.
+      const matchesOffering =
+        !offeringId ||
+        !assessment.subjectOfferingId ||
+        assessment.subjectOfferingId === offeringId;
       const matchesQuery =
         !needle || assessment.name.toLowerCase().includes(needle);
-      return matchesClass && matchesQuery;
+      return matchesOffering && matchesQuery;
     });
-  }, [assessments, classId, query]);
+  }, [assessments, offeringId, query]);
 
   const loadAssessmentDetail = React.useCallback(
     async (assessment: AssessmentSummary | null) => {
@@ -156,19 +167,26 @@ export function AssessmentsClient({
       setLoadingDetail(true);
       setError(null);
       try {
-        const courseId =
-          assessment.class?.course?.id ??
-          initialClasses.find((cls) => cls.id === assessment.classId)?.course
-            ?.id;
+        // The bank follows the assessment's own anchor: a structured one draws
+        // from its offering's SUBJECT bank, a legacy one from its course's.
+        const curriculumSubjectId = assessment.subjectOfferingId
+          ? (offeringsRef.current.find(
+              (offering) => offering.id === assessment.subjectOfferingId,
+            )?.curriculumSubjectId ?? null)
+          : null;
+        const bankQuery = curriculumSubjectId
+          ? new URLSearchParams({ curriculumSubjectId, limit: '100' })
+          : !assessment.subjectOfferingId && assessment.class?.course?.id
+            ? new URLSearchParams({
+                courseId: assessment.class.course.id,
+                limit: '100',
+              })
+            : null;
         const [paperRes, submissionsRes, bankRes] = await Promise.all([
           fetch(academicsApi(`assessments/${assessment.id}/questions`)),
           fetch(academicsApi(`assessments/${assessment.id}/submissions`)),
-          courseId
-            ? fetch(
-                academicsApi(
-                  `questions?${new URLSearchParams({ courseId, limit: '100' })}`,
-                ),
-              )
+          bankQuery
+            ? fetch(academicsApi(`questions?${bankQuery}`))
             : Promise.resolve(null),
         ]);
         if (!paperRes.ok) throw new Error(await readError(paperRes));
@@ -184,6 +202,9 @@ export function AssessmentsClient({
             ((await bankRes.json()) as QuestionSummary[] | null) ?? [];
           setBank(nextBank);
           setQuestionId(nextBank[0]?.id ?? '');
+        } else if (!bankQuery) {
+          setBank([]);
+          setQuestionId('');
         }
       } catch (err) {
         setError(
@@ -193,30 +214,33 @@ export function AssessmentsClient({
         setLoadingDetail(false);
       }
     },
-    [initialClasses, live],
+    [live],
   );
 
   React.useEffect(() => {
     void loadAssessmentDetail(selected);
   }, [selected, loadAssessmentDetail]);
 
-  // Live mode: the assessment list is the selected class's COMPLETE set,
-  // refetched from the server whenever the class changes — so it can never hide
-  // a class's assessments the way a client-side filter over one capped page of
-  // ALL classes would once the tenant has more than a page of them.
+  // Live mode: the assessment list is the selected offering's COMPLETE set,
+  // refetched from the server whenever the offering changes — so it can never
+  // hide a subject's assessments the way a client-side filter over one capped
+  // page of ALL offerings would once the tenant has more than a page of them.
   const didMountRef = React.useRef(false);
   React.useEffect(() => {
     if (!didMountRef.current) {
       didMountRef.current = true;
       return;
     }
-    if (!live || !classId) return;
+    if (!live || !offeringId) return;
     let cancelled = false;
     void (async () => {
       try {
         const res = await fetch(
           academicsApi(
-            `assessments?${new URLSearchParams({ classId, limit: '100' })}`,
+            `assessments?${new URLSearchParams({
+              subjectOfferingId: offeringId,
+              limit: '100',
+            })}`,
           ),
         );
         if (!res.ok) throw new Error(await readError(res));
@@ -239,7 +263,7 @@ export function AssessmentsClient({
     return () => {
       cancelled = true;
     };
-  }, [classId, live]);
+  }, [offeringId, live]);
 
   function newAssessment() {
     setSelectedId('');
@@ -248,7 +272,7 @@ export function AssessmentsClient({
   }
 
   async function createAssessment() {
-    if (!classId || !draft.name.trim() || !live || !canCreate) return;
+    if (!offeringId || !draft.name.trim() || !live || !canCreate) return;
     setBusy(true);
     setError(null);
     try {
@@ -256,7 +280,9 @@ export function AssessmentsClient({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          classId,
+          // New assessments key on the offering; the API copies the year and
+          // term off it, so neither is sent here.
+          subjectOfferingId: offeringId,
           name: draft.name.trim(),
           type: draft.type,
           maxPoints: Number(draft.maxPoints || 0),
@@ -391,19 +417,19 @@ export function AssessmentsClient({
         title="Assessments"
         meta={[
           {
-            key: 'class',
-            label: selectedClass
-              ? classLabel(selectedClass)
-              : hasClasses
-                ? 'All classes'
-                : 'No assigned classes',
+            key: 'offering',
+            label: selectedOffering
+              ? offeringLabel(selectedOffering)
+              : hasOfferings
+                ? 'All subjects'
+                : 'No assigned subjects',
             emphasis: true,
           },
           { key: 'count', label: `${visibleAssessments.length} assessments` },
           { key: 'manual', label: `${pendingManual} manual reviews` },
         ]}
         actions={
-          canCreate && hasClasses ? (
+          canCreate && hasOfferings ? (
             <Button size="sm" onClick={newAssessment}>
               <Plus /> New assessment
             </Button>
@@ -411,11 +437,11 @@ export function AssessmentsClient({
         }
       />
 
-      {live && !hasClasses ? (
+      {live && !hasOfferings ? (
         <NoticeBanner
           tone="info"
-          title="No assigned classes"
-          description="Only classes from your active teaching assignments are available here."
+          title="No assigned subjects"
+          description="Only subjects from your active teaching assignments are available here."
         />
       ) : null}
       {error ? (
@@ -429,25 +455,26 @@ export function AssessmentsClient({
 
       <div className="mb-4 mt-4 flex flex-wrap gap-3">
         <div className="grid min-w-0 basis-64 flex-1 gap-2">
-          <Label htmlFor="assessment-class">Class</Label>
+          <Label htmlFor="assessment-offering">Subject</Label>
           <Select
-            value={classId}
+            value={offeringId}
             onValueChange={(value) => {
-              setClassId(value);
+              setOfferingId(value);
               setSelectedId(
-                assessments.find((assessment) => assessment.classId === value)
-                  ?.id ?? '',
+                assessments.find(
+                  (assessment) => assessment.subjectOfferingId === value,
+                )?.id ?? '',
               );
             }}
-            disabled={!hasClasses}
+            disabled={!hasOfferings}
           >
-            <SelectTrigger id="assessment-class" aria-label="Select class">
-              <SelectValue placeholder="Select class" />
+            <SelectTrigger id="assessment-offering" aria-label="Select subject">
+              <SelectValue placeholder="Select subject" />
             </SelectTrigger>
             <SelectContent>
-              {initialClasses.map((cls) => (
-                <SelectItem key={cls.id} value={cls.id}>
-                  {classLabel(cls)}
+              {initialOfferings.map((offering) => (
+                <SelectItem key={offering.id} value={offering.id}>
+                  {offeringLabel(offering)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -480,11 +507,11 @@ export function AssessmentsClient({
             {visibleAssessments.length === 0 ? (
               <EmptyState
                 compact
-                title={hasClasses ? 'No assessments' : 'No assigned classes'}
+                title={hasOfferings ? 'No assessments' : 'No assigned subjects'}
                 description={
-                  hasClasses
-                    ? 'Create an assessment for the selected class.'
-                    : 'Assessments appear after a class is assigned to you.'
+                  hasOfferings
+                    ? 'Create an assessment for the selected subject.'
+                    : 'Assessments appear after a subject is assigned to you.'
                 }
               />
             ) : (
@@ -646,7 +673,9 @@ export function AssessmentsClient({
                 <div className="flex justify-end">
                   <Button
                     onClick={() => void createAssessment()}
-                    disabled={!live || busy || !classId || !draft.name.trim()}
+                    disabled={
+                      !live || busy || !offeringId || !draft.name.trim()
+                    }
                   >
                     <FilePlus2 /> Create assessment
                   </Button>

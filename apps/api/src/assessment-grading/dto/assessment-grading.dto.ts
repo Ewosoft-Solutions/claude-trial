@@ -155,12 +155,24 @@ export class UpdateGradingSystemDto {
 }
 
 export class CreateAssessmentDto {
-  @ApiProperty({
-    description: 'Class ID',
+  @ApiPropertyOptional({
+    description:
+      'The structured anchor (section × subject × year/term). Preferred — ' +
+      'classId is the retiring legacy path and one of the two is required.',
+  })
+  @IsOptional()
+  @IsString()
+  subjectOfferingId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'DEPRECATED legacy path — the labelled-bag Class. Supply this OR ' +
+      'subjectOfferingId; new callers should use the offering.',
     example: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
   })
+  @IsOptional()
   @IsString()
-  classId: string;
+  classId?: string;
 
   @ApiProperty({
     description: 'Assessment name',
@@ -353,12 +365,22 @@ export class UpdateAssessmentDto {
 }
 
 export class CreateGradeDto {
-  @ApiProperty({
-    description: 'Enrollment ID (student in class)',
+  @ApiPropertyOptional({
+    description:
+      'The student being graded. Preferred — a grade belongs to the child, ' +
+      'not to a membership row. Supply this OR enrollmentId.',
+  })
+  @IsOptional()
+  @IsString()
+  studentId?: string;
+
+  @ApiPropertyOptional({
+    description: 'DEPRECATED legacy path — enrollment ID (student in class).',
     example: 'e5f6a7b8-c9d0-4123-9abc-123456789012',
   })
+  @IsOptional()
   @IsString()
-  enrollmentId: string;
+  enrollmentId?: string;
 
   @ApiProperty({
     description: 'Assessment ID',
@@ -532,7 +554,20 @@ export class ListAssessmentsDto extends PaginationDto {
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by classId',
+    description:
+      'Filter by subject offering (section × subject × year/term). Preferred; ' +
+      'takes precedence over classId when both are supplied.',
+    example: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
+  })
+  @IsOptional()
+  @IsString()
+  subjectOfferingId?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'DEPRECATED legacy filter — the labelled-bag Class. Prefer ' +
+      'subjectOfferingId. With neither, the list is narrowed to everything ' +
+      'the caller teaches under EITHER anchor.',
     example: 'a1b2c3d4-e5f6-4789-9abc-def012345678',
   })
   @IsOptional()

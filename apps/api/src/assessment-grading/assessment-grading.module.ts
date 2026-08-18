@@ -24,6 +24,10 @@ import { AssessmentTakingController } from './controllers/assessment-taking.cont
     QuestionBankService,
     AssessmentTakingService,
   ],
-  exports: [AssessmentGradingService, QuestionBankService, AssessmentTakingService],
+  exports: [
+    AssessmentGradingService,
+    QuestionBankService,
+    AssessmentTakingService,
+  ],
 })
 export class AssessmentGradingModule {}

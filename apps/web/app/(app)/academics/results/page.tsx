@@ -2,14 +2,17 @@
  * WB4 · Results workbench (ADR-04) — configure a result cycle, capture component
  * scores, moderate, publish an immutable snapshot (maker-checker) with report-
  * card + broadsheet artifacts, amend by supersession, and gate visibility with
- * audited financial holds. Reads gated `academics.results.view`; entry needs
+ * audited financial holds. Scores can also be imported from a spreadsheet, a
+ * cycle can carry an affective/psychomotor rubric, and a student's cumulative
+ * transcript reads from published snapshots only (its own route). Reads gated
+ * `academics.results.view`; entry needs
  * `.enter`, configuration/publish-request `.manage`, publish/amend approval
  * `.approve`, holds `.financial_hold` — all enforced server-side.
  */
 import { getSession } from '@/lib/session';
 import { serverApiGet } from '@/lib/server-api';
 import { PermissionDeniedState } from '@workspace/ui/custom/states/page-states';
-import { PageTitle } from '@workspace/ui/custom/shell/page-title';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
   ResultsWorkbench,
   type CampusOption,
@@ -36,12 +39,12 @@ export default async function ResultsPage() {
   const canView = permissions.includes('academics.results.view');
   if (!canView) {
     return (
-      <div className="p-6">
+      <ShellMain>
         <PermissionDeniedState
           title="You don't have access to results"
           description="Ask an administrator for the “View results” permission."
         />
-      </div>
+      </ShellMain>
     );
   }
 
@@ -76,30 +79,19 @@ export default async function ResultsPage() {
   const termsByYear = Object.fromEntries(termEntries);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col gap-6 p-4 sm:p-6">
-      <header className="flex flex-col gap-1">
-        <PageTitle>Results</PageTitle>
-        <p className="text-sm text-muted-foreground">
-          Run a term’s results end to end — configure, enter scores, validate,
-          moderate, then a second approver publishes an immutable, reproducible
-          snapshot. Corrections are amendments, never overwrites.
-        </p>
-      </header>
-
-      <ResultsWorkbench
-        canManage={permissions.includes('academics.results.manage')}
-        canEnter={permissions.includes('academics.results.enter')}
-        canApprove={permissions.includes('academics.results.approve')}
-        canHold={permissions.includes('academics.results.financial_hold')}
-        cycles={toArray<ResultCycle>(cycles)}
-        years={yearList}
-        termsByYear={termsByYear}
-        yearLevels={toArray<YearLevelOption>(yearLevels)}
-        sections={toArray<SectionOption>(sections)}
-        campuses={toArray<CampusOption>(campuses)}
-        gradingSystems={toArray<GradingSystemOption>(gradingSystems)}
-        remarkSets={toArray<RemarkRuleSetOption>(remarkSets)}
-      />
-    </div>
+    <ResultsWorkbench
+      canManage={permissions.includes('academics.results.manage')}
+      canEnter={permissions.includes('academics.results.enter')}
+      canApprove={permissions.includes('academics.results.approve')}
+      canHold={permissions.includes('academics.results.financial_hold')}
+      cycles={toArray<ResultCycle>(cycles)}
+      years={yearList}
+      termsByYear={termsByYear}
+      yearLevels={toArray<YearLevelOption>(yearLevels)}
+      sections={toArray<SectionOption>(sections)}
+      campuses={toArray<CampusOption>(campuses)}
+      gradingSystems={toArray<GradingSystemOption>(gradingSystems)}
+      remarkSets={toArray<RemarkRuleSetOption>(remarkSets)}
+    />
   );
 }

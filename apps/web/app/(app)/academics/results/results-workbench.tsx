@@ -33,6 +33,16 @@ import {
   TabsList,
   TabsTrigger,
 } from '@workspace/ui/components/tabs';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
+import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
@@ -42,6 +52,7 @@ import { ConfigPanel } from './config-panel';
 import { EntryGrid } from './entry-grid';
 import { PublicationsPanel } from './publications-panel';
 import { FinancialHoldsPanel } from './financial-holds-panel';
+import { TraitsPanel } from './traits-panel';
 
 export interface ResultCycle {
   id: string;
@@ -143,6 +154,7 @@ export function ResultsWorkbench(props: {
   const [selectedId, setSelectedId] = React.useState<string>('');
   const [detail, setDetail] = React.useState<CycleDetail | null>(null);
   const [busy, setBusy] = React.useState(false);
+  const [createOpen, setCreateOpen] = React.useState(false);
 
   // Create form
   const [name, setName] = React.useState('');
@@ -183,6 +195,7 @@ export function ResultsWorkbench(props: {
       setCycleList((prev) => [created, ...prev]);
       setSelectedId(created.id);
       setName('');
+      setCreateOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Could not create cycle');
     } finally {
@@ -205,20 +218,30 @@ export function ResultsWorkbench(props: {
   const status = detail?.cycle.status;
 
   return (
-    <div className="flex flex-col gap-6">
-      {props.canManage && (
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Plus className="size-4" aria-hidden /> New result cycle
-            </CardTitle>
-            <CardDescription>
+    <ShellMain>
+      <PageHeader
+        title="Results"
+        description="Run a term’s results end to end — configure, enter scores, validate, moderate, then a second approver publishes an immutable, reproducible snapshot. Corrections are amendments, never overwrites."
+        actions={
+          props.canManage ? (
+            <Button size="sm" onClick={() => setCreateOpen(true)}>
+              <Plus aria-hidden /> New cycle
+            </Button>
+          ) : undefined
+        }
+      />
+
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>New result cycle</DialogTitle>
+            <DialogDescription>
               A cycle covers a term’s results for the class sections you add to
               it.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
               <Label htmlFor="rc-name">Name</Label>
               <Input
                 id="rc-name"
@@ -265,14 +288,14 @@ export function ResultsWorkbench(props: {
               options={props.campuses}
               placeholder="Whole school"
             />
-            <div className="flex items-end">
-              <Button onClick={createCycle} disabled={busy || !canCreate}>
-                Create cycle
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+          </div>
+          <DialogFooter>
+            <Button onClick={createCycle} disabled={busy || !canCreate}>
+              Create cycle
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card>
         <CardHeader>
@@ -289,7 +312,7 @@ export function ResultsWorkbench(props: {
               title="No result cycles yet"
               description={
                 props.canManage
-                  ? 'Create a cycle above to start a term’s results.'
+                  ? 'Use “New cycle” to start a term’s results.'
                   : 'A registrar will create the result cycles.'
               }
             />
@@ -337,6 +360,7 @@ export function ResultsWorkbench(props: {
               <TabsList className="mb-4 flex flex-wrap">
                 <TabsTrigger value="configure">Configure</TabsTrigger>
                 <TabsTrigger value="enter">Enter scores</TabsTrigger>
+                <TabsTrigger value="behaviour">Behaviour</TabsTrigger>
                 <TabsTrigger value="publish">Publish</TabsTrigger>
                 {props.canHold && (
                   <TabsTrigger value="holds">Financial holds</TabsTrigger>
@@ -363,6 +387,20 @@ export function ResultsWorkbench(props: {
                 />
               </TabsContent>
 
+              <TabsContent value="behaviour">
+                <TraitsPanel
+                  // Keyed on the cycle so switching cycles REMOUNTS the panel:
+                  // its section/grid/ratings state belongs to one cycle, and
+                  // carrying it across would re-fetch the old section against
+                  // the new cycle (a spurious error over a stale grid).
+                  key={detail.cycle.id}
+                  cycleId={detail.cycle.id}
+                  status={detail.cycle.status}
+                  canManage={props.canManage}
+                  canEnter={props.canEnter}
+                />
+              </TabsContent>
+
               <TabsContent value="publish">
                 <PublicationsPanel
                   cycle={detail.cycle}
@@ -382,7 +420,7 @@ export function ResultsWorkbench(props: {
           </CardContent>
         </Card>
       )}
-    </div>
+    </ShellMain>
   );
 }
 

@@ -1,25 +1,31 @@
-import { type CourseSummary, type QuestionSummary } from '@/lib/academics';
+import { type QuestionSummary, type SubjectSummary } from '@/lib/academics';
 import { serverApiGet } from '@/lib/server-api';
 import { QuestionBankClient } from './question-bank-client';
 
 export default async function QuestionBankPage() {
-  const courses = await serverApiGet<CourseSummary[]>('/courses?status=active');
-  const sourceCourses = courses ?? [];
-  const firstCourseId = sourceCourses[0]?.id;
+  // The bank belongs to a CURRICULUM SUBJECT, not the legacy course: it
+  // outlives any one course, class or section, which is the whole point of a
+  // bank. `/questions/subjects` is already narrowed to the caller's teaching
+  // assignments and answers with `questions.view`, so a teacher does not need
+  // the registrar's structure permission just to fill this picker.
+  const subjects =
+    (await serverApiGet<SubjectSummary[]>('/questions/subjects')) ?? [];
+  const firstSubjectId = subjects[0]?.id;
 
-  // Questions are per-course (a bounded set), so a generous cap covers the whole
-  // bank and the client's in-memory search is complete — unlike assessments,
-  // which span every class and are scoped per-class at the DB instead.
-  const questions = firstCourseId
+  // Questions are per-subject (a bounded set), so a generous cap covers the
+  // whole bank and the client's in-memory search is complete — unlike
+  // assessments, which span every offering and are scoped per-offering at the
+  // DB instead.
+  const questions = firstSubjectId
     ? await serverApiGet<QuestionSummary[]>(
-        `/questions?courseId=${firstCourseId}&limit=100`,
+        `/questions?curriculumSubjectId=${firstSubjectId}&limit=100`,
       )
     : null;
 
   return (
     <QuestionBankClient
       live
-      initialCourses={sourceCourses}
+      initialSubjects={subjects}
       initialQuestions={questions ?? []}
     />
   );

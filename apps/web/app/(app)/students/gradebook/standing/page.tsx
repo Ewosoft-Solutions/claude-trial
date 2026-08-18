@@ -1,0 +1,185 @@
+/**
+ * Gradebook standing — THE single live view of where students stand, computed
+ * from the CURRENT `Grade` rows, so it moves as teachers mark.
+ *
+ * Merged from the former Report cards + Gradebook standing pages: both read the
+ * same two endpoints (`/assessments` then `/grades/assessment/:id`) and averaged
+ * the same numbers, differing only in the columns they chose to show. This view
+ * carries all of them — letter grade, GPA and standing band.
+ *
+ * It is deliberately NOT the transcript of record: an official transcript is
+ * assembled from published, checksum-addressed result snapshots and lives at
+ * `/academics/transcripts`. That is the "one fact, one owner" rule — this page
+ * explains where a class stands today; that one is the document a family can
+ * hold the school to.
+ */
+import { Download, ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+
+import { serverApiGet } from '@/lib/server-api';
+import { Button } from '@workspace/ui/components/button';
+import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
+
+import {
+  StandingClient,
+  type Standing,
+  type StandingRow,
+} from './standing-client';
+
+type Paginated<T> = { data?: T[] };
+
+/** Labels come resolved from whichever anchor the assessment carries. */
+interface ApiAssessment {
+  id: string;
+  subjectLabel?: string | null;
+  classLabel?: string | null;
+}
+
+/**
+ * The API resolves the student from whichever anchor the grade carries, so it
+ * arrives flat. Reaching it through `enrollment` (as this did) lost every grade
+ * on a structured assessment, where the enrolment is null.
+ */
+interface ApiGrade {
+  studentId?: string | null;
+  percentage?: number | string | null;
+  student?: {
+    id?: string | null;
+    studentNumber?: string | null;
+    firstName?: string | null;
+    lastName?: string | null;
+    email?: string | null;
+  } | null;
+}
+
+function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
+  if (Array.isArray(payload)) return payload;
+  return payload?.data ?? [];
+}
+
+function numeric(value: number | string | null | undefined): number | null {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+function average(values: number[]): number {
+  return values.length
+    ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+    : 0;
+}
+
+function standingFor(averageScore: number): Standing {
+  if (averageScore >= 70) return 'honors';
+  if (averageScore >= 50) return 'good';
+  return 'watch';
+}
+
+function studentName(grade: ApiGrade): string {
+  const student = grade.student;
+  return (
+    [student?.firstName, student?.lastName].filter(Boolean).join(' ') ||
+    student?.email ||
+    'Unknown student'
+  );
+}
+
+function classLabel(assessment: ApiAssessment): string {
+  return assessment.classLabel || assessment.subjectLabel || 'Unassigned';
+}
+
+export default async function TranscriptsPage() {
+  const assessmentData = await serverApiGet<
+    ApiAssessment[] | Paginated<ApiAssessment>
+  >('/assessments?limit=100');
+  const assessments = asArray(assessmentData);
+  const gradeGroups = await Promise.all(
+    assessments.slice(0, 20).map(async (assessment) => ({
+      assessment,
+      grades:
+        (await serverApiGet<ApiGrade[]>(
+          `/grades/assessment/${assessment.id}`,
+        )) ?? [],
+    })),
+  );
+
+  const grouped = new Map<
+    string,
+    { id: string; name: string; className: string; scores: number[] }
+  >();
+  for (const group of gradeGroups) {
+    for (const item of group.grades) {
+      const score = numeric(item.percentage);
+      if (score === null) continue;
+      // Group on the STUDENT: keying on the enrolment split one child's record
+      // across their enrolments, and left structured grades with no key at all.
+      const key =
+        item.student?.id ??
+        item.studentId ??
+        item.student?.studentNumber ??
+        studentName(item);
+      const current = grouped.get(key) ?? {
+        id: item.student?.studentNumber ?? key,
+        name: studentName(item),
+        className: classLabel(group.assessment),
+        scores: [],
+      };
+      current.scores.push(score);
+      grouped.set(key, current);
+    }
+  }
+
+  const rows: StandingRow[] = Array.from(grouped.entries()).map(
+    ([key, item]) => {
+      const avg = average(item.scores);
+      return {
+        key,
+        id: item.id,
+        name: item.name,
+        className: item.className,
+        average: avg,
+        gpa: Math.round((avg / 100) * 400) / 100,
+        records: item.scores.length,
+        standing: standingFor(avg),
+      };
+    },
+  );
+
+  const meta: PageHeaderMeta[] = [
+    { key: 'source', label: 'live, computed from grades', emphasis: true },
+    { key: 'scope', label: `${rows.length} students` },
+  ];
+
+  return (
+    <ShellMain>
+      <div className="flex flex-col gap-5">
+        <PageHeader
+          title="Gradebook standing"
+          meta={meta}
+          actions={
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" asChild>
+                <Link href="/academics/results">
+                  <ExternalLink /> Official transcripts
+                </Link>
+              </Button>
+              <Button variant="outline" size="sm">
+                <Download /> Export
+              </Button>
+            </div>
+          }
+        />
+
+        <p className="text-sm text-muted-foreground">
+          Averages here are computed from the live gradebook and move as
+          teachers mark. An <strong>official transcript</strong> is assembled
+          from published result snapshots — issue one from the results
+          workbench.
+        </p>
+
+        <StandingClient rows={rows} />
+      </div>
+    </ShellMain>
+  );
+}

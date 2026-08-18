@@ -16,6 +16,7 @@
     "db:studio": "turbo run db:studio",
     "db:verify": "pnpm --filter @workspace/database db:verify",
     "check:privileged-db": "pnpm --filter api check:privileged-db",
+    "check:legacy-readers": "pnpm --filter api check:legacy-readers",
     "dev": "turbo run dev",
     "dev:tunnel": "cloudflared tunnel run swe-dev",
     "build": "turbo run build",

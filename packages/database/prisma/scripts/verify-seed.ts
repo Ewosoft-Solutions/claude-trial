@@ -244,8 +244,17 @@ async function verifySeedData() {
         architectProfile.userTenantRole?.role.name === 'Architect';
     }
 
+    // The Architect is bootstrapped with NO password on purpose: a clearance-10
+    // account whose safest standing credential is one that does not exist,
+    // claimed once via `bootstrap:architect-token` (see seed.ts). Asserting a
+    // passwordHash therefore failed on a CORRECTLY seeded environment — and,
+    // because `undefined !== null` is true, it quietly PASSED when the architect
+    // user was missing altogether. What has to exist is the platform tenant, the
+    // user, and an active profile carrying the Architect role.
     const bootstrapPass =
-      platformTenant !== null && architectUser?.passwordHash !== null;
+      platformTenant !== null &&
+      architectUser !== null &&
+      architectProfileValid;
 
     results.push({
       name: 'Platform Bootstrap',
@@ -256,9 +265,6 @@ async function verifySeedData() {
         : [
             platformTenant ? null : 'Missing platform tenant',
             architectUser ? null : 'Missing architect user',
-            architectUser && !architectUser.passwordHash
-              ? 'Architect has no password'
-              : null,
             architectProfileValid
               ? null
               : 'Missing/invalid architect profile or role assignment',
@@ -266,7 +272,7 @@ async function verifySeedData() {
             .filter(Boolean)
             .join(', '),
       message: bootstrapPass
-        ? `✅ Platform bootstrap: ${architectUser?.email} ready to log in`
+        ? `✅ Platform bootstrap: ${architectUser?.email} ready to claim`
         : `❌ Platform bootstrap incomplete`,
     });
 

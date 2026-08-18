@@ -4,7 +4,8 @@
  * WB4 · Entry grid — pick a class section + subject, then key in each student's
  * component scores (or mark them Absent / Exempt for the subject). Absent ≠ zero:
  * an absent/exempt student stores no score. Entry is only allowed while the cycle
- * is open. A best-effort "seed from gradebook" fills empty cells.
+ * is open. A best-effort "seed from gradebook" fills empty cells, and the WB4-2
+ * import panel below captures the same scores from a spreadsheet.
  */
 import * as React from 'react';
 import { toast } from 'sonner';
@@ -23,6 +24,7 @@ import {
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 
 import { apiGet, apiPost } from './results-api';
+import { ImportPanel } from './import-panel';
 
 interface Component {
   id: string;
@@ -373,6 +375,17 @@ export function EntryGrid({
           Choose a section and subject to enter scores.
         </p>
       )}
+
+      <ImportPanel
+        cycleId={cycleId}
+        editable={editable}
+        canEnter={canEnter}
+        sections={sections}
+        offerings={detail?.offerings ?? []}
+        sectionId={sectionId}
+        offeringId={offeringId}
+        onImported={() => (sectionId ? loadSection(sectionId) : undefined)}
+      />
     </div>
   );
 }

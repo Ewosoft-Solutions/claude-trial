@@ -53,7 +53,9 @@ export class QuestionController {
 
   @Post()
   @RequirePermissions(['questions.create'])
-  @ApiOperation({ summary: 'Create a question in a course bank (teachers of the course)' })
+  @ApiOperation({
+    summary: 'Create a question in a course bank (teachers of the course)',
+  })
   async create(
     @Body() dto: CreateQuestionDto,
     @Request() req: AuthenticatedRequest,
@@ -67,7 +69,9 @@ export class QuestionController {
 
   @Get()
   @RequirePermissions(['questions.view'])
-  @ApiOperation({ summary: 'List question bank entries (filter by course/style/difficulty)' })
+  @ApiOperation({
+    summary: 'List question bank entries (filter by subject/style/difficulty)',
+  })
   async list(
     @Query() query: ListQuestionsDto,
     @Request() req: AuthenticatedRequest,
@@ -79,9 +83,27 @@ export class QuestionController {
     );
   }
 
+  // Declared before ':id' so the literal path is not captured as an id.
+  @Get('subjects')
+  @RequirePermissions(['questions.view'])
+  @ApiOperation({
+    summary: 'Curriculum subjects the caller may author bank entries for',
+    description:
+      'The question-bank picker. Narrowed to the actor’s active teaching ' +
+      'assignments unless they hold the manage-all override.',
+  })
+  async subjects(@Request() req: AuthenticatedRequest) {
+    return this.questionBank.listTeachableSubjects(
+      req.user.tenantId,
+      this.actorFrom(req),
+    );
+  }
+
   @Get(':id')
   @RequirePermissions(['questions.view'])
-  @ApiOperation({ summary: 'Get a question (with answer/solution — teacher view)' })
+  @ApiOperation({
+    summary: 'Get a question (with answer/solution — teacher view)',
+  })
   async get(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.questionBank.getQuestion(
       req.user.tenantId,
@@ -108,7 +130,9 @@ export class QuestionController {
 
   @Delete(':id')
   @RequirePermissions(['questions.delete'])
-  @ApiOperation({ summary: 'Delete a question (retires it if already used on a paper)' })
+  @ApiOperation({
+    summary: 'Delete a question (retires it if already used on a paper)',
+  })
   async remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.questionBank.deleteQuestion(
       req.user.tenantId,

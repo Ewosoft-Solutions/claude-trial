@@ -159,44 +159,50 @@ export class SearchService {
     limit: number,
     classIds?: string[],
   ): Promise<SearchResult[]> {
-    const rows = await this.tenantDb.client.class.findMany({
+    // Searches the STRUCTURED ClassSection, not the retiring labelled-bag
+    // `Class`. `displayLabel` is composed from the real dimensions (year level ·
+    // stream · section), so a search for "SS1 Science" now matches the class a
+    // school actually runs rather than a free-typed string that may or may not
+    // have been kept up to date.
+    const rows = await this.tenantDb.client.classSection.findMany({
       where: {
         tenantId,
         ...(classIds ? { id: { in: classIds } } : {}),
         OR: [
+          { displayLabel: { contains: query, mode: 'insensitive' } },
           { name: { contains: query, mode: 'insensitive' } },
-          { section: { contains: query, mode: 'insensitive' } },
-          { room: { contains: query, mode: 'insensitive' } },
-          { course: { name: { contains: query, mode: 'insensitive' } } },
-          { course: { code: { contains: query, mode: 'insensitive' } } },
+          { yearLevel: { name: { contains: query, mode: 'insensitive' } } },
+          { yearLevel: { code: { contains: query, mode: 'insensitive' } } },
+          { stream: { name: { contains: query, mode: 'insensitive' } } },
         ],
       },
       take: limit,
-      orderBy: [{ status: 'asc' }, { name: 'asc' }],
+      orderBy: [{ status: 'asc' }, { displayLabel: 'asc' }],
       select: {
         id: true,
         name: true,
-        section: true,
-        room: true,
+        displayLabel: true,
+        capacity: true,
         status: true,
-        course: { select: { name: true, code: true } },
-        term: { select: { name: true } },
+        yearLevel: { select: { name: true, code: true } },
+        stream: { select: { name: true } },
       },
     });
 
     return rows.map((item) => {
-      const generatedTitle = [item.course.name, item.section]
-        .filter(Boolean)
-        .join(' ');
       return {
         id: item.id,
         kind: 'class' as const,
-        title: item.name || generatedTitle || item.course.code,
-        description: [item.course.code, item.term.name, item.room]
+        title: item.displayLabel || item.name,
+        description: [
+          item.yearLevel?.name,
+          item.stream?.name,
+          `${item.capacity} places`,
+        ]
           .filter(Boolean)
           .join(' · '),
         meta: item.status,
-        href: `/classes/timetable?class=${encodeURIComponent(item.id)}`,
+        href: `/academics/structure?section=${encodeURIComponent(item.id)}`,
       };
     });
   }

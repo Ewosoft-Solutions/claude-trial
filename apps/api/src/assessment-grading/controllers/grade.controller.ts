@@ -132,7 +132,14 @@ export class GradeController {
   @Post('student/:studentId/report-card')
   @RequirePermissions(['grades.view'])
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Generate report card (simplified)' })
+  @ApiOperation({
+    summary: 'Generate report card (simplified)',
+    description:
+      "A student's marks grouped by SUBJECT — the assessment's subject " +
+      'offering, or its legacy class for rows not re-keyed yet — with per-term ' +
+      'and overall averages. Official published results live under ' +
+      '/academics/results.',
+  })
   async reportCard(
     @Param('studentId') studentId: string,
     @Body() body: { academicYearId?: string },

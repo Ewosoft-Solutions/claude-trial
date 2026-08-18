@@ -30,10 +30,28 @@
 // tenant_isolation policy explicitly so db:rls:check passes).
 // ============================================
 
+/// A lesson in the LIBRARY: authored once against a curriculum subject and
+/// reusable by every section that teaches it. What a particular class actually
+/// teaches is a `LessonInstance` pointing here — so a school with four arms
+/// authors once instead of four times, and the material's chunks + embeddings
+/// are computed once and shared.
 model Lesson {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
-  classId  String @map("class_id")
+
+  /// The library anchor: an F6 `curriculum.curriculum_subjects` row (soft ref,
+  /// validated in-service — the F6 tenanting convention). Nullable only while
+  /// legacy class-keyed lessons are being migrated.
+  curriculumSubjectId String? @map("curriculum_subject_id")
+  chapterId           String? @map("chapter_id")
+
+  /// DEPRECATED legacy pointer to the labelled-bag `Class` this lesson was
+  /// authored against before the library existed. Read-only; retired once the
+  /// backfill has moved every row onto `curriculumSubjectId`.
+  classId String? @map("class_id")
+
+  /// Tile art for the grid/list toggle students get over lessons.
+  thumbnailKey String? @map("thumbnail_key")
 
   title       String
   description String?
@@ -57,12 +75,16 @@ model Lesson {
 
   // Relations
   tenant    Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  class     Class            @relation(fields: [classId], references: [id], onDelete: Cascade)
+  class     Class?           @relation(fields: [classId], references: [id], onDelete: Cascade)
+  chapter   LessonChapter?   @relation(fields: [chapterId], references: [id], onDelete: SetNull)
   materials LessonMaterial[]
   chunks    MaterialChunk[]
+  instances LessonInstance[]
 
   @@index([tenantId])
   @@index([tenantId, classId])
+  @@index([tenantId, curriculumSubjectId])
+  @@index([tenantId, chapterId])
   @@index([tenantId, status])
   @@index([tenantId, reviewStatus])
   @@map("lessons")
@@ -136,5 +158,85 @@ model MaterialChunk {
   @@index([tenantId, lessonId])
   @@index([materialId, chunkIndex])
   @@map("material_chunks")
+  @@schema("learning")
+}
+
+/// A chapter groups the library's lessons under a curriculum subject — the unit
+/// a teacher and a student both think in ("Chapter 3: Fractions"). Assessments
+/// and assignments hang off the chapter in the reference systems we studied;
+/// that arrives with the evaluation slice.
+model LessonChapter {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  /// curriculum.curriculum_subjects(id) — soft ref, validated in-service.
+  curriculumSubjectId String @map("curriculum_subject_id")
+
+  title       String
+  description String?
+  /// Tile art, so a chapter list can render as a grid.
+  thumbnailKey String? @map("thumbnail_key")
+  order        Int     @default(0)
+  status       String  @default("active") // 'active' | 'archived'
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lessons Lesson[]
+
+  @@index([tenantId])
+  @@index([tenantId, curriculumSubjectId])
+  @@index([tenantId, status])
+  @@map("lesson_chapters")
+  @@schema("learning")
+}
+
+/// What a PARTICULAR class is taught: a library lesson instantiated against one
+/// `SubjectOffering` (section × subject × year/term). The instance is where
+/// per-class reality lives — when it is scheduled, whether this arm has covered
+/// it yet, and any local adaptation — while the lesson body, materials and
+/// embeddings stay shared in the library.
+///
+/// Deliberately NOT a copy of the lesson. Copying per section is what forces a
+/// teacher to re-author for every arm and re-embed the same PDF four times.
+model LessonInstance {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  lessonId String @map("lesson_id")
+  /// academic-structure.subject_offerings(id) — DB-level FK, no Prisma relation
+  /// (the WB2 convention keeps this module decoupled from that one).
+  subjectOfferingId String @map("subject_offering_id")
+
+  /// Per-class adaptation. Null means "use the library lesson's own value".
+  titleOverride String? @map("title_override")
+  /// This arm's own notes — what was emphasised, what to revisit.
+  notes String?
+
+  scheduledFor DateTime? @map("scheduled_for")
+  taughtAt     DateTime? @map("taught_at")
+
+  status String @default("planned") // 'planned' | 'taught' | 'skipped'
+  order  Int    @default(0)
+
+  createdBy String?  @map("created_by")
+  updatedBy String?  @map("updated_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lesson Lesson @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  /// One instance per (library lesson, offering) — instantiating twice is a
+  /// mistake, not a second copy.
+  @@unique([lessonId, subjectOfferingId])
+  @@index([tenantId])
+  @@index([tenantId, subjectOfferingId])
+  @@index([tenantId, status])
+  @@index([lessonId])
+  @@map("lesson_instances")
   @@schema("learning")
 }

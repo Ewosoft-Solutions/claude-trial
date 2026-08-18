@@ -35,6 +35,31 @@ import {
   GRADE_STATUSES,
 } from '../dto';
 
+/** One graded assessment as it appears on a report card. */
+export interface ReportCardAssessment {
+  assessmentId: string;
+  name: string;
+  type: string;
+  weight?: number;
+  maxPoints: number;
+  pointsEarned?: number;
+  percentage?: number;
+  letterGrade?: string;
+  gpaPoints?: number;
+}
+
+/** Prisma `Decimal | null` → a plain number, or undefined when unset. */
+function toNumber(value: unknown): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  const n = Number(value);
+  return Number.isNaN(n) ? undefined : n;
+}
+
+function average(values: number[]): number | undefined {
+  if (values.length === 0) return undefined;
+  return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
 @Injectable()
 export class AssessmentGradingService {
   constructor(
@@ -195,12 +220,60 @@ export class AssessmentGradingService {
       'Invalid assessment status',
     );
 
-    const cls = await this.client.class.findFirst({
-      where: { id: dto.classId, academicYear: { tenantId } },
-      include: { term: true, academicYear: true },
-    });
-    if (!cls) throw new BadRequestException('Class not found for tenant');
-    await this.access.assertCanManageClass(tenantId, actor, dto.classId);
+    // Two anchors during the migration: the structured SubjectOffering (what
+    // everything should key on) and the legacy Class. Exactly one is required,
+    // and the offering wins when both arrive.
+    if (!dto.subjectOfferingId && !dto.classId) {
+      throw new BadRequestException(
+        'An assessment needs a subject offering (or, for legacy callers, a class).',
+      );
+    }
+
+    let academicYearId: string;
+    let termId: string;
+
+    if (dto.subjectOfferingId) {
+      const offering = await this.client.subjectOffering.findFirst({
+        where: { id: dto.subjectOfferingId, tenantId },
+        select: {
+          id: true,
+          academicYearId: true,
+          termId: true,
+          classSectionId: true,
+        },
+      });
+      if (!offering) {
+        throw new BadRequestException('Subject offering not found for tenant');
+      }
+      // An offering may be year-long (no term); the legacy column is NOT NULL,
+      // so fall back to the year's current/first term rather than inventing one.
+      const term =
+        offering.termId ??
+        (
+          await this.client.term.findFirst({
+            where: { tenantId, academicYearId: offering.academicYearId },
+            orderBy: { order: 'asc' },
+            select: { id: true },
+          })
+        )?.id;
+      if (!term) {
+        throw new BadRequestException(
+          'That academic year has no terms yet, so an assessment cannot be dated.',
+        );
+      }
+      academicYearId = offering.academicYearId;
+      termId = term;
+      await this.access.assertCanManageOffering(tenantId, actor, offering.id);
+    } else {
+      const cls = await this.client.class.findFirst({
+        where: { id: dto.classId, academicYear: { tenantId } },
+        include: { term: true, academicYear: true },
+      });
+      if (!cls) throw new BadRequestException('Class not found for tenant');
+      await this.access.assertCanManageClass(tenantId, actor, dto.classId!);
+      academicYearId = cls.academicYearId;
+      termId = cls.termId;
+    }
 
     if (dto.gradingSystemId) {
       const gs = await this.client.gradingSystem.findFirst({
@@ -213,9 +286,10 @@ export class AssessmentGradingService {
 
     return this.client.assessment.create({
       data: {
-        classId: dto.classId,
-        academicYearId: cls.academicYearId,
-        termId: cls.termId,
+        subjectOfferingId: dto.subjectOfferingId ?? null,
+        classId: dto.classId ?? null,
+        academicYearId,
+        termId,
         name: dto.name,
         type: dto.type,
         maxPoints: dto.maxPoints as any,
@@ -233,6 +307,163 @@ export class AssessmentGradingService {
     });
   }
 
+  /**
+   * Name the subject and class an assessment belongs to, from whichever anchor
+   * it carries.
+   *
+   * Without this, a structured assessment reaches the UI with a null `class`
+   * and renders as "Unassigned" — the offering that actually names it is a
+   * soft reference, so nothing follows it automatically. Resolved for a whole
+   * page at once rather than per row.
+   */
+  private async describeAssessmentAnchors<
+    T extends {
+      id: string;
+      subjectOfferingId: string | null;
+      classId: string | null;
+      class?: { name: string | null; section: string; course?: unknown } | null;
+    },
+  >(tenantId: string, assessments: T[]) {
+    const offeringIds = Array.from(
+      new Set(
+        assessments
+          .map((a) => a.subjectOfferingId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const offerings =
+      offeringIds.length > 0
+        ? await this.client.subjectOffering.findMany({
+            where: { id: { in: offeringIds }, tenantId },
+            select: {
+              id: true,
+              subjectLabel: true,
+              classSection: { select: { displayLabel: true } },
+            },
+          })
+        : [];
+    const offeringById = new Map(offerings.map((o) => [o.id, o]));
+
+    return assessments.map((assessment) => {
+      const offering = assessment.subjectOfferingId
+        ? offeringById.get(assessment.subjectOfferingId)
+        : undefined;
+      const legacyClass = assessment.class as
+        | {
+            name: string | null;
+            section: string;
+            course?: { subject?: string | null; name?: string | null } | null;
+          }
+        | null
+        | undefined;
+
+      return {
+        ...assessment,
+        anchor: (assessment.subjectOfferingId ? 'offering' : 'class') as
+          | 'offering'
+          | 'class',
+        subjectLabel: assessment.subjectOfferingId
+          ? (offering?.subjectLabel ?? null)
+          : (legacyClass?.course?.subject ?? legacyClass?.course?.name ?? null),
+        classLabel: assessment.subjectOfferingId
+          ? (offering?.classSection?.displayLabel ?? null)
+          : [legacyClass?.name, legacyClass?.section]
+              .filter(Boolean)
+              .join(' ') || null,
+      };
+    });
+  }
+
+  /**
+   * The subject offerings this actor may author assessments for — the picker
+   * behind the assessments workbench.
+   *
+   * Served from here rather than pointing the workbench at
+   * `/academics/structure/offerings`, which requires `academics.structure.view`:
+   * a teacher holds `assessments.view`, not the registrar's structure
+   * permission, so that endpoint would 403 exactly the people who need the
+   * picker. Mirrors how the workbench's old class picker was already narrowed
+   * to the actor's teaching assignments.
+   */
+  async listTeachableOfferings(tenantId: string, actor: AcademicsActor) {
+    const offerings = await this.client.subjectOffering.findMany({
+      where: {
+        tenantId,
+        status: 'active',
+        ...(actor.canManageAll
+          ? {}
+          : {
+              id: {
+                in: await this.access.getTaughtOfferingIds(
+                  tenantId,
+                  actor.profileId,
+                ),
+              },
+            }),
+      },
+      select: {
+        id: true,
+        subjectLabel: true,
+        curriculumSubjectId: true,
+        academicYearId: true,
+        termId: true,
+        classSection: {
+          select: { id: true, displayLabel: true, campusId: true },
+        },
+      },
+      orderBy: [{ subjectLabel: 'asc' }],
+    });
+
+    // `displayLabel` is composed from year level + stream + arm and does NOT
+    // carry the campus, so a two-campus school has two sections reading exactly
+    // "SSS1 Science A". Picking a subject from a list of identical labels is a
+    // coin toss, so the campus is appended — but only where it actually
+    // disambiguates, to keep the common single-campus school uncluttered.
+    const campusIds = Array.from(
+      new Set(
+        offerings
+          .map((o) => o.classSection?.campusId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const campuses =
+      campusIds.length > 1
+        ? await this.client.campus.findMany({
+            where: { id: { in: campusIds }, tenantId },
+            select: { id: true, name: true },
+          })
+        : [];
+    const campusName = new Map(campuses.map((c) => [c.id, c.name]));
+
+    const labelCounts = new Map<string, Set<string>>();
+    for (const offering of offerings) {
+      const label = offering.classSection?.displayLabel;
+      if (!label || !offering.classSection) continue;
+      const seen = labelCounts.get(label) ?? new Set<string>();
+      seen.add(offering.classSection.campusId);
+      labelCounts.set(label, seen);
+    }
+
+    return offerings.map((offering) => {
+      const section = offering.classSection;
+      const label = section?.displayLabel ?? null;
+      const ambiguous = label ? (labelCounts.get(label)?.size ?? 0) > 1 : false;
+      const campus = section ? campusName.get(section.campusId) : undefined;
+
+      return {
+        id: offering.id,
+        subjectLabel: offering.subjectLabel,
+        // The bank an assessment on this offering draws from.
+        curriculumSubjectId: offering.curriculumSubjectId,
+        classLabel: ambiguous && campus ? `${label} · ${campus}` : label,
+        classSectionId: section?.id ?? null,
+        campusId: section?.campusId ?? null,
+        academicYearId: offering.academicYearId,
+        termId: offering.termId,
+      };
+    });
+  }
+
   async listAssessments(
     tenantId: string,
     actor: AcademicsActor,
@@ -246,7 +477,21 @@ export class AssessmentGradingService {
       academicYear: { tenantId },
     };
 
-    if (filters.classId) {
+    // Narrowing to one anchor is an explicit filter; narrowing to "what this
+    // teacher takes" has to ask BOTH questions, because the two anchors coexist.
+    // Asking only the class question — as this did — meant a teacher's list
+    // omitted every structured assessment, so the work they were assigned to
+    // simply was not there.
+    if (filters.subjectOfferingId) {
+      if (!actor.canManageAll) {
+        await this.access.assertCanManageOffering(
+          tenantId,
+          actor,
+          filters.subjectOfferingId,
+        );
+      }
+      where.subjectOfferingId = filters.subjectOfferingId;
+    } else if (filters.classId) {
       if (!actor.canManageAll) {
         await this.access.assertCanManageClass(
           tenantId,
@@ -256,9 +501,14 @@ export class AssessmentGradingService {
       }
       where.classId = filters.classId;
     } else if (!actor.canManageAll) {
-      where.classId = {
-        in: await this.access.getTaughtClassIds(tenantId, actor.profileId),
-      };
+      const [taughtOfferingIds, taughtClassIds] = await Promise.all([
+        this.access.getTaughtOfferingIds(tenantId, actor.profileId),
+        this.access.getTaughtClassIds(tenantId, actor.profileId),
+      ]);
+      where.OR = [
+        { subjectOfferingId: { in: taughtOfferingIds } },
+        { subjectOfferingId: null, classId: { in: taughtClassIds } },
+      ];
     }
     if (filters.status) {
       this.assertValue(
@@ -297,7 +547,7 @@ export class AssessmentGradingService {
     ]);
 
     return {
-      data,
+      data: await this.describeAssessmentAnchors(tenantId, data),
       pagination: {
         page,
         limit,
@@ -320,14 +570,11 @@ export class AssessmentGradingService {
       },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    if (!actor.canManageAll) {
-      await this.access.assertCanManageClass(
-        tenantId,
-        actor,
-        assessment.classId,
-      );
-    }
-    return assessment;
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
+    const [described] = await this.describeAssessmentAnchors(tenantId, [
+      assessment,
+    ]);
+    return described;
   }
 
   async updateAssessment(
@@ -348,7 +595,7 @@ export class AssessmentGradingService {
       where: { id, academicYear: { tenantId } },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
     if (dto.gradingSystemId) {
       const gs = await this.client.gradingSystem.findFirst({
@@ -382,10 +629,10 @@ export class AssessmentGradingService {
   async deleteAssessment(tenantId: string, actor: AcademicsActor, id: string) {
     const assessment = await this.client.assessment.findFirst({
       where: { id, academicYear: { tenantId } },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, subjectOfferingId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
     await this.client.assessment.delete({ where: { id } });
     return { success: true };
@@ -447,22 +694,47 @@ export class AssessmentGradingService {
     });
     if (!assessment)
       throw new BadRequestException('Assessment not found for tenant');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    // Access follows the assessment's OWN anchor. A structured assessment has
+    // no class, so asking the class-teacher question would refuse every teacher
+    // — which is exactly what happened until this branch existed.
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
-    // Validate enrollment belongs to same class/academic year
-    const enrollment = await this.client.enrollment.findFirst({
-      where: {
-        id: dto.enrollmentId,
-        classId: assessment.classId,
-        academicYearId: assessment.academicYearId,
-      },
-      include: { student: true },
-    });
-    if (!enrollment)
-      throw new BadRequestException('Enrollment not found for this assessment');
+    // Resolve who is being graded. `studentId` is the anchor a grade keeps;
+    // `enrollmentId` is the legacy path and is translated to a student here so
+    // both routes store the same thing.
+    if (!dto.studentId && !dto.enrollmentId) {
+      throw new BadRequestException(
+        'A grade needs a student (or, for legacy callers, an enrollment).',
+      );
+    }
+    let studentId = dto.studentId ?? null;
+    if (!studentId && dto.enrollmentId) {
+      const enrollment = await this.client.enrollment.findFirst({
+        where: {
+          id: dto.enrollmentId,
+          ...(assessment.classId ? { classId: assessment.classId } : {}),
+          academicYearId: assessment.academicYearId,
+        },
+        select: { studentId: true },
+      });
+      if (!enrollment) {
+        throw new BadRequestException(
+          'Enrollment not found for this assessment',
+        );
+      }
+      studentId = enrollment.studentId;
+    }
 
+    // One grade per student per assessment, whichever route was used to name
+    // the student.
     const existing = await this.client.grade.findFirst({
-      where: { enrollmentId: dto.enrollmentId, assessmentId: dto.assessmentId },
+      where: {
+        assessmentId: dto.assessmentId,
+        OR: [
+          { studentId },
+          ...(dto.enrollmentId ? [{ enrollmentId: dto.enrollmentId }] : []),
+        ],
+      },
       select: { id: true },
     });
     if (existing)
@@ -477,7 +749,8 @@ export class AssessmentGradingService {
     return this.client.grade.create({
       data: {
         tenantId,
-        enrollmentId: dto.enrollmentId,
+        studentId,
+        enrollmentId: dto.enrollmentId ?? null,
         assessmentId: dto.assessmentId,
         pointsEarned: dto.pointsEarned as any,
         percentage: dto.percentage ?? computed.percentage,
@@ -512,10 +785,10 @@ export class AssessmentGradingService {
       },
     });
     if (!grade) throw new NotFoundException('Grade not found');
-    await this.access.assertCanManageClass(
+    await this.assertCanManageAssessmentAnchor(
       tenantId,
       actor,
-      grade.assessment.classId,
+      grade.assessment,
     );
 
     const currentPoints =
@@ -552,6 +825,88 @@ export class AssessmentGradingService {
     });
   }
 
+  /**
+   * Guard anything hanging off an assessment by following the assessment's OWN
+   * anchor. A structured assessment has no class, so asking the class-teacher
+   * question refuses every teacher — the defect fixed for createGrade, and the
+   * same trap is set for every other reader that assumes a `classId`.
+   */
+  private async assertCanManageAssessmentAnchor(
+    tenantId: string,
+    actor: AcademicsActor,
+    assessment: { classId: string | null; subjectOfferingId: string | null },
+  ): Promise<void> {
+    if (assessment.subjectOfferingId) {
+      await this.access.assertCanManageOffering(
+        tenantId,
+        actor,
+        assessment.subjectOfferingId,
+      );
+      return;
+    }
+    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+  }
+
+  /**
+   * Who each of these grades belongs to, by student id.
+   *
+   * `Grade.studentId` has no Prisma relation (the re-key added the column and
+   * the DB foreign key, not a relation), so naming the student is its own read
+   * rather than an include — and it has to be, because the include that WAS
+   * here reached the student through `enrollment`, which is null on every
+   * structured grade. Those rows rendered with a blank name.
+   */
+  private async resolveGradeStudents(
+    tenantId: string,
+    studentIds: string[],
+  ): Promise<
+    Map<
+      string,
+      {
+        id: string;
+        studentNumber: string | null;
+        firstName: string | null;
+        lastName: string | null;
+        email: string | null;
+      }
+    >
+  > {
+    if (studentIds.length === 0) return new Map();
+
+    const students = await this.client.student.findMany({
+      where: { id: { in: studentIds }, tenantId },
+      select: {
+        id: true,
+        studentNumber: true,
+        userTenant: {
+          select: {
+            user: {
+              select: {
+                id: true,
+                email: true,
+                firstName: true,
+                lastName: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return new Map(
+      students.map((student) => [
+        student.id,
+        {
+          id: student.id,
+          studentNumber: student.studentNumber ?? null,
+          firstName: student.userTenant?.user?.firstName ?? null,
+          lastName: student.userTenant?.user?.lastName ?? null,
+          email: student.userTenant?.user?.email ?? null,
+        },
+      ]),
+    );
+  }
+
   async listGradesForAssessment(
     tenantId: string,
     actor: AcademicsActor,
@@ -559,36 +914,81 @@ export class AssessmentGradingService {
   ) {
     const assessment = await this.client.assessment.findFirst({
       where: { id: assessmentId, academicYear: { tenantId } },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, subjectOfferingId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
-    return this.client.grade.findMany({
+    const grades = await this.client.grade.findMany({
       where: { assessmentId },
-      include: {
-        enrollment: {
-          include: {
-            student: {
-              include: {
-                userTenant: {
-                  include: {
-                    user: {
-                      select: {
-                        id: true,
-                        email: true,
-                        firstName: true,
-                        lastName: true,
-                      },
-                    },
-                  },
-                },
-              },
-            },
-          },
-        },
-      },
+      include: { enrollment: { select: { id: true, studentId: true } } },
     });
+
+    // Either anchor names the student: `studentId` on a re-keyed row, the
+    // enrolment on one the backfill has not reached yet.
+    const studentById = await this.resolveGradeStudents(
+      tenantId,
+      Array.from(
+        new Set(
+          grades
+            .map((g) => g.studentId ?? g.enrollment?.studentId ?? null)
+            .filter((id): id is string => Boolean(id)),
+        ),
+      ),
+    );
+
+    return grades.map((grade) => {
+      const studentId = grade.studentId ?? grade.enrollment?.studentId ?? null;
+      return {
+        ...grade,
+        studentId,
+        student: (studentId ? studentById.get(studentId) : undefined) ?? null,
+      };
+    });
+  }
+
+  /**
+   * Where-clause for "every grade this student earned", narrowed to what the
+   * actor is allowed to see.
+   *
+   * A grade belongs to the STUDENT (migration 20260817200000), so a grade on a
+   * structured assessment carries `studentId` with a null `enrollmentId` — any
+   * read that starts from `Enrollment` loses it silently. The enrolment arm
+   * here is NOT a second anchor: it is a bridge for rows the re-key backfill
+   * has not reached yet, and it comes out with the column.
+   *
+   * Scoping follows each assessment's OWN anchor, the same rule createGrade
+   * uses — a structured assessment is this teacher's if they hold the
+   * offering, a legacy one if they hold the class. Asking only the offering
+   * question would hide legacy marks from the teacher who recorded them;
+   * asking only the class question is what hid the structured ones.
+   */
+  private async studentGradeScope(
+    tenantId: string,
+    actor: AcademicsActor,
+    studentId: string,
+    academicYearId?: string,
+  ): Promise<Prisma.GradeWhereInput> {
+    const assessment: Prisma.AssessmentWhereInput = {
+      academicYear: { tenantId },
+      ...(academicYearId ? { academicYearId } : {}),
+    };
+
+    if (!actor.canManageAll) {
+      const [taughtOfferingIds, taughtClassIds] = await Promise.all([
+        this.access.getTaughtOfferingIds(tenantId, actor.profileId),
+        this.access.getTaughtClassIds(tenantId, actor.profileId),
+      ]);
+      assessment.OR = [
+        { subjectOfferingId: { in: taughtOfferingIds } },
+        { subjectOfferingId: null, classId: { in: taughtClassIds } },
+      ];
+    }
+
+    return {
+      OR: [{ studentId }, { enrollment: { studentId } }],
+      assessment,
+    };
   }
 
   async listGradesForStudent(
@@ -603,17 +1003,8 @@ export class AssessmentGradingService {
     });
     if (!student) throw new NotFoundException('Student not found');
 
-    const taughtClassIds = actor.canManageAll
-      ? undefined
-      : await this.access.getTaughtClassIds(tenantId, actor.profileId);
-
     return this.client.grade.findMany({
-      where: {
-        enrollment: {
-          studentId,
-          ...(taughtClassIds ? { classId: { in: taughtClassIds } } : {}),
-        },
-      },
+      where: await this.studentGradeScope(tenantId, actor, studentId),
       include: {
         assessment: true,
         enrollment: true,
@@ -629,10 +1020,10 @@ export class AssessmentGradingService {
   ) {
     const assessment = await this.client.assessment.findFirst({
       where: { id: assessmentId, academicYear: { tenantId } },
-      select: { id: true, classId: true },
+      select: { id: true, classId: true, subjectOfferingId: true },
     });
     if (!assessment) throw new NotFoundException('Assessment not found');
-    await this.access.assertCanManageClass(tenantId, actor, assessment.classId);
+    await this.assertCanManageAssessmentAnchor(tenantId, actor, assessment);
 
     const grades = await this.client.grade.findMany({
       where: { assessmentId },
@@ -691,157 +1082,231 @@ export class AssessmentGradingService {
     });
     if (!student) throw new NotFoundException('Student not found');
 
-    const taughtClassIds = actor.canManageAll
-      ? undefined
-      : await this.access.getTaughtClassIds(tenantId, actor.profileId);
-
-    const enrollments = await this.client.enrollment.findMany({
-      where: {
+    // Read the child's marks by STUDENT and group them by the subject they
+    // were earned in — the offering for structured assessments, the legacy
+    // class for the ones not re-keyed yet. Starting from `Enrollment` (as this
+    // did until stage B) dropped every structured grade on the floor without
+    // saying so.
+    const grades = await this.client.grade.findMany({
+      where: await this.studentGradeScope(
+        tenantId,
+        actor,
         studentId,
-        academicYearId: academicYearId ?? undefined,
-        ...(taughtClassIds ? { classId: { in: taughtClassIds } } : {}),
-      },
+        academicYearId,
+      ),
       include: {
-        class: {
-          include: { course: true, term: true, academicYear: true },
-        },
-        grades: {
-          include: {
-            assessment: true,
-          },
-        },
+        assessment: { include: { class: { include: { course: true } } } },
       },
     });
 
-    const enrollmentsWithStats = enrollments.map((enrollment) => {
-      const assessments = enrollment.grades.map((g) => ({
-        assessmentId: g.assessmentId,
-        name: g.assessment.name,
-        type: g.assessment.type,
-        weight: g.assessment.weight ? Number(g.assessment.weight) : undefined,
-        maxPoints: Number(g.assessment.maxPoints),
-        pointsEarned:
-          g.pointsEarned !== null && g.pointsEarned !== undefined
-            ? Number(g.pointsEarned)
-            : undefined,
-        percentage:
-          g.percentage !== null && g.percentage !== undefined
-            ? Number(g.percentage)
-            : undefined,
-        letterGrade: g.letterGrade ?? undefined,
-        gpaPoints:
-          g.gpaPoints !== null && g.gpaPoints !== undefined
-            ? Number(g.gpaPoints)
-            : undefined,
-      }));
+    // `subjectOfferingId` is a soft reference (the WB2 convention keeps the
+    // modules decoupled), so naming the subject is a second read.
+    const offeringIds = Array.from(
+      new Set(
+        grades
+          .map((g) => g.assessment.subjectOfferingId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    );
+    const offerings =
+      offeringIds.length > 0
+        ? await this.client.subjectOffering.findMany({
+            where: { id: { in: offeringIds }, tenantId },
+            select: {
+              id: true,
+              subjectLabel: true,
+              termId: true,
+              classSection: { select: { displayLabel: true } },
+            },
+          })
+        : [];
+    const offeringById = new Map(offerings.map((o) => [o.id, o]));
 
-      // Weighted percentage: if any weight present, use weights; else average available percentages.
-      const hasWeights = assessments.some((a) => a.weight !== undefined);
-      let coursePercentage: number | undefined;
-      if (hasWeights) {
-        let totalWeight = 0;
-        let weighted = 0;
-        for (const a of assessments) {
-          if (a.percentage !== undefined && a.weight !== undefined) {
-            weighted += a.percentage * a.weight;
-            totalWeight += a.weight;
-          }
-        }
-        if (totalWeight > 0) {
-          coursePercentage = weighted / totalWeight;
-        }
-      } else {
-        const ps = assessments
-          .map((a) => a.percentage)
-          .filter((v): v is number => v !== undefined);
-        if (ps.length > 0) {
-          coursePercentage = ps.reduce((a, b) => a + b, 0) / ps.length;
-        }
+    interface SubjectBucket {
+      key: string;
+      anchor: 'offering' | 'class';
+      subjectOfferingId: string | null;
+      classId: string | null;
+      subjectLabel?: string;
+      classLabel?: string;
+      academicYearId: string;
+      termId: string;
+      assessments: ReportCardAssessment[];
+    }
+
+    const subjectBuckets = new Map<string, SubjectBucket>();
+    for (const grade of grades) {
+      const assessment = grade.assessment;
+      const offeringId = assessment.subjectOfferingId ?? null;
+      const offering = offeringId ? offeringById.get(offeringId) : undefined;
+      const legacyClass = assessment.class;
+
+      // An assessment always has one of the two anchors. The third arm is
+      // there so that an anchorless row — which should not exist — stands on
+      // its own rather than collapsing every such row into one fake subject.
+      const key = offeringId
+        ? `offering:${offeringId}`
+        : assessment.classId
+          ? `class:${assessment.classId}`
+          : `assessment:${assessment.id}`;
+
+      let bucket = subjectBuckets.get(key);
+      if (!bucket) {
+        const classLabel = offeringId
+          ? offering?.classSection?.displayLabel
+          : [legacyClass?.name, legacyClass?.section]
+              .filter(Boolean)
+              .join(' ') || undefined;
+        bucket = {
+          key,
+          anchor: offeringId ? 'offering' : 'class',
+          subjectOfferingId: offeringId,
+          classId: assessment.classId ?? null,
+          subjectLabel: offeringId
+            ? offering?.subjectLabel
+            : (legacyClass?.course?.subject ??
+              legacyClass?.course?.name ??
+              undefined),
+          classLabel,
+          academicYearId: assessment.academicYearId,
+          // The term comes from the subject's own anchor. A year-long offering
+          // has no term of its own, so fall back to the term the assessment
+          // was dated into — which createAssessment copied off that offering.
+          termId: offeringId
+            ? (offering?.termId ?? assessment.termId)
+            : (legacyClass?.termId ?? assessment.termId),
+          assessments: [],
+        };
+        subjectBuckets.set(key, bucket);
       }
 
-      const gpas = assessments
-        .map((a) => a.gpaPoints)
-        .filter((v): v is number => v !== undefined);
-      const courseGpa =
-        gpas.length > 0
-          ? gpas.reduce((a, b) => a + b, 0) / gpas.length
-          : undefined;
+      bucket.assessments.push({
+        assessmentId: grade.assessmentId,
+        name: assessment.name,
+        type: assessment.type,
+        weight: toNumber(assessment.weight),
+        maxPoints: toNumber(assessment.maxPoints) ?? 0,
+        pointsEarned: toNumber(grade.pointsEarned),
+        percentage: toNumber(grade.percentage),
+        letterGrade: grade.letterGrade ?? undefined,
+        gpaPoints: toNumber(grade.gpaPoints),
+      });
+    }
 
-      return {
-        ...enrollment,
-        summary: {
-          coursePercentage,
-          courseGpa,
-        },
-        assessments,
-      };
-    });
+    const termIds = Array.from(
+      new Set(Array.from(subjectBuckets.values()).map((b) => b.termId)),
+    );
+    const terms =
+      termIds.length > 0
+        ? await this.client.term.findMany({
+            where: { id: { in: termIds }, tenantId },
+            select: { id: true, name: true },
+          })
+        : [];
+    const termNameById = new Map(terms.map((t) => [t.id, t.name]));
+
+    const subjects = Array.from(subjectBuckets.values()).map((bucket) => ({
+      ...bucket,
+      termName: termNameById.get(bucket.termId),
+      summary: this.summariseAssessments(bucket.assessments),
+    }));
 
     // Term-level aggregation
-    const termBuckets: Record<
+    const termBuckets = new Map<
       string,
       {
+        termId: string;
+        termName?: string;
         percentages: number[];
         gpas: number[];
-        termName?: string;
-        termId?: string;
       }
-    > = {};
-    for (const e of enrollmentsWithStats) {
-      const termId = e.class.termId;
-      termBuckets[termId] = termBuckets[termId] ?? {
-        percentages: [],
-        gpas: [],
-        termName: e.class.term?.name,
-        termId,
-      };
-      if (e.summary.coursePercentage !== undefined) {
-        termBuckets[termId].percentages.push(e.summary.coursePercentage);
+    >();
+    for (const subject of subjects) {
+      let bucket = termBuckets.get(subject.termId);
+      if (!bucket) {
+        bucket = {
+          termId: subject.termId,
+          termName: subject.termName,
+          percentages: [],
+          gpas: [],
+        };
+        termBuckets.set(subject.termId, bucket);
       }
-      if (e.summary.courseGpa !== undefined) {
-        termBuckets[termId].gpas.push(e.summary.courseGpa);
+      if (subject.summary.percentage !== undefined) {
+        bucket.percentages.push(subject.summary.percentage);
+      }
+      if (subject.summary.gpa !== undefined) {
+        bucket.gpas.push(subject.summary.gpa);
       }
     }
 
-    const termSummaries = Object.values(termBuckets).map((t) => ({
+    const termSummaries = Array.from(termBuckets.values()).map((t) => ({
       termId: t.termId,
       termName: t.termName,
-      avgPercentage:
-        t.percentages.length > 0
-          ? t.percentages.reduce((a, b) => a + b, 0) / t.percentages.length
-          : undefined,
-      avgGpa:
-        t.gpas.length > 0
-          ? t.gpas.reduce((a, b) => a + b, 0) / t.gpas.length
-          : undefined,
+      avgPercentage: average(t.percentages),
+      avgGpa: average(t.gpas),
     }));
 
     // Overall aggregates
-    const overallPercentages = termSummaries
-      .map((t) => t.avgPercentage)
-      .filter((v): v is number => v !== undefined);
-    const overallGpas = termSummaries
-      .map((t) => t.avgGpa)
-      .filter((v): v is number => v !== undefined);
-
     const overall = {
-      avgPercentage:
-        overallPercentages.length > 0
-          ? overallPercentages.reduce((a, b) => a + b, 0) /
-            overallPercentages.length
-          : undefined,
-      avgGpa:
-        overallGpas.length > 0
-          ? overallGpas.reduce((a, b) => a + b, 0) / overallGpas.length
-          : undefined,
+      avgPercentage: average(
+        termSummaries
+          .map((t) => t.avgPercentage)
+          .filter((v): v is number => v !== undefined),
+      ),
+      avgGpa: average(
+        termSummaries
+          .map((t) => t.avgGpa)
+          .filter((v): v is number => v !== undefined),
+      ),
     };
 
     return {
       studentId,
       academicYearId,
-      enrollments: enrollmentsWithStats,
+      subjects,
       termSummaries,
       overall,
+    };
+  }
+
+  /**
+   * A subject's standing from its graded assessments: weighted by assessment
+   * weight when any is set, a plain mean of the available percentages when
+   * none is.
+   */
+  private summariseAssessments(assessments: ReportCardAssessment[]): {
+    percentage?: number;
+    gpa?: number;
+  } {
+    const hasWeights = assessments.some((a) => a.weight !== undefined);
+
+    let percentage: number | undefined;
+    if (hasWeights) {
+      let totalWeight = 0;
+      let weighted = 0;
+      for (const a of assessments) {
+        if (a.percentage !== undefined && a.weight !== undefined) {
+          weighted += a.percentage * a.weight;
+          totalWeight += a.weight;
+        }
+      }
+      if (totalWeight > 0) percentage = weighted / totalWeight;
+    } else {
+      percentage = average(
+        assessments
+          .map((a) => a.percentage)
+          .filter((v): v is number => v !== undefined),
+      );
+    }
+
+    return {
+      percentage,
+      gpa: average(
+        assessments
+          .map((a) => a.gpaPoints)
+          .filter((v): v is number => v !== undefined),
+      ),
     };
   }
 }

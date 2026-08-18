@@ -97,18 +97,15 @@ export const SCHOOL_NAV: NavigationConfig = {
           access: { anyPermission: ['grades.view', 'transcripts.view'] },
           items: [
             {
-              key: 'reportcards',
-              label: 'Report cards',
-              icon: <FileText />,
-              href: '/students/gradebook/report-cards',
-              access: { anyPermission: ['grades.view'] },
-            },
-            {
-              key: 'transcripts',
-              label: 'Transcripts',
+              // ONE live standing view. The former "Report cards" entry read the
+              // same endpoints and averaged the same numbers, so it was merged
+              // in here (its letter-grade column came along). Official report
+              // cards + transcripts are published artifacts under /academics.
+              key: 'standing',
+              label: 'Gradebook standing',
               icon: <ScrollText />,
-              href: '/students/gradebook/transcripts',
-              access: { anyPermission: ['transcripts.view'] },
+              href: '/students/gradebook/standing',
+              access: { anyPermission: ['grades.view', 'transcripts.view'] },
             },
           ],
         },
@@ -173,8 +170,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['grades.view'] },
             },
             {
+              // The legacy `Course` catalogue. It CANNOT be retired yet:
+              // Assessment.classId → Class (cascade) means the gradebook,
+              // assessments, question bank and standing view all still hang off
+              // it. Relabelled so it stops competing with Academics → Academic
+              // structure, which owns what a section actually offers.
               key: 'subjects',
-              label: 'Subjects',
+              label: 'Course catalogue',
               icon: <GraduationCap />,
               href: '/classes/subjects',
               access: { anyPermission: ['subjects.view', 'courses.view'] },
@@ -258,18 +260,19 @@ export const SCHOOL_NAV: NavigationConfig = {
               access: { anyPermission: ['academics.structure.view'] },
             },
             {
-              key: 'enrollment',
-              label: 'Class enrolment',
-              icon: <UserPlus />,
-              href: '/academics/enrollment',
-              access: { anyPermission: ['academics.enrollment.view'] },
-            },
-            {
-              key: 'student-lifecycle',
-              label: 'Student lifecycle',
+              // Class enrolment merged in here: both screens wrote the same
+              // section-membership fact, and the lifecycle service is the
+              // authoritative writer, so it hosts enrolment as a tab.
+              key: 'student-placement',
+              label: 'Student placement',
               icon: <UserPlus />,
               href: '/academics/lifecycle',
-              access: { anyPermission: ['academics.lifecycle.view'] },
+              access: {
+                anyPermission: [
+                  'academics.lifecycle.view',
+                  'academics.enrollment.view',
+                ],
+              },
             },
             {
               key: 'promotion',
@@ -283,6 +286,24 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Results',
               icon: <ClipboardCheck />,
               href: '/academics/results',
+              access: { anyPermission: ['academics.results.view'] },
+            },
+            {
+              // Under Academics, not Classes: a library lesson belongs to a
+              // SUBJECT and is taught by every section offering it.
+              key: 'lesson-library',
+              label: 'Lesson library',
+              icon: <BookOpen />,
+              href: '/academics/lessons',
+              access: { anyPermission: ['lessons.view'] },
+            },
+            {
+              // Its own route, not a panel in the results workbench: a
+              // transcript spans every published term rather than one cycle.
+              key: 'transcripts',
+              label: 'Transcripts',
+              icon: <FileText />,
+              href: '/academics/transcripts',
               access: { anyPermission: ['academics.results.view'] },
             },
           ],
