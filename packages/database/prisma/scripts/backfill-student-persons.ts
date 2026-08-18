@@ -13,11 +13,11 @@ import { prisma } from '../../src/singleton.js';
  * shared person detail drawer, which is keyed on the person. A student with no
  * person simply has no drill-in, so an otherwise ordinary row is inert.
  *
- * This creates one Person per person-less Student and links it, deriving names
- * from the student's own profile. It NEVER invents a name: where no first/last
- * name exists on the linked user, the student number is used as the last name
- * so the row is still addressable and obviously machine-derived, rather than
- * guessing a split of some display string.
+ * This creates one Person per person-less Student and links it, taking names
+ * from the student's own profile. It NEVER invents a name: `Person.firstName`
+ * and `.lastName` are both required, and a person is an identity record, so a
+ * student missing either half is skipped and reported for a human rather than
+ * seeded with a student number in a name column.
  *
  * Idempotent: students that already have a person are skipped, so re-running
  * only picks up what is still unlinked. Tenant-scoped in the same pass, so a
@@ -61,15 +61,21 @@ async function main() {
   }
 
   let linked = 0;
-  const derivedNames: string[] = [];
+  const skipped: string[] = [];
 
   for (const student of students) {
     const first = student.userTenant?.user?.firstName?.trim() || null;
     const last = student.userTenant?.user?.lastName?.trim() || null;
-    // No real name on file: fall back to the student number rather than
-    // splitting a display string into a wrong first/last pair.
-    const lastName = last || student.studentNumber;
-    if (!first && !last) derivedNames.push(student.studentNumber);
+
+    // `Person.firstName` and `.lastName` are both required, and a person record
+    // is an identity record — so this never invents one. A student missing
+    // either half is skipped and reported for a human, rather than seeding the
+    // person schema with a student number in a name column or an empty string
+    // that every downstream display would then have to special-case.
+    if (!first || !last) {
+      skipped.push(student.studentNumber);
+      continue;
+    }
 
     if (DRY_RUN) {
       linked += 1;
@@ -83,7 +89,7 @@ async function main() {
         data: {
           tenantId: student.tenantId,
           firstName: first,
-          lastName,
+          lastName: last,
           status: 'active',
         },
       });
@@ -100,12 +106,13 @@ async function main() {
       DRY_RUN ? ' (nothing written)' : ''
     }`,
   );
-  if (derivedNames.length > 0) {
+  if (skipped.length > 0) {
     console.log(
-      `\n${derivedNames.length} student(s) had no name on their profile; their person` +
-        ' was named from the student number and is worth a human check:',
+      `\n${skipped.length} student(s) skipped — no first/last name on their` +
+        ' profile, and a person record is not something to invent. Give them a' +
+        ' name (People → the student) and re-run:',
     );
-    for (const n of derivedNames) console.log(`  ${n}`);
+    for (const n of skipped) console.log(`  ${n}`);
   }
   if (DRY_RUN) console.log('\nDRY RUN — nothing was written.');
   console.log('');
