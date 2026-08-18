@@ -242,7 +242,13 @@ export function AiWorkspaceLauncher() {
                 className="grid size-9 shrink-0 place-items-center rounded-[var(--radius-sm)] text-white transition-colors"
                 style={{ background: active.accent }}
               >
-                <ModeIcon mode={active.key} className="size-5" />
+                {/* Constant, like the "AI workspace" title beside it: this
+                    names the WORKSPACE, not the active mode, and is the same
+                    glyph the "Ask AI" trigger uses, so the control that opens
+                    this and the thing it opens read as one. Per-mode identity
+                    is carried by the accent colour behind it, and by each
+                    mode's own icon on its tab and pane header. */}
+                <Bot aria-hidden className="size-5" />
               </span>
               <div className="min-w-0">
                 {/* The active mode + its blurb now live in the top-nav tab and

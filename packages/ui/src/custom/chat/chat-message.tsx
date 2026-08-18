@@ -62,7 +62,14 @@ export function ChatMessageBubble({
         className={cn(
           'flex max-w-[85%] flex-col gap-2.5 rounded-[var(--radius)] px-3.5 py-2.5 text-sm sm:max-w-[75%]',
           isUser
-            ? 'bg-primary-surface text-primary-surface-foreground'
+            ? // On LIGHT the user bubble is a soft tint of the same blue with
+              // the ordinary ink on it — the same `#191b38` the assistant
+              // bubble uses — so the two sides of the conversation read as one
+              // palette instead of a saturated block facing a white card. On
+              // dark that inverts: a filled bubble carries the white label,
+              // because a 15% tint over a near-black canvas would barely
+              // separate from it.
+              'bg-primary-surface/15 text-foreground dark:bg-primary-surface dark:text-primary-surface-foreground'
             : 'border border-border bg-card text-card-foreground',
         )}
       >
