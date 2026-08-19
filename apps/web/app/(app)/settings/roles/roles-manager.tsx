@@ -21,15 +21,17 @@ import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@workspace/ui/components/dialog';
+  Sheet,
+  SheetClose,
+  SheetDescription,
+  SheetTrigger,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import {
   Select,
   SelectContent,
@@ -268,7 +270,7 @@ export function RolesManager({
         onClearFilters={() => setFilters({})}
         headerActions={
           canManage ? (
-            <RoleEditorDialog
+            <RoleEditorDrawer
               templates={templates}
               maxClearance={Math.min(clearanceLevel, 7)}
             />
@@ -287,7 +289,7 @@ export function RolesManager({
         }
       />
 
-      <RolePreviewDialog
+      <RolePreviewDrawer
         role={previewRole}
         onClose={() => setPreviewRole(null)}
       />
@@ -418,7 +420,7 @@ interface Campus {
 
 /* ---- Create a role from a template -------------------------------------- */
 
-function RoleEditorDialog({
+function RoleEditorDrawer({
   templates,
   maxClearance,
 }: {
@@ -562,134 +564,138 @@ function RoleEditorDialog({
   };
 
   return (
-    <Dialog
+    <Sheet
       open={open}
       onOpenChange={(o) => {
         setOpen(o);
         if (!o) reset();
       }}
     >
-      <DialogTrigger asChild>
+      <SheetTrigger asChild>
         <Button size="sm">
           <Plus aria-hidden /> Add role
         </Button>
-      </DialogTrigger>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>Add a role</DialogTitle>
-          <DialogDescription>
+      </SheetTrigger>
+      <DrawerContent size="wide">
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Add a role</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             Start from a template, scope it, and preview exactly what it grants
             before you save.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </DrawerHeader>
 
-        <div className="grid gap-4 py-2 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="role-template">Template</Label>
-            <Select value={templateKey} onValueChange={setTemplateKey}>
-              <SelectTrigger id="role-template">
-                <SelectValue placeholder="Choose a preset" />
-              </SelectTrigger>
-              <SelectContent>
-                {templates.map((t) => (
-                  <SelectItem key={t.key} value={t.key}>
-                    {t.name}
-                    {t.category ? ` · ${t.category}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {template?.sensitive ? (
-              <span className="text-xs text-[var(--warning)]">
-                This preset grants sensitive access.
-              </span>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="role-name">Role name</Label>
-            <Input
-              id="role-name"
-              value={name}
-              maxLength={80}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={template ? template.name : 'e.g. Bursar (Campus A)'}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="role-scope-type">Scope</Label>
-            <Select
-              value={scopeType}
-              onValueChange={(v) => setScopeType(v as 'global' | 'campus')}
-            >
-              <SelectTrigger id="role-scope-type">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="global">Whole school</SelectItem>
-                {hasCampuses ? (
-                  <SelectItem value="campus">Specific campus</SelectItem>
-                ) : null}
-              </SelectContent>
-            </Select>
-            {campuses !== null && !hasCampuses ? (
-              <span className="text-xs text-muted-foreground">
-                No campuses yet — this role applies to the whole school. Add
-                campuses in School settings to scope a role to one.
-              </span>
-            ) : null}
-          </div>
-          {scopeType === 'campus' ? (
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="grid gap-4 sm:grid-cols-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="role-scope-campus">Campus</Label>
-              <Select value={campusId} onValueChange={setCampusId}>
-                <SelectTrigger id="role-scope-campus">
-                  <SelectValue placeholder="Choose a campus" />
+              <Label htmlFor="role-template">Template</Label>
+              <Select value={templateKey} onValueChange={setTemplateKey}>
+                <SelectTrigger id="role-template">
+                  <SelectValue placeholder="Choose a preset" />
                 </SelectTrigger>
                 <SelectContent>
-                  {(campuses ?? []).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.name}
-                      {c.isPrimary ? ' · primary' : ''}
+                  {templates.map((t) => (
+                    <SelectItem key={t.key} value={t.key}>
+                      {t.name}
+                      {t.category ? ` · ${t.category}` : ''}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {template?.sensitive ? (
+                <span className="text-xs text-[var(--warning)]">
+                  This preset grants sensitive access.
+                </span>
+              ) : null}
             </div>
-          ) : null}
-          <div className="flex items-center gap-2 sm:col-span-2">
-            <span className="text-xs text-muted-foreground">Clearance</span>
-            <StatusBadge tone={clearanceTone(clearance)} dot>
-              Level {clearance}
-            </StatusBadge>
-            {scope ? (
-              <span className="text-xs text-muted-foreground">
-                Scoped to {scope.label}.
-              </span>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="role-name">Role name</Label>
+              <Input
+                id="role-name"
+                value={name}
+                maxLength={80}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={
+                  template ? template.name : 'e.g. Bursar (Campus A)'
+                }
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="role-scope-type">Scope</Label>
+              <Select
+                value={scopeType}
+                onValueChange={(v) => setScopeType(v as 'global' | 'campus')}
+              >
+                <SelectTrigger id="role-scope-type">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="global">Whole school</SelectItem>
+                  {hasCampuses ? (
+                    <SelectItem value="campus">Specific campus</SelectItem>
+                  ) : null}
+                </SelectContent>
+              </Select>
+              {campuses !== null && !hasCampuses ? (
+                <span className="text-xs text-muted-foreground">
+                  No campuses yet — this role applies to the whole school. Add
+                  campuses in School settings to scope a role to one.
+                </span>
+              ) : null}
+            </div>
+            {scopeType === 'campus' ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="role-scope-campus">Campus</Label>
+                <Select value={campusId} onValueChange={setCampusId}>
+                  <SelectTrigger id="role-scope-campus">
+                    <SelectValue placeholder="Choose a campus" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(campuses ?? []).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                        {c.isPrimary ? ' · primary' : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             ) : null}
+            <div className="flex items-center gap-2 sm:col-span-2">
+              <span className="text-xs text-muted-foreground">Clearance</span>
+              <StatusBadge tone={clearanceTone(clearance)} dot>
+                Level {clearance}
+              </StatusBadge>
+              {scope ? (
+                <span className="text-xs text-muted-foreground">
+                  Scoped to {scope.label}.
+                </span>
+              ) : null}
+            </div>
           </div>
+
+          {template ? (
+            preview ? (
+              <EffectiveAccessView access={preview} />
+            ) : (
+              <div
+                className="h-40 animate-pulse rounded-lg border border-border bg-card/40"
+                aria-hidden
+              />
+            )
+          ) : (
+            <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
+              Choose a template to preview its effective access.
+            </p>
+          )}
         </div>
 
-        {template ? (
-          preview ? (
-            <EffectiveAccessView access={preview} />
-          ) : (
-            <div
-              className="h-40 animate-pulse rounded-lg border border-border bg-card/40"
-              aria-hidden
-            />
-          )
-        ) : (
-          <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-            Choose a template to preview its effective access.
-          </p>
-        )}
-
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={busy || !template || scopeIncomplete}
@@ -707,16 +713,16 @@ function RoleEditorDialog({
           >
             Create role
           </Button>
-        </DialogFooter>
-      </DialogContent>
+        </DrawerFooter>
+      </DrawerContent>
       {stepUpPrompt}
-    </Dialog>
+    </Sheet>
   );
 }
 
 /* ---- Explain an existing role ------------------------------------------- */
 
-function RolePreviewDialog({
+function RolePreviewDrawer({
   role,
   onClose,
 }: {
@@ -753,68 +759,73 @@ function RolePreviewDialog({
   }, [role]);
 
   return (
-    <Dialog open={!!role} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle>{role?.name ?? 'Role'}</DialogTitle>
-          <DialogDescription>
+    <Sheet open={!!role} onOpenChange={(o) => !o && onClose()}>
+      <DrawerContent size="wide">
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">{role?.name ?? 'Role'}</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             Effective access — inheritance, source pool, scope and who&rsquo;s
             affected.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </DrawerHeader>
 
-        {loading ? (
-          <div
-            className="h-40 animate-pulse rounded-lg border border-border bg-card/40"
-            aria-hidden
-          />
-        ) : access ? (
-          <div className="flex flex-col gap-5">
-            <EffectiveAccessView access={access} />
-            {affected ? (
-              <div className="flex flex-col gap-2">
-                <p className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Users className="size-4 text-muted-foreground" aria-hidden />
-                  Who&rsquo;s affected ({affected.count})
-                </p>
-                {affected.count === 0 ? (
-                  <p className="text-xs text-muted-foreground">
-                    No one currently holds this role.
+        <div className="flex-1 overflow-y-auto px-5 py-5">
+          {loading ? (
+            <div
+              className="h-40 animate-pulse rounded-lg border border-border bg-card"
+              aria-hidden
+            />
+          ) : access ? (
+            <div className="flex flex-col gap-5">
+              <EffectiveAccessView access={access} />
+              {affected ? (
+                <div className="flex flex-col gap-2">
+                  <p className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <Users
+                      className="size-4 text-muted-foreground"
+                      aria-hidden
+                    />
+                    Who&rsquo;s affected ({affected.count})
                   </p>
-                ) : (
-                  <ul className="flex flex-col gap-1 text-sm">
-                    {affected.profiles.slice(0, 20).map((p) => (
-                      <li
-                        key={p.userTenantId}
-                        className="flex items-center justify-between gap-2"
-                      >
-                        <span className="truncate">{p.name}</span>
-                        <StatusBadge
-                          tone={p.status === 'active' ? 'success' : 'neutral'}
+                  {affected.count === 0 ? (
+                    <p className="text-xs text-muted-foreground">
+                      No one currently holds this role.
+                    </p>
+                  ) : (
+                    <ul className="flex flex-col gap-1 text-sm">
+                      {affected.profiles.slice(0, 20).map((p) => (
+                        <li
+                          key={p.userTenantId}
+                          className="flex items-center justify-between gap-2"
                         >
-                          {p.status}
-                        </StatusBadge>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            ) : null}
-          </div>
-        ) : (
-          <p className="text-sm text-muted-foreground">
-            Could not load effective access for this role.
-          </p>
-        )}
+                          <span className="truncate">{p.name}</span>
+                          <StatusBadge
+                            tone={p.status === 'active' ? 'success' : 'neutral'}
+                          >
+                            {p.status}
+                          </StatusBadge>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Could not load effective access for this role.
+            </p>
+          )}
+        </div>
 
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Close
             </Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </SheetClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }

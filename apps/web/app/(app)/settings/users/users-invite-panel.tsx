@@ -6,6 +6,11 @@
    Functional "Invite user" affordance + a live list of pending
    invitations with copyable accept links and revoke. Complements the
    server-rendered user table on the Users settings page.
+
+   The form lives in a drawer, not an in-page panel — see
+   docs/frontend-conventions.md §3. The drawer deliberately stays open
+   after a successful invite: InviteUser then shows the copyable accept
+   link, while the pending list refreshes on the page behind it.
    ============================================================ */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -18,6 +23,12 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { InviteUser } from '../../_shared/invite-user';
 
@@ -38,7 +49,9 @@ export function UsersInvitePanel({ tenantId }: { tenantId: string }) {
 
   const loadPending = useCallback(async () => {
     try {
-      const res = await fetch(`/api/tenant/${tenantId}/invitations?status=pending`);
+      const res = await fetch(
+        `/api/tenant/${tenantId}/invitations?status=pending`,
+      );
       if (!res.ok) return;
       const data = (await res.json()) as Invitation[];
       setPending(Array.isArray(data) ? data : []);
@@ -75,73 +88,94 @@ export function UsersInvitePanel({ tenantId }: { tenantId: string }) {
   }
 
   return (
-    <Card className="shadow-card">
-      <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
-        <div className="flex flex-col gap-1.5">
-          <CardTitle className="text-base">Invitations</CardTitle>
-          <CardDescription>
-            {pending.length} pending invitation{pending.length === 1 ? '' : 's'}
-          </CardDescription>
-        </div>
-        <Button size="sm" onClick={() => setOpen((v) => !v)}>
-          <UserPlus /> {open ? 'Close' : 'Invite user'}
-        </Button>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        {open ? (
-          <InviteUser
-            tenantId={tenantId}
-            defaultRoleName="Management"
-            maxClearance={8}
-            onInvited={loadPending}
-          />
-        ) : null}
-
-        {pending.length > 0 ? (
-          <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
-            {pending.map((inv) => (
-              <li
-                key={inv.id}
-                className="flex items-center justify-between gap-3 p-3"
-              >
-                <div className="min-w-0">
-                  <div className="break-all text-sm font-medium">{inv.email}</div>
-                  <div className="text-xs text-muted-foreground">
-                    {inv.role ?? 'No role'}
+    <>
+      <Card className="shadow-card">
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+          <div className="flex flex-col gap-1.5">
+            <CardTitle className="text-base">Invitations</CardTitle>
+            <CardDescription>
+              {pending.length} pending invitation
+              {pending.length === 1 ? '' : 's'}
+            </CardDescription>
+          </div>
+          <Button size="sm" onClick={() => setOpen(true)}>
+            <UserPlus /> Invite user
+          </Button>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          {pending.length > 0 ? (
+            <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
+              {pending.map((inv) => (
+                <li
+                  key={inv.id}
+                  className="flex items-center justify-between gap-3 p-3"
+                >
+                  <div className="min-w-0">
+                    <div className="break-all text-sm font-medium">
+                      {inv.email}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {inv.role ?? 'No role'}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <StatusBadge tone="info" dot>
-                    {inv.status}
-                  </StatusBadge>
-                  {inv.acceptPath ? (
+                  <div className="flex items-center gap-2">
+                    <StatusBadge tone="info" dot>
+                      {inv.status}
+                    </StatusBadge>
+                    {inv.acceptPath ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copy(inv)}
+                      >
+                        {copiedId === inv.id ? (
+                          <Check className="size-4" />
+                        ) : (
+                          <Copy className="size-4" />
+                        )}
+                        {copiedId === inv.id ? 'Copied' : 'Copy link'}
+                      </Button>
+                    ) : null}
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => copy(inv)}
+                      variant="ghost"
+                      onClick={() => revoke(inv.id)}
+                      aria-label="Revoke invitation"
                     >
-                      {copiedId === inv.id ? (
-                        <Check className="size-4" />
-                      ) : (
-                        <Copy className="size-4" />
-                      )}
-                      {copiedId === inv.id ? 'Copied' : 'Copy link'}
+                      <X className="size-4" />
                     </Button>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => revoke(inv.id)}
-                    aria-label="Revoke invitation"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-      </CardContent>
-    </Card>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No invitations are waiting to be accepted.
+            </p>
+          )}
+        </CardContent>
+      </Card>
+
+      <Sheet open={open} onOpenChange={setOpen}>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">Invite a user</DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
+              We&rsquo;ll create a secure accept link for this school. The
+              person sets their own password — no password is ever generated or
+              sent.
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            <InviteUser
+              tenantId={tenantId}
+              defaultRoleName="Management"
+              maxClearance={8}
+              onInvited={loadPending}
+            />
+          </div>
+        </DrawerContent>
+      </Sheet>
+    </>
   );
 }

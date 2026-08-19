@@ -32,11 +32,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-} from '@workspace/ui/components/sheet';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -48,6 +44,7 @@ import {
 } from '@workspace/ui/custom/tables/directory-table';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import {
+  DrawerContent,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -507,7 +504,7 @@ function EntryDrawer({
   return (
     <>
       <Sheet open={!!entry} onOpenChange={(open) => !open && onClose()}>
-        <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
+        <DrawerContent>
           <DrawerHeader>
             <DrawerTitle>{entry?.entryNumber ?? 'Journal entry'}</DrawerTitle>
             <SheetDescription>
@@ -572,7 +569,7 @@ function EntryDrawer({
               </Button>
             ) : null}
           </DrawerFooter>
-        </SheetContent>
+        </DrawerContent>
       </Sheet>
       {stepUpPrompt}
     </>

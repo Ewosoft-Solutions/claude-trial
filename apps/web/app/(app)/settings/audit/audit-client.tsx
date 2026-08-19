@@ -25,13 +25,10 @@ import {
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-} from '@workspace/ui/components/sheet';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import {
+  DrawerContent,
   DrawerHeader,
   DrawerTitle,
 } from '@workspace/ui/custom/detail/drawer-chrome';
@@ -408,10 +405,7 @@ function AuditDetailDrawer({
 
   return (
     <Sheet open={!!row} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent
-        side="right"
-        className="w-full gap-0 overflow-y-auto sm:max-w-md"
-      >
+      <DrawerContent>
         <DrawerHeader>
           <DrawerTitle className="flex items-center gap-2">
             {row ? humanizeAuditAction(row.action) : 'Event'}
@@ -427,7 +421,7 @@ function AuditDetailDrawer({
           </SheetDescription>
         </DrawerHeader>
 
-        <div className="flex flex-col gap-4 px-4 pb-6">
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
           {loading && !record ? (
             <p className="pt-4 text-sm text-muted-foreground">Loading…</p>
           ) : !record ? (
@@ -494,7 +488,7 @@ function AuditDetailDrawer({
             </>
           )}
         </div>
-      </SheetContent>
+      </DrawerContent>
     </Sheet>
   );
 }

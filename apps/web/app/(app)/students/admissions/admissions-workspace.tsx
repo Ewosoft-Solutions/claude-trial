@@ -16,11 +16,7 @@ import { FileText, Plus } from 'lucide-react';
 
 import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-} from '@workspace/ui/components/sheet';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -32,6 +28,7 @@ import {
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 import {
+  DrawerContent,
   DrawerHeader,
   DrawerTitle,
 } from '@workspace/ui/custom/detail/drawer-chrome';
@@ -343,7 +340,7 @@ export function AdmissionsWorkspace({
 
       {/* Create sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
-        <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
+        <DrawerContent>
           <DrawerHeader className="gap-1.5">
             <DrawerTitle className="pr-8">New application</DrawerTitle>
             <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
@@ -363,7 +360,7 @@ export function AdmissionsWorkspace({
               }}
             />
           </div>
-        </SheetContent>
+        </DrawerContent>
       </Sheet>
 
       {/* At-a-glance drawer */}

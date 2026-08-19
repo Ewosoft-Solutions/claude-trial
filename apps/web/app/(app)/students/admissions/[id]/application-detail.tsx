@@ -39,15 +39,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-} from '@workspace/ui/components/sheet';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
+  DrawerContent,
   DrawerHeader,
   DrawerTitle,
 } from '@workspace/ui/custom/detail/drawer-chrome';
@@ -640,10 +637,7 @@ export function ApplicationDetailView({
       </div>
 
       <Sheet open={editOpen} onOpenChange={setEditOpen}>
-        <SheetContent
-          side="right"
-          className="flex w-full flex-col gap-0 p-0 sm:max-w-lg"
-        >
+        <DrawerContent>
           <DrawerHeader className="gap-1.5">
             <DrawerTitle className="pr-8">Edit applicant</DrawerTitle>
             <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
@@ -661,7 +655,7 @@ export function ApplicationDetailView({
               onCancel={() => setEditOpen(false)}
             />
           </div>
-        </SheetContent>
+        </DrawerContent>
       </Sheet>
     </ShellMain>
   );
