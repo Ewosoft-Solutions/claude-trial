@@ -4,6 +4,46 @@ Last Updated: 2026-08-19
 
 ---
 
+## Session Summary (2026-08-19, pt. 4) — Claude: a second, unanchored reviewer → 9 majors, all fixed
+
+**Item(s):** WB5-3..5-6 still `in-review`. **Branch:** `feat/wb5-finance-subledger-gl`.
+
+**Why a fresh reviewer.** The first reviewer had reviewed twice and was anchored to its own list. A new agent was spawned with no knowledge of the earlier findings and pointed at the places review attention usually does not reach — the web layer (nobody had opened these screens in a browser), the money-input boundary, the seeds, and the migration path. It found nine majors, and only one overlapped anything seen before.
+
+**The money defects**
+
+- **`applyCredit` checked everything except whose credit it was.** Amount, status, tenancy, balance — but never that the credit's household/student matched the invoice's. One family's overpayment could settle another family's bill, and because the journal entry balances either way, **every control total on the reconciliation report still read zero**. Nothing surfaced it but an audit row naming the credit rather than the wrong family. `autoApplyToInvoice` had always scoped by owner; the explicit path never did.
+- **Approving an adjustment opened the books after applying it.** The rule the docs state in bold — open before the subledger row is written — held everywhere except here. A school whose first financial act on the new release was approving a pending waiver opened its receivables **short by the discount**, permanently. Same defect class as pt. 2's admission-fee finding, in the last path that could still express it.
+- **A reversal could itself be reversed.** `SUBLEDGER_SOURCES` refused six source types but not `reversal` — which is what the subledger itself posts to correct things. Cancelling an invoice and then reversing the withdrawal put the receivable back with no invoice behind it.
+- **A period's last day fell outside the period.** `start_date`/`end_date` are DATE columns; comparing a wall-clock timestamp against them excluded every entry made during the final day — which also meant an entry posted the afternoon a period was closed **skipped the closed-period check entirely**.
+- **Merging two households orphaned the source's money.** WB5 hung `account_credits.household_id` and `payments.household_id` off the household, both `ON DELETE SET NULL`; `merge()` re-pointed only invoices. The credit's household became null, `availableCredit` and auto-apply could never find it again — while the reconciliation credit control, which sums all non-void credits, went on reporting it as held. The report said the books were fine while the family's money was unspendable.
+- **Recording money had no idempotency.** A lost response on a prepayment (nothing allocated, so no balance check to refuse a duplicate) let a second click take the family's money twice. `payments.idempotency_key` + a partial unique index; the checkout sends one key per composed receipt, surviving a failed attempt.
+
+**Trace and reach**
+
+- **Issuing and cancelling an invoice wrote no audit row**, and the **opening entry** — typically a school's entire pre-existing debt — was posted by nobody, triggered by a `GET` that needs only `finance.gl.view`. Both are attributed and audited now.
+- **"Define period" could never succeed.** I added step-up to that route in pt. 2 and left the dialog unable to answer the challenge, so the whole period-close feature was unreachable through the product. Nobody had opened the screen; the e2e called the service directly, past the guard.
+
+**Web** (the reviewer's richest seam): the export is gated on `finance.gl.manage` and carries the page's filter (it previously downloaded a file containing a 403); **Reverse** is no longer offered where the server will refuse it after an MFA challenge; filtering resets to page 1; the family picker is searchable rather than an unbounded `<select>`; unticking a child re-syncs the amount instead of silently parking a sibling's money as credit; `toKobo` refuses what it cannot parse (`-500` became `+₦500`, a pasted `1.234,50` became ₦1.23) and the dialog says why; a failed balance fetch renders an error instead of a confident `₦0.00 outstanding`.
+
+**Tests.** The concurrency claim was previously proven by asserting the call order of a mocked query — it would have passed with `FOR UPDATE` removed. There is now a **real two-transaction test**: two cashiers settle the same invoice at once, exactly one succeeds, one is refused, the invoice is paid exactly once and the books still balance. Same for the **opening-balance race** (the old case ran two sequential calls on a tenant with nothing to open — it passed with the guard *and* the unique index deleted) and a **cross-tenant write** attempt. Receipt dates in the suite are now relative to today, since the writer refuses a date more than a day ahead.
+
+**Also:** seeds write real line items (every seeded invoice had gross 0, so the finance workbench refused payment against its own fixture — and the pt. 1 smoke's "agrees to the kobo" was agreement between zeroes); a prune migration runs **before** the CHECK constraints so a legacy zero-amount row cannot wedge `migrate deploy` mid-upgrade; the one-sided journal CHECK is a true exclusive-or; the cash control sums in SQL rather than through an `in:` list that would blow Postgres's parameter limit; `listCredits` reports its total instead of silently truncating; `to` filters include the last day.
+
+**Verification**
+
+- api unit **861** · finance e2e **18/18** · finance-authorization **5/5** · `ci:quick` ✔ · `db:rls:check` ✔ · `check:privileged-db` ✔ (27) · `db:verify` ✔
+
+**Next step**
+
+- Merge decision. Three review rounds by two independent reviewers, 21 real defects, all fixed and pinned. WB5-7 (gateway) remains owner-gated.
+
+**Gotcha worth keeping**
+
+- **A reviewer that has already reviewed is anchored.** The second pass by the first reviewer found 5 issues, all in code it had just read; a *fresh* reviewer pointed at the unexamined seams found 9, of which 8 were in territory the first had never looked at. When a change spans layers, rotate the reader rather than re-reading with the same eyes.
+
+---
+
 ## Session Summary (2026-08-19, pt. 3) — Claude: confirmation pass on the WB5 fixes → 3 new drifts + a migration-rule violation, all fixed
 
 **Item(s):** WB5-3..5-6 still `in-review`. **Branch:** `feat/wb5-finance-subledger-gl`.
