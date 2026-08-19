@@ -36,7 +36,7 @@ Last Updated: 2026-08-19
 
 **Next step**
 
-- **Pushed; [PR #129](https://github.com/Ewosoft-Solutions/claude-trial/pull/129) is open against `main`** (19 commits, 86 files). Watch CI, then merge → WB5-3..5-6 `done`. After the merge the **API must be restarted**, not merely redeployed against: the sensitive-operation catalogue is compiled in from `packages/database`, so a stale process rejects `financial.period.close` / `financial.journal.reverse` (this is exactly how the stale dev API surfaced during hand-testing). WB5-7 (gateway) remains owner-gated.
+- **MERGED.** [PR #129](https://github.com/Ewosoft-Solutions/claude-trial/pull/129) squash-merged to `main` as **`21ceec7`**, CI green (7m35s; all five migrations applied forward from scratch in order, RLS + privileged gates passed against that schema). WB5-3..5-6 are `done` and **Workbench 5 is complete** to the ADR-10 Release-1 cut line. One CI failure on the way: Prettier on 27 files — `ci:quick` does not run the format check, and I pushed without it. After the merge the **API must be restarted**, not merely redeployed against: the sensitive-operation catalogue is compiled in from `packages/database`, so a stale process rejects `financial.period.close` / `financial.journal.reverse` (this is exactly how the stale dev API surfaced during hand-testing). WB5-7 (gateway) remains owner-gated.
 
 **Gotcha worth keeping**
 
