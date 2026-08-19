@@ -1,0 +1,158 @@
+// ============================================
+// General Ledger (ADR-10) — the accounting backbone
+// ============================================
+//
+// The owner chose to BUILD an internal, auditor-grade double-entry ledger and
+// ALSO offer an export/integration path: a school with no accounting tool keeps
+// its books here; a school with one exports into it.
+//
+// Everything financial is a SUBLEDGER that posts balanced journal entries into
+// these tables — today the ADR-05 receivables subledger (invoices, adjustments,
+// receipts, credit), later payroll and AP. Nothing records money without a
+// balanced entry, and a posted entry is never edited: it is reversed by a contra
+// entry that points back at it (the fix for the legacy negative-amount pattern,
+// parity job #95).
+//
+// Lives in the `finance` schema (same bounded context, same RLS shape).
+// Amounts are minor units (kobo) like the rest of finance.
+// ============================================
+
+/// One line of the chart of accounts. `systemKey` marks the handful of accounts
+/// the posting rules need by name (AR control, cash, fee income, discounts
+/// allowed, unapplied credit) so a tenant can rename or renumber its accounts
+/// without breaking posting. Seeded per tenant on first use.
+model ChartOfAccount {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  code String // tenant-unique account number, e.g. "1100"
+  name String
+  type String // asset | liability | equity | income | expense
+
+  /// debit | credit — the side that INCREASES this account. Reporting reads it
+  /// so a trial balance can present a signed balance per account.
+  normalBalance String @map("normal_balance")
+
+  /// Stable handle for the accounts the posting rules resolve by role:
+  /// ar_control | cash | fee_income | discounts_allowed | unapplied_credit.
+  /// Null for the ordinary accounts a bookkeeper adds.
+  systemKey String? @map("system_key")
+
+  active Boolean @default(true)
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  lines  JournalLine[]
+
+  @@unique([tenantId, code])
+  @@unique([tenantId, systemKey])
+  @@index([tenantId])
+  @@map("chart_of_accounts")
+  @@schema("finance")
+}
+
+/// An accounting period. Posting into a `closed` period is refused — the reason
+/// a correction after close has to be a reversal dated in an open period rather
+/// than a quiet edit of history. Close/reopen is an audited, step-up action.
+model AccountingPeriod {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  name      String // e.g. "2026-08" or "First Term 2026/27"
+  startDate DateTime @map("start_date") @db.Date
+  endDate   DateTime @map("end_date") @db.Date
+
+  status   String    @default("open") // open | closed
+  closedBy String?   @map("closed_by")
+  closedAt DateTime? @map("closed_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entries JournalEntry[]
+
+  @@unique([tenantId, name])
+  @@index([tenantId])
+  @@index([tenantId, status])
+  @@map("accounting_periods")
+  @@schema("finance")
+}
+
+/// A balanced journal entry. `sourceType`/`sourceId` point back at the subledger
+/// event that caused it (invoice issue, adjustment, receipt, credit application)
+/// so any ledger line can be traced to the thing a parent actually did. A
+/// posted entry is immutable; `reversalOfId` links a contra entry to what it
+/// reverses, and the reversed entry is marked `reversed`.
+model JournalEntry {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  entryNumber String   @map("entry_number")
+  entryDate   DateTime @map("entry_date") @db.Date
+  periodId    String?  @map("period_id")
+
+  memo String?
+
+  /// invoice | adjustment | receipt | credit_application | manual | reversal
+  sourceType String  @map("source_type")
+  sourceId   String? @map("source_id")
+
+  status       String  @default("posted") // posted | reversed
+  reversalOfId String? @map("reversal_of_id")
+
+  postedBy String?  @map("posted_by")
+  postedAt DateTime @default(now()) @map("posted_at")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  period     AccountingPeriod? @relation(fields: [periodId], references: [id], onDelete: SetNull)
+  reversalOf JournalEntry?     @relation("EntryReversal", fields: [reversalOfId], references: [id], onDelete: SetNull)
+  reversedBy JournalEntry[]    @relation("EntryReversal")
+  lines      JournalLine[]
+
+  @@unique([tenantId, entryNumber])
+  @@index([tenantId])
+  @@index([tenantId, entryDate])
+  @@index([tenantId, sourceType, sourceId])
+  @@index([periodId])
+  @@map("journal_entries")
+  @@schema("finance")
+}
+
+/// One side of a journal entry. Exactly one of `debit`/`credit` is non-zero;
+/// the entry's debits and credits must sum equal (enforced in the posting
+/// service, which is the only writer). The optional subject columns keep a line
+/// answerable — "which family, which invoice" — without a cross-schema join.
+model JournalLine {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  entryId   String @map("entry_id")
+  accountId String @map("account_id")
+
+  debit  Int @default(0) // kobo
+  credit Int @default(0) // kobo
+
+  description String?
+
+  invoiceId   String? @map("invoice_id")
+  householdId String? @map("household_id")
+  studentId   String? @map("student_id")
+
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant  Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  entry   JournalEntry   @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  account ChartOfAccount @relation(fields: [accountId], references: [id], onDelete: Restrict)
+
+  @@index([tenantId])
+  @@index([entryId])
+  @@index([tenantId, accountId])
+  @@index([tenantId, invoiceId])
+  @@map("journal_lines")
+  @@schema("finance")
+}

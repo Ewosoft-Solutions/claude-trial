@@ -2,12 +2,18 @@
 // Finance Models
 // ============================================
 //
-// FeeInvoice: a billing record issued to a student for a term's fees.
-// Payment: a payment receipt against an invoice.
+// FeeInvoice: a billing record issued to a student (or an applicant) for a
+//   term's fees, itemised by FeeInvoiceLine and reduced by FeeAdjustment.
+// Payment: a RECEIPT — money received from a payer — allocated across one or
+//   more invoices by PaymentAllocation; any excess becomes an AccountCredit.
 //
-// Both are tenant-scoped (tenant_id NOT NULL) in the "finance" schema
-// and covered by RLS (migration applies the policy explicitly so
-// db:rls:check passes from day one).
+// The balance is always DERIVED (gross − applied adjustments − allocations −
+// applied credit) and never stored-and-edited; corrections are new rows.
+//
+// All tenant-scoped (tenant_id NOT NULL) in the "finance" schema and covered
+// by RLS (each migration applies the policy explicitly so db:rls:check passes
+// from day one). The double-entry ledger these subledger events post into
+// lives in `general-ledger.prisma` (same schema, ADR-10).
 //
 // invoice status: 'draft' | 'issued' | 'paid' | 'partial' | 'overdue' | 'cancelled'
 // payment status: 'pending' | 'completed' | 'failed' | 'refunded'
@@ -41,6 +47,8 @@ model BillingHousehold {
   members  HouseholdMember[]
   payers   HouseholdPayer[]
   invoices FeeInvoice[]
+  payments Payment[]
+  credits  AccountCredit[]
 
   @@unique([tenantId, derivedFromGuardianId])
   @@index([tenantId])
@@ -134,7 +142,10 @@ model FeeInvoice {
   issuedDate DateTime? @map("issued_date") @db.Date
   dueDate    DateTime? @map("due_date") @db.Date
 
-  // Amounts in minor units (kobo) — avoids float issues
+  // Amounts in minor units (kobo) — avoids float issues.
+  // `amountPaid` is a CACHE of Σ allocations + Σ applied credit, maintained by
+  // the allocation writer in the same transaction so the list can sort on it.
+  // The authoritative figure is always derived from the allocation rows.
   amountDue  Int @default(0) @map("amount_due")
   amountPaid Int @default(0) @map("amount_paid")
 
@@ -149,11 +160,12 @@ model FeeInvoice {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Relations
-  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  household   BillingHousehold? @relation(fields: [householdId], references: [id], onDelete: SetNull)
-  payments    Payment[]
-  lines       FeeInvoiceLine[]
-  adjustments FeeAdjustment[]
+  tenant             Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  household          BillingHousehold?   @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  allocations        PaymentAllocation[]
+  creditApplications CreditApplication[]
+  lines              FeeInvoiceLine[]
+  adjustments        FeeAdjustment[]
 
   @@unique([tenantId, invoiceNumber])
   @@index([tenantId])
@@ -166,15 +178,23 @@ model FeeInvoice {
   @@schema("finance")
 }
 
+/// A RECEIPT: money received from a payer on a date, then ALLOCATED across one
+/// or more invoices (WB5-3). It is deliberately not linked to a single invoice —
+/// a parent paying once for two children is the normal case, not the exception,
+/// and the old one-payment-one-invoice shape could not express it. What each
+/// naira settled lives in `PaymentAllocation`; anything unallocated becomes an
+/// `AccountCredit` rather than fake income.
 model Payment {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
-  receiptNumber String  @map("receipt_number")
-  invoiceId     String  @map("invoice_id")
-  // Nullable to mirror FeeInvoice: an admission-fee payment settles an invoice
-  // that has no student yet (WB3-5); re-keyed to the student on conversion.
-  studentId     String? @map("student_id")
+  receiptNumber String @map("receipt_number")
+
+  /// The family account the money came in on (optional — a receipt can still be
+  /// taken for a single student with no household).
+  householdId String? @map("household_id")
+  /// Snapshot of who paid, so a reprinted receipt reads the same years later.
+  payerName   String? @map("payer_name")
 
   method    String   @default("transfer") // transfer | card | cash | cheque
   paidAt    DateTime @map("paid_at") @db.Date
@@ -192,18 +212,141 @@ model Payment {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  /// Reprints are counted (and audited) rather than forbidden — a family losing
+  /// a receipt is routine; a receipt quietly printed forty times is not.
+  reprintCount    Int       @default(0) @map("reprint_count")
+  lastReprintedAt DateTime? @map("last_reprinted_at")
+
   // Relations
-  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  invoice FeeInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  tenant      Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  household   BillingHousehold?   @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  allocations PaymentAllocation[]
+  credits     AccountCredit[]
 
   @@unique([tenantId, receiptNumber])
   @@index([tenantId])
+  @@index([tenantId, householdId])
+  @@index([tenantId, status])
+  @@index([tenantId, paidAt])
+  @@map("payments")
+  @@schema("finance")
+}
+
+/// What one receipt settled on one invoice. The many-to-many is real: an invoice
+/// collects allocations over time (installments), a receipt spreads across
+/// invoices (siblings). An allocation never exceeds the invoice's outstanding
+/// balance, and the sum of a receipt's allocations never exceeds its amount —
+/// both enforced in the one writer, inside the same transaction.
+model PaymentAllocation {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  paymentId String @map("payment_id")
+  invoiceId String @map("invoice_id")
+
+  amount Int @default(0) // kobo
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  tenant  Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  payment Payment    @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice FeeInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@unique([paymentId, invoiceId])
+  @@index([tenantId])
   @@index([tenantId, invoiceId])
+  @@index([paymentId])
+  @@map("payment_allocations")
+  @@schema("finance")
+}
+
+/// Unapplied credit — an accounts-receivable CREDIT BALANCE, not stored value
+/// and not money we hold (ADR-05: we are not a payment custodian). It arises
+/// when a payer pays more than the invoices they settled, and it is drawn down
+/// against future invoices. `remaining` is maintained by the writer alongside
+/// append-only `CreditApplication` rows, so the draw-down history stays intact.
+/// Paying credit back out in cash is deliberately out of scope for v1.
+model AccountCredit {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  householdId String? @map("household_id")
+  studentId   String? @map("student_id")
+
+  /// overpayment | opening_balance | adjustment
+  source String @default("overpayment")
+  amount Int    @default(0) // kobo, as received
+  remaining Int @default(0) // kobo, still undrawn
+
+  reason    String?
+  paymentId String? @map("payment_id") // the receipt that created it
+
+  status String @default("active") // active | exhausted | void
+
+  createdBy String?  @map("created_by")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  household    BillingHousehold?   @relation(fields: [householdId], references: [id], onDelete: SetNull)
+  payment      Payment?            @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  applications CreditApplication[]
+
+  @@index([tenantId])
+  @@index([tenantId, householdId])
   @@index([tenantId, studentId])
   @@index([tenantId, status])
-  @@index([invoiceId])
-  @@index([studentId])
-  @@map("payments")
+  @@map("account_credits")
+  @@schema("finance")
+}
+
+/// One draw-down of a credit against an invoice. Append-only: reversing a
+/// wrongly-applied credit is a new row on the other side, never a delete.
+model CreditApplication {
+  id        String @id @default(uuid())
+  tenantId  String @map("tenant_id")
+  creditId  String @map("credit_id")
+  invoiceId String @map("invoice_id")
+
+  amount Int @default(0) // kobo
+
+  appliedBy String?  @map("applied_by")
+  appliedAt DateTime @default(now()) @map("applied_at")
+
+  tenant  Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  credit  AccountCredit @relation(fields: [creditId], references: [id], onDelete: Cascade)
+  invoice FeeInvoice    @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId])
+  @@index([tenantId, invoiceId])
+  @@index([creditId])
+  @@map("credit_applications")
+  @@schema("finance")
+}
+
+/// A gap-aware, never-reused document sequence (ADR-05 Q23). One row per
+/// tenant + kind + scope (the fiscal year), incremented atomically inside the
+/// issuing transaction. A rolled-back transaction therefore leaves a GAP rather
+/// than handing the number to someone else — which is the property an auditor
+/// wants: a missing receipt number is visible, a duplicated one is not.
+model FinanceNumberSequence {
+  id       String @id @default(uuid())
+  tenantId String @map("tenant_id")
+
+  kind     String // receipt | invoice | journal
+  scopeKey String @map("scope_key") // fiscal year, e.g. "2026"
+  prefix   String
+
+  nextValue Int @default(1) @map("next_value")
+
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, kind, scopeKey])
+  @@index([tenantId])
+  @@map("finance_number_sequences")
   @@schema("finance")
 }
 
