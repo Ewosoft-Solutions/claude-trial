@@ -4,6 +4,39 @@ Last Updated: 2026-08-19
 
 ---
 
+## Session Summary (2026-08-19, pt. 3) — Claude: confirmation pass on the WB5 fixes → 3 new drifts + a migration-rule violation, all fixed
+
+**Item(s):** WB5-3..5-6 still `in-review`. **Branch:** `feat/wb5-finance-subledger-gl`.
+
+**The point of the second pass.** The reviewer confirmed all seven majors from pt. 2 were genuinely fixed (M1, M2, M6, M7 clean; M3/M4/M5 fixed but incomplete), and then found what the fixes themselves had opened. That is the useful half: three of my seven fixes introduced new ways for the books to drift.
+
+- **A pre-ledger cancel stranded its discount.** `withdrawCancelledInvoice` reversed the invoice's adjustments *and then* withdrew the balance that still counted them, so a school that upgraded and cancelled an old invoice carrying a waiver left the waiver's amount in receivables forever. The two cases are genuinely different — an invoice whose charge was posted here vs one whose receivable arrived inside the opening balance — and are now two branches with the reasoning written beside each. New e2e covers the pre-ledger variant, which the earlier case did not.
+- **Two standing discount policies were each capped against the same untouched balance.** A 60% scholarship and a 50% sibling discount on one invoice together credited 110% of the charge. The cap now carries a running balance across the pass. Regression test pins `[60_000, 40_000]` on a ₦100,000 invoice.
+- **The two credit paths locked in opposite orders** — `applyCredit` took credit-then-invoice, `autoApplyToInvoice` invoice-then-credit: an ABBA deadlock that kills one request with a 40P01 on a money route. There is one global order now (`lockInvoicesThenCredits`: invoices before credits), and **adjustment approval takes the row lock it was missing** — without it, a waiver re-checked against a balance a concurrent receipt was already spending could still over-credit (this was also the last reachable path to `overpaid > 0`).
+
+**The rule I broke myself.** I corrected the receipts backfill by editing migration `20260819120000` **after it had been applied** — the AGENTS.md §7 drift gotcha, and the correction would never have reached the environment that ran the original. Reverted to its applied form; the fix is now `20260819170000_wb5_backfill_correction`, which deletes allocations belonging to non-`completed` payments, clears `payer_name` where it was borrowed from the billed child, and re-derives the affected invoices' cached totals. Verified on dev: 0 of each remaining.
+
+**Also from the pass:** the P2002 catches now name the constraint they expect (`isUniqueViolationOn`, mirroring `guardianship.service.ts`) and raise a **retryable conflict** instead of pretending to recover — a failed insert has already aborted the transaction, so "the loser reads the winner's row and carries on" was fiction. The CSV truncation notice is a full-width row rather than a ragged one a strict importer would reject.
+
+**The unauthorized-scope gap is properly closed.** The reviewer was right that the route-guard spec pins decorators, not denials. New `apps/api/test/finance-authorization-http.e2e-spec.ts` drives the real guard stack with a token holding `finance.view` + `finance.manage` and nothing else: the receipts list answers 200, every ledger route and the reconciliation report answer **403**, recording a receipt answers **403 for want of a step-up** (proving the PermissionGuard passed first), and an anonymous caller still gets 401.
+
+**Two findings I argued rather than fixed, and the reviewer accepted both:** a fully-waived invoice reading `paid` is the design's stated rule (`billing-and-ar-design.md` §2: settled by ANY mix of payment and adjustment), and `overpaid > 0` is unreachable for new data — the reviewer's remaining path was the unlocked approval, now locked.
+
+**Verification**
+
+- api unit **859** · **e2e 34 suites / 246 tests, 0 failures** — finance **17/17** (new: the pre-ledger cancel), finance-authorization **5/5** (new)
+- `pnpm ci:quick` ✔ · `db:rls:check` ✔ · `check:privileged-db` ✔ (27) · `db:verify` ✔
+
+**Next step**
+
+- The branch is ready for a merge decision. Two review rounds, twelve real defects between them, all fixed and pinned by tests. WB5-7 (gateway) remains the only owner-gated item.
+
+**Gotcha worth keeping**
+
+- **Fixing an accounting bug is itself an accounting change.** Three of the seven pt. 2 fixes introduced new drift, all in the same shape: a correction that moved one side of an entry without asking what the other side had already accounted for. When changing a posting path, work out the invoice's *net contribution to the control account* first, then make the correction equal it — do not reason forward from "reverse the thing that looks wrong".
+
+---
+
 ## Session Summary (2026-08-19, pt. 2) — Claude: independent review of WB5 → CHANGES-REQUESTED (7 major) → all fixed and re-verified
 
 **Item(s):** WB5-3..5-6 stay `in-review` (now review-corrected). **Branch:** `feat/wb5-finance-subledger-gl`.
