@@ -14,7 +14,12 @@ describe('FinanceReportingService', () => {
     systemAccountBalance: jest.fn(),
   };
 
-  const service = new FinanceReportingService({ client } as never, ledger as never);
+  const audit = { write: jest.fn() };
+  const service = new FinanceReportingService(
+    { client } as never,
+    ledger as never,
+    audit as never,
+  );
 
   const owing = (id: string, balance: number, dueDate: string | null) => ({
     id,
@@ -83,7 +88,7 @@ describe('FinanceReportingService', () => {
       receipts: 2,
       total: 550_000,
       allocated: 500_000,
-      heldAsCredit: 50_000,
+      unallocated: 50_000,
     });
   });
 
@@ -182,5 +187,9 @@ describe('FinanceReportingService', () => {
     expect(header?.startsWith('entry_number,entry_date')).toBe(true);
     expect(row).toContain("'=cmd|calc");
     expect(row).toContain('1000,Cash & bank,100000,0');
+    // The journal is financial data leaving the building, so it is audited.
+    expect(audit.write).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'finance_journal_exported' }),
+    );
   });
 });

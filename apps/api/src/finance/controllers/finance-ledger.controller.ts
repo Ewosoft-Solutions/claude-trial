@@ -111,6 +111,8 @@ export class FinanceLedgerController {
   }
 
   @Post('periods')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_PERIOD_CLOSE)
   @RequirePermissions(['finance.gl.manage'])
   @ApiOperation({ summary: 'Define an accounting period' })
   createPeriod(
@@ -150,6 +152,10 @@ export class FinanceLedgerController {
     @Query() query: TrialBalanceQueryDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.reporting.exportJournalCsv(req.user.tenantId, query);
+    return this.reporting.exportJournalCsv(
+      req.user.tenantId,
+      query,
+      req.user.profileId,
+    );
   }
 }

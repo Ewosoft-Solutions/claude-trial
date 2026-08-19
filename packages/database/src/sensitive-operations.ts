@@ -168,7 +168,9 @@ export const SENSITIVE_OPERATION_CATALOG = [
     requiresStepUp: true,
     requiresMakerChecker: false,
     freshnessMinutes: 5,
-    requiredClearanceLevel: 5,
+    // Matches `finance.gl.manage`, the permission that actually gates it — the
+    // catalog should not describe a looser policy than the one enforced.
+    requiredClearanceLevel: 7,
     requiredPermission: 'finance.gl.manage',
   },
   {

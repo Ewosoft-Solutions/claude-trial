@@ -261,15 +261,20 @@ BEGIN
     SELECT 1 FROM information_schema.columns
     WHERE table_schema = 'finance' AND table_name = 'payments' AND column_name = 'invoice_id'
   ) THEN
+    -- Only money that was actually received settles anything. A pending,
+    -- failed or refunded payment becoming an allocation would silently mark
+    -- its invoice as paid.
     INSERT INTO "finance"."payment_allocations" ("id", "tenant_id", "payment_id", "invoice_id", "amount", "created_by", "created_at")
     SELECT gen_random_uuid()::text, p."tenant_id", p."id", p."invoice_id", p."amount", p."recorded_by", p."created_at"
     FROM "finance"."payments" p
-    WHERE p."invoice_id" IS NOT NULL
+    WHERE p."invoice_id" IS NOT NULL AND p."status" = 'completed'
     ON CONFLICT ("payment_id", "invoice_id") DO NOTHING;
 
+    -- The household carries over. The PAYER does not: the old model recorded
+    -- who was billed, not who paid, and stamping the child's name into
+    -- `payer_name` would put it on every reprinted historical receipt.
     UPDATE "finance"."payments" p
-    SET "household_id" = i."household_id",
-        "payer_name"   = COALESCE(p."payer_name", i."student_name")
+    SET "household_id" = i."household_id"
     FROM "finance"."fee_invoices" i
     WHERE i."id" = p."invoice_id" AND p."household_id" IS NULL;
   END IF;

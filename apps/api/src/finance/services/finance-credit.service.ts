@@ -14,6 +14,7 @@ import {
   computeFinancials,
   refreshInvoiceTotals,
 } from '../invoice-financials';
+import { lockCredits, lockInvoices } from '../finance-locks';
 
 /**
  * Unapplied credit — what a family has paid beyond what it owed.
@@ -48,6 +49,7 @@ export class FinanceCreditService {
     query: { householdId?: string; studentId?: string; status?: string } = {},
   ) {
     return this.client.accountCredit.findMany({
+      take: 200,
       where: {
         tenantId,
         ...(query.householdId ? { householdId: query.householdId } : {}),
@@ -162,6 +164,11 @@ export class FinanceCreditService {
   ) {
     await this.ledger.ensureOpeningBalance(tenantId, userId);
 
+    // Lock both sides before reading either: two draws on the same credit would
+    // otherwise each see the full remaining balance and spend it twice.
+    await lockCredits(this.client, tenantId, [creditId]);
+    await lockInvoices(this.client, tenantId, [invoiceId]);
+
     const credit = await this.client.accountCredit.findFirst({
       where: { id: creditId, tenantId },
     });
@@ -228,6 +235,8 @@ export class FinanceCreditService {
     invoiceId: string,
     userId: string,
   ): Promise<number> {
+    await lockInvoices(this.client, tenantId, [invoiceId]);
+
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: invoiceId, tenantId },
       include: INVOICE_FINANCIALS_INCLUDE,
@@ -244,12 +253,30 @@ export class FinanceCreditService {
     };
     if (!owner.householdId && !owner.studentId) return 0;
 
-    const credits = await this.client.accountCredit.findMany({
+    const candidates = await this.client.accountCredit.findMany({
       where: {
         tenantId,
         status: 'active',
         remaining: { gt: 0 },
         ...this.ownerWhere(owner),
+      },
+      orderBy: [{ createdAt: 'asc' }],
+      select: { id: true },
+    });
+
+    // Lock the candidates, then re-read them: after the lock, `remaining` is
+    // what actually survived any concurrent draw rather than what we saw first.
+    await lockCredits(
+      this.client,
+      tenantId,
+      candidates.map((credit) => credit.id),
+    );
+    const credits = await this.client.accountCredit.findMany({
+      where: {
+        tenantId,
+        id: { in: candidates.map((credit) => credit.id) },
+        status: 'active',
+        remaining: { gt: 0 },
       },
       orderBy: [{ createdAt: 'asc' }],
     });
@@ -351,5 +378,4 @@ export class FinanceCreditService {
 
     return { application, invoice };
   }
-
 }

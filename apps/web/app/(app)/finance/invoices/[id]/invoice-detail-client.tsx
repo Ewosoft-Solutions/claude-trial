@@ -291,7 +291,10 @@ export function InvoiceDetailClient({
           invoiceId={invoice.id}
           lines={invoice.lines}
           catalogue={catalogue}
-          canManage={canManage}
+          // Lines are the charge. Once issued it is in the ledger and on a
+          // family's statement, so the API fixes it — changing what is owed
+          // after that is an adjustment, which is approved and posted.
+          editable={canManage && invoice.status === 'draft'}
         />
 
         <AdjustmentsSection
@@ -391,30 +394,34 @@ function LinesSection({
   invoiceId,
   lines,
   catalogue,
-  canManage,
+  editable,
 }: {
   invoiceId: string;
   lines: ApiLine[];
   catalogue: CatalogueItem[];
-  canManage: boolean;
+  editable: boolean;
 }) {
   return (
     <SectionCard
       title="Line items"
-      description="What this invoice bills for. Gross is the sum of these lines."
+      description={
+        editable
+          ? 'What this invoice bills for. Gross is the sum of these lines.'
+          : 'What this invoice bills for. Fixed once the invoice was issued — use an adjustment to change what is owed.'
+      }
       action={
-        canManage ? (
+        editable ? (
           <AddLineDialog invoiceId={invoiceId} catalogue={catalogue} />
         ) : undefined
       }
       empty={lines.length === 0}
-      skeletonColumns={canManage ? 5 : 4}
+      skeletonColumns={editable ? 5 : 4}
       emptyState={
         <EmptyState
           compact
           title="No line items"
           description={
-            canManage
+            editable
               ? 'Add a line from the fee-item catalogue to bill for it.'
               : 'This invoice has no line items yet.'
           }
@@ -428,7 +435,7 @@ function LinesSection({
             <TableHead className="text-right">Unit</TableHead>
             <TableHead className="text-right">Qty</TableHead>
             <TableHead className="text-right">Amount</TableHead>
-            {canManage ? (
+            {editable ? (
               <TableHead className="w-0 text-right">
                 <span className="sr-only">Actions</span>
               </TableHead>
@@ -459,7 +466,7 @@ function LinesSection({
               <TableCell className="text-right tabular-nums font-medium">
                 {naira(line.amount * line.quantity)}
               </TableCell>
-              {canManage ? (
+              {editable ? (
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
                     <EditLineDialog line={line} />

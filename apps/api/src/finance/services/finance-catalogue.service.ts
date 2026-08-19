@@ -133,9 +133,28 @@ export class FinanceCatalogueService {
   private async assertInvoice(tenantId: string, invoiceId: string) {
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: invoiceId, tenantId },
-      select: { id: true },
+      select: { id: true, status: true, invoiceNumber: true },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
+    return invoice;
+  }
+
+  /**
+   * Lines are the CHARGE. Once an invoice is issued that charge is in the
+   * ledger and on a family's statement, so editing a line afterwards would move
+   * what is owed with no journal entry behind it and no approval in front of
+   * it — the receivable and the books would part company silently. After issue,
+   * the way to change what is owed is an adjustment (which is approved, posted
+   * and auditable) or a cancellation.
+   */
+  private async assertDraftInvoice(tenantId: string, invoiceId: string) {
+    const invoice = await this.assertInvoice(tenantId, invoiceId);
+    if (invoice.status !== 'draft') {
+      throw new BadRequestException(
+        `Invoice ${invoice.invoiceNumber} is ${invoice.status} — its line items are fixed. Raise an adjustment to change what is owed.`,
+      );
+    }
+    return invoice;
   }
 
   private async assertFeeItem(tenantId: string, feeItemId: string) {
@@ -151,7 +170,7 @@ export class FinanceCatalogueService {
     invoiceId: string,
     dto: CreateInvoiceLineDto,
   ) {
-    await this.assertInvoice(tenantId, invoiceId);
+    await this.assertDraftInvoice(tenantId, invoiceId);
     await this.assertFeeItem(tenantId, dto.feeItemId);
     const line = await this.client.feeInvoiceLine.create({
       data: {
@@ -176,6 +195,7 @@ export class FinanceCatalogueService {
       where: { id: lineId, tenantId },
     });
     if (!line) throw new NotFoundException('Invoice line not found');
+    await this.assertDraftInvoice(tenantId, line.invoiceId);
     if (dto.feeItemId) await this.assertFeeItem(tenantId, dto.feeItemId);
 
     const updated = await this.client.feeInvoiceLine.update({
@@ -196,6 +216,7 @@ export class FinanceCatalogueService {
       where: { id: lineId, tenantId },
     });
     if (!line) throw new NotFoundException('Invoice line not found');
+    await this.assertDraftInvoice(tenantId, line.invoiceId);
     await this.client.feeInvoiceLine.delete({ where: { id: lineId } });
     await this.syncAmountDue(tenantId, line.invoiceId);
     return { deleted: true };

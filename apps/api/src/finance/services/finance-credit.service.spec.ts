@@ -14,7 +14,9 @@ describe('FinanceCreditService', () => {
   };
   const creditApplication = { create: jest.fn() };
   const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
-  const client = { accountCredit, creditApplication, feeInvoice };
+  // `$queryRawUnsafe` is the row lock taken before either side's balance is read.
+  const $queryRawUnsafe = jest.fn().mockResolvedValue([]);
+  const client = { accountCredit, creditApplication, feeInvoice, $queryRawUnsafe };
   const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
   const audit = { write: jest.fn() };
 
@@ -39,6 +41,7 @@ describe('FinanceCreditService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    $queryRawUnsafe.mockResolvedValue([]);
     creditApplication.create.mockImplementation(async ({ data }: any) => ({
       id: 'ca-1',
       ...data,
@@ -58,6 +61,7 @@ describe('FinanceCreditService', () => {
       { id: 'cr-old', remaining: 100_000 },
       { id: 'cr-new', remaining: 100_000 },
     ]);
+    // The candidates are locked, then re-read — so `findMany` runs twice.
 
     const applied = await service.autoApplyToInvoice('t1', 'inv-1', 'user-1');
 

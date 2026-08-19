@@ -12,12 +12,15 @@ describe('FinanceReceiptService.recordReceipt', () => {
   const householdPayer = { findFirst: jest.fn() };
   const payment = { create: jest.fn(), findFirst: jest.fn() };
   const paymentAllocation = { create: jest.fn() };
+  // `$queryRawUnsafe` is the row lock the writer takes before it reads a balance.
+  const $queryRawUnsafe = jest.fn().mockResolvedValue([]);
   const client = {
     feeInvoice,
     billingHousehold,
     householdPayer,
     payment,
     paymentAllocation,
+    $queryRawUnsafe,
   };
 
   const numbering = { next: jest.fn() };
@@ -50,6 +53,7 @@ describe('FinanceReceiptService.recordReceipt', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    $queryRawUnsafe.mockResolvedValue([]);
     numbering.next.mockResolvedValue('RCT-2026-000001');
     billingHousehold.findFirst.mockResolvedValue({ id: 'hh-1', name: 'Okonkwo' });
     householdPayer.findFirst.mockResolvedValue({ payerName: 'Mrs Okonkwo' });
@@ -78,6 +82,28 @@ describe('FinanceReceiptService.recordReceipt', () => {
       { invoiceId: 'inv-b', amount: 100_000 },
     ],
     ...overrides,
+  });
+
+  it('locks the invoices before it reads their balances', async () => {
+    const order: string[] = [];
+    $queryRawUnsafe.mockImplementation(async () => {
+      order.push('lock');
+      return [];
+    });
+    feeInvoice.findFirst.mockImplementation(async () => {
+      order.push('read');
+      return invoice('inv-a', 300_000, 'Chidi');
+    });
+
+    await service.recordReceipt(
+      't1',
+      dto({ allocations: [{ invoiceId: 'inv-a', amount: 300_000 }] }),
+      'user-1',
+    );
+
+    // Reading first would let two cashiers both see the full outstanding.
+    expect(order[0]).toBe('lock');
+    expect(order).toContain('read');
   });
 
   it('settles two siblings from one receipt and credits each invoice separately', async () => {

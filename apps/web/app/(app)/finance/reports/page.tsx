@@ -45,7 +45,7 @@ interface CollectionsReport {
     receipts?: number;
     total?: number;
     allocated?: number;
-    heldAsCredit?: number;
+    unallocated?: number;
   };
 }
 
@@ -159,9 +159,9 @@ async function KpiSection() {
       value: nairaFromKobo(collections?.totals?.total ?? 0),
     },
     {
-      key: 'credit',
-      label: 'Held as credit',
-      value: nairaFromKobo(collections?.totals?.heldAsCredit ?? 0),
+      key: 'unallocated',
+      label: 'Received unallocated',
+      value: nairaFromKobo(collections?.totals?.unallocated ?? 0),
     },
   ];
 

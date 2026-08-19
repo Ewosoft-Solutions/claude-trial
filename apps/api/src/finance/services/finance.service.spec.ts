@@ -11,8 +11,7 @@ describe('FinanceService.listInvoices', () => {
   const count = jest.fn();
   const client = { feeInvoice: { findMany, count } };
   const service = new FinanceService(
-    { client } as never, // db
-    { isScoped: false } as never, // tenantDb (unscoped → uses db.client)
+    { client } as never, // tenantDb (its `client` is the request transaction)
     { applyPoliciesToInvoice: jest.fn() } as never, // adjustments
     { next: jest.fn() } as never, // numbering
     { autoApplyToInvoice: jest.fn() } as never, // credits
@@ -120,18 +119,25 @@ describe('FinanceService.listInvoices', () => {
  */
 describe('FinanceService.updateInvoice — cancelling', () => {
   const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
+  const feeAdjustment = { findMany: jest.fn() };
   const paymentAllocation = { count: jest.fn() };
   const creditApplication = { count: jest.fn() };
-  const client = { feeInvoice, paymentAllocation, creditApplication };
+  const client = {
+    feeInvoice,
+    feeAdjustment,
+    paymentAllocation,
+    creditApplication,
+  };
   const ledger = {
     post: jest.fn(),
+    // A reversal returns the contra entries it posted; an invoice billed before
+    // the ledger opened has none, which is the branch that matters below.
     reverseSource: jest.fn(),
     ensureOpeningBalance: jest.fn(),
   };
 
   const service = new FinanceService(
     { client } as never,
-    { isScoped: false } as never,
     { applyPoliciesToInvoice: jest.fn() } as never,
     { next: jest.fn() } as never,
     { autoApplyToInvoice: jest.fn() } as never,
@@ -141,6 +147,8 @@ describe('FinanceService.updateInvoice — cancelling', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    ledger.reverseSource.mockResolvedValue([{ id: 'je-rev' }]);
+    feeAdjustment.findMany.mockResolvedValue([]);
     feeInvoice.findFirst.mockResolvedValue({ id: 'inv-1', status: 'issued' });
     feeInvoice.update.mockImplementation(async ({ where, data }: any) => ({
       id: where.id,

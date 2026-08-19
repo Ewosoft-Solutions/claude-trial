@@ -4,7 +4,6 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { Prisma } from '@workspace/database';
-import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import { FinanceAdjustmentService } from './finance-adjustment.service';
@@ -40,7 +39,6 @@ export type { InvoiceFinancials };
 @Injectable()
 export class FinanceService {
   constructor(
-    private readonly db: DatabaseService,
     private readonly tenantDb: TenantDbService,
     private readonly adjustments: FinanceAdjustmentService,
     private readonly numbering: FinanceNumberingService,
@@ -49,8 +47,12 @@ export class FinanceService {
     private readonly ledger: LedgerService,
   ) {}
 
-  private get client() {
-    return this.tenantDb.isScoped ? this.tenantDb.client : this.db.client;
+  // Every collaborator here (ledger, receipts, credit, refreshInvoiceTotals)
+  // requires the request's RLS transaction and throws without one, so a
+  // privileged fallback would only half-write: the invoice on one connection,
+  // the journal entry nowhere. One client, one transaction.
+  private get client(): Prisma.TransactionClient {
+    return this.tenantDb.client;
   }
 
   // ---- Invoices -------------------------------------------------------
@@ -277,7 +279,16 @@ export class FinanceService {
       }
     }
 
+    // Issuing is a DRAFT-only transition. Without this, re-issuing an invoice
+    // that is already `partial` (a plausible "reset it" click) posts the charge
+    // a second time, re-applies every standing discount policy, and draws the
+    // family's credit down again — phantom income against a real receivable.
     const isBeingIssued = dto.status === 'issued' && invoice.status !== 'issued';
+    if (isBeingIssued && invoice.status !== 'draft') {
+      throw new BadRequestException(
+        `This invoice is already ${invoice.status} — only a draft can be issued. Correct it with an adjustment or a reversal instead.`,
+      );
+    }
     // Open the books BEFORE this invoice becomes a receivable, so a school
     // carrying pre-ledger debt opens with that debt and not with this bill.
     if (isBeingIssued) await this.ledger.ensureOpeningBalance(tenantId, userId);
@@ -303,18 +314,96 @@ export class FinanceService {
     }
 
     // Cancelling an issued invoice cannot just delete the receivable — it is
-    // reversed, so the ledger shows both the charge and its withdrawal.
+    // withdrawn from the books, so the ledger shows both the charge and its
+    // withdrawal.
     if (isBeingCancelled) {
+      await this.withdrawCancelledInvoice(tenantId, invoice.id, userId);
+    }
+
+    // Issuing has side effects (the charge, policy discounts, credit applied),
+    // so return what the invoice actually became rather than the row as it
+    // looked mid-flight — a caller that just issued can otherwise be told
+    // `issued` when held credit has already settled it.
+    if (isBeingIssued || isBeingCancelled) {
+      return this.client.feeInvoice.findFirst({ where: { id, tenantId } });
+    }
+    return updated;
+  }
+
+  /**
+   * Take a cancelled invoice back out of the books. Reversing its charge alone
+   * is not enough: any discount posted against it credited receivables too, and
+   * an invoice that predates the ledger has no charge entry to reverse at all —
+   * its receivable lives inside the opening balance. Both cases would otherwise
+   * leave the AR control account permanently disagreeing with the invoices.
+   */
+  private async withdrawCancelledInvoice(
+    tenantId: string,
+    invoiceId: string,
+    userId: string,
+  ) {
+    const charge = await this.ledger.reverseSource(
+      tenantId,
+      'invoice',
+      invoiceId,
+      userId,
+      'Invoice cancelled',
+    );
+
+    // Adjustments posted against this invoice are keyed by the ADJUSTMENT id,
+    // so they have to be looked up by invoice and reversed one by one.
+    const adjustments = await this.client.feeAdjustment.findMany({
+      where: { tenantId, invoiceId, status: 'applied' },
+      select: { id: true },
+    });
+    for (const adjustment of adjustments) {
       await this.ledger.reverseSource(
         tenantId,
-        'invoice',
-        id,
+        'adjustment',
+        adjustment.id,
         userId,
         'Invoice cancelled',
       );
     }
 
-    return updated;
+    if (charge.length > 0) return;
+
+    // No charge entry: this invoice was billed before the ledger opened, so its
+    // receivable arrived as part of the opening balance. Withdraw exactly what
+    // is still outstanding on it, against the same opening equity.
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id: invoiceId, tenantId },
+      include: INVOICE_FINANCIALS_INCLUDE,
+    });
+    if (!invoice) return;
+    const outstanding = computeFinancials(invoice).balance;
+    if (outstanding <= 0) return;
+
+    await this.ledger.post(tenantId, {
+      entryDate: new Date(),
+      memo: `Invoice ${invoice.invoiceNumber} cancelled (billed before the ledger opened)`,
+      sourceType: 'invoice_withdrawal',
+      sourceId: invoice.id,
+      postedBy: userId,
+      lines: [
+        {
+          account: SYSTEM_ACCOUNT.OPENING_EQUITY,
+          debit: outstanding,
+          description: 'Opening receivable withdrawn',
+          invoiceId: invoice.id,
+          householdId: invoice.householdId,
+          studentId: invoice.studentId,
+        },
+        {
+          account: SYSTEM_ACCOUNT.AR_CONTROL,
+          credit: outstanding,
+          description: `Invoice ${invoice.invoiceNumber}`,
+          invoiceId: invoice.id,
+          householdId: invoice.householdId,
+          studentId: invoice.studentId,
+        },
+      ],
+    });
   }
 
   /** DR receivables, CR fee income — the charge itself, at its gross value. */
@@ -427,6 +516,11 @@ export class FinanceService {
     },
     userId: string,
   ) {
+    // Before this bill exists: a school carrying pre-ledger debt opens with that
+    // debt. Doing it after the row is written counts this invoice twice — once
+    // in the opening balance, once in its own charge entry.
+    await this.ledger.ensureOpeningBalance(tenantId, userId);
+
     const invoice = await this.client.feeInvoice.create({
       data: {
         tenantId,
@@ -455,16 +549,16 @@ export class FinanceService {
     });
     // The invoice is created already `issued`, so the charge posts here rather
     // than through the draft→issued transition.
-    await this.ledger.ensureOpeningBalance(tenantId, userId);
     await this.postInvoiceIssued(tenantId, invoice.id, userId);
     return this.getInvoice(tenantId, invoice.id);
   }
 
   /**
-   * Settle (fully or partially) an admission-fee invoice. Mirrors
-   * {@link recordPayment} but the payment carries no student (the invoice has
-   * none yet). Returns the payment plus the invoice's derived financials so the
-   * caller can flip the requirement to `provided` once the balance hits zero.
+   * Settle (fully or partially) an admission-fee invoice through the one
+   * receipt writer, so an application fee lands in the same
+   * receipt/allocation/ledger shape as school fees. Returns the receipt plus
+   * the invoice's derived financials so the caller can flip the requirement to
+   * `provided` once the balance hits zero.
    */
   async settleAdmissionInvoice(
     tenantId: string,

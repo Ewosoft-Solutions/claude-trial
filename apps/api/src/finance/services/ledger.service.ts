@@ -26,6 +26,22 @@ export const SYSTEM_ACCOUNT = {
 export type SystemAccountKey =
   (typeof SYSTEM_ACCOUNT)[keyof typeof SYSTEM_ACCOUNT];
 
+/**
+ * Entries a subledger event owns. Reversing one of these in the ledger alone
+ * would withdraw the accounting effect while leaving the allocation, credit or
+ * adjustment row that caused it untouched — the invoice would still read
+ * `paid` with no cash behind it. Corrections to these go through the writer
+ * that owns both sides.
+ */
+const SUBLEDGER_SOURCES = [
+  'invoice',
+  'invoice_withdrawal',
+  'adjustment',
+  'receipt',
+  'credit_application',
+  'opening',
+];
+
 /** The starter chart every tenant gets on first posting. */
 const SYSTEM_ACCOUNTS: {
   systemKey: SystemAccountKey;
@@ -142,10 +158,25 @@ export class LedgerService {
     const missing = SYSTEM_ACCOUNTS.filter((a) => !bySystemKey.has(a.systemKey));
 
     for (const account of missing) {
-      const created = await this.client.chartOfAccount.create({
-        data: { tenantId, ...account },
-      });
-      bySystemKey.set(created.systemKey, created);
+      try {
+        const created = await this.client.chartOfAccount.create({
+          data: { tenantId, ...account },
+        });
+        bySystemKey.set(created.systemKey, created);
+      } catch (error) {
+        // Two first-ever postings can create the same system account at once;
+        // the unique index settles it and the loser reads the winner's row.
+        if (
+          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          error.code !== 'P2002'
+        ) {
+          throw error;
+        }
+        const existingAccount = await this.client.chartOfAccount.findFirst({
+          where: { tenantId, systemKey: account.systemKey },
+        });
+        if (existingAccount) bySystemKey.set(account.systemKey, existingAccount);
+      }
     }
     return bySystemKey;
   }
@@ -355,6 +386,7 @@ export class LedgerService {
     userId: string,
     reason?: string,
     entryDate: Date = new Date(),
+    opts: { allowSubledgerSource?: boolean } = {},
   ) {
     const original = await this.client.journalEntry.findFirst({
       where: { id: entryId, tenantId },
@@ -363,6 +395,14 @@ export class LedgerService {
     if (!original) throw new NotFoundException('Journal entry not found');
     if (original.status === 'reversed') {
       throw new BadRequestException('That entry has already been reversed.');
+    }
+    if (
+      !opts.allowSubledgerSource &&
+      SUBLEDGER_SOURCES.includes(original.sourceType)
+    ) {
+      throw new BadRequestException(
+        `This entry was posted by the ${original.sourceType.replace('_', ' ')} it belongs to. Correcting it here would move the ledger without moving the receipt or invoice behind it — cancel or adjust that record instead.`,
+      );
     }
 
     const period = await this.periodFor(tenantId, entryDate);
@@ -440,7 +480,11 @@ export class LedgerService {
     });
     const reversals = [];
     for (const entry of entries) {
-      reversals.push(await this.reverse(tenantId, entry.id, userId, reason));
+      reversals.push(
+        await this.reverse(tenantId, entry.id, userId, reason, new Date(), {
+          allowSubledgerSource: true,
+        }),
+      );
     }
     return reversals;
   }
@@ -509,6 +553,29 @@ export class LedgerService {
     // that started here. No entry to post.
     if (outstanding <= 0) return null;
 
+    try {
+      return await this.postOpening(tenantId, outstanding, userId);
+    } catch (error) {
+      // A partial unique index makes "one opening per tenant" a database fact,
+      // so a concurrent reader that got there first wins and this one simply
+      // carries on. Without it, two tabs opening /finance/ledger and
+      // /finance/reports at once would each post the whole pre-ledger debt —
+      // and the trial balance could not see it, because both entries balance.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  private postOpening(
+    tenantId: string,
+    outstanding: number,
+    userId?: string | null,
+  ) {
     return this.post(tenantId, {
       entryDate: new Date(),
       memo: 'Opening receivables balance at ledger start',

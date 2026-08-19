@@ -16,6 +16,7 @@ import {
   computeFinancials,
   refreshInvoiceTotals,
 } from '../invoice-financials';
+import { lockInvoices } from '../finance-locks';
 import type { ListReceiptsDto, RecordReceiptDto } from '../dto/receipt.dto';
 
 /**
@@ -227,6 +228,15 @@ export class FinanceReceiptService {
       });
       if (!household) throw new NotFoundException('Household not found');
     }
+
+    // Lock the invoices before reading their balances: two cashiers taking the
+    // same family's money at the same moment would otherwise both see the full
+    // outstanding, both pass the check below, and together over-settle it.
+    await lockInvoices(
+      this.client,
+      tenantId,
+      requested.map((allocation) => allocation.invoiceId),
+    );
 
     // Validate every target before writing anything.
     const targets: {

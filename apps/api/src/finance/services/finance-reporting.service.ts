@@ -2,6 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { Prisma } from '@workspace/database';
 
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import { AuditService } from '../../common/audit/audit.service';
+import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { LedgerService, SYSTEM_ACCOUNT } from './ledger.service';
 import {
   INVOICE_FINANCIALS_INCLUDE,
@@ -20,6 +22,9 @@ const AGING_BUCKETS = [
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/** Most entries one export will assemble before it says it stopped. */
+const EXPORT_ENTRY_CAP = 20_000;
+
 /**
  * The three questions a bursar is asked every week — what came in, what is
  * still owed and how old it is, and do the books agree with the bills — plus
@@ -31,6 +36,7 @@ export class FinanceReportingService {
   constructor(
     private readonly tenantDb: TenantDbService,
     private readonly ledger: LedgerService,
+    private readonly audit: AuditService,
   ) {}
 
   private get client(): Prisma.TransactionClient {
@@ -103,7 +109,11 @@ export class FinanceReportingService {
         receipts: receipts.length,
         total,
         allocated,
-        heldAsCredit: Math.max(0, total - allocated),
+        // What these receipts did not settle at the time they were taken. It is
+        // NOT the credit balance held today — that has since been drawn down by
+        // later invoices, and it is the `credit` control on the reconciliation
+        // report. Naming it "heldAsCredit" invited exactly that confusion.
+        unallocated: Math.max(0, total - allocated),
       },
     };
   }
@@ -302,6 +312,7 @@ export class FinanceReportingService {
   async exportJournalCsv(
     tenantId: string,
     query: { from?: string; to?: string },
+    userId?: string | null,
   ): Promise<string> {
     const where: Prisma.JournalEntryWhereInput = { tenantId };
     if (query.from || query.to) {
@@ -311,11 +322,18 @@ export class FinanceReportingService {
       };
     }
 
+    // Bounded: a multi-year tenant's whole journal would otherwise be
+    // assembled in memory. The cap is reported in the file and in the audit
+    // row rather than silently truncating — a short export that looks complete
+    // is worse than one that says it is short.
     const entries = await this.client.journalEntry.findMany({
       where,
       include: { lines: { include: { account: true } } },
       orderBy: [{ entryDate: 'asc' }, { entryNumber: 'asc' }],
+      take: EXPORT_ENTRY_CAP + 1,
     });
+    const truncated = entries.length > EXPORT_ENTRY_CAP;
+    const exported = truncated ? entries.slice(0, EXPORT_ENTRY_CAP) : entries;
 
     const header = [
       'entry_number',
@@ -334,7 +352,7 @@ export class FinanceReportingService {
     ];
 
     const rows = [header.join(',')];
-    for (const entry of entries) {
+    for (const entry of exported) {
       for (const line of entry.lines) {
         rows.push(
           [
@@ -357,6 +375,31 @@ export class FinanceReportingService {
         );
       }
     }
+    if (truncated) {
+      rows.push(
+        csvCell(
+          `TRUNCATED: this export stops at ${EXPORT_ENTRY_CAP} entries. Narrow the date range to export the rest.`,
+        ),
+      );
+    }
+
+    // The journal is financial data leaving the building, so the export is
+    // audited the way every other governed export in the product is.
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.USER_ACTION,
+      action: 'finance_journal_exported',
+      resource: 'journal_entry',
+      actorId: userId ?? null,
+      description: `Journal exported (${exported.length} entries, ${rows.length - 1} lines)`,
+      metadata: {
+        from: query.from ?? null,
+        to: query.to ?? null,
+        entries: exported.length,
+        truncated,
+      },
+    });
+
     return rows.join('\n');
   }
 }

@@ -47,7 +47,7 @@ interface CollectionsReport {
     receipts?: number;
     total?: number;
     allocated?: number;
-    heldAsCredit?: number;
+    unallocated?: number;
   };
 }
 
@@ -145,7 +145,7 @@ export default async function PaymentsPage({
         label: window.label,
         received: collections?.totals?.total ?? 0,
         count: collections?.totals?.receipts ?? 0,
-        heldAsCredit: collections?.totals?.heldAsCredit ?? 0,
+        unallocated: collections?.totals?.unallocated ?? 0,
       }}
     />
   );

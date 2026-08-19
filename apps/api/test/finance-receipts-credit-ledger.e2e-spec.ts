@@ -391,7 +391,7 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
         receipts: 2,
         total: 330_000,
         allocated: 250_000,
-        heldAsCredit: 80_000,
+        unallocated: 80_000,
       });
     });
   });
@@ -439,6 +439,111 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
     expect(csv).toMatch(/,receipt,/);
     expect(csv).toMatch(/,adjustment,/);
     expect(csv).toMatch(/,credit_application,/);
+  });
+
+  it('refuses to issue the same invoice twice, so the charge posts once', async () => {
+    await inA(async () => {
+      // `laterInvoiceId` is `partial` — held credit settled part of it.
+      await expect(
+        finance.updateInvoice(
+          tenantAId,
+          laterInvoiceId,
+          { status: 'issued' },
+          makerId,
+        ),
+      ).rejects.toThrow(/only a draft can be issued/);
+
+      const entries = await ledger.listEntries(tenantAId, {
+        sourceType: 'invoice',
+      });
+      const forInvoice = entries.data.filter(
+        (entry) => entry.sourceId === laterInvoiceId,
+      );
+      expect(forInvoice).toHaveLength(1);
+    });
+  });
+
+  it('will not waive more than an invoice still owes', async () => {
+    await inA(async () => {
+      await expect(
+        adjustments.requestAdjustment(tenantAId, maker(), {
+          invoiceId: laterInvoiceId,
+          type: 'waiver',
+          amount: 999_999,
+          reason: 'Too much',
+        }),
+      ).rejects.toThrow(/kobo outstanding/);
+    });
+  });
+
+  it('opens the books exactly once, however many readers arrive together', async () => {
+    await inA(async () => {
+      const opening = await ledger.listEntries(tenantAId, {
+        sourceType: 'opening',
+      });
+      // This tenant started life with the ledger, so there is nothing to open —
+      // and the partial unique index makes a second one impossible regardless.
+      expect(opening.total).toBeLessThanOrEqual(1);
+
+      await ledger.trialBalance(tenantAId, {});
+      await reporting.reconciliation(tenantAId);
+      const after = await ledger.listEntries(tenantAId, {
+        sourceType: 'opening',
+      });
+      expect(after.total).toBe(opening.total);
+    });
+  });
+
+  it('refuses to reverse a subledger entry from the ledger surface', async () => {
+    await inA(async () => {
+      const receipts = await ledger.listEntries(tenantAId, {
+        sourceType: 'receipt',
+      });
+      const entry = receipts.data[0];
+      expect(entry).toBeTruthy();
+
+      // Reversing it here would withdraw the accounting effect and leave the
+      // allocation standing — the invoice would still read paid with no cash.
+      await expect(
+        ledger.reverse(tenantAId, entry!.id, makerId, 'Wrong family'),
+      ).rejects.toThrow(/cancel or adjust that record instead/);
+    });
+  });
+
+  it('cancelling withdraws the charge AND anything posted against it', async () => {
+    const cancelId = await makeInvoice(adaId, 'Ada Okonkwo', 90_000, '2027-05-01');
+
+    await inA(async () => {
+      await finance.updateInvoice(
+        tenantAId,
+        cancelId,
+        { status: 'issued' },
+        makerId,
+      );
+      const waiver = await adjustments.requestAdjustment(tenantAId, maker(), {
+        invoiceId: cancelId,
+        type: 'waiver',
+        amount: 30_000,
+        reason: 'Partial hardship',
+      });
+      await adjustments.approveAdjustment(tenantAId, checker(), waiver.id);
+
+      const before = await reporting.reconciliation(tenantAId);
+      expect(before.balanced).toBe(true);
+
+      await finance.updateInvoice(
+        tenantAId,
+        cancelId,
+        { status: 'cancelled' },
+        makerId,
+      );
+
+      // Reversing only the charge would leave the waiver's credit standing and
+      // put receivables permanently below the invoices.
+      const after = await reporting.reconciliation(tenantAId);
+      expect(after.controls.map((c) => c.difference)).toEqual([0, 0, 0]);
+      expect(after.balanced).toBe(true);
+    });
   });
 
   it('isolates tenants via RLS and rejects anon at the HTTP boundary', async () => {

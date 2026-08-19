@@ -7,7 +7,14 @@ import type { PrismaClient } from '@workspace/database';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { MakerCheckerService } from '../../auth/services/maker-checker.service';
 import { LedgerService, SYSTEM_ACCOUNT } from './ledger.service';
-import { refreshInvoiceTotals } from '../invoice-financials';
+import {
+  INVOICE_FINANCIALS_INCLUDE,
+  computeFinancials,
+  refreshInvoiceTotals,
+} from '../invoice-financials';
+
+/** An adjustment only makes sense against a bill that is actually outstanding. */
+const ADJUSTABLE_STATUSES = ['issued', 'partial', 'overdue'];
 import {
   CreateAdjustmentDto,
   CreateDiscountPolicyDto,
@@ -64,9 +71,13 @@ export class FinanceAdjustmentService {
   ) {
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: dto.invoiceId, tenantId },
-      select: { id: true },
+      include: INVOICE_FINANCIALS_INCLUDE,
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
+    // Checked again at approval against the balance as it stands THEN — this is
+    // the early, friendly failure so nobody waits on an approval that cannot be
+    // applied.
+    this.assertAdjustable(invoice, dto.amount);
 
     const adjustment = await this.client.feeAdjustment.create({
       data: {
@@ -128,6 +139,17 @@ export class FinanceAdjustmentService {
       throw new BadRequestException(result.error ?? 'Approval failed');
     }
 
+    // The balance may have moved while this sat pending — a receipt could have
+    // settled the invoice. Re-check before applying: a waiver larger than what
+    // is still owed would credit receivables below zero and leave the family
+    // owed money that exists in no account.
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id: adj.invoiceId, tenantId },
+      include: INVOICE_FINANCIALS_INCLUDE,
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    this.assertAdjustable(invoice, adj.amount);
+
     const now = new Date();
     const applied = await this.client.feeAdjustment.update({
       where: { id: adjustmentId },
@@ -149,6 +171,36 @@ export class FinanceAdjustmentService {
    * The original charge is untouched — that is the whole point of recording a
    * discount rather than editing the invoice.
    */
+  /**
+   * An adjustment reduces a receivable, so it can only be applied to a bill
+   * that still has one, and never for more than is outstanding. Both halves
+   * matter: over-waiving pushes the AR control account negative against a
+   * subledger balance that floors at zero, and the difference never heals.
+   */
+  private assertAdjustable(
+    invoice: {
+      status: string;
+      invoiceNumber: string;
+      lines: { amount: number; quantity: number }[];
+      adjustments: { amount: number }[];
+      allocations: { amount: number }[];
+      creditApplications: { amount: number }[];
+    },
+    amount: number,
+  ) {
+    if (!ADJUSTABLE_STATUSES.includes(invoice.status)) {
+      throw new BadRequestException(
+        `Invoice ${invoice.invoiceNumber} is ${invoice.status} — an adjustment applies only to an outstanding bill.`,
+      );
+    }
+    const balance = computeFinancials(invoice).balance;
+    if (amount > balance) {
+      throw new BadRequestException(
+        `Invoice ${invoice.invoiceNumber} only has ${balance} kobo outstanding; the adjustment is for ${amount}. Refund the overpayment instead of waiving past it.`,
+      );
+    }
+  }
+
   private async postAdjustment(
     tenantId: string,
     adjustment: { id: string; invoiceId: string; amount: number; reason: string | null },
@@ -329,7 +381,12 @@ export class FinanceAdjustmentService {
   async applyPoliciesToInvoice(tenantId: string, invoiceId: string) {
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: invoiceId, tenantId },
-      include: { lines: true, adjustments: true },
+      include: {
+        lines: true,
+        adjustments: true,
+        allocations: { select: { amount: true } },
+        creditApplications: { select: { amount: true } },
+      },
     });
     if (!invoice) return [];
 
@@ -357,13 +414,25 @@ export class FinanceAdjustmentService {
             : 0;
       if (raw <= 0) continue;
 
+      // Never discount past what is still owed — policies run at issue, when
+      // that is normally the whole invoice, but a re-run or a part-settled
+      // invoice must not push receivables negative.
+      const outstanding = computeFinancials({
+        lines: invoice.lines,
+        adjustments: invoice.adjustments.filter((a) => a.status === 'applied'),
+        allocations: invoice.allocations,
+        creditApplications: invoice.creditApplications,
+      }).balance;
+      const amount = Math.min(raw, outstanding);
+      if (amount <= 0) continue;
+
       const adjustment = await this.client.feeAdjustment.create({
         data: {
           tenantId,
           invoiceId,
           type: policy.type === 'scholarship' ? 'scholarship' : 'discount',
           source: 'policy',
-          amount: raw,
+          amount,
           reason: policy.name,
           policyId: policy.id,
           status: 'applied',

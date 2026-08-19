@@ -70,9 +70,13 @@ export function deriveInvoiceStatus(
   now: Date = new Date(),
 ): string {
   if (current === 'draft' || current === 'cancelled') return current;
+  // Settled by ANY mix of payment, credit and approved waiver (the design's
+  // rule) — so a fully-waived invoice reads `paid` too.
   if (financials.balance === 0) return 'paid';
-  if (financials.paid > 0) return 'partial';
+  // Past due outranks part-paid: what a bursar needs to see about a bill 90
+  // days late is that it is late, not that something was once paid against it.
   if (dueDate && dueDate < now) return 'overdue';
+  if (financials.paid > 0) return 'partial';
   return current === 'overdue' || current === 'partial' ? 'issued' : current;
 }
 

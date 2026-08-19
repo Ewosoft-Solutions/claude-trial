@@ -35,9 +35,14 @@ export class FinanceNumberingService {
     return this.tenantDb.client;
   }
 
-  /** The fiscal-year scope a date falls in. Calendar year for now. */
+  /**
+   * The fiscal-year scope a date falls in — the calendar year for now, read in
+   * LOCAL time to match how the rest of finance handles dates. On UTC it would
+   * number a receipt taken at 00:30 WAT on 1 January into the previous year's
+   * run.
+   */
   scopeKeyFor(date: Date): string {
-    return String(date.getUTCFullYear());
+    return String(date.getFullYear());
   }
 
   /**
@@ -79,7 +84,14 @@ export class FinanceNumberingService {
       RETURNING "next_value" - 1 AS next_value
     `;
 
-    const value = rows[0]?.next_value ?? 1;
+    const value = rows[0]?.next_value;
+    if (value == null) {
+      // Silently starting again at 1 would hand out a number that already
+      // exists; the unique index would reject it with nothing explaining why.
+      throw new Error(
+        `Could not take the next ${kind} number for ${scopeKey} — the sequence row was not updated.`,
+      );
+    }
     return `${prefix}-${scopeKey}-${String(value).padStart(6, '0')}`;
   }
 }

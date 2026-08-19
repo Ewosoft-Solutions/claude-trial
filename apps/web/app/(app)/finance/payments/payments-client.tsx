@@ -94,7 +94,7 @@ interface CollectionSummary {
   label: string;
   received: number;
   count: number;
-  heldAsCredit: number;
+  unallocated: number;
 }
 
 const METHOD_LABEL: Record<PaymentMethod, string> = {
@@ -182,9 +182,11 @@ export function PaymentsClient({
       value: String(collections.count),
     },
     {
-      key: 'credit',
-      label: 'Held as credit',
-      value: nairaFromKobo(collections.heldAsCredit),
+      key: 'unallocated',
+      // Not the credit balance held today — that is drawn down as invoices are
+      // issued. This is what these receipts did not settle when they arrived.
+      label: 'Received unallocated',
+      value: nairaFromKobo(collections.unallocated),
     },
   ];
 
