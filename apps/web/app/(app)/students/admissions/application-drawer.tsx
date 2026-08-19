@@ -20,12 +20,17 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
-  SheetHeader,
   SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { ErrorState } from '@workspace/ui/custom/states/page-states';
+import { DrawerTabs } from '@workspace/ui/custom/detail/drawer-tabs';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
+import {
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import {
   DetailGrid,
   Field,
@@ -122,7 +127,10 @@ export function ApplicationDrawer({
           </div>
         ) : (
           <>
-            <SheetHeader className="gap-3 border-b border-border px-5 pb-4 pt-5">
+            {/* Drawer chrome: see docs/frontend-conventions.md §2. The strip paints
+                the boundary rule itself, so the header must not draw a second
+                one below it. */}
+            <DrawerHeader flush className="gap-3">
               <div className="flex items-center gap-3 pr-8">
                 <Avatar className="size-10">
                   <AvatarFallback
@@ -133,9 +141,9 @@ export function ApplicationDrawer({
                   </AvatarFallback>
                 </Avatar>
                 <div className="min-w-0">
-                  <SheetTitle className="truncate font-display text-[calc(22px*var(--font-scale))] font-semibold capitalize leading-tight">
+                  <DrawerTitle className="capitalize">
                     {detail.applicantName}
-                  </SheetTitle>
+                  </DrawerTitle>
                   <SheetDescription className="truncate text-[calc(12.5px*var(--font-scale))]">
                     Applying for {detail.applyingFor}
                     {detail.resultingStudentId ? ' · enrolled' : ''}
@@ -146,36 +154,26 @@ export function ApplicationDrawer({
                 <StageBadge stage={detail.stage} />
                 <DecisionBadge decision={detail.decision} />
               </div>
-              <div className="-mb-1 flex gap-1 overflow-x-auto">
-                {DRAWER_TABS.map((t) => (
-                  <button
-                    key={t}
-                    type="button"
-                    onClick={() => setTab(t)}
-                    className={cn(
-                      'shrink-0 rounded-md px-2.5 py-1 text-[calc(13px*var(--font-scale))] font-medium transition-colors',
-                      t === tab
-                        ? 'bg-accent text-foreground'
-                        : 'text-muted-foreground hover:text-foreground',
-                    )}
-                  >
-                    {TAB_LABEL[t]}
-                  </button>
-                ))}
-              </div>
-            </SheetHeader>
+              <DrawerTabs
+                tabs={DRAWER_TABS}
+                value={tab}
+                onChange={setTab}
+                label={(t) => TAB_LABEL[t]}
+                ariaLabel="Application sections"
+              />
+            </DrawerHeader>
 
             <div className="@container/tiles flex-1 overflow-y-auto px-5 py-5">
               <DrawerBody tab={tab} detail={detail} />
             </div>
 
-            <SheetFooter className="border-t border-border px-5 py-4">
+            <DrawerFooter>
               <Button asChild className="w-full">
                 <Link href={`/students/admissions/${detail.id}`}>
                   <ExternalLink aria-hidden /> Open full detail
                 </Link>
               </Button>
-            </SheetFooter>
+            </DrawerFooter>
           </>
         )}
       </SheetContent>
@@ -261,8 +259,9 @@ function OverviewTab({ detail }: { detail: ApplicationDetail }) {
                     {g.fullName}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {titleCase(g.relationship)} · {g.phoneCountryCode}{' '}
-                    {g.phoneNumber}
+                    {titleCase(g.relationship)}
+                    <Dot />
+                    {g.phoneCountryCode} {g.phoneNumber}
                   </span>
                 </div>
                 {g.isPrimary ? (

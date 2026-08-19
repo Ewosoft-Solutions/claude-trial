@@ -18,6 +18,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 type Paginated<T> = { data?: T[] };
 
@@ -209,7 +210,8 @@ export default async function GradebookPage() {
           footer={
             <span>
               <strong className="text-foreground">{rows.length}</strong> grades
-              · {assessments.length} assessments
+              <Dot />
+              {assessments.length} assessments
             </span>
           }
         >

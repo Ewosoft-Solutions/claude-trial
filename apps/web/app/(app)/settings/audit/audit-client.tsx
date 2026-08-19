@@ -29,10 +29,12 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
-  SheetTitle,
 } from '@workspace/ui/components/sheet';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import {
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import {
   humanizeAuditAction,
@@ -410,20 +412,20 @@ function AuditDetailDrawer({
         side="right"
         className="w-full gap-0 overflow-y-auto sm:max-w-md"
       >
-        <SheetHeader>
-          <SheetTitle className="flex items-center gap-2">
+        <DrawerHeader>
+          <DrawerTitle className="flex items-center gap-2">
             {row ? humanizeAuditAction(row.action) : 'Event'}
             {row ? (
               <StatusBadge tone={statusTone(row.status)} dot>
                 {humanizeToken(row.status)}
               </StatusBadge>
             ) : null}
-          </SheetTitle>
+          </DrawerTitle>
           <SheetDescription>
             {row ? humanizeAuditEvent(row.eventType) : ''}
             {row ? ` · ${row.when}` : ''}
           </SheetDescription>
-        </SheetHeader>
+        </DrawerHeader>
 
         <div className="flex flex-col gap-4 px-4 pb-6">
           {loading && !record ? (

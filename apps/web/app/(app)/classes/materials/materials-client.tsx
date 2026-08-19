@@ -52,8 +52,10 @@ import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { cn } from '@workspace/ui/lib/utils';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
-const ACCEPTED_TYPES = '.pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg,.webp,.mp4,.mp3,.wav';
+const ACCEPTED_TYPES =
+  '.pdf,.docx,.pptx,.txt,.md,.png,.jpg,.jpeg,.webp,.mp4,.mp3,.wav';
 
 interface LessonDraft {
   title: string;
@@ -65,7 +67,12 @@ function meta(
   map: Record<string, { label: string; tone: StateTone }>,
   value: string,
 ) {
-  return map[value] ?? { label: value.replace(/_/g, ' '), tone: 'neutral' as StateTone };
+  return (
+    map[value] ?? {
+      label: value.replace(/_/g, ' '),
+      tone: 'neutral' as StateTone,
+    }
+  );
 }
 
 export function MaterialsClient({
@@ -86,7 +93,8 @@ export function MaterialsClient({
 
   const firstClassId = initialClasses[0]?.id ?? '';
   const firstLessonId =
-    initialLessons.find((lesson) => lesson.classId === firstClassId)?.id ?? null;
+    initialLessons.find((lesson) => lesson.classId === firstClassId)?.id ??
+    null;
 
   const [lessons, setLessons] = React.useState(initialLessons);
   const [classId, setClassId] = React.useState(firstClassId);
@@ -138,7 +146,9 @@ export function MaterialsClient({
         if (!res.ok) throw new Error(await readError(res));
         setMaterials(((await res.json()) as MaterialSummary[] | null) ?? []);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load materials');
+        setError(
+          err instanceof Error ? err.message : 'Failed to load materials',
+        );
       } finally {
         if (showSpinner) setMaterialsLoading(false);
       }
@@ -190,7 +200,9 @@ export function MaterialsClient({
 
   function patchLesson(id: string, patch: Partial<LessonSummary>) {
     setLessons((prev) =>
-      prev.map((lesson) => (lesson.id === id ? { ...lesson, ...patch } : lesson)),
+      prev.map((lesson) =>
+        lesson.id === id ? { ...lesson, ...patch } : lesson,
+      ),
     );
   }
 
@@ -309,9 +321,12 @@ export function MaterialsClient({
     if (!selectedLessonId || !live || !canDeleteMaterials) return;
     setError(null);
     try {
-      const res = await fetch(`/api/learning/materials/${encodeURIComponent(id)}`, {
-        method: 'DELETE',
-      });
+      const res = await fetch(
+        `/api/learning/materials/${encodeURIComponent(id)}`,
+        {
+          method: 'DELETE',
+        },
+      );
       if (!res.ok) throw new Error(await readError(res));
       setMaterials((prev) => prev.filter((material) => material.id !== id));
       setLessons((prev) =>
@@ -424,7 +439,9 @@ export function MaterialsClient({
                 <Button
                   size="sm"
                   onClick={() => void createLesson()}
-                  disabled={!live || creating || !classId || !newLessonTitle.trim()}
+                  disabled={
+                    !live || creating || !classId || !newLessonTitle.trim()
+                  }
                 >
                   <Plus /> Add
                 </Button>
@@ -439,12 +456,15 @@ export function MaterialsClient({
                   !hasClasses
                     ? 'Lessons appear after a class is assigned to you.'
                     : canCreate
-                    ? 'Create the first lesson for this class.'
-                    : 'No published lessons are available for this class.'
+                      ? 'Create the first lesson for this class.'
+                      : 'No published lessons are available for this class.'
                 }
               />
             ) : (
-              <ul className="flex min-h-0 flex-col gap-1 overflow-y-auto" role="list">
+              <ul
+                className="flex min-h-0 flex-col gap-1 overflow-y-auto"
+                role="list"
+              >
                 {classLessons.map((lesson) => {
                   const status = meta(LESSON_STATUS_META, lesson.status);
                   const review = meta(REVIEW_META, lesson.reviewStatus);
@@ -555,7 +575,11 @@ export function MaterialsClient({
 
                 {selectedLesson.reviewNote ? (
                   <NoticeBanner
-                    tone={selectedLesson.reviewStatus === 'rejected' ? 'destructive' : 'info'}
+                    tone={
+                      selectedLesson.reviewStatus === 'rejected'
+                        ? 'destructive'
+                        : 'info'
+                    }
                     title="Review note"
                     description={selectedLesson.reviewNote}
                   />
@@ -568,7 +592,10 @@ export function MaterialsClient({
                       id="lesson-title"
                       value={draft.title}
                       onChange={(event) =>
-                        setDraft((prev) => ({ ...prev, title: event.target.value }))
+                        setDraft((prev) => ({
+                          ...prev,
+                          title: event.target.value,
+                        }))
                       }
                       readOnly={!canEdit}
                     />
@@ -594,7 +621,10 @@ export function MaterialsClient({
                       id="lesson-content"
                       value={draft.content}
                       onChange={(event) =>
-                        setDraft((prev) => ({ ...prev, content: event.target.value }))
+                        setDraft((prev) => ({
+                          ...prev,
+                          content: event.target.value,
+                        }))
                       }
                       readOnly={!canEdit}
                       className="min-h-48"
@@ -630,7 +660,9 @@ export function MaterialsClient({
                           <Input
                             id="material-title"
                             value={uploadTitle}
-                            onChange={(event) => setUploadTitle(event.target.value)}
+                            onChange={(event) =>
+                              setUploadTitle(event.target.value)
+                            }
                             className="h-8 w-48"
                             placeholder="Optional"
                             disabled={!live || uploading}
@@ -680,15 +712,16 @@ export function MaterialsClient({
                           <TableHead>Type</TableHead>
                           <TableHead>Review</TableHead>
                           <TableHead>Processing</TableHead>
-                          <TableHead className="text-right">
-                            Chunks
-                          </TableHead>
+                          <TableHead className="text-right">Chunks</TableHead>
                           <TableHead className="sr-only">Actions</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
                         {materials.map((material) => {
-                          const review = meta(REVIEW_META, material.reviewStatus);
+                          const review = meta(
+                            REVIEW_META,
+                            material.reviewStatus,
+                          );
                           const extraction = meta(
                             EXTRACTION_META,
                             material.extractionStatus,
@@ -706,7 +739,9 @@ export function MaterialsClient({
                                       {material.title}
                                     </span>
                                     <span className="break-words text-xs text-muted-foreground">
-                                      {material.fileName} · {formatSize(material.sizeBytes)}
+                                      {material.fileName}
+                                      <Dot />
+                                      {formatSize(material.sizeBytes)}
                                     </span>
                                   </div>
                                 </div>
@@ -722,7 +757,9 @@ export function MaterialsClient({
                               <TableCell>
                                 <StatusBadge
                                   tone={extraction.tone}
-                                  dot={material.extractionStatus === 'processing'}
+                                  dot={
+                                    material.extractionStatus === 'processing'
+                                  }
                                 >
                                   {extraction.label}
                                 </StatusBadge>
@@ -754,12 +791,15 @@ export function MaterialsClient({
                                       <Download />
                                     </a>
                                   </Button>
-                                  {canUpload && material.extractionStatus === 'failed' ? (
+                                  {canUpload &&
+                                  material.extractionStatus === 'failed' ? (
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       aria-label={`Retry processing ${material.title}`}
-                                      onClick={() => void reprocessMaterial(material.id)}
+                                      onClick={() =>
+                                        void reprocessMaterial(material.id)
+                                      }
                                     >
                                       <RefreshCw />
                                     </Button>
@@ -769,7 +809,9 @@ export function MaterialsClient({
                                       variant="ghost"
                                       size="icon"
                                       aria-label={`Delete ${material.title}`}
-                                      onClick={() => void deleteMaterial(material.id)}
+                                      onClick={() =>
+                                        void deleteMaterial(material.id)
+                                      }
                                     >
                                       <Trash2 />
                                     </Button>

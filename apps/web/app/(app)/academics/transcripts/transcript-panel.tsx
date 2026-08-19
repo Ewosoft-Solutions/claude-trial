@@ -24,6 +24,7 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 
 import { apiGet, apiPost } from '../results/results-api';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export interface TranscriptStudentOption {
   id: string;
@@ -256,7 +257,8 @@ export function TranscriptPanel({
                 <span className="text-xs text-muted-foreground">
                   {term.cycleName}
                   {term.sectionLabel ? ` · ${term.sectionLabel}` : ''} ·
-                  published {term.publishedAt} · v{term.version}
+                  published {term.publishedAt}
+                  <Dot />v{term.version}
                 </span>
                 <span
                   className="flex items-center gap-1 text-xs text-muted-foreground"
@@ -296,8 +298,9 @@ export function TranscriptPanel({
                 </table>
               </div>
               <p className="text-xs text-muted-foreground">
-                Term average {pct(term.average)} · grade{' '}
-                {term.overallGrade ?? '—'}
+                Term average {pct(term.average)}
+                <Dot />
+                grade {term.overallGrade ?? '—'}
                 {term.position !== null ? ` · position ${term.position}` : ''}
                 {term.promotionRecommendation
                   ? ` · ${term.promotionRecommendation}`

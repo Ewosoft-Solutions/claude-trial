@@ -31,9 +31,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
 } from '@workspace/ui/components/sheet';
 import {
   Select,
@@ -62,11 +59,17 @@ import {
 import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+import {
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../_shared/use-step-up-action';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export type PaymentMethod = 'transfer' | 'card' | 'cash' | 'cheque';
 export type PaymentStatus = 'pending' | 'completed' | 'failed' | 'refunded';
@@ -459,14 +462,14 @@ function ReceiptDrawer({
   return (
     <Sheet open={!!receiptId} onOpenChange={(open) => !open && onClose()}>
       <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
-        <SheetHeader>
-          <SheetTitle>{receipt?.receiptNumber ?? 'Receipt'}</SheetTitle>
+        <DrawerHeader>
+          <DrawerTitle>{receipt?.receiptNumber ?? 'Receipt'}</DrawerTitle>
           <SheetDescription>
             {receipt?.payerName
               ? `Received from ${receipt.payerName}`
               : 'Money received and what it settled'}
           </SheetDescription>
-        </SheetHeader>
+        </DrawerHeader>
 
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {error ? (
@@ -552,14 +555,14 @@ function ReceiptDrawer({
           )}
         </div>
 
-        <SheetFooter className="flex-row justify-end gap-2 border-t border-border">
+        <DrawerFooter className="flex-row justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onClose}>
             Close
           </Button>
           <Button size="sm" onClick={reprint} disabled={!receipt || busy}>
             {busy ? <Loader2 className="animate-spin" /> : <Printer />} Reprint
           </Button>
-        </SheetFooter>
+        </DrawerFooter>
       </SheetContent>
     </Sheet>
   );
@@ -931,9 +934,8 @@ function RecordPaymentDialog({
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {invoice.invoiceNumber}
-                        {invoice.termName
-                          ? ` · ${invoice.termName}`
-                          : ''} ·{' '}
+                        {invoice.termName ? ` · ${invoice.termName}` : ''}
+                        <Dot />
                         {nairaFromKobo(invoice.financials?.balance ?? 0)} owing
                       </span>
                     </label>

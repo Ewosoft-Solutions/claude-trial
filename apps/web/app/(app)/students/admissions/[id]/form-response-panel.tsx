@@ -13,6 +13,7 @@ import { toast } from 'sonner';
 import { Button } from '@workspace/ui/components/button';
 import { FormRenderer } from '@workspace/ui/custom/forms/form-renderer';
 import { withoutSystemSections } from '@workspace/forms';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 import {
   errorMessage,
@@ -98,7 +99,8 @@ export function FormResponsePanel({
   return (
     <div className="flex flex-col gap-4">
       <span className="text-xs text-muted-foreground">
-        {customDefinition.title} · v{form.version}
+        {customDefinition.title}
+        <Dot />v{form.version}
       </span>
       <FormRenderer
         definition={customDefinition}

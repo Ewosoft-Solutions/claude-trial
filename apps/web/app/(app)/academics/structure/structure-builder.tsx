@@ -46,6 +46,7 @@ import {
 import { Checkbox } from '@workspace/ui/components/checkbox';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export interface Campus {
   id: string;
@@ -984,7 +985,9 @@ function YearLevelForm({
         <SelectContent>
           {levelSpine.map((o) => (
             <SelectItem key={o.code} value={o.code}>
-              {o.canonicalName} · {o.code}
+              {o.canonicalName}
+              <Dot />
+              {o.code}
             </SelectItem>
           ))}
         </SelectContent>

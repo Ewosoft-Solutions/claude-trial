@@ -29,6 +29,7 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export type Standing = 'honors' | 'good' | 'watch';
 
@@ -100,7 +101,9 @@ export function StandingClient({ rows }: { rows: StandingRow[] }) {
               {r.name}
             </span>
             <span className="break-words text-xs text-muted-foreground">
-              {r.id} · {r.records} grades
+              {r.id}
+              <Dot />
+              {r.records} grades
             </span>
           </div>
         </div>

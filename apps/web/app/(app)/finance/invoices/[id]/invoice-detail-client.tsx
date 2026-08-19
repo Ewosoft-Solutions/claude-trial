@@ -56,6 +56,7 @@ import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as naira } from '@/lib/format';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../../_shared/use-step-up-action';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 /* ---- Types (mirror the API response) ------------------------------------ */
 
@@ -850,7 +851,9 @@ function AdjustmentsSection({
               <div className="flex min-w-0 flex-col gap-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-foreground">
-                    {titleCase(adj.type)} · {naira(adj.amount)}
+                    {titleCase(adj.type)}
+                    <Dot />
+                    {naira(adj.amount)}
                   </span>
                   <StatusBadge tone={meta.tone} dot={adj.status !== 'rejected'}>
                     {meta.label}

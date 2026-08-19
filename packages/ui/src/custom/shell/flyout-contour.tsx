@@ -29,6 +29,15 @@ export const CURVE_REACH = 40;
 /** Radius of the two free (non-attached) corners. */
 export const CORNER_RADIUS = 16;
 
+/**
+ * Control-point ratios that give the fillet its long, shallow sweep — the
+ * curve's character, independent of how big it is drawn. Exported so other
+ * surfaces that must speak this same curve (the drawer's folder tabs) scale
+ * it rather than re-guessing it.
+ */
+export const CURVE_EASE_ALONG = 0.4;
+export const CURVE_EASE_ACROSS = 0.62;
+
 /** Smallest height that still fits both fillets and both corners. */
 export const CONTOUR_MIN_HEIGHT = CURVE_SIZE * 2 + CORNER_RADIUS * 2;
 
@@ -46,25 +55,25 @@ export function buildFlyoutContourPaths(width: number, height: number) {
 
   const fill = [
     'M 0 0',
-    `C 0 ${cs * 0.62} ${rc * 0.4} ${cs} ${rc} ${cs}`,
+    `C 0 ${cs * CURVE_EASE_ACROSS} ${rc * CURVE_EASE_ALONG} ${cs} ${rc} ${cs}`,
     `H ${w - r}`,
     `Q ${w} ${cs} ${w} ${cs + r}`,
     `V ${h - cs - r}`,
     `Q ${w} ${h - cs} ${w - r} ${h - cs}`,
     `H ${rc}`,
-    `C ${rc * 0.4} ${h - cs} 0 ${h - cs * 0.62} 0 ${h}`,
+    `C ${rc * CURVE_EASE_ALONG} ${h - cs} 0 ${h - cs * CURVE_EASE_ACROSS} 0 ${h}`,
     'Z',
   ].join(' ');
 
   const stroke = [
     'M 0 0.5',
-    `C 0 ${cs * 0.62} ${rc * 0.4} ${cs + 0.5} ${rc} ${cs + 0.5}`,
+    `C 0 ${cs * CURVE_EASE_ACROSS} ${rc * CURVE_EASE_ALONG} ${cs + 0.5} ${rc} ${cs + 0.5}`,
     `H ${w - r}`,
     `Q ${w - 0.5} ${cs + 0.5} ${w - 0.5} ${cs + r}`,
     `V ${h - cs - r}`,
     `Q ${w - 0.5} ${h - cs - 0.5} ${w - r} ${h - cs - 0.5}`,
     `H ${rc}`,
-    `C ${rc * 0.4} ${h - cs - 0.5} 0 ${h - cs * 0.62} 0 ${h - 0.5}`,
+    `C ${rc * CURVE_EASE_ALONG} ${h - cs - 0.5} 0 ${h - cs * CURVE_EASE_ACROSS} 0 ${h - 0.5}`,
   ].join(' ');
 
   return { fill, stroke, width: w, height: h };
@@ -102,10 +111,7 @@ export function FlyoutContour({
   // 1 0 0 h) maps (x, y) → (y, h − x): a pure rotation, so the 1px non-scaling
   // hairline stays 1px.
   const isUp = orientation === 'up';
-  const paths = buildFlyoutContourPaths(
-    isUp ? vbH : vbW,
-    isUp ? vbW : vbH,
-  );
+  const paths = buildFlyoutContourPaths(isUp ? vbH : vbW, isUp ? vbW : vbH);
   const transform = isUp ? `matrix(0 -1 1 0 0 ${paths.width})` : undefined;
 
   return (
@@ -115,7 +121,10 @@ export function FlyoutContour({
       focusable="false"
       viewBox={`0 0 ${vbW} ${vbH}`}
       preserveAspectRatio="none"
-      className={cn('pointer-events-none absolute inset-0 z-0 size-full overflow-visible', className)}
+      className={cn(
+        'pointer-events-none absolute inset-0 z-0 size-full overflow-visible',
+        className,
+      )}
     >
       <g transform={transform}>
         <path d={paths.fill} fill={fill} />

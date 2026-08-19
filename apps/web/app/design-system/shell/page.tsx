@@ -65,6 +65,7 @@ import type {
 } from '@workspace/ui/types/shell.types';
 
 import { VIEWERS, configForViewer } from './navigation.data';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 /* ---- sample data (preview-only) ------------------------------ */
 const SCHOOLS: SchoolOption[] = [
@@ -134,7 +135,9 @@ function NavFooterCard() {
         <div className="h-full rounded bg-primary" style={{ width: '93%' }} />
       </div>
       <div className="text-[calc(11.5px*var(--font-scale))] leading-snug text-muted-foreground">
-        446 of 480 seats confirmed · 34 open
+        446 of 480 seats confirmed
+        <Dot />
+        34 open
       </div>
     </div>
   );
@@ -184,7 +187,8 @@ function Inspector() {
             Alex Rivera
           </h3>
           <div className="text-xs text-muted-foreground">
-            Grade 9 · #2025-0428
+            Grade 9<Dot />
+            #2025-0428
           </div>
         </div>
       </div>
@@ -220,7 +224,9 @@ function StatusBar({ note }: { note: string }) {
     <div className="flex h-[30px] shrink-0 items-center gap-3.5 border-t border-border bg-sidebar px-4 text-[calc(11.5px*var(--font-scale))] font-medium text-muted-foreground">
       <span className="inline-flex items-center gap-1.5">
         <span className="size-[7px] rounded-full bg-success ring-2 ring-success/30" />
-        Synced · 2m ago
+        Synced
+        <Dot />
+        2m ago
       </span>
       <span className="font-bold text-foreground/80">{note}</span>
       <span className="hidden sm:inline">3 background jobs</span>
@@ -423,7 +429,9 @@ export default function ShellPreviewPage() {
           <Card className="flex-1 shadow-card">
             <CardHeader>
               <CardTitle className="text-base">
-                Navigation model · {persona.label}
+                Navigation model
+                <Dot />
+                {persona.label}
               </CardTitle>
               <CardDescription>
                 Active route: <code>{currentPath}</code>

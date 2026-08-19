@@ -15,17 +15,20 @@ import * as React from 'react';
 import Link from 'next/link';
 import { ExternalLink, Loader2, Mail } from 'lucide-react';
 
-import { cn } from '@workspace/ui/lib/utils';
 import { Button } from '@workspace/ui/components/button';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
-  SheetHeader,
   SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { ErrorState } from '@workspace/ui/custom/states/page-states';
+import { DrawerTabs } from '@workspace/ui/custom/detail/drawer-tabs';
+import {
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import type { PeopleType } from './people-config';
 import {
@@ -40,6 +43,7 @@ import {
 import { AvatarLightbox } from './avatar-lightbox';
 import {
   FlagChips,
+  Separated,
   PersonOverview,
   PersonPeople,
   ProfileChips,
@@ -52,96 +56,6 @@ export interface PersonDetailDrawerProps {
   type: PeopleType;
   onOpenChange: (open: boolean) => void;
   onOpenPerson: (id: string) => void;
-}
-
-/* ============================================================
-   Folder-tab strip (design A)
-
-   The header rule stops being a straight line under the tabs and
-   becomes the active tab's own outline: it runs along, sweeps up into
-   the tab's left side, over the crown, and back down the right.
-
-   The joins use the SAME curve language as FlyoutContour — the shape
-   that anchors a flyout to the collapsed sidebar rail. That curve is a
-   cubic Bézier, not a circular arc: it flares CURVE_REACH (40) across
-   only CURVE_SIZE (28), so the sweep is long and shallow rather than a
-   tight quarter-round. The control-point ratios below (0.4 along the
-   reach, 0.62 across the depth) are lifted from it directly, scaled to
-   a tab. Circular `border-radius` cannot express this, which is why the
-   join is an SVG.
-
-   Two other details are load-bearing:
-     · the RULE is painted as the scroll container's background — a 1px
-       linear-gradient at its bottom edge — not a border, so the active
-       tab (a descendant, painted above it) interrupts it just by being
-       opaque. No negative margins fighting the scroller.
-     · every tab keeps a transparent border of the same width as the
-       active one's, so selecting a tab cannot shift the row by 1px.
-   ============================================================ */
-
-/** How far each join flares sideways from the tab. */
-const FILLET_REACH = 16;
-/** How far it rises from the rule before the tab's side goes vertical. */
-const FILLET_DEPTH = 11;
-
-function TabFillet({ side }: { side: 'left' | 'right' }) {
-  const w = FILLET_REACH;
-  const h = FILLET_DEPTH;
-  // Half-pixel alignment, the same trick FlyoutContour uses. A 1px stroke on an
-  // integer coordinate straddles two pixel columns at ~50% each, which renders
-  // soft and reads a shade lighter than the crisp 1px CSS border it has to meet
-  // — the seam. Putting the stroke on the CENTRE LINE of the pixel it should
-  // occupy makes it land exactly:
-  //   bx — the tab's side border occupies [w-1, w], so its centre is w-0.5
-  //   by — the rule occupies the bottom pixel, so its centre is h-0.5
-  // Ending the stroke on bx (not w) is also what squares the verticals: at w it
-  // met the border's OUTER edge, half a pixel off, which showed as a lean.
-  const bx = w - 0.5;
-  const by = h - 0.5;
-  // Sweeps from the rule (tangent horizontal) up to the tab's side (tangent
-  // vertical) — FlyoutContour's easing: 0.4 along the reach, 0.62 across depth.
-  const curve = `M 0 ${by} C ${bx * 0.4} ${by} ${bx} ${h * 0.62} ${bx} 0`;
-  // The flare fills to the box edge so it covers the border pixel below the
-  // join; the stroke above continues the tab's side from exactly that line.
-  const flare = `M 0 ${h} C ${bx * 0.4} ${h} ${bx} ${h * 0.62} ${bx} 0 H ${w} V ${h} Z`;
-  return (
-    <svg
-      aria-hidden
-      focusable="false"
-      width={w}
-      height={h}
-      viewBox={`0 0 ${w} ${h}`}
-      className={cn(
-        'pointer-events-none absolute bottom-0',
-        side === 'left' ? '-left-4' : '-right-4 -scale-x-100',
-      )}
-    >
-      {/* Erase the rule across the WHOLE join first. `--border` is translucent,
-          so anywhere the strip's 1px rule still shows under the curve the two
-          composite (0.1 over 0.1 reads as 0.19 — about double weight) and the
-          join picks up a sketched, retraced look. The flare below cannot do
-          this on its own: it has zero height at x=0 and only widens along the
-          curve, so it masks progressively less towards the outer end — which is
-          precisely where the doubling was worst. */}
-      <rect x={0} y={h - 1} width={w} height={1} fill="var(--background)" />
-      {/* Same for the other end: the tab's own 1px CSS border runs down this
-          column, and the stroke lands on top of it. Erase the border's last
-          `h` pixels so the curve alone draws the corner, then hands back to
-          the border exactly at y=0 where this box ends. */}
-      <rect x={w - 1} y={0} width={1} height={h} fill="var(--background)" />
-      {/* the flare, filled with the CONTENT ground so the tab reads as attached
-          to the panel below rather than to the lifted header behind it */}
-      <path d={flare} fill="var(--background)" />
-      {/* the rule itself, continuing up into the tab */}
-      <path
-        d={curve}
-        fill="none"
-        stroke="var(--border)"
-        strokeWidth="1"
-        vectorEffect="non-scaling-stroke"
-      />
-    </svg>
-  );
 }
 
 function subtitleFor(detail: PersonDetail): string {
@@ -216,81 +130,30 @@ export function PersonDetailDrawer({
           </div>
         ) : (
           <>
-            <SheetHeader
-              className={cn(
-                // `bg-sidebar` is the APP TOP BAR's surface (see AppHeader), so
-                // the drawer's own top bar reads as the same piece of chrome.
-                // Both sit over `--background`, so the composite is identical —
-                // using the token rather than a copied value keeps them in
-                // lockstep if the chrome is ever retuned.
-                //
-                // The body keeps the sheet's `bg-background`, the very token a
-                // page's main region uses, so cards and inputs inside the drawer
-                // sit on the same ground and lift the same way they do on a full
-                // page. That contrast is also what gives the folder tab a panel
-                // to attach to: the tab is filled with the body's ground, so it
-                // reads as part of the content, cut out of the bar above it.
-                'gap-3 bg-sidebar px-5 pt-5',
-                // With tabs the strip paints the boundary itself, so the
-                // header must not draw a second rule 16px below it.
-                hasTabs ? 'pb-0' : 'border-b border-border pb-4',
-              )}
-            >
+            <DrawerHeader flush={hasTabs}>
               <div className="flex items-center gap-3 pr-8">
                 <AvatarLightbox name={detail.name} />
                 <div className="min-w-0">
-                  <SheetTitle className="truncate font-display text-[calc(22px*var(--font-scale))] font-semibold capitalize leading-tight">
+                  <DrawerTitle className="capitalize">
                     {detail.name}
-                  </SheetTitle>
+                  </DrawerTitle>
                   <SheetDescription className="truncate text-[calc(12.5px*var(--font-scale))]">
-                    {subtitleFor(detail)}
+                    <Separated text={subtitleFor(detail)} />
                   </SheetDescription>
                 </div>
               </div>
               <ProfileChips profiles={detail.profiles} />
               <FlagChips flags={detail.flags} />
               {hasTabs ? (
-                <div className="-mx-5 overflow-x-auto bg-[linear-gradient(to_top,var(--border)_0_1px,transparent_1px)] px-1">
-                  {/* The 10px inset here is not decoration. Fillets are absolutely
-                      positioned, so they add nothing to scrollWidth and a join on
-                      the first or last tab is clipped the moment the strip scrolls.
-                      Putting FILLET_REACH INSIDE the scrollable content gives both
-                      joins room; the scroller carries the remaining 4px, so the
-                      tabs still line up with the header's 20px inset. The gap
-                      does NOT need to equal the reach — a join may run over a
-                      neighbour's padding, which is ground-coloured anyway — and
-                      widening it to match would push a fourth tab out of view in
-                      a 384px drawer. */}
-                  <div className="flex w-max items-end gap-3 px-4">
-                    {tabs.map((t) => {
-                      const active = t === tab;
-                      return (
-                        <button
-                          key={t}
-                          type="button"
-                          onClick={() => setTab(t)}
-                          aria-current={active || undefined}
-                          className={cn(
-                            'relative shrink-0 rounded-t-[10px] border border-b-0 border-transparent px-3 pb-2 pt-2 text-[calc(13px*var(--font-scale))] transition-colors',
-                            active
-                              ? 'z-10 border-border bg-background font-semibold text-foreground'
-                              : 'font-medium text-muted-foreground hover:text-foreground',
-                          )}
-                        >
-                          {active ? (
-                            <>
-                              <TabFillet side="left" />
-                              <TabFillet side="right" />
-                            </>
-                          ) : null}
-                          {tabLabel(t)}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
+                <DrawerTabs
+                  tabs={tabs}
+                  value={tab}
+                  onChange={setTab}
+                  label={tabLabel}
+                  ariaLabel="Person detail sections"
+                />
               ) : null}
-            </SheetHeader>
+            </DrawerHeader>
 
             <div className="@container/tiles flex-1 overflow-y-auto px-5 py-5">
               <TabBody tab={tab} detail={detail} onOpenPerson={onOpenPerson} />
@@ -299,7 +162,7 @@ export function PersonDetailDrawer({
             {/* Same surface as the header: the bar above and the action bar below
                 are one piece of chrome bracketing the content, which keeps
                 `bg-background` to itself and reads as the page ground. */}
-            <SheetFooter className="border-t border-border bg-sidebar px-5 py-4">
+            <DrawerFooter>
               <Button asChild className="w-full">
                 <Link href={`/people/${detail.id}?type=${detail.type}`}>
                   <ExternalLink aria-hidden /> Open full profile
@@ -312,7 +175,7 @@ export function PersonDetailDrawer({
                   </a>
                 </Button>
               ) : null}
-            </SheetFooter>
+            </DrawerFooter>
           </>
         )}
       </SheetContent>
@@ -377,7 +240,11 @@ function TabBody({
                       {c.name}
                     </div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {[c.term, humanize(c.status)].filter(Boolean).join(' · ')}
+                      <Separated
+                        text={[c.term, humanize(c.status)]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      />
                     </div>
                   </div>
                   {c.finalGrade ? (
@@ -436,9 +303,11 @@ function TabBody({
                   {d.title}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {[d.type, formatDate(d.createdAt)]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  <Separated
+                    text={[d.type, formatDate(d.createdAt)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  />
                 </div>
               </div>
             </div>

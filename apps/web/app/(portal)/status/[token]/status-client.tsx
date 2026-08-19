@@ -11,6 +11,7 @@ import { Loader2, Lock, Upload } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
 import { Button } from '@workspace/ui/components/button';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 import {
   Card,
   CardContent,
@@ -129,8 +130,9 @@ export function StatusClient({ token }: { token: string }) {
           <StageBadge stage={status.stage} applicant />
         </div>
         <p className="text-sm text-muted-foreground">
-          Applying for {status.applyingFor} · submitted{' '}
-          {fmtDate(status.submittedDate)}
+          Applying for {status.applyingFor}
+          <Dot />
+          submitted {fmtDate(status.submittedDate)}
         </p>
       </header>
 

@@ -28,6 +28,7 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 interface Analytics {
   totals: {
@@ -202,7 +203,9 @@ export default function PlatformAnalyticsPage() {
                   {row.schoolType.replace(/_/g, ' ')}
                 </span>
                 <span className="font-medium">
-                  {fmt(row.tenants)} schools · {fmt(row.students)} students
+                  {fmt(row.tenants)} schools
+                  <Dot />
+                  {fmt(row.students)} students
                 </span>
               </div>
             ))

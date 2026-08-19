@@ -20,8 +20,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
-  SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
@@ -33,6 +31,10 @@ import {
 } from '@workspace/ui/custom/tables/directory-table';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
+import {
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { formatCount } from '@/lib/format';
@@ -342,15 +344,13 @@ export function AdmissionsWorkspace({
       {/* Create sheet */}
       <Sheet open={createOpen} onOpenChange={setCreateOpen}>
         <SheetContent className="flex w-full flex-col gap-0 p-0 sm:max-w-xl">
-          <SheetHeader className="gap-1.5 border-b border-border px-5 pb-4 pt-5">
-            <SheetTitle className="pr-8 font-display text-[calc(22px*var(--font-scale))] font-semibold leading-tight">
-              New application
-            </SheetTitle>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">New application</DrawerTitle>
             <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Capture the applicant, what they&apos;re applying for, and their
               guardians. The requirement checklist is attached automatically.
             </SheetDescription>
-          </SheetHeader>
+          </DrawerHeader>
           <div className="flex-1 overflow-y-auto px-5 py-5">
             <NewApplicationForm
               structure={structure}

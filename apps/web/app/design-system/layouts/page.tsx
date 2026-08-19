@@ -53,6 +53,7 @@ import type {
 } from '@workspace/ui/types/layout.types';
 import type { ValidationItem } from '@workspace/ui/types/states.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 /* ---------------------------------- data --------------------------------- */
 
@@ -293,7 +294,9 @@ function ListDetailDemo() {
                   {s.name}
                 </span>
                 <span className="text-[calc(12px*var(--font-scale))] text-muted-foreground">
-                  {s.klass} · Guardian {s.guardian}
+                  {s.klass}
+                  <Dot />
+                  Guardian {s.guardian}
                 </span>
               </button>
             </li>
@@ -309,7 +312,9 @@ function ListDetailDemo() {
                   {active.name}
                 </h3>
                 <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
-                  Class {active.klass} · Guardian {active.guardian}
+                  Class {active.klass}
+                  <Dot />
+                  Guardian {active.guardian}
                 </p>
               </div>
               <Button

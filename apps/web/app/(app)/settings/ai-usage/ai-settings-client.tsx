@@ -37,6 +37,7 @@ import { humanizeSettingKey, humanizeValue } from '@/lib/humanize';
 import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../_shared/use-step-up-action';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export interface AiSettings {
   modelTier: string;
@@ -260,7 +261,7 @@ export function AiSettingsClient({ settings, pending }: Props) {
                     ))}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Requested by {change.makerId.slice(0, 8)}… ·{' '}
+                    Requested by {change.makerId.slice(0, 8)}…<Dot />
                     {new Date(change.createdAt).toLocaleString()}
                   </span>
                 </div>

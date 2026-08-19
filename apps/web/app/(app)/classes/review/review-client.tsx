@@ -39,6 +39,7 @@ import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { cn } from '@workspace/ui/lib/utils';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 type ReviewType = 'lesson' | 'material';
 type ReviewFilter = 'pending_review' | 'rejected' | 'approved' | 'all';
@@ -365,7 +366,8 @@ export function AcademicReviewClient({
                           {selected.material.fileName}
                         </p>
                         <p className="mt-1 text-muted-foreground">
-                          {selected.material.category} ·{' '}
+                          {selected.material.category}
+                          <Dot />
                           {formatSize(selected.material.sizeBytes)}
                         </p>
                       </div>

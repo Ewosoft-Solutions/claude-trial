@@ -1,6 +1,6 @@
 import { getPersonDetail } from '../get-detail';
 import { PersonProfileShell, ProfileMissing } from '../profile-shell';
-import { Section, StatTiles } from '../../person-detail-ui';
+import { Section, Separated, StatTiles } from '../../person-detail-ui';
 import { humanize } from '../../person-detail.types';
 
 export default async function PersonAcademicsPage({
@@ -74,9 +74,11 @@ export default async function PersonAcademicsPage({
                         {c.name}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {[c.term, humanize(c.status)]
-                          .filter(Boolean)
-                          .join(' · ')}
+                        <Separated
+                          text={[c.term, humanize(c.status)]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        />
                       </div>
                     </div>
                     {c.finalGrade ? (

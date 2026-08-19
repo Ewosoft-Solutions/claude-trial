@@ -1,6 +1,7 @@
 import { FileText } from 'lucide-react';
 
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { Separated } from '@workspace/ui/custom/data-display/dot';
 
 import { getPersonDetail } from '../get-detail';
 import { PersonProfileShell, ProfileMissing } from '../profile-shell';
@@ -48,9 +49,11 @@ export default async function PersonDocumentsPage({
                     {d.title}
                   </div>
                   <div className="truncate text-xs text-muted-foreground">
-                    {[d.type, formatDate(d.createdAt)]
-                      .filter(Boolean)
-                      .join(' · ')}
+                    <Separated
+                      text={[d.type, formatDate(d.createdAt)]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    />
                   </div>
                 </div>
                 <StatusBadge

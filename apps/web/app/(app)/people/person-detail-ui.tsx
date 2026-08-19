@@ -60,6 +60,11 @@ const PROFILE_ICON: Record<ProfileKind, React.ReactNode> = {
 // other surfaces (Admissions…) share them; re-exported here so the People
 // drawer + profile tabs keep importing them from this module.
 export { DetailGrid, Field, Section, StatTiles };
+// The separator dot now lives with the other display primitives; re-exported
+// so the drawer + profile tabs keep importing it from this module.
+import { Dot, Separated } from '@workspace/ui/custom/data-display/dot';
+
+export { Dot, Separated };
 
 /* ---- Header ------------------------------------------------------------- */
 
@@ -169,8 +174,11 @@ export function ContactList({
               }
               dot
             >
-              {pref.channel}
-              {pref.isDnd ? ' · DND' : pref.optedIn ? '' : ' · off'}
+              <Separated
+                text={`${pref.channel}${
+                  pref.isDnd ? ' · DND' : pref.optedIn ? '' : ' · off'
+                }`}
+              />
             </StatusBadge>
           ))}
         </div>
@@ -232,9 +240,13 @@ export function IdentityFields({ detail }: { detail: PersonDetail }) {
       <Field
         label="Date of birth"
         value={
-          detail.dateOfBirth
-            ? `${formatDate(detail.dateOfBirth)}${age != null ? ` · ${age}y` : ''}`
-            : null
+          detail.dateOfBirth ? (
+            <Separated
+              text={`${formatDate(detail.dateOfBirth)}${
+                age != null ? ` · ${age}y` : ''
+              }`}
+            />
+          ) : null
         }
       />
       <Field
