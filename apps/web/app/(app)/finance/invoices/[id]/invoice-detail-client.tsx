@@ -115,6 +115,10 @@ export interface ApiInvoiceDetail {
     gross: number;
     discounts: number;
     net: number;
+    /** Settled by a payment allocation. */
+    allocated?: number;
+    /** Settled by drawing on the family's held credit. */
+    credited?: number;
     paid: number;
     balance: number;
     overpaid: number;
@@ -212,6 +216,11 @@ export function InvoiceDetailClient({
     { key: 'discounts', label: 'Discounts', value: naira(fin.discounts) },
     { key: 'net', label: 'Net', value: naira(fin.net) },
     { key: 'paid', label: 'Paid', value: naira(fin.paid) },
+    // Credit drawn down reads as "paid" on the balance but is worth showing
+    // separately — the family did not hand over money for this bill today.
+    ...(fin.credited
+      ? [{ key: 'credited', label: 'From credit', value: naira(fin.credited) }]
+      : []),
     {
       key: 'balance',
       label: fin.overpaid > 0 ? 'Credit' : 'Balance',

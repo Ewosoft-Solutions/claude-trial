@@ -19,6 +19,7 @@ import {
   Banknote,
   BookMarked,
   BookOpen,
+  Scale,
   Briefcase,
   Building2,
   Bus,
@@ -402,6 +403,13 @@ export const SCHOOL_NAV: NavigationConfig = {
               icon: <HousePlus />,
               href: '/finance/households',
               access: { anyPermission: ['fees.view', 'billing.view'] },
+            },
+            {
+              key: 'ledger',
+              label: 'General ledger',
+              icon: <Scale />,
+              href: '/finance/ledger',
+              access: { anyPermission: ['finance.gl.view'] },
             },
             {
               key: 'fin-reports',

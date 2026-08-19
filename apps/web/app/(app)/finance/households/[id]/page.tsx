@@ -13,6 +13,7 @@ import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
 import {
   HouseholdDetailClient,
+  type AccountStanding,
   type ApiHouseholdDetail,
   type StudentOption,
   type HouseholdOption,
@@ -33,6 +34,19 @@ interface ApiHouseholdListItem {
   name: string;
 }
 
+/** What the family owes right now, and what it has paid ahead (WB5-3/5-4). */
+interface OutstandingResponse {
+  invoices?: Array<{
+    id: string;
+    invoiceNumber: string;
+    studentName?: string | null;
+    dueDate?: string | null;
+    financials?: { balance?: number };
+  }>;
+  totalOutstanding?: number;
+  availableCredit?: number;
+}
+
 function studentName(s: ApiStudent): string {
   const u = s.userTenant?.user;
   const name = [u?.firstName, u?.lastName].filter(Boolean).join(' ').trim();
@@ -46,12 +60,16 @@ export default async function HouseholdDetailPage({
 }) {
   const { id } = await params;
 
-  const [household, rosterData, allHouseholds, session] = await Promise.all([
-    serverApiGet<ApiHouseholdDetail>(`/finance/households/${id}`),
-    serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
-    serverApiGet<ApiHouseholdListItem[]>('/finance/households'),
-    getSession(),
-  ]);
+  const [household, rosterData, allHouseholds, standing, session] =
+    await Promise.all([
+      serverApiGet<ApiHouseholdDetail>(`/finance/households/${id}`),
+      serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
+      serverApiGet<ApiHouseholdListItem[]>('/finance/households'),
+      serverApiGet<OutstandingResponse>(
+        `/finance/households/${id}/outstanding`,
+      ),
+      getSession(),
+    ]);
 
   if (!household) notFound();
 
@@ -71,11 +89,24 @@ export default async function HouseholdDetailPage({
   const canManage =
     session?.permissions.includes('finance.manage' as never) ?? false;
 
+  const accountStanding: AccountStanding = {
+    outstanding: standing?.totalOutstanding ?? 0,
+    credit: standing?.availableCredit ?? 0,
+    invoices: (standing?.invoices ?? []).map((invoice) => ({
+      id: invoice.id,
+      invoiceNumber: invoice.invoiceNumber,
+      studentName: invoice.studentName ?? undefined,
+      dueDate: invoice.dueDate ?? undefined,
+      balance: invoice.financials?.balance ?? 0,
+    })),
+  };
+
   return (
     <HouseholdDetailClient
       household={household}
       students={students}
       otherHouseholds={otherHouseholds}
+      standing={accountStanding}
       canManage={canManage}
     />
   );

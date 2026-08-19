@@ -36,6 +36,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
 import { authedFetch } from '@/lib/authed-fetch';
+import { formatNaira as nairaFromKobo } from '@/lib/format';
 import { isSearchable } from '@/lib/input-validation';
 
 export interface StudentOption {
@@ -61,6 +62,19 @@ interface Payer {
   role: string;
   effectiveTo?: string | null;
 }
+/** The money side of a family account: what is owed, and what is held. */
+export interface AccountStanding {
+  outstanding: number;
+  credit: number;
+  invoices: Array<{
+    id: string;
+    invoiceNumber: string;
+    studentName?: string;
+    dueDate?: string;
+    balance: number;
+  }>;
+}
+
 export interface ApiHouseholdDetail {
   id: string;
   name: string;
@@ -92,11 +106,13 @@ export function HouseholdDetailClient({
   household,
   students,
   otherHouseholds,
+  standing,
   canManage,
 }: {
   household: ApiHouseholdDetail;
   students: StudentOption[];
   otherHouseholds: HouseholdOption[];
+  standing: AccountStanding;
   canManage: boolean;
 }) {
   const activeMembers = household.members.filter((m) => !m.effectiveTo);
@@ -136,6 +152,67 @@ export function HouseholdDetailClient({
             }
           />
         </div>
+
+        <SectionCard
+          title="Account standing"
+          description="What this family owes, and anything they have paid ahead."
+          action={
+            canManage ? (
+              <Button size="sm" variant="outline" asChild>
+                <Link href="/finance/payments">Record payment</Link>
+              </Button>
+            ) : undefined
+          }
+        >
+          <div className="flex flex-col gap-3">
+            <div className="grid gap-3 @md/main:grid-cols-2">
+              <div className="rounded-lg border border-border bg-card/40 p-3">
+                <p className="text-xs text-muted-foreground">Outstanding</p>
+                <p className="text-lg font-medium tabular-nums text-foreground">
+                  {nairaFromKobo(standing.outstanding)}
+                </p>
+              </div>
+              <div className="rounded-lg border border-border bg-card/40 p-3">
+                <p className="text-xs text-muted-foreground">
+                  Credit held — applied to their next invoice
+                </p>
+                <p className="text-lg font-medium tabular-nums text-foreground">
+                  {nairaFromKobo(standing.credit)}
+                </p>
+              </div>
+            </div>
+
+            {standing.invoices.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nothing outstanding on this family account.
+              </p>
+            ) : (
+              <ul className="flex flex-col gap-2">
+                {standing.invoices.map((invoice) => (
+                  <li
+                    key={invoice.id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border bg-card/40 p-2.5"
+                  >
+                    <div className="flex min-w-0 flex-col">
+                      <span className="truncate text-sm font-medium text-foreground">
+                        {invoice.studentName ?? 'Unnamed student'}
+                      </span>
+                      <Link
+                        href={`/finance/invoices/${invoice.id}`}
+                        className="truncate text-xs text-muted-foreground hover:underline"
+                      >
+                        {invoice.invoiceNumber}
+                      </Link>
+                    </div>
+                    <span className="tabular-nums text-sm text-foreground">
+                      {nairaFromKobo(invoice.balance)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </SectionCard>
 
         <SectionCard
           title="Payers"

@@ -545,19 +545,35 @@ async function seedFinanceData(tenantId: string) {
     where: { tenantId, invoiceNumber: 'INV-DEV-001' },
   });
   if (paidInvoice) {
-    await prisma.payment.upsert({
-      where: { tenantId_receiptNumber: { tenantId, receiptNumber: 'PMT-DEV-001' } },
+    const payment = await prisma.payment.upsert({
+      where: {
+        tenantId_receiptNumber: { tenantId, receiptNumber: 'PMT-DEV-001' },
+      },
       update: {},
       create: {
         tenantId,
         receiptNumber: 'PMT-DEV-001',
-        invoiceId: paidInvoice.id,
-        studentId: student.id,
         method: 'transfer',
         paidAt: new Date('2025-01-20'),
         amount: 18500000,
         status: 'completed',
         reference: 'TRF-DEV-2025-001',
+      },
+    });
+    // The receipt reaches the invoice through an allocation (WB5-3).
+    await prisma.paymentAllocation.upsert({
+      where: {
+        paymentId_invoiceId: {
+          paymentId: payment.id,
+          invoiceId: paidInvoice.id,
+        },
+      },
+      update: {},
+      create: {
+        tenantId,
+        paymentId: payment.id,
+        invoiceId: paidInvoice.id,
+        amount: 18500000,
       },
     });
   }
