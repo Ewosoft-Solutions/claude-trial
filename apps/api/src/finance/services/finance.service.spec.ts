@@ -11,20 +11,31 @@ describe('FinanceService.listInvoices', () => {
   const count = jest.fn();
   const client = { feeInvoice: { findMany, count } };
   const service = new FinanceService(
-    { client } as never, // db
-    { isScoped: false } as never, // tenantDb (unscoped → uses db.client)
+    { client } as never, // tenantDb (its `client` is the request transaction)
+    { write: jest.fn() } as never, // audit
     { applyPoliciesToInvoice: jest.fn() } as never, // adjustments
+    { next: jest.fn() } as never, // numbering
+    { autoApplyToInvoice: jest.fn() } as never, // credits
+    { recordReceipt: jest.fn() } as never, // receipts
+    {
+      post: jest.fn(),
+      reverseSource: jest.fn(),
+      ensureOpeningBalance: jest.fn(),
+    } as never, // ledger
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // gross 1000 (its one line), a 200 applied discount, 300 paid.
+    // gross 1000 (its one line), a 200 applied discount, 300 settled by an
+    // allocation — the receipt side now reaches the invoice through allocations.
     findMany.mockResolvedValue([
       {
         id: 'inv-1',
         amountPaid: 300,
         lines: [{ amount: 1000, quantity: 1 }],
         adjustments: [{ amount: 200 }],
+        allocations: [{ amount: 300 }],
+        creditApplications: [],
       },
     ]);
     count.mockResolvedValue(1);
@@ -52,6 +63,7 @@ describe('FinanceService.listInvoices', () => {
     // raw line/adjustment arrays are dropped from the row.
     expect(result.data[0]).not.toHaveProperty('lines');
     expect(result.data[0]).not.toHaveProperty('adjustments');
+    expect(result.data[0]).not.toHaveProperty('allocations');
   });
 
   it('paginates (skip/take + count) when a limit is given', async () => {
@@ -97,5 +109,99 @@ describe('FinanceService.listInvoices', () => {
   it('ignores an unknown sort field (falls back to newest-first)', async () => {
     await service.listInvoices('tenant-1', { sortBy: 'notes' });
     expect(findMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'desc' }]);
+  });
+});
+
+/**
+ * Cancelling an invoice withdraws the charge. Doing that to a bill money has
+ * already been applied to would leave the receipt pointing at nothing and the
+ * ledger short by what was settled — so it is refused, and the correction is a
+ * reversal or an adjustment instead.
+ */
+describe('FinanceService.updateInvoice — cancelling', () => {
+  const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
+  const feeAdjustment = { findMany: jest.fn() };
+  const paymentAllocation = { count: jest.fn() };
+  const creditApplication = { count: jest.fn() };
+  const client = {
+    feeInvoice,
+    feeAdjustment,
+    paymentAllocation,
+    creditApplication,
+  };
+  const ledger = {
+    post: jest.fn(),
+    // A reversal returns the contra entries it posted; an invoice billed before
+    // the ledger opened has none, which is the branch that matters below.
+    reverseSource: jest.fn(),
+    ensureOpeningBalance: jest.fn(),
+  };
+
+  const audit = { write: jest.fn() };
+  const service = new FinanceService(
+    { client } as never,
+    audit as never,
+    { applyPoliciesToInvoice: jest.fn() } as never,
+    { next: jest.fn() } as never,
+    { autoApplyToInvoice: jest.fn() } as never,
+    { recordReceipt: jest.fn() } as never,
+    ledger as never,
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    ledger.reverseSource.mockResolvedValue([{ id: 'je-rev' }]);
+    feeAdjustment.findMany.mockResolvedValue([]);
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: 'issued',
+      invoiceNumber: 'INV-2026-000001',
+    });
+    feeInvoice.update.mockImplementation(async ({ where, data }: any) => ({
+      id: where.id,
+      ...data,
+    }));
+    paymentAllocation.count.mockResolvedValue(0);
+    creditApplication.count.mockResolvedValue(0);
+  });
+
+  it('reverses the charge when nothing has been settled', async () => {
+    await service.updateInvoice(
+      't1',
+      'inv-1',
+      { status: 'cancelled' },
+      'user-1',
+    );
+
+    expect(feeInvoice.update).toHaveBeenCalled();
+    expect(ledger.reverseSource).toHaveBeenCalledWith(
+      't1',
+      'invoice',
+      'inv-1',
+      'user-1',
+      'Invoice cancelled',
+    );
+    // Withdrawing a receivable is a decision someone made; it leaves a trace.
+    expect(audit.write).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'finance_invoice_cancelled' }),
+    );
+  });
+
+  it('refuses to cancel an invoice a payment has been applied to', async () => {
+    paymentAllocation.count.mockResolvedValue(1);
+
+    await expect(
+      service.updateInvoice('t1', 'inv-1', { status: 'cancelled' }, 'user-1'),
+    ).rejects.toThrow(/already been settled in part/);
+    expect(feeInvoice.update).not.toHaveBeenCalled();
+    expect(ledger.reverseSource).not.toHaveBeenCalled();
+  });
+
+  it('refuses just as firmly when it was settled with held credit', async () => {
+    creditApplication.count.mockResolvedValue(1);
+
+    await expect(
+      service.updateInvoice('t1', 'inv-1', { status: 'cancelled' }, 'user-1'),
+    ).rejects.toThrow(/already been settled in part/);
   });
 });

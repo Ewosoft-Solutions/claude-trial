@@ -247,13 +247,13 @@ const PERMISSION_POOLS = [
 ];
 
 const EXPECTED_PERMISSION_COUNTS = {
-  total: 352, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3) + WB3 admissions.convert (+1) + WB3 finance.view/.manage (+2) + WB4 academics.results.view/.enter/.manage/.approve/.financial_hold (+5)
+  total: 354, // 320 base + F5 communication (+5) + F6 curriculum (+4) + WB1-1 guardians (+1) + WB1-3 users.provision (+1) + WB1-4 guardians.manage (+1) + WB1-6 access.grants.manage/campus.view/campus.manage (+3) + WB2-1 academics.structure.view/.manage (+2) + WB2-2 academics.enrollment.view/.manage (+2) + WB2-3 academics.lifecycle.view/.manage (+2) + WB2-4 academics.promotion.view/.manage/.approve (+3) + WB3 admissions.convert (+1) + WB3 finance.view/.manage (+2) + WB4 academics.results.view/.enter/.manage/.approve/.financial_hold (+5) + WB5 finance.gl.view/.gl.manage (+2)
   arrays: {
     STUDENT_PERMISSIONS: 15,
     ACADEMIC_MANAGEMENT_PERMISSIONS: 35,
     GRADE_ASSESSMENT_PERMISSIONS: 27,
     ATTENDANCE_PERMISSIONS: 9,
-    FINANCIAL_PERMISSIONS: 18,
+    FINANCIAL_PERMISSIONS: 20,
     COMMUNICATION_PERMISSIONS: 18,
     STAFF_PERMISSIONS: 13,
     REPORTS_PERMISSIONS: 10,
@@ -1328,6 +1328,29 @@ const FINANCIAL_PERMISSIONS = [
     action: 'manage',
     category: 'financial',
     requiredClearanceLevel: 5,
+  },
+  // The double-entry ledger (ADR-10) is its own authority: seeing the books is
+  // not the same as seeing a bill, and posting/closing them is an accountant's
+  // job, not a bursar's. Clearance 5 to read, 7 to close a period or reverse.
+  {
+    name: 'finance.gl.view',
+    label: 'View General Ledger',
+    description:
+      'View the chart of accounts, journal entries, trial balance and reconciliation',
+    resource: 'finance',
+    action: 'gl.view',
+    category: 'financial',
+    requiredClearanceLevel: 5,
+  },
+  {
+    name: 'finance.gl.manage',
+    label: 'Manage General Ledger',
+    description:
+      'Open/close accounting periods, reverse journal entries, and export the journal',
+    resource: 'finance',
+    action: 'gl.manage',
+    category: 'financial',
+    requiredClearanceLevel: 7,
   },
   {
     name: 'fees.view',

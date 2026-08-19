@@ -1,6 +1,158 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-17
+Last Updated: 2026-08-19
+
+---
+
+## Session Summary (2026-08-19, pt. 4) — Claude: a second, unanchored reviewer → 9 majors, all fixed
+
+**Item(s):** WB5-3..5-6 still `in-review`. **Branch:** `feat/wb5-finance-subledger-gl`.
+
+**Why a fresh reviewer.** The first reviewer had reviewed twice and was anchored to its own list. A new agent was spawned with no knowledge of the earlier findings and pointed at the places review attention usually does not reach — the web layer (nobody had opened these screens in a browser), the money-input boundary, the seeds, and the migration path. It found nine majors, and only one overlapped anything seen before.
+
+**The money defects**
+
+- **`applyCredit` checked everything except whose credit it was.** Amount, status, tenancy, balance — but never that the credit's household/student matched the invoice's. One family's overpayment could settle another family's bill, and because the journal entry balances either way, **every control total on the reconciliation report still read zero**. Nothing surfaced it but an audit row naming the credit rather than the wrong family. `autoApplyToInvoice` had always scoped by owner; the explicit path never did.
+- **Approving an adjustment opened the books after applying it.** The rule the docs state in bold — open before the subledger row is written — held everywhere except here. A school whose first financial act on the new release was approving a pending waiver opened its receivables **short by the discount**, permanently. Same defect class as pt. 2's admission-fee finding, in the last path that could still express it.
+- **A reversal could itself be reversed.** `SUBLEDGER_SOURCES` refused six source types but not `reversal` — which is what the subledger itself posts to correct things. Cancelling an invoice and then reversing the withdrawal put the receivable back with no invoice behind it.
+- **A period's last day fell outside the period.** `start_date`/`end_date` are DATE columns; comparing a wall-clock timestamp against them excluded every entry made during the final day — which also meant an entry posted the afternoon a period was closed **skipped the closed-period check entirely**.
+- **Merging two households orphaned the source's money.** WB5 hung `account_credits.household_id` and `payments.household_id` off the household, both `ON DELETE SET NULL`; `merge()` re-pointed only invoices. The credit's household became null, `availableCredit` and auto-apply could never find it again — while the reconciliation credit control, which sums all non-void credits, went on reporting it as held. The report said the books were fine while the family's money was unspendable.
+- **Recording money had no idempotency.** A lost response on a prepayment (nothing allocated, so no balance check to refuse a duplicate) let a second click take the family's money twice. `payments.idempotency_key` + a partial unique index; the checkout sends one key per composed receipt, surviving a failed attempt.
+
+**Trace and reach**
+
+- **Issuing and cancelling an invoice wrote no audit row**, and the **opening entry** — typically a school's entire pre-existing debt — was posted by nobody, triggered by a `GET` that needs only `finance.gl.view`. Both are attributed and audited now.
+- **"Define period" could never succeed.** I added step-up to that route in pt. 2 and left the dialog unable to answer the challenge, so the whole period-close feature was unreachable through the product. Nobody had opened the screen; the e2e called the service directly, past the guard.
+
+**Web** (the reviewer's richest seam): the export is gated on `finance.gl.manage` and carries the page's filter (it previously downloaded a file containing a 403); **Reverse** is no longer offered where the server will refuse it after an MFA challenge; filtering resets to page 1; the family picker is searchable rather than an unbounded `<select>`; unticking a child re-syncs the amount instead of silently parking a sibling's money as credit; `toKobo` refuses what it cannot parse (`-500` became `+₦500`, a pasted `1.234,50` became ₦1.23) and the dialog says why; a failed balance fetch renders an error instead of a confident `₦0.00 outstanding`.
+
+**Tests.** The concurrency claim was previously proven by asserting the call order of a mocked query — it would have passed with `FOR UPDATE` removed. There is now a **real two-transaction test**: two cashiers settle the same invoice at once, exactly one succeeds, one is refused, the invoice is paid exactly once and the books still balance. Same for the **opening-balance race** (the old case ran two sequential calls on a tenant with nothing to open — it passed with the guard *and* the unique index deleted) and a **cross-tenant write** attempt. Receipt dates in the suite are now relative to today, since the writer refuses a date more than a day ahead.
+
+**Also:** seeds write real line items (every seeded invoice had gross 0, so the finance workbench refused payment against its own fixture — and the pt. 1 smoke's "agrees to the kobo" was agreement between zeroes); a prune migration runs **before** the CHECK constraints so a legacy zero-amount row cannot wedge `migrate deploy` mid-upgrade; the one-sided journal CHECK is a true exclusive-or; the cash control sums in SQL rather than through an `in:` list that would blow Postgres's parameter limit; `listCredits` reports its total instead of silently truncating; `to` filters include the last day.
+
+**Verification**
+
+- api unit **861** · finance e2e **18/18** · finance-authorization **5/5** · `ci:quick` ✔ · `db:rls:check` ✔ · `check:privileged-db` ✔ (27) · `db:verify` ✔
+
+**Next step**
+
+- **Pushed; [PR #129](https://github.com/Ewosoft-Solutions/claude-trial/pull/129) is open against `main`** (19 commits, 86 files). Watch CI, then merge → WB5-3..5-6 `done`. After the merge the **API must be restarted**, not merely redeployed against: the sensitive-operation catalogue is compiled in from `packages/database`, so a stale process rejects `financial.period.close` / `financial.journal.reverse` (this is exactly how the stale dev API surfaced during hand-testing). WB5-7 (gateway) remains owner-gated.
+
+**Gotcha worth keeping**
+
+- **A reviewer that has already reviewed is anchored.** The second pass by the first reviewer found 5 issues, all in code it had just read; a *fresh* reviewer pointed at the unexamined seams found 9, of which 8 were in territory the first had never looked at. When a change spans layers, rotate the reader rather than re-reading with the same eyes.
+
+---
+
+## Session Summary (2026-08-19, pt. 3) — Claude: confirmation pass on the WB5 fixes → 3 new drifts + a migration-rule violation, all fixed
+
+**Item(s):** WB5-3..5-6 still `in-review`. **Branch:** `feat/wb5-finance-subledger-gl`.
+
+**The point of the second pass.** The reviewer confirmed all seven majors from pt. 2 were genuinely fixed (M1, M2, M6, M7 clean; M3/M4/M5 fixed but incomplete), and then found what the fixes themselves had opened. That is the useful half: three of my seven fixes introduced new ways for the books to drift.
+
+- **A pre-ledger cancel stranded its discount.** `withdrawCancelledInvoice` reversed the invoice's adjustments *and then* withdrew the balance that still counted them, so a school that upgraded and cancelled an old invoice carrying a waiver left the waiver's amount in receivables forever. The two cases are genuinely different — an invoice whose charge was posted here vs one whose receivable arrived inside the opening balance — and are now two branches with the reasoning written beside each. New e2e covers the pre-ledger variant, which the earlier case did not.
+- **Two standing discount policies were each capped against the same untouched balance.** A 60% scholarship and a 50% sibling discount on one invoice together credited 110% of the charge. The cap now carries a running balance across the pass. Regression test pins `[60_000, 40_000]` on a ₦100,000 invoice.
+- **The two credit paths locked in opposite orders** — `applyCredit` took credit-then-invoice, `autoApplyToInvoice` invoice-then-credit: an ABBA deadlock that kills one request with a 40P01 on a money route. There is one global order now (`lockInvoicesThenCredits`: invoices before credits), and **adjustment approval takes the row lock it was missing** — without it, a waiver re-checked against a balance a concurrent receipt was already spending could still over-credit (this was also the last reachable path to `overpaid > 0`).
+
+**The rule I broke myself.** I corrected the receipts backfill by editing migration `20260819120000` **after it had been applied** — the AGENTS.md §7 drift gotcha, and the correction would never have reached the environment that ran the original. Reverted to its applied form; the fix is now `20260819170000_wb5_backfill_correction`, which deletes allocations belonging to non-`completed` payments, clears `payer_name` where it was borrowed from the billed child, and re-derives the affected invoices' cached totals. Verified on dev: 0 of each remaining.
+
+**Also from the pass:** the P2002 catches now name the constraint they expect (`isUniqueViolationOn`, mirroring `guardianship.service.ts`) and raise a **retryable conflict** instead of pretending to recover — a failed insert has already aborted the transaction, so "the loser reads the winner's row and carries on" was fiction. The CSV truncation notice is a full-width row rather than a ragged one a strict importer would reject.
+
+**The unauthorized-scope gap is properly closed.** The reviewer was right that the route-guard spec pins decorators, not denials. New `apps/api/test/finance-authorization-http.e2e-spec.ts` drives the real guard stack with a token holding `finance.view` + `finance.manage` and nothing else: the receipts list answers 200, every ledger route and the reconciliation report answer **403**, recording a receipt answers **403 for want of a step-up** (proving the PermissionGuard passed first), and an anonymous caller still gets 401.
+
+**Two findings I argued rather than fixed, and the reviewer accepted both:** a fully-waived invoice reading `paid` is the design's stated rule (`billing-and-ar-design.md` §2: settled by ANY mix of payment and adjustment), and `overpaid > 0` is unreachable for new data — the reviewer's remaining path was the unlocked approval, now locked.
+
+**Verification**
+
+- api unit **859** · **e2e 34 suites / 246 tests, 0 failures** — finance **17/17** (new: the pre-ledger cancel), finance-authorization **5/5** (new)
+- `pnpm ci:quick` ✔ · `db:rls:check` ✔ · `check:privileged-db` ✔ (27) · `db:verify` ✔
+
+**Next step**
+
+- The branch is ready for a merge decision. Two review rounds, twelve real defects between them, all fixed and pinned by tests. WB5-7 (gateway) remains the only owner-gated item.
+
+**Gotcha worth keeping**
+
+- **Fixing an accounting bug is itself an accounting change.** Three of the seven pt. 2 fixes introduced new drift, all in the same shape: a correction that moved one side of an entry without asking what the other side had already accounted for. When changing a posting path, work out the invoice's *net contribution to the control account* first, then make the correction equal it — do not reason forward from "reverse the thing that looks wrong".
+
+---
+
+## Session Summary (2026-08-19, pt. 2) — Claude: independent review of WB5 → CHANGES-REQUESTED (7 major) → all fixed and re-verified
+
+**Item(s):** WB5-3..5-6 stay `in-review` (now review-corrected). **Branch:** `feat/wb5-finance-subledger-gl`.
+
+**What the review found, and why each one mattered**
+
+A reviewer with no stake in the branch traced the paths the happy-path e2e never walks. Every major finding ended the same way — the AR control account permanently disagreeing with the invoices, with no self-healing.
+
+- **Admission-fee billing opened the books after writing the invoice**, counting that bill twice. This is the same ordering defect pt. 1 records fixing; it applied in a second place and was missed there. Fixed, and the invariant is now written down in `docs/finance-posting-rules.md` rather than living in one comment.
+- **Issuing was not a state transition.** `PATCH {status:'issued'}` on an already part-paid invoice re-posted the charge, re-applied every standing discount policy and re-drew the family's held credit. Issuing is now draft-only.
+- **An approved waiver was bounded by nothing** — not by the invoice's status, not by what it still owed. Waiving past the balance credits receivables below zero while the subledger balance floors at zero, and the family is owed money that exists in no account. Now bounded at request **and re-checked at approval**, because the balance moves while an approval waits.
+- **Cancelling reversed only the charge.** Any approved waiver posted against the invoice stayed in the books, and an invoice billed *before* the ledger opened had no charge entry to reverse at all — the common case for a school that upgrades. Cancelling now withdraws everything posted against the invoice, including an explicit opening-equity withdrawal for the pre-ledger case.
+- **Two cashiers could over-settle the same invoice** (and two draws could over-spend the same credit): under READ COMMITTED both read the same balance, both passed the check, both wrote. The writers now take a `SELECT … FOR UPDATE` row lock *before* reading a balance (`apps/api/src/finance/finance-locks.ts`, ids sorted to avoid deadlocking two family checkouts against each other).
+- **Two readers could each post the opening balance** — a bursar with `/finance/ledger` open in one tab and `/finance/reports` in another. The trial balance cannot detect that, because both entries balance. A **partial unique index** now makes one-opening-per-tenant a database fact.
+- **The generic journal reversal could be pointed at a receipt**, withdrawing the money from the books while the allocation row stood — the invoice would still read `paid` with no cash behind it. Subledger-sourced entries are refused there; corrections go through the writer that owns both sides.
+
+**Minors worth naming:** invoice **lines were editable after issue** with no posting, no step-up and no audit — a step-up-free way to change what a family owes, while the posting-rules doc claimed the ledger had one writer. Lines are now fixed once issued. The journal export is audited and bounded (20k entries, and it says so in the file rather than truncating silently). `financial.journal.reverse` declared clearance 5 while its permission seeds at 7. Past-due now outranks part-paid in the derived status. `heldAsCredit` on the collections report was renamed `unallocated` — it was the unallocated total at receipt time, not the credit balance held today, and it sat next to a card reporting the real one.
+
+**New database backstops** (migration `20260819160000_wb5_ledger_integrity_constraints`): the opening-entry partial unique index, plus CHECK constraints — a journal line is one-sided and non-negative, money rows are positive, and a credit can never be drawn below zero or above what was received. The posting service enforced all of these already; that is an argument for keeping the rules right, not for leaving the database willing to store a book that cannot be true.
+
+**Verification**
+
+- api unit **858** (+26 route-guard assertions that pin every finance route's permission + step-up declaration — the unauthorized-scope gap DoD §5 requires and the review named; +9 behavioural)
+- **finance e2e 16/16 on real pg** — five new cases pin the fixes, including "cancelling withdraws the charge *and* the waiver posted against it, and all three control totals still agree"
+- **full e2e 33 suites / 240 tests, 0 failures** · `pnpm ci:quick` ✔ · `db:rls:check` ✔ · `db:verify` ✔
+- `check:privileged-db` ✔ **and the baseline improved 28 → 27**: `FinanceService` no longer injects the privileged client at all. Its fallback (`isScoped ? tenantDb : db`) had become a trap — every collaborator it now calls requires the request transaction and throws without one, so an unscoped caller would have half-written.
+
+**Next step**
+
+- Push + PR, then merge → WB5-3..5-6 `done`. The owner decision on the gateway (WB5-7) is still the only thing blocking the rest of the workbench.
+
+**Gotcha worth keeping**
+
+- **"The service is the only writer" is a convention until the database agrees.** Three of the seven majors were reachable only because a rule lived solely in application code — the opening-balance uniqueness, the one-sided journal line, and the bounded credit. Where an invariant is cheap to express as an index or a CHECK, express it there too; the code comment and the constraint are not redundant, they fail at different times.
+
+---
+
+## Session Summary (2026-08-19) — Claude: WB5 finance built to the ADR-10 Release-1 cut line (receipts+allocations · credit · double-entry ledger · reconciliation)
+
+**Item(s):** **WB5-3 · WB5-4 · WB5-5 · WB5-6** → `in-review` (WB5-1/5-2 were already `done`). **Branch:** `feat/wb5-finance-subledger-gl` (from `main` @ `078ae45`). No PR opened yet.
+
+**Starting point.** WB5 was a single line in "Later workbenches" with two phases already merged — P1 itemised invoices + maker-checker adjustments and P2 billing households ([#76]/[#77]) — and no slices detailed. The board now carries a Workbench-5 section with eight rows and an acceptance statement, and this session built the four that make up the Release-1 cut line ADR-10 itself names.
+
+**What changed & why**
+
+- **WB5-3 · A payment stops being "a payment against ONE invoice".** `Payment` becomes a **receipt** of money received (payer snapshot, household, method, reference) and `payment_allocations` records what each naira settled. That is the shape a parent paying once for two children has always needed (ADR-05 Q21) and the old column could not express; it also lets one invoice collect installments over a term. `payments.invoice_id` and `payments.student_id` are **dropped**, but only after the migration backfills one allocation per existing payment, so no settlement history is lost. Receipt/invoice/journal numbers move to `finance_number_sequences` — one counter per tenant + kind + year, taken with a single atomic `UPDATE … RETURNING` inside the caller's transaction (`RCT-2026-000042`). A rolled-back transaction leaves a **gap** rather than releasing the number: a missing receipt number is visible to an auditor, a duplicated one is not. Reprints are counted and audited rather than forbidden.
+- **WB5-4 · Overpayment becomes credit, not income.** `account_credits` + `credit_applications`: money received beyond what a receipt settled parks as an accounts-receivable **credit balance** on the family (ADR-05 is explicit that this is not stored value and not custodial), drawn down oldest-first the moment their next invoice is issued. Cash refunds stay deliberately out of scope for v1.
+- **WB5-5 · The double-entry ledger underneath both (ADR-10).** `chart_of_accounts` (resolved by `system_key`, so a school can renumber its chart without breaking posting), `accounting_periods`, `journal_entries`, `journal_lines`. Invoice issue, adjustment applied, receipt recorded and credit applied each post a **balanced** entry through `LedgerService.post()` — the only writer, which refuses an unbalanced entry, a negative amount, a line that is both a debit and a credit, and anything dated into a **closed** period. A posted entry is never edited: `reverse()` posts a contra entry pointing back at the original (the redesign of the legacy negative-amount reversal, parity #95). Posting rules are written down in **[`docs/finance-posting-rules.md`](docs/finance-posting-rules.md)** — read that before adding a financial event.
+- **WB5-6 · The three questions a bursar is asked.** Collections (by day or method), outstanding **aging** (an invoice with no due date is treated as current, not accused of being overdue), and **reconciliation**: receivables, credit held and cash, each as the bills say it and as the ledger says it, plus the trial balance's `outOfBalance`. Zero on all four means the books agree with the bills. Plus a journal **CSV export** — the whole of ADR-10's "integrate" half for now: a school that keeps books in QuickBooks/Sage/Xero exports from here rather than handing us their accounting login (ADR-12).
+- **Web.** `/finance/payments` rebuilt as a receipts list with a **family checkout** (pick a family → every open bill across their children, pre-filled at full balance → allocate; the dialog shows what will be held as credit before you commit) and a row drawer that breaks the receipt down and records reprints. New **`/finance/ledger`**: trial balance, the journal traceable back to the receipt that caused each entry, period close/reopen, and the export. `/finance/reports` moved off browser-side arithmetic onto the new endpoints — which also removed a legacy `Class` read from the finance surface (a small WB12 dividend). The household detail page gained an **account standing** panel (outstanding + credit held).
+- **Permissions/ops: +2 permissions → 354** (`finance.gl.view` at clearance 5, `finance.gl.manage` at 7 — seeing the books is not the same authority as closing them) and **+2 sensitive operations → 34** (`financial.period.close`, `financial.journal.reverse`, both step-up gated). **No new env vars.** No new privileged-client usage.
+
+**Verification run + result**
+
+- `pnpm ci:quick` ✔ (build · lint · typecheck; api lint 0 errors / 79 pre-existing warnings) · web `tsc --noEmit` ✔ · web eslint `--max-warnings 0` ✔
+- `pnpm db:rls:check` ✔ (all eight new tables carry ENABLE+FORCE+`tenant_isolation`) · `pnpm check:privileged-db` ✔ (28 grandfathered, unchanged) · `pnpm db:verify` ✔ **354 permissions / 11 pools / 34 sensitive ops**
+- Migration `20260819120000_wb5_receipts_allocations_credit_gl` applied the additive way (`db execute` → DDL asserted present → `migrate resolve --applied`), then `pnpm run db:generate`. Backfill verified on the dev DB: **11 payments → 11 allocations** before the old columns were dropped.
+- api unit **825/825** (+31 across five new specs: ledger balance/period/reversal invariants, receipt allocation + overpayment rules, credit draw-down order, aging/collections/reconciliation/CSV, numbering)
+- **finance e2e `finance-receipts-credit-ledger.e2e-spec.ts` on real pg — 11/11**: issuing posts the charge · one payment settles two siblings with the ledger crediting each invoice separately · over-allocation refused both ways · an approved waiver clears the rest without touching the original charge · an overpayment lands as credit with fee income unchanged · the credit auto-applies to the next invoice at issue · every control total agrees · aging + collections · a closed period refuses a posting and reopening lets it through, then the correction is reversed · journal export carries every event class · RLS isolation + 401 boundary. Admissions e2e **32/32** (its fee path now goes through the one receipt writer).
+- **Full e2e suite (all 38 files) — 33 passed / 5 skipped (optional-env), 235 tests, 0 failures.** Two suites failed on the first run for a **pre-existing local schema drift**, not a regression: `imports.import_rows` was missing `target_created` because the table predates the migration that adds it (the migration uses `CREATE TABLE IF NOT EXISTS`, so it skipped an already-existing table). Repaired locally with the one `ADD COLUMN IF NOT EXISTS`; both suites then passed. **CI is unaffected** — it builds the schema from the migrations.
+- **HTTP smoke against the seeded dev tenant** — a scratch API on :3031 (the owner's own :3030 process untouched), real login + school selection, then `/finance/receipts`, `/finance/ledger/trial-balance`, `/finance/reports/{aging,collections,reconciliation}` and `/finance/ledger/export`. The opening balance posted itself correctly (₦690,000 outstanding → AR control), and **all three control totals plus the trial balance agree to the kobo**. That smoke found the last real defect (see below).
+- **Authenticated visual pass NOT done** — the owner's own dev servers were live on :3030/:3001 and share `apps/web/.next` / `apps/api/dist`, so starting a second web dev server risked corrupting theirs (the standing gotcha). The new screens are typechecked and lint-clean, and every endpoint behind them has been exercised over HTTP, but they have not been seen in a browser.
+
+**Decisions / ADRs**
+
+- None new. This implements **ADR-05** (Option 1 receivables subledger) and **ADR-10** (build an internal auditor-grade GL **and** offer an export), at the Release-1 cut line ADR-10 recommends.
+
+**Next step (so the next agent can resume)**
+
+- Independent maker-checker review of the branch → PR → merge → WB5-3..5-6 `done`. Then the **owner decision that unblocks WB5-7**: which payment gateway the design partners use, and the webhook signing secret + merchant account per environment. The ingestion shape is provider-specific and the secret is boot-required, so building it against a guessed provider would be throwaway work.
+
+**New gotchas**
+
+- **A lazily-computed opening balance double-counts unless it excludes what the ledger already posted.** The e2e caught it: `ensureOpeningBalance` summed every non-draft invoice, including the two the test had just issued *through* the ledger, so receivables read double. It now counts only invoices with no `invoice`-sourced journal entry, and it is called **before** the subledger rows are written (before the status flips to `issued`, before allocations are created) so the opening figure is the debt as it stood beforehand. Both properties are load-bearing; there is a note in `docs/finance-posting-rules.md`.
+- **A "subledger vs ledger" control total has to be scoped to what the ledger actually posted.** The cash control originally compared the ledger's cash against every completed receipt ever taken, so any school that had been running before the ledger existed showed a permanent difference equal to its entire payment history — reconciliation would read "needs a look" forever, which is worse than useless. It now counts only receipts with a posted receipt-sourced entry; the cash from before the ledger opened is represented inside the opening balance. The same reasoning applies to any control total added later.
+- **The dev DB carries 359 permissions against an expected 354** — F9's five live on the unmerged `feat/f9-export-retention-privacy` branch and the seed **never prunes**. `db:verify` passes (it checks presence, not equality), but do not read the local count as the authoritative one.
 
 ---
 

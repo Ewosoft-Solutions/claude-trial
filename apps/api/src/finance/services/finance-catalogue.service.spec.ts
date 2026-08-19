@@ -33,6 +33,11 @@ describe('FinanceCatalogueService', () => {
       id: where.id,
       ...data,
     }));
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: 'draft',
+      invoiceNumber: 'INV-2026-000001',
+    });
     feeInvoiceLine.create.mockImplementation(async ({ data }: any) => ({
       id: 'line-1',
       ...data,
@@ -70,7 +75,11 @@ describe('FinanceCatalogueService', () => {
 
   describe('addLine', () => {
     it('validates invoice + fee item, then re-syncs amountDue', async () => {
-      feeInvoice.findFirst.mockResolvedValue({ id: 'inv-1' });
+      feeInvoice.findFirst.mockResolvedValue({
+        id: 'inv-1',
+        status: 'draft',
+        invoiceNumber: 'INV-2026-000001',
+      });
       feeItem.findFirst.mockResolvedValue({ id: 'fi-1' });
       feeInvoiceLine.findMany.mockResolvedValue([
         { amount: 1_000_000, quantity: 1 },
@@ -90,7 +99,11 @@ describe('FinanceCatalogueService', () => {
     });
 
     it('rejects a fee item from another tenant', async () => {
-      feeInvoice.findFirst.mockResolvedValue({ id: 'inv-1' });
+      feeInvoice.findFirst.mockResolvedValue({
+        id: 'inv-1',
+        status: 'draft',
+        invoiceNumber: 'INV-2026-000001',
+      });
       feeItem.findFirst.mockResolvedValue(null);
       await expect(
         service.addLine('t1', 'inv-1', { feeItemId: 'other', amount: 100 }),
@@ -119,6 +132,51 @@ describe('FinanceCatalogueService', () => {
         data: { amountDue: 1_000_000 },
       });
       expect(result).toEqual({ deleted: true });
+    });
+  });
+
+  /**
+   * Lines are the charge. After issue it is in the ledger and on a family's
+   * statement, so changing it here would move what is owed with no journal
+   * entry behind it and no approval in front of it.
+   */
+  describe('once the invoice is issued', () => {
+    beforeEach(() => {
+      feeInvoice.findFirst.mockResolvedValue({
+        id: 'inv-1',
+        status: 'issued',
+        invoiceNumber: 'INV-2026-000001',
+      });
+    });
+
+    it('refuses to add a line', async () => {
+      feeItem.findFirst.mockResolvedValue({ id: 'fi-1' });
+      await expect(
+        service.addLine('t1', 'inv-1', { feeItemId: 'fi-1', amount: 1_000 }),
+      ).rejects.toThrow(/its line items are fixed/);
+      expect(feeInvoiceLine.create).not.toHaveBeenCalled();
+    });
+
+    it('refuses to edit a line', async () => {
+      feeInvoiceLine.findFirst.mockResolvedValue({
+        id: 'line-1',
+        invoiceId: 'inv-1',
+      });
+      await expect(
+        service.updateLine('t1', 'line-1', { amount: 500_000 }),
+      ).rejects.toThrow(/its line items are fixed/);
+      expect(feeInvoiceLine.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses to remove a line', async () => {
+      feeInvoiceLine.findFirst.mockResolvedValue({
+        id: 'line-1',
+        invoiceId: 'inv-1',
+      });
+      await expect(service.removeLine('t1', 'line-1')).rejects.toThrow(
+        /its line items are fixed/,
+      );
+      expect(feeInvoiceLine.delete).not.toHaveBeenCalled();
     });
   });
 });

@@ -623,13 +623,37 @@ async function seedFinance(tenantId: string, seed: TenantOperationalSeed) {
       },
     });
 
+    // A line, so the DERIVED balance matches the seeded figures (WB5): without
+    // one the invoice reads gross 0 and no payment can be taken against it.
+    const seededItem = await prisma.feeItem.upsert({
+      where: { tenantId_code: { tenantId, code: 'tuition' } },
+      update: {},
+      create: { tenantId, code: 'tuition', name: 'Tuition' },
+    });
+    const seededLine = await prisma.feeInvoiceLine.findFirst({
+      where: { tenantId, invoiceId: invoice.id },
+      select: { id: true },
+    });
+    if (!seededLine) {
+      await prisma.feeInvoiceLine.create({
+        data: {
+          tenantId,
+          invoiceId: invoice.id,
+          feeItemId: seededItem.id,
+          description: `${seed.finance.termName} fees`,
+          amount: item.amountDue,
+          quantity: 1,
+        },
+      });
+    }
+
     if (item.amountPaid > 0 && item.method && item.paidAt) {
+      // A receipt is money received; what it settled is an allocation row
+      // (WB5-3), so the seed writes both.
       const receiptNumber = `DEV-PMT-${seed.key.toUpperCase()}-${item.studentNumber}`;
-      await prisma.payment.upsert({
+      const payment = await prisma.payment.upsert({
         where: { tenantId_receiptNumber: { tenantId, receiptNumber } },
         update: {
-          invoiceId: invoice.id,
-          studentId: student.id,
           method: item.method,
           paidAt: item.paidAt,
           amount: item.amountPaid,
@@ -640,14 +664,24 @@ async function seedFinance(tenantId: string, seed: TenantOperationalSeed) {
         create: {
           tenantId,
           receiptNumber,
-          invoiceId: invoice.id,
-          studentId: student.id,
           method: item.method,
           paidAt: item.paidAt,
           amount: item.amountPaid,
           status: 'completed',
           reference: `${DEV_SEED_TAG}-${receiptNumber}`,
           notes: `${DEV_SEED_TAG}: seeded payment receipt`,
+        },
+      });
+      await prisma.paymentAllocation.upsert({
+        where: {
+          paymentId_invoiceId: { paymentId: payment.id, invoiceId: invoice.id },
+        },
+        update: { amount: item.amountPaid },
+        create: {
+          tenantId,
+          paymentId: payment.id,
+          invoiceId: invoice.id,
+          amount: item.amountPaid,
         },
       });
     }
@@ -1036,14 +1070,12 @@ async function seedAdmissionFee(
   }
 
   const receiptNumber = `DEV-ADM-PMT-${seed.key.toUpperCase()}`;
-  await prisma.payment.upsert({
+  const payment = await prisma.payment.upsert({
     where: { tenantId_receiptNumber: { tenantId, receiptNumber } },
-    update: { invoiceId: invoice.id, studentId: null, amount },
+    update: { amount },
     create: {
       tenantId,
       receiptNumber,
-      invoiceId: invoice.id,
-      studentId: null,
       method: 'transfer',
       paidAt: seed.finance.issuedDate,
       amount,
@@ -1051,6 +1083,13 @@ async function seedAdmissionFee(
       reference: `${DEV_SEED_TAG}-${receiptNumber}`,
       notes: `${DEV_SEED_TAG}: seeded admission fee receipt`,
     },
+  });
+  await prisma.paymentAllocation.upsert({
+    where: {
+      paymentId_invoiceId: { paymentId: payment.id, invoiceId: invoice.id },
+    },
+    update: { amount },
+    create: { tenantId, paymentId: payment.id, invoiceId: invoice.id, amount },
   });
 }
 

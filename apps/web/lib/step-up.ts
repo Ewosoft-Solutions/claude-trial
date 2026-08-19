@@ -19,6 +19,8 @@ export const STEP_UP_OPERATION = {
   // enforces MFA is decided server-side; the prompt no-ops when it does not).
   FINANCIAL_FEE_STRUCTURE_UPDATE: 'financial.fee-structure.update',
   FINANCIAL_TRANSACTIONS: 'financial.transactions',
+  FINANCIAL_PERIOD_CLOSE: 'financial.period.close',
+  FINANCIAL_JOURNAL_REVERSE: 'financial.journal.reverse',
 } as const;
 
 export type StepUpOperation = string;

@@ -1,0 +1,252 @@
+import { FinanceReceiptService } from './finance-receipt.service';
+
+/**
+ * The family-checkout writer. What matters here is what it refuses (allocating
+ * more than was received, or more than an invoice owes) and what it does with
+ * the remainder (holds it as credit, never as income) — plus the shape of the
+ * journal entry behind a receipt that covers two children.
+ */
+describe('FinanceReceiptService.recordReceipt', () => {
+  const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
+  const billingHousehold = { findFirst: jest.fn() };
+  const householdPayer = { findFirst: jest.fn() };
+  const payment = { create: jest.fn(), findFirst: jest.fn() };
+  const paymentAllocation = { create: jest.fn() };
+  // `$queryRawUnsafe` is the row lock the writer takes before it reads a balance.
+  const $queryRawUnsafe = jest.fn().mockResolvedValue([]);
+  const client = {
+    feeInvoice,
+    billingHousehold,
+    householdPayer,
+    payment,
+    paymentAllocation,
+    $queryRawUnsafe,
+  };
+
+  const numbering = { next: jest.fn() };
+  const credits = {
+    createFromOverpayment: jest.fn(),
+    availableCredit: jest.fn(),
+  };
+  const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
+  const audit = { write: jest.fn() };
+
+  const service = new FinanceReceiptService(
+    { client } as never,
+    numbering as never,
+    credits as never,
+    ledger as never,
+    audit as never,
+  );
+
+  /** An issued invoice with `outstanding` kobo still owed. */
+  const invoice = (id: string, outstanding: number, student: string) => ({
+    id,
+    invoiceNumber: `INV-${id}`,
+    status: 'issued',
+    dueDate: null,
+    householdId: 'hh-1',
+    studentId: student,
+    studentName: student,
+    lines: [{ amount: outstanding, quantity: 1 }],
+    adjustments: [],
+    allocations: [],
+    creditApplications: [],
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    $queryRawUnsafe.mockResolvedValue([]);
+    numbering.next.mockResolvedValue('RCT-2026-000001');
+    billingHousehold.findFirst.mockResolvedValue({
+      id: 'hh-1',
+      name: 'Okonkwo',
+    });
+    householdPayer.findFirst.mockResolvedValue({ payerName: 'Mrs Okonkwo' });
+    payment.create.mockImplementation(async ({ data }: any) => ({
+      id: 'rct-1',
+      ...data,
+    }));
+    payment.findFirst.mockResolvedValue({
+      id: 'rct-1',
+      amount: 0,
+      allocations: [],
+      credits: [],
+    });
+    feeInvoice.update.mockImplementation(async ({ where }: any) => ({
+      id: where.id,
+    }));
+  });
+
+  const dto = (overrides: Record<string, unknown> = {}) => ({
+    householdId: 'hh-1',
+    method: 'transfer' as const,
+    paidAt: '2026-08-19',
+    amount: 300_000,
+    allocations: [
+      { invoiceId: 'inv-a', amount: 200_000 },
+      { invoiceId: 'inv-b', amount: 100_000 },
+    ],
+    ...overrides,
+  });
+
+  it('locks the invoices before it reads their balances', async () => {
+    const order: string[] = [];
+    $queryRawUnsafe.mockImplementation(async () => {
+      order.push('lock');
+      return [];
+    });
+    feeInvoice.findFirst.mockImplementation(async () => {
+      order.push('read');
+      return invoice('inv-a', 300_000, 'Chidi');
+    });
+
+    await service.recordReceipt(
+      't1',
+      dto({ allocations: [{ invoiceId: 'inv-a', amount: 300_000 }] }),
+      'user-1',
+    );
+
+    // Reading first would let two cashiers both see the full outstanding.
+    expect(order[0]).toBe('lock');
+    expect(order).toContain('read');
+  });
+
+  it('settles two siblings from one receipt and credits each invoice separately', async () => {
+    feeInvoice.findFirst.mockImplementation(async ({ where }: any) =>
+      where.id === 'inv-a'
+        ? invoice('inv-a', 200_000, 'Chidi')
+        : invoice('inv-b', 150_000, 'Ada'),
+    );
+
+    await service.recordReceipt('t1', dto(), 'user-1');
+
+    const allocated = paymentAllocation.create.mock.calls.map((c) => c[0].data);
+    expect(allocated).toEqual([
+      expect.objectContaining({ invoiceId: 'inv-a', amount: 200_000 }),
+      expect.objectContaining({ invoiceId: 'inv-b', amount: 100_000 }),
+    ]);
+
+    // One cash debit, one receivable credit per invoice — so the ledger can
+    // still answer "which child did this naira settle?".
+    const posted = ledger.post.mock.calls[0][1];
+    expect(posted.lines).toEqual([
+      expect.objectContaining({ account: 'cash', debit: 300_000 }),
+      expect.objectContaining({
+        account: 'ar_control',
+        credit: 200_000,
+        invoiceId: 'inv-a',
+      }),
+      expect.objectContaining({
+        account: 'ar_control',
+        credit: 100_000,
+        invoiceId: 'inv-b',
+      }),
+    ]);
+    expect(credits.createFromOverpayment).not.toHaveBeenCalled();
+  });
+
+  it('holds the unallocated remainder as credit, not as income', async () => {
+    feeInvoice.findFirst.mockResolvedValue(invoice('inv-a', 200_000, 'Chidi'));
+
+    await service.recordReceipt(
+      't1',
+      dto({
+        amount: 250_000,
+        allocations: [{ invoiceId: 'inv-a', amount: 200_000 }],
+      }),
+      'user-1',
+    );
+
+    expect(credits.createFromOverpayment).toHaveBeenCalledWith(
+      't1',
+      expect.objectContaining({ amount: 50_000, paymentId: 'rct-1' }),
+      'user-1',
+    );
+    const posted = ledger.post.mock.calls[0][1];
+    expect(posted.lines).toContainEqual(
+      expect.objectContaining({ account: 'unapplied_credit', credit: 50_000 }),
+    );
+  });
+
+  it('returns the receipt already recorded when a submission is retried', async () => {
+    payment.findFirst.mockResolvedValueOnce({ id: 'rct-existing' });
+
+    const result = await service.recordReceipt(
+      't1',
+      dto({ idempotencyKey: 'submission-1' }),
+      'user-1',
+    );
+
+    // No second receipt, no second credit, no second journal entry — the money
+    // was already taken.
+    expect(payment.create).not.toHaveBeenCalled();
+    expect(ledger.post).not.toHaveBeenCalled();
+    expect(result).toBeTruthy();
+  });
+
+  it('refuses to allocate more than was received', async () => {
+    await expect(
+      service.recordReceipt('t1', dto({ amount: 250_000 }), 'user-1'),
+    ).rejects.toThrow(/more than the money received/);
+    expect(payment.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses to allocate more than an invoice actually owes', async () => {
+    feeInvoice.findFirst.mockImplementation(async ({ where }: any) =>
+      where.id === 'inv-a'
+        ? invoice('inv-a', 50_000, 'Chidi')
+        : invoice('inv-b', 150_000, 'Ada'),
+    );
+
+    await expect(service.recordReceipt('t1', dto(), 'user-1')).rejects.toThrow(
+      /only has 50000 kobo outstanding/,
+    );
+    expect(payment.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses to take payment against a draft invoice', async () => {
+    feeInvoice.findFirst.mockResolvedValue({
+      ...invoice('inv-a', 200_000, 'Chidi'),
+      status: 'draft',
+    });
+
+    await expect(
+      service.recordReceipt(
+        't1',
+        dto({
+          allocations: [{ invoiceId: 'inv-a', amount: 200_000 }],
+          amount: 200_000,
+        }),
+        'user-1',
+      ),
+    ).rejects.toThrow(/is draft — issue it before taking payment/);
+  });
+
+  it('refuses the same invoice twice on one receipt', async () => {
+    await expect(
+      service.recordReceipt(
+        't1',
+        dto({
+          allocations: [
+            { invoiceId: 'inv-a', amount: 100_000 },
+            { invoiceId: 'inv-a', amount: 100_000 },
+          ],
+        }),
+        'user-1',
+      ),
+    ).rejects.toThrow(/appears twice/);
+  });
+
+  it('snapshots the household’s current primary payer when none is given', async () => {
+    feeInvoice.findFirst.mockResolvedValue(invoice('inv-a', 300_000, 'Chidi'));
+
+    await service.recordReceipt(
+      't1',
+      dto({ allocations: [{ invoiceId: 'inv-a', amount: 300_000 }] }),
+      'user-1',
+    );
+
+    expect(payment.create.mock.calls[0][0].data.payerName).toBe('Mrs Okonkwo');
+  });
+});

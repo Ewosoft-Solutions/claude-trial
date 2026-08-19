@@ -1,9 +1,16 @@
+/* ============================================================
+   /finance/reports — collections, aging, reconciliation (server component)
+
+   The three questions a bursar is asked every week: what came in, what is
+   still owed and how old it is, and whether the books agree with the bills.
+   All three are computed by the API over the whole set — this page renders,
+   it does not re-derive money in the browser.
+   ============================================================ */
+
 import { Suspense } from 'react';
-import { Download } from 'lucide-react';
 
 import { serverApiGet } from '@/lib/server-api';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
-import { Button } from '@workspace/ui/components/button';
 import {
   Card,
   CardContent,
@@ -11,318 +18,400 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
-import { Skeleton } from '@workspace/ui/components/skeleton';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { Meter, type MeterTone } from '@workspace/ui/custom/data-display/meter';
 import { DonutChart } from '@workspace/ui/custom/charts/donut-chart';
+import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatRowSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+import { Skeleton } from '@workspace/ui/components/skeleton';
 import type { ChartSlice } from '@workspace/ui/types/chart.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 
-type Paginated<T> = { data?: T[] };
-
-interface ApiInvoice {
-  id: string;
-  studentId: string;
-  classId?: string | null;
-  termName?: string | null;
-  issuedDate?: string | null;
-  amountDue?: number | null;
-  amountPaid?: number | null;
-  status?: string | null;
+interface InvoiceSummary {
+  totalBilled?: number;
+  totalDiscounts?: number;
+  totalCollected?: number;
+  totalOutstanding?: number;
+  statusCounts?: Record<string, number>;
 }
 
-interface ApiPayment {
-  invoiceId?: string | null;
-  paidAt?: string | null;
-  amount?: number | null;
-  status?: string | null;
+interface CollectionsReport {
+  groupBy?: string;
+  groups?: Array<{ key: string; total: number; receipts: number }>;
+  totals?: {
+    receipts?: number;
+    total?: number;
+    allocated?: number;
+    unallocated?: number;
+  };
 }
 
-interface ApiStudent {
-  id: string;
-  enrollments?: Array<{
-    status?: string | null;
-    class?: {
-      id?: string | null;
-      name?: string | null;
-      section?: string | null;
-      course?: { name?: string | null } | null;
-    } | null;
+interface AgingReport {
+  asOf?: string;
+  buckets?: Array<{
+    key: string;
+    label: string;
+    total: number;
+    invoices: number;
   }>;
+  rows?: Array<{ key: string; label: string; total: number }>;
+  total?: number;
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  paid: 'var(--chart-2)',
-  partial: 'var(--chart-3)',
-  outstanding: 'var(--chart-4)',
-  overdue: 'var(--chart-5)',
-  draft: 'var(--chart-1)',
-  issued: 'var(--chart-1)',
+interface ReconciliationReport {
+  controls?: Array<{
+    key: string;
+    label: string;
+    subledger: number;
+    ledger: number;
+    difference: number;
+    explanation?: string;
+  }>;
+  trialBalance?: {
+    totalDebit?: number;
+    totalCredit?: number;
+    outOfBalance?: number;
+  };
+  balanced?: boolean;
+}
+
+const METHOD_COLORS: Record<string, string> = {
+  transfer: 'var(--chart-1)',
+  cash: 'var(--chart-2)',
+  card: 'var(--chart-3)',
+  cheque: 'var(--chart-4)',
 };
 
-function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
-  if (Array.isArray(payload)) return payload;
-  return payload?.data ?? [];
-}
+const METHOD_LABEL: Record<string, string> = {
+  transfer: 'Bank transfer',
+  cash: 'Cash',
+  card: 'Card',
+  cheque: 'Cheque',
+};
 
 function percent(numerator: number, denominator: number): number {
   return denominator > 0 ? Math.round((numerator / denominator) * 100) : 0;
 }
 
-function toneFor(value: number): MeterTone {
-  if (value >= 85) return 'success';
-  if (value >= 60) return 'info';
-  return 'warning';
+function toneForAge(key: string): MeterTone {
+  if (key === 'current') return 'success';
+  if (key === 'd1_30') return 'info';
+  if (key === 'd31_60') return 'warning';
+  return 'destructive';
 }
 
-function studentClass(student: ApiStudent | undefined): string {
-  const enrollment =
-    student?.enrollments?.find((item) => item.status === 'active') ??
-    student?.enrollments?.[0];
-  const cls = enrollment?.class;
-  if (!cls) return 'Unassigned';
-  return (
-    cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim()
-  );
+function formatDay(key: string): string {
+  try {
+    return new Intl.DateTimeFormat('en-GB', {
+      day: '2-digit',
+      month: 'short',
+    }).format(new Date(key));
+  } catch {
+    return key;
+  }
 }
 
-function daysBetween(
-  start: string | null | undefined,
-  end: string | null | undefined,
-): number | null {
-  if (!start || !end) return null;
-  const from = new Date(start).getTime();
-  const to = new Date(end).getTime();
-  if (Number.isNaN(from) || Number.isNaN(to)) return null;
-  return Math.max(0, Math.round((to - from) / 86_400_000));
+/** A local calendar date as YYYY-MM-DD — see the note in payments/page.tsx. */
+function localIso(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
 }
 
-/* ── Streaming sections ──────────────────────────────────────────────────
-   The KPI band needs invoices + payments; the chart grid needs invoices +
-   the heavy `/students/roster` read. Splitting them means the stats no
-   longer wait on the student roster, and payments no longer sit on the
-   charts' critical path. Identical `serverApiGet` URLs are deduped by Next's
-   per-render request memoization, so the shared `/finance/invoices` read is
-   fetched once. */
+/** The trailing 30 days, which is what "recent collections" means here. */
+function lastThirtyDays(): { from: string; to: string } {
+  const now = new Date();
+  const from = new Date(now.getTime() - 29 * 86_400_000);
+  return { from: localIso(from), to: localIso(now) };
+}
 
-async function FinanceKpiSection() {
-  const [invoiceData, paymentData] = await Promise.all([
-    serverApiGet<{ data?: ApiInvoice[] }>('/finance/invoices'),
-    serverApiGet<ApiPayment[]>('/finance/payments'),
+async function KpiSection() {
+  const reportWindow = lastThirtyDays();
+  const [summary, collections] = await Promise.all([
+    serverApiGet<InvoiceSummary>('/finance/invoices/summary'),
+    serverApiGet<CollectionsReport>(
+      `/finance/reports/collections?from=${reportWindow.from}&to=${reportWindow.to}`,
+    ),
   ]);
 
-  const invoices = invoiceData?.data ?? [];
-  const payments = paymentData ?? [];
-  const invoicesById = new Map(
-    invoices.map((invoice) => [invoice.id, invoice]),
-  );
-
-  const totalBilled = invoices.reduce(
-    (sum, invoice) => sum + Number(invoice.amountDue ?? 0),
-    0,
-  );
-  const totalCollected = invoices.reduce(
-    (sum, invoice) => sum + Number(invoice.amountPaid ?? 0),
-    0,
-  );
-  const outstanding = Math.max(0, totalBilled - totalCollected);
-  const collectionRate = percent(totalCollected, totalBilled);
-  const completedPaymentDays = payments
-    .filter((payment) => payment.status === 'completed')
-    .map((payment) =>
-      daysBetween(
-        invoicesById.get(payment.invoiceId ?? '')?.issuedDate,
-        payment.paidAt,
-      ),
-    )
-    .filter((value): value is number => value !== null);
-  const avgDays = completedPaymentDays.length
-    ? Math.round(
-        completedPaymentDays.reduce((sum, value) => sum + value, 0) /
-          completedPaymentDays.length,
-      )
-    : 0;
-
+  const billed = summary?.totalBilled ?? 0;
+  const collected = summary?.totalCollected ?? 0;
   const stats: StatItem[] = [
+    { key: 'billed', label: 'Total billed', value: nairaFromKobo(billed) },
     {
-      key: 'revenue',
-      label: 'Revenue collected',
-      value: nairaFromKobo(totalCollected),
+      key: 'collected',
+      label: 'Collected',
+      value: nairaFromKobo(collected),
+      delta:
+        billed > 0
+          ? {
+              label: `${percent(collected, billed)}%`,
+              direction: 'up',
+              intent: 'positive',
+            }
+          : undefined,
     },
-    { key: 'rate', label: 'Collection rate', value: `${collectionRate}%` },
     {
       key: 'outstanding',
       label: 'Outstanding',
-      value: nairaFromKobo(outstanding),
+      value: nairaFromKobo(summary?.totalOutstanding ?? 0),
     },
     {
-      key: 'avgdays',
-      label: 'Avg. days to pay',
-      value: avgDays.toLocaleString(),
+      key: 'recent',
+      label: 'Received (30 days)',
+      value: nairaFromKobo(collections?.totals?.total ?? 0),
+    },
+    {
+      key: 'unallocated',
+      label: 'Received unallocated',
+      value: nairaFromKobo(collections?.totals?.unallocated ?? 0),
     },
   ];
 
   return <StatGrid items={stats} />;
 }
 
-async function FinanceBreakdownSection() {
-  const [invoiceData, studentData] = await Promise.all([
-    serverApiGet<{ data?: ApiInvoice[] }>('/finance/invoices'),
-    serverApiGet<ApiStudent[] | Paginated<ApiStudent>>('/students/roster'),
+async function CollectionsSection() {
+  const reportWindow = lastThirtyDays();
+  const [byDay, byMethod] = await Promise.all([
+    // Same URL as the KPI band's second read — Next's per-render request
+    // memoization dedupes it, so the aggregation runs once per page.
+    serverApiGet<CollectionsReport>(
+      `/finance/reports/collections?from=${reportWindow.from}&to=${reportWindow.to}`,
+    ),
+    serverApiGet<CollectionsReport>(
+      `/finance/reports/collections?from=${reportWindow.from}&to=${reportWindow.to}&groupBy=method`,
+    ),
   ]);
 
-  const invoices = invoiceData?.data ?? [];
-  const students = asArray(studentData);
-  const studentsById = new Map(
-    students.map((student) => [student.id, student]),
-  );
-
-  const totalBilled = invoices.reduce(
-    (sum, invoice) => sum + Number(invoice.amountDue ?? 0),
-    0,
-  );
-
-  const statusTotals = new Map<string, number>();
-  for (const invoice of invoices) {
-    const status = invoice.status ?? 'outstanding';
-    statusTotals.set(
-      status,
-      (statusTotals.get(status) ?? 0) + Number(invoice.amountDue ?? 0),
-    );
-  }
-  const feeStatus: ChartSlice[] = Array.from(statusTotals.entries()).map(
-    ([key, value]) => ({
-      key,
-      label: key.replace(/^\w/, (char) => char.toUpperCase()),
-      value,
-      color: STATUS_COLORS[key],
-    }),
-  );
-
-  const classTotals = new Map<string, { billed: number; collected: number }>();
-  for (const invoice of invoices) {
-    const label = studentClass(studentsById.get(invoice.studentId));
-    const current = classTotals.get(label) ?? { billed: 0, collected: 0 };
-    current.billed += Number(invoice.amountDue ?? 0);
-    current.collected += Number(invoice.amountPaid ?? 0);
-    classTotals.set(label, current);
-  }
-  const byClass = Array.from(classTotals.entries()).map(([label, totals]) => {
-    const value = percent(totals.collected, totals.billed);
-    return { label, value, tone: toneFor(value) };
-  });
-
-  const termTotals = new Map<string, number>();
-  for (const invoice of invoices) {
-    const label = invoice.termName ?? 'Unassigned';
-    termTotals.set(
-      label,
-      (termTotals.get(label) ?? 0) + Number(invoice.amountDue ?? 0),
-    );
-  }
-  const byTerm = Array.from(termTotals.entries()).map(([label, amount]) => ({
-    label,
-    amount,
-    value: percent(amount, totalBilled),
+  const days = (byDay?.groups ?? []).slice(-14);
+  const peak = days.reduce((max, day) => Math.max(max, day.total), 0);
+  const methods: ChartSlice[] = (byMethod?.groups ?? []).map((group) => ({
+    key: group.key,
+    label: METHOD_LABEL[group.key] ?? group.key,
+    value: group.total,
+    color: METHOD_COLORS[group.key],
   }));
 
   return (
-    <div className="grid gap-4 @3xl/main:grid-cols-2 @6xl/main:grid-cols-3">
-      <Card className="shadow-card">
+    <div className="grid gap-4 @4xl/main:grid-cols-3">
+      <Card className="shadow-card @4xl/main:col-span-2">
         <CardHeader>
-          <CardTitle className="text-base">Fee status</CardTitle>
+          <CardTitle className="text-base">Daily collection</CardTitle>
           <CardDescription>
-            Share of billed fees by invoice status
+            What was received each day over the last fortnight
           </CardDescription>
         </CardHeader>
+        <CardContent className="flex flex-col gap-2.5">
+          {days.length === 0 ? (
+            <EmptyState
+              compact
+              title="Nothing received yet"
+              description="Receipts recorded in the last 30 days show up here."
+            />
+          ) : (
+            days.map((day) => (
+              <Meter
+                key={day.key}
+                label={formatDay(day.key)}
+                value={percent(day.total, peak)}
+                valueLabel={nairaFromKobo(day.total)}
+                tone="info"
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">How families paid</CardTitle>
+          <CardDescription>Share of receipts by method</CardDescription>
+        </CardHeader>
         <CardContent>
-          <DonutChart
-            slices={feeStatus}
-            height={240}
-            aria-label="Fee status split by billed amount"
-          />
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-base">Collection rate by class</CardTitle>
-          <CardDescription>Collected share of billed fees</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3.5">
-          {byClass.map((row) => (
-            <Meter
-              key={row.label}
-              label={row.label}
-              value={row.value}
-              tone={row.tone}
-            />
-          ))}
-        </CardContent>
-      </Card>
-
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="text-base">Billing by term</CardTitle>
-          <CardDescription>Share of invoice totals by term</CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-col gap-3.5">
-          {byTerm.map((row) => (
-            <Meter
-              key={row.label}
-              label={row.label}
-              value={row.value}
-              valueLabel={`${nairaFromKobo(row.amount)} · ${row.value}%`}
-            />
-          ))}
+          {methods.length === 0 ? (
+            <EmptyState compact title="No receipts in this window" />
+          ) : (
+            <DonutChart slices={methods} />
+          )}
         </CardContent>
       </Card>
     </div>
   );
 }
 
-/** Placeholder for the three-card breakdown grid while it streams in. */
-function BreakdownFallback() {
+async function AgingSection() {
+  const aging = await serverApiGet<AgingReport>('/finance/reports/aging');
+  const buckets = aging?.buckets ?? [];
+  const total = aging?.total ?? 0;
+  const worst = (aging?.rows ?? []).slice(0, 8);
+
   return (
-    <div className="grid gap-4 @3xl/main:grid-cols-2 @6xl/main:grid-cols-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <Card key={i} className="shadow-card">
-          <CardHeader className="gap-2">
-            <Skeleton className="h-4 w-32" />
-            <Skeleton className="h-3 w-44 max-w-full" />
-          </CardHeader>
-          <CardContent>
-            <Skeleton className="h-[240px] w-full rounded-[var(--radius-sm)]" />
-          </CardContent>
-        </Card>
-      ))}
+    <div className="grid gap-4 @4xl/main:grid-cols-3">
+      <Card className="shadow-card @4xl/main:col-span-2">
+        <CardHeader>
+          <CardTitle className="text-base">Outstanding by age</CardTitle>
+          <CardDescription>
+            {nairaFromKobo(total)} still owed, by how long it has been owed
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2.5">
+          {total === 0 ? (
+            <EmptyState
+              compact
+              title="Nothing outstanding"
+              description="Every issued invoice is settled."
+            />
+          ) : (
+            buckets.map((bucket) => (
+              <Meter
+                key={bucket.key}
+                label={`${bucket.label} · ${bucket.invoices} ${
+                  bucket.invoices === 1 ? 'invoice' : 'invoices'
+                }`}
+                value={percent(bucket.total, total)}
+                valueLabel={nairaFromKobo(bucket.total)}
+                tone={toneForAge(bucket.key)}
+              />
+            ))
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">Owing the most</CardTitle>
+          <CardDescription>Where the outstanding debt sits</CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          {worst.length === 0 ? (
+            <EmptyState compact title="Nothing outstanding" />
+          ) : (
+            worst.map((row) => (
+              <div
+                key={row.key}
+                className="flex items-center justify-between gap-2 text-sm"
+              >
+                <span className="truncate text-muted-foreground">
+                  {row.label}
+                </span>
+                <span className="tabular-nums text-foreground">
+                  {nairaFromKobo(row.total)}
+                </span>
+              </div>
+            ))
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
+}
+
+async function ReconciliationSection() {
+  const report = await serverApiGet<ReconciliationReport>(
+    '/finance/reports/reconciliation',
+  );
+
+  // Reconciliation reads the ledger, which needs `finance.gl.view`; a bursar
+  // without it still gets the rest of this page.
+  if (!report) return null;
+
+  const controls = report.controls ?? [];
+  const outOfBalance = report.trialBalance?.outOfBalance ?? 0;
+
+  return (
+    <Card className="shadow-card">
+      <CardHeader>
+        <CardTitle className="text-base">
+          Reconciliation{' '}
+          <StatusBadge tone={report.balanced ? 'success' : 'warning'} dot>
+            {report.balanced ? 'Agrees' : 'Needs a look'}
+          </StatusBadge>
+        </CardTitle>
+        <CardDescription>
+          Each control total as the bills say it, and as the ledger says it
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-xs uppercase text-muted-foreground">
+                <th className="py-2 pr-3 font-medium">Control</th>
+                <th className="py-2 pr-3 text-right font-medium">Subledger</th>
+                <th className="py-2 pr-3 text-right font-medium">Ledger</th>
+                <th className="py-2 text-right font-medium">Difference</th>
+              </tr>
+            </thead>
+            <tbody>
+              {controls.map((control) => (
+                <tr key={control.key} className="border-t border-border">
+                  <td className="py-2 pr-3">
+                    <span className="text-foreground">{control.label}</span>
+                    {control.explanation ? (
+                      <span className="block text-xs text-muted-foreground">
+                        {control.explanation}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                    {nairaFromKobo(control.subledger)}
+                  </td>
+                  <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                    {nairaFromKobo(control.ledger)}
+                  </td>
+                  <td className="py-2 text-right tabular-nums font-medium text-foreground">
+                    {nairaFromKobo(control.difference)}
+                  </td>
+                </tr>
+              ))}
+              <tr className="border-t-2 border-border">
+                <td className="py-2 pr-3 font-medium">Trial balance</td>
+                <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                  {nairaFromKobo(report.trialBalance?.totalDebit ?? 0)}
+                </td>
+                <td className="py-2 pr-3 text-right tabular-nums text-muted-foreground">
+                  {nairaFromKobo(report.trialBalance?.totalCredit ?? 0)}
+                </td>
+                <td className="py-2 text-right tabular-nums font-medium text-foreground">
+                  {nairaFromKobo(outOfBalance)}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CardSkeleton() {
+  return <Skeleton className="h-64 w-full rounded-xl" />;
 }
 
 export default function FinanceReportsPage() {
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
-        <PageHeader
-          title="Financial reports"
-          meta={[{ key: 'source', label: 'live billing', emphasis: true }]}
-          actions={
-            <Button variant="outline" size="sm">
-              <Download /> Export report
-            </Button>
-          }
-        />
+        <PageHeader title="Finance reports" />
 
-        <Suspense fallback={<StatRowSkeleton count={4} />}>
-          <FinanceKpiSection />
+        <Suspense fallback={<StatRowSkeleton count={5} />}>
+          <KpiSection />
         </Suspense>
 
-        <Suspense fallback={<BreakdownFallback />}>
-          <FinanceBreakdownSection />
+        <Suspense fallback={<CardSkeleton />}>
+          <CollectionsSection />
+        </Suspense>
+
+        <Suspense fallback={<CardSkeleton />}>
+          <AgingSection />
+        </Suspense>
+
+        <Suspense fallback={<CardSkeleton />}>
+          <ReconciliationSection />
         </Suspense>
       </div>
     </ShellMain>

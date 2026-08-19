@@ -280,7 +280,9 @@ export class UpdateSensitiveOperationPolicyDto {
 export class CreateSensitiveOperationChangeRequestDto extends UpdateSensitiveOperationPolicyDto {
   @ApiProperty({ enum: STEP_UP_OPERATION_VALUES })
   @IsString()
-  @IsIn(STEP_UP_OPERATION_VALUES)
+  @IsIn(STEP_UP_OPERATION_VALUES, {
+    message: 'Unsupported operation.', // see the note in step-up.dto.ts
+  })
   operation: StepUpOperation;
 
   @ApiProperty({ minLength: 10, maxLength: 1000 })

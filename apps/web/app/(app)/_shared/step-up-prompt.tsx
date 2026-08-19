@@ -21,6 +21,7 @@ import {
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 
+import { safeErrorMessage } from '@/lib/api-client';
 import type { StepUpOperation, StepUpOptionsResponse } from '@/lib/step-up';
 import { startAuthentication } from '@/lib/webauthn';
 
@@ -33,16 +34,20 @@ interface StepUpPromptProps {
   onVerified: (challengeId: string) => void;
 }
 
-async function responseError(
+/**
+ * The message to show for a failed step-up call. `safeErrorMessage` is the one
+ * place that decides what is fit to render — see the reasoning there.
+ */
+export async function stepUpErrorMessage(
   response: Response,
   fallback: string,
 ): Promise<string> {
   try {
     const body = (await response.json()) as {
-      error?: string;
-      message?: string;
+      error?: unknown;
+      message?: unknown;
     };
-    return body.error ?? body.message ?? fallback;
+    return safeErrorMessage(body.error ?? body.message, fallback);
   } catch {
     return fallback;
   }
@@ -91,7 +96,7 @@ export function StepUpPrompt({
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(
-            await responseError(
+            await stepUpErrorMessage(
               response,
               'Could not prepare identity confirmation.',
             ),
@@ -129,7 +134,7 @@ export function StepUpPrompt({
     });
     if (!response.ok) {
       throw new Error(
-        await responseError(response, 'Identity confirmation failed.'),
+        await stepUpErrorMessage(response, 'Identity confirmation failed.'),
       );
     }
     const result = (await response.json()) as { challengeId: string };

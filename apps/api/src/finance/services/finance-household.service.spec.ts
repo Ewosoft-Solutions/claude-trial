@@ -30,6 +30,10 @@ describe('FinanceHouseholdService', () => {
   const student = { findMany: jest.fn() };
   const person = { findMany: jest.fn() };
   const feeInvoice = { updateMany: jest.fn() };
+  // WB5 hung two more money tables off the household; a merge that forgets
+  // them orphans the family's credit and payment history.
+  const accountCredit = { updateMany: jest.fn() };
+  const payment = { updateMany: jest.fn() };
   const client = {
     billingHousehold,
     householdMember,
@@ -38,6 +42,8 @@ describe('FinanceHouseholdService', () => {
     student,
     person,
     feeInvoice,
+    accountCredit,
+    payment,
   };
   const service = new FinanceHouseholdService({ client } as never);
 
@@ -131,6 +137,14 @@ describe('FinanceHouseholdService', () => {
         householdId: 'target',
         guardianId: 'g1',
         role: 'secondary',
+      });
+      expect(accountCredit.updateMany).toHaveBeenCalledWith({
+        where: { tenantId: 't1', householdId: 'source' },
+        data: { householdId: 'target' },
+      });
+      expect(payment.updateMany).toHaveBeenCalledWith({
+        where: { tenantId: 't1', householdId: 'source' },
+        data: { householdId: 'target' },
       });
       expect(feeInvoice.updateMany).toHaveBeenCalledWith({
         where: { tenantId: 't1', householdId: 'source' },

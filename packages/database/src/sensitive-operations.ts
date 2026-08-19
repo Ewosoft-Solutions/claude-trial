@@ -148,6 +148,32 @@ export const SENSITIVE_OPERATION_CATALOG = [
     requiredPermission: 'payments.edit',
   },
   {
+    operation: 'financial.period.close',
+    label: 'Close an accounting period',
+    description:
+      'Lock a period so nothing can post into it — the control that makes closed books stay closed.',
+    category: 'financial',
+    requiresStepUp: true,
+    requiresMakerChecker: false,
+    freshnessMinutes: 5,
+    requiredClearanceLevel: 7,
+    requiredPermission: 'finance.gl.manage',
+  },
+  {
+    operation: 'financial.journal.reverse',
+    label: 'Reverse a journal entry',
+    description:
+      'Post a contra entry against a posted journal entry. The only way to correct the ledger.',
+    category: 'financial',
+    requiresStepUp: true,
+    requiresMakerChecker: false,
+    freshnessMinutes: 5,
+    // Matches `finance.gl.manage`, the permission that actually gates it — the
+    // catalog should not describe a looser policy than the one enforced.
+    requiredClearanceLevel: 7,
+    requiredPermission: 'finance.gl.manage',
+  },
+  {
     operation: 'account.password.change',
     label: 'Change account password',
     description: 'Replace the signed-in user’s password.',

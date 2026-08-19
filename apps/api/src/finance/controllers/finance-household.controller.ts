@@ -20,6 +20,7 @@ import {
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import type { AuthenticatedRequest } from 'src/auth';
 import { FinanceHouseholdService } from '../services/finance-household.service';
+import { FinanceReceiptService } from '../services/finance-receipt.service';
 import {
   AddHouseholdMemberDto,
   AddHouseholdPayerDto,
@@ -35,7 +36,10 @@ import {
 @TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class FinanceHouseholdController {
-  constructor(private readonly households: FinanceHouseholdService) {}
+  constructor(
+    private readonly households: FinanceHouseholdService,
+    private readonly receipts: FinanceReceiptService,
+  ) {}
 
   @Get()
   @RequirePermissions(['finance.view'])
@@ -137,5 +141,17 @@ export class FinanceHouseholdController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.households.merge(req.user!.tenantId, id, dto.sourceHouseholdId);
+  }
+
+  @Get(':id/outstanding')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({
+    summary: "Everything a family currently owes — the checkout's opening list",
+  })
+  async outstanding(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.receipts.householdOutstanding(req.user.tenantId, id);
   }
 }

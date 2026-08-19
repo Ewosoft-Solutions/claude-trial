@@ -19,7 +19,13 @@ describe('FinanceAdjustmentService', () => {
     findFirst: jest.fn(),
     findMany: jest.fn(),
   };
-  const client = { feeInvoice, feeAdjustment, discountPolicy };
+  // `$queryRawUnsafe` is the row lock the approval takes before it re-reads
+  // the balance it is about to spend.
+  const $queryRawUnsafe = jest.fn().mockResolvedValue([]);
+  const client = { feeInvoice, feeAdjustment, discountPolicy, $queryRawUnsafe };
+  // The ledger is the collaborator that turns an APPLIED adjustment into a
+  // posted contra pair; here we only assert that it is asked to.
+  const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
   const makerChecker = {
     createApprovalRequest: jest.fn(),
     approveRequest: jest.fn(),
@@ -28,18 +34,23 @@ describe('FinanceAdjustmentService', () => {
   const service = new FinanceAdjustmentService(
     { client } as never,
     makerChecker as never,
+    ledger as never,
   );
 
   const actor = { userId: 'user-1', clearanceLevel: 5 };
 
   beforeEach(() => {
     jest.clearAllMocks();
+    $queryRawUnsafe.mockResolvedValue([]);
     feeAdjustment.create.mockImplementation(async ({ data }: any) => ({
       id: 'adj-1',
       ...data,
     }));
     feeAdjustment.update.mockImplementation(async ({ where, data }: any) => ({
       id: where.id,
+      invoiceId: 'inv-1',
+      amount: 500_000,
+      reason: 'Hardship waiver',
       ...data,
     }));
     discountPolicy.create.mockImplementation(async ({ data }: any) => ({
@@ -50,10 +61,33 @@ describe('FinanceAdjustmentService', () => {
       id: where.id,
       ...data,
     }));
+    // `refreshInvoiceTotals` re-reads the invoice with its settlement rows
+    // before posting; give it the shape the include produces.
+    feeInvoice.update = jest.fn(async ({ where, data }: any) => ({
+      id: where.id,
+      invoiceNumber: 'INV-2026-000001',
+      householdId: null,
+      studentId: 'stu-1',
+      ...data,
+    }));
+  });
+
+  /** An issued bill with `outstanding` kobo still owed. */
+  const outstandingInvoice = (outstanding: number, status = 'issued') => ({
+    id: 'inv-1',
+    invoiceNumber: 'INV-2026-000001',
+    status,
+    dueDate: null,
+    householdId: null,
+    studentId: 'stu-1',
+    lines: [{ amount: outstanding, quantity: 1 }],
+    adjustments: [],
+    allocations: [],
+    creditApplications: [],
   });
 
   it('raises a discretionary adjustment as pending + attaches the approval request', async () => {
-    feeInvoice.findFirst.mockResolvedValue({ id: 'inv-1' });
+    feeInvoice.findFirst.mockResolvedValue(outstandingInvoice(1_000_000));
     makerChecker.createApprovalRequest.mockResolvedValue('appr-1');
 
     await service.requestAdjustment('t1', actor, {
@@ -85,9 +119,12 @@ describe('FinanceAdjustmentService', () => {
   it('applies an adjustment only when the checker approves', async () => {
     feeAdjustment.findFirst.mockResolvedValue({
       id: 'adj-1',
+      invoiceId: 'inv-1',
+      amount: 500_000,
       status: 'pending',
       approvalRequestId: 'appr-1',
     });
+    feeInvoice.findFirst.mockResolvedValue(outstandingInvoice(1_000_000));
     makerChecker.approveRequest.mockResolvedValue({ approved: true });
 
     await service.approveAdjustment(
@@ -107,6 +144,63 @@ describe('FinanceAdjustmentService', () => {
       status: 'applied',
       approvedBy: 'user-2',
     });
+    // …and the money forgiven leaves the books as a balanced contra pair.
+    const posted = ledger.post.mock.calls[0][1];
+    expect(posted.sourceType).toBe('adjustment');
+    expect(posted.lines).toEqual([
+      expect.objectContaining({ account: 'discounts_allowed', debit: 500_000 }),
+      expect.objectContaining({ account: 'ar_control', credit: 500_000 }),
+    ]);
+  });
+
+  it('refuses a waiver larger than what the invoice still owes', async () => {
+    feeInvoice.findFirst.mockResolvedValue(outstandingInvoice(100_000));
+
+    await expect(
+      service.requestAdjustment('t1', actor, {
+        invoiceId: 'inv-1',
+        type: 'waiver',
+        amount: 500_000,
+      }),
+    ).rejects.toThrow(/only has 100000 kobo outstanding/);
+    expect(feeAdjustment.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses an adjustment against a bill that is no longer outstanding', async () => {
+    feeInvoice.findFirst.mockResolvedValue(outstandingInvoice(0, 'cancelled'));
+
+    await expect(
+      service.requestAdjustment('t1', actor, {
+        invoiceId: 'inv-1',
+        type: 'waiver',
+        amount: 1_000,
+      }),
+    ).rejects.toThrow(/is cancelled — an adjustment applies only/);
+  });
+
+  it('re-checks at APPROVAL, so a waiver cannot outlive the balance it was raised against', async () => {
+    feeAdjustment.findFirst.mockResolvedValue({
+      id: 'adj-1',
+      invoiceId: 'inv-1',
+      amount: 500_000,
+      status: 'pending',
+      approvalRequestId: 'appr-1',
+    });
+    makerChecker.approveRequest.mockResolvedValue({ approved: true });
+    // A receipt settled the invoice while the waiver sat pending.
+    feeInvoice.findFirst.mockResolvedValue({
+      ...outstandingInvoice(1_000_000),
+      allocations: [{ amount: 1_000_000 }],
+    });
+
+    await expect(
+      service.approveAdjustment(
+        't1',
+        { userId: 'user-2', clearanceLevel: 6 },
+        'adj-1',
+      ),
+    ).rejects.toThrow(/only has 0 kobo outstanding/);
+    expect(ledger.post).not.toHaveBeenCalled();
   });
 
   it('does not apply when the maker-checker rejects the approval', async () => {
@@ -141,11 +235,18 @@ describe('FinanceAdjustmentService', () => {
   it('auto-applies active policies: fixed capped at base, percent of the matching item', async () => {
     feeInvoice.findFirst.mockResolvedValue({
       id: 'inv-1',
+      invoiceNumber: 'INV-2026-000001',
+      status: 'issued',
+      dueDate: null,
+      householdId: null,
+      studentId: 'stu-1',
       lines: [
         { feeItemId: 'tuition', amount: 1_000_000, quantity: 1 },
         { feeItemId: 'bus', amount: 200_000, quantity: 1 },
       ],
       adjustments: [],
+      allocations: [],
+      creditApplications: [],
     });
     discountPolicy.findMany.mockResolvedValue([
       {
@@ -185,11 +286,56 @@ describe('FinanceAdjustmentService', () => {
     expect(created).toHaveLength(2);
   });
 
+  it('caps TWO overlapping policies against the same balance, not each against it', async () => {
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      invoiceNumber: 'INV-2026-000001',
+      status: 'issued',
+      dueDate: null,
+      householdId: null,
+      studentId: 'stu-1',
+      lines: [{ feeItemId: 'tuition', amount: 100_000, quantity: 1 }],
+      adjustments: [],
+      allocations: [],
+      creditApplications: [],
+    });
+    discountPolicy.findMany.mockResolvedValue([
+      {
+        id: 'p-scholarship',
+        type: 'scholarship',
+        feeItemId: null,
+        amount: null,
+        percentBps: 6000,
+        name: '60% scholarship',
+      },
+      {
+        id: 'p-sibling',
+        type: 'discount',
+        feeItemId: null,
+        amount: null,
+        percentBps: 5000,
+        name: '50% sibling',
+      },
+    ]);
+
+    await service.applyPoliciesToInvoice('t1', 'inv-1');
+
+    const amounts = feeAdjustment.create.mock.calls.map(
+      (call) => call[0].data.amount as number,
+    );
+    // 60% then 50% would be 110,000 against a 100,000 charge — receivables
+    // would sit at −10,000 for this invoice forever.
+    expect(amounts.reduce((sum, value) => sum + value, 0)).toBe(100_000);
+    expect(amounts).toEqual([60_000, 40_000]);
+  });
+
   it('is idempotent — skips a policy already applied to the invoice', async () => {
     feeInvoice.findFirst.mockResolvedValue({
       id: 'inv-1',
       lines: [{ feeItemId: 'tuition', amount: 1_000_000, quantity: 1 }],
-      adjustments: [{ policyId: 'p-pct' }],
+      adjustments: [{ policyId: 'p-pct', status: 'applied', amount: 100_000 }],
+      allocations: [],
+      creditApplications: [],
     });
     discountPolicy.findMany.mockResolvedValue([
       {

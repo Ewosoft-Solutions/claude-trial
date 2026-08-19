@@ -6,6 +6,16 @@ import {
 import type { PrismaClient } from '@workspace/database';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { MakerCheckerService } from '../../auth/services/maker-checker.service';
+import { LedgerService, SYSTEM_ACCOUNT } from './ledger.service';
+import { lockInvoices } from '../finance-locks';
+import {
+  INVOICE_FINANCIALS_INCLUDE,
+  computeFinancials,
+  refreshInvoiceTotals,
+} from '../invoice-financials';
+
+/** An adjustment only makes sense against a bill that is actually outstanding. */
+const ADJUSTABLE_STATUSES = ['issued', 'partial', 'overdue'];
 import {
   CreateAdjustmentDto,
   CreateDiscountPolicyDto,
@@ -38,6 +48,7 @@ export class FinanceAdjustmentService {
   constructor(
     private readonly tenantDb: TenantDbService,
     private readonly makerChecker: MakerCheckerService,
+    private readonly ledger: LedgerService,
   ) {}
 
   // Tenant-scoped only (every route is `@TenantScoped()`): reads/writes go
@@ -61,9 +72,13 @@ export class FinanceAdjustmentService {
   ) {
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: dto.invoiceId, tenantId },
-      select: { id: true },
+      include: INVOICE_FINANCIALS_INCLUDE,
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
+    // Checked again at approval against the balance as it stands THEN — this is
+    // the early, friendly failure so nobody waits on an approval that cannot be
+    // applied.
+    this.assertAdjustable(invoice, dto.amount);
 
     const adjustment = await this.client.feeAdjustment.create({
       data: {
@@ -125,8 +140,27 @@ export class FinanceAdjustmentService {
       throw new BadRequestException(result.error ?? 'Approval failed');
     }
 
+    // Open the books before anything is applied. Every other writer does this
+    // first; doing it after would let the opening figure be computed from a
+    // receivable this very adjustment has already reduced, and the school would
+    // open short by the discount — permanently.
+    await this.ledger.ensureOpeningBalance(tenantId, checker.userId);
+
+    // The balance may have moved while this sat pending — a receipt could have
+    // settled the invoice. Re-check before applying: a waiver larger than what
+    // is still owed would credit receivables below zero and leave the family
+    // owed money that exists in no account. The lock comes first, or the
+    // re-check reads a balance a concurrent receipt is already spending.
+    await lockInvoices(this.client, tenantId, [adj.invoiceId]);
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id: adj.invoiceId, tenantId },
+      include: INVOICE_FINANCIALS_INCLUDE,
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    this.assertAdjustable(invoice, adj.amount);
+
     const now = new Date();
-    return this.client.feeAdjustment.update({
+    const applied = await this.client.feeAdjustment.update({
       where: { id: adjustmentId },
       data: {
         status: 'applied',
@@ -134,6 +168,88 @@ export class FinanceAdjustmentService {
         approvedAt: now,
         appliedAt: now,
       },
+    });
+
+    await this.postAdjustment(tenantId, applied, checker.userId);
+    return applied;
+  }
+
+  /**
+   * A discount reduces what is owed, so it has to leave the books: the money
+   * forgiven becomes an expense and the receivable falls by the same amount.
+   * The original charge is untouched — that is the whole point of recording a
+   * discount rather than editing the invoice.
+   */
+  /**
+   * An adjustment reduces a receivable, so it can only be applied to a bill
+   * that still has one, and never for more than is outstanding. Both halves
+   * matter: over-waiving pushes the AR control account negative against a
+   * subledger balance that floors at zero, and the difference never heals.
+   */
+  private assertAdjustable(
+    invoice: {
+      status: string;
+      invoiceNumber: string;
+      lines: { amount: number; quantity: number }[];
+      adjustments: { amount: number }[];
+      allocations: { amount: number }[];
+      creditApplications: { amount: number }[];
+    },
+    amount: number,
+  ) {
+    if (!ADJUSTABLE_STATUSES.includes(invoice.status)) {
+      throw new BadRequestException(
+        `Invoice ${invoice.invoiceNumber} is ${invoice.status} — an adjustment applies only to an outstanding bill.`,
+      );
+    }
+    const balance = computeFinancials(invoice).balance;
+    if (amount > balance) {
+      throw new BadRequestException(
+        `Invoice ${invoice.invoiceNumber} only has ${balance} kobo outstanding; the adjustment is for ${amount}. Refund the overpayment instead of waiving past it.`,
+      );
+    }
+  }
+
+  private async postAdjustment(
+    tenantId: string,
+    adjustment: {
+      id: string;
+      invoiceId: string;
+      amount: number;
+      reason: string | null;
+    },
+    userId?: string,
+  ) {
+    if (adjustment.amount <= 0) return;
+    const { invoice } = await refreshInvoiceTotals(
+      this.client,
+      tenantId,
+      adjustment.invoiceId,
+    );
+    await this.ledger.post(tenantId, {
+      entryDate: new Date(),
+      memo: `Adjustment on invoice ${invoice.invoiceNumber}${adjustment.reason ? ` — ${adjustment.reason}` : ''}`,
+      sourceType: 'adjustment',
+      sourceId: adjustment.id,
+      postedBy: userId ?? null,
+      lines: [
+        {
+          account: SYSTEM_ACCOUNT.DISCOUNTS_ALLOWED,
+          debit: adjustment.amount,
+          description: adjustment.reason ?? 'Discount / waiver',
+          invoiceId: invoice.id,
+          householdId: invoice.householdId,
+          studentId: invoice.studentId,
+        },
+        {
+          account: SYSTEM_ACCOUNT.AR_CONTROL,
+          credit: adjustment.amount,
+          description: `Invoice ${invoice.invoiceNumber}`,
+          invoiceId: invoice.id,
+          householdId: invoice.householdId,
+          studentId: invoice.studentId,
+        },
+      ],
     });
   }
 
@@ -275,10 +391,22 @@ export class FinanceAdjustmentService {
    * percentage of the matching lines' gross (a targeted fee item, else the whole
    * invoice), never exceeding that base.
    */
-  async applyPoliciesToInvoice(tenantId: string, invoiceId: string) {
+  async applyPoliciesToInvoice(
+    tenantId: string,
+    invoiceId: string,
+    userId?: string,
+  ) {
+    // Same rule as every other writer: before the subledger rows are written.
+    await this.ledger.ensureOpeningBalance(tenantId, userId ?? null);
+
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: invoiceId, tenantId },
-      include: { lines: true, adjustments: true },
+      include: {
+        lines: true,
+        adjustments: true,
+        allocations: { select: { amount: true } },
+        creditApplications: { select: { amount: true } },
+      },
     });
     if (!invoice) return [];
 
@@ -286,8 +414,17 @@ export class FinanceAdjustmentService {
       where: { tenantId, status: 'active' },
     });
 
+    // What is still owed before any of these policies apply.
+    let remaining = computeFinancials({
+      lines: invoice.lines,
+      adjustments: invoice.adjustments.filter((a) => a.status === 'applied'),
+      allocations: invoice.allocations,
+      creditApplications: invoice.creditApplications,
+    }).balance;
+
     const created = [];
     for (const policy of policies) {
+      if (remaining <= 0) break;
       const already = invoice.adjustments.some((a) => a.policyId === policy.id);
       if (already) continue;
 
@@ -306,19 +443,28 @@ export class FinanceAdjustmentService {
             : 0;
       if (raw <= 0) continue;
 
+      // Never discount past what is still owed. The remaining figure is carried
+      // ACROSS the loop: two active policies (say a 60% scholarship and a 50%
+      // sibling discount) would otherwise each be capped against the same
+      // untouched balance and together credit receivables past the charge.
+      const amount = Math.min(raw, remaining);
+      if (amount <= 0) continue;
+      remaining -= amount;
+
       const adjustment = await this.client.feeAdjustment.create({
         data: {
           tenantId,
           invoiceId,
           type: policy.type === 'scholarship' ? 'scholarship' : 'discount',
           source: 'policy',
-          amount: raw,
+          amount,
           reason: policy.name,
           policyId: policy.id,
           status: 'applied',
           appliedAt: new Date(),
         },
       });
+      await this.postAdjustment(tenantId, adjustment, userId);
       created.push(adjustment);
     }
     return created;

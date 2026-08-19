@@ -16,6 +16,8 @@ export const STEP_UP_OPERATION = {
   FINANCIAL_TRANSACTIONS: 'financial.transactions',
   FINANCIAL_FEE_STRUCTURE_UPDATE: 'financial.fee-structure.update',
   FINANCIAL_PAYOUT: 'financial.payout',
+  FINANCIAL_PERIOD_CLOSE: 'financial.period.close',
+  FINANCIAL_JOURNAL_REVERSE: 'financial.journal.reverse',
   ACCOUNT_PASSWORD_CHANGE: 'account.password.change',
   ACCOUNT_EMAIL_CHANGE: 'account.email.change',
   MFA_METHOD_ADD: 'mfa.method.add',

@@ -19,13 +19,19 @@ import {
 } from '../../auth/guards/permission.guard';
 import { TenantScoped } from '../../common/database/rls-tenant.interceptor';
 import { FinanceService } from '../services/finance.service';
+import { FinanceReceiptService } from '../services/finance-receipt.service';
+import { FinanceCreditService } from '../services/finance-credit.service';
 import {
   CreateInvoiceDto,
   ListInvoicesDto,
-  ListPaymentsDto,
-  RecordPaymentDto,
   UpdateInvoiceDto,
 } from '../dto/finance.dto';
+import {
+  ApplyCreditDto,
+  ListCreditsDto,
+  ListReceiptsDto,
+  RecordReceiptDto,
+} from '../dto/receipt.dto';
 import type { AuthenticatedRequest } from 'src/auth';
 import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
 import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
@@ -36,7 +42,11 @@ import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
 @TenantScoped()
 @ApiBearerAuth('JWT-auth')
 export class FinanceController {
-  constructor(private readonly financeService: FinanceService) {}
+  constructor(
+    private readonly financeService: FinanceService,
+    private readonly receipts: FinanceReceiptService,
+    private readonly credits: FinanceCreditService,
+  ) {}
 
   // ---- Invoices -------------------------------------------------------
 
@@ -104,30 +114,90 @@ export class FinanceController {
     );
   }
 
-  // ---- Payments -------------------------------------------------------
+  // ---- Receipts (money received) --------------------------------------
 
-  @Get('payments')
+  @Get('receipts')
   @RequirePermissions(['finance.view'])
-  @ApiOperation({ summary: 'List payment receipts' })
-  async listPayments(
-    @Query() query: ListPaymentsDto,
+  @ApiOperation({ summary: 'List receipts with what each one settled' })
+  async listReceipts(
+    @Query() query: ListReceiptsDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.financeService.listPayments(req.user.tenantId, query);
+    return this.receipts.listReceipts(req.user.tenantId, query);
   }
 
-  @Post('payments')
+  @Get('receipts/:id')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({ summary: 'Get one receipt with its allocations' })
+  async getReceipt(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.receipts.getReceipt(req.user.tenantId, id);
+  }
+
+  @Post('receipts')
   @UseGuards(StepUpGuard)
   @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_TRANSACTIONS)
   @RequirePermissions(['finance.manage'])
-  @ApiOperation({ summary: 'Record a payment against an invoice' })
-  async recordPayment(
-    @Body() dto: RecordPaymentDto,
+  @ApiOperation({
+    summary:
+      'Record money received and allocate it across invoices (family checkout)',
+  })
+  async recordReceipt(
+    @Body() dto: RecordReceiptDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.financeService.recordPayment(
+    return this.receipts.recordReceipt(
       req.user.tenantId,
       dto,
+      req.user.profileId!,
+    );
+  }
+
+  @Post('receipts/:id/reprint')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({ summary: 'Record (and audit) a receipt reprint' })
+  async reprintReceipt(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.receipts.recordReprint(
+      req.user.tenantId,
+      id,
+      req.user.profileId!,
+    );
+  }
+
+  // ---- Credit (overpayment held against future invoices) ---------------
+
+  @Get('credits')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({
+    summary: 'List account credits and how they were drawn down',
+  })
+  async listCredits(
+    @Query() query: ListCreditsDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.credits.listCredits(req.user.tenantId, query);
+  }
+
+  @Post('credits/:id/apply')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_TRANSACTIONS)
+  @RequirePermissions(['finance.manage'])
+  @ApiOperation({ summary: 'Apply held credit to an outstanding invoice' })
+  async applyCredit(
+    @Param('id') id: string,
+    @Body() dto: ApplyCreditDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.credits.applyCredit(
+      req.user.tenantId,
+      id,
+      dto.invoiceId,
+      dto.amount,
       req.user.profileId!,
     );
   }
