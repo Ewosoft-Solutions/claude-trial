@@ -202,7 +202,7 @@ export class FinanceReportingService {
     await this.ledger.ensureChart(tenantId);
     await this.ledger.ensureOpeningBalance(tenantId);
 
-    const [invoices, creditSum, receiptSum, trial] = await Promise.all([
+    const [invoices, creditSum, postedReceipts, trial] = await Promise.all([
       this.client.feeInvoice.findMany({
         where: { tenantId, status: { notIn: ['draft', 'cancelled'] } },
         include: INVOICE_FINANCIALS_INCLUDE,
@@ -211,12 +211,31 @@ export class FinanceReportingService {
         where: { tenantId, status: { not: 'void' } },
         _sum: { remaining: true },
       }),
-      this.client.payment.aggregate({
-        where: { tenantId, status: 'completed' },
-        _sum: { amount: true },
+      // Only receipts the ledger actually knows about: one taken before the
+      // ledger existed was never posted (its effect is inside the opening
+      // balance), and a reversed one has been withdrawn from the books. Summing
+      // every receipt ever would show a school that upgraded a permanent,
+      // meaningless cash difference equal to its entire payment history.
+      this.client.journalEntry.findMany({
+        where: { tenantId, sourceType: 'receipt', status: 'posted' },
+        select: { sourceId: true },
       }),
       this.ledger.trialBalance(tenantId, {}),
     ]);
+
+    const postedReceiptIds = postedReceipts
+      .map((entry) => entry.sourceId)
+      .filter((id): id is string => !!id);
+    const receiptSum = postedReceiptIds.length
+      ? await this.client.payment.aggregate({
+          where: {
+            tenantId,
+            status: 'completed',
+            id: { in: postedReceiptIds },
+          },
+          _sum: { amount: true },
+        })
+      : { _sum: { amount: 0 } };
 
     const subledgerReceivable = invoices.reduce(
       (sum, invoice) => sum + computeFinancials(invoice).balance,
@@ -256,7 +275,7 @@ export class FinanceReportingService {
         ledger: glCash,
         difference: (receiptSum._sum.amount ?? 0) - glCash,
         explanation:
-          'Total of completed receipts vs the cash account. Reversed receipts show here first.',
+          'Receipts the ledger has posted vs the cash account. Receipts taken before the ledger opened sit inside the opening balance instead.',
       },
     ];
 
