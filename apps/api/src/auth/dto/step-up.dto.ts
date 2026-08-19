@@ -15,9 +15,19 @@ import {
 } from '../step-up.operations';
 
 export class BeginStepUpDto {
+  // The default `@IsIn` message lists every allowed value — which here is the
+  // whole catalogue of sensitive operations the platform supports (role
+  // deletion, breach response, tenant suspension…). That is a map of the
+  // product's most dangerous capabilities, returned to anyone who sends a
+  // wrong value, and it ends up rendered in a dialog. The message says what
+  // the caller needs and nothing more; the allowed values stay in the Swagger
+  // schema, which is authenticated documentation rather than an error body.
   @ApiProperty({ enum: STEP_UP_OPERATION_VALUES })
   @IsString()
-  @IsIn(STEP_UP_OPERATION_VALUES)
+  @IsIn(STEP_UP_OPERATION_VALUES, {
+    message:
+      'Unsupported operation. This usually means the app and the API are running different versions — reload, and if it persists the API needs restarting.',
+  })
   operation: StepUpOperation;
 }
 

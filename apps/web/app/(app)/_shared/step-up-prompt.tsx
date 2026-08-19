@@ -33,16 +33,29 @@ interface StepUpPromptProps {
   onVerified: (challengeId: string) => void;
 }
 
-async function responseError(
+/**
+ * The message to show for a failed step-up call.
+ *
+ * Only a plain string is trusted. A validation failure comes back as an ARRAY
+ * of messages, and handing that to React renders the lot comma-separated —
+ * which is how a raw enum listing every sensitive operation in the product
+ * ended up in front of an operator. Anything else falls back to the sentence
+ * this component chose, which is the one the user can act on.
+ */
+export async function stepUpErrorMessage(
   response: Response,
   fallback: string,
 ): Promise<string> {
   try {
     const body = (await response.json()) as {
-      error?: string;
-      message?: string;
+      error?: unknown;
+      message?: unknown;
     };
-    return body.error ?? body.message ?? fallback;
+    const candidate = [body.error, body.message].find(
+      (value): value is string =>
+        typeof value === 'string' && value.trim() !== '',
+    );
+    return candidate ?? fallback;
   } catch {
     return fallback;
   }
@@ -91,7 +104,7 @@ export function StepUpPrompt({
       .then(async (response) => {
         if (!response.ok) {
           throw new Error(
-            await responseError(
+            await stepUpErrorMessage(
               response,
               'Could not prepare identity confirmation.',
             ),
@@ -129,7 +142,7 @@ export function StepUpPrompt({
     });
     if (!response.ok) {
       throw new Error(
-        await responseError(response, 'Identity confirmation failed.'),
+        await stepUpErrorMessage(response, 'Identity confirmation failed.'),
       );
     }
     const result = (await response.json()) as { challengeId: string };
