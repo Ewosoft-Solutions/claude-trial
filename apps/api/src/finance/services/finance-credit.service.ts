@@ -160,6 +160,8 @@ export class FinanceCreditService {
     amount: number,
     userId: string,
   ) {
+    await this.ledger.ensureOpeningBalance(tenantId, userId);
+
     const credit = await this.client.accountCredit.findFirst({
       where: { id: creditId, tenantId },
     });

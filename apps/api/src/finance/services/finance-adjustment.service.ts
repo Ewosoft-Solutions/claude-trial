@@ -155,6 +155,7 @@ export class FinanceAdjustmentService {
     userId?: string,
   ) {
     if (adjustment.amount <= 0) return;
+    await this.ledger.ensureOpeningBalance(tenantId, userId);
     const { invoice } = await refreshInvoiceTotals(
       this.client,
       tenantId,

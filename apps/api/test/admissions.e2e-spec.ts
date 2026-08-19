@@ -577,7 +577,8 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     );
     expect(again.invoice.id).toBe(invoiceId);
 
-    // Settle in full → fulfilment `provided`, invoice `paid`, payment studentless.
+    // Settle in full → fulfilment `provided`, invoice `paid`, and the receipt
+    // reaches the invoice through its allocation (WB5-3) rather than a column.
     const settled = await inA(() =>
       fees.settleFee(
         tenantAId,
@@ -594,11 +595,13 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     });
     expect(paidInvoice?.status).toBe('paid');
     expect(paidInvoice?.amountPaid).toBe(500000);
-    const payment = await owner.payment.findFirst({
+    const allocation = await owner.paymentAllocation.findFirst({
       where: { tenantId: tenantAId, invoiceId: invoiceId! },
+      include: { payment: true },
     });
-    expect(payment?.studentId).toBeNull();
-    expect(payment?.amount).toBe(500000);
+    expect(allocation?.amount).toBe(500000);
+    expect(allocation?.payment.amount).toBe(500000);
+    expect(allocation?.payment.receiptNumber).toMatch(/^RCT-\d{4}-\d{6}$/);
   });
 
   it('WB3-5: an unpaid required fee blocks conversion; settling + waiving unblocks and re-keys to the student', async () => {
@@ -669,17 +672,19 @@ d('Admissions — pipeline + convert to student (WB3)', () => {
     );
     expect(result.studentId).toBeTruthy();
 
-    // Re-key: the admission invoice + payment now carry the new student id, and
-    // the invoice stays traceable back to the application.
+    // Re-key: the admission invoice now carries the new student id and stays
+    // traceable back to the application. The receipt follows it — a receipt
+    // reaches a student through its allocations, so nothing else has to move.
     const invoice = await owner.feeInvoice.findFirst({
       where: { id: invoiceId, tenantId: tenantAId },
     });
     expect(invoice?.studentId).toBe(result.studentId);
     expect(invoice?.admissionApplicationId).toBe(created.id);
-    const payment = await owner.payment.findFirst({
+    const allocation = await owner.paymentAllocation.findFirst({
       where: { tenantId: tenantAId, invoiceId },
+      include: { invoice: { select: { studentId: true } } },
     });
-    expect(payment?.studentId).toBe(result.studentId);
+    expect(allocation?.invoice.studentId).toBe(result.studentId);
   });
 
   it('advance cannot reach a terminal stage (use the dedicated action)', async () => {

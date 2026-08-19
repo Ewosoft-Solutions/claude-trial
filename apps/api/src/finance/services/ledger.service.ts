@@ -449,10 +449,19 @@ export class LedgerService {
 
   /**
    * Bring the ledger up to the receivables the subledger already carried when
-   * double-entry was switched on. Runs once per tenant: DR receivables for the
-   * outstanding total, CR opening-balance equity. Without it every school that
-   * had invoices before this release would show a permanent reconciliation
-   * difference equal to its pre-existing debt.
+   * double-entry was switched on: DR receivables for what was outstanding, CR
+   * opening-balance equity. Without it, a school that had invoices before this
+   * release would show a permanent reconciliation difference equal to its
+   * pre-existing debt.
+   *
+   * Only invoices whose charge was never posted count — an invoice issued
+   * THROUGH the ledger is already there, and counting it again would state the
+   * receivable twice. That exclusion is also what makes this safe to call on
+   * every mutation: a school that started life with the ledger never has
+   * anything to open, so nothing is ever posted.
+   *
+   * Call it BEFORE writing subledger rows, so the opening figure is the debt as
+   * it stood before whatever is about to happen.
    */
   async ensureOpeningBalance(tenantId: string, userId?: string | null) {
     const existing = await this.client.journalEntry.findFirst({
@@ -461,27 +470,43 @@ export class LedgerService {
     });
     if (existing) return null;
 
-    const invoices = await this.client.feeInvoice.findMany({
-      where: { tenantId, status: { notIn: ['draft', 'cancelled'] } },
-      select: {
-        amountPaid: true,
-        lines: { select: { amount: true, quantity: true } },
-        adjustments: { where: { status: 'applied' }, select: { amount: true } },
-      },
-    });
+    const [invoices, posted] = await Promise.all([
+      this.client.feeInvoice.findMany({
+        where: { tenantId, status: { notIn: ['draft', 'cancelled'] } },
+        select: {
+          id: true,
+          lines: { select: { amount: true, quantity: true } },
+          adjustments: {
+            where: { status: 'applied' },
+            select: { amount: true },
+          },
+          allocations: { select: { amount: true } },
+          creditApplications: { select: { amount: true } },
+        },
+      }),
+      this.client.journalEntry.findMany({
+        where: { tenantId, sourceType: 'invoice' },
+        select: { sourceId: true },
+      }),
+    ]);
 
+    const alreadyInTheLedger = new Set(posted.map((entry) => entry.sourceId));
     let outstanding = 0;
     for (const invoice of invoices) {
+      if (alreadyInTheLedger.has(invoice.id)) continue;
       const gross = invoice.lines.reduce(
         (sum, line) => sum + line.amount * line.quantity,
         0,
       );
       const discounts = invoice.adjustments.reduce((s, a) => s + a.amount, 0);
-      outstanding += Math.max(0, gross - discounts - invoice.amountPaid);
+      const settled =
+        invoice.allocations.reduce((s, a) => s + a.amount, 0) +
+        invoice.creditApplications.reduce((s, c) => s + c.amount, 0);
+      outstanding += Math.max(0, gross - discounts - settled);
     }
 
-    // Nothing owed (a fresh tenant) — the marker entry would be an empty
-    // balanced pair, so skip it and let the first real event open the books.
+    // Nothing owed from before the ledger — the ordinary case for any school
+    // that started here. No entry to post.
     if (outstanding <= 0) return null;
 
     return this.post(tenantId, {

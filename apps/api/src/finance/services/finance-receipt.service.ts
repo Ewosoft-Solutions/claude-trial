@@ -182,6 +182,11 @@ export class FinanceReceiptService {
    * corrupt the receivable rather than fail loudly.
    */
   async recordReceipt(tenantId: string, dto: RecordReceiptDto, userId: string) {
+    // Before anything is settled: if this school carried debt from before the
+    // ledger existed, open the books with it, so this receipt reduces a
+    // receivable that was actually there.
+    await this.ledger.ensureOpeningBalance(tenantId, userId);
+
     if (dto.amount <= 0) {
       throw new BadRequestException('A receipt must be for a positive amount.');
     }

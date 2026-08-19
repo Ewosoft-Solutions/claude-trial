@@ -253,6 +253,11 @@ export class FinanceService {
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
 
+    const isBeingIssued = dto.status === 'issued' && invoice.status !== 'issued';
+    // Open the books BEFORE this invoice becomes a receivable, so a school
+    // carrying pre-ledger debt opens with that debt and not with this bill.
+    if (isBeingIssued) await this.ledger.ensureOpeningBalance(tenantId, userId);
+
     const updated = await this.client.feeInvoice.update({
       where: { id },
       data: {
@@ -267,7 +272,7 @@ export class FinanceService {
     // Issuing is the moment a bill becomes a receivable: the charge posts to
     // the ledger, standing discount policies apply, and any credit the family
     // is already holding is drawn down against it.
-    if (dto.status === 'issued' && invoice.status !== 'issued') {
+    if (isBeingIssued) {
       await this.postInvoiceIssued(tenantId, id, userId);
       await this.adjustments.applyPoliciesToInvoice(tenantId, id);
       await this.credits.autoApplyToInvoice(tenantId, id, userId);
@@ -426,6 +431,7 @@ export class FinanceService {
     });
     // The invoice is created already `issued`, so the charge posts here rather
     // than through the draft→issued transition.
+    await this.ledger.ensureOpeningBalance(tenantId, userId);
     await this.postInvoiceIssued(tenantId, invoice.id, userId);
     return this.getInvoice(tenantId, invoice.id);
   }

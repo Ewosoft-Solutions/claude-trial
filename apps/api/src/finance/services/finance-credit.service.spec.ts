@@ -15,7 +15,7 @@ describe('FinanceCreditService', () => {
   const creditApplication = { create: jest.fn() };
   const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
   const client = { accountCredit, creditApplication, feeInvoice };
-  const ledger = { post: jest.fn() };
+  const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
   const audit = { write: jest.fn() };
 
   const service = new FinanceCreditService(

@@ -22,7 +22,7 @@ describe('FinanceAdjustmentService', () => {
   const client = { feeInvoice, feeAdjustment, discountPolicy };
   // The ledger is the collaborator that turns an APPLIED adjustment into a
   // posted contra pair; here we only assert that it is asked to.
-  const ledger = { post: jest.fn() };
+  const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
   const makerChecker = {
     createApprovalRequest: jest.fn(),
     approveRequest: jest.fn(),

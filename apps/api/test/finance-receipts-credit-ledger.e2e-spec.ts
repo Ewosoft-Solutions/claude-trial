@@ -1,0 +1,468 @@
+/**
+ * WB5 · Receipts + allocations, unapplied credit, and the double-entry ledger —
+ * behavioural proof on the app_runtime (RLS-enforcing) client.
+ *
+ * Acceptance (workbench-5):
+ *   - a parent pays ONCE for two children and the receipt says which invoice
+ *     each naira settled;
+ *   - a part-payment leaves a real outstanding balance that an approved waiver
+ *     finishes — and the waiver never touches the original charge;
+ *   - an overpayment becomes CREDIT, not income, and lands on the next invoice
+ *     when it is issued;
+ *   - every one of those events has a balanced journal entry behind it, the
+ *     trial balance nets to zero, and the AR control account agrees with the
+ *     sum of open invoices to the kobo;
+ *   - a closed period refuses to take a posting;
+ *   - RLS isolates tenants; HTTP 401 at the boundary.
+ *
+ * Requires APP_RUNTIME_DATABASE_URL; skips otherwise.
+ */
+import { Test, TestingModule } from '@nestjs/testing';
+import { INestApplication } from '@nestjs/common';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
+import request from 'supertest';
+
+import { AppModule } from '../src/app.module';
+import { TenantDbService } from '../src/common';
+import { FinanceService } from '../src/finance/services/finance.service';
+import { FinanceReceiptService } from '../src/finance/services/finance-receipt.service';
+import { FinanceCreditService } from '../src/finance/services/finance-credit.service';
+import { FinanceAdjustmentService } from '../src/finance/services/finance-adjustment.service';
+import { FinanceReportingService } from '../src/finance/services/finance-reporting.service';
+import { LedgerService, SYSTEM_ACCOUNT } from '../src/finance/services/ledger.service';
+import { makeSuperuserClient } from './helpers/superuser-client';
+
+const HAS_APP_RUNTIME = !!process.env.APP_RUNTIME_DATABASE_URL;
+const d = HAS_APP_RUNTIME ? describe : describe.skip;
+
+d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
+  let app: INestApplication;
+  let owner: ReturnType<typeof makeSuperuserClient>;
+  let tenantDb: TenantDbService;
+  let finance: FinanceService;
+  let receipts: FinanceReceiptService;
+  let credits: FinanceCreditService;
+  let adjustments: FinanceAdjustmentService;
+  let reporting: FinanceReportingService;
+  let ledger: LedgerService;
+
+  const stamp = Date.now();
+  const A = `wb5-a-${stamp}`;
+  const B = `wb5-b-${stamp}`;
+
+  let tenantAId: string;
+  let tenantBId: string;
+  let makerId: string;
+  let checkerId: string;
+  let householdId: string;
+  let feeItemId: string;
+
+  // Two siblings on one family account, plus a third bill issued later.
+  const chidiId = `stu-chidi-${stamp}`;
+  const adaId = `stu-ada-${stamp}`;
+  let chidiInvoiceId: string;
+  let adaInvoiceId: string;
+  let laterInvoiceId: string;
+
+  const maker = () => ({ userId: makerId, clearanceLevel: 7 });
+  const checker = () => ({ userId: checkerId, clearanceLevel: 7 });
+
+  const inA = <T>(fn: () => Promise<T>) =>
+    tenantDb.runScoped(tenantAId, makerId, fn);
+  const inB = <T>(fn: () => Promise<T>) =>
+    tenantDb.runScoped(tenantBId, makerId, fn);
+
+  /** A draft invoice with one line, billed to a student on the family account. */
+  let seq = 0;
+  async function makeInvoice(
+    studentId: string,
+    studentName: string,
+    amount: number,
+    dueDate: string,
+  ) {
+    seq += 1;
+    const invoice = await owner.feeInvoice.create({
+      data: {
+        tenantId: tenantAId,
+        invoiceNumber: `SEED-${stamp}-${seq}`,
+        householdId,
+        studentId,
+        studentName,
+        termName: 'First Term',
+        dueDate: new Date(dueDate),
+        amountDue: amount,
+        status: 'draft',
+      },
+    });
+    await owner.feeInvoiceLine.create({
+      data: {
+        tenantId: tenantAId,
+        invoiceId: invoice.id,
+        feeItemId,
+        description: 'Tuition',
+        amount,
+        quantity: 1,
+      },
+    });
+    return invoice.id;
+  }
+
+  beforeAll(async () => {
+    const moduleRef: TestingModule = await Test.createTestingModule({
+      imports: [AppModule],
+    }).compile();
+    app = moduleRef.createNestApplication();
+    await app.init();
+
+    owner = makeSuperuserClient();
+    tenantDb = app.get(TenantDbService);
+    finance = app.get(FinanceService);
+    receipts = app.get(FinanceReceiptService);
+    credits = app.get(FinanceCreditService);
+    adjustments = app.get(FinanceAdjustmentService);
+    reporting = app.get(FinanceReportingService);
+    ledger = app.get(LedgerService);
+
+    const [ta, tb, mk, ck] = await Promise.all([
+      owner.tenant.create({
+        data: { name: 'WB5 A', slug: A, status: 'active', schoolType: 'secondary' },
+      }),
+      owner.tenant.create({
+        data: { name: 'WB5 B', slug: B, status: 'active', schoolType: 'secondary' },
+      }),
+      owner.user.create({
+        data: { email: `wb5-maker-${stamp}@a.test`, isActive: true },
+      }),
+      owner.user.create({
+        data: { email: `wb5-checker-${stamp}@a.test`, isActive: true },
+      }),
+    ]);
+    tenantAId = ta.id;
+    tenantBId = tb.id;
+    makerId = mk.id;
+    checkerId = ck.id;
+
+    const household = await owner.billingHousehold.create({
+      data: {
+        tenantId: tenantAId,
+        name: 'Okonkwo family',
+        primaryPayerName: 'Mrs Adaeze Okonkwo',
+      },
+    });
+    householdId = household.id;
+    await owner.householdPayer.createMany({
+      data: [
+        {
+          tenantId: tenantAId,
+          householdId,
+          guardianId: `gdn-${stamp}`,
+          payerName: 'Mrs Adaeze Okonkwo',
+          role: 'primary',
+        },
+      ],
+    });
+    await owner.householdMember.createMany({
+      data: [
+        { tenantId: tenantAId, householdId, studentId: chidiId, studentName: 'Chidi Okonkwo' },
+        { tenantId: tenantAId, householdId, studentId: adaId, studentName: 'Ada Okonkwo' },
+      ],
+    });
+
+    const feeItem = await owner.feeItem.create({
+      data: { tenantId: tenantAId, code: 'tuition', name: 'Tuition' },
+    });
+    feeItemId = feeItem.id;
+
+    chidiInvoiceId = await makeInvoice(chidiId, 'Chidi Okonkwo', 200_000, '2026-09-15');
+    adaInvoiceId = await makeInvoice(adaId, 'Ada Okonkwo', 150_000, '2026-09-15');
+  });
+
+  afterAll(async () => {
+    if (owner) {
+      await owner.tenant
+        .deleteMany({ where: { id: { in: [tenantAId, tenantBId] } } })
+        .catch(() => undefined);
+      await owner.user
+        .deleteMany({ where: { id: { in: [makerId, checkerId] } } })
+        .catch(() => undefined);
+      await owner.$disconnect();
+    }
+    await app?.close();
+  });
+
+  it('issuing a bill posts the charge: receivable up, fee income up', async () => {
+    await inA(async () => {
+      await finance.updateInvoice(tenantAId, chidiInvoiceId, { status: 'issued' }, makerId);
+      await finance.updateInvoice(tenantAId, adaInvoiceId, { status: 'issued' }, makerId);
+
+      const trial = await ledger.trialBalance(tenantAId, {});
+      expect(trial.outOfBalance).toBe(0);
+
+      const receivable = trial.rows.find((r) => r.systemKey === SYSTEM_ACCOUNT.AR_CONTROL);
+      const income = trial.rows.find((r) => r.systemKey === SYSTEM_ACCOUNT.FEE_INCOME);
+      expect(receivable?.balance).toBe(350_000);
+      expect(income?.balance).toBe(350_000);
+    });
+  });
+
+  it('one payment settles two siblings, and the receipt says which naira went where', async () => {
+    const receipt = await inA(() =>
+      receipts.recordReceipt(
+        tenantAId,
+        {
+          householdId,
+          method: 'transfer',
+          paidAt: '2026-09-10',
+          amount: 250_000,
+          reference: 'TRF-0001',
+          allocations: [
+            { invoiceId: chidiInvoiceId, amount: 200_000 },
+            { invoiceId: adaInvoiceId, amount: 50_000 },
+          ],
+        },
+        makerId,
+      ),
+    );
+
+    // A sequenced, year-scoped receipt number — not a timestamp.
+    expect(receipt.receiptNumber).toMatch(/^RCT-\d{4}-\d{6}$/);
+    expect(receipt.payerName).toBe('Mrs Adaeze Okonkwo');
+    expect(receipt.coveredStudents.sort()).toEqual(['Ada Okonkwo', 'Chidi Okonkwo']);
+    expect(receipt.allocatedAmount).toBe(250_000);
+    expect(receipt.unallocatedAmount).toBe(0);
+
+    await inA(async () => {
+      const chidi = await finance.getInvoice(tenantAId, chidiInvoiceId);
+      const ada = await finance.getInvoice(tenantAId, adaInvoiceId);
+
+      // Chidi's bill is settled in full; Ada's keeps a real outstanding balance.
+      expect(chidi.status).toBe('paid');
+      expect(chidi.financials.balance).toBe(0);
+      expect(ada.status).toBe('partial');
+      expect(ada.financials.balance).toBe(100_000);
+
+      // The ledger moved cash in and receivables down by the same 250,000.
+      const cash = await ledger.systemAccountBalance(tenantAId, SYSTEM_ACCOUNT.CASH);
+      const receivable = await ledger.systemAccountBalance(
+        tenantAId,
+        SYSTEM_ACCOUNT.AR_CONTROL,
+      );
+      expect(cash).toBe(250_000);
+      expect(receivable).toBe(100_000);
+    });
+  });
+
+  it('refuses to settle more than an invoice owes, or more than was received', async () => {
+    await expect(
+      inA(() =>
+        receipts.recordReceipt(
+          tenantAId,
+          {
+            householdId,
+            method: 'cash',
+            paidAt: '2026-09-11',
+            amount: 500_000,
+            allocations: [{ invoiceId: adaInvoiceId, amount: 500_000 }],
+          },
+          makerId,
+        ),
+      ),
+    ).rejects.toThrow(/only has 100000 kobo outstanding/);
+
+    await expect(
+      inA(() =>
+        receipts.recordReceipt(
+          tenantAId,
+          {
+            householdId,
+            method: 'cash',
+            paidAt: '2026-09-11',
+            amount: 10_000,
+            allocations: [{ invoiceId: adaInvoiceId, amount: 50_000 }],
+          },
+          makerId,
+        ),
+      ),
+    ).rejects.toThrow(/more than the money received/);
+  });
+
+  it('an approved waiver clears the rest without touching the original charge', async () => {
+    await inA(async () => {
+      const pending = await adjustments.requestAdjustment(tenantAId, maker(), {
+        invoiceId: adaInvoiceId,
+        type: 'waiver',
+        amount: 100_000,
+        reason: 'Hardship — agreed with the head',
+      });
+      expect(pending.status).toBe('pending');
+
+      // The maker cannot sign off their own waiver.
+      await expect(
+        adjustments.approveAdjustment(tenantAId, maker(), pending.id),
+      ).rejects.toBeTruthy();
+
+      await adjustments.approveAdjustment(tenantAId, checker(), pending.id);
+
+      const ada = await finance.getInvoice(tenantAId, adaInvoiceId);
+      expect(ada.status).toBe('paid');
+      expect(ada.financials.balance).toBe(0);
+      // The bill still says what was billed; the discount sits beside it.
+      expect(ada.financials.gross).toBe(150_000);
+      expect(ada.financials.discounts).toBe(100_000);
+
+      const receivable = await ledger.systemAccountBalance(
+        tenantAId,
+        SYSTEM_ACCOUNT.AR_CONTROL,
+      );
+      expect(receivable).toBe(0);
+    });
+  });
+
+  it('an overpayment is held as credit, not booked as income', async () => {
+    const receipt = await inA(() =>
+      receipts.recordReceipt(
+        tenantAId,
+        {
+          householdId,
+          method: 'cash',
+          paidAt: '2026-09-12',
+          amount: 80_000,
+          notes: 'Paid ahead for next term',
+        },
+        makerId,
+      ),
+    );
+    expect(receipt.unallocatedAmount).toBe(80_000);
+
+    await inA(async () => {
+      const held = await credits.availableCredit(tenantAId, { householdId });
+      expect(held).toBe(80_000);
+
+      const income = await ledger.systemAccountBalance(
+        tenantAId,
+        SYSTEM_ACCOUNT.FEE_INCOME,
+      );
+      const creditHeld = await ledger.systemAccountBalance(
+        tenantAId,
+        SYSTEM_ACCOUNT.UNAPPLIED_CREDIT,
+      );
+      // Income is unchanged by money received in advance; the liability rose.
+      expect(income).toBe(350_000);
+      expect(creditHeld).toBe(80_000);
+    });
+  });
+
+  it('the held credit lands on the next invoice the moment it is issued', async () => {
+    laterInvoiceId = await makeInvoice(chidiId, 'Chidi Okonkwo', 120_000, '2027-01-15');
+
+    await inA(async () => {
+      await finance.updateInvoice(tenantAId, laterInvoiceId, { status: 'issued' }, makerId);
+
+      const later = await finance.getInvoice(tenantAId, laterInvoiceId);
+      expect(later.financials.credited).toBe(80_000);
+      expect(later.financials.balance).toBe(40_000);
+      expect(later.status).toBe('partial');
+
+      const remaining = await credits.availableCredit(tenantAId, { householdId });
+      expect(remaining).toBe(0);
+    });
+  });
+
+  it('the books agree with the bills — trial balance and every control total', async () => {
+    await inA(async () => {
+      const report = await reporting.reconciliation(tenantAId);
+      expect(report.trialBalance.outOfBalance).toBe(0);
+      for (const control of report.controls) {
+        expect({ [control.key]: control.difference }).toEqual({ [control.key]: 0 });
+      }
+      expect(report.balanced).toBe(true);
+    });
+  });
+
+  it('ages what is still owed, and reports what was collected', async () => {
+    await inA(async () => {
+      const aging = await reporting.aging(tenantAId, { asOf: '2027-02-15' });
+      // Only the later invoice is still open: 40,000, 31 days past its due date.
+      expect(aging.total).toBe(40_000);
+      expect(aging.buckets.find((b) => b.key === 'd31_60')?.total).toBe(40_000);
+
+      const collections = await reporting.collections(tenantAId, {});
+      expect(collections.totals).toMatchObject({
+        receipts: 2,
+        total: 330_000,
+        allocated: 250_000,
+        heldAsCredit: 80_000,
+      });
+    });
+  });
+
+  it('a closed period refuses a posting, and reopening lets it through', async () => {
+    await inA(async () => {
+      const period = await ledger.createPeriod(tenantAId, {
+        name: `Closed window ${stamp}`,
+        startDate: '2027-03-01',
+        endDate: '2027-03-31',
+      });
+      await ledger.setPeriodStatus(tenantAId, period.id, 'closed', makerId);
+
+      const postIntoClosed = () =>
+        ledger.post(tenantAId, {
+          entryDate: new Date('2027-03-15'),
+          memo: 'Late correction',
+          sourceType: 'manual',
+          lines: [
+            { account: SYSTEM_ACCOUNT.CASH, debit: 1_000 },
+            { account: SYSTEM_ACCOUNT.AR_CONTROL, credit: 1_000 },
+          ],
+        });
+
+      await expect(postIntoClosed()).rejects.toThrow(/is closed/);
+
+      await ledger.setPeriodStatus(tenantAId, period.id, 'open', makerId);
+      const entry = await postIntoClosed();
+      expect(entry.periodId).toBe(period.id);
+
+      // …and that correction is undone by a reversal, never by an edit.
+      const reversal = await ledger.reverse(tenantAId, entry.id, makerId, 'Test correction');
+      expect(reversal.reversalOfId).toBe(entry.id);
+      const trial = await ledger.trialBalance(tenantAId, {});
+      expect(trial.outOfBalance).toBe(0);
+    });
+  });
+
+  it('exports the journal for an external accounting system', async () => {
+    const csv = await inA(() => reporting.exportJournalCsv(tenantAId, {}));
+    const lines = csv.split('\n');
+    expect(lines[0]).toContain('entry_number,entry_date');
+    // Every receivables event we exercised is in the file.
+    expect(csv).toMatch(/,invoice,/);
+    expect(csv).toMatch(/,receipt,/);
+    expect(csv).toMatch(/,adjustment,/);
+    expect(csv).toMatch(/,credit_application,/);
+  });
+
+  it('isolates tenants via RLS and rejects anon at the HTTP boundary', async () => {
+    // Tenant B sees none of tenant A's receipts, credits or ledger.
+    await inB(async () => {
+      const list = await receipts.listReceipts(tenantBId, {});
+      expect(list.data).toHaveLength(0);
+
+      const entries = await ledger.listEntries(tenantBId, {});
+      expect(entries.total).toBe(0);
+
+      const held = await credits.listCredits(tenantBId, {});
+      expect(held).toHaveLength(0);
+    });
+
+    // …and cannot reach into tenant A's rows by id.
+    await expect(
+      inB(() => receipts.getReceipt(tenantBId, chidiInvoiceId)),
+    ).rejects.toBeTruthy();
+
+    const http = app.getHttpServer();
+    await request(http).get('/finance/receipts').expect(401);
+    await request(http).post('/finance/receipts').send({}).expect(401);
+    await request(http).get('/finance/ledger/trial-balance').expect(401);
+    await request(http).get('/finance/reports/aging').expect(401);
+  });
+});

@@ -22,7 +22,7 @@ describe('FinanceReceiptService.recordReceipt', () => {
 
   const numbering = { next: jest.fn() };
   const credits = { createFromOverpayment: jest.fn(), availableCredit: jest.fn() };
-  const ledger = { post: jest.fn() };
+  const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
   const audit = { write: jest.fn() };
 
   const service = new FinanceReceiptService(

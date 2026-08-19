@@ -17,7 +17,11 @@ describe('FinanceService.listInvoices', () => {
     { next: jest.fn() } as never, // numbering
     { autoApplyToInvoice: jest.fn() } as never, // credits
     { recordReceipt: jest.fn() } as never, // receipts
-    { post: jest.fn(), reverseSource: jest.fn() } as never, // ledger
+    {
+      post: jest.fn(),
+      reverseSource: jest.fn(),
+      ensureOpeningBalance: jest.fn(),
+    } as never, // ledger
   );
 
   beforeEach(() => {
