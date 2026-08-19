@@ -65,7 +65,7 @@ export class FinanceLedgerController {
     @Query() query: TrialBalanceQueryDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.ledger.trialBalance(req.user.tenantId, query);
+    return this.ledger.trialBalance(req.user.tenantId, query, req.user.profileId);
   }
 
   @Get('entries')

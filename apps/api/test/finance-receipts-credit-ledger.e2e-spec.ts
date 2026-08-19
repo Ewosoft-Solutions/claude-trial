@@ -54,6 +54,8 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
   let tenantBId: string;
   // A school that was billing BEFORE the ledger existed — the upgrade case.
   let tenantCId: string;
+  // A third, used only by the opening-balance race.
+  let raceTenantId = '';
   let makerId: string;
   let checkerId: string;
   let householdId: string;
@@ -65,6 +67,16 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
   let chidiInvoiceId: string;
   let adaInvoiceId: string;
   let laterInvoiceId: string;
+
+  /**
+   * Receipt dates are relative to today, not hard-coded: a receipt is dated
+   * when the money arrived, and the writer refuses a date more than a day
+   * ahead — so fixed future dates would make this suite fail by the calendar.
+   */
+  const daysAgo = (days: number) =>
+    new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+      .toISOString()
+      .slice(0, 10);
 
   const maker = () => ({ userId: makerId, clearanceLevel: 7 });
   const checker = () => ({ userId: checkerId, clearanceLevel: 7 });
@@ -191,7 +203,11 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
   afterAll(async () => {
     if (owner) {
       await owner.tenant
-        .deleteMany({ where: { id: { in: [tenantAId, tenantBId, tenantCId] } } })
+        .deleteMany({
+          where: {
+            id: { in: [tenantAId, tenantBId, tenantCId, raceTenantId] },
+          },
+        })
         .catch(() => undefined);
       await owner.user
         .deleteMany({ where: { id: { in: [makerId, checkerId] } } })
@@ -223,7 +239,7 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
         {
           householdId,
           method: 'transfer',
-          paidAt: '2026-09-10',
+          paidAt: daysAgo(9),
           amount: 250_000,
           reference: 'TRF-0001',
           allocations: [
@@ -271,7 +287,7 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
           {
             householdId,
             method: 'cash',
-            paidAt: '2026-09-11',
+            paidAt: daysAgo(8),
             amount: 500_000,
             allocations: [{ invoiceId: adaInvoiceId, amount: 500_000 }],
           },
@@ -287,7 +303,7 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
           {
             householdId,
             method: 'cash',
-            paidAt: '2026-09-11',
+            paidAt: daysAgo(8),
             amount: 10_000,
             allocations: [{ invoiceId: adaInvoiceId, amount: 50_000 }],
           },
@@ -336,7 +352,7 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
         {
           householdId,
           method: 'cash',
-          paidAt: '2026-09-12',
+          paidAt: daysAgo(7),
           amount: 80_000,
           notes: 'Paid ahead for next term',
         },
@@ -487,21 +503,118 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
     });
   });
 
-  it('opens the books exactly once, however many readers arrive together', async () => {
-    await inA(async () => {
-      const opening = await ledger.listEntries(tenantAId, {
-        sourceType: 'opening',
-      });
-      // This tenant started life with the ledger, so there is nothing to open —
-      // and the partial unique index makes a second one impossible regardless.
-      expect(opening.total).toBeLessThanOrEqual(1);
+  it('opens the books exactly once, even when two readers race for it', async () => {
+    // A school that WAS billing before the ledger existed, so there is a real
+    // opening to post — the previous version of this test used a tenant with
+    // nothing outstanding, so `ensureOpeningBalance` returned early and the
+    // assertion held with the guard and the unique index both removed.
+    const raceTenant = await owner.tenant.create({
+      data: {
+        name: 'WB5 race',
+        slug: `wb5-race-${stamp}`,
+        status: 'active',
+        schoolType: 'secondary',
+      },
+    });
+    raceTenantId = raceTenant.id;
+    const item = await owner.feeItem.create({
+      data: { tenantId: raceTenantId, code: 'tuition', name: 'Tuition' },
+    });
+    const legacy = await owner.feeInvoice.create({
+      data: {
+        tenantId: raceTenantId,
+        invoiceNumber: `RACE-${stamp}`,
+        studentId: `stu-race-${stamp}`,
+        status: 'issued',
+        amountDue: 300_000,
+      },
+    });
+    await owner.feeInvoiceLine.create({
+      data: {
+        tenantId: raceTenantId,
+        invoiceId: legacy.id,
+        feeItemId: item.id,
+        amount: 300_000,
+        quantity: 1,
+      },
+    });
 
-      await ledger.trialBalance(tenantAId, {});
-      await reporting.reconciliation(tenantAId);
-      const after = await ledger.listEntries(tenantAId, {
-        sourceType: 'opening',
+    // Two readers arriving together — a bursar with /finance/ledger open in one
+    // tab and /finance/reports in another.
+    const results = await Promise.allSettled([
+      tenantDb.runScoped(raceTenantId, makerId, () =>
+        ledger.trialBalance(raceTenantId, {}, makerId),
+      ),
+      tenantDb.runScoped(raceTenantId, checkerId, () =>
+        reporting.reconciliation(raceTenantId, checkerId),
+      ),
+    ]);
+
+    // One may lose the race and be told to retry; what must never happen is two
+    // openings, because the trial balance cannot see that — both entries
+    // balance, and the school's whole pre-existing debt is counted twice.
+    expect(results.some((r) => r.status === 'fulfilled')).toBe(true);
+    const openings = await tenantDb.runScoped(raceTenantId, makerId, () =>
+      ledger.listEntries(raceTenantId, { sourceType: 'opening' }),
+    );
+    expect(openings.total).toBe(1);
+    expect(openings.data[0]!.totalDebit).toBe(300_000);
+
+    await tenantDb.runScoped(raceTenantId, makerId, async () => {
+      const report = await reporting.reconciliation(raceTenantId, makerId);
+      expect(report.controls.map((c) => c.difference)).toEqual([0, 0, 0]);
+    });
+  });
+
+  it('will not let two cashiers settle the same invoice twice', async () => {
+    // The row lock is the only thing standing between two tills and a
+    // double-settled invoice: without it both transactions read the same
+    // outstanding balance, both pass the check, and both write.
+    const contested = await makeInvoice(
+      chidiId,
+      'Chidi Okonkwo',
+      90_000,
+      '2027-06-01',
+    );
+    await inA(() =>
+      finance.updateInvoice(tenantAId, contested, { status: 'issued' }, makerId),
+    );
+
+    const takePayment = () =>
+      tenantDb.runScoped(tenantAId, makerId, async () => {
+        const receipt = await receipts.recordReceipt(
+          tenantAId,
+          {
+            householdId,
+            method: 'cash',
+            paidAt: daysAgo(1),
+            amount: 90_000,
+            allocations: [{ invoiceId: contested, amount: 90_000 }],
+          },
+          makerId,
+        );
+        // Hold the lock briefly so the second transaction genuinely overlaps.
+        await new Promise((resolve) => setTimeout(resolve, 250));
+        return receipt;
       });
-      expect(after.total).toBe(opening.total);
+
+    const [first, second] = await Promise.allSettled([
+      takePayment(),
+      new Promise((resolve) => setTimeout(resolve, 60)).then(takePayment),
+    ]);
+
+    const settled = [first, second].filter((r) => r.status === 'fulfilled');
+    const refused = [first, second].filter((r) => r.status === 'rejected');
+    expect(settled).toHaveLength(1);
+    expect(refused).toHaveLength(1);
+
+    await inA(async () => {
+      const invoice = await finance.getInvoice(tenantAId, contested);
+      // Paid exactly once, and the ledger agrees.
+      expect(invoice.financials.paid).toBe(90_000);
+      expect(invoice.financials.overpaid).toBe(0);
+      const report = await reporting.reconciliation(tenantAId, makerId);
+      expect(report.balanced).toBe(true);
     });
   });
 
@@ -634,12 +747,34 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
       expect(entries.total).toBe(0);
 
       const held = await credits.listCredits(tenantBId, {});
-      expect(held).toHaveLength(0);
+      expect(held.data).toHaveLength(0);
+      expect(held.total).toBe(0);
     });
 
-    // …and cannot reach into tenant A's rows by id.
+    // …and cannot reach into tenant A's rows by id. Use a real RECEIPT id from
+    // tenant A — passing an invoice id would throw NotFound even with RLS off,
+    // so it proved nothing.
+    const aReceipt = await inA(() => receipts.listReceipts(tenantAId, {}));
+    const receiptId = aReceipt.data[0]!.id;
     await expect(
-      inB(() => receipts.getReceipt(tenantBId, chidiInvoiceId)),
+      inB(() => receipts.getReceipt(tenantBId, receiptId)),
+    ).rejects.toBeTruthy();
+
+    // …and cannot WRITE into tenant A either: allocating tenant A's invoice
+    // from tenant B's scope must not find it.
+    await expect(
+      inB(() =>
+        receipts.recordReceipt(
+          tenantBId,
+          {
+            method: 'cash',
+            paidAt: daysAgo(2),
+            amount: 1_000,
+            allocations: [{ invoiceId: chidiInvoiceId, amount: 1_000 }],
+          },
+          makerId,
+        ),
+      ),
     ).rejects.toBeTruthy();
 
     const http = app.getHttpServer();

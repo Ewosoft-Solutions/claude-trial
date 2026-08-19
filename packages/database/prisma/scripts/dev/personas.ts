@@ -517,12 +517,31 @@ async function seedFinanceData(tenantId: string) {
   const invoices = [
     { invoiceNumber: 'INV-DEV-001', amountDue: 18500000, amountPaid: 18500000, status: 'paid' },
     { invoiceNumber: 'INV-DEV-002', amountDue: 18500000, amountPaid: 0,        status: 'overdue' },
+    // `amountPaid` is a cache of the allocation rows; seeding a figure with no
+    // receipt behind it is exactly the drift `refreshInvoiceTotals` prevents,
+    // so this one is seeded with a real part-payment below.
     { invoiceNumber: 'INV-DEV-003', amountDue: 19500000, amountPaid: 10000000, status: 'partial' },
   ];
 
+  // Every invoice needs a LINE. The balance is derived from lines (WB5), so a
+  // seeded invoice without one has gross 0 — the finance workbench would refuse
+  // to take payment against its own fixture with "only has 0 kobo outstanding".
+  const tuition = await prisma.feeItem.upsert({
+    where: { tenantId_code: { tenantId, code: 'tuition' } },
+    update: {},
+    create: {
+      tenantId,
+      code: 'tuition',
+      name: 'Tuition',
+      defaultAmount: 18500000,
+    },
+  });
+
   for (const inv of invoices) {
-    await prisma.feeInvoice.upsert({
-      where: { tenantId_invoiceNumber: { tenantId, invoiceNumber: inv.invoiceNumber } },
+    const invoice = await prisma.feeInvoice.upsert({
+      where: {
+        tenantId_invoiceNumber: { tenantId, invoiceNumber: inv.invoiceNumber },
+      },
       update: { amountPaid: inv.amountPaid, status: inv.status },
       create: {
         tenantId,
@@ -538,6 +557,23 @@ async function seedFinanceData(tenantId: string) {
         status: inv.status,
       },
     });
+
+    const existingLine = await prisma.feeInvoiceLine.findFirst({
+      where: { tenantId, invoiceId: invoice.id },
+      select: { id: true },
+    });
+    if (!existingLine) {
+      await prisma.feeInvoiceLine.create({
+        data: {
+          tenantId,
+          invoiceId: invoice.id,
+          feeItemId: tuition.id,
+          description: `${TERM_NAME} tuition`,
+          amount: inv.amountDue,
+          quantity: 1,
+        },
+      });
+    }
   }
 
   // One completed payment against the first invoice
@@ -578,7 +614,44 @@ async function seedFinanceData(tenantId: string) {
     });
   }
 
-  console.log(`  ✅ Finance dev seed data: 3 invoices, 1 payment`);
+  // …and a real part-payment behind the `partial` invoice's cached figure.
+  const partialInvoice = await prisma.feeInvoice.findFirst({
+    where: { tenantId, invoiceNumber: 'INV-DEV-003' },
+  });
+  if (partialInvoice) {
+    const partPayment = await prisma.payment.upsert({
+      where: {
+        tenantId_receiptNumber: { tenantId, receiptNumber: 'PMT-DEV-002' },
+      },
+      update: {},
+      create: {
+        tenantId,
+        receiptNumber: 'PMT-DEV-002',
+        method: 'transfer',
+        paidAt: new Date('2025-02-10'),
+        amount: 10000000,
+        status: 'completed',
+        reference: 'TRF-DEV-2025-002',
+      },
+    });
+    await prisma.paymentAllocation.upsert({
+      where: {
+        paymentId_invoiceId: {
+          paymentId: partPayment.id,
+          invoiceId: partialInvoice.id,
+        },
+      },
+      update: {},
+      create: {
+        tenantId,
+        paymentId: partPayment.id,
+        invoiceId: partialInvoice.id,
+        amount: 10000000,
+      },
+    });
+  }
+
+  console.log(`  ✅ Finance dev seed data: 3 invoices (with lines), 2 receipts`);
 }
 
 // ---------------------------------------------------------------------------

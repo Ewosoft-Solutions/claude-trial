@@ -5,6 +5,8 @@ import {
 } from '@nestjs/common';
 import { Prisma } from '@workspace/database';
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import { AuditService } from '../../common/audit/audit.service';
+import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import { FinanceAdjustmentService } from './finance-adjustment.service';
 import { FinanceCreditService } from './finance-credit.service';
@@ -40,6 +42,7 @@ export type { InvoiceFinancials };
 export class FinanceService {
   constructor(
     private readonly tenantDb: TenantDbService,
+    private readonly audit: AuditService,
     private readonly adjustments: FinanceAdjustmentService,
     private readonly numbering: FinanceNumberingService,
     private readonly credits: FinanceCreditService,
@@ -309,7 +312,17 @@ export class FinanceService {
     // is already holding is drawn down against it.
     if (isBeingIssued) {
       await this.postInvoiceIssued(tenantId, id, userId);
-      await this.adjustments.applyPoliciesToInvoice(tenantId, id);
+      await this.audit.write({
+        tenantId,
+        eventType: AUDIT_EVENT.DATA_CHANGE,
+        action: 'finance_invoice_issued',
+        resource: 'fee_invoice',
+        resourceId: id,
+        actorId: userId,
+        description: `Invoice ${invoice.invoiceNumber} issued`,
+        metadata: { invoiceNumber: invoice.invoiceNumber },
+      });
+      await this.adjustments.applyPoliciesToInvoice(tenantId, id, userId);
       await this.credits.autoApplyToInvoice(tenantId, id, userId);
     }
 
@@ -318,6 +331,16 @@ export class FinanceService {
     // withdrawal.
     if (isBeingCancelled) {
       await this.withdrawCancelledInvoice(tenantId, invoice.id, userId);
+      await this.audit.write({
+        tenantId,
+        eventType: AUDIT_EVENT.DATA_CHANGE,
+        action: 'finance_invoice_cancelled',
+        resource: 'fee_invoice',
+        resourceId: invoice.id,
+        actorId: userId,
+        description: `Invoice ${invoice.invoiceNumber} cancelled and withdrawn from the ledger`,
+        metadata: { invoiceNumber: invoice.invoiceNumber },
+      });
     }
 
     // Issuing has side effects (the charge, policy discounts, credit applied),

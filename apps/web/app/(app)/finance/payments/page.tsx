@@ -64,11 +64,19 @@ function formatDate(iso: string | null | undefined): string | undefined {
   }
 }
 
+/** A local calendar date as YYYY-MM-DD. `toISOString` would shift it a day
+ *  west of the date the operator is actually looking at. */
+function localIso(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 /** The window the collection tiles describe: the current calendar month. */
 function monthToDate(): { from: string; to: string; label: string } {
   const now = new Date();
   const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const iso = (date: Date) => date.toISOString().slice(0, 10);
+  const iso = localIso;
   return {
     from: iso(first),
     to: iso(now),
@@ -93,14 +101,14 @@ export default async function PaymentsPage({
   params.set('offset', String((state.page - 1) * state.pageSize));
   params.delete('page');
 
-  const window = monthToDate();
+  const collectionWindow = monthToDate();
   const [list, householdData, collections, session] = await Promise.all([
     serverApiGet<ReceiptsResponse>(`/finance/receipts?${params.toString()}`),
     serverApiGet<ApiHousehold[] | { data?: ApiHousehold[] }>(
       '/finance/households',
     ),
     serverApiGet<CollectionsReport>(
-      `/finance/reports/collections?from=${window.from}&to=${window.to}`,
+      `/finance/reports/collections?from=${collectionWindow.from}&to=${collectionWindow.to}`,
     ),
     getSession(),
   ]);
@@ -142,7 +150,7 @@ export default async function PaymentsPage({
       households={householdOptions}
       canManage={canManage}
       collections={{
-        label: window.label,
+        label: collectionWindow.label,
         received: collections?.totals?.total ?? 0,
         count: collections?.totals?.receipts ?? 0,
         unallocated: collections?.totals?.unallocated ?? 0,

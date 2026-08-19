@@ -41,6 +41,11 @@ const SUBLEDGER_SOURCES = [
   'receipt',
   'credit_application',
   'opening',
+  // A reversal is what the subledger POSTED to correct itself — cancelling an
+  // invoice, say. Reversing it again would put the withdrawn receivable back
+  // against a record that no longer exists, which is the same failure this
+  // list exists to prevent, one hop further out.
+  'reversal',
 ];
 
 /** The starter chart every tenant gets on first posting. */
@@ -302,10 +307,21 @@ export class LedgerService {
     return updated;
   }
 
-  /** The period a date falls in, if the tenant defines one. */
+  /**
+   * The period a date falls in, if the tenant defines one.
+   *
+   * `start_date`/`end_date` are DATE columns, so Postgres reads them at
+   * midnight. Comparing a wall-clock timestamp against them would put every
+   * entry made during the final day of a period OUTSIDE it — which quietly
+   * means an entry posted the afternoon a period was closed skips the closed
+   * check entirely. So the comparison is made date-to-date.
+   */
   private async periodFor(tenantId: string, date: Date) {
+    const day = new Date(
+      Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()),
+    );
     return this.client.accountingPeriod.findFirst({
-      where: { tenantId, startDate: { lte: date }, endDate: { gte: date } },
+      where: { tenantId, startDate: { lte: day }, endDate: { gte: day } },
     });
   }
 
@@ -573,7 +589,20 @@ export class LedgerService {
     if (outstanding <= 0) return null;
 
     try {
-      return await this.postOpening(tenantId, outstanding, userId);
+      const opening = await this.postOpening(tenantId, outstanding, userId);
+      // Typically the single largest entry in the ledger — a school's entire
+      // pre-existing debt — so it does not get to appear untraced.
+      await this.audit.write({
+        tenantId,
+        eventType: AUDIT_EVENT.DATA_CHANGE,
+        action: 'finance_books_opened',
+        resource: 'journal_entry',
+        resourceId: opening.id,
+        actorId: userId ?? null,
+        description: `Ledger opened with ${outstanding} kobo of pre-existing receivables`,
+        metadata: { outstanding, entryNumber: opening.entryNumber },
+      });
+      return opening;
     } catch (error) {
       // The partial unique index is what actually guarantees one opening per
       // tenant — two tabs (one on /finance/ledger, one on /finance/reports)
@@ -678,9 +707,16 @@ export class LedgerService {
    * balance on its normal side. If `outOfBalance` is ever non-zero the ledger
    * has been written by something other than `post()`.
    */
-  async trialBalance(tenantId: string, query: { from?: string; to?: string }) {
+  async trialBalance(
+    tenantId: string,
+    query: { from?: string; to?: string },
+    userId?: string | null,
+  ) {
     await this.ensureChart(tenantId);
-    await this.ensureOpeningBalance(tenantId);
+    // Reading the books can open them, for a school that has pre-ledger debt.
+    // That posting is attributed to whoever's request caused it rather than to
+    // nobody — see `ensureOpeningBalance`.
+    await this.ensureOpeningBalance(tenantId, userId ?? null);
 
     const entryWhere: Prisma.JournalEntryWhereInput = { tenantId };
     if (query.from || query.to) {

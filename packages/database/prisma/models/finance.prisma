@@ -212,6 +212,12 @@ model Payment {
   createdAt  DateTime @default(now()) @map("created_at")
   updatedAt  DateTime @updatedAt @map("updated_at")
 
+  /// Set by the client for one submission of the checkout form. A retry after a
+  /// lost response carries the SAME key and returns the receipt already
+  /// recorded, instead of taking the family's money twice. Unique per tenant
+  /// where present (partial index — most rows are null).
+  idempotencyKey String? @map("idempotency_key")
+
   /// Reprints are counted (and audited) rather than forbidden — a family losing
   /// a receipt is routine; a receipt quietly printed forty times is not.
   reprintCount    Int       @default(0) @map("reprint_count")
@@ -243,7 +249,9 @@ model PaymentAllocation {
   paymentId String @map("payment_id")
   invoiceId String @map("invoice_id")
 
-  amount Int @default(0) // kobo
+  // No default: the database CHECKs amount > 0, so a 0 default would advertise
+  // a value every insert would be rejected for.
+  amount Int // kobo
 
   createdBy String?  @map("created_by")
   createdAt DateTime @default(now()) @map("created_at")
@@ -308,7 +316,8 @@ model CreditApplication {
   creditId  String @map("credit_id")
   invoiceId String @map("invoice_id")
 
-  amount Int @default(0) // kobo
+  // No default — see PaymentAllocation.amount.
+  amount Int // kobo
 
   appliedBy String?  @map("applied_by")
   appliedAt DateTime @default(now()) @map("applied_at")

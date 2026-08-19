@@ -229,7 +229,22 @@ export class FinanceHouseholdService {
       }
     }
 
+    // Everything the source household OWNS moves with it. Invoices were the
+    // only such thing when merge was written; WB5 hung two more off the
+    // household, and both are `ON DELETE SET NULL` — so a merge that forgot
+    // them would not error, it would quietly orphan the money. A credit whose
+    // household_id is null can never be found again by `availableCredit` or
+    // auto-apply, and the reconciliation control still counts it, so the report
+    // would say the books are fine while the family's money is unspendable.
     await this.client.feeInvoice.updateMany({
+      where: { tenantId, householdId: sourceId },
+      data: { householdId: targetId },
+    });
+    await this.client.accountCredit.updateMany({
+      where: { tenantId, householdId: sourceId },
+      data: { householdId: targetId },
+    });
+    await this.client.payment.updateMany({
       where: { tenantId, householdId: sourceId },
       data: { householdId: targetId },
     });

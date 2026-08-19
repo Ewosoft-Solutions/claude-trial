@@ -12,6 +12,7 @@ describe('FinanceService.listInvoices', () => {
   const client = { feeInvoice: { findMany, count } };
   const service = new FinanceService(
     { client } as never, // tenantDb (its `client` is the request transaction)
+    { write: jest.fn() } as never, // audit
     { applyPoliciesToInvoice: jest.fn() } as never, // adjustments
     { next: jest.fn() } as never, // numbering
     { autoApplyToInvoice: jest.fn() } as never, // credits
@@ -136,8 +137,10 @@ describe('FinanceService.updateInvoice — cancelling', () => {
     ensureOpeningBalance: jest.fn(),
   };
 
+  const audit = { write: jest.fn() };
   const service = new FinanceService(
     { client } as never,
+    audit as never,
     { applyPoliciesToInvoice: jest.fn() } as never,
     { next: jest.fn() } as never,
     { autoApplyToInvoice: jest.fn() } as never,
@@ -149,7 +152,11 @@ describe('FinanceService.updateInvoice — cancelling', () => {
     jest.clearAllMocks();
     ledger.reverseSource.mockResolvedValue([{ id: 'je-rev' }]);
     feeAdjustment.findMany.mockResolvedValue([]);
-    feeInvoice.findFirst.mockResolvedValue({ id: 'inv-1', status: 'issued' });
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: 'issued',
+      invoiceNumber: 'INV-2026-000001',
+    });
     feeInvoice.update.mockImplementation(async ({ where, data }: any) => ({
       id: where.id,
       ...data,
@@ -173,6 +180,10 @@ describe('FinanceService.updateInvoice — cancelling', () => {
       'inv-1',
       'user-1',
       'Invoice cancelled',
+    );
+    // Withdrawing a receivable is a decision someone made; it leaves a trace.
+    expect(audit.write).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'finance_invoice_cancelled' }),
     );
   });
 

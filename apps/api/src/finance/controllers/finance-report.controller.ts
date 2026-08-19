@@ -48,6 +48,6 @@ export class FinanceReportController {
     summary: 'Control totals: the receivables subledger against the ledger',
   })
   reconciliation(@Request() req: AuthenticatedRequest) {
-    return this.reporting.reconciliation(req.user.tenantId);
+    return this.reporting.reconciliation(req.user.tenantId, req.user.profileId);
   }
 }

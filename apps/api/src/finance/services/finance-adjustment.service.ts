@@ -140,6 +140,12 @@ export class FinanceAdjustmentService {
       throw new BadRequestException(result.error ?? 'Approval failed');
     }
 
+    // Open the books before anything is applied. Every other writer does this
+    // first; doing it after would let the opening figure be computed from a
+    // receivable this very adjustment has already reduced, and the school would
+    // open short by the discount — permanently.
+    await this.ledger.ensureOpeningBalance(tenantId, checker.userId);
+
     // The balance may have moved while this sat pending — a receipt could have
     // settled the invoice. Re-check before applying: a waiver larger than what
     // is still owed would credit receivables below zero and leave the family
@@ -210,7 +216,6 @@ export class FinanceAdjustmentService {
     userId?: string,
   ) {
     if (adjustment.amount <= 0) return;
-    await this.ledger.ensureOpeningBalance(tenantId, userId);
     const { invoice } = await refreshInvoiceTotals(
       this.client,
       tenantId,
@@ -381,7 +386,14 @@ export class FinanceAdjustmentService {
    * percentage of the matching lines' gross (a targeted fee item, else the whole
    * invoice), never exceeding that base.
    */
-  async applyPoliciesToInvoice(tenantId: string, invoiceId: string) {
+  async applyPoliciesToInvoice(
+    tenantId: string,
+    invoiceId: string,
+    userId?: string,
+  ) {
+    // Same rule as every other writer: before the subledger rows are written.
+    await this.ledger.ensureOpeningBalance(tenantId, userId ?? null);
+
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: invoiceId, tenantId },
       include: {
@@ -447,7 +459,7 @@ export class FinanceAdjustmentService {
           appliedAt: new Date(),
         },
       });
-      await this.postAdjustment(tenantId, adjustment);
+      await this.postAdjustment(tenantId, adjustment, userId);
       created.push(adjustment);
     }
     return created;

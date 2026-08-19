@@ -114,20 +114,26 @@ function formatDay(key: string): string {
   }
 }
 
+/** A local calendar date as YYYY-MM-DD — see the note in payments/page.tsx. */
+function localIso(date: Date): string {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+}
+
 /** The trailing 30 days, which is what "recent collections" means here. */
 function lastThirtyDays(): { from: string; to: string } {
   const now = new Date();
   const from = new Date(now.getTime() - 29 * 86_400_000);
-  const iso = (date: Date) => date.toISOString().slice(0, 10);
-  return { from: iso(from), to: iso(now) };
+  return { from: localIso(from), to: localIso(now) };
 }
 
 async function KpiSection() {
-  const window = lastThirtyDays();
+  const reportWindow = lastThirtyDays();
   const [summary, collections] = await Promise.all([
     serverApiGet<InvoiceSummary>('/finance/invoices/summary'),
     serverApiGet<CollectionsReport>(
-      `/finance/reports/collections?from=${window.from}&to=${window.to}`,
+      `/finance/reports/collections?from=${reportWindow.from}&to=${reportWindow.to}`,
     ),
   ]);
 
@@ -169,13 +175,15 @@ async function KpiSection() {
 }
 
 async function CollectionsSection() {
-  const window = lastThirtyDays();
+  const reportWindow = lastThirtyDays();
   const [byDay, byMethod] = await Promise.all([
+    // Same URL as the KPI band's second read — Next's per-render request
+    // memoization dedupes it, so the aggregation runs once per page.
     serverApiGet<CollectionsReport>(
-      `/finance/reports/collections?from=${window.from}&to=${window.to}`,
+      `/finance/reports/collections?from=${reportWindow.from}&to=${reportWindow.to}`,
     ),
     serverApiGet<CollectionsReport>(
-      `/finance/reports/collections?from=${window.from}&to=${window.to}&groupBy=method`,
+      `/finance/reports/collections?from=${reportWindow.from}&to=${reportWindow.to}&groupBy=method`,
     ),
   ]);
 

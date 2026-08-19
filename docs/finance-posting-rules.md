@@ -58,11 +58,19 @@ contra entry (the sides swapped) that points back at the original with
 legacy negative-amount reversal (parity job #95), and it is why closing a period
 is meaningful: a correction after close has to be dated in an open period.
 
+**Opening the books happens before the subledger row is written.** Every writer
+calls `ensureOpeningBalance` first — issuing, receipting, applying credit,
+approving an adjustment. Calling it afterwards computes the opening figure from
+a receivable the pending write has already changed, and the school opens short
+by exactly that amount, permanently.
+
 **A subledger entry cannot be reversed from the ledger surface.** Reversing the
 entry behind a receipt would withdraw the accounting effect while leaving the
 allocation row standing — the invoice would still read `paid` with no cash
 behind it. So `reverse()` refuses any entry whose `source_type` is
 `invoice`/`invoice_withdrawal`/`adjustment`/`receipt`/`credit_application`/`opening`
+— **and `reversal` itself**, since that is what the subledger posts to correct
+itself, and un-reversing a cancellation puts the withdrawn receivable back —
 unless the caller is the subledger writer itself (`reverseSource`). The generic
 `POST /finance/ledger/entries/:id/reverse` is for `manual` entries.
 
@@ -94,11 +102,15 @@ The invariants that keep the control accounts honest, and where they live:
 | Invoice **lines are fixed once issued** | The charge is in the ledger and on a family's statement; changing what is owed after that is an adjustment, which is approved, posted and audited |
 | An adjustment applies only to an **outstanding** bill, and never for **more than the balance** — re-checked at approval, not just at request | Over-waiving credits receivables below zero while the subledger balance floors at zero; the difference never heals, and the family is owed money that sits in no account |
 | A receipt allocation never exceeds the invoice's balance, and allocations never exceed the receipt | Same, from the cash side |
+| Credit can only be applied to the family or student who paid it | Otherwise one family's overpayment settles another's bill, the ledger still balances, and **every control total reads zero** — nothing surfaces it but the audit row |
+| Recording money accepts an **idempotency key**; a retry with the same key returns the receipt already recorded | A lost response on a prepayment (nothing allocated, so no balance check to refuse it) otherwise takes the family's money twice |
+| A receipt is dated when the money arrived: no more than a day ahead, within ten years | A typo'd year opens a receipt-number sequence nobody reads and hides the receipt from every collections window |
 | Writers take a **row lock** (`finance-locks.ts`) on the invoice/credit *before* reading its balance — receipts, credit application, credit auto-apply **and adjustment approval** | Two cashiers settling the same invoice in the same second otherwise both see the full outstanding and both write. The approval path counts: a waiver re-checked against a balance a concurrent receipt is already spending over-credits receivables |
 | Locks are taken in **one global order: invoices before credits** (`lockInvoicesThenCredits`) | Applying a credit and issuing an invoice touch the same two rows from opposite directions; opposite orders deadlock one of them on a money route |
 | Standing discount policies share **one running balance** across the pass | Two whole-invoice policies (a 60% scholarship and a 50% sibling discount) capped separately against the same untouched balance together credit past the charge |
 | **One opening entry per tenant**, enforced by a partial unique index | Two readers can each find none and post the whole pre-existing debt; the trial balance cannot detect it, because both entries balance |
-| `journal_lines` CHECK: one-sided, non-negative | Makes "the posting service is the only writer" a database fact rather than a convention |
+| `journal_lines` CHECK: exactly one side, non-negative | Makes "the posting service is the only writer" a database fact rather than a convention |
+| Everything a household owns moves on **merge** — invoices, credits and receipts | The two new columns are `ON DELETE SET NULL`, so a merge that forgot them would not error; it would orphan the credit where nothing can ever find it again, while reconciliation went on reporting it as held |
 
 ## The opening balance
 
@@ -154,6 +166,15 @@ the balance it is about to reason about. A P2002 that gets through is reported
 as a retryable conflict rather than swallowed: the failed insert has already
 aborted the transaction, so "the loser reads the winner's row and carries on"
 is not something a caller can actually do.
+
+## Known limits of the migration path
+
+The receipts backfill turns each legacy payment into one allocation for its full
+amount. `main` had no balance check on payments, so a legacy overpayment becomes
+an allocation larger than the invoice's balance — historically true, and left
+as recorded, but the excess is **not** converted into an `AccountCredit`. A
+school migrating with known overpayments should expect to raise those credits by
+hand. New allocations cannot do this: they are capped and locked.
 
 ## Not built yet
 

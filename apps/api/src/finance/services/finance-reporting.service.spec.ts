@@ -6,7 +6,16 @@ describe('FinanceReportingService', () => {
   const payment = { findMany: jest.fn(), aggregate: jest.fn() };
   const accountCredit = { aggregate: jest.fn() };
   const journalEntry = { findMany: jest.fn() };
-  const client = { feeInvoice, payment, accountCredit, journalEntry };
+  // The cash control sums posted receipts in SQL rather than through an `in:`
+  // list, so the raw query is the collaborator here.
+  const $queryRaw = jest.fn().mockResolvedValue([{ total: 0 }]);
+  const client = {
+    feeInvoice,
+    payment,
+    accountCredit,
+    journalEntry,
+    $queryRaw,
+  };
   const ledger = {
     ensureChart: jest.fn(),
     ensureOpeningBalance: jest.fn(),
@@ -36,7 +45,10 @@ describe('FinanceReportingService', () => {
     creditApplications: [],
   });
 
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    $queryRaw.mockResolvedValue([{ total: 0 }]);
+  });
 
   it('ages debt by days past due, and treats an undated invoice as current', async () => {
     feeInvoice.findMany.mockResolvedValue([
@@ -95,7 +107,8 @@ describe('FinanceReportingService', () => {
   it('counts only the receipts the ledger has posted on the cash control', async () => {
     feeInvoice.findMany.mockResolvedValue([]);
     accountCredit.aggregate.mockResolvedValue({ _sum: { remaining: 0 } });
-    journalEntry.findMany.mockResolvedValue([]);
+    // No posted receipts: everything this school took predates the ledger.
+    $queryRaw.mockResolvedValue([{ total: null }]);
     ledger.trialBalance.mockResolvedValue({
       totalDebit: 0,
       totalCredit: 0,
@@ -105,18 +118,14 @@ describe('FinanceReportingService', () => {
 
     const report = await service.reconciliation('t1');
 
-    // A school with a payment history but no posted receipts (everything
-    // predates the ledger) still reconciles — that cash lives in the opening
-    // balance, not in a difference.
-    expect(payment.aggregate).not.toHaveBeenCalled();
+    // That cash lives in the opening balance, not in a difference.
     expect(report.controls.find((c) => c.key === 'cash')?.difference).toBe(0);
   });
 
   it('reports the subledger against the ledger, control by control', async () => {
     feeInvoice.findMany.mockResolvedValue([owing('a', 100_000, '2026-08-25')]);
     accountCredit.aggregate.mockResolvedValue({ _sum: { remaining: 50_000 } });
-    payment.aggregate.mockResolvedValue({ _sum: { amount: 400_000 } });
-    journalEntry.findMany.mockResolvedValue([{ sourceId: 'rct-1' }]);
+    $queryRaw.mockResolvedValue([{ total: 400_000 }]);
     ledger.trialBalance.mockResolvedValue({
       totalDebit: 500_000,
       totalCredit: 500_000,
@@ -136,8 +145,6 @@ describe('FinanceReportingService', () => {
   it('flags a control that no longer agrees', async () => {
     feeInvoice.findMany.mockResolvedValue([owing('a', 100_000, '2026-08-25')]);
     accountCredit.aggregate.mockResolvedValue({ _sum: { remaining: 0 } });
-    payment.aggregate.mockResolvedValue({ _sum: { amount: 0 } });
-    journalEntry.findMany.mockResolvedValue([]);
     ledger.trialBalance.mockResolvedValue({
       totalDebit: 90_000,
       totalCredit: 90_000,

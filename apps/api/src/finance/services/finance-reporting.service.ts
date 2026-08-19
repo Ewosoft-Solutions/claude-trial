@@ -22,6 +22,17 @@ const AGING_BUCKETS = [
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * The end of the day a `to` filter names. `new Date('2026-08-31')` is midnight,
+ * so comparing `lte` against it silently drops everything received during the
+ * last day of the window — the day a bursar is most likely to be looking at.
+ */
+function endOfDay(date: string): Date {
+  const end = new Date(date);
+  end.setUTCHours(23, 59, 59, 999);
+  return end;
+}
+
 /** Most entries one export will assemble before it says it stopped. */
 const EXPORT_ENTRY_CAP = 20_000;
 
@@ -51,7 +62,7 @@ export class FinanceReportingService {
     if (query.from || query.to) {
       where.paidAt = {
         ...(query.from ? { gte: new Date(query.from) } : {}),
-        ...(query.to ? { lte: new Date(query.to) } : {}),
+        ...(query.to ? { lte: endOfDay(query.to) } : {}),
       };
     }
 
@@ -208,9 +219,9 @@ export class FinanceReportingService {
    * is the signal that something wrote money outside the posting rules — which
    * is exactly what a control account is for.
    */
-  async reconciliation(tenantId: string) {
+  async reconciliation(tenantId: string, userId?: string | null) {
     await this.ledger.ensureChart(tenantId);
-    await this.ledger.ensureOpeningBalance(tenantId);
+    await this.ledger.ensureOpeningBalance(tenantId, userId ?? null);
 
     const [invoices, creditSum, postedReceipts, trial] = await Promise.all([
       this.client.feeInvoice.findMany({
@@ -226,26 +237,28 @@ export class FinanceReportingService {
       // balance), and a reversed one has been withdrawn from the books. Summing
       // every receipt ever would show a school that upgraded a permanent,
       // meaningless cash difference equal to its entire payment history.
-      this.client.journalEntry.findMany({
-        where: { tenantId, sourceType: 'receipt', status: 'posted' },
-        select: { sourceId: true },
-      }),
-      this.ledger.trialBalance(tenantId, {}),
+      //
+      // Joined in SQL rather than collected into an `in:` list — a school with
+      // tens of thousands of receipts would otherwise blow Postgres's bind
+      // parameter limit and the reconciliation report would start erroring
+      // instead of reporting.
+      this.client.$queryRaw<{ total: bigint | null }[]>`
+        SELECT SUM(p."amount") AS total
+          FROM "finance"."payments" p
+          JOIN "finance"."journal_entries" e
+            ON e."source_id" = p."id"
+           AND e."tenant_id" = p."tenant_id"
+         WHERE p."tenant_id" = ${tenantId}
+           AND p."status" = 'completed'
+           AND e."source_type" = 'receipt'
+           AND e."status" = 'posted'
+      `,
+      this.ledger.trialBalance(tenantId, {}, userId ?? null),
     ]);
 
-    const postedReceiptIds = postedReceipts
-      .map((entry) => entry.sourceId)
-      .filter((id): id is string => !!id);
-    const receiptSum = postedReceiptIds.length
-      ? await this.client.payment.aggregate({
-          where: {
-            tenantId,
-            status: 'completed',
-            id: { in: postedReceiptIds },
-          },
-          _sum: { amount: true },
-        })
-      : { _sum: { amount: 0 } };
+    const receiptSum = {
+      _sum: { amount: Number(postedReceipts[0]?.total ?? 0) },
+    };
 
     const subledgerReceivable = invoices.reduce(
       (sum, invoice) => sum + computeFinancials(invoice).balance,
@@ -318,7 +331,7 @@ export class FinanceReportingService {
     if (query.from || query.to) {
       where.entryDate = {
         ...(query.from ? { gte: new Date(query.from) } : {}),
-        ...(query.to ? { lte: new Date(query.to) } : {}),
+        ...(query.to ? { lte: endOfDay(query.to) } : {}),
       };
     }
 

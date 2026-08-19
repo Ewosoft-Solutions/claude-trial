@@ -33,6 +33,11 @@ import type { ListReceiptsDto, RecordReceiptDto } from '../dto/receipt.dto';
  * allocations, each invoice's re-derived totals, any overpayment held as
  * credit, and the balanced journal entry behind all of it.
  */
+/** Most receipts an unpaged read will return before it stops. */
+const UNPAGED_CAP = 2_000;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 @Injectable()
 export class FinanceReceiptService {
   constructor(
@@ -105,12 +110,15 @@ export class FinanceReceiptService {
     ];
 
     // No `limit` → the whole filtered set, for the aggregate pages; a `limit` →
-    // one server-driven page. Same contract as the invoices list.
+    // one server-driven page. Same contract as the invoices list — but capped,
+    // because "the whole set" grows with every receipt a school ever takes and
+    // each row carries its allocations and their invoices.
     if (query.limit == null) {
       const rows = await this.client.payment.findMany({
         where,
         include,
         orderBy,
+        take: UNPAGED_CAP,
       });
       return { data: rows.map((r) => this.shape(r)), total: rows.length };
     }
@@ -198,6 +206,18 @@ export class FinanceReceiptService {
       throw new BadRequestException('A receipt must be for a positive amount.');
     }
 
+    // A retry after a lost response must not take the money twice. Where the
+    // receipt allocates against invoices the balance check would catch it, but
+    // a prepayment allocates nothing — so a second click would simply create a
+    // second receipt and a second credit behind one banked amount.
+    if (dto.idempotencyKey) {
+      const already = await this.client.payment.findFirst({
+        where: { tenantId, idempotencyKey: dto.idempotencyKey },
+        select: { id: true },
+      });
+      if (already) return this.getReceipt(tenantId, already.id);
+    }
+
     const requested = dto.allocations ?? [];
     const requestedTotal = requested.reduce((s, a) => s + a.amount, 0);
     if (requestedTotal > dto.amount) {
@@ -276,7 +296,23 @@ export class FinanceReceiptService {
       });
     }
 
+    // A typo'd year (2062 for 2026) would open a receipt-number sequence for
+    // that year, put the receipt outside every collections window, and never
+    // show up in a day's takings. A receipt is dated when the money arrived.
     const paidAt = new Date(dto.paidAt);
+    const now = new Date();
+    const oneDayAhead = new Date(now.getTime() + DAY_MS);
+    const tenYearsBack = new Date(now.getFullYear() - 10, 0, 1);
+    if (
+      Number.isNaN(paidAt.getTime()) ||
+      paidAt > oneDayAhead ||
+      paidAt < tenYearsBack
+    ) {
+      throw new BadRequestException(
+        'The date received has to be a real date, no more than a day ahead and within the last ten years.',
+      );
+    }
+
     const receiptNumber = await this.numbering.next(tenantId, 'receipt', paidAt);
 
     const payerName =
@@ -286,6 +322,7 @@ export class FinanceReceiptService {
       data: {
         tenantId,
         receiptNumber,
+        idempotencyKey: dto.idempotencyKey ?? null,
         householdId: dto.householdId ?? null,
         payerName,
         method: dto.method,

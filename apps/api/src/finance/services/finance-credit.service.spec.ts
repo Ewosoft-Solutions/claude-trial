@@ -114,12 +114,30 @@ describe('FinanceCreditService', () => {
       id: 'cr-1',
       status: 'active',
       remaining: 500_000,
+      householdId: 'hh-1',
+      studentId: null,
     });
     feeInvoice.findFirst.mockResolvedValue(openInvoice(50_000));
 
     await expect(
       service.applyCredit('t1', 'cr-1', 'inv-1', 100_000, 'user-1'),
     ).rejects.toThrow(/only has 50000 kobo outstanding/);
+  });
+
+  it("refuses to spend one family's credit on another family's bill", async () => {
+    accountCredit.findFirst.mockResolvedValue({
+      id: 'cr-1',
+      status: 'active',
+      remaining: 500_000,
+      householdId: 'hh-OTHER',
+      studentId: null,
+    });
+    feeInvoice.findFirst.mockResolvedValue(openInvoice(500_000));
+
+    await expect(
+      service.applyCredit('t1', 'cr-1', 'inv-1', 100_000, 'user-1'),
+    ).rejects.toThrow(/belongs to a different account/);
+    expect(creditApplication.create).not.toHaveBeenCalled();
   });
 
   it('refuses to draw on an exhausted credit', async () => {

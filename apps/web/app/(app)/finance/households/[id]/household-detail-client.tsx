@@ -64,6 +64,8 @@ interface Payer {
 }
 /** The money side of a family account: what is owed, and what is held. */
 export interface AccountStanding {
+  /** True when the read failed — show that, never a confident zero. */
+  unavailable?: boolean;
   outstanding: number;
   credit: number;
   invoices: Array<{
@@ -164,6 +166,13 @@ export function HouseholdDetailClient({
             ) : undefined
           }
         >
+          {standing.unavailable ? (
+            <EmptyState
+              compact
+              title="Could not load this family's balance"
+              description="The finance service did not answer, or you do not have access to it. Reload to try again — this is not a statement that nothing is owed."
+            />
+          ) : (
           <div className="flex flex-col gap-3">
             <div className="grid gap-3 @md/main:grid-cols-2">
               <div className="rounded-lg border border-border bg-card/40 p-3">
@@ -212,6 +221,7 @@ export function HouseholdDetailClient({
               </ul>
             )}
           </div>
+          )}
         </SectionCard>
 
         <SectionCard

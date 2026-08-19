@@ -34,6 +34,9 @@ import {
  * post DR unapplied-credit / CR receivables into the ledger, so the liability
  * and the receivable fall together.
  */
+/** Most credits one list returns; the response carries the true total. */
+const CREDIT_LIST_CAP = 200;
+
 @Injectable()
 export class FinanceCreditService {
   constructor(
@@ -48,24 +51,31 @@ export class FinanceCreditService {
 
   // ---- Reads -----------------------------------------------------------
 
-  listCredits(
+  async listCredits(
     tenantId: string,
     query: { householdId?: string; studentId?: string; status?: string } = {},
   ) {
-    return this.client.accountCredit.findMany({
-      take: 200,
-      where: {
-        tenantId,
-        ...(query.householdId ? { householdId: query.householdId } : {}),
-        ...(query.studentId ? { studentId: query.studentId } : {}),
-        ...(query.status ? { status: query.status } : {}),
-      },
-      include: {
-        applications: { orderBy: { appliedAt: 'desc' } },
-        household: { select: { id: true, name: true } },
-      },
-      orderBy: [{ createdAt: 'desc' }],
-    });
+    const where = {
+      tenantId,
+      ...(query.householdId ? { householdId: query.householdId } : {}),
+      ...(query.studentId ? { studentId: query.studentId } : {}),
+      ...(query.status ? { status: query.status } : {}),
+    };
+    // Capped — but the caller is told the total, so a truncated list cannot be
+    // mistaken for the whole of a family's credit history.
+    const [data, total] = await Promise.all([
+      this.client.accountCredit.findMany({
+        take: CREDIT_LIST_CAP,
+        where,
+        include: {
+          applications: { orderBy: { appliedAt: 'desc' } },
+          household: { select: { id: true, name: true } },
+        },
+        orderBy: [{ createdAt: 'desc' }],
+      }),
+      this.client.accountCredit.count({ where }),
+    ]);
+    return { data, total, limit: CREDIT_LIST_CAP };
   }
 
   /** What a family (or a single student) has left to draw on. */
@@ -203,6 +213,21 @@ export class FinanceCreditService {
     if (invoice.status === 'draft' || invoice.status === 'cancelled') {
       throw new BadRequestException(
         'Credit can only be applied to an issued invoice.',
+      );
+    }
+
+    // The credit belongs to a family. `autoApplyToInvoice` only ever looks at
+    // credit owned by the invoice's household or student; the explicit path has
+    // to hold the same line, or an operator can settle one family's bill with
+    // another family's money — and every control total would still read zero,
+    // because the ledger entry balances either way.
+    const sameHousehold =
+      !!credit.householdId && credit.householdId === invoice.householdId;
+    const sameStudent =
+      !!credit.studentId && credit.studentId === invoice.studentId;
+    if (!sameHousehold && !sameStudent) {
+      throw new BadRequestException(
+        'That credit belongs to a different account. Credit can only be applied to the family or student who paid it.',
       );
     }
 

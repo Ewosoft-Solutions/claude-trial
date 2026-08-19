@@ -623,6 +623,30 @@ async function seedFinance(tenantId: string, seed: TenantOperationalSeed) {
       },
     });
 
+    // A line, so the DERIVED balance matches the seeded figures (WB5): without
+    // one the invoice reads gross 0 and no payment can be taken against it.
+    const seededItem = await prisma.feeItem.upsert({
+      where: { tenantId_code: { tenantId, code: 'tuition' } },
+      update: {},
+      create: { tenantId, code: 'tuition', name: 'Tuition' },
+    });
+    const seededLine = await prisma.feeInvoiceLine.findFirst({
+      where: { tenantId, invoiceId: invoice.id },
+      select: { id: true },
+    });
+    if (!seededLine) {
+      await prisma.feeInvoiceLine.create({
+        data: {
+          tenantId,
+          invoiceId: invoice.id,
+          feeItemId: seededItem.id,
+          description: `${seed.finance.termName} fees`,
+          amount: item.amountDue,
+          quantity: 1,
+        },
+      });
+    }
+
     if (item.amountPaid > 0 && item.method && item.paidAt) {
       // A receipt is money received; what it settled is an allocation row
       // (WB5-3), so the seed writes both.

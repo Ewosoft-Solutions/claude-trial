@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -80,6 +81,16 @@ export class RecordReceiptDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    example: '5f1c3a9e-1c2b-4f1a-9f0e-6a2f4b8c1d3e',
+    description:
+      'A key for ONE submission. Retrying with the same key returns the receipt already recorded instead of taking the money twice.',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  idempotencyKey?: string;
 
   @ApiPropertyOptional({
     type: [ReceiptAllocationDto],

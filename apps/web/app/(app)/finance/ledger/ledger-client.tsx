@@ -96,6 +96,17 @@ export interface Period {
   status: string;
 }
 
+/** Mirrors `SUBLEDGER_SOURCES` in the ledger service — see the guard there. */
+const SUBLEDGER_SOURCES = [
+  'invoice',
+  'invoice_withdrawal',
+  'adjustment',
+  'receipt',
+  'credit_application',
+  'opening',
+  'reversal',
+];
+
 const SOURCE_LABEL: Record<string, string> = {
   invoice: 'Invoice issued',
   receipt: 'Payment received',
@@ -144,13 +155,21 @@ export function LedgerClient({
   const searchParams = useSearchParams();
   const [openEntry, setOpenEntry] = React.useState<JournalEntry | null>(null);
 
-  const setParam = (key: string, value: string | null) => {
+  const setParams = (updates: Record<string, string | null>) => {
     const next = new URLSearchParams(searchParams.toString());
-    if (value) next.set(key, value);
-    else next.delete(key);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value) next.set(key, value);
+      else next.delete(key);
+    }
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
+  const setParam = (key: string, value: string | null) => setParams({ [key]: value });
+
+  const sourceFilter = searchParams.get('f_source');
+  const exportHref = sourceFilter
+    ? `/api/finance/ledger/export?sourceType=${encodeURIComponent(sourceFilter)}`
+    : '/api/finance/ledger/export';
 
   const byKey = new Map(rows.map((row) => [row.systemKey ?? row.code, row]));
   const statItems: StatItem[] = [
@@ -245,13 +264,18 @@ export function LedgerClient({
           title="General ledger"
           actions={
             <>
-              <Button variant="outline" size="sm" asChild>
-                <a href="/api/finance/ledger/export" download>
-                  <Download /> Export journal
-                </a>
-              </Button>
+              {/* The export needs finance.gl.manage; showing it to a viewer
+                  just downloads a file containing a 403. It also carries the
+                  page's own filter, so "export" means what is on screen. */}
               {canManage ? (
-                <NewPeriodDialog onSaved={() => router.refresh()} />
+                <>
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={exportHref} download>
+                      <Download /> Export journal
+                    </a>
+                  </Button>
+                  <NewPeriodDialog onSaved={() => router.refresh()} />
+                </>
               ) : null}
             </>
           }
@@ -350,6 +374,9 @@ export function LedgerClient({
           onPageChange={(next) =>
             setParam('page', next > 1 ? String(next) : null)
           }
+          // Page size is fixed here (the server page is a constant), so the
+          // control is not offered rather than offered and inert.
+          pageSizeOptions={[pageSize]}
           onPageSizeChange={() => undefined}
           sort={null}
           onSortChange={() => undefined}
@@ -369,10 +396,16 @@ export function LedgerClient({
           filterValues={{
             source: searchParams.get('f_source') ?? undefined,
           }}
-          onFilterChange={(key, value) =>
-            setParam(`f_${key}`, !value || value === 'all' ? null : value)
-          }
-          onClearFilters={() => setParam('f_source', null)}
+          onFilterChange={(key, value) => {
+            // Reset to page 1: filtering from page 5 otherwise shows an empty
+            // table with no explanation. `useDirectoryState` does this for the
+            // screens that use it; this one drives its own URL state.
+            setParams({
+              [`f_${key}`]: !value || value === 'all' ? null : value,
+              page: null,
+            });
+          }}
+          onClearFilters={() => setParams({ f_source: null, page: null })}
           emptyState={
             <EmptyState
               compact
@@ -414,6 +447,15 @@ function EntryDrawer({
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => setReason(''), [entry?.id]);
+
+  // The server refuses to reverse anything a subledger event posted — the
+  // correction has to go through the record that caused it. Offering the button
+  // anyway would walk the operator through an MFA challenge to reach a refusal.
+  const canReverse =
+    canManage &&
+    !!entry &&
+    entry.status !== 'reversed' &&
+    !SUBLEDGER_SOURCES.includes(entry.sourceType);
 
   const reverse = () => {
     if (!entry) return;
@@ -499,7 +541,7 @@ function EntryDrawer({
               </tbody>
             </table>
 
-            {canManage && entry?.status !== 'reversed' ? (
+            {canReverse ? (
               <div className="mt-5 flex flex-col gap-1.5">
                 <Label htmlFor="rev-reason">Reason for reversing</Label>
                 <Input
@@ -516,7 +558,7 @@ function EntryDrawer({
             <Button variant="outline" size="sm" onClick={onClose}>
               Close
             </Button>
-            {canManage && entry?.status !== 'reversed' ? (
+            {canReverse ? (
               <Button size="sm" onClick={reverse} disabled={busy}>
                 {busy ? <Loader2 className="animate-spin" /> : <Undo2 />} Reverse
               </Button>
@@ -653,6 +695,10 @@ function PeriodsCard({
 }
 
 function NewPeriodDialog({ onSaved }: { onSaved: () => void }) {
+  // Defining a period is step-up gated server-side, like closing one. Without
+  // the challenge the dialog could never succeed — the guard rejects it before
+  // the handler runs, and the operator gets a red toast with no way forward.
+  const { requestStepUp, stepUpPrompt } = useStepUpAction();
   const [open, setOpen] = React.useState(false);
   const [name, setName] = React.useState('');
   const [startDate, setStartDate] = React.useState('');
@@ -666,33 +712,49 @@ function NewPeriodDialog({ onSaved }: { onSaved: () => void }) {
     setEndDate('');
   }, [open]);
 
-  const save = async () => {
-    setBusy(true);
-    try {
-      const res = await authedFetch('/api/finance/ledger/periods', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: name.trim(), startDate, endDate }),
-      });
-      if (!res.ok) {
-        const detail = (await res.json().catch(() => null)) as {
-          message?: string;
-        } | null;
-        throw new Error(detail?.message ?? `Request failed (${res.status})`);
-      }
-      toast.success('Period defined');
-      setOpen(false);
-      onSaved();
-    } catch (e) {
-      toast.error(
-        e instanceof Error ? e.message : 'Could not define the period',
-      );
-    } finally {
-      setBusy(false);
-    }
+  const save = () => {
+    requestStepUp(
+      {
+        operation: STEP_UP_OPERATION.FINANCIAL_PERIOD_CLOSE,
+        title: 'Define an accounting period',
+        description:
+          'Confirm your identity to define a period. Closing it later locks everything dated inside it.',
+      },
+      async (challengeId) => {
+        setBusy(true);
+        try {
+          const res = await authedFetch('/api/finance/ledger/periods', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({
+              name: name.trim(),
+              startDate,
+              endDate,
+              stepUpChallengeId: challengeId,
+            }),
+          });
+          if (!res.ok) {
+            const detail = (await res.json().catch(() => null)) as {
+              message?: string;
+            } | null;
+            throw new Error(detail?.message ?? `Request failed (${res.status})`);
+          }
+          toast.success('Period defined');
+          setOpen(false);
+          onSaved();
+        } catch (e) {
+          toast.error(
+            e instanceof Error ? e.message : 'Could not define the period',
+          );
+        } finally {
+          setBusy(false);
+        }
+      },
+    );
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)}>
         <Plus /> Define period
@@ -749,5 +811,7 @@ function NewPeriodDialog({ onSaved }: { onSaved: () => void }) {
         </DialogFooter>
       </DialogContent>
     </Dialog>
+    {stepUpPrompt}
+    </>
   );
 }

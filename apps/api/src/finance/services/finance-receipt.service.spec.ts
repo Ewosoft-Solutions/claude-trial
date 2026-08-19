@@ -155,6 +155,22 @@ describe('FinanceReceiptService.recordReceipt', () => {
     );
   });
 
+  it('returns the receipt already recorded when a submission is retried', async () => {
+    payment.findFirst.mockResolvedValueOnce({ id: 'rct-existing' });
+
+    const result = await service.recordReceipt(
+      't1',
+      dto({ idempotencyKey: 'submission-1' }),
+      'user-1',
+    );
+
+    // No second receipt, no second credit, no second journal entry — the money
+    // was already taken.
+    expect(payment.create).not.toHaveBeenCalled();
+    expect(ledger.post).not.toHaveBeenCalled();
+    expect(result).toBeTruthy();
+  });
+
   it('refuses to allocate more than was received', async () => {
     await expect(
       service.recordReceipt('t1', dto({ amount: 250_000 }), 'user-1'),

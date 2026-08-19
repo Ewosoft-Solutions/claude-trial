@@ -248,7 +248,7 @@ export function PaymentsClient({
           </span>
           {receipt.unallocated > 0 ? (
             <span className="tabular-nums text-xs text-muted-foreground">
-              {nairaFromKobo(receipt.unallocated)} to credit
+              {nairaFromKobo(receipt.unallocated)} unallocated
             </span>
           ) : null}
         </div>
@@ -520,11 +520,12 @@ function ReceiptDrawer({
               </Section>
 
               {receipt.unallocatedAmount ? (
-                <Section title="Held as credit">
+                <Section title="Unallocated at the time">
                   <p className="text-sm text-muted-foreground">
-                    {nairaFromKobo(receipt.unallocatedAmount)} was received
-                    beyond what this receipt settled. It sits on the family
-                    account and is applied to the next invoice issued.
+                    {nairaFromKobo(receipt.unallocatedAmount)} of this receipt
+                    settled nothing when it was taken, and became credit on the
+                    family account. It may since have been drawn down — the
+                    family&apos;s current credit is on their household page.
                   </p>
                 </Section>
               ) : null}
@@ -563,10 +564,20 @@ interface OutstandingResponse {
   availableCredit: number;
 }
 
-/** Naira (major units, as typed) → kobo. */
-function toKobo(value: string): number {
-  const amount = Number(value.replace(/[^\d.]/g, ''));
-  return Number.isFinite(amount) ? Math.round(amount * 100) : 0;
+/**
+ * Naira (major units, as typed) → kobo, or null when what was typed is not a
+ * plain positive amount.
+ *
+ * Silently coercing is how a typo becomes a receipt: stripping the sign turned
+ * `-500` into ₦500, a pasted `1.234,50` became ₦1.23, and `12.34.56` became 0.
+ * Returning null instead lets the caller refuse to submit and say why.
+ */
+function toKobo(value: string): number | null {
+  const trimmed = value.trim().replace(/[\s,₦]/g, '');
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) return null;
+  const amount = Number(trimmed);
+  if (!Number.isFinite(amount) || amount <= 0) return null;
+  return Math.round(amount * 100);
 }
 
 function fromKobo(value: number): string {
@@ -583,6 +594,7 @@ function RecordPaymentDialog({
   const { requestStepUp, stepUpPrompt } = useStepUpAction();
   const [open, setOpen] = React.useState(false);
   const [householdId, setHouseholdId] = React.useState('');
+  const [householdQuery, setHouseholdQuery] = React.useState('');
   const [outstanding, setOutstanding] = React.useState<OutstandingResponse | null>(
     null,
   );
@@ -595,10 +607,36 @@ function RecordPaymentDialog({
   );
   const [reference, setReference] = React.useState('');
   const [busy, setBusy] = React.useState(false);
+  // One key per composed receipt. It deliberately survives a failed attempt —
+  // that is what makes the retry safe — and is regenerated when the dialog is
+  // opened afresh.
+  const [submissionKey, setSubmissionKey] = React.useState('');
+
+  const selectedHousehold = households.find(
+    (household) => household.id === householdId,
+  );
+  const householdMatches = React.useMemo(() => {
+    const query = householdQuery.trim().toLowerCase();
+    const pool =
+      query === ''
+        ? households
+        : households.filter(
+            (household) =>
+              household.name.toLowerCase().includes(query) ||
+              (household.payerName ?? '').toLowerCase().includes(query),
+          );
+    return pool.slice(0, 8);
+  }, [households, householdQuery]);
 
   React.useEffect(() => {
     if (!open) return;
+    setSubmissionKey(
+      typeof crypto !== 'undefined' && 'randomUUID' in crypto
+        ? crypto.randomUUID()
+        : String(Date.now()),
+    );
     setHouseholdId('');
+    setHouseholdQuery('');
     setOutstanding(null);
     setSelected({});
     setAmount('');
@@ -649,30 +687,64 @@ function RecordPaymentDialog({
   }, [householdId]);
 
   const invoices = outstanding?.invoices ?? [];
-  const allocations = invoices
-    .filter((invoice) => selected[invoice.id] !== undefined)
+  const selectedInvoices = invoices.filter(
+    (invoice) => selected[invoice.id] !== undefined,
+  );
+  const allocations = selectedInvoices
     .map((invoice) => ({
       invoiceId: invoice.id,
-      amount: toKobo(selected[invoice.id] ?? '0'),
+      amount: toKobo(selected[invoice.id] ?? ''),
     }))
-    .filter((allocation) => allocation.amount > 0);
+    .filter(
+      (allocation): allocation is { invoiceId: string; amount: number } =>
+        allocation.amount !== null,
+    );
+
+  // Anything ticked but unreadable, or allocated past its own balance, is a
+  // typo the operator should see before the step-up, not after the server
+  // refuses it.
+  const unreadable = selectedInvoices.length !== allocations.length;
+  const overAllocatedRow = allocations.some((allocation) => {
+    const invoice = invoices.find((row) => row.id === allocation.invoiceId);
+    return allocation.amount > (invoice?.financials?.balance ?? 0);
+  });
 
   const allocatedTotal = allocations.reduce((sum, a) => sum + a.amount, 0);
-  const receivedTotal = toKobo(amount);
+  const receivedTotal = toKobo(amount) ?? 0;
+  const amountUnreadable = amount.trim() !== '' && toKobo(amount) === null;
   const toCredit = Math.max(0, receivedTotal - allocatedTotal);
   const overAllocated = allocatedTotal > receivedTotal;
+
+  // Money with no family behind it has nowhere to sit: the server refuses it
+  // at `createFromOverpayment`, but only after the operator has completed a
+  // step-up challenge.
+  const canSubmit =
+    !!householdId &&
+    receivedTotal > 0 &&
+    !overAllocated &&
+    !overAllocatedRow &&
+    !unreadable &&
+    !amountUnreadable;
 
   const toggle = (invoice: OutstandingInvoice, on: boolean) => {
     setSelected((current) => {
       const next = { ...current };
       if (on) next[invoice.id] = fromKobo(invoice.financials?.balance ?? 0);
       else delete next[invoice.id];
+      // Keep the amount in step with what is ticked. Without this, unticking a
+      // child ("they are only paying for Chidi today") left the total at the
+      // family's full outstanding and quietly parked the difference as credit.
+      const total = Object.values(next).reduce(
+        (sum, value) => sum + (toKobo(value) ?? 0),
+        0,
+      );
+      setAmount(fromKobo(total));
       return next;
     });
   };
 
   const submit = () => {
-    if (receivedTotal <= 0 || overAllocated) return;
+    if (!canSubmit) return;
     requestStepUp(
       {
         operation: STEP_UP_OPERATION.FINANCIAL_TRANSACTIONS,
@@ -693,6 +765,9 @@ function RecordPaymentDialog({
               amount: receivedTotal,
               reference: reference.trim() || undefined,
               allocations,
+              // Same key if the operator retries after a lost response, so the
+              // family's money is not taken twice.
+              idempotencyKey: submissionKey,
               stepUpChallengeId: challengeId,
             }),
           });
@@ -736,19 +811,68 @@ function RecordPaymentDialog({
           <div className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="rp-household">Family account</Label>
-              <Select value={householdId} onValueChange={setHouseholdId}>
-                <SelectTrigger id="rp-household">
-                  <SelectValue placeholder="Choose a family…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {households.map((household) => (
-                    <SelectItem key={household.id} value={household.id}>
-                      {household.name}
-                      {household.payerName ? ` — ${household.payerName}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {selectedHousehold ? (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5">
+                  <div className="flex min-w-0 flex-col">
+                    <span className="truncate text-sm font-medium text-foreground">
+                      {selectedHousehold.name}
+                    </span>
+                    {selectedHousehold.payerName ? (
+                      <span className="truncate text-xs text-muted-foreground">
+                        {selectedHousehold.payerName}
+                      </span>
+                    ) : null}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setHouseholdId('');
+                      setHouseholdQuery('');
+                    }}
+                  >
+                    Change
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  {/* A school with 400 families cannot scroll a plain select to
+                      start its commonest money-in task. */}
+                  <Input
+                    id="rp-household"
+                    value={householdQuery}
+                    onChange={(event) => setHouseholdQuery(event.target.value)}
+                    placeholder="Search family or payer…"
+                    autoComplete="off"
+                  />
+                  <ul className="max-h-44 overflow-y-auto rounded-lg border border-border">
+                    {householdMatches.length === 0 ? (
+                      <li className="p-2.5 text-sm text-muted-foreground">
+                        No family matches “{householdQuery}”.
+                      </li>
+                    ) : (
+                      householdMatches.map((household) => (
+                        <li key={household.id}>
+                          <button
+                            type="button"
+                            className="flex w-full flex-col items-start gap-0.5 p-2.5 text-left hover:bg-accent"
+                            onClick={() => setHouseholdId(household.id)}
+                          >
+                            <span className="text-sm text-foreground">
+                              {household.name}
+                            </span>
+                            {household.payerName ? (
+                              <span className="text-xs text-muted-foreground">
+                                {household.payerName}
+                              </span>
+                            ) : null}
+                          </button>
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </>
+              )}
             </div>
 
             {loading ? (
@@ -871,6 +995,21 @@ function RecordPaymentDialog({
                   The allocations add up to more than the money received.
                 </p>
               ) : null}
+              {overAllocatedRow ? (
+                <p className="mt-2 text-warning">
+                  One of these is for more than that invoice still owes.
+                </p>
+              ) : null}
+              {amountUnreadable || unreadable ? (
+                <p className="mt-2 text-warning">
+                  Amounts are naira, digits only — e.g. 15000 or 15000.50.
+                </p>
+              ) : null}
+              {!householdId ? (
+                <p className="mt-2 text-muted-foreground">
+                  Choose the family this money belongs to.
+                </p>
+              ) : null}
             </div>
           </div>
 
@@ -878,10 +1017,7 @@ function RecordPaymentDialog({
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={submit}
-              disabled={busy || receivedTotal <= 0 || overAllocated}
-            >
+            <Button onClick={submit} disabled={busy || !canSubmit}>
               {busy ? <Loader2 className="animate-spin" /> : null} Record payment
             </Button>
           </DialogFooter>

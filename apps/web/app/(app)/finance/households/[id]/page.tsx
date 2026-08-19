@@ -89,7 +89,11 @@ export default async function HouseholdDetailPage({
   const canManage =
     session?.permissions.includes('finance.manage' as never) ?? false;
 
+  // `serverApiGet` yields null on 401/403/404 — rendering that as "₦0.00
+  // outstanding, nothing owed" states something false about a family's debt, so
+  // the card is told the read failed and says so instead.
   const accountStanding: AccountStanding = {
+    unavailable: standing == null,
     outstanding: standing?.totalOutstanding ?? 0,
     credit: standing?.availableCredit ?? 0,
     invoices: (standing?.invoices ?? []).map((invoice) => ({
