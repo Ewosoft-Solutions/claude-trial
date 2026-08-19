@@ -14,17 +14,24 @@ describe('FinanceService.listInvoices', () => {
     { client } as never, // db
     { isScoped: false } as never, // tenantDb (unscoped → uses db.client)
     { applyPoliciesToInvoice: jest.fn() } as never, // adjustments
+    { next: jest.fn() } as never, // numbering
+    { autoApplyToInvoice: jest.fn() } as never, // credits
+    { recordReceipt: jest.fn() } as never, // receipts
+    { post: jest.fn(), reverseSource: jest.fn() } as never, // ledger
   );
 
   beforeEach(() => {
     jest.clearAllMocks();
-    // gross 1000 (its one line), a 200 applied discount, 300 paid.
+    // gross 1000 (its one line), a 200 applied discount, 300 settled by an
+    // allocation — the receipt side now reaches the invoice through allocations.
     findMany.mockResolvedValue([
       {
         id: 'inv-1',
         amountPaid: 300,
         lines: [{ amount: 1000, quantity: 1 }],
         adjustments: [{ amount: 200 }],
+        allocations: [{ amount: 300 }],
+        creditApplications: [],
       },
     ]);
     count.mockResolvedValue(1);
@@ -52,6 +59,7 @@ describe('FinanceService.listInvoices', () => {
     // raw line/adjustment arrays are dropped from the row.
     expect(result.data[0]).not.toHaveProperty('lines');
     expect(result.data[0]).not.toHaveProperty('adjustments');
+    expect(result.data[0]).not.toHaveProperty('allocations');
   });
 
   it('paginates (skip/take + count) when a limit is given', async () => {

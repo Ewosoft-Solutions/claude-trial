@@ -6,6 +6,8 @@ import {
 import type { PrismaClient } from '@workspace/database';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { MakerCheckerService } from '../../auth/services/maker-checker.service';
+import { LedgerService, SYSTEM_ACCOUNT } from './ledger.service';
+import { refreshInvoiceTotals } from '../invoice-financials';
 import {
   CreateAdjustmentDto,
   CreateDiscountPolicyDto,
@@ -38,6 +40,7 @@ export class FinanceAdjustmentService {
   constructor(
     private readonly tenantDb: TenantDbService,
     private readonly makerChecker: MakerCheckerService,
+    private readonly ledger: LedgerService,
   ) {}
 
   // Tenant-scoped only (every route is `@TenantScoped()`): reads/writes go
@@ -126,7 +129,7 @@ export class FinanceAdjustmentService {
     }
 
     const now = new Date();
-    return this.client.feeAdjustment.update({
+    const applied = await this.client.feeAdjustment.update({
       where: { id: adjustmentId },
       data: {
         status: 'applied',
@@ -134,6 +137,53 @@ export class FinanceAdjustmentService {
         approvedAt: now,
         appliedAt: now,
       },
+    });
+
+    await this.postAdjustment(tenantId, applied, checker.userId);
+    return applied;
+  }
+
+  /**
+   * A discount reduces what is owed, so it has to leave the books: the money
+   * forgiven becomes an expense and the receivable falls by the same amount.
+   * The original charge is untouched — that is the whole point of recording a
+   * discount rather than editing the invoice.
+   */
+  private async postAdjustment(
+    tenantId: string,
+    adjustment: { id: string; invoiceId: string; amount: number; reason: string | null },
+    userId?: string,
+  ) {
+    if (adjustment.amount <= 0) return;
+    const { invoice } = await refreshInvoiceTotals(
+      this.client,
+      tenantId,
+      adjustment.invoiceId,
+    );
+    await this.ledger.post(tenantId, {
+      entryDate: new Date(),
+      memo: `Adjustment on invoice ${invoice.invoiceNumber}${adjustment.reason ? ` — ${adjustment.reason}` : ''}`,
+      sourceType: 'adjustment',
+      sourceId: adjustment.id,
+      postedBy: userId ?? null,
+      lines: [
+        {
+          account: SYSTEM_ACCOUNT.DISCOUNTS_ALLOWED,
+          debit: adjustment.amount,
+          description: adjustment.reason ?? 'Discount / waiver',
+          invoiceId: invoice.id,
+          householdId: invoice.householdId,
+          studentId: invoice.studentId,
+        },
+        {
+          account: SYSTEM_ACCOUNT.AR_CONTROL,
+          credit: adjustment.amount,
+          description: `Invoice ${invoice.invoiceNumber}`,
+          invoiceId: invoice.id,
+          householdId: invoice.householdId,
+          studentId: invoice.studentId,
+        },
+      ],
     });
   }
 
@@ -319,6 +369,7 @@ export class FinanceAdjustmentService {
           appliedAt: new Date(),
         },
       });
+      await this.postAdjustment(tenantId, adjustment);
       created.push(adjustment);
     }
     return created;

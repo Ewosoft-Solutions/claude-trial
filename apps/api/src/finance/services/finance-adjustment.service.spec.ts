@@ -20,6 +20,9 @@ describe('FinanceAdjustmentService', () => {
     findMany: jest.fn(),
   };
   const client = { feeInvoice, feeAdjustment, discountPolicy };
+  // The ledger is the collaborator that turns an APPLIED adjustment into a
+  // posted contra pair; here we only assert that it is asked to.
+  const ledger = { post: jest.fn() };
   const makerChecker = {
     createApprovalRequest: jest.fn(),
     approveRequest: jest.fn(),
@@ -28,6 +31,7 @@ describe('FinanceAdjustmentService', () => {
   const service = new FinanceAdjustmentService(
     { client } as never,
     makerChecker as never,
+    ledger as never,
   );
 
   const actor = { userId: 'user-1', clearanceLevel: 5 };
@@ -40,6 +44,9 @@ describe('FinanceAdjustmentService', () => {
     }));
     feeAdjustment.update.mockImplementation(async ({ where, data }: any) => ({
       id: where.id,
+      invoiceId: 'inv-1',
+      amount: 500_000,
+      reason: 'Hardship waiver',
       ...data,
     }));
     discountPolicy.create.mockImplementation(async ({ data }: any) => ({
@@ -48,6 +55,15 @@ describe('FinanceAdjustmentService', () => {
     }));
     discountPolicy.update.mockImplementation(async ({ where, data }: any) => ({
       id: where.id,
+      ...data,
+    }));
+    // `refreshInvoiceTotals` re-reads the invoice with its settlement rows
+    // before posting; give it the shape the include produces.
+    feeInvoice.update = jest.fn(async ({ where, data }: any) => ({
+      id: where.id,
+      invoiceNumber: 'INV-2026-000001',
+      householdId: null,
+      studentId: 'stu-1',
       ...data,
     }));
   });
@@ -85,8 +101,22 @@ describe('FinanceAdjustmentService', () => {
   it('applies an adjustment only when the checker approves', async () => {
     feeAdjustment.findFirst.mockResolvedValue({
       id: 'adj-1',
+      invoiceId: 'inv-1',
+      amount: 500_000,
       status: 'pending',
       approvalRequestId: 'appr-1',
+    });
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      invoiceNumber: 'INV-2026-000001',
+      status: 'issued',
+      dueDate: null,
+      householdId: null,
+      studentId: 'stu-1',
+      lines: [{ amount: 1_000_000, quantity: 1 }],
+      adjustments: [{ amount: 500_000 }],
+      allocations: [],
+      creditApplications: [],
     });
     makerChecker.approveRequest.mockResolvedValue({ approved: true });
 
@@ -107,6 +137,13 @@ describe('FinanceAdjustmentService', () => {
       status: 'applied',
       approvedBy: 'user-2',
     });
+    // …and the money forgiven leaves the books as a balanced contra pair.
+    const posted = ledger.post.mock.calls[0][1];
+    expect(posted.sourceType).toBe('adjustment');
+    expect(posted.lines).toEqual([
+      expect.objectContaining({ account: 'discounts_allowed', debit: 500_000 }),
+      expect.objectContaining({ account: 'ar_control', credit: 500_000 }),
+    ]);
   });
 
   it('does not apply when the maker-checker rejects the approval', async () => {
@@ -141,11 +178,18 @@ describe('FinanceAdjustmentService', () => {
   it('auto-applies active policies: fixed capped at base, percent of the matching item', async () => {
     feeInvoice.findFirst.mockResolvedValue({
       id: 'inv-1',
+      invoiceNumber: 'INV-2026-000001',
+      status: 'issued',
+      dueDate: null,
+      householdId: null,
+      studentId: 'stu-1',
       lines: [
         { feeItemId: 'tuition', amount: 1_000_000, quantity: 1 },
         { feeItemId: 'bus', amount: 200_000, quantity: 1 },
       ],
       adjustments: [],
+      allocations: [],
+      creditApplications: [],
     });
     discountPolicy.findMany.mockResolvedValue([
       {
