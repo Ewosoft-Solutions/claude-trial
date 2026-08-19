@@ -130,6 +130,27 @@ _The immutable result-publication layer over the day-to-day gradebook. Parity jo
 
 **Workbench-4 acceptance:** a term's results are configured, captured (keyed **or imported from a spreadsheet**, with absent ≠ zero preserved through the import), validated for completeness, moderated, and published by a **second approver** as an immutable, checksum-addressed snapshot with a report card per student and a section broadsheet; a correction after publication is an **amendment** that supersedes rather than overwrites; a family's result can be **reproduced and explained** months later from the snapshot alone; a student's **transcript** across years reads only from published snapshots; result visibility is gated only by an explicit, audited `FinancialHold`.
 
+## Workbench 5 — Family Account + Finance (ADR-05 subledger + ADR-10 internal GL)
+
+_The receivables subledger a school actually runs on — itemised bills, family-level payment, real outstanding balances — and the double-entry backbone underneath it that makes the books auditor-grade. Parity jobs 77–87, 95 (matrix 07 §Finance & accounting). Deps ADR-05 ✓ + ADR-10 ✓ (owner chose **build an internal GL and integrate**), F2 ✓, WB1-6 maker-checker ✓._
+
+**Release-1 cut line (ADR-10 sequencing):** receivables subledger + manual/off-app receipts + **double-entry journal posting** + trial balance + reconciliation to control totals + an accounting **export** adapter. Payroll, AP/expense, budgets, period close and the full statement surface are the fast-follow workbench; a live payment-gateway integration waits on an owner decision (WB5-7).
+
+| ID    | Title                                                                                                                                                                                     | #            | Effort | Deps          | Owner  | Status  |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------ | ------------- | ------ | ------- |
+| WB5-1 | **Itemised invoices + adjustments** (P1) — fee-item catalogue, invoice lines, discount policies + discretionary adjustments through maker-checker, **derived** balances                    | #77,#78      | L      | F2            | claude | done    |
+| WB5-2 | **Billing households** (P2) — the durable family account: temporal membership + payers, auto-derived from guardian clusters, operator merge                                                | #79 (part)   | M      | WB5-1         | claude | done    |
+| WB5-3 | **Receipts + allocations** (P3) — a receipt is money *received*, allocated across many invoices/siblings; family checkout; gap-aware, never-reused **receipt numbering** + reprint audit   | #80,#82,#95  | L      | WB5-2         | claude | claimed |
+| WB5-4 | **Unapplied credit** (P4) — overpayment parks as an AR **credit balance** on the household (never stored value), auto-applied to the next invoice; cash refunds stay deferred              | #81          | M      | WB5-3         | claude | claimed |
+| WB5-5 | **Double-entry GL backbone** (ADR-10) — chart of accounts, journal entries/lines, accounting periods; every receivables event posts a **balanced** entry; trial balance; contra reversals   | #87,#95      | L      | WB5-3         | claude | claimed |
+| WB5-6 | **Collections + reconciliation** — daily collection, outstanding **aging**, subledger-vs-GL control-total reconciliation, and the accounting **export** adapter (ADR-12, never credentials) | #103 (finance) | M    | WB5-5         | claude | claimed |
+| WB5-7 | **Payment gateway + idempotent webhooks** — signed adapter, settlement into the school's own account                                                                                       | #85          | M      | WB5-3         | —      | blocked |
+| WB5-8 | **Opening-balance import** — brought-forward debt as invoices/credits with source refs                                                                                                     | #91 (C091)   | M      | WB7 cockpit   | —      | backlog |
+
+**WB5-7 is blocked on the owner, not on code:** which gateway (Paystack / Flutterwave / other) the design partners use, and the webhook signing secret + merchant account for each environment. The ingestion shape is provider-specific and the secret is boot-required, so building it against a guessed provider would be throwaway work.
+
+**Workbench-5 acceptance:** a parent pays **once** for two siblings and the receipt shows exactly which invoice each naira settled; a part-payment leaves a real outstanding balance that a later payment or an approved waiver finishes; an overpayment becomes **credit**, not income, and lands on the next invoice; an approved discount changes the outstanding balance but never the original charge, and is undone only by a reversal; **every** one of those events has a balanced journal entry behind it, the trial balance nets to zero, and the AR control account agrees with the sum of open invoices to the naira.
+
 ## Later workbenches (outlined in [`BACKLOG.md`](BACKLOG.md); detailed just-in-time)
 
 | ID      | Workbench                                                                                       | Phase | Blocked on                              |
@@ -137,7 +158,7 @@ _The immutable result-publication layer over the day-to-day gradebook. Parity jo
 | WB2-\*  | Academic structure + student lifecycle — **detailed above; WB2-1..WB2-4 all `done` (complete)** | 2B    | ✓ done (#68/#71/#72)                    |
 | WB3-\*  | Admissions                                                                                      | 2C    | F1, F4, F5, WB1                         |
 | WB4-\*  | Results parity (ResultCycle) — **detailed above; WB4-1 `done` (#83)**                           | 2D    | ✓ unblocked (F6 ✓, WB2 ✓)               |
-| WB5-\*  | Family Account + Finance (**+ internal GL, ADR-10** — expect split)                             | 2E    | ADR-05 ✓, F2 done; +GL surface (ADR-10) |
+| WB5-\*  | Family Account + Finance (**+ internal GL, ADR-10**) — **detailed above; WB5-1/5-2 `done`, 5-3..5-6 claimed, 5-7 blocked on the owner** | 2E    | ✓ unblocked (ADR-05/ADR-10, F2)         |
 | WB6-\*  | Engagement + operational reporting                                                              | 2F    | F5, F9                                  |
 | WB7-\*  | Migration cockpit                                                                               | 2G    | F2/F4 done, ADR-09 ✓                    |
 | WB8-\*  | Daily-work superiority (teacher today, class workspace)                                         | 3     | WB1–4                                   |
