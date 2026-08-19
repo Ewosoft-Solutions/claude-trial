@@ -37,7 +37,7 @@ export default async function PersonDocumentsPage({
             {docs.recent.map((d) => (
               <div
                 key={d.id}
-                className="flex items-center gap-3 rounded-lg border border-border bg-card/40 p-3 text-sm"
+                className="flex items-center gap-3 rounded-lg border border-border bg-card p-3 text-sm"
               >
                 <FileText
                   className="size-4 shrink-0 text-muted-foreground"

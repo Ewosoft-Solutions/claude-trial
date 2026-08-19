@@ -199,11 +199,11 @@ export function StaffEmploymentPanel({
     >
       {loading ? (
         <div
-          className="h-24 animate-pulse rounded-lg border border-border bg-card/40"
+          className="h-24 animate-pulse rounded-lg border border-border bg-card"
           aria-hidden
         />
       ) : error ? (
-        <div className="rounded-lg border border-border bg-card/40 p-4 text-sm">
+        <div className="rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">
             Could not load employment records.
           </p>
@@ -230,7 +230,7 @@ export function StaffEmploymentPanel({
           ))}
         </div>
       ) : (
-        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-4">
+        <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
           <p className="text-sm text-muted-foreground">
             No employment record yet — this person is not managed as staff.
           </p>
@@ -265,7 +265,7 @@ function EmploymentCard({
 }) {
   const ended = row.employmentStatus === 'terminated';
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card/40 p-4">
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2 font-medium text-foreground">
           <Briefcase className="size-4 text-muted-foreground" aria-hidden />

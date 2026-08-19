@@ -67,7 +67,7 @@ export default async function PersonAcademicsPage({
                 {a.currentClasses.map((c) => (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-3 text-sm"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 text-sm"
                   >
                     <div className="min-w-0">
                       <div className="truncate font-medium text-foreground">
