@@ -10,7 +10,6 @@
   "src/attendance/services/attendance.service.ts",
   "src/communication/services/communication.service.ts",
   "src/events/services/events.service.ts",
-  "src/finance/services/finance.service.ts",
   "src/health/services/health.service.ts",
   "src/hr/services/hr.service.ts",
   "src/library/services/library.service.ts",

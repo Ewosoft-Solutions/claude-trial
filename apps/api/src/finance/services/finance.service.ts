@@ -325,7 +325,10 @@ export class FinanceService {
     // looked mid-flight — a caller that just issued can otherwise be told
     // `issued` when held credit has already settled it.
     if (isBeingIssued || isBeingCancelled) {
-      return this.client.feeInvoice.findFirst({ where: { id, tenantId } });
+      const settled = await this.client.feeInvoice.findFirst({
+        where: { id, tenantId },
+      });
+      return settled ?? updated;
     }
     return updated;
   }

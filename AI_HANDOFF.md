@@ -4,6 +4,43 @@ Last Updated: 2026-08-19
 
 ---
 
+## Session Summary (2026-08-19, pt. 2) — Claude: independent review of WB5 → CHANGES-REQUESTED (7 major) → all fixed and re-verified
+
+**Item(s):** WB5-3..5-6 stay `in-review` (now review-corrected). **Branch:** `feat/wb5-finance-subledger-gl`.
+
+**What the review found, and why each one mattered**
+
+A reviewer with no stake in the branch traced the paths the happy-path e2e never walks. Every major finding ended the same way — the AR control account permanently disagreeing with the invoices, with no self-healing.
+
+- **Admission-fee billing opened the books after writing the invoice**, counting that bill twice. This is the same ordering defect pt. 1 records fixing; it applied in a second place and was missed there. Fixed, and the invariant is now written down in `docs/finance-posting-rules.md` rather than living in one comment.
+- **Issuing was not a state transition.** `PATCH {status:'issued'}` on an already part-paid invoice re-posted the charge, re-applied every standing discount policy and re-drew the family's held credit. Issuing is now draft-only.
+- **An approved waiver was bounded by nothing** — not by the invoice's status, not by what it still owed. Waiving past the balance credits receivables below zero while the subledger balance floors at zero, and the family is owed money that exists in no account. Now bounded at request **and re-checked at approval**, because the balance moves while an approval waits.
+- **Cancelling reversed only the charge.** Any approved waiver posted against the invoice stayed in the books, and an invoice billed *before* the ledger opened had no charge entry to reverse at all — the common case for a school that upgrades. Cancelling now withdraws everything posted against the invoice, including an explicit opening-equity withdrawal for the pre-ledger case.
+- **Two cashiers could over-settle the same invoice** (and two draws could over-spend the same credit): under READ COMMITTED both read the same balance, both passed the check, both wrote. The writers now take a `SELECT … FOR UPDATE` row lock *before* reading a balance (`apps/api/src/finance/finance-locks.ts`, ids sorted to avoid deadlocking two family checkouts against each other).
+- **Two readers could each post the opening balance** — a bursar with `/finance/ledger` open in one tab and `/finance/reports` in another. The trial balance cannot detect that, because both entries balance. A **partial unique index** now makes one-opening-per-tenant a database fact.
+- **The generic journal reversal could be pointed at a receipt**, withdrawing the money from the books while the allocation row stood — the invoice would still read `paid` with no cash behind it. Subledger-sourced entries are refused there; corrections go through the writer that owns both sides.
+
+**Minors worth naming:** invoice **lines were editable after issue** with no posting, no step-up and no audit — a step-up-free way to change what a family owes, while the posting-rules doc claimed the ledger had one writer. Lines are now fixed once issued. The journal export is audited and bounded (20k entries, and it says so in the file rather than truncating silently). `financial.journal.reverse` declared clearance 5 while its permission seeds at 7. Past-due now outranks part-paid in the derived status. `heldAsCredit` on the collections report was renamed `unallocated` — it was the unallocated total at receipt time, not the credit balance held today, and it sat next to a card reporting the real one.
+
+**New database backstops** (migration `20260819160000_wb5_ledger_integrity_constraints`): the opening-entry partial unique index, plus CHECK constraints — a journal line is one-sided and non-negative, money rows are positive, and a credit can never be drawn below zero or above what was received. The posting service enforced all of these already; that is an argument for keeping the rules right, not for leaving the database willing to store a book that cannot be true.
+
+**Verification**
+
+- api unit **858** (+26 route-guard assertions that pin every finance route's permission + step-up declaration — the unauthorized-scope gap DoD §5 requires and the review named; +9 behavioural)
+- **finance e2e 16/16 on real pg** — five new cases pin the fixes, including "cancelling withdraws the charge *and* the waiver posted against it, and all three control totals still agree"
+- **full e2e 33 suites / 240 tests, 0 failures** · `pnpm ci:quick` ✔ · `db:rls:check` ✔ · `db:verify` ✔
+- `check:privileged-db` ✔ **and the baseline improved 28 → 27**: `FinanceService` no longer injects the privileged client at all. Its fallback (`isScoped ? tenantDb : db`) had become a trap — every collaborator it now calls requires the request transaction and throws without one, so an unscoped caller would have half-written.
+
+**Next step**
+
+- Push + PR, then merge → WB5-3..5-6 `done`. The owner decision on the gateway (WB5-7) is still the only thing blocking the rest of the workbench.
+
+**Gotcha worth keeping**
+
+- **"The service is the only writer" is a convention until the database agrees.** Three of the seven majors were reachable only because a rule lived solely in application code — the opening-balance uniqueness, the one-sided journal line, and the bounded credit. Where an invariant is cheap to express as an index or a CHECK, express it there too; the code comment and the constraint are not redundant, they fail at different times.
+
+---
+
 ## Session Summary (2026-08-19) — Claude: WB5 finance built to the ADR-10 Release-1 cut line (receipts+allocations · credit · double-entry ledger · reconciliation)
 
 **Item(s):** **WB5-3 · WB5-4 · WB5-5 · WB5-6** → `in-review` (WB5-1/5-2 were already `done`). **Branch:** `feat/wb5-finance-subledger-gl` (from `main` @ `078ae45`). No PR opened yet.
