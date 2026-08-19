@@ -36,7 +36,7 @@ Last Updated: 2026-08-19
 
 **Next step**
 
-- Merge decision. Three review rounds by two independent reviewers, 21 real defects, all fixed and pinned. WB5-7 (gateway) remains owner-gated.
+- **Pushed; [PR #129](https://github.com/Ewosoft-Solutions/claude-trial/pull/129) is open against `main`** (19 commits, 86 files). Watch CI, then merge → WB5-3..5-6 `done`. After the merge the **API must be restarted**, not merely redeployed against: the sensitive-operation catalogue is compiled in from `packages/database`, so a stale process rejects `financial.period.close` / `financial.journal.reverse` (this is exactly how the stale dev API surfaced during hand-testing). WB5-7 (gateway) remains owner-gated.
 
 **Gotcha worth keeping**
 
