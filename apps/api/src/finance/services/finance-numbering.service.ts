@@ -55,11 +55,22 @@ export class FinanceNumberingService {
     // Create-if-absent, then increment. Both statements run in the caller's
     // transaction, so the row lock the UPDATE takes is what serialises
     // concurrent issuers.
-    await this.client.financeNumberSequence.upsert({
-      where: { tenantId_kind_scopeKey: { tenantId, kind, scopeKey } },
-      create: { tenantId, kind, scopeKey, prefix, nextValue: 1 },
-      update: {},
-    });
+    // `upsert` still races two first-of-the-year requests against the unique
+    // index; the loser's row already exists, which is all we needed.
+    try {
+      await this.client.financeNumberSequence.upsert({
+        where: { tenantId_kind_scopeKey: { tenantId, kind, scopeKey } },
+        create: { tenantId, kind, scopeKey, prefix, nextValue: 1 },
+        update: {},
+      });
+    } catch (error) {
+      if (
+        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+        error.code !== 'P2002'
+      ) {
+        throw error;
+      }
+    }
 
     const rows = await this.client.$queryRaw<{ next_value: number }[]>`
       UPDATE "finance"."finance_number_sequences"

@@ -53,13 +53,19 @@ export class FinanceReceiptService {
     if (query.householdId) where.householdId = query.householdId;
     if (query.status) where.status = query.status;
     if (query.method) where.method = query.method;
-    if (query.invoiceId) {
-      where.allocations = { some: { invoiceId: query.invoiceId } };
-    }
+    // Both filters reach the receipt through its allocations, so they have to
+    // be ANDed rather than one overwriting the other.
+    const throughAllocations: Prisma.PaymentAllocationWhereInput[] = [];
+    if (query.invoiceId) throughAllocations.push({ invoiceId: query.invoiceId });
     if (query.studentId) {
-      where.allocations = {
-        some: { invoice: { studentId: query.studentId } },
-      };
+      throughAllocations.push({ invoice: { studentId: query.studentId } });
+    }
+    if (throughAllocations.length === 1) {
+      where.allocations = { some: throughAllocations[0]! };
+    } else if (throughAllocations.length > 1) {
+      where.AND = throughAllocations.map((clause) => ({
+        allocations: { some: clause },
+      }));
     }
     if (query.from || query.to) {
       where.paidAt = {
