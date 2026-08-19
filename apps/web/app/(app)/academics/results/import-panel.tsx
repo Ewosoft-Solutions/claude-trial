@@ -24,6 +24,7 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
 import { apiGet, apiPost } from './results-api';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 interface ImportIssue {
   row: number;
@@ -237,10 +238,15 @@ export function ImportPanel({
                   : `${report.errors.length} problem(s)`}
             </StatusBadge>
             <span className="text-muted-foreground">
-              {report.matchedRows} of {report.dataRows} row(s) matched ·{' '}
-              {report.scores} score(s) · {report.absent} absent ·{' '}
-              {report.exempt} exempt · {report.blank} blank cell(s) left
-              untouched
+              {report.matchedRows} of {report.dataRows} row(s) matched
+              <Dot />
+              {report.scores} score(s)
+              <Dot />
+              {report.absent} absent
+              <Dot />
+              {report.exempt} exempt
+              <Dot />
+              {report.blank} blank cell(s) left untouched
             </span>
           </div>
           {report.componentColumns.length > 0 && (

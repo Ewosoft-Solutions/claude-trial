@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 import {
   INTERVIEW_KINDS,
@@ -145,7 +146,9 @@ function InterviewRow({
             {iv.title || defaultTitle(iv.kind)}
           </span>
           <span className="text-xs capitalize text-muted-foreground">
-            {iv.kind} · {MODE_LABEL[iv.mode] ?? iv.mode}
+            {iv.kind}
+            <Dot />
+            {MODE_LABEL[iv.mode] ?? iv.mode}
             {iv.scheduledFor ? ` · ${fmtDateTime(iv.scheduledFor)}` : ''}
           </span>
         </div>

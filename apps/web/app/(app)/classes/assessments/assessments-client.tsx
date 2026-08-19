@@ -51,6 +51,7 @@ import { NoticeBanner } from '@workspace/ui/custom/states/notice-banner';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { cn } from '@workspace/ui/lib/utils';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 interface AssessmentDraft {
   name: string;
@@ -687,8 +688,11 @@ export function AssessmentsClient({
                   <div>
                     <h2 className="text-lg font-semibold">{selected.name}</h2>
                     <p className="text-sm text-muted-foreground">
-                      {selected.type} · {selected.maxPoints} points · Due{' '}
-                      {formatDate(selected.dueDate)}
+                      {selected.type}
+                      <Dot />
+                      {selected.maxPoints} points
+                      <Dot />
+                      Due {formatDate(selected.dueDate)}
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">

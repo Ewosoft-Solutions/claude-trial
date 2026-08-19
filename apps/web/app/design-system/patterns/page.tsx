@@ -17,6 +17,7 @@ import { WorkbenchLayout } from '@workspace/ui/custom/workbench/workbench-layout
 import { LifecycleBar } from '@workspace/ui/custom/lifecycle/lifecycle-bar';
 import { PolicyVersionPanel } from '@workspace/ui/custom/policy/policy-version-panel';
 import { ApprovalPanel } from '@workspace/ui/custom/approval/approval-panel';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 import type {
   LifecycleStep,
   PolicyVersion,
@@ -174,7 +175,8 @@ export default function PatternsPage() {
             onTabChange={setPeopleTab}
           >
             <TabPanel>
-              People · “{peopleTab}” section content goes here.
+              People
+              <Dot />“{peopleTab}” section content goes here.
             </TabPanel>
           </WorkbenchLayout>
 
@@ -196,7 +198,8 @@ export default function PatternsPage() {
             onTabChange={setAcadTab}
           >
             <TabPanel>
-              Academics · “{acadTab}” section content goes here.
+              Academics
+              <Dot />“{acadTab}” section content goes here.
             </TabPanel>
           </WorkbenchLayout>
         </div>

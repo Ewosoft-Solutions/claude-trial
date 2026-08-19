@@ -53,6 +53,7 @@ import {
 } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export interface SubjectOption {
   id: string;
@@ -380,7 +381,8 @@ export function LessonLibraryClient({
             <>
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
-                  {lessons.length} lesson{lessons.length === 1 ? '' : 's'} ·{' '}
+                  {lessons.length} lesson{lessons.length === 1 ? '' : 's'}
+                  <Dot />
                   {chapters.length} chapter{chapters.length === 1 ? '' : 's'}
                 </p>
                 <SegmentedControl

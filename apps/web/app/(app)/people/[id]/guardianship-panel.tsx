@@ -72,7 +72,7 @@ function PersonAvatar({
 /** Avatar + name + subtitle chip — a "who am I looking at" confirmation row. */
 function PersonIdentity({ name, sub }: { name: string; sub?: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg border border-border bg-card/40 p-2.5">
+    <div className="flex items-center gap-3 rounded-lg border border-border bg-card p-2.5">
       <PersonAvatar name={name} className="size-9 shrink-0" />
       <div className="flex min-w-0 flex-col">
         <span className="truncate text-sm font-medium capitalize text-foreground">
@@ -247,11 +247,11 @@ export function GuardianshipPanel({
     >
       {loading ? (
         <div
-          className="h-20 animate-pulse rounded-lg border border-border bg-card/40"
+          className="h-20 animate-pulse rounded-lg border border-border bg-card"
           aria-hidden
         />
       ) : error ? (
-        <div className="rounded-lg border border-border bg-card/40 p-4 text-sm">
+        <div className="rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">Could not load guardianships.</p>
           <Button
             variant="outline"
@@ -354,7 +354,7 @@ function GuardRow({
   ).filter((k) => g.consent[k]);
 
   return (
-    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-3">
+    <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
       <div className="flex items-start gap-3">
         <PersonAvatar name={name} className="mt-0.5 size-9 shrink-0" />
         <div className="flex min-w-0 flex-1 flex-col gap-2">
@@ -642,7 +642,7 @@ function AddGuardianDialog({
         </DialogHeader>
 
         {guardian ? (
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5">
+          <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2.5">
             <div className="flex min-w-0 items-center gap-2.5">
               <PersonAvatar name={guardian.name} className="size-8 shrink-0" />
               <span className="truncate text-sm font-medium capitalize text-foreground">
@@ -790,7 +790,7 @@ function PersonSearch({
                 <button
                   type="button"
                   onClick={() => onPick(r)}
-                  className="flex w-full items-center gap-2.5 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40"
+                  className="flex w-full items-center gap-2.5 rounded-md border border-border bg-card px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent"
                 >
                   <PersonAvatar name={r.name} className="size-7 shrink-0" />
                   <span className="truncate capitalize">{r.name}</span>

@@ -39,6 +39,7 @@ import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout'
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export type Mark = 'present' | 'absent' | 'late' | 'excused';
 
@@ -363,7 +364,9 @@ export function DailyRegisterClient({
           footer={
             <span>
               <strong className="text-foreground">{students.length}</strong>{' '}
-              pupils · register for {date}
+              pupils
+              <Dot />
+              register for {date}
             </span>
           }
           emptyState={

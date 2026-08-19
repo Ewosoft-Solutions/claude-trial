@@ -57,6 +57,7 @@ import {
   SheetTrigger,
 } from '@workspace/ui/components/sheet';
 import { useIsMobile, useMediaQuery } from '@workspace/ui/hooks/use-mobile';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export interface ToolbarFilterOption {
   value: string;
@@ -256,7 +257,10 @@ export function DirectoryToolbar({
             <>
               {view.name}
               {view.shared ? (
-                <span className="text-muted-foreground"> · shared</span>
+                <span className="text-muted-foreground">
+                  <Dot />
+                  shared
+                </span>
               ) : null}
             </>
           }

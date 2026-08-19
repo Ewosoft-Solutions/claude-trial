@@ -33,6 +33,7 @@ import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 
 import { DEFAULT_PAGE_SIZE, savePageSizePreference } from '@/lib/page-size';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { Separated } from '@workspace/ui/custom/data-display/dot';
 
 import { PEOPLE_TYPES, TAB_LABEL, type PeopleType } from './people-config';
 import { PersonDetailDrawer } from './person-detail-drawer';
@@ -184,7 +185,9 @@ function NameCell({ row }: { row: PeopleRow }) {
         </span>
         {row.profiles.length > 0 ? (
           <span className="break-words text-xs text-muted-foreground">
-            {row.profiles.map((p) => PROFILE_LABEL[p]).join(' · ')}
+            <Separated
+              text={row.profiles.map((p) => PROFILE_LABEL[p]).join(' · ')}
+            />
           </span>
         ) : null}
       </div>

@@ -60,6 +60,11 @@ const PROFILE_ICON: Record<ProfileKind, React.ReactNode> = {
 // other surfaces (Admissions…) share them; re-exported here so the People
 // drawer + profile tabs keep importing them from this module.
 export { DetailGrid, Field, Section, StatTiles };
+// The separator dot now lives with the other display primitives; re-exported
+// so the drawer + profile tabs keep importing it from this module.
+import { Dot, Separated } from '@workspace/ui/custom/data-display/dot';
+
+export { Dot, Separated };
 
 /* ---- Header ------------------------------------------------------------- */
 
@@ -148,7 +153,7 @@ export function ContactList({
     return <p className="text-sm text-muted-foreground">No contact on file.</p>;
   }
   return (
-    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card/40 p-3">
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-card p-3">
       {points.map((p, i) => (
         <ContactRow
           key={`${p.kind}-${i}`}
@@ -169,8 +174,11 @@ export function ContactList({
               }
               dot
             >
-              {pref.channel}
-              {pref.isDnd ? ' · DND' : pref.optedIn ? '' : ' · off'}
+              <Separated
+                text={`${pref.channel}${
+                  pref.isDnd ? ' · DND' : pref.optedIn ? '' : ' · off'
+                }`}
+              />
             </StatusBadge>
           ))}
         </div>
@@ -232,9 +240,13 @@ export function IdentityFields({ detail }: { detail: PersonDetail }) {
       <Field
         label="Date of birth"
         value={
-          detail.dateOfBirth
-            ? `${formatDate(detail.dateOfBirth)}${age != null ? ` · ${age}y` : ''}`
-            : null
+          detail.dateOfBirth ? (
+            <Separated
+              text={`${formatDate(detail.dateOfBirth)}${
+                age != null ? ` · ${age}y` : ''
+              }`}
+            />
+          ) : null
         }
       />
       <Field
@@ -351,7 +363,7 @@ export function RelationRow({
     </>
   );
   const className =
-    'flex items-center gap-2.5 rounded-lg border border-border bg-card/40 p-2.5 text-left transition-colors hover:border-ring/60 hover:bg-accent/40';
+    'flex items-center gap-2.5 rounded-lg border border-border bg-card p-2.5 text-left transition-colors hover:border-ring/60 hover:bg-accent';
   if (href) {
     return (
       <Link href={href} className={className}>

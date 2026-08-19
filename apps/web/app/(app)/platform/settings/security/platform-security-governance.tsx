@@ -35,6 +35,7 @@ import {
 } from '@/lib/security-governance';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { StepUpPrompt } from '../../../_shared/step-up-prompt';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 type PolicyPatch = Pick<
   SensitiveOperationPolicy,
@@ -254,7 +255,9 @@ export function PlatformSecurityGovernance() {
                       </StatusBadge>
                       {policy.requiresStepUp ? (
                         <Badge variant="secondary">
-                          Step-up · {policy.freshnessMinutes}m
+                          Step-up
+                          <Dot />
+                          {policy.freshnessMinutes}m
                         </Badge>
                       ) : null}
                       {policy.requiresMakerChecker ? (

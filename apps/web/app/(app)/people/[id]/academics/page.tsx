@@ -1,6 +1,6 @@
 import { getPersonDetail } from '../get-detail';
 import { PersonProfileShell, ProfileMissing } from '../profile-shell';
-import { Section, StatTiles } from '../../person-detail-ui';
+import { Section, Separated, StatTiles } from '../../person-detail-ui';
 import { humanize } from '../../person-detail.types';
 
 export default async function PersonAcademicsPage({
@@ -67,16 +67,18 @@ export default async function PersonAcademicsPage({
                 {a.currentClasses.map((c) => (
                   <div
                     key={c.id}
-                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-3 text-sm"
+                    className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 text-sm"
                   >
                     <div className="min-w-0">
                       <div className="truncate font-medium text-foreground">
                         {c.name}
                       </div>
                       <div className="truncate text-xs text-muted-foreground">
-                        {[c.term, humanize(c.status)]
-                          .filter(Boolean)
-                          .join(' · ')}
+                        <Separated
+                          text={[c.term, humanize(c.status)]
+                            .filter(Boolean)
+                            .join(' · ')}
+                        />
                       </div>
                     </div>
                     {c.finalGrade ? (

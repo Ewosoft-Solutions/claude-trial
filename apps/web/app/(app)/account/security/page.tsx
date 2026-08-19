@@ -50,6 +50,7 @@ import { STEP_UP_OPERATION } from '@/lib/step-up';
 import type { BiometricEnrollmentPolicy } from '@/lib/security-governance';
 import { useViewer } from '@/app/providers/viewer-provider';
 import { StepUpPrompt } from '../../_shared/step-up-prompt';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 interface BiometricDevice {
   id: string;
@@ -469,8 +470,9 @@ export default function SecuritySettingsPage() {
                         </span>
                         <span className="text-xs text-muted-foreground">
                           {device.provider ? `${device.provider} · ` : ''}Added{' '}
-                          {formatDate(device.createdAt)} · Last used{' '}
-                          {formatDate(device.lastUsedAt)}
+                          {formatDate(device.createdAt)}
+                          <Dot />
+                          Last used {formatDate(device.lastUsedAt)}
                         </span>
                       </div>
                       <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-2">

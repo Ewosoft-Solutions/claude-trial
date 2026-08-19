@@ -28,6 +28,7 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { FormBuilder } from '@workspace/ui/custom/forms/form-builder';
 import { cn } from '@workspace/ui/lib/utils';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 import {
   DISPLAY_ITEM_TYPES,
   type FormDefinition,
@@ -313,7 +314,8 @@ export function FormsBuilder({
                       </span>
                       <span className="mt-1.5 block text-[11px] text-muted-foreground">
                         {sectionCount(v.definition)} section
-                        {sectionCount(v.definition) === 1 ? '' : 's'} ·{' '}
+                        {sectionCount(v.definition) === 1 ? '' : 's'}
+                        <Dot />
                         {questionCount(v.definition)} question
                         {questionCount(v.definition) === 1 ? '' : 's'}
                       </span>

@@ -139,11 +139,11 @@ export function AccountAccessPanel({
     <Section title="Account &amp; access">
       {loading ? (
         <div
-          className="h-24 animate-pulse rounded-lg border border-border bg-card/40"
+          className="h-24 animate-pulse rounded-lg border border-border bg-card"
           aria-hidden
         />
       ) : error ? (
-        <div className="rounded-lg border border-border bg-card/40 p-4 text-sm">
+        <div className="rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">Could not load account state.</p>
           <Button
             variant="outline"
@@ -179,7 +179,7 @@ function AccountBody({
 }) {
   if (!state.hasAccount) {
     return (
-      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card/40 p-4">
+      <div className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
         <p className="text-sm text-muted-foreground">
           This person has no login yet.
         </p>
@@ -210,7 +210,7 @@ function AccountBody({
     : (state.status ?? 'unknown');
 
   return (
-    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card/40 p-4">
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-card p-4">
       <div className="flex flex-wrap items-center gap-2">
         <StatusBadge tone={tone} dot>
           {statusLabel}

@@ -25,6 +25,7 @@ import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 export interface AttendanceRow {
   id: string;
@@ -88,7 +89,9 @@ export function StudentAttendanceClient({ rows }: Props) {
               {r.name}
             </span>
             <span className="break-words text-xs text-muted-foreground">
-              {r.id} · {r.className}
+              {r.id}
+              <Dot />
+              {r.className}
             </span>
           </div>
         </div>

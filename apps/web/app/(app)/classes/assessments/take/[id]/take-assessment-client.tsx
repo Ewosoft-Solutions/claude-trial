@@ -28,6 +28,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { cn } from '@workspace/ui/lib/utils';
 import { authedFetch } from '@/lib/authed-fetch';
 import { useSessionActivityMode } from '@/app/providers/session-lifecycle-provider';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 type Answers = Record<string, string>;
 
@@ -415,7 +416,9 @@ export function TakeAssessmentClient({
                   <div className="mb-3 flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-xs font-semibold text-muted-foreground">
-                        Question {index + 1} · {row.points} point
+                        Question {index + 1}
+                        <Dot />
+                        {row.points} point
                         {Number(row.points) === 1 ? '' : 's'}
                       </p>
                       {row.question.instruction ? (

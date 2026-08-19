@@ -36,9 +36,6 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
-  SheetHeader,
-  SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
@@ -50,6 +47,11 @@ import {
   type DirectoryColumn,
 } from '@workspace/ui/custom/tables/directory-table';
 import type { StatItem } from '@workspace/ui/types/layout.types';
+import {
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
@@ -506,12 +508,12 @@ function EntryDrawer({
     <>
       <Sheet open={!!entry} onOpenChange={(open) => !open && onClose()}>
         <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
-          <SheetHeader>
-            <SheetTitle>{entry?.entryNumber ?? 'Journal entry'}</SheetTitle>
+          <DrawerHeader>
+            <DrawerTitle>{entry?.entryNumber ?? 'Journal entry'}</DrawerTitle>
             <SheetDescription>
               {entry?.memo ?? 'The two sides of this entry'}
             </SheetDescription>
-          </SheetHeader>
+          </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto px-4 pb-4">
             <table className="w-full text-sm">
@@ -559,7 +561,7 @@ function EntryDrawer({
             ) : null}
           </div>
 
-          <SheetFooter className="flex-row justify-end gap-2 border-t border-border">
+          <DrawerFooter className="flex-row justify-end gap-2">
             <Button variant="outline" size="sm" onClick={onClose}>
               Close
             </Button>
@@ -569,7 +571,7 @@ function EntryDrawer({
                 Reverse
               </Button>
             ) : null}
-          </SheetFooter>
+          </DrawerFooter>
         </SheetContent>
       </Sheet>
       {stepUpPrompt}

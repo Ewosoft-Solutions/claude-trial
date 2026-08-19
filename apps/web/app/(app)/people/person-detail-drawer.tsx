@@ -15,17 +15,20 @@ import * as React from 'react';
 import Link from 'next/link';
 import { ExternalLink, Loader2, Mail } from 'lucide-react';
 
-import { cn } from '@workspace/ui/lib/utils';
 import { Button } from '@workspace/ui/components/button';
 import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetFooter,
-  SheetHeader,
   SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { ErrorState } from '@workspace/ui/custom/states/page-states';
+import { DrawerTabs } from '@workspace/ui/custom/detail/drawer-tabs';
+import {
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import type { PeopleType } from './people-config';
 import {
@@ -40,6 +43,7 @@ import {
 import { AvatarLightbox } from './avatar-lightbox';
 import {
   FlagChips,
+  Separated,
   PersonOverview,
   PersonPeople,
   ProfileChips,
@@ -105,6 +109,7 @@ export function PersonDetailDrawer({
 
   const busy = loading || (!detail && !error);
   const tabs = detail ? availableTabs(detail) : [];
+  const hasTabs = tabs.length > 1;
 
   return (
     <Sheet open={personId !== null} onOpenChange={onOpenChange}>
@@ -125,46 +130,39 @@ export function PersonDetailDrawer({
           </div>
         ) : (
           <>
-            <SheetHeader className="gap-3 border-b border-border px-5 pb-4 pt-5">
+            <DrawerHeader flush={hasTabs}>
               <div className="flex items-center gap-3 pr-8">
                 <AvatarLightbox name={detail.name} />
                 <div className="min-w-0">
-                  <SheetTitle className="truncate font-display text-[calc(22px*var(--font-scale))] font-semibold capitalize leading-tight">
+                  <DrawerTitle className="capitalize">
                     {detail.name}
-                  </SheetTitle>
+                  </DrawerTitle>
                   <SheetDescription className="truncate text-[calc(12.5px*var(--font-scale))]">
-                    {subtitleFor(detail)}
+                    <Separated text={subtitleFor(detail)} />
                   </SheetDescription>
                 </div>
               </div>
               <ProfileChips profiles={detail.profiles} />
               <FlagChips flags={detail.flags} />
-              {tabs.length > 1 ? (
-                <div className="-mb-1 flex gap-1 overflow-x-auto">
-                  {tabs.map((t) => (
-                    <button
-                      key={t}
-                      type="button"
-                      onClick={() => setTab(t)}
-                      className={cn(
-                        'shrink-0 rounded-md px-2.5 py-1 text-[calc(13px*var(--font-scale))] font-medium transition-colors',
-                        t === tab
-                          ? 'bg-accent text-foreground'
-                          : 'text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      {tabLabel(t)}
-                    </button>
-                  ))}
-                </div>
+              {hasTabs ? (
+                <DrawerTabs
+                  tabs={tabs}
+                  value={tab}
+                  onChange={setTab}
+                  label={tabLabel}
+                  ariaLabel="Person detail sections"
+                />
               ) : null}
-            </SheetHeader>
+            </DrawerHeader>
 
             <div className="@container/tiles flex-1 overflow-y-auto px-5 py-5">
               <TabBody tab={tab} detail={detail} onOpenPerson={onOpenPerson} />
             </div>
 
-            <SheetFooter className="border-t border-border px-5 py-4">
+            {/* Same surface as the header: the bar above and the action bar below
+                are one piece of chrome bracketing the content, which keeps
+                `bg-background` to itself and reads as the page ground. */}
+            <DrawerFooter>
               <Button asChild className="w-full">
                 <Link href={`/people/${detail.id}?type=${detail.type}`}>
                   <ExternalLink aria-hidden /> Open full profile
@@ -177,7 +175,7 @@ export function PersonDetailDrawer({
                   </a>
                 </Button>
               ) : null}
-            </SheetFooter>
+            </DrawerFooter>
           </>
         )}
       </SheetContent>
@@ -235,14 +233,18 @@ function TabBody({
               {a.currentClasses.map((c) => (
                 <div
                   key={c.id}
-                  className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5 text-sm"
+                  className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2.5 text-sm"
                 >
                   <div className="min-w-0">
                     <div className="truncate font-medium text-foreground">
                       {c.name}
                     </div>
                     <div className="truncate text-xs text-muted-foreground">
-                      {[c.term, humanize(c.status)].filter(Boolean).join(' · ')}
+                      <Separated
+                        text={[c.term, humanize(c.status)]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      />
                     </div>
                   </div>
                   {c.finalGrade ? (
@@ -294,16 +296,18 @@ function TabBody({
           {detail.documents.recent.slice(0, 5).map((d) => (
             <div
               key={d.id}
-              className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5 text-sm"
+              className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2.5 text-sm"
             >
               <div className="min-w-0">
                 <div className="truncate font-medium text-foreground">
                   {d.title}
                 </div>
                 <div className="truncate text-xs text-muted-foreground">
-                  {[d.type, formatDate(d.createdAt)]
-                    .filter(Boolean)
-                    .join(' · ')}
+                  <Separated
+                    text={[d.type, formatDate(d.createdAt)]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  />
                 </div>
               </div>
             </div>

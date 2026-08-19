@@ -43,12 +43,14 @@ import {
   Sheet,
   SheetContent,
   SheetDescription,
-  SheetHeader,
-  SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
+import {
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import { RequirementsPanel } from './requirements-panel';
 import { FormResponsePanel } from './form-response-panel';
@@ -642,15 +644,13 @@ export function ApplicationDetailView({
           side="right"
           className="flex w-full flex-col gap-0 p-0 sm:max-w-lg"
         >
-          <SheetHeader className="gap-1.5 border-b border-border px-5 pb-4 pt-5">
-            <SheetTitle className="pr-8 font-display text-[calc(22px*var(--font-scale))] font-semibold leading-tight">
-              Edit applicant
-            </SheetTitle>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">Edit applicant</DrawerTitle>
             <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Correct the applicant&rsquo;s profile and guardians. The class
               they&rsquo;re applying for isn&rsquo;t changed here.
             </SheetDescription>
-          </SheetHeader>
+          </DrawerHeader>
           <div className="flex-1 overflow-y-auto px-5 py-5">
             <EditApplicationForm
               detail={detail}

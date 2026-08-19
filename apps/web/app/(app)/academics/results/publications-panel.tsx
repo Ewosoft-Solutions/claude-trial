@@ -27,6 +27,7 @@ import { ApprovalPanel } from '@workspace/ui/custom/approval/approval-panel';
 
 import { apiGet, apiPost } from './results-api';
 import type { CycleComponent, ResultCycle } from './results-workbench';
+import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 interface Validation {
   expectedCells: number;
@@ -263,7 +264,9 @@ export function PublicationsPanel({
                 <SelectContent>
                   {publications.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      v{p.version} · {p.status}
+                      v{p.version}
+                      <Dot />
+                      {p.status}
                     </SelectItem>
                   ))}
                 </SelectContent>

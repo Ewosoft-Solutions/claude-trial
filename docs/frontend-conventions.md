@@ -34,6 +34,31 @@ an avatar + name + status chips + a lightweight tab bar, a scrollable `@containe
 `StatTiles` + `Section`s, proper loading/error states, and a footer action. Fetch on open via
 `/api/…`, aborting on close.
 
+### The drawer shell is shared — don't hand-roll it
+
+Chrome comes from `@workspace/ui/custom/detail/drawer-chrome`, tabs from
+`@workspace/ui/custom/detail/drawer-tabs`. Every drawer wears the same shell, and these components are
+where that lives:
+
+| part       | component      | what it fixes                                                                                                                                              |
+| ---------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| top bar    | `DrawerHeader` | `bg-sidebar` — the **app top bar's** own surface, so drawer chrome and app chrome are the same colour                                                      |
+| title      | `DrawerTitle`  | display face at **22px × `--font-scale`** — deliberately under a page's 24px `PageTitle`, so a drawer never competes with the page behind it               |
+| tabs       | `DrawerTabs`   | the folder-tab strip: the rule sweeps up around the active tab                                                                                             |
+| action bar | `DrawerFooter` | same `bg-sidebar` as the header, so the chrome brackets the content                                                                                        |
+| body       | _(nothing)_    | keeps the sheet's `bg-background` — the token a **page's main region** uses, so cards and inputs sit on the same ground and lift the same way as on a page |
+
+Pass `flush` to `DrawerHeader` when a `DrawerTabs` strip follows: the strip paints the boundary rule
+itself, so the header must not draw a second one.
+
+Two rules the shell depends on, worth knowing before overriding it:
+
+- **Card surfaces are opaque `bg-card`, never `bg-card/40`.** A percentage wash takes its tint from the
+  ground beneath it, so over the warm canvas it renders cream (`#fafaf8`) where a page card is white.
+- **`--border` is translucent.** Anywhere two things draw the same 1px line they composite (0.1 over 0.1
+  reads as 0.19 — about double weight) and the seam looks retraced. `DrawerTabs` masks under its joins
+  for exactly this reason.
+
 ## 3 · State reads through semantic `StatusBadge` tones
 
 Lifecycle/status/decision values render through **`StatusBadge`** with a semantic `StateTone`

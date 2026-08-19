@@ -74,7 +74,13 @@ export function StatTiles({ items }: { items: StatTileItem[] }) {
       {items.map((it) => (
         <div
           key={it.key}
-          className="rounded-lg border border-border bg-card/40 p-3"
+          // Matches a page stat card cell (StatGrid) exactly: the opaque card
+          // fill rather than a 40% wash that picks up the ground's warmth and
+          // reads cream, the shared --radius rather than a tighter rounded-lg,
+          // and the same shadow so the tile lifts off the canvas the way a page
+          // card does. Padding stays p-3 — a drawer tile is narrower than a
+          // full-page one, and StatGrid's sm:p-4 would crowd it.
+          className="rounded-[var(--radius)] border border-border bg-card p-3 shadow-xs"
         >
           <div className="text-[calc(10.5px*var(--font-scale))] font-medium uppercase tracking-wide text-muted-foreground">
             {it.label}
