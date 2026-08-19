@@ -18,13 +18,13 @@ import { ExternalLink, Loader2, Mail } from 'lucide-react';
 import { Button } from '@workspace/ui/components/button';
 import {
   Sheet,
-  SheetContent,
   SheetDescription,
   SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { ErrorState } from '@workspace/ui/custom/states/page-states';
 import { DrawerTabs } from '@workspace/ui/custom/detail/drawer-tabs';
 import {
+  DrawerContent,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -113,7 +113,7 @@ export function PersonDetailDrawer({
 
   return (
     <Sheet open={personId !== null} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full gap-0 p-0 sm:max-w-lg">
+      <DrawerContent>
         {busy ? (
           <div className="flex h-full items-center justify-center">
             <SheetTitle className="sr-only">Loading person</SheetTitle>
@@ -178,7 +178,7 @@ export function PersonDetailDrawer({
             </DrawerFooter>
           </>
         )}
-      </SheetContent>
+      </DrawerContent>
     </Sheet>
   );
 }

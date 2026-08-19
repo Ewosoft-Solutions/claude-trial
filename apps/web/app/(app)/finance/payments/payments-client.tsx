@@ -19,19 +19,7 @@ import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Checkbox } from '@workspace/ui/components/checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-} from '@workspace/ui/components/sheet';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import {
   Select,
   SelectContent,
@@ -60,6 +48,7 @@ import { useDirectoryState } from '@workspace/ui/hooks/use-directory-state';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import {
+  DrawerContent,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -281,7 +270,7 @@ export function PaymentsClient({
           title="Payments"
           actions={
             canManage ? (
-              <RecordPaymentDialog
+              <RecordPaymentDrawer
                 households={households}
                 onRecorded={() => router.refresh()}
               />
@@ -461,7 +450,7 @@ function ReceiptDrawer({
 
   return (
     <Sheet open={!!receiptId} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent className="flex w-full flex-col gap-0 sm:max-w-lg">
+      <DrawerContent>
         <DrawerHeader>
           <DrawerTitle>{receipt?.receiptNumber ?? 'Receipt'}</DrawerTitle>
           <SheetDescription>
@@ -563,7 +552,7 @@ function ReceiptDrawer({
             {busy ? <Loader2 className="animate-spin" /> : <Printer />} Reprint
           </Button>
         </DrawerFooter>
-      </SheetContent>
+      </DrawerContent>
     </Sheet>
   );
 }
@@ -606,7 +595,7 @@ function fromKobo(value: number): string {
   return (value / 100).toFixed(2);
 }
 
-function RecordPaymentDialog({
+function RecordPaymentDrawer({
   households,
   onRecorded,
 }: {
@@ -819,21 +808,21 @@ function RecordPaymentDialog({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={setOpen}>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Wallet /> Record payment
         </Button>
-        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Record a payment</DialogTitle>
-            <DialogDescription>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">Record a payment</DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Pick the family, then choose what this money settles. One receipt
               can cover several children; anything left over is held as credit
               against their next invoice.
-            </DialogDescription>
-          </DialogHeader>
+            </SheetDescription>
+          </DrawerHeader>
 
-          <div className="flex flex-col gap-4 py-2">
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="rp-household">Family account</Label>
               {selectedHousehold ? (
@@ -932,11 +921,19 @@ function RecordPaymentDialog({
                       <span className="truncate text-sm font-medium text-foreground">
                         {invoice.studentName ?? 'Unnamed student'}
                       </span>
-                      <span className="truncate text-xs text-muted-foreground">
-                        {invoice.invoiceNumber}
-                        {invoice.termName ? ` · ${invoice.termName}` : ''}
-                        <Dot />
-                        {nairaFromKobo(invoice.financials?.balance ?? 0)} owing
+                      {/* The amount owing must never be the thing truncation
+                          eats (money always renders in full — lib/format.ts),
+                          so only the invoice number gives up room. */}
+                      <span className="flex items-baseline text-xs text-muted-foreground">
+                        <span className="truncate">
+                          {invoice.invoiceNumber}
+                          {invoice.termName ? ` · ${invoice.termName}` : ''}
+                        </span>
+                        <span className="shrink-0 whitespace-nowrap">
+                          <Dot />
+                          {nairaFromKobo(invoice.financials?.balance ?? 0)}{' '}
+                          owing
+                        </span>
                       </span>
                     </label>
                     <Input
@@ -1041,7 +1038,7 @@ function RecordPaymentDialog({
             </div>
           </div>
 
-          <DialogFooter>
+          <DrawerFooter className="flex-row justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -1049,9 +1046,9 @@ function RecordPaymentDialog({
               {busy ? <Loader2 className="animate-spin" /> : null} Record
               payment
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Sheet>
       {stepUpPrompt}
     </>
   );

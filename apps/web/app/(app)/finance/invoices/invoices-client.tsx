@@ -19,14 +19,16 @@ import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
+  Sheet,
+  SheetClose,
+  SheetDescription,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -299,7 +301,7 @@ export function InvoicesClient({
               <Button variant="outline" size="sm">
                 <Download /> Export
               </Button>
-              {canManage ? <NewInvoiceDialog students={students} /> : null}
+              {canManage ? <NewInvoiceDrawer students={students} /> : null}
             </>
           }
         />
@@ -367,7 +369,7 @@ export function InvoicesClient({
 
 /* ---- New invoice (step-up-gated create) --------------------------------- */
 
-function NewInvoiceDialog({ students }: { students: StudentOption[] }) {
+function NewInvoiceDrawer({ students }: { students: StudentOption[] }) {
   const router = useRouter();
   const { requestStepUp, stepUpPrompt } = useStepUpAction();
   const [open, setOpen] = React.useState(false);
@@ -451,19 +453,19 @@ function NewInvoiceDialog({ students }: { students: StudentOption[] }) {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={setOpen}>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus /> New invoice
         </Button>
-        <DialogContent className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Create a fee invoice</DialogTitle>
-            <DialogDescription>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">Create a fee invoice</DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Pick the student and term. The invoice starts as a draft with no
               amount — you compose its line items next, then issue it.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="ni-student">Student</Label>
               {selected ? (
@@ -567,18 +569,18 @@ function NewInvoiceDialog({ students }: { students: StudentOption[] }) {
               />
             </div>
           </div>
-          <DialogFooter>
-            <DialogClose asChild>
+          <DrawerFooter className="flex-row justify-end gap-2">
+            <SheetClose asChild>
               <Button variant="ghost" size="sm">
                 Cancel
               </Button>
-            </DialogClose>
+            </SheetClose>
             <Button size="sm" disabled={!studentId || busy} onClick={create}>
               Create draft
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Sheet>
       {stepUpPrompt}
     </>
   );

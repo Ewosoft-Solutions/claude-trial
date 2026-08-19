@@ -28,6 +28,17 @@ import {
   DialogTitle,
 } from '@workspace/ui/components/dialog';
 import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -331,19 +342,19 @@ function CreatePolicyDialog({ catalogue }: { catalogue: CatalogueItem[] }) {
   const canSubmit = name.trim() !== '' && valueOk && !busy;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden /> New policy
       </Button>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Create a discount policy</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Create a discount policy</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             It stays pending until a different authority activates it, then
             auto-applies to invoices at issue.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="pol-name">Name</Label>
             <Input
@@ -444,12 +455,12 @@ function CreatePolicyDialog({ catalogue }: { catalogue: CatalogueItem[] }) {
             />
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={!canSubmit}
@@ -491,9 +502,9 @@ function CreatePolicyDialog({ catalogue }: { catalogue: CatalogueItem[] }) {
           >
             Create policy
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 

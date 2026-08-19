@@ -36,11 +36,60 @@
 import * as React from 'react';
 
 import {
+  SheetContent,
   SheetFooter,
   SheetHeader,
   SheetTitle,
 } from '@workspace/ui/components/sheet';
 import { cn } from '@workspace/ui/lib/utils';
+
+/**
+ * A drawer is one of two widths — see docs/frontend-conventions.md §3.
+ *
+ * `standard` carries every detail drawer and every form. `wide` is only for
+ * content that brings its own table or matrix (a report card, an effective-
+ * access grid) and would otherwise wrap. Nothing else earns a third width: a
+ * 64px difference is perceptible without being informative, which is the one
+ * kind of variation worth removing.
+ */
+export type DrawerSize = 'standard' | 'wide';
+
+const DRAWER_WIDTH: Record<DrawerSize, string> = {
+  standard: 'sm:max-w-xl',
+  wide: 'sm:max-w-2xl',
+};
+
+export interface DrawerContentProps extends React.ComponentProps<
+  typeof SheetContent
+> {
+  size?: DrawerSize;
+}
+
+/**
+ * The drawer panel. Owns the width and the column layout every drawer shares:
+ * a fixed `DrawerHeader`, a `flex-1` scrolling body, and an optional pinned
+ * `DrawerFooter` — so the chrome stays put while only the content moves.
+ *
+ * `SheetContent`'s own `sm:max-w-sm` default is left alone: it also backs the
+ * nav and command-palette sheets, where a 576px floor would be wrong. Detail
+ * and form drawers come through here instead.
+ */
+export function DrawerContent({
+  size = 'standard',
+  className,
+  ...props
+}: DrawerContentProps) {
+  return (
+    <SheetContent
+      className={cn(
+        'flex w-full flex-col gap-0 p-0',
+        DRAWER_WIDTH[size],
+        className,
+      )}
+      {...props}
+    />
+  );
+}
 
 export interface DrawerHeaderProps extends React.ComponentProps<'div'> {
   /**

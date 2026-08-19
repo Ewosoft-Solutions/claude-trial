@@ -21,6 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@workspace/ui/components/select';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import { ApprovalPanel } from '@workspace/ui/custom/approval/approval-panel';
@@ -113,6 +120,9 @@ export function PublicationsPanel({
   const [students, setStudents] = React.useState<StudentResult[]>([]);
   const [openStudent, setOpenStudent] = React.useState<string>('');
   const [busy, setBusy] = React.useState(false);
+
+  // Report cards open in a drawer, not an inline row — conventions §3.
+  const openStudentResult = students.find((s) => s.id === openStudent) ?? null;
 
   const loadPublications = React.useCallback(async () => {
     try {
@@ -297,59 +307,46 @@ export function PublicationsPanel({
                 </thead>
                 <tbody>
                   {students.map((s) => (
-                    <React.Fragment key={s.id}>
-                      <tr className="border-b last:border-0">
-                        <td className="px-2 py-2">
-                          <div className="font-medium">{s.studentName}</div>
-                          <div className="text-xs text-muted-foreground">
-                            {s.studentNumber}
-                            {s.sectionLabel ? ` · ${s.sectionLabel}` : ''}
-                            {s.position ? ` · pos ${s.position}` : ''}
-                          </div>
-                        </td>
-                        <td className="px-2 py-2">
-                          {s.average === null ? '—' : `${s.average}%`}
-                        </td>
-                        <td className="px-2 py-2">{s.overallGrade ?? '—'}</td>
-                        <td className="px-2 py-2">
-                          <StatusBadge
-                            tone={
-                              REC_TONE[s.promotionRecommendation ?? 'review'] ??
-                              'neutral'
-                            }
-                          >
-                            {s.promotionRecommendation ?? '—'}
-                          </StatusBadge>
-                        </td>
-                        <td className="px-2 py-2">
-                          {s.visibleToGuardian ? (
-                            'Visible'
-                          ) : (
-                            <StatusBadge tone="warning">On hold</StatusBadge>
-                          )}
-                        </td>
-                        <td className="px-2 py-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() =>
-                              setOpenStudent((cur) =>
-                                cur === s.id ? '' : s.id,
-                              )
-                            }
-                          >
-                            {openStudent === s.id ? 'Hide' : 'Report card'}
-                          </Button>
-                        </td>
-                      </tr>
-                      {openStudent === s.id && (
-                        <tr>
-                          <td colSpan={6} className="bg-muted/30 px-2 py-3">
-                            <ReportCard student={s} />
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
+                    <tr key={s.id} className="border-b last:border-0">
+                      <td className="px-2 py-2">
+                        <div className="font-medium">{s.studentName}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {s.studentNumber}
+                          {s.sectionLabel ? ` · ${s.sectionLabel}` : ''}
+                          {s.position ? ` · pos ${s.position}` : ''}
+                        </div>
+                      </td>
+                      <td className="px-2 py-2">
+                        {s.average === null ? '—' : `${s.average}%`}
+                      </td>
+                      <td className="px-2 py-2">{s.overallGrade ?? '—'}</td>
+                      <td className="px-2 py-2">
+                        <StatusBadge
+                          tone={
+                            REC_TONE[s.promotionRecommendation ?? 'review'] ??
+                            'neutral'
+                          }
+                        >
+                          {s.promotionRecommendation ?? '—'}
+                        </StatusBadge>
+                      </td>
+                      <td className="px-2 py-2">
+                        {s.visibleToGuardian ? (
+                          'Visible'
+                        ) : (
+                          <StatusBadge tone="warning">On hold</StatusBadge>
+                        )}
+                      </td>
+                      <td className="px-2 py-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setOpenStudent(s.id)}
+                        >
+                          Report card
+                        </Button>
+                      </td>
+                    </tr>
                   ))}
                 </tbody>
               </table>
@@ -401,6 +398,29 @@ export function PublicationsPanel({
           )}
         </>
       )}
+
+      <Sheet
+        open={openStudent !== ''}
+        onOpenChange={(o) => !o && setOpenStudent('')}
+      >
+        <DrawerContent size="wide">
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">
+              {openStudentResult?.studentName ?? 'Report card'}
+            </DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
+              {openStudentResult
+                ? `${openStudentResult.studentNumber} — rendered from the published snapshot.`
+                : 'Rendered from the published snapshot.'}
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            {openStudentResult ? (
+              <ReportCard student={openStudentResult} />
+            ) : null}
+          </div>
+        </DrawerContent>
+      </Sheet>
     </div>
   );
 }
@@ -532,106 +552,118 @@ function AmendmentForm({
     }
   }
 
-  if (!open) {
-    return (
+  const canSubmit = studentId && offeringId && componentKey && reason.trim();
+
+  return (
+    <>
       <div>
         <Button variant="outline" onClick={() => setOpen(true)}>
           Request a correction (amendment)
         </Button>
       </div>
-    );
-  }
 
-  const canSubmit = studentId && offeringId && componentKey && reason.trim();
-
-  return (
-    <section className="flex flex-col gap-3 rounded-sm border p-3">
-      <h3 className="text-sm font-semibold">Request a correction</h3>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <Label>Student</Label>
-          <Select
-            value={studentId}
-            onValueChange={(v) => {
-              setStudentId(v);
-              setOfferingId('');
-            }}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Choose" />
-            </SelectTrigger>
-            <SelectContent>
-              {students.map((s) => (
-                <SelectItem key={s.studentId} value={s.studentId}>
-                  {s.studentName} ({s.studentNumber})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Subject</Label>
-          <Select
-            value={offeringId}
-            onValueChange={setOfferingId}
-            disabled={!studentId}
-          >
-            <SelectTrigger>
-              <SelectValue placeholder="Choose" />
-            </SelectTrigger>
-            <SelectContent>
-              {subjects.map((sub) => (
-                <SelectItem
-                  key={sub.subjectOfferingId}
-                  value={sub.subjectOfferingId}
+      <Sheet open={open} onOpenChange={setOpen}>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">Request a correction</DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
+              A published result is immutable — an approved amendment supersedes
+              it with a new version.
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex-1 overflow-y-auto px-5 py-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label>Student</Label>
+                <Select
+                  value={studentId}
+                  onValueChange={(v) => {
+                    setStudentId(v);
+                    setOfferingId('');
+                  }}
                 >
-                  {sub.subjectLabel}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>Component</Label>
-          <Select value={componentKey} onValueChange={setComponentKey}>
-            <SelectTrigger>
-              <SelectValue placeholder="Choose" />
-            </SelectTrigger>
-            <SelectContent>
-              {components.map((c) => (
-                <SelectItem key={c.id} value={c.key}>
-                  {c.label} ({c.key})
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label>New score</Label>
-          <Input
-            type="number"
-            value={score}
-            onChange={(e) => setScore(e.target.value)}
-            placeholder="Leave blank for absent"
-          />
-        </div>
-        <div className="flex flex-col gap-1.5 sm:col-span-2">
-          <Label>Reason</Label>
-          <Textarea
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Why this published result is being corrected"
-          />
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <Button onClick={submit} disabled={busy || !canSubmit}>
-          Submit amendment
-        </Button>
-        <Button variant="ghost" onClick={() => setOpen(false)} disabled={busy}>
-          Cancel
-        </Button>
-      </div>
-    </section>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {students.map((s) => (
+                      <SelectItem key={s.studentId} value={s.studentId}>
+                        {s.studentName} ({s.studentNumber})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Subject</Label>
+                <Select
+                  value={offeringId}
+                  onValueChange={setOfferingId}
+                  disabled={!studentId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subjects.map((sub) => (
+                      <SelectItem
+                        key={sub.subjectOfferingId}
+                        value={sub.subjectOfferingId}
+                      >
+                        {sub.subjectLabel}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>Component</Label>
+                <Select value={componentKey} onValueChange={setComponentKey}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {components.map((c) => (
+                      <SelectItem key={c.id} value={c.key}>
+                        {c.label} ({c.key})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label>New score</Label>
+                <Input
+                  type="number"
+                  value={score}
+                  onChange={(e) => setScore(e.target.value)}
+                  placeholder="Leave blank for absent"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <Label>Reason</Label>
+                <Textarea
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value)}
+                  placeholder="Why this published result is being corrected"
+                />
+              </div>
+            </div>
+          </div>
+          <DrawerFooter className="flex-row justify-end gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => setOpen(false)}
+              disabled={busy}
+            >
+              Cancel
+            </Button>
+            <Button onClick={submit} disabled={busy || !canSubmit}>
+              Submit amendment
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Sheet>
+    </>
   );
 }

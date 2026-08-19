@@ -30,6 +30,17 @@ import {
   DialogTitle,
 } from '@workspace/ui/components/dialog';
 import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -555,25 +566,27 @@ function EditGuardianDialog({
   }, [open, g]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Pencil aria-hidden /> Edit
       </Button>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Edit guardianship</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Edit guardianship</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             Authority and per-category contact consent.
-          </DialogDescription>
-        </DialogHeader>
-        <PersonIdentity name={name} sub={roleLabel(g.relationship)} />
-        <AuthorityConsentFields form={form} set={set} />
-        <DialogFooter>
-          <DialogClose asChild>
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <PersonIdentity name={name} sub={roleLabel(g.relationship)} />
+          <AuthorityConsentFields form={form} set={set} />
+        </div>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={busy}
@@ -598,9 +611,9 @@ function EditGuardianDialog({
           >
             Save changes
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 
@@ -629,50 +642,55 @@ function AddGuardianDialog({
   }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden /> Add guardian
       </Button>
-      <DialogContent className="max-h-[85vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Add a guardian</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Add a guardian</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             Find the caregiver, then set their authority and contact consent.
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </DrawerHeader>
 
-        {guardian ? (
-          <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2.5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <PersonAvatar name={guardian.name} className="size-8 shrink-0" />
-              <span className="truncate text-sm font-medium capitalize text-foreground">
-                {guardian.name}
-              </span>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          {guardian ? (
+            <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-2.5">
+              <div className="flex min-w-0 items-center gap-2.5">
+                <PersonAvatar
+                  name={guardian.name}
+                  className="size-8 shrink-0"
+                />
+                <span className="truncate text-sm font-medium capitalize text-foreground">
+                  {guardian.name}
+                </span>
+              </div>
+              <Button
+                variant="link"
+                size="sm"
+                className="h-auto shrink-0 p-0 font-medium"
+                onClick={() => setGuardian(null)}
+              >
+                Change
+              </Button>
             </div>
-            <Button
-              variant="link"
-              size="sm"
-              className="h-auto shrink-0 p-0 font-medium"
-              onClick={() => setGuardian(null)}
-            >
-              Change
-            </Button>
-          </div>
-        ) : (
-          <PersonSearch
-            excludeId={wardPersonId}
-            onPick={(p) => setGuardian(p)}
-          />
-        )}
+          ) : (
+            <PersonSearch
+              excludeId={wardPersonId}
+              onPick={(p) => setGuardian(p)}
+            />
+          )}
 
-        {guardian ? <AuthorityConsentFields form={form} set={set} /> : null}
+          {guardian ? <AuthorityConsentFields form={form} set={set} /> : null}
+        </div>
 
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={busy || !guardian}
@@ -707,9 +725,9 @@ function AddGuardianDialog({
           >
             Add guardian
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 

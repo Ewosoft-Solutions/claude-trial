@@ -18,7 +18,6 @@ import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
 import {
   Sheet,
-  SheetContent,
   SheetDescription,
   SheetTitle,
 } from '@workspace/ui/components/sheet';
@@ -27,6 +26,7 @@ import { ErrorState } from '@workspace/ui/custom/states/page-states';
 import { DrawerTabs } from '@workspace/ui/custom/detail/drawer-tabs';
 import { Dot } from '@workspace/ui/custom/data-display/dot';
 import {
+  DrawerContent,
   DrawerFooter,
   DrawerHeader,
   DrawerTitle,
@@ -110,7 +110,7 @@ export function ApplicationDrawer({
 
   return (
     <Sheet open={applicationId !== null} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full gap-0 p-0 sm:max-w-lg">
+      <DrawerContent>
         {busy ? (
           <div className="flex h-full items-center justify-center">
             <SheetTitle className="sr-only">Loading application</SheetTitle>
@@ -176,7 +176,7 @@ export function ApplicationDrawer({
             </DrawerFooter>
           </>
         )}
-      </SheetContent>
+      </DrawerContent>
     </Sheet>
   );
 }
