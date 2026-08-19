@@ -22,7 +22,8 @@ export class ListJournalDto {
   to?: string;
 
   @ApiPropertyOptional({
-    description: 'invoice | adjustment | receipt | credit_application | opening | reversal',
+    description:
+      'invoice | adjustment | receipt | credit_application | opening | reversal',
   })
   @IsOptional()
   @IsString()
@@ -77,7 +78,9 @@ export class SetPeriodStatusDto {
 }
 
 export class ReverseEntryDto {
-  @ApiPropertyOptional({ example: 'Receipt was recorded against the wrong family' })
+  @ApiPropertyOptional({
+    example: 'Receipt was recorded against the wrong family',
+  })
   @IsOptional()
   @IsString()
   reason?: string;

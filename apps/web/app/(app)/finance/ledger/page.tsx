@@ -8,7 +8,12 @@
 
 import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
-import { LedgerClient, type JournalEntry, type TrialBalanceRow, type Period } from './ledger-client';
+import {
+  LedgerClient,
+  type JournalEntry,
+  type TrialBalanceRow,
+  type Period,
+} from './ledger-client';
 
 interface TrialBalance {
   rows?: TrialBalanceRow[];
@@ -57,7 +62,9 @@ export default async function LedgerPage({
 
   const [trial, entries, periods, session] = await Promise.all([
     serverApiGet<TrialBalance>('/finance/ledger/trial-balance'),
-    serverApiGet<EntriesResponse>(`/finance/ledger/entries?${params.toString()}`),
+    serverApiGet<EntriesResponse>(
+      `/finance/ledger/entries?${params.toString()}`,
+    ),
     serverApiGet<Period[]>('/finance/ledger/periods'),
     getSession(),
   ]);

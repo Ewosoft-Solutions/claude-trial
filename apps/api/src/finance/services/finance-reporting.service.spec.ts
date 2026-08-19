@@ -61,7 +61,9 @@ describe('FinanceReportingService', () => {
 
     const report = await service.aging('t1', { asOf: '2026-08-19' });
 
-    const byKey = Object.fromEntries(report.buckets.map((b) => [b.key, b.total]));
+    const byKey = Object.fromEntries(
+      report.buckets.map((b) => [b.key, b.total]),
+    );
     expect(byKey).toEqual({
       current: 600_000, // the not-yet-due one plus the undated one
       d1_30: 200_000,

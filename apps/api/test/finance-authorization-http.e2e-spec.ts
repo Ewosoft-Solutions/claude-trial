@@ -18,13 +18,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
 import request from 'supertest';
-import {
-  describe,
-  it,
-  expect,
-  beforeAll,
-  afterAll,
-} from '@jest/globals';
+import { describe, it, expect, beforeAll, afterAll } from '@jest/globals';
 import { Server } from 'http';
 
 import { AppModule } from '../src/app.module';
@@ -42,7 +36,8 @@ const HELD = [
   {
     name: 'finance.view',
     label: 'View Finance',
-    description: 'View finance data (invoices, fee items, adjustments, policies)',
+    description:
+      'View finance data (invoices, fee items, adjustments, policies)',
     resource: 'finance',
     action: 'view',
   },
@@ -169,12 +164,18 @@ d('Finance authorization boundary — HTTP (WB5)', () => {
       await prisma.userTenant
         .deleteMany({ where: { id: profileId } })
         .catch(() => undefined);
-      await prisma.user.deleteMany({ where: { id: userId } }).catch(() => undefined);
-      await prisma.role.deleteMany({ where: { id: roleId } }).catch(() => undefined);
+      await prisma.user
+        .deleteMany({ where: { id: userId } })
+        .catch(() => undefined);
+      await prisma.role
+        .deleteMany({ where: { id: roleId } })
+        .catch(() => undefined);
       await prisma.tenantJWTConfig
         .deleteMany({ where: { tenantId } })
         .catch(() => undefined);
-      await prisma.tenant.deleteMany({ where: { id: tenantId } }).catch(() => undefined);
+      await prisma.tenant
+        .deleteMany({ where: { id: tenantId } })
+        .catch(() => undefined);
       await prisma.$disconnect();
     }
     if (app) await app.close();

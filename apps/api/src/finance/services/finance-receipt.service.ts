@@ -62,7 +62,8 @@ export class FinanceReceiptService {
     // Both filters reach the receipt through its allocations, so they have to
     // be ANDed rather than one overwriting the other.
     const throughAllocations: Prisma.PaymentAllocationWhereInput[] = [];
-    if (query.invoiceId) throughAllocations.push({ invoiceId: query.invoiceId });
+    if (query.invoiceId)
+      throughAllocations.push({ invoiceId: query.invoiceId });
     if (query.studentId) {
       throughAllocations.push({ invoice: { studentId: query.studentId } });
     }
@@ -313,7 +314,11 @@ export class FinanceReceiptService {
       );
     }
 
-    const receiptNumber = await this.numbering.next(tenantId, 'receipt', paidAt);
+    const receiptNumber = await this.numbering.next(
+      tenantId,
+      'receipt',
+      paidAt,
+    );
 
     const payerName =
       dto.payerName ?? (await this.resolvePayerName(tenantId, dto.householdId));
@@ -359,7 +364,9 @@ export class FinanceReceiptService {
       const studentId =
         dto.studentId ?? targets.find((t) => t.studentId)?.studentId ?? null;
       const householdId =
-        dto.householdId ?? targets.find((t) => t.householdId)?.householdId ?? null;
+        dto.householdId ??
+        targets.find((t) => t.householdId)?.householdId ??
+        null;
       credit = await this.credits.createFromOverpayment(
         tenantId,
         {

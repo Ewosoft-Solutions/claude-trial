@@ -52,14 +52,14 @@ const DEV_PASSWORD = 'DevPassword@2025!';
 
 // Roles that map 1-to-1 with personas
 const ROLE_NAMES = [
-  'Owner',      // L8
+  'Owner', // L8
   'Management', // L7
-  'ITSupport',  // L6
-  'Finance',    // L5
+  'ITSupport', // L6
+  'Finance', // L5
   'Operations', // L4
-  'Teacher',    // L3
-  'Parent',     // L2
-  'Student',    // L1
+  'Teacher', // L3
+  'Parent', // L2
+  'Student', // L1
   'SuperAdmin', // L9 — platform only
 ] as const;
 
@@ -84,8 +84,19 @@ interface TenantDef {
   /** Sample academic structure to create. */
   academic: {
     year: { name: string; startDate: Date; endDate: Date };
-    term: { name: string; type: string; startDate: Date; endDate: Date; order: number };
-    courses: Array<{ code: string; name: string; category: string; gradeLevels: string[] }>;
+    term: {
+      name: string;
+      type: string;
+      startDate: Date;
+      endDate: Date;
+      order: number;
+    };
+    courses: Array<{
+      code: string;
+      name: string;
+      category: string;
+      gradeLevels: string[];
+    }>;
   };
 }
 
@@ -96,14 +107,54 @@ const TENANTS: TenantDef[] = [
     domain: 'greenfield.test',
     schoolType: 'secondary',
     personas: [
-      { emailPrefix: 'owner',      role: 'Owner',      firstName: 'Owner',      lastName: 'Greenfield' },
-      { emailPrefix: 'principal',  role: 'Management', firstName: 'Principal',  lastName: 'Greenfield' },
-      { emailPrefix: 'itsupport',  role: 'ITSupport',  firstName: 'ITSupport',  lastName: 'Greenfield' },
-      { emailPrefix: 'bursar',     role: 'Finance',    firstName: 'Bursar',     lastName: 'Greenfield' },
-      { emailPrefix: 'operations', role: 'Operations', firstName: 'Operations', lastName: 'Greenfield' },
-      { emailPrefix: 'teacher',    role: 'Teacher',    firstName: 'Teacher',    lastName: 'Greenfield' },
-      { emailPrefix: 'parent',     role: 'Parent',     firstName: 'Parent',     lastName: 'Greenfield' },
-      { emailPrefix: 'student',    role: 'Student',    firstName: 'Student',    lastName: 'Greenfield' },
+      {
+        emailPrefix: 'owner',
+        role: 'Owner',
+        firstName: 'Owner',
+        lastName: 'Greenfield',
+      },
+      {
+        emailPrefix: 'principal',
+        role: 'Management',
+        firstName: 'Principal',
+        lastName: 'Greenfield',
+      },
+      {
+        emailPrefix: 'itsupport',
+        role: 'ITSupport',
+        firstName: 'ITSupport',
+        lastName: 'Greenfield',
+      },
+      {
+        emailPrefix: 'bursar',
+        role: 'Finance',
+        firstName: 'Bursar',
+        lastName: 'Greenfield',
+      },
+      {
+        emailPrefix: 'operations',
+        role: 'Operations',
+        firstName: 'Operations',
+        lastName: 'Greenfield',
+      },
+      {
+        emailPrefix: 'teacher',
+        role: 'Teacher',
+        firstName: 'Teacher',
+        lastName: 'Greenfield',
+      },
+      {
+        emailPrefix: 'parent',
+        role: 'Parent',
+        firstName: 'Parent',
+        lastName: 'Greenfield',
+      },
+      {
+        emailPrefix: 'student',
+        role: 'Student',
+        firstName: 'Student',
+        lastName: 'Greenfield',
+      },
     ],
     academic: {
       year: {
@@ -119,12 +170,42 @@ const TENANTS: TenantDef[] = [
         order: 2,
       },
       courses: [
-        { code: 'MATH-101', name: 'Mathematics',         category: 'Mathematics', gradeLevels: ['JSS1', 'JSS2', 'JSS3'] },
-        { code: 'ENG-101',  name: 'English Language',    category: 'Languages',   gradeLevels: ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3'] },
-        { code: 'SCI-101',  name: 'Basic Science',       category: 'Sciences',    gradeLevels: ['JSS1', 'JSS2', 'JSS3'] },
-        { code: 'PHY-201',  name: 'Physics',             category: 'Sciences',    gradeLevels: ['SSS1', 'SSS2', 'SSS3'] },
-        { code: 'CHEM-201', name: 'Chemistry',           category: 'Sciences',    gradeLevels: ['SSS1', 'SSS2', 'SSS3'] },
-        { code: 'ECO-201',  name: 'Economics',           category: 'Social Sciences', gradeLevels: ['SSS1', 'SSS2', 'SSS3'] },
+        {
+          code: 'MATH-101',
+          name: 'Mathematics',
+          category: 'Mathematics',
+          gradeLevels: ['JSS1', 'JSS2', 'JSS3'],
+        },
+        {
+          code: 'ENG-101',
+          name: 'English Language',
+          category: 'Languages',
+          gradeLevels: ['JSS1', 'JSS2', 'JSS3', 'SSS1', 'SSS2', 'SSS3'],
+        },
+        {
+          code: 'SCI-101',
+          name: 'Basic Science',
+          category: 'Sciences',
+          gradeLevels: ['JSS1', 'JSS2', 'JSS3'],
+        },
+        {
+          code: 'PHY-201',
+          name: 'Physics',
+          category: 'Sciences',
+          gradeLevels: ['SSS1', 'SSS2', 'SSS3'],
+        },
+        {
+          code: 'CHEM-201',
+          name: 'Chemistry',
+          category: 'Sciences',
+          gradeLevels: ['SSS1', 'SSS2', 'SSS3'],
+        },
+        {
+          code: 'ECO-201',
+          name: 'Economics',
+          category: 'Social Sciences',
+          gradeLevels: ['SSS1', 'SSS2', 'SSS3'],
+        },
       ],
     },
   },
@@ -134,14 +215,54 @@ const TENANTS: TenantDef[] = [
     domain: 'sunrise.test',
     schoolType: 'primary',
     personas: [
-      { emailPrefix: 'owner',      role: 'Owner',      firstName: 'Owner',      lastName: 'Sunrise' },
-      { emailPrefix: 'principal',  role: 'Management', firstName: 'Principal',  lastName: 'Sunrise' },
-      { emailPrefix: 'itsupport',  role: 'ITSupport',  firstName: 'ITSupport',  lastName: 'Sunrise' },
-      { emailPrefix: 'bursar',     role: 'Finance',    firstName: 'Bursar',     lastName: 'Sunrise' },
-      { emailPrefix: 'operations', role: 'Operations', firstName: 'Operations', lastName: 'Sunrise' },
-      { emailPrefix: 'teacher',    role: 'Teacher',    firstName: 'Teacher',    lastName: 'Sunrise' },
-      { emailPrefix: 'parent',     role: 'Parent',     firstName: 'Parent',     lastName: 'Sunrise' },
-      { emailPrefix: 'student',    role: 'Student',    firstName: 'Student',    lastName: 'Sunrise' },
+      {
+        emailPrefix: 'owner',
+        role: 'Owner',
+        firstName: 'Owner',
+        lastName: 'Sunrise',
+      },
+      {
+        emailPrefix: 'principal',
+        role: 'Management',
+        firstName: 'Principal',
+        lastName: 'Sunrise',
+      },
+      {
+        emailPrefix: 'itsupport',
+        role: 'ITSupport',
+        firstName: 'ITSupport',
+        lastName: 'Sunrise',
+      },
+      {
+        emailPrefix: 'bursar',
+        role: 'Finance',
+        firstName: 'Bursar',
+        lastName: 'Sunrise',
+      },
+      {
+        emailPrefix: 'operations',
+        role: 'Operations',
+        firstName: 'Operations',
+        lastName: 'Sunrise',
+      },
+      {
+        emailPrefix: 'teacher',
+        role: 'Teacher',
+        firstName: 'Teacher',
+        lastName: 'Sunrise',
+      },
+      {
+        emailPrefix: 'parent',
+        role: 'Parent',
+        firstName: 'Parent',
+        lastName: 'Sunrise',
+      },
+      {
+        emailPrefix: 'student',
+        role: 'Student',
+        firstName: 'Student',
+        lastName: 'Sunrise',
+      },
     ],
     academic: {
       year: {
@@ -157,10 +278,30 @@ const TENANTS: TenantDef[] = [
         order: 2,
       },
       courses: [
-        { code: 'MATH-P1', name: 'Numeracy',            category: 'Mathematics', gradeLevels: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] },
-        { code: 'ENG-P1',  name: 'Literacy',            category: 'Languages',   gradeLevels: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] },
-        { code: 'SCI-P1',  name: 'Basic Science',       category: 'Sciences',    gradeLevels: ['P3', 'P4', 'P5', 'P6'] },
-        { code: 'SOC-P1',  name: 'Social Studies',      category: 'Social Sciences', gradeLevels: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'] },
+        {
+          code: 'MATH-P1',
+          name: 'Numeracy',
+          category: 'Mathematics',
+          gradeLevels: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
+        },
+        {
+          code: 'ENG-P1',
+          name: 'Literacy',
+          category: 'Languages',
+          gradeLevels: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
+        },
+        {
+          code: 'SCI-P1',
+          name: 'Basic Science',
+          category: 'Sciences',
+          gradeLevels: ['P3', 'P4', 'P5', 'P6'],
+        },
+        {
+          code: 'SOC-P1',
+          name: 'Social Studies',
+          category: 'Social Sciences',
+          gradeLevels: ['P1', 'P2', 'P3', 'P4', 'P5', 'P6'],
+        },
       ],
     },
   },
@@ -174,16 +315,30 @@ async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);
 }
 
-async function upsertUser(email: string, firstName: string, lastName: string, passwordHash: string) {
+async function upsertUser(
+  email: string,
+  firstName: string,
+  lastName: string,
+  passwordHash: string,
+) {
   return prisma.user.upsert({
     where: { email },
     update: { firstName, lastName, isActive: true, isVerified: true },
-    create: { email, passwordHash, firstName, lastName, isActive: true, isVerified: true },
+    create: {
+      email,
+      passwordHash,
+      firstName,
+      lastName,
+      isActive: true,
+      isVerified: true,
+    },
   });
 }
 
 async function findOrCreateUserTenant(userId: string, tenantId: string) {
-  const existing = await prisma.userTenant.findFirst({ where: { userId, tenantId } });
+  const existing = await prisma.userTenant.findFirst({
+    where: { userId, tenantId },
+  });
   if (existing) return existing;
   return prisma.userTenant.create({
     data: { userId, tenantId, status: 'active', suspended: false },
@@ -197,7 +352,11 @@ async function findOrCreateUserTenant(userId: string, tenantId: string) {
  * Idempotent via a marker lookup on (userId, tenantId, role) through the
  * linked UserTenantRole rather than on UserTenant itself.
  */
-async function createAdditionalProfile(userId: string, tenantId: string, roleId: string) {
+async function createAdditionalProfile(
+  userId: string,
+  tenantId: string,
+  roleId: string,
+) {
   const existing = await prisma.userTenant.findFirst({
     where: { userId, tenantId, userTenantRole: { roleId } },
   });
@@ -207,8 +366,14 @@ async function createAdditionalProfile(userId: string, tenantId: string, roleId:
   });
 }
 
-async function assignRole(userTenantId: string, roleId: string, tenantId: string) {
-  const existing = await prisma.userTenantRole.findUnique({ where: { userTenantId } });
+async function assignRole(
+  userTenantId: string,
+  roleId: string,
+  tenantId: string,
+) {
+  const existing = await prisma.userTenantRole.findUnique({
+    where: { userTenantId },
+  });
   if (existing) return existing;
   return prisma.userTenantRole.create({
     data: { userTenantId, roleId, tenantId, isPrimary: true },
@@ -216,7 +381,9 @@ async function assignRole(userTenantId: string, roleId: string, tenantId: string
 }
 
 async function ensureJwtConfig(tenantId: string) {
-  const existing = await prisma.tenantJWTConfig.findUnique({ where: { tenantId } });
+  const existing = await prisma.tenantJWTConfig.findUnique({
+    where: { tenantId },
+  });
   if (existing) return existing;
   const secret = crypto.randomBytes(32).toString('base64');
   return prisma.tenantJWTConfig.create({
@@ -268,9 +435,13 @@ async function seedPlatformSuperAdmin(
 ) {
   console.log('\n📋 Seeding platform SuperAdmin persona...');
 
-  const platformTenant = await prisma.tenant.findUnique({ where: { slug: 'platform' } });
+  const platformTenant = await prisma.tenant.findUnique({
+    where: { slug: 'platform' },
+  });
   if (!platformTenant) {
-    console.warn('  ⚠️  Platform tenant not found — run db:seed first. Skipping SuperAdmin.');
+    console.warn(
+      '  ⚠️  Platform tenant not found — run db:seed first. Skipping SuperAdmin.',
+    );
     return;
   }
 
@@ -284,7 +455,9 @@ async function seedPlatformSuperAdmin(
   const profile = await findOrCreateUserTenant(user.id, platformTenant.id);
   await assignRole(profile.id, roles['SuperAdmin']!, platformTenant.id);
 
-  console.log('  ✅ superadmin@platform.test → SuperAdmin (L9) on platform tenant');
+  console.log(
+    '  ✅ superadmin@platform.test → SuperAdmin (L9) on platform tenant',
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -317,7 +490,7 @@ async function seedTenant(
   // Personas
   let teacherProfile: { id: string } | null = null;
   let studentProfile: { id: string } | null = null;
-  let parentProfile:  { id: string } | null = null;
+  let parentProfile: { id: string } | null = null;
 
   for (const p of def.personas) {
     const email = `${p.emailPrefix}@${def.domain}`;
@@ -331,22 +504,35 @@ async function seedTenant(
     const profile = await findOrCreateUserTenant(user.id, tenant.id);
     await assignRole(profile.id, roleId, tenant.id);
 
-    console.log(`  ✅ ${email.padEnd(36)} → ${p.role.padEnd(12)} (L${clearanceOf(p.role)})`);
+    console.log(
+      `  ✅ ${email.padEnd(36)} → ${p.role.padEnd(12)} (L${clearanceOf(p.role)})`,
+    );
 
     if (p.role === 'Teacher') teacherProfile = profile;
     if (p.role === 'Student') studentProfile = profile;
-    if (p.role === 'Parent')  parentProfile  = profile;
+    if (p.role === 'Parent') parentProfile = profile;
   }
 
   // Academic structure
-  const { academicYear, term, courseIds } = await seedAcademicStructure(tenant.id, def);
+  const { academicYear, term, courseIds } = await seedAcademicStructure(
+    tenant.id,
+    def,
+  );
 
   // Student record
   let student: { id: string } | null = null;
   if (studentProfile) {
     student = await prisma.student.upsert({
-      where: { tenantId_studentNumber: { tenantId: tenant.id, studentNumber: 'STU-DEV-001' } },
-      update: { userTenantId: studentProfile.id, gradeLevel: def.schoolType === 'primary' ? 'P5' : 'JSS2' },
+      where: {
+        tenantId_studentNumber: {
+          tenantId: tenant.id,
+          studentNumber: 'STU-DEV-001',
+        },
+      },
+      update: {
+        userTenantId: studentProfile.id,
+        gradeLevel: def.schoolType === 'primary' ? 'P5' : 'JSS2',
+      },
       create: {
         tenantId: tenant.id,
         userTenantId: studentProfile.id,
@@ -363,7 +549,12 @@ async function seedTenant(
   // Guardian link
   if (student && parentProfile) {
     await prisma.studentGuardian.upsert({
-      where: { studentId_userTenantId: { studentId: student.id, userTenantId: parentProfile.id } },
+      where: {
+        studentId_userTenantId: {
+          studentId: student.id,
+          userTenantId: parentProfile.id,
+        },
+      },
       update: { relationship: 'parent', isPrimary: true, legalGuardian: true },
       create: {
         tenantId: tenant.id,
@@ -380,7 +571,15 @@ async function seedTenant(
 
   // Classes — one per course; link teacher; enrol student
   if (courseIds.length > 0) {
-    await seedClasses(tenant.id, courseIds, term.id, academicYear.id, teacherProfile, studentProfile, student);
+    await seedClasses(
+      tenant.id,
+      courseIds,
+      term.id,
+      academicYear.id,
+      teacherProfile,
+      studentProfile,
+      student,
+    );
   }
 }
 
@@ -393,7 +592,12 @@ async function seedAcademicStructure(tenantId: string, def: TenantDef) {
 
   const academicYear = await prisma.academicYear.upsert({
     where: { tenantId_name: { tenantId, name: year.name } },
-    update: { startDate: year.startDate, endDate: year.endDate, status: 'active', isDefault: true },
+    update: {
+      startDate: year.startDate,
+      endDate: year.endDate,
+      status: 'active',
+      isDefault: true,
+    },
     create: {
       tenantId,
       name: year.name,
@@ -405,8 +609,17 @@ async function seedAcademicStructure(tenantId: string, def: TenantDef) {
   });
 
   const term = await prisma.term.upsert({
-    where: { academicYearId_name: { academicYearId: academicYear.id, name: termDef.name } },
-    update: { startDate: termDef.startDate, endDate: termDef.endDate, status: 'active' },
+    where: {
+      academicYearId_name: {
+        academicYearId: academicYear.id,
+        name: termDef.name,
+      },
+    },
+    update: {
+      startDate: termDef.startDate,
+      endDate: termDef.endDate,
+      status: 'active',
+    },
     create: {
       academicYearId: academicYear.id,
       tenantId,
@@ -423,7 +636,12 @@ async function seedAcademicStructure(tenantId: string, def: TenantDef) {
   for (const c of courses) {
     const course = await prisma.course.upsert({
       where: { tenantId_code: { tenantId, code: c.code } },
-      update: { name: c.name, category: c.category, gradeLevels: c.gradeLevels, status: 'active' },
+      update: {
+        name: c.name,
+        category: c.category,
+        gradeLevels: c.gradeLevels,
+        status: 'active',
+      },
       create: {
         tenantId,
         code: c.code,
@@ -436,7 +654,9 @@ async function seedAcademicStructure(tenantId: string, def: TenantDef) {
     courseIds.push(course.id);
   }
 
-  console.log(`  ✅ Academic year "${academicYear.name}", term "${term.name}", ${courseIds.length} courses`);
+  console.log(
+    `  ✅ Academic year "${academicYear.name}", term "${term.name}", ${courseIds.length} courses`,
+  );
   return { academicYear, term, courseIds };
 }
 
@@ -454,18 +674,22 @@ async function seedClasses(
 
   for (const courseId of classesToCreate) {
     // findFirst because @@unique([courseId, termId, section])
-    const existing = await prisma.class.findFirst({ where: { courseId, termId, section: 'A' } });
-    const cls = existing ?? await prisma.class.create({
-      data: {
-        courseId,
-        termId,
-        academicYearId,
-        tenantId,
-        section: 'A',
-        capacity: 30,
-        status: 'active',
-      },
+    const existing = await prisma.class.findFirst({
+      where: { courseId, termId, section: 'A' },
     });
+    const cls =
+      existing ??
+      (await prisma.class.create({
+        data: {
+          courseId,
+          termId,
+          academicYearId,
+          tenantId,
+          section: 'A',
+          capacity: 30,
+          status: 'active',
+        },
+      }));
 
     // Assign teacher
     if (teacherProfile) {
@@ -474,7 +698,13 @@ async function seedClasses(
       });
       if (!existingTeacher) {
         await prisma.classTeacher.create({
-          data: { classId: cls.id, userTenantId: teacherProfile.id, tenantId, role: 'teacher', isActive: true },
+          data: {
+            classId: cls.id,
+            userTenantId: teacherProfile.id,
+            tenantId,
+            role: 'teacher',
+            isActive: true,
+          },
         });
       }
     }
@@ -500,7 +730,9 @@ async function seedClasses(
     }
   }
 
-  console.log(`  ✅ ${classesToCreate.length} class(es) created with teacher assigned and student enrolled`);
+  console.log(
+    `  ✅ ${classesToCreate.length} class(es) created with teacher assigned and student enrolled`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -511,16 +743,33 @@ async function seedFinanceData(tenantId: string) {
   const TERM_NAME = 'Spring Term 2025';
 
   // Find the student record for this tenant
-  const student = await prisma.student.findFirst({ where: { tenantId, studentNumber: 'STU-DEV-001' } });
+  const student = await prisma.student.findFirst({
+    where: { tenantId, studentNumber: 'STU-DEV-001' },
+  });
   if (!student) return;
 
   const invoices = [
-    { invoiceNumber: 'INV-DEV-001', amountDue: 18500000, amountPaid: 18500000, status: 'paid' },
-    { invoiceNumber: 'INV-DEV-002', amountDue: 18500000, amountPaid: 0,        status: 'overdue' },
+    {
+      invoiceNumber: 'INV-DEV-001',
+      amountDue: 18500000,
+      amountPaid: 18500000,
+      status: 'paid',
+    },
+    {
+      invoiceNumber: 'INV-DEV-002',
+      amountDue: 18500000,
+      amountPaid: 0,
+      status: 'overdue',
+    },
     // `amountPaid` is a cache of the allocation rows; seeding a figure with no
     // receipt behind it is exactly the drift `refreshInvoiceTotals` prevents,
     // so this one is seeded with a real part-payment below.
-    { invoiceNumber: 'INV-DEV-003', amountDue: 19500000, amountPaid: 10000000, status: 'partial' },
+    {
+      invoiceNumber: 'INV-DEV-003',
+      amountDue: 19500000,
+      amountPaid: 10000000,
+      status: 'partial',
+    },
   ];
 
   // Every invoice needs a LINE. The balance is derived from lines (WB5), so a
@@ -651,7 +900,9 @@ async function seedFinanceData(tenantId: string) {
     });
   }
 
-  console.log(`  ✅ Finance dev seed data: 3 invoices (with lines), 2 receipts`);
+  console.log(
+    `  ✅ Finance dev seed data: 3 invoices (with lines), 2 receipts`,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -659,7 +910,9 @@ async function seedFinanceData(tenantId: string) {
 // ---------------------------------------------------------------------------
 
 async function seedAttendanceData(tenantId: string) {
-  const student = await prisma.student.findFirst({ where: { tenantId, studentNumber: 'STU-DEV-001' } });
+  const student = await prisma.student.findFirst({
+    where: { tenantId, studentNumber: 'STU-DEV-001' },
+  });
   if (!student) return;
 
   const cls = await prisma.class.findFirst({
@@ -723,21 +976,39 @@ async function seedMultiProfilePersona(
 ) {
   console.log('\n📋 Seeding multi-school, multi-role persona...');
 
-  const greenfield = await prisma.tenant.findUnique({ where: { slug: 'greenfield-secondary' } });
-  const sunrise = await prisma.tenant.findUnique({ where: { slug: 'sunrise-primary' } });
+  const greenfield = await prisma.tenant.findUnique({
+    where: { slug: 'greenfield-secondary' },
+  });
+  const sunrise = await prisma.tenant.findUnique({
+    where: { slug: 'sunrise-primary' },
+  });
   if (!greenfield || !sunrise) {
-    console.warn('  ⚠️  Tenants not found — run tenant seeding first. Skipping multi-profile persona.');
+    console.warn(
+      '  ⚠️  Tenants not found — run tenant seeding first. Skipping multi-profile persona.',
+    );
     return;
   }
 
-  const user = await upsertUser('multi@schoolwithease.test', 'Multi', 'Profile', passwordHash);
+  const user = await upsertUser(
+    'multi@schoolwithease.test',
+    'Multi',
+    'Profile',
+    passwordHash,
+  );
 
   // Greenfield: Teacher profile (own UserTenant row)
-  const greenfieldTeacher = await findOrCreateUserTenant(user.id, greenfield.id);
+  const greenfieldTeacher = await findOrCreateUserTenant(
+    user.id,
+    greenfield.id,
+  );
   await assignRole(greenfieldTeacher.id, roles['Teacher']!, greenfield.id);
 
   // Greenfield: second profile, Parent — same user, same school, different role
-  const greenfieldParent = await createAdditionalProfile(user.id, greenfield.id, roles['Parent']!);
+  const greenfieldParent = await createAdditionalProfile(
+    user.id,
+    greenfield.id,
+    roles['Parent']!,
+  );
   await assignRole(greenfieldParent.id, roles['Parent']!, greenfield.id);
 
   // Sunrise: Teacher profile — same user, different school
@@ -746,40 +1017,98 @@ async function seedMultiProfilePersona(
 
   // Sunrise: second profile, Parent — same user, second school, exercises a
   // guardian with children spread across schools (not just co-located roles).
-  const sunriseParent = await createAdditionalProfile(user.id, sunrise.id, roles['Parent']!);
+  const sunriseParent = await createAdditionalProfile(
+    user.id,
+    sunrise.id,
+    roles['Parent']!,
+  );
   await assignRole(sunriseParent.id, roles['Parent']!, sunrise.id);
 
-  console.log('  ✅ multi@schoolwithease.test → Greenfield: Teacher + Parent, Sunrise: Teacher + Parent');
+  console.log(
+    '  ✅ multi@schoolwithease.test → Greenfield: Teacher + Parent, Sunrise: Teacher + Parent',
+  );
 
-  await seedParentChildren(greenfield.id, greenfieldParent.id, roles['Student']!, passwordHash, [
-    {
-      emailPrefix: 'child1', firstName: 'Amara', lastName: 'Profile', gradeLevel: 'JSS1',
-      studentNumber: 'STU-DEV-101', admissionNumber: 'ADM-DEV-101',
-      attendanceStatuses: ['present', 'present', 'present', 'late', 'present'],
-      gradePercent: 78, feeAmountDue: 15000000, feeAmountPaid: 15000000, feeStatus: 'paid',
-    },
-    {
-      emailPrefix: 'child2', firstName: 'Chidi', lastName: 'Profile', gradeLevel: 'JSS2',
-      studentNumber: 'STU-DEV-102', admissionNumber: 'ADM-DEV-102',
-      attendanceStatuses: ['present', 'late', 'absent', 'present', 'present'],
-      gradePercent: 85, feeAmountDue: 15000000, feeAmountPaid: 9000000, feeStatus: 'partial',
-    },
-    {
-      emailPrefix: 'child3', firstName: 'Ngozi', lastName: 'Profile', gradeLevel: 'SSS1',
-      studentNumber: 'STU-DEV-103', admissionNumber: 'ADM-DEV-103',
-      attendanceStatuses: ['present', 'present', 'present', 'present', 'present'],
-      gradePercent: 68, feeAmountDue: 19500000, feeAmountPaid: 0, feeStatus: 'overdue',
-    },
-  ]);
+  await seedParentChildren(
+    greenfield.id,
+    greenfieldParent.id,
+    roles['Student']!,
+    passwordHash,
+    [
+      {
+        emailPrefix: 'child1',
+        firstName: 'Amara',
+        lastName: 'Profile',
+        gradeLevel: 'JSS1',
+        studentNumber: 'STU-DEV-101',
+        admissionNumber: 'ADM-DEV-101',
+        attendanceStatuses: [
+          'present',
+          'present',
+          'present',
+          'late',
+          'present',
+        ],
+        gradePercent: 78,
+        feeAmountDue: 15000000,
+        feeAmountPaid: 15000000,
+        feeStatus: 'paid',
+      },
+      {
+        emailPrefix: 'child2',
+        firstName: 'Chidi',
+        lastName: 'Profile',
+        gradeLevel: 'JSS2',
+        studentNumber: 'STU-DEV-102',
+        admissionNumber: 'ADM-DEV-102',
+        attendanceStatuses: ['present', 'late', 'absent', 'present', 'present'],
+        gradePercent: 85,
+        feeAmountDue: 15000000,
+        feeAmountPaid: 9000000,
+        feeStatus: 'partial',
+      },
+      {
+        emailPrefix: 'child3',
+        firstName: 'Ngozi',
+        lastName: 'Profile',
+        gradeLevel: 'SSS1',
+        studentNumber: 'STU-DEV-103',
+        admissionNumber: 'ADM-DEV-103',
+        attendanceStatuses: [
+          'present',
+          'present',
+          'present',
+          'present',
+          'present',
+        ],
+        gradePercent: 68,
+        feeAmountDue: 19500000,
+        feeAmountPaid: 0,
+        feeStatus: 'overdue',
+      },
+    ],
+  );
 
-  await seedParentChildren(sunrise.id, sunriseParent.id, roles['Student']!, passwordHash, [
-    {
-      emailPrefix: 'child4', firstName: 'Tayo', lastName: 'Profile', gradeLevel: 'P3',
-      studentNumber: 'STU-DEV-104', admissionNumber: 'ADM-DEV-104',
-      attendanceStatuses: ['present', 'present', 'late', 'present', 'absent'],
-      gradePercent: 91, feeAmountDue: 12000000, feeAmountPaid: 6000000, feeStatus: 'partial',
-    },
-  ]);
+  await seedParentChildren(
+    sunrise.id,
+    sunriseParent.id,
+    roles['Student']!,
+    passwordHash,
+    [
+      {
+        emailPrefix: 'child4',
+        firstName: 'Tayo',
+        lastName: 'Profile',
+        gradeLevel: 'P3',
+        studentNumber: 'STU-DEV-104',
+        admissionNumber: 'ADM-DEV-104',
+        attendanceStatuses: ['present', 'present', 'late', 'present', 'absent'],
+        gradePercent: 91,
+        feeAmountDue: 12000000,
+        feeAmountPaid: 6000000,
+        feeStatus: 'partial',
+      },
+    ],
+  );
 }
 
 interface ChildSeedConfig {
@@ -814,8 +1143,12 @@ async function seedParentChildren(
   children: ChildSeedConfig[],
 ) {
   for (const c of children) {
-    const tenant = await prisma.tenant.findUnique({ where: { id: tenantId }, select: { slug: true } });
-    const emailDomain = tenant?.slug === 'sunrise-primary' ? 'sunrise.test' : 'greenfield.test';
+    const tenant = await prisma.tenant.findUnique({
+      where: { id: tenantId },
+      select: { slug: true },
+    });
+    const emailDomain =
+      tenant?.slug === 'sunrise-primary' ? 'sunrise.test' : 'greenfield.test';
     const email = `${c.emailPrefix}@${emailDomain}`;
 
     const user = await upsertUser(email, c.firstName, c.lastName, passwordHash);
@@ -823,7 +1156,9 @@ async function seedParentChildren(
     await assignRole(profile.id, studentRoleId, tenantId);
 
     const student = await prisma.student.upsert({
-      where: { tenantId_studentNumber: { tenantId, studentNumber: c.studentNumber } },
+      where: {
+        tenantId_studentNumber: { tenantId, studentNumber: c.studentNumber },
+      },
       update: { userTenantId: profile.id, gradeLevel: c.gradeLevel },
       create: {
         tenantId,
@@ -837,7 +1172,12 @@ async function seedParentChildren(
     });
 
     await prisma.studentGuardian.upsert({
-      where: { studentId_userTenantId: { studentId: student.id, userTenantId: parentProfileId } },
+      where: {
+        studentId_userTenantId: {
+          studentId: student.id,
+          userTenantId: parentProfileId,
+        },
+      },
       update: { relationship: 'parent', isPrimary: true, legalGuardian: true },
       create: {
         tenantId,
@@ -852,7 +1192,9 @@ async function seedParentChildren(
 
     await seedChildAcademicData(tenantId, student.id, c);
 
-    console.log(`  ✅ ${email.padEnd(28)} → Student (${c.gradeLevel}), guardian's dashboard now has real data`);
+    console.log(
+      `  ✅ ${email.padEnd(28)} → Student (${c.gradeLevel}), guardian's dashboard now has real data`,
+    );
   }
 }
 
@@ -868,11 +1210,17 @@ async function seedChildAcademicData(
   studentId: string,
   c: ChildSeedConfig,
 ) {
-  const academicYear = await prisma.academicYear.findFirst({ where: { tenantId, isDefault: true } });
+  const academicYear = await prisma.academicYear.findFirst({
+    where: { tenantId, isDefault: true },
+  });
   const term = academicYear
-    ? await prisma.term.findFirst({ where: { academicYearId: academicYear.id } })
+    ? await prisma.term.findFirst({
+        where: { academicYearId: academicYear.id },
+      })
     : null;
-  const cls = await prisma.class.findFirst({ where: { tenantId, section: 'A', status: 'active' } });
+  const cls = await prisma.class.findFirst({
+    where: { tenantId, section: 'A', status: 'active' },
+  });
 
   if (!academicYear || !term || !cls) return;
 
@@ -881,17 +1229,19 @@ async function seedChildAcademicData(
   const existingEnrollment = await prisma.enrollment.findFirst({
     where: { studentId, classId: cls.id, academicYearId: academicYear.id },
   });
-  const enrollment = existingEnrollment ?? await prisma.enrollment.create({
-    data: {
-      tenantId,
-      studentId,
-      classId: cls.id,
-      termId: term.id,
-      academicYearId: academicYear.id,
-      status: 'active',
-      enrollmentDate: new Date('2025-01-13'),
-    },
-  });
+  const enrollment =
+    existingEnrollment ??
+    (await prisma.enrollment.create({
+      data: {
+        tenantId,
+        studentId,
+        classId: cls.id,
+        termId: term.id,
+        academicYearId: academicYear.id,
+        status: 'active',
+        enrollmentDate: new Date('2025-01-13'),
+      },
+    }));
 
   // Attendance — one record per weekday, Mon 13 Jan through Fri 17 Jan.
   const dates = [
@@ -924,23 +1274,30 @@ async function seedChildAcademicData(
 
   // One graded assessment per class, shared across children in that class,
   // each getting their own Grade row against it.
-  const assessment = await prisma.assessment.findFirst({
-    where: { classId: cls.id, name: 'Term 1 Assessment' },
-  }) ?? await prisma.assessment.create({
-    data: {
-      classId: cls.id,
-      academicYearId: academicYear.id,
-      termId: term.id,
-      tenantId,
-      name: 'Term 1 Assessment',
-      type: 'exam',
-      maxPoints: 100,
-      status: 'graded',
-    },
-  });
+  const assessment =
+    (await prisma.assessment.findFirst({
+      where: { classId: cls.id, name: 'Term 1 Assessment' },
+    })) ??
+    (await prisma.assessment.create({
+      data: {
+        classId: cls.id,
+        academicYearId: academicYear.id,
+        termId: term.id,
+        tenantId,
+        name: 'Term 1 Assessment',
+        type: 'exam',
+        maxPoints: 100,
+        status: 'graded',
+      },
+    }));
 
   const existingGrade = await prisma.grade.findUnique({
-    where: { enrollmentId_assessmentId: { enrollmentId: enrollment.id, assessmentId: assessment.id } },
+    where: {
+      enrollmentId_assessmentId: {
+        enrollmentId: enrollment.id,
+        assessmentId: assessment.id,
+      },
+    },
   });
   if (!existingGrade) {
     await prisma.grade.create({
@@ -958,7 +1315,12 @@ async function seedChildAcademicData(
 
   // Fee invoice for the term.
   await prisma.feeInvoice.upsert({
-    where: { tenantId_invoiceNumber: { tenantId, invoiceNumber: `INV-${c.studentNumber}` } },
+    where: {
+      tenantId_invoiceNumber: {
+        tenantId,
+        invoiceNumber: `INV-${c.studentNumber}`,
+      },
+    },
     update: { amountPaid: c.feeAmountPaid, status: c.feeStatus },
     create: {
       tenantId,
@@ -981,8 +1343,15 @@ async function seedChildAcademicData(
 // ---------------------------------------------------------------------------
 
 const CLEARANCE: Record<RoleName, number> = {
-  SuperAdmin: 9, Owner: 8, Management: 7, ITSupport: 6,
-  Finance: 5, Operations: 4, Teacher: 3, Parent: 2, Student: 1,
+  SuperAdmin: 9,
+  Owner: 8,
+  Management: 7,
+  ITSupport: 6,
+  Finance: 5,
+  Operations: 4,
+  Teacher: 3,
+  Parent: 2,
+  Student: 1,
 };
 
 function clearanceOf(role: RoleName): number {
@@ -998,7 +1367,9 @@ async function main() {
 
   console.log('🌱 Dev-persona seed starting...');
   console.log('   Password for all accounts: DevPassword@2025!');
-  console.log('   ⚠️  For local development only — never run against production.\n');
+  console.log(
+    '   ⚠️  For local development only — never run against production.\n',
+  );
 
   try {
     const roles = await resolveRoles();
@@ -1010,7 +1381,9 @@ async function main() {
       await seedTenant(tenantDef, roles, passwordHash);
 
       // Enrich with domain data after the tenant + personas are in place
-      const tenant = await prisma.tenant.findUnique({ where: { slug: tenantDef.slug } });
+      const tenant = await prisma.tenant.findUnique({
+        where: { slug: tenantDef.slug },
+      });
       if (tenant) {
         await seedFinanceData(tenant.id);
         await seedAttendanceData(tenant.id);
@@ -1023,7 +1396,9 @@ async function main() {
     console.log('📋 Account summary');
     console.log('─'.repeat(70));
     console.log('Platform');
-    console.log('  architect@schoolwithease.com Architect   L10  (created by db:seed)');
+    console.log(
+      '  architect@schoolwithease.com Architect   L10  (created by db:seed)',
+    );
     console.log('  superadmin@platform.test     SuperAdmin  L9');
     console.log('');
 
@@ -1031,20 +1406,30 @@ async function main() {
       console.log(`${t.name}  (${t.domain})`);
       for (const p of t.personas) {
         const email = `${p.emailPrefix}@${t.domain}`.padEnd(36);
-        const role  = p.role.padEnd(12);
+        const role = p.role.padEnd(12);
         console.log(`  ${email} ${role} L${clearanceOf(p.role)}`);
       }
       console.log('');
     }
 
     console.log('Multi-school / multi-role test account');
-    console.log('  multi@schoolwithease.test          Greenfield: Teacher + Parent, Sunrise: Teacher + Parent');
+    console.log(
+      '  multi@schoolwithease.test          Greenfield: Teacher + Parent, Sunrise: Teacher + Parent',
+    );
     console.log('  Parent profile children (Greenfield):');
-    console.log('    child1@greenfield.test  Amara Profile  JSS1  (91% attendance, 78% grade, fees paid)');
-    console.log('    child2@greenfield.test  Chidi Profile  JSS2  (60% attendance, 85% grade, fees partial)');
-    console.log('    child3@greenfield.test  Ngozi Profile  SSS1  (100% attendance, 68% grade, fees overdue)');
+    console.log(
+      '    child1@greenfield.test  Amara Profile  JSS1  (91% attendance, 78% grade, fees paid)',
+    );
+    console.log(
+      '    child2@greenfield.test  Chidi Profile  JSS2  (60% attendance, 85% grade, fees partial)',
+    );
+    console.log(
+      '    child3@greenfield.test  Ngozi Profile  SSS1  (100% attendance, 68% grade, fees overdue)',
+    );
     console.log('  Parent profile children (Sunrise):');
-    console.log('    child4@sunrise.test     Tayo Profile   P3    (60% attendance, 91% grade, fees partial)');
+    console.log(
+      '    child4@sunrise.test     Tayo Profile   P3    (60% attendance, 91% grade, fees partial)',
+    );
     console.log('');
     console.log('  Default password: DevPassword@2025!');
     console.log('─'.repeat(70));

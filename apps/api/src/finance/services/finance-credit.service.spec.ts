@@ -16,7 +16,12 @@ describe('FinanceCreditService', () => {
   const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
   // `$queryRawUnsafe` is the row lock taken before either side's balance is read.
   const $queryRawUnsafe = jest.fn().mockResolvedValue([]);
-  const client = { accountCredit, creditApplication, feeInvoice, $queryRawUnsafe };
+  const client = {
+    accountCredit,
+    creditApplication,
+    feeInvoice,
+    $queryRawUnsafe,
+  };
   const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
   const audit = { write: jest.fn() };
 
@@ -73,13 +78,18 @@ describe('FinanceCreditService', () => {
     // The fully-drawn credit is exhausted; the partly-drawn one stays active.
     expect(accountCredit.update.mock.calls.map((c) => c[0])).toEqual([
       { where: { id: 'cr-old' }, data: { remaining: 0, status: 'exhausted' } },
-      { where: { id: 'cr-new' }, data: { remaining: 80_000, status: 'active' } },
+      {
+        where: { id: 'cr-new' },
+        data: { remaining: 80_000, status: 'active' },
+      },
     ]);
   });
 
   it('posts each draw-down as liability out, receivable down', async () => {
     feeInvoice.findFirst.mockResolvedValue(openInvoice(50_000));
-    accountCredit.findMany.mockResolvedValue([{ id: 'cr-1', remaining: 50_000 }]);
+    accountCredit.findMany.mockResolvedValue([
+      { id: 'cr-1', remaining: 50_000 },
+    ]);
 
     await service.autoApplyToInvoice('t1', 'inv-1', 'user-1');
 

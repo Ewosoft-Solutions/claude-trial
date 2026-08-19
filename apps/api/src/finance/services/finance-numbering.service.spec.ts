@@ -36,7 +36,9 @@ describe('FinanceNumberingService', () => {
     await service.next('t1', 'invoice', new Date('2026-08-19'));
 
     const [sql] = $queryRaw.mock.calls[0];
-    expect(sql.join('')).toMatch(/UPDATE[\s\S]*SET "next_value" = "next_value" \+ 1/);
+    expect(sql.join('')).toMatch(
+      /UPDATE[\s\S]*SET "next_value" = "next_value" \+ 1/,
+    );
     expect(sql.join('')).toMatch(/RETURNING/);
   });
 

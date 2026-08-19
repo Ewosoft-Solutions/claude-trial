@@ -81,7 +81,13 @@ export class FinanceReportingService {
     const groupBy = query.groupBy ?? 'day';
     const groups = new Map<
       string,
-      { key: string; label: string; receipts: number; total: number; allocated: number }
+      {
+        key: string;
+        label: string;
+        receipts: number;
+        total: number;
+        allocated: number;
+      }
     >();
 
     let total = 0;
@@ -281,7 +287,8 @@ export class FinanceReportingService {
         subledger: subledgerReceivable,
         ledger: glReceivable,
         difference: subledgerReceivable - glReceivable,
-        explanation: 'Sum of every open invoice balance vs the AR control account.',
+        explanation:
+          'Sum of every open invoice balance vs the AR control account.',
       },
       {
         key: 'credit',
@@ -289,7 +296,8 @@ export class FinanceReportingService {
         subledger: creditSum._sum.remaining ?? 0,
         ledger: glCredit,
         difference: (creditSum._sum.remaining ?? 0) - glCredit,
-        explanation: 'Credit not yet drawn down vs the fees-in-advance account.',
+        explanation:
+          'Credit not yet drawn down vs the fees-in-advance account.',
       },
       {
         key: 'cash',

@@ -60,12 +60,18 @@ export class FinanceLedgerController {
 
   @Get('trial-balance')
   @RequirePermissions(['finance.gl.view'])
-  @ApiOperation({ summary: 'Trial balance — debits, credits, and any difference' })
+  @ApiOperation({
+    summary: 'Trial balance — debits, credits, and any difference',
+  })
   trialBalance(
     @Query() query: TrialBalanceQueryDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.ledger.trialBalance(req.user.tenantId, query, req.user.profileId);
+    return this.ledger.trialBalance(
+      req.user.tenantId,
+      query,
+      req.user.profileId,
+    );
   }
 
   @Get('entries')

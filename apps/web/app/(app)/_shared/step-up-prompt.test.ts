@@ -18,7 +18,10 @@ describe('stepUpErrorMessage', () => {
 
   it('shows a plain string message from the API', async () => {
     expect(
-      await stepUpErrorMessage(respond({ message: 'Password is incorrect.' }), fallback),
+      await stepUpErrorMessage(
+        respond({ message: 'Password is incorrect.' }),
+        fallback,
+      ),
     ).toBe('Password is incorrect.');
   });
 
@@ -33,13 +36,18 @@ describe('stepUpErrorMessage', () => {
 
   it('refuses a non-string body and shows the fallback', async () => {
     expect(
-      await stepUpErrorMessage(respond({ message: { nested: 'object' } }), fallback),
+      await stepUpErrorMessage(
+        respond({ message: { nested: 'object' } }),
+        fallback,
+      ),
     ).toBe(fallback);
     expect(await stepUpErrorMessage(respond({}), fallback)).toBe(fallback);
   });
 
   it('falls back when the body is not JSON at all', async () => {
-    const response = new Response('<html>gateway error</html>', { status: 502 });
+    const response = new Response('<html>gateway error</html>', {
+      status: 502,
+    });
     expect(await stepUpErrorMessage(response, fallback)).toBe(fallback);
   });
 });

@@ -23,7 +23,9 @@ describe('safeErrorMessage', () => {
   it('refuses an array of validation messages', () => {
     expect(
       safeErrorMessage(
-        ['operation must be one of the following values: roles.create, tenant.suspend'],
+        [
+          'operation must be one of the following values: roles.create, tenant.suspend',
+        ],
         fallback,
       ),
     ).toBe(fallback);

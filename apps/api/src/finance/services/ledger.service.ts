@@ -179,7 +179,9 @@ export class LedgerService {
       where: { tenantId, systemKey: { not: null } },
     });
     const bySystemKey = new Map(existing.map((a) => [a.systemKey, a]));
-    const missing = SYSTEM_ACCOUNTS.filter((a) => !bySystemKey.has(a.systemKey));
+    const missing = SYSTEM_ACCOUNTS.filter(
+      (a) => !bySystemKey.has(a.systemKey),
+    );
 
     for (const account of missing) {
       try {

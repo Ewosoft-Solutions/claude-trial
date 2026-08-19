@@ -164,7 +164,8 @@ export function LedgerClient({
     const qs = next.toString();
     router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
   };
-  const setParam = (key: string, value: string | null) => setParams({ [key]: value });
+  const setParam = (key: string, value: string | null) =>
+    setParams({ [key]: value });
 
   const sourceFilter = searchParams.get('f_source');
   const exportHref = sourceFilter
@@ -484,7 +485,9 @@ function EntryDrawer({
             const detail = (await res.json().catch(() => null)) as {
               message?: string;
             } | null;
-            throw new Error(detail?.message ?? `Request failed (${res.status})`);
+            throw new Error(
+              detail?.message ?? `Request failed (${res.status})`,
+            );
           }
           toast.success('Reversal posted');
           onReversed();
@@ -523,7 +526,9 @@ function EntryDrawer({
                 {(entry?.lines ?? []).map((line) => (
                   <tr key={line.id} className="border-t border-border">
                     <td className="py-2 pr-3">
-                      <span className="text-foreground">{line.accountName}</span>
+                      <span className="text-foreground">
+                        {line.accountName}
+                      </span>
                       {line.description ? (
                         <span className="block text-xs text-muted-foreground">
                           {line.description}
@@ -560,7 +565,8 @@ function EntryDrawer({
             </Button>
             {canReverse ? (
               <Button size="sm" onClick={reverse} disabled={busy}>
-                {busy ? <Loader2 className="animate-spin" /> : <Undo2 />} Reverse
+                {busy ? <Loader2 className="animate-spin" /> : <Undo2 />}{' '}
+                Reverse
               </Button>
             ) : null}
           </SheetFooter>
@@ -610,7 +616,9 @@ function PeriodsCard({
             const detail = (await res.json().catch(() => null)) as {
               message?: string;
             } | null;
-            throw new Error(detail?.message ?? `Request failed (${res.status})`);
+            throw new Error(
+              detail?.message ?? `Request failed (${res.status})`,
+            );
           }
           toast.success(
             status === 'closed' ? 'Period closed' : 'Period reopened',
@@ -654,7 +662,8 @@ function PeriodsCard({
                     {period.name}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">
-                    {formatDate(period.startDate)} – {formatDate(period.endDate)}
+                    {formatDate(period.startDate)} –{' '}
+                    {formatDate(period.endDate)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -737,7 +746,9 @@ function NewPeriodDialog({ onSaved }: { onSaved: () => void }) {
             const detail = (await res.json().catch(() => null)) as {
               message?: string;
             } | null;
-            throw new Error(detail?.message ?? `Request failed (${res.status})`);
+            throw new Error(
+              detail?.message ?? `Request failed (${res.status})`,
+            );
           }
           toast.success('Period defined');
           setOpen(false);
@@ -755,63 +766,63 @@ function NewPeriodDialog({ onSaved }: { onSaved: () => void }) {
 
   return (
     <>
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button size="sm" onClick={() => setOpen(true)}>
-        <Plus /> Define period
-      </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Define an accounting period</DialogTitle>
-          <DialogDescription>
-            Periods are how a term&apos;s books get closed. Entries are stamped
-            with the period their date falls in.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="np-name">Name</Label>
-            <Input
-              id="np-name"
-              value={name}
-              onChange={(event) => setName(event.target.value)}
-              placeholder="First Term 2026/27"
-            />
-          </div>
-          <div className="grid gap-3 @md/main:grid-cols-2">
+      <Dialog open={open} onOpenChange={setOpen}>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          <Plus /> Define period
+        </Button>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Define an accounting period</DialogTitle>
+            <DialogDescription>
+              Periods are how a term&apos;s books get closed. Entries are
+              stamped with the period their date falls in.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="np-start">Starts</Label>
+              <Label htmlFor="np-name">Name</Label>
               <Input
-                id="np-start"
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
+                id="np-name"
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="First Term 2026/27"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="np-end">Ends</Label>
-              <Input
-                id="np-end"
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
+            <div className="grid gap-3 @md/main:grid-cols-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="np-start">Starts</Label>
+                <Input
+                  id="np-start"
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="np-end">Ends</Label>
+                <Input
+                  id="np-end"
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                />
+              </div>
             </div>
           </div>
-        </div>
-        <DialogFooter>
-          <Button variant="outline" onClick={() => setOpen(false)}>
-            Cancel
-          </Button>
-          <Button
-            onClick={save}
-            disabled={busy || !name.trim() || !startDate || !endDate}
-          >
-            {busy ? <Loader2 className="animate-spin" /> : null} Define period
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-    {stepUpPrompt}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={save}
+              disabled={busy || !name.trim() || !startDate || !endDate}
+            >
+              {busy ? <Loader2 className="animate-spin" /> : null} Define period
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      {stepUpPrompt}
     </>
   );
 }

@@ -212,7 +212,12 @@ export class FinanceAdjustmentService {
 
   private async postAdjustment(
     tenantId: string,
-    adjustment: { id: string; invoiceId: string; amount: number; reason: string | null },
+    adjustment: {
+      id: string;
+      invoiceId: string;
+      amount: number;
+      reason: string | null;
+    },
     userId?: string,
   ) {
     if (adjustment.amount <= 0) return;

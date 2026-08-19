@@ -173,7 +173,9 @@ export class FinanceController {
 
   @Get('credits')
   @RequirePermissions(['finance.view'])
-  @ApiOperation({ summary: 'List account credits and how they were drawn down' })
+  @ApiOperation({
+    summary: 'List account credits and how they were drawn down',
+  })
   async listCredits(
     @Query() query: ListCreditsDto,
     @Request() req: AuthenticatedRequest,

@@ -45,7 +45,10 @@ import {
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
-import { EmptyState, ErrorState } from '@workspace/ui/custom/states/page-states';
+import {
+  EmptyState,
+  ErrorState,
+} from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import {
   DetailGrid,
@@ -153,10 +156,10 @@ export function PaymentsClient({
     setFilters,
     toggleSort,
   } = useDirectoryState({
-      searchParams: searchParams.toString(),
-      onChange,
-      defaults,
-    });
+    searchParams: searchParams.toString(),
+    onChange,
+    defaults,
+  });
 
   const [term, setTerm] = React.useState(state.q);
   React.useEffect(() => setTerm(state.q), [state.q]);
@@ -336,7 +339,9 @@ export function PaymentsClient({
             <EmptyState
               compact
               title={
-                hasFilters ? 'No receipts match your filters' : 'No receipts yet'
+                hasFilters
+                  ? 'No receipts match your filters'
+                  : 'No receipts yet'
               }
               description={
                 hasFilters
@@ -414,7 +419,9 @@ function ReceiptDrawer({
         }
       } catch (e) {
         if (!cancelled) {
-          setError(e instanceof Error ? e.message : 'Could not load the receipt');
+          setError(
+            e instanceof Error ? e.message : 'Could not load the receipt',
+          );
         }
       }
     })();
@@ -434,10 +441,14 @@ function ReceiptDrawer({
       if (!res.ok) throw new Error(`Request failed (${res.status})`);
       const data = (await res.json()) as ReceiptDetail;
       setReceipt(data);
-      toast.success('Reprint recorded — the copy is logged against this receipt');
+      toast.success(
+        'Reprint recorded — the copy is logged against this receipt',
+      );
       window.print();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Could not record the reprint');
+      toast.error(
+        e instanceof Error ? e.message : 'Could not record the reprint',
+      );
     } finally {
       setBusy(false);
     }
@@ -459,7 +470,11 @@ function ReceiptDrawer({
 
         <div className="flex-1 overflow-y-auto px-4 pb-4">
           {error ? (
-            <ErrorState compact title="Could not load the receipt" description={error} />
+            <ErrorState
+              compact
+              title="Could not load the receipt"
+              description={error}
+            />
           ) : !receipt ? (
             <div className="flex items-center gap-2 py-8 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> Loading…
@@ -478,7 +493,10 @@ function ReceiptDrawer({
                     value={new Date(receipt.paidAt).toLocaleDateString('en-GB')}
                   />
                   <Field label="Reference" value={receipt.reference ?? '—'} />
-                  <Field label="Family" value={receipt.household?.name ?? '—'} />
+                  <Field
+                    label="Family"
+                    value={receipt.household?.name ?? '—'}
+                  />
                   <Field
                     label="Reprints"
                     value={String(receipt.reprintCount ?? 0)}
@@ -501,7 +519,8 @@ function ReceiptDrawer({
                       >
                         <div className="flex min-w-0 flex-col">
                           <span className="truncate text-sm font-medium text-foreground">
-                            {allocation.invoice?.studentName ?? 'Unnamed student'}
+                            {allocation.invoice?.studentName ??
+                              'Unnamed student'}
                           </span>
                           <Link
                             href={`/finance/invoices/${allocation.invoice?.id ?? ''}`}
@@ -595,9 +614,8 @@ function RecordPaymentDialog({
   const [open, setOpen] = React.useState(false);
   const [householdId, setHouseholdId] = React.useState('');
   const [householdQuery, setHouseholdQuery] = React.useState('');
-  const [outstanding, setOutstanding] = React.useState<OutstandingResponse | null>(
-    null,
-  );
+  const [outstanding, setOutstanding] =
+    React.useState<OutstandingResponse | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [selected, setSelected] = React.useState<Record<string, string>>({});
   const [amount, setAmount] = React.useState('');
@@ -674,7 +692,9 @@ function RecordPaymentDialog({
       } catch (e) {
         if (!cancelled) {
           toast.error(
-            e instanceof Error ? e.message : 'Could not load what this family owes',
+            e instanceof Error
+              ? e.message
+              : 'Could not load what this family owes',
           );
         }
       } finally {
@@ -775,7 +795,9 @@ function RecordPaymentDialog({
             const detail = (await res.json().catch(() => null)) as {
               message?: string;
             } | null;
-            throw new Error(detail?.message ?? `Request failed (${res.status})`);
+            throw new Error(
+              detail?.message ?? `Request failed (${res.status})`,
+            );
           }
           const receipt = (await res.json()) as { receiptNumber: string };
           toast.success(`Receipt ${receipt.receiptNumber} recorded`);
@@ -896,7 +918,9 @@ function RecordPaymentDialog({
                     <Checkbox
                       id={`rp-${invoice.id}`}
                       checked={checked}
-                      onCheckedChange={(value) => toggle(invoice, value === true)}
+                      onCheckedChange={(value) =>
+                        toggle(invoice, value === true)
+                      }
                     />
                     <label
                       htmlFor={`rp-${invoice.id}`}
@@ -907,7 +931,9 @@ function RecordPaymentDialog({
                       </span>
                       <span className="truncate text-xs text-muted-foreground">
                         {invoice.invoiceNumber}
-                        {invoice.termName ? ` · ${invoice.termName}` : ''} ·{' '}
+                        {invoice.termName
+                          ? ` · ${invoice.termName}`
+                          : ''} ·{' '}
                         {nairaFromKobo(invoice.financials?.balance ?? 0)} owing
                       </span>
                     </label>
@@ -949,13 +975,13 @@ function RecordPaymentDialog({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(
-                      Object.keys(METHOD_LABEL) as PaymentMethod[]
-                    ).map((value) => (
-                      <SelectItem key={value} value={value}>
-                        {METHOD_LABEL[value]}
-                      </SelectItem>
-                    ))}
+                    {(Object.keys(METHOD_LABEL) as PaymentMethod[]).map(
+                      (value) => (
+                        <SelectItem key={value} value={value}>
+                          {METHOD_LABEL[value]}
+                        </SelectItem>
+                      ),
+                    )}
                   </SelectContent>
                 </Select>
               </div>
@@ -1018,7 +1044,8 @@ function RecordPaymentDialog({
               Cancel
             </Button>
             <Button onClick={submit} disabled={busy || !canSubmit}>
-              {busy ? <Loader2 className="animate-spin" /> : null} Record payment
+              {busy ? <Loader2 className="animate-spin" /> : null} Record
+              payment
             </Button>
           </DialogFooter>
         </DialogContent>

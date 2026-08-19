@@ -9,7 +9,11 @@ import { LedgerService, SYSTEM_ACCOUNT } from './ledger.service';
 describe('LedgerService', () => {
   const chartOfAccount = { findMany: jest.fn(), create: jest.fn() };
   const accountingPeriod = { findFirst: jest.fn(), findMany: jest.fn() };
-  const journalEntry = { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() };
+  const journalEntry = {
+    create: jest.fn(),
+    findFirst: jest.fn(),
+    update: jest.fn(),
+  };
   const client = { chartOfAccount, accountingPeriod, journalEntry };
   const numbering = { next: jest.fn() };
   const audit = { write: jest.fn() };
@@ -24,7 +28,11 @@ describe('LedgerService', () => {
     { id: 'a-cash', systemKey: 'cash', normalBalance: 'debit' },
     { id: 'a-ar', systemKey: 'ar_control', normalBalance: 'debit' },
     { id: 'a-credit', systemKey: 'unapplied_credit', normalBalance: 'credit' },
-    { id: 'a-equity', systemKey: 'opening_balance_equity', normalBalance: 'credit' },
+    {
+      id: 'a-equity',
+      systemKey: 'opening_balance_equity',
+      normalBalance: 'credit',
+    },
     { id: 'a-income', systemKey: 'fee_income', normalBalance: 'credit' },
     { id: 'a-disc', systemKey: 'discounts_allowed', normalBalance: 'debit' },
   ];
@@ -56,7 +64,11 @@ describe('LedgerService', () => {
     const data = journalEntry.create.mock.calls[0][0].data;
     expect(data.entryNumber).toBe('JE-2026-000001');
     expect(data.lines.create).toEqual([
-      expect.objectContaining({ accountId: 'a-cash', debit: 100_000, credit: 0 }),
+      expect.objectContaining({
+        accountId: 'a-cash',
+        debit: 100_000,
+        credit: 0,
+      }),
       expect.objectContaining({ accountId: 'a-ar', debit: 0, credit: 100_000 }),
     ]);
   });
@@ -128,17 +140,42 @@ describe('LedgerService', () => {
       entryNumber: 'JE-2026-000001',
       status: 'posted',
       lines: [
-        { accountId: 'a-cash', debit: 100_000, credit: 0, description: 'cash in', invoiceId: null, householdId: null, studentId: null },
-        { accountId: 'a-ar', debit: 0, credit: 100_000, description: 'invoice', invoiceId: 'inv-1', householdId: null, studentId: 'stu-1' },
+        {
+          accountId: 'a-cash',
+          debit: 100_000,
+          credit: 0,
+          description: 'cash in',
+          invoiceId: null,
+          householdId: null,
+          studentId: null,
+        },
+        {
+          accountId: 'a-ar',
+          debit: 0,
+          credit: 100_000,
+          description: 'invoice',
+          invoiceId: 'inv-1',
+          householdId: null,
+          studentId: 'stu-1',
+        },
       ],
     });
 
-    await service.reverse('t1', 'je-1', 'user-1', 'Recorded against the wrong family');
+    await service.reverse(
+      't1',
+      'je-1',
+      'user-1',
+      'Recorded against the wrong family',
+    );
 
     const data = journalEntry.create.mock.calls[0][0].data;
     expect(data.reversalOfId).toBe('je-1');
     expect(data.lines.create).toEqual([
-      expect.objectContaining({ accountId: 'a-cash', debit: 0, credit: 100_000 }),
+      expect.objectContaining({
+        accountId: 'a-cash',
+        debit: 0,
+        credit: 100_000,
+      }),
       expect.objectContaining({ accountId: 'a-ar', debit: 100_000, credit: 0 }),
     ]);
     expect(journalEntry.update).toHaveBeenCalledWith({

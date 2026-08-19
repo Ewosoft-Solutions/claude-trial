@@ -140,7 +140,8 @@ export class FinanceService {
       creditApplications: { amount: number }[];
     },
   >(inv: T) {
-    const { lines, adjustments, allocations, creditApplications, ...rest } = inv;
+    const { lines, adjustments, allocations, creditApplications, ...rest } =
+      inv;
     return {
       ...rest,
       financials: computeFinancials({
@@ -286,7 +287,8 @@ export class FinanceService {
     // that is already `partial` (a plausible "reset it" click) posts the charge
     // a second time, re-applies every standing discount policy, and draws the
     // family's credit down again — phantom income against a real receivable.
-    const isBeingIssued = dto.status === 'issued' && invoice.status !== 'issued';
+    const isBeingIssued =
+      dto.status === 'issued' && invoice.status !== 'issued';
     if (isBeingIssued && invoice.status !== 'draft') {
       throw new BadRequestException(
         `This invoice is already ${invoice.status} — only a draft can be issued. Correct it with an adjustment or a reversal instead.`,

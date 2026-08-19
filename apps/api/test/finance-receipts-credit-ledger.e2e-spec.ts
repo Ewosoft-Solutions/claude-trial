@@ -29,7 +29,10 @@ import { FinanceReceiptService } from '../src/finance/services/finance-receipt.s
 import { FinanceCreditService } from '../src/finance/services/finance-credit.service';
 import { FinanceAdjustmentService } from '../src/finance/services/finance-adjustment.service';
 import { FinanceReportingService } from '../src/finance/services/finance-reporting.service';
-import { LedgerService, SYSTEM_ACCOUNT } from '../src/finance/services/ledger.service';
+import {
+  LedgerService,
+  SYSTEM_ACCOUNT,
+} from '../src/finance/services/ledger.service';
 import { makeSuperuserClient } from './helpers/superuser-client';
 
 const HAS_APP_RUNTIME = !!process.env.APP_RUNTIME_DATABASE_URL;
@@ -139,10 +142,20 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
 
     const [ta, tb, tc, mk, ck] = await Promise.all([
       owner.tenant.create({
-        data: { name: 'WB5 A', slug: A, status: 'active', schoolType: 'secondary' },
+        data: {
+          name: 'WB5 A',
+          slug: A,
+          status: 'active',
+          schoolType: 'secondary',
+        },
       }),
       owner.tenant.create({
-        data: { name: 'WB5 B', slug: B, status: 'active', schoolType: 'secondary' },
+        data: {
+          name: 'WB5 B',
+          slug: B,
+          status: 'active',
+          schoolType: 'secondary',
+        },
       }),
       owner.tenant.create({
         data: {
@@ -186,8 +199,18 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
     });
     await owner.householdMember.createMany({
       data: [
-        { tenantId: tenantAId, householdId, studentId: chidiId, studentName: 'Chidi Okonkwo' },
-        { tenantId: tenantAId, householdId, studentId: adaId, studentName: 'Ada Okonkwo' },
+        {
+          tenantId: tenantAId,
+          householdId,
+          studentId: chidiId,
+          studentName: 'Chidi Okonkwo',
+        },
+        {
+          tenantId: tenantAId,
+          householdId,
+          studentId: adaId,
+          studentName: 'Ada Okonkwo',
+        },
       ],
     });
 
@@ -196,8 +219,18 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
     });
     feeItemId = feeItem.id;
 
-    chidiInvoiceId = await makeInvoice(chidiId, 'Chidi Okonkwo', 200_000, '2026-09-15');
-    adaInvoiceId = await makeInvoice(adaId, 'Ada Okonkwo', 150_000, '2026-09-15');
+    chidiInvoiceId = await makeInvoice(
+      chidiId,
+      'Chidi Okonkwo',
+      200_000,
+      '2026-09-15',
+    );
+    adaInvoiceId = await makeInvoice(
+      adaId,
+      'Ada Okonkwo',
+      150_000,
+      '2026-09-15',
+    );
   });
 
   afterAll(async () => {
@@ -219,14 +252,28 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
 
   it('issuing a bill posts the charge: receivable up, fee income up', async () => {
     await inA(async () => {
-      await finance.updateInvoice(tenantAId, chidiInvoiceId, { status: 'issued' }, makerId);
-      await finance.updateInvoice(tenantAId, adaInvoiceId, { status: 'issued' }, makerId);
+      await finance.updateInvoice(
+        tenantAId,
+        chidiInvoiceId,
+        { status: 'issued' },
+        makerId,
+      );
+      await finance.updateInvoice(
+        tenantAId,
+        adaInvoiceId,
+        { status: 'issued' },
+        makerId,
+      );
 
       const trial = await ledger.trialBalance(tenantAId, {});
       expect(trial.outOfBalance).toBe(0);
 
-      const receivable = trial.rows.find((r) => r.systemKey === SYSTEM_ACCOUNT.AR_CONTROL);
-      const income = trial.rows.find((r) => r.systemKey === SYSTEM_ACCOUNT.FEE_INCOME);
+      const receivable = trial.rows.find(
+        (r) => r.systemKey === SYSTEM_ACCOUNT.AR_CONTROL,
+      );
+      const income = trial.rows.find(
+        (r) => r.systemKey === SYSTEM_ACCOUNT.FEE_INCOME,
+      );
       expect(receivable?.balance).toBe(350_000);
       expect(income?.balance).toBe(350_000);
     });
@@ -254,7 +301,10 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
     // A sequenced, year-scoped receipt number — not a timestamp.
     expect(receipt.receiptNumber).toMatch(/^RCT-\d{4}-\d{6}$/);
     expect(receipt.payerName).toBe('Mrs Adaeze Okonkwo');
-    expect(receipt.coveredStudents.sort()).toEqual(['Ada Okonkwo', 'Chidi Okonkwo']);
+    expect(receipt.coveredStudents.sort()).toEqual([
+      'Ada Okonkwo',
+      'Chidi Okonkwo',
+    ]);
     expect(receipt.allocatedAmount).toBe(250_000);
     expect(receipt.unallocatedAmount).toBe(0);
 
@@ -269,7 +319,10 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
       expect(ada.financials.balance).toBe(100_000);
 
       // The ledger moved cash in and receivables down by the same 250,000.
-      const cash = await ledger.systemAccountBalance(tenantAId, SYSTEM_ACCOUNT.CASH);
+      const cash = await ledger.systemAccountBalance(
+        tenantAId,
+        SYSTEM_ACCOUNT.CASH,
+      );
       const receivable = await ledger.systemAccountBalance(
         tenantAId,
         SYSTEM_ACCOUNT.AR_CONTROL,
@@ -380,17 +433,29 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
   });
 
   it('the held credit lands on the next invoice the moment it is issued', async () => {
-    laterInvoiceId = await makeInvoice(chidiId, 'Chidi Okonkwo', 120_000, '2027-01-15');
+    laterInvoiceId = await makeInvoice(
+      chidiId,
+      'Chidi Okonkwo',
+      120_000,
+      '2027-01-15',
+    );
 
     await inA(async () => {
-      await finance.updateInvoice(tenantAId, laterInvoiceId, { status: 'issued' }, makerId);
+      await finance.updateInvoice(
+        tenantAId,
+        laterInvoiceId,
+        { status: 'issued' },
+        makerId,
+      );
 
       const later = await finance.getInvoice(tenantAId, laterInvoiceId);
       expect(later.financials.credited).toBe(80_000);
       expect(later.financials.balance).toBe(40_000);
       expect(later.status).toBe('partial');
 
-      const remaining = await credits.availableCredit(tenantAId, { householdId });
+      const remaining = await credits.availableCredit(tenantAId, {
+        householdId,
+      });
       expect(remaining).toBe(0);
     });
   });
@@ -400,7 +465,9 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
       const report = await reporting.reconciliation(tenantAId);
       expect(report.trialBalance.outOfBalance).toBe(0);
       for (const control of report.controls) {
-        expect({ [control.key]: control.difference }).toEqual({ [control.key]: 0 });
+        expect({ [control.key]: control.difference }).toEqual({
+          [control.key]: 0,
+        });
       }
       expect(report.balanced).toBe(true);
     });
@@ -450,7 +517,12 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
       expect(entry.periodId).toBe(period.id);
 
       // …and that correction is undone by a reversal, never by an edit.
-      const reversal = await ledger.reverse(tenantAId, entry.id, makerId, 'Test correction');
+      const reversal = await ledger.reverse(
+        tenantAId,
+        entry.id,
+        makerId,
+        'Test correction',
+      );
       expect(reversal.reversalOfId).toBe(entry.id);
       const trial = await ledger.trialBalance(tenantAId, {});
       expect(trial.outOfBalance).toBe(0);
@@ -577,7 +649,12 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
       '2027-06-01',
     );
     await inA(() =>
-      finance.updateInvoice(tenantAId, contested, { status: 'issued' }, makerId),
+      finance.updateInvoice(
+        tenantAId,
+        contested,
+        { status: 'issued' },
+        makerId,
+      ),
     );
 
     const takePayment = () =>
@@ -635,7 +712,12 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
   });
 
   it('cancelling withdraws the charge AND anything posted against it', async () => {
-    const cancelId = await makeInvoice(adaId, 'Ada Okonkwo', 90_000, '2027-05-01');
+    const cancelId = await makeInvoice(
+      adaId,
+      'Ada Okonkwo',
+      90_000,
+      '2027-05-01',
+    );
 
     await inA(async () => {
       await finance.updateInvoice(

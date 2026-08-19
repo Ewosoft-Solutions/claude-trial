@@ -24,7 +24,10 @@ describe('FinanceReceiptService.recordReceipt', () => {
   };
 
   const numbering = { next: jest.fn() };
-  const credits = { createFromOverpayment: jest.fn(), availableCredit: jest.fn() };
+  const credits = {
+    createFromOverpayment: jest.fn(),
+    availableCredit: jest.fn(),
+  };
   const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
   const audit = { write: jest.fn() };
 
@@ -55,7 +58,10 @@ describe('FinanceReceiptService.recordReceipt', () => {
     jest.clearAllMocks();
     $queryRawUnsafe.mockResolvedValue([]);
     numbering.next.mockResolvedValue('RCT-2026-000001');
-    billingHousehold.findFirst.mockResolvedValue({ id: 'hh-1', name: 'Okonkwo' });
+    billingHousehold.findFirst.mockResolvedValue({
+      id: 'hh-1',
+      name: 'Okonkwo',
+    });
     householdPayer.findFirst.mockResolvedValue({ payerName: 'Mrs Okonkwo' });
     payment.create.mockImplementation(async ({ data }: any) => ({
       id: 'rct-1',
@@ -126,8 +132,16 @@ describe('FinanceReceiptService.recordReceipt', () => {
     const posted = ledger.post.mock.calls[0][1];
     expect(posted.lines).toEqual([
       expect.objectContaining({ account: 'cash', debit: 300_000 }),
-      expect.objectContaining({ account: 'ar_control', credit: 200_000, invoiceId: 'inv-a' }),
-      expect.objectContaining({ account: 'ar_control', credit: 100_000, invoiceId: 'inv-b' }),
+      expect.objectContaining({
+        account: 'ar_control',
+        credit: 200_000,
+        invoiceId: 'inv-a',
+      }),
+      expect.objectContaining({
+        account: 'ar_control',
+        credit: 100_000,
+        invoiceId: 'inv-b',
+      }),
     ]);
     expect(credits.createFromOverpayment).not.toHaveBeenCalled();
   });
@@ -200,7 +214,10 @@ describe('FinanceReceiptService.recordReceipt', () => {
     await expect(
       service.recordReceipt(
         't1',
-        dto({ allocations: [{ invoiceId: 'inv-a', amount: 200_000 }], amount: 200_000 }),
+        dto({
+          allocations: [{ invoiceId: 'inv-a', amount: 200_000 }],
+          amount: 200_000,
+        }),
         'user-1',
       ),
     ).rejects.toThrow(/is draft — issue it before taking payment/);

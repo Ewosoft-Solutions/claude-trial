@@ -35,10 +35,7 @@ export class FinanceReportController {
   @Get('aging')
   @RequirePermissions(['finance.view'])
   @ApiOperation({ summary: 'Outstanding debt by how long it has been owed' })
-  aging(
-    @Query() query: AgingQueryDto,
-    @Request() req: AuthenticatedRequest,
-  ) {
+  aging(@Query() query: AgingQueryDto, @Request() req: AuthenticatedRequest) {
     return this.reporting.aging(req.user.tenantId, query);
   }
 

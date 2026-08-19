@@ -66,7 +66,8 @@ export class RecordReceiptDto {
 
   @ApiProperty({
     example: 15000000,
-    description: 'Total received, in kobo. Anything unallocated becomes credit.',
+    description:
+      'Total received, in kobo. Anything unallocated becomes credit.',
   })
   @IsInt()
   @Min(1)

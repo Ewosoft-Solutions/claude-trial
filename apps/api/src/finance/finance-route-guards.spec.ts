@@ -56,17 +56,14 @@ describe('Finance routes — what stands between a caller and the money', () => 
 
     // Seeing the books is a different authority from seeing a bill: a bursar
     // with finance.view does NOT get the ledger.
-    it.each([
-      'accounts',
-      'trialBalance',
-      'entries',
-      'entry',
-      'periods',
-    ])('ledger read %s requires finance.gl.view', (method) => {
-      expect(permissionsOn(FinanceLedgerController.prototype, method)).toEqual([
-        'finance.gl.view',
-      ]);
-    });
+    it.each(['accounts', 'trialBalance', 'entries', 'entry', 'periods'])(
+      'ledger read %s requires finance.gl.view',
+      (method) => {
+        expect(
+          permissionsOn(FinanceLedgerController.prototype, method),
+        ).toEqual(['finance.gl.view']);
+      },
+    );
 
     it('reconciliation reads the ledger, so it needs the ledger permission', () => {
       expect(
@@ -96,15 +93,15 @@ describe('Finance routes — what stands between a caller and the money', () => 
       expect(stepUpOn(FinanceLedgerController.prototype, method)).toBe(
         operation,
       );
-      expect(
-        permissionsOn(FinanceLedgerController.prototype, method),
-      ).toEqual(['finance.gl.manage']);
+      expect(permissionsOn(FinanceLedgerController.prototype, method)).toEqual([
+        'finance.gl.manage',
+      ]);
     });
 
     it('exporting the journal needs the manage authority, not just a look', () => {
-      expect(permissionsOn(FinanceLedgerController.prototype, 'export')).toEqual(
-        ['finance.gl.manage'],
-      );
+      expect(
+        permissionsOn(FinanceLedgerController.prototype, 'export'),
+      ).toEqual(['finance.gl.manage']);
     });
   });
 
