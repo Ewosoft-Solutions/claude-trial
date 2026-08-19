@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Prisma } from '@workspace/database';
 import { DatabaseService } from '../../common/database/database.service';
 import { TenantDbService } from '../../common/database/tenant-db.service';
@@ -253,6 +257,26 @@ export class FinanceService {
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
 
+    const isBeingCancelled =
+      dto.status === 'cancelled' && invoice.status !== 'cancelled';
+    if (isBeingCancelled) {
+      // Cancelling withdraws the charge. If money (or credit) has already been
+      // applied to it, withdrawing the charge alone would leave the receipt
+      // pointing at a bill that no longer exists and the ledger short by what
+      // was settled. That correction is a refund/credit note, not a cancel.
+      const settled = await this.client.paymentAllocation.count({
+        where: { tenantId, invoiceId: id },
+      });
+      const credited = await this.client.creditApplication.count({
+        where: { tenantId, invoiceId: id },
+      });
+      if (settled > 0 || credited > 0) {
+        throw new BadRequestException(
+          'This invoice has already been settled in part. Reverse the receipt or raise a correcting adjustment instead of cancelling it.',
+        );
+      }
+    }
+
     const isBeingIssued = dto.status === 'issued' && invoice.status !== 'issued';
     // Open the books BEFORE this invoice becomes a receivable, so a school
     // carrying pre-ledger debt opens with that debt and not with this bill.
@@ -280,7 +304,7 @@ export class FinanceService {
 
     // Cancelling an issued invoice cannot just delete the receivable — it is
     // reversed, so the ledger shows both the charge and its withdrawal.
-    if (dto.status === 'cancelled' && invoice.status !== 'cancelled') {
+    if (isBeingCancelled) {
       await this.ledger.reverseSource(
         tenantId,
         'invoice',

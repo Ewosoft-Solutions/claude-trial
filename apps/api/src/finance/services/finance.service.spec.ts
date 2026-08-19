@@ -111,3 +111,78 @@ describe('FinanceService.listInvoices', () => {
     expect(findMany.mock.calls[0][0].orderBy).toEqual([{ createdAt: 'desc' }]);
   });
 });
+
+/**
+ * Cancelling an invoice withdraws the charge. Doing that to a bill money has
+ * already been applied to would leave the receipt pointing at nothing and the
+ * ledger short by what was settled — so it is refused, and the correction is a
+ * reversal or an adjustment instead.
+ */
+describe('FinanceService.updateInvoice — cancelling', () => {
+  const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
+  const paymentAllocation = { count: jest.fn() };
+  const creditApplication = { count: jest.fn() };
+  const client = { feeInvoice, paymentAllocation, creditApplication };
+  const ledger = {
+    post: jest.fn(),
+    reverseSource: jest.fn(),
+    ensureOpeningBalance: jest.fn(),
+  };
+
+  const service = new FinanceService(
+    { client } as never,
+    { isScoped: false } as never,
+    { applyPoliciesToInvoice: jest.fn() } as never,
+    { next: jest.fn() } as never,
+    { autoApplyToInvoice: jest.fn() } as never,
+    { recordReceipt: jest.fn() } as never,
+    ledger as never,
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    feeInvoice.findFirst.mockResolvedValue({ id: 'inv-1', status: 'issued' });
+    feeInvoice.update.mockImplementation(async ({ where, data }: any) => ({
+      id: where.id,
+      ...data,
+    }));
+    paymentAllocation.count.mockResolvedValue(0);
+    creditApplication.count.mockResolvedValue(0);
+  });
+
+  it('reverses the charge when nothing has been settled', async () => {
+    await service.updateInvoice(
+      't1',
+      'inv-1',
+      { status: 'cancelled' },
+      'user-1',
+    );
+
+    expect(feeInvoice.update).toHaveBeenCalled();
+    expect(ledger.reverseSource).toHaveBeenCalledWith(
+      't1',
+      'invoice',
+      'inv-1',
+      'user-1',
+      'Invoice cancelled',
+    );
+  });
+
+  it('refuses to cancel an invoice a payment has been applied to', async () => {
+    paymentAllocation.count.mockResolvedValue(1);
+
+    await expect(
+      service.updateInvoice('t1', 'inv-1', { status: 'cancelled' }, 'user-1'),
+    ).rejects.toThrow(/already been settled in part/);
+    expect(feeInvoice.update).not.toHaveBeenCalled();
+    expect(ledger.reverseSource).not.toHaveBeenCalled();
+  });
+
+  it('refuses just as firmly when it was settled with held credit', async () => {
+    creditApplication.count.mockResolvedValue(1);
+
+    await expect(
+      service.updateInvoice('t1', 'inv-1', { status: 'cancelled' }, 'user-1'),
+    ).rejects.toThrow(/already been settled in part/);
+  });
+});
