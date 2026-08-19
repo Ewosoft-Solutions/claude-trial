@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -94,6 +95,24 @@ const SYSTEM_ACCOUNTS: {
   },
 ];
 
+/**
+ * A P2002 raised by a specific constraint, rather than "some unique broke".
+ * Mirrors the detector in `guardianship.service.ts`: swallowing every unique
+ * violation here would let an unrelated collision (a duplicate entry number,
+ * say) read as "another request already did this".
+ */
+function isUniqueViolationOn(error: unknown, constraint: string): boolean {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2002'
+  ) {
+    return false;
+  }
+  const target = error.meta?.target;
+  const name = Array.isArray(target) ? target.join(',') : String(target ?? '');
+  return name.includes(constraint);
+}
+
 /** One side of an entry, addressed by the role its account plays. */
 export interface PostingLine {
   account: SystemAccountKey;
@@ -164,18 +183,18 @@ export class LedgerService {
         });
         bySystemKey.set(created.systemKey, created);
       } catch (error) {
-        // Two first-ever postings can create the same system account at once;
-        // the unique index settles it and the loser reads the winner's row.
-        if (
-          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-          error.code !== 'P2002'
-        ) {
-          throw error;
+        // Two first-ever postings can create the same system account at once.
+        // The unique index settles which one wins — but the loser cannot simply
+        // read the winner's row and continue: the failed INSERT has already
+        // aborted this transaction, and Prisma's interactive transaction has no
+        // savepoint to roll back to. So this fails honestly and is retryable,
+        // rather than pretending to recover and dying two queries later.
+        if (isUniqueViolationOn(error, 'system_key')) {
+          throw new ConflictException(
+            'The chart of accounts was being created by another request. Try again.',
+          );
         }
-        const existingAccount = await this.client.chartOfAccount.findFirst({
-          where: { tenantId, systemKey: account.systemKey },
-        });
-        if (existingAccount) bySystemKey.set(account.systemKey, existingAccount);
+        throw error;
       }
     }
     return bySystemKey;
@@ -556,16 +575,18 @@ export class LedgerService {
     try {
       return await this.postOpening(tenantId, outstanding, userId);
     } catch (error) {
-      // A partial unique index makes "one opening per tenant" a database fact,
-      // so a concurrent reader that got there first wins and this one simply
-      // carries on. Without it, two tabs opening /finance/ledger and
-      // /finance/reports at once would each post the whole pre-ledger debt —
-      // and the trial balance could not see it, because both entries balance.
+      // The partial unique index is what actually guarantees one opening per
+      // tenant — two tabs (one on /finance/ledger, one on /finance/reports)
+      // would otherwise each post the whole pre-ledger debt, invisibly, because
+      // both entries balance. The loser is told to retry rather than silently
+      // returning null: its transaction is already aborted by the failed
+      // INSERT, and a null here would read as "nothing needed opening".
       if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        isUniqueViolationOn(error, 'journal_entries_one_opening_per_tenant')
       ) {
-        return null;
+        throw new ConflictException(
+          'The books were being opened by another request. Try again.',
+        );
       }
       throw error;
     }

@@ -19,7 +19,10 @@ describe('FinanceAdjustmentService', () => {
     findFirst: jest.fn(),
     findMany: jest.fn(),
   };
-  const client = { feeInvoice, feeAdjustment, discountPolicy };
+  // `$queryRawUnsafe` is the row lock the approval takes before it re-reads
+  // the balance it is about to spend.
+  const $queryRawUnsafe = jest.fn().mockResolvedValue([]);
+  const client = { feeInvoice, feeAdjustment, discountPolicy, $queryRawUnsafe };
   // The ledger is the collaborator that turns an APPLIED adjustment into a
   // posted contra pair; here we only assert that it is asked to.
   const ledger = { post: jest.fn(), ensureOpeningBalance: jest.fn() };
@@ -38,6 +41,7 @@ describe('FinanceAdjustmentService', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    $queryRawUnsafe.mockResolvedValue([]);
     feeAdjustment.create.mockImplementation(async ({ data }: any) => ({
       id: 'adj-1',
       ...data,
@@ -282,11 +286,56 @@ describe('FinanceAdjustmentService', () => {
     expect(created).toHaveLength(2);
   });
 
+  it('caps TWO overlapping policies against the same balance, not each against it', async () => {
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      invoiceNumber: 'INV-2026-000001',
+      status: 'issued',
+      dueDate: null,
+      householdId: null,
+      studentId: 'stu-1',
+      lines: [{ feeItemId: 'tuition', amount: 100_000, quantity: 1 }],
+      adjustments: [],
+      allocations: [],
+      creditApplications: [],
+    });
+    discountPolicy.findMany.mockResolvedValue([
+      {
+        id: 'p-scholarship',
+        type: 'scholarship',
+        feeItemId: null,
+        amount: null,
+        percentBps: 6000,
+        name: '60% scholarship',
+      },
+      {
+        id: 'p-sibling',
+        type: 'discount',
+        feeItemId: null,
+        amount: null,
+        percentBps: 5000,
+        name: '50% sibling',
+      },
+    ]);
+
+    await service.applyPoliciesToInvoice('t1', 'inv-1');
+
+    const amounts = feeAdjustment.create.mock.calls.map(
+      (call) => call[0].data.amount as number,
+    );
+    // 60% then 50% would be 110,000 against a 100,000 charge — receivables
+    // would sit at −10,000 for this invoice forever.
+    expect(amounts.reduce((sum, value) => sum + value, 0)).toBe(100_000);
+    expect(amounts).toEqual([60_000, 40_000]);
+  });
+
   it('is idempotent — skips a policy already applied to the invoice', async () => {
     feeInvoice.findFirst.mockResolvedValue({
       id: 'inv-1',
       lines: [{ feeItemId: 'tuition', amount: 1_000_000, quantity: 1 }],
-      adjustments: [{ policyId: 'p-pct' }],
+      adjustments: [{ policyId: 'p-pct', status: 'applied', amount: 100_000 }],
+      allocations: [],
+      creditApplications: [],
     });
     discountPolicy.findMany.mockResolvedValue([
       {

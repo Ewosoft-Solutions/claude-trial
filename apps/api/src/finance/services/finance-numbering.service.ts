@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ConflictException, Injectable } from '@nestjs/common';
 import { Prisma } from '@workspace/database';
 
 import { TenantDbService } from '../../common/database/tenant-db.service';
@@ -61,7 +61,9 @@ export class FinanceNumberingService {
     // transaction, so the row lock the UPDATE takes is what serialises
     // concurrent issuers.
     // `upsert` still races two first-of-the-year requests against the unique
-    // index; the loser's row already exists, which is all we needed.
+    // index. The loser cannot carry on — its failed INSERT has aborted this
+    // transaction — so it is told to retry, which on the second attempt finds
+    // the row and proceeds normally.
     try {
       await this.client.financeNumberSequence.upsert({
         where: { tenantId_kind_scopeKey: { tenantId, kind, scopeKey } },
@@ -70,11 +72,14 @@ export class FinanceNumberingService {
       });
     } catch (error) {
       if (
-        !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-        error.code !== 'P2002'
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
       ) {
-        throw error;
+        throw new ConflictException(
+          `The ${kind} number sequence for ${scopeKey} was being created by another request. Try again.`,
+        );
       }
+      throw error;
     }
 
     const rows = await this.client.$queryRaw<{ next_value: number }[]>`

@@ -353,27 +353,44 @@ export class FinanceService {
       'Invoice cancelled',
     );
 
-    // Adjustments posted against this invoice are keyed by the ADJUSTMENT id,
-    // so they have to be looked up by invoice and reversed one by one.
-    const adjustments = await this.client.feeAdjustment.findMany({
-      where: { tenantId, invoiceId, status: 'applied' },
-      select: { id: true },
-    });
-    for (const adjustment of adjustments) {
-      await this.ledger.reverseSource(
-        tenantId,
-        'adjustment',
-        adjustment.id,
-        userId,
-        'Invoice cancelled',
-      );
+    if (charge.length > 0) {
+      // The charge was posted through the ledger, so the invoice's whole
+      // contribution to receivables is its own entries: the charge, plus any
+      // discount that credited receivables against it. Reverse both, and mark
+      // the adjustments reversed so the invoice does not go on displaying a
+      // waiver the books have already withdrawn.
+      const adjustments = await this.client.feeAdjustment.findMany({
+        where: { tenantId, invoiceId, status: 'applied' },
+        select: { id: true },
+      });
+      for (const adjustment of adjustments) {
+        await this.ledger.reverseSource(
+          tenantId,
+          'adjustment',
+          adjustment.id,
+          userId,
+          'Invoice cancelled',
+        );
+      }
+      if (adjustments.length > 0) {
+        await this.client.feeAdjustment.updateMany({
+          where: { tenantId, id: { in: adjustments.map((a) => a.id) } },
+          data: { status: 'reversed' },
+        });
+      }
+      return;
     }
 
-    if (charge.length > 0) return;
-
-    // No charge entry: this invoice was billed before the ledger opened, so its
-    // receivable arrived as part of the opening balance. Withdraw exactly what
-    // is still outstanding on it, against the same opening equity.
+    // No charge entry: this invoice was billed BEFORE the ledger opened, so its
+    // receivable arrived inside the opening balance — already net of whatever
+    // had been discounted or paid by then — and anything since has posted its
+    // own entry. What is left of it in the ledger is therefore exactly its
+    // current outstanding balance, and withdrawing that zeroes it.
+    //
+    // Which is why the adjustments are deliberately NOT reversed here: their
+    // entries are part of what reduced this receivable, and undoing them would
+    // put the discount back into receivables that the withdrawal below no
+    // longer covers.
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: invoiceId, tenantId },
       include: INVOICE_FINANCIALS_INCLUDE,

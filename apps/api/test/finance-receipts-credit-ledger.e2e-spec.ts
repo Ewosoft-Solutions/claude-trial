@@ -52,6 +52,8 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
 
   let tenantAId: string;
   let tenantBId: string;
+  // A school that was billing BEFORE the ledger existed — the upgrade case.
+  let tenantCId: string;
   let makerId: string;
   let checkerId: string;
   let householdId: string;
@@ -123,12 +125,20 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
     reporting = app.get(FinanceReportingService);
     ledger = app.get(LedgerService);
 
-    const [ta, tb, mk, ck] = await Promise.all([
+    const [ta, tb, tc, mk, ck] = await Promise.all([
       owner.tenant.create({
         data: { name: 'WB5 A', slug: A, status: 'active', schoolType: 'secondary' },
       }),
       owner.tenant.create({
         data: { name: 'WB5 B', slug: B, status: 'active', schoolType: 'secondary' },
+      }),
+      owner.tenant.create({
+        data: {
+          name: 'WB5 C',
+          slug: `wb5-c-${stamp}`,
+          status: 'active',
+          schoolType: 'secondary',
+        },
       }),
       owner.user.create({
         data: { email: `wb5-maker-${stamp}@a.test`, isActive: true },
@@ -139,6 +149,7 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
     ]);
     tenantAId = ta.id;
     tenantBId = tb.id;
+    tenantCId = tc.id;
     makerId = mk.id;
     checkerId = ck.id;
 
@@ -180,7 +191,7 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
   afterAll(async () => {
     if (owner) {
       await owner.tenant
-        .deleteMany({ where: { id: { in: [tenantAId, tenantBId] } } })
+        .deleteMany({ where: { id: { in: [tenantAId, tenantBId, tenantCId] } } })
         .catch(() => undefined);
       await owner.user
         .deleteMany({ where: { id: { in: [makerId, checkerId] } } })
@@ -543,6 +554,73 @@ d('Finance — receipts, allocations, credit and the ledger (WB5)', () => {
       const after = await reporting.reconciliation(tenantAId);
       expect(after.controls.map((c) => c.difference)).toEqual([0, 0, 0]);
       expect(after.balanced).toBe(true);
+    });
+  });
+
+  it('cancels a bill that predates the ledger without stranding its discount', async () => {
+    // The upgrade case: this school was billing before double-entry existed, so
+    // the invoice has no charge entry — its receivable arrives inside the
+    // opening balance instead. Reversing "the charge" here would find nothing,
+    // and undoing the waiver on top would put the discount back into
+    // receivables that nothing withdraws.
+    const feeItem = await owner.feeItem.create({
+      data: { tenantId: tenantCId, code: 'tuition', name: 'Tuition' },
+    });
+    const legacy = await owner.feeInvoice.create({
+      data: {
+        tenantId: tenantCId,
+        invoiceNumber: `LEGACY-${stamp}`,
+        studentId: `stu-legacy-${stamp}`,
+        studentName: 'Legacy Student',
+        status: 'issued',
+        amountDue: 500_000,
+      },
+    });
+    await owner.feeInvoiceLine.create({
+      data: {
+        tenantId: tenantCId,
+        invoiceId: legacy.id,
+        feeItemId: feeItem.id,
+        amount: 500_000,
+        quantity: 1,
+      },
+    });
+
+    await tenantDb.runScoped(tenantCId, makerId, async () => {
+      // Opening the books brings the pre-existing debt in.
+      await ledger.ensureOpeningBalance(tenantCId, makerId);
+      expect(
+        await ledger.systemAccountBalance(tenantCId, SYSTEM_ACCOUNT.AR_CONTROL),
+      ).toBe(500_000);
+
+      const waiver = await adjustments.requestAdjustment(tenantCId, maker(), {
+        invoiceId: legacy.id,
+        type: 'waiver',
+        amount: 200_000,
+        reason: 'Legacy hardship',
+      });
+      await adjustments.approveAdjustment(tenantCId, checker(), waiver.id);
+      expect(
+        await ledger.systemAccountBalance(tenantCId, SYSTEM_ACCOUNT.AR_CONTROL),
+      ).toBe(300_000);
+      expect((await reporting.reconciliation(tenantCId)).balanced).toBe(true);
+
+      await finance.updateInvoice(
+        tenantCId,
+        legacy.id,
+        { status: 'cancelled' },
+        makerId,
+      );
+
+      // The invoice is gone from the subledger, and gone from receivables — to
+      // the kobo, with the waiver's own entry left standing because it is part
+      // of what the withdrawal accounted for.
+      expect(
+        await ledger.systemAccountBalance(tenantCId, SYSTEM_ACCOUNT.AR_CONTROL),
+      ).toBe(0);
+      const report = await reporting.reconciliation(tenantCId);
+      expect(report.controls.map((c) => c.difference)).toEqual([0, 0, 0]);
+      expect(report.balanced).toBe(true);
     });
   });
 

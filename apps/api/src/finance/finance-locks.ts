@@ -16,6 +16,12 @@ import { Prisma } from '@workspace/database';
  * Ids are sorted so two callers touching the same set always take the locks in
  * the same order — the cheap way to avoid deadlocking a family checkout
  * against another one covering some of the same children.
+ *
+ * Ordering holds ACROSS tables too: **invoices are always locked before
+ * credits**. Applying a credit and issuing an invoice touch the same two rows
+ * from opposite directions, and taking them in opposite orders is a textbook
+ * ABBA deadlock — one of the two requests dies with a 40P01 on a money route.
+ * Use `lockInvoicesThenCredits` when a path needs both.
  */
 
 /** The only two tables this locks. Fixed strings — never caller-supplied. */
@@ -59,4 +65,18 @@ export function lockCredits(
   creditIds: string[],
 ): Promise<void> {
   return lockRows(client, LOCKABLE.credits, tenantId, creditIds);
+}
+
+/**
+ * Take both locks in the one order every caller must use. Pass empty arrays for
+ * whichever side a path does not touch.
+ */
+export async function lockInvoicesThenCredits(
+  client: Prisma.TransactionClient,
+  tenantId: string,
+  invoiceIds: string[],
+  creditIds: string[],
+): Promise<void> {
+  await lockInvoices(client, tenantId, invoiceIds);
+  await lockCredits(client, tenantId, creditIds);
 }

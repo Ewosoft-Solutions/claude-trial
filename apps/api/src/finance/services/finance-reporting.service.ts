@@ -375,12 +375,16 @@ export class FinanceReportingService {
         );
       }
     }
+    const lineCount = rows.length - 1;
     if (truncated) {
-      rows.push(
-        csvCell(
-          `TRUNCATED: this export stops at ${EXPORT_ENTRY_CAP} entries. Narrow the date range to export the rest.`,
-        ),
-      );
+      // Padded to the full width: a one-column row makes a strict importer
+      // (QuickBooks, Sage — the whole point of the export) reject the file or
+      // read the sentence as an entry number.
+      const notice = [
+        `TRUNCATED: this export stops at ${EXPORT_ENTRY_CAP} entries. Narrow the date range to export the rest.`,
+        ...Array<string>(header.length - 1).fill(''),
+      ];
+      rows.push(notice.map((cell) => csvCell(cell)).join(','));
     }
 
     // The journal is financial data leaving the building, so the export is
@@ -391,7 +395,7 @@ export class FinanceReportingService {
       action: 'finance_journal_exported',
       resource: 'journal_entry',
       actorId: userId ?? null,
-      description: `Journal exported (${exported.length} entries, ${rows.length - 1} lines)`,
+      description: `Journal exported (${exported.length} entries, ${lineCount} lines)`,
       metadata: {
         from: query.from ?? null,
         to: query.to ?? null,

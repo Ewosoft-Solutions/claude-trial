@@ -7,6 +7,7 @@ import type { PrismaClient } from '@workspace/database';
 import { TenantDbService } from '../../common/database/tenant-db.service';
 import { MakerCheckerService } from '../../auth/services/maker-checker.service';
 import { LedgerService, SYSTEM_ACCOUNT } from './ledger.service';
+import { lockInvoices } from '../finance-locks';
 import {
   INVOICE_FINANCIALS_INCLUDE,
   computeFinancials,
@@ -142,7 +143,9 @@ export class FinanceAdjustmentService {
     // The balance may have moved while this sat pending — a receipt could have
     // settled the invoice. Re-check before applying: a waiver larger than what
     // is still owed would credit receivables below zero and leave the family
-    // owed money that exists in no account.
+    // owed money that exists in no account. The lock comes first, or the
+    // re-check reads a balance a concurrent receipt is already spending.
+    await lockInvoices(this.client, tenantId, [adj.invoiceId]);
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id: adj.invoiceId, tenantId },
       include: INVOICE_FINANCIALS_INCLUDE,
@@ -394,8 +397,17 @@ export class FinanceAdjustmentService {
       where: { tenantId, status: 'active' },
     });
 
+    // What is still owed before any of these policies apply.
+    let remaining = computeFinancials({
+      lines: invoice.lines,
+      adjustments: invoice.adjustments.filter((a) => a.status === 'applied'),
+      allocations: invoice.allocations,
+      creditApplications: invoice.creditApplications,
+    }).balance;
+
     const created = [];
     for (const policy of policies) {
+      if (remaining <= 0) break;
       const already = invoice.adjustments.some((a) => a.policyId === policy.id);
       if (already) continue;
 
@@ -414,17 +426,13 @@ export class FinanceAdjustmentService {
             : 0;
       if (raw <= 0) continue;
 
-      // Never discount past what is still owed — policies run at issue, when
-      // that is normally the whole invoice, but a re-run or a part-settled
-      // invoice must not push receivables negative.
-      const outstanding = computeFinancials({
-        lines: invoice.lines,
-        adjustments: invoice.adjustments.filter((a) => a.status === 'applied'),
-        allocations: invoice.allocations,
-        creditApplications: invoice.creditApplications,
-      }).balance;
-      const amount = Math.min(raw, outstanding);
+      // Never discount past what is still owed. The remaining figure is carried
+      // ACROSS the loop: two active policies (say a 60% scholarship and a 50%
+      // sibling discount) would otherwise each be capped against the same
+      // untouched balance and together credit receivables past the charge.
+      const amount = Math.min(raw, remaining);
       if (amount <= 0) continue;
+      remaining -= amount;
 
       const adjustment = await this.client.feeAdjustment.create({
         data: {

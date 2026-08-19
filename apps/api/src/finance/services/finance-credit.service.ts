@@ -14,7 +14,11 @@ import {
   computeFinancials,
   refreshInvoiceTotals,
 } from '../invoice-financials';
-import { lockCredits, lockInvoices } from '../finance-locks';
+import {
+  lockCredits,
+  lockInvoices,
+  lockInvoicesThenCredits,
+} from '../finance-locks';
 
 /**
  * Unapplied credit — what a family has paid beyond what it owed.
@@ -165,9 +169,15 @@ export class FinanceCreditService {
     await this.ledger.ensureOpeningBalance(tenantId, userId);
 
     // Lock both sides before reading either: two draws on the same credit would
-    // otherwise each see the full remaining balance and spend it twice.
-    await lockCredits(this.client, tenantId, [creditId]);
-    await lockInvoices(this.client, tenantId, [invoiceId]);
+    // otherwise each see the full remaining balance and spend it twice. Invoice
+    // first — the same order `autoApplyToInvoice` uses, so the two paths cannot
+    // deadlock against each other.
+    await lockInvoicesThenCredits(
+      this.client,
+      tenantId,
+      [invoiceId],
+      [creditId],
+    );
 
     const credit = await this.client.accountCredit.findFirst({
       where: { id: creditId, tenantId },
