@@ -1,6 +1,45 @@
 # AI_HANDOFF.md
 
-Last Updated: 2026-08-17
+Last Updated: 2026-08-19
+
+---
+
+## Session Summary (2026-08-19) — Claude: WB5 finance built to the ADR-10 Release-1 cut line (receipts+allocations · credit · double-entry ledger · reconciliation)
+
+**Item(s):** **WB5-3 · WB5-4 · WB5-5 · WB5-6** → `in-review` (WB5-1/5-2 were already `done`). **Branch:** `feat/wb5-finance-subledger-gl` (from `main` @ `078ae45`). No PR opened yet.
+
+**Starting point.** WB5 was a single line in "Later workbenches" with two phases already merged — P1 itemised invoices + maker-checker adjustments and P2 billing households ([#76]/[#77]) — and no slices detailed. The board now carries a Workbench-5 section with eight rows and an acceptance statement, and this session built the four that make up the Release-1 cut line ADR-10 itself names.
+
+**What changed & why**
+
+- **WB5-3 · A payment stops being "a payment against ONE invoice".** `Payment` becomes a **receipt** of money received (payer snapshot, household, method, reference) and `payment_allocations` records what each naira settled. That is the shape a parent paying once for two children has always needed (ADR-05 Q21) and the old column could not express; it also lets one invoice collect installments over a term. `payments.invoice_id` and `payments.student_id` are **dropped**, but only after the migration backfills one allocation per existing payment, so no settlement history is lost. Receipt/invoice/journal numbers move to `finance_number_sequences` — one counter per tenant + kind + year, taken with a single atomic `UPDATE … RETURNING` inside the caller's transaction (`RCT-2026-000042`). A rolled-back transaction leaves a **gap** rather than releasing the number: a missing receipt number is visible to an auditor, a duplicated one is not. Reprints are counted and audited rather than forbidden.
+- **WB5-4 · Overpayment becomes credit, not income.** `account_credits` + `credit_applications`: money received beyond what a receipt settled parks as an accounts-receivable **credit balance** on the family (ADR-05 is explicit that this is not stored value and not custodial), drawn down oldest-first the moment their next invoice is issued. Cash refunds stay deliberately out of scope for v1.
+- **WB5-5 · The double-entry ledger underneath both (ADR-10).** `chart_of_accounts` (resolved by `system_key`, so a school can renumber its chart without breaking posting), `accounting_periods`, `journal_entries`, `journal_lines`. Invoice issue, adjustment applied, receipt recorded and credit applied each post a **balanced** entry through `LedgerService.post()` — the only writer, which refuses an unbalanced entry, a negative amount, a line that is both a debit and a credit, and anything dated into a **closed** period. A posted entry is never edited: `reverse()` posts a contra entry pointing back at the original (the redesign of the legacy negative-amount reversal, parity #95). Posting rules are written down in **[`docs/finance-posting-rules.md`](docs/finance-posting-rules.md)** — read that before adding a financial event.
+- **WB5-6 · The three questions a bursar is asked.** Collections (by day or method), outstanding **aging** (an invoice with no due date is treated as current, not accused of being overdue), and **reconciliation**: receivables, credit held and cash, each as the bills say it and as the ledger says it, plus the trial balance's `outOfBalance`. Zero on all four means the books agree with the bills. Plus a journal **CSV export** — the whole of ADR-10's "integrate" half for now: a school that keeps books in QuickBooks/Sage/Xero exports from here rather than handing us their accounting login (ADR-12).
+- **Web.** `/finance/payments` rebuilt as a receipts list with a **family checkout** (pick a family → every open bill across their children, pre-filled at full balance → allocate; the dialog shows what will be held as credit before you commit) and a row drawer that breaks the receipt down and records reprints. New **`/finance/ledger`**: trial balance, the journal traceable back to the receipt that caused each entry, period close/reopen, and the export. `/finance/reports` moved off browser-side arithmetic onto the new endpoints — which also removed a legacy `Class` read from the finance surface (a small WB12 dividend). The household detail page gained an **account standing** panel (outstanding + credit held).
+- **Permissions/ops: +2 permissions → 354** (`finance.gl.view` at clearance 5, `finance.gl.manage` at 7 — seeing the books is not the same authority as closing them) and **+2 sensitive operations → 34** (`financial.period.close`, `financial.journal.reverse`, both step-up gated). **No new env vars.** No new privileged-client usage.
+
+**Verification run + result**
+
+- `pnpm ci:quick` ✔ (build · lint · typecheck; api lint 0 errors / 79 pre-existing warnings) · web `tsc --noEmit` ✔ · web eslint `--max-warnings 0` ✔
+- `pnpm db:rls:check` ✔ (all eight new tables carry ENABLE+FORCE+`tenant_isolation`) · `pnpm check:privileged-db` ✔ (28 grandfathered, unchanged) · `pnpm db:verify` ✔ **354 permissions / 11 pools / 34 sensitive ops**
+- Migration `20260819120000_wb5_receipts_allocations_credit_gl` applied the additive way (`db execute` → DDL asserted present → `migrate resolve --applied`), then `pnpm run db:generate`. Backfill verified on the dev DB: **11 payments → 11 allocations** before the old columns were dropped.
+- api unit **821/821** (+27 across five new specs: ledger balance/period/reversal invariants, receipt allocation + overpayment rules, credit draw-down order, aging/collections/reconciliation/CSV, numbering)
+- **finance e2e `finance-receipts-credit-ledger.e2e-spec.ts` on real pg — 11/11**: issuing posts the charge · one payment settles two siblings with the ledger crediting each invoice separately · over-allocation refused both ways · an approved waiver clears the rest without touching the original charge · an overpayment lands as credit with fee income unchanged · the credit auto-applies to the next invoice at issue · every control total agrees · aging + collections · a closed period refuses a posting and reopening lets it through, then the correction is reversed · journal export carries every event class · RLS isolation + 401 boundary. Admissions e2e **32/32** (its fee path now goes through the one receipt writer).
+- **Authenticated visual pass NOT done** — the owner's own dev servers were live on :3030/:3001 and share `apps/web/.next` / `apps/api/dist`, so starting a second pair risked corrupting them (the standing gotcha). The new screens are typechecked and lint-clean but have not been seen in a browser.
+
+**Decisions / ADRs**
+
+- None new. This implements **ADR-05** (Option 1 receivables subledger) and **ADR-10** (build an internal auditor-grade GL **and** offer an export), at the Release-1 cut line ADR-10 recommends.
+
+**Next step (so the next agent can resume)**
+
+- Independent maker-checker review of the branch → PR → merge → WB5-3..5-6 `done`. Then the **owner decision that unblocks WB5-7**: which payment gateway the design partners use, and the webhook signing secret + merchant account per environment. The ingestion shape is provider-specific and the secret is boot-required, so building it against a guessed provider would be throwaway work.
+
+**New gotchas**
+
+- **A lazily-computed opening balance double-counts unless it excludes what the ledger already posted.** The e2e caught it: `ensureOpeningBalance` summed every non-draft invoice, including the two the test had just issued *through* the ledger, so receivables read double. It now counts only invoices with no `invoice`-sourced journal entry, and it is called **before** the subledger rows are written (before the status flips to `issued`, before allocations are created) so the opening figure is the debt as it stood beforehand. Both properties are load-bearing; there is a note in `docs/finance-posting-rules.md`.
+- **The dev DB carries 359 permissions against an expected 354** — F9's five live on the unmerged `feat/f9-export-retention-privacy` branch and the seed **never prunes**. `db:verify` passes (it checks presence, not equality), but do not read the local count as the authoritative one.
 
 ---
 

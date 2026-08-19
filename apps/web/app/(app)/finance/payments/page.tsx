@@ -14,16 +14,6 @@ import { PaymentsClient, type Receipt, type HouseholdOption } from './payments-c
 
 const DEFAULT_PAGE_SIZE = 25;
 
-interface ApiAllocation {
-  id: string;
-  amount: number;
-  invoice?: {
-    id: string;
-    invoiceNumber?: string | null;
-    studentName?: string | null;
-  } | null;
-}
-
 interface ApiReceipt {
   id: string;
   receiptNumber: string;
@@ -39,7 +29,6 @@ interface ApiReceipt {
   allocatedAmount?: number;
   unallocatedAmount?: number;
   coveredStudents?: string[];
-  allocations?: ApiAllocation[];
 }
 
 interface ReceiptsResponse {

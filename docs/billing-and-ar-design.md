@@ -1,7 +1,12 @@
 # School billing & accounts-receivable — design
 
-Status: **proposed — awaiting owner sign-off before build.**
-Supersedes the narrower `family-payments-plan.md`. Owner-driven 2026-08-06.
+Status: **BUILT — P1–P4 all shipped (WB5).** P1 (itemised invoices + adjustments)
+and P2 (households) landed in [#76]/[#77]; **P3 (receipts + allocations) and P4
+(unapplied credit) shipped with WB5-3/5-4**, together with the double-entry
+ledger underneath them (ADR-10) — see
+[`finance-posting-rules.md`](finance-posting-rules.md) for how each event
+reaches the books. Supersedes the narrower `family-payments-plan.md`.
+Owner-driven 2026-08-06; phasing updated 2026-08-19.
 
 This grew out of "family/checkout payments" but the owner's decisions (drop the
 single-invoice link, family-first grouping, partial payments with real
@@ -169,17 +174,23 @@ Additive + phased; today's finance stays working throughout.
 - Payments + receipts snapshot payer + covered students for immutable history.
 - Separation of duties on discretionary adjustments (requester ≠ approver).
 
-## 7. Phasing (suggested build order)
+## 7. Phasing (build order — all four shipped)
 
-- **P1 — itemized invoices + adjustments (approval)**: lines, policy +
+- **P1 ✅ — itemized invoices + adjustments (approval)**: lines, policy +
   discretionary adjustments w/ maker-checker, derived balances. (Unblocks correct
   billing even before multi-pay.)
-- **P2 — households + family-aware picker**: household account, temporal
+- **P2 ✅ — households + family-aware picker**: household account, temporal
   membership from guardianships.
-- **P3 — payments = allocations (checkout)**: PaymentAllocation, drop legacy
-  fields, family checkout UI + receipt, migrate finance/payments list to
-  server-driven here.
-- **P4 — credit / over-payment**: AccountCredit + auto-apply.
+- **P3 ✅ — payments = allocations (checkout)**: `PaymentAllocation`;
+  `Payment.invoiceId`/`studentId` dropped after backfill; family checkout UI +
+  receipt drawer with audited reprints; the payments list is server-driven.
+  Receipt numbers moved to a gap-aware yearly sequence (Q23).
+- **P4 ✅ — credit / over-payment**: `AccountCredit` + `CreditApplication`,
+  auto-applied when the family's next invoice is issued. Cash refunds remain
+  deliberately out of scope.
+- **Underneath all four**: every event posts a balanced journal entry into the
+  internal general ledger (ADR-10), with trial balance, period close, contra
+  reversals, control-total reconciliation and a journal CSV export.
 
 ## 8. Decisions (settled 2026-08-06)
 
