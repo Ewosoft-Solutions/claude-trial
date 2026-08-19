@@ -21,6 +21,7 @@ import {
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 
+import { safeErrorMessage } from '@/lib/api-client';
 import type { StepUpOperation, StepUpOptionsResponse } from '@/lib/step-up';
 import { startAuthentication } from '@/lib/webauthn';
 
@@ -34,13 +35,8 @@ interface StepUpPromptProps {
 }
 
 /**
- * The message to show for a failed step-up call.
- *
- * Only a plain string is trusted. A validation failure comes back as an ARRAY
- * of messages, and handing that to React renders the lot comma-separated —
- * which is how a raw enum listing every sensitive operation in the product
- * ended up in front of an operator. Anything else falls back to the sentence
- * this component chose, which is the one the user can act on.
+ * The message to show for a failed step-up call. `safeErrorMessage` is the one
+ * place that decides what is fit to render — see the reasoning there.
  */
 export async function stepUpErrorMessage(
   response: Response,
@@ -51,11 +47,7 @@ export async function stepUpErrorMessage(
       error?: unknown;
       message?: unknown;
     };
-    const candidate = [body.error, body.message].find(
-      (value): value is string =>
-        typeof value === 'string' && value.trim() !== '',
-    );
-    return candidate ?? fallback;
+    return safeErrorMessage(body.error ?? body.message, fallback);
   } catch {
     return fallback;
   }

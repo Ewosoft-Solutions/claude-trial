@@ -49,6 +49,35 @@ export function apiErrorBody(
     : { error: message };
 }
 
+/** Longest upstream message worth putting in front of a person. */
+const MAX_MESSAGE_LENGTH = 300;
+
+/**
+ * The user-facing message for a failed upstream call.
+ *
+ * Only a plain, human-sized string is trusted. Everything else falls back to
+ * the caller's sentence, because of what the alternatives actually are:
+ *
+ *  - an ARRAY — class-validator returns one message per broken rule, and
+ *    rendering it comma-separated is how an enum listing every sensitive
+ *    operation in the product ended up in a dialog;
+ *  - HTML — a load balancer's 502 page, when the API is down or mid-deploy.
+ *    That is precisely when users are most likely to see an error, and least
+ *    helped by a page of markup;
+ *  - a long dump — a stack trace or a query, sized for a log, not a toast.
+ *
+ * The raw body is not discarded; it travels as `internalMessage`, which is
+ * logged and returned only under `API_DEBUG_ERRORS`.
+ */
+export function safeErrorMessage(value: unknown, fallback: string): string {
+  if (typeof value !== 'string') return fallback;
+  const message = value.trim();
+  if (message === '') return fallback;
+  if (message.length > MAX_MESSAGE_LENGTH) return fallback;
+  if (/[<>]/.test(message)) return fallback;
+  return message;
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const method = init?.method ?? 'GET';
 
@@ -89,14 +118,32 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const body = await res.text();
-    let message = body;
+    let parsed: unknown = undefined;
     try {
-      const json = JSON.parse(body);
-      message = json.message ?? body;
+      parsed = JSON.parse(body);
     } catch {
-      // keep raw body
+      // not JSON — an HTML error page from a proxy, most likely
     }
-    throw new ApiError(res.status, message);
+    const candidate =
+      parsed && typeof parsed === 'object'
+        ? ((parsed as { error?: unknown; message?: unknown }).error ??
+          (parsed as { message?: unknown }).message)
+        : undefined;
+
+    const fallback = `Request failed (${res.status})`;
+    const message = safeErrorMessage(candidate, fallback);
+
+    // When the upstream message came through cleanly it IS the detail, and no
+    // internal payload is added (the long-standing contract). When it was
+    // withheld — an array, an HTML error page, a dump — the raw body travels as
+    // operator detail instead: logged, and returned only under
+    // API_DEBUG_ERRORS. That is exactly when someone debugging needs it.
+    const withheld = message === fallback && body.trim() !== '';
+    throw new ApiError(
+      res.status,
+      message,
+      withheld ? body.slice(0, 2_000) : undefined,
+    );
   }
 
   return res.json() as Promise<T>;

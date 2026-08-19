@@ -53,7 +53,16 @@ async function bootstrap() {
   // DB pool (and any in-flight work) drains gracefully on redeploy.
   app.enableShutdownHooks();
 
-  // Global validation pipe
+  // Global validation pipe.
+  //
+  // In production the generated messages are suppressed. class-validator
+  // describes exactly what it expected — including, for an `@IsIn`, every
+  // allowed value — and that detail is written for a developer, not for the
+  // person holding the screen. A stale or half-deployed client sending a value
+  // the API does not know would otherwise answer with an inventory of what the
+  // API does know. Deliberate domain errors are unaffected: a
+  // `BadRequestException('Invoice … only has 100000 kobo outstanding')` is
+  // thrown by our own code, not generated here, and still reaches the operator.
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // Strip properties that don't have decorators
@@ -62,6 +71,7 @@ async function bootstrap() {
       transformOptions: {
         enableImplicitConversion: true, // Enable implicit type conversion
       },
+      disableErrorMessages: isProduction,
     }),
   );
 
