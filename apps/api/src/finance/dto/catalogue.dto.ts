@@ -1,5 +1,6 @@
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsOptional,
@@ -10,6 +11,9 @@ import {
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /** Create a fee item in the tenant's catalogue. */
+export const FEE_PRICING_MODES = ['fixed', 'open'] as const;
+export type FeePricingMode = (typeof FEE_PRICING_MODES)[number];
+
 export class CreateFeeItemDto {
   @ApiProperty({
     example: 'boarding',
@@ -28,8 +32,19 @@ export class CreateFeeItemDto {
   name!: string;
 
   @ApiPropertyOptional({
+    enum: FEE_PRICING_MODES,
+    default: 'fixed',
+    description:
+      "'fixed' prices the item here and locks the invoice line to it; " +
+      "'open' leaves the amount to be typed per line (damages, misc).",
+  })
+  @IsOptional()
+  @IsIn(FEE_PRICING_MODES)
+  pricingMode?: FeePricingMode;
+
+  @ApiPropertyOptional({
     example: 15000000,
-    description: 'Suggested amount in kobo',
+    description: 'Price in kobo. Required before a FIXED item can be billed.',
   })
   @IsOptional()
   @IsInt()
@@ -44,6 +59,11 @@ export class UpdateFeeItemDto {
   @IsString()
   @IsNotEmpty()
   name?: string;
+
+  @ApiPropertyOptional({ enum: FEE_PRICING_MODES })
+  @IsOptional()
+  @IsIn(FEE_PRICING_MODES)
+  pricingMode?: FeePricingMode;
 
   @ApiPropertyOptional({ example: 15000000 })
   @IsOptional()

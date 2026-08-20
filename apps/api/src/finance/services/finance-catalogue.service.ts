@@ -4,6 +4,8 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { TenantDbService } from '../../common/database/tenant-db.service';
+import { AuditService } from '../../common/audit/audit.service';
+import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import {
   CreateFeeItemDto,
   CreateInvoiceLineDto,
@@ -22,7 +24,10 @@ import {
  */
 @Injectable()
 export class FinanceCatalogueService {
-  constructor(private readonly tenantDb: TenantDbService) {}
+  constructor(
+    private readonly tenantDb: TenantDbService,
+    private readonly audit: AuditService,
+  ) {}
 
   private get client() {
     return this.tenantDb.client;
@@ -165,20 +170,61 @@ export class FinanceCatalogueService {
     if (!item) throw new BadRequestException('Fee item not found for tenant');
   }
 
+  /**
+   * What a line for this item actually costs — decided here, not by the caller.
+   *
+   * A till does not let the operator type a price for stock: the price lives on
+   * the item and is pulled onto the line. So for a FIXED item the catalogue
+   * price wins and any amount the client sent is ignored; changing it is a
+   * deliberate, audited override through `updateLine`, never a field that
+   * happens to be editable while adding.
+   *
+   * An OPEN item is the retail "open price" key — damages, miscellaneous —
+   * where typing the amount is the item's whole purpose, so the caller's value
+   * is required and used.
+   *
+   * A fixed item with no price is a configuration error, not a free bill: it
+   * cannot be sold until someone prices it.
+   */
+  private resolveLineAmount(
+    item: { name: string; pricingMode: string; defaultAmount: number | null },
+    requested: number | undefined,
+  ): number {
+    if (item.pricingMode === 'open') {
+      if (requested == null) {
+        throw new BadRequestException(
+          `${item.name} is priced per line — enter an amount for it.`,
+        );
+      }
+      return requested;
+    }
+    if (item.defaultAmount == null) {
+      throw new BadRequestException(
+        `${item.name} has no price yet. Set one on the fee items page before billing it.`,
+      );
+    }
+    return item.defaultAmount;
+  }
+
   async addLine(
     tenantId: string,
     invoiceId: string,
     dto: CreateInvoiceLineDto,
   ) {
     await this.assertDraftInvoice(tenantId, invoiceId);
-    await this.assertFeeItem(tenantId, dto.feeItemId);
+    const item = await this.client.feeItem.findFirst({
+      where: { id: dto.feeItemId, tenantId },
+      select: { name: true, pricingMode: true, defaultAmount: true },
+    });
+    if (!item) throw new BadRequestException('Fee item not found for tenant');
+
     const line = await this.client.feeInvoiceLine.create({
       data: {
         tenantId,
         invoiceId,
         feeItemId: dto.feeItemId,
         description: dto.description ?? null,
-        amount: dto.amount,
+        amount: this.resolveLineAmount(item, dto.amount),
         quantity: dto.quantity ?? 1,
       },
     });
@@ -203,16 +249,17 @@ export class FinanceCatalogueService {
     if (lines.length === 0) return [];
     await this.assertDraftInvoice(tenantId, invoiceId);
 
-    // One check per distinct fee item, not one per line: a bill with eight
+    // One read per distinct fee item, not one per line: a bill with eight
     // lines of the same item should not read the catalogue eight times.
     const feeItemIds = [...new Set(lines.map((line) => line.feeItemId))];
     const found = await this.client.feeItem.findMany({
       where: { tenantId, id: { in: feeItemIds } },
-      select: { id: true },
+      select: { id: true, name: true, pricingMode: true, defaultAmount: true },
     });
     if (found.length !== feeItemIds.length) {
       throw new BadRequestException('Fee item not found for tenant');
     }
+    const byId = new Map(found.map((item) => [item.id, item]));
 
     await this.client.feeInvoiceLine.createMany({
       data: lines.map((line) => ({
@@ -220,7 +267,9 @@ export class FinanceCatalogueService {
         invoiceId,
         feeItemId: line.feeItemId,
         description: line.description ?? null,
-        amount: line.amount,
+        // Same rule as addLine: a fixed item is priced by the catalogue, not
+        // by whatever the browser sent.
+        amount: this.resolveLineAmount(byId.get(line.feeItemId)!, line.amount),
         quantity: line.quantity ?? 1,
       })),
     });
@@ -231,10 +280,20 @@ export class FinanceCatalogueService {
     });
   }
 
+  /**
+   * Edit a line — including the deliberate price override.
+   *
+   * Adding a line never lets the caller choose the price of a fixed item; this
+   * is the one place it can be changed, which is what a till's supervisor
+   * price-override is. It is therefore recorded: an amount that no longer
+   * matches the catalogue is a decision someone made, and the audit trail
+   * should say who, on what, and away from what.
+   */
   async updateLine(
     tenantId: string,
     lineId: string,
     dto: UpdateInvoiceLineDto,
+    userId?: string,
   ) {
     const line = await this.client.feeInvoiceLine.findFirst({
       where: { id: lineId, tenantId },
@@ -242,6 +301,37 @@ export class FinanceCatalogueService {
     if (!line) throw new NotFoundException('Invoice line not found');
     await this.assertDraftInvoice(tenantId, line.invoiceId);
     if (dto.feeItemId) await this.assertFeeItem(tenantId, dto.feeItemId);
+
+    // An open item has no catalogue price to depart from, so changing its
+    // amount is ordinary editing rather than an override.
+    if (dto.amount !== undefined && dto.amount !== line.amount) {
+      const item = await this.client.feeItem.findFirst({
+        where: { id: dto.feeItemId ?? line.feeItemId, tenantId },
+        select: { name: true, pricingMode: true, defaultAmount: true },
+      });
+      if (
+        item?.pricingMode === 'fixed' &&
+        item.defaultAmount != null &&
+        dto.amount !== item.defaultAmount
+      ) {
+        await this.audit.write({
+          tenantId,
+          eventType: AUDIT_EVENT.DATA_CHANGE,
+          action: 'finance_line_price_overridden',
+          resource: 'fee_invoice_line',
+          resourceId: lineId,
+          actorId: userId ?? null,
+          description: `${item.name} billed at a price other than the catalogue's`,
+          metadata: {
+            invoiceId: line.invoiceId,
+            feeItem: item.name,
+            catalogueAmount: item.defaultAmount,
+            previousAmount: line.amount,
+            newAmount: dto.amount,
+          },
+        });
+      }
+    }
 
     const updated = await this.client.feeInvoiceLine.update({
       where: { id: lineId },

@@ -22,6 +22,8 @@ interface ApiFeeItem {
   id: string;
   code: string;
   name: string;
+  /** 'fixed' — priced by the catalogue; 'open' — priced on the line. */
+  pricingMode?: string | null;
   defaultAmount?: number | null;
   active: boolean;
 }
@@ -47,6 +49,9 @@ export default async function InvoiceDetailPage({
       id: item.id,
       code: item.code,
       name: item.name,
+      // Anything without an explicit mode is fixed — that is what every item
+      // was before open pricing existed.
+      pricingMode: item.pricingMode === 'open' ? 'open' : 'fixed',
       defaultAmount: item.defaultAmount ?? null,
     }));
 

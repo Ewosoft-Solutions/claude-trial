@@ -64,6 +64,11 @@ export interface CatalogueItem {
   id: string;
   code: string;
   name: string;
+  /**
+   * 'fixed' — the catalogue owns the price and the line shows it read-only.
+   * 'open'  — the line owns the price (damages, miscellaneous).
+   */
+  pricingMode: 'fixed' | 'open';
   defaultAmount: number | null;
 }
 
@@ -748,13 +753,22 @@ function NewLineRow({
   const [busy, setBusy] = React.useState(false);
   const itemRef = React.useRef<HTMLButtonElement>(null);
 
+  const picked = catalogue.find((c) => c.id === feeItemId);
+  // A till does not let you type a price for stock. A fixed item carries its
+  // price on the item record and the line shows it, read-only; only an
+  // open-price item — damages, miscellaneous — is priced here. The server
+  // enforces this too, so a crafted request cannot discount tuition.
+  const openPriced = picked?.pricingMode === 'open';
+
   const onPickItem = (id: string) => {
     setFeeItemId(id);
     const item = catalogue.find((c) => c.id === id);
-    // Prefill from the catalogue's default — but never over something typed.
-    if (item?.defaultAmount != null && amount.trim() === '') {
-      setAmount(String(item.defaultAmount / 100));
-    }
+    // A fixed item's price is shown, not typed; an open one starts blank.
+    setAmount(
+      item && item.pricingMode !== 'open' && item.defaultAmount != null
+        ? String(item.defaultAmount / 100)
+        : '',
+    );
   };
 
   const amountKobo = koboFromNaira(amount);
@@ -831,11 +845,26 @@ function NewLineRow({
               <SelectValue placeholder="Add a fee item…" />
             </SelectTrigger>
             <SelectContent>
-              {catalogue.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.name}
-                </SelectItem>
-              ))}
+              {catalogue.map((c) => {
+                // A fixed item with no price is a configuration error, not a
+                // free bill — the server refuses it, so don't offer it.
+                const unpriced =
+                  c.pricingMode !== 'open' && c.defaultAmount == null;
+                return (
+                  <SelectItem key={c.id} value={c.id} disabled={unpriced}>
+                    <span className="flex w-full items-center justify-between gap-4">
+                      <span>{c.name}</span>
+                      <span className="tabular-nums text-muted-foreground">
+                        {unpriced
+                          ? 'set a price'
+                          : c.pricingMode === 'open'
+                            ? 'per line'
+                            : naira(c.defaultAmount ?? 0)}
+                      </span>
+                    </span>
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
           {feeItemId ? (
@@ -851,15 +880,27 @@ function NewLineRow({
         </div>
       </TableCell>
       <TableCell className="align-top text-right">
-        <Input
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-          aria-label="Unit amount in naira"
-          inputMode="decimal"
-          placeholder="0.00"
-          autoComplete="off"
-          className="ml-auto h-8 w-28 text-right tabular-nums"
-        />
+        {picked && !openPriced ? (
+          // Shown, not editable: the catalogue owns this number. Changing it
+          // is a deliberate override on a committed line, not a field left
+          // open while adding.
+          <span className="inline-flex h-8 items-center tabular-nums text-muted-foreground">
+            {picked.defaultAmount != null
+              ? naira(picked.defaultAmount)
+              : 'No price set'}
+          </span>
+        ) : (
+          <Input
+            value={amount}
+            onChange={(e) => setAmount(e.target.value)}
+            aria-label="Unit amount in naira"
+            inputMode="decimal"
+            placeholder="0.00"
+            autoComplete="off"
+            disabled={!picked}
+            className="ml-auto h-8 w-28 text-right tabular-nums"
+          />
+        )}
       </TableCell>
       <TableCell className="align-top text-right">
         <Input
