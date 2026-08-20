@@ -59,6 +59,7 @@ export class CreateInvoiceDto {
   @IsString()
   termName?: string;
 
+
   @ApiPropertyOptional({ example: 2025 })
   @IsOptional()
   @IsInt()
@@ -252,6 +253,23 @@ export class ListInvoicesDto {
   @IsOptional()
   @IsString()
   termName?: string;
+
+  /**
+   * Bound the list by DUE date — the date a bursar chases, and the one a
+   * question like "what is overdue this month" is really about. Issue dates
+   * cluster on the day a term was billed, so filtering by them mostly answers
+   * "when did we run the billing", which is a different question.
+   */
+  @ApiPropertyOptional({ example: '2026-01-01', description: 'Due on or after' })
+  @IsOptional()
+  @IsDateString()
+  dueFrom?: string;
+
+  @ApiPropertyOptional({ example: '2026-12-31', description: 'Due on or before' })
+  @IsOptional()
+  @IsDateString()
+  dueTo?: string;
+
 
   @ApiPropertyOptional({
     description: 'Search by invoice number or student name',

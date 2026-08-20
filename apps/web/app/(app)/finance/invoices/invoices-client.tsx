@@ -133,7 +133,11 @@ export function InvoicesClient({
   }, [term, state.q, setQuery]);
 
   const statusFilter = state.filters.status ?? 'all';
-  const hasFilters = state.q.trim() !== '' || statusFilter !== 'all';
+  const hasFilters =
+    state.q.trim() !== '' ||
+    statusFilter !== 'all' ||
+    Boolean(state.filters.dueFrom) ||
+    Boolean(state.filters.dueTo);
 
   const collectionRate =
     stats.billed > 0 ? Math.round((stats.collected / stats.billed) * 100) : 0;
@@ -184,7 +188,9 @@ export function InvoicesClient({
           className="flex min-w-0 flex-col hover:underline"
         >
           <span className="break-words font-medium text-foreground">
-            {inv.student ?? inv.studentId ?? '—'}
+            {/* Never fall through to the id — a UUID in the name column
+                tells a bursar nothing and looks like corruption. */}
+            {inv.student ?? '—'}
           </span>
           <span className="break-words text-xs text-muted-foreground">
             {inv.invoiceNumber ?? inv.id}
@@ -198,6 +204,17 @@ export function InvoicesClient({
       hideable: true,
       cell: (inv) => (
         <span className="text-muted-foreground">{inv.className ?? '—'}</span>
+      ),
+    },
+    {
+      // The two ends of the period a bill covers: when it went out, and when
+      // it is owed. A draft has no issue date yet, which is itself worth
+      // seeing in a list.
+      id: 'issuedDate',
+      header: 'Issued',
+      sortable: true,
+      cell: (inv) => (
+        <span className="text-muted-foreground">{inv.issued ?? '—'}</span>
       ),
     },
     {
@@ -312,6 +329,12 @@ export function InvoicesClient({
             id: 'invoice-search',
           }}
           filters={[
+            {
+              key: 'due',
+              label: 'Due',
+              type: 'dateRange',
+              options: [],
+            },
             {
               key: 'status',
               label: 'Status',

@@ -64,10 +64,20 @@ export interface ToolbarFilterOption {
   label: string;
 }
 
-/** A single-select filter dimension (e.g. Status). */
+/**
+ * A filter dimension.
+ *
+ * `select` (the default) offers a fixed set of options. `dateRange` offers a
+ * from/to pair instead — a range cannot be enumerated, and asking "what is due
+ * between these dates" is a question every money surface eventually needs. A
+ * range writes TWO values, `<key>From` and `<key>To`, so either half stands on
+ * its own: "anything due before the holidays" has no start date.
+ */
 export interface ToolbarFilter {
   key: string;
   label: string;
+  type?: 'select' | 'dateRange';
+  /** Required for `select`; ignored for `dateRange`. */
   options: ToolbarFilterOption[];
 }
 
@@ -132,13 +142,28 @@ export function activeFilterEntries(
   filterValues: Record<string, string | null | undefined> | undefined,
 ): { filter: ToolbarFilter; value: string }[] {
   return (filters ?? [])
-    .map((filter) => ({ filter, value: filterValues?.[filter.key] }))
+    .map((filter) => {
+      if (filter.type !== 'dateRange') {
+        return { filter, value: filterValues?.[filter.key] };
+      }
+      // A range is active when EITHER end is set, and reads as one chip: two
+      // separate chips for one question is how a filter bar becomes noise.
+      const from = filterValues?.[`${filter.key}From`];
+      const to = filterValues?.[`${filter.key}To`];
+      if (!from && !to) return { filter, value: undefined };
+      return {
+        filter,
+        value: from && to ? `${from} → ${to}` : from ? `from ${from}` : `to ${to}`,
+      };
+    })
     .filter((x): x is { filter: ToolbarFilter; value: string } => {
       return x.value != null && x.value !== '';
     });
 }
 
 function optionLabel(filter: ToolbarFilter, value: string): string {
+  // A range's value is already its own label.
+  if (filter.type === 'dateRange') return value;
   return filter.options.find((o) => o.value === value)?.label ?? value;
 }
 
@@ -177,15 +202,44 @@ export function DirectoryToolbar({
     <React.Fragment key={filter.key}>
       {index > 0 ? <MenuDivider /> : null}
       <MenuSectionLabel>{filter.label}</MenuSectionLabel>
-      {filter.options.map((option) => (
-        <RadioOptionRow
-          key={option.value}
-          checked={filterValues[filter.key] === option.value}
-          onSelect={() => setFilterValue(filter.key, option.value)}
+      {filter.type === 'dateRange' ? (
+        <div
+          className="flex flex-col gap-2 px-2 py-1.5"
+          // The menu closes on any selection inside it, which would dismiss
+          // the popover on the first of two dates.
+          onKeyDown={(e) => e.stopPropagation()}
         >
-          {option.label}
-        </RadioOptionRow>
-      ))}
+          {(['From', 'To'] as const).map((edge) => (
+            <label
+              key={edge}
+              className="flex items-center justify-between gap-3 text-[calc(12.5px*var(--font-scale))]"
+            >
+              <span className="text-muted-foreground">{edge}</span>
+              <input
+                type="date"
+                value={filterValues[`${filter.key}${edge}`] ?? ''}
+                onChange={(e) =>
+                  setFilterValue(
+                    `${filter.key}${edge}`,
+                    e.target.value || null,
+                  )
+                }
+                className="h-8 rounded-[var(--radius-sm)] border border-input bg-background px-2 text-foreground"
+              />
+            </label>
+          ))}
+        </div>
+      ) : (
+        filter.options.map((option) => (
+          <RadioOptionRow
+            key={option.value}
+            checked={filterValues[filter.key] === option.value}
+            onSelect={() => setFilterValue(filter.key, option.value)}
+          >
+            {option.label}
+          </RadioOptionRow>
+        ))
+      )}
     </React.Fragment>
   ));
 
@@ -664,7 +718,17 @@ export function DirectoryFilterPills({
           </span>
           <button
             type="button"
-            onClick={() => onFilterChange?.(filter.key, null)}
+            onClick={() => {
+              // A range is one chip over two values, so clearing it has to
+              // clear both — dropping only `<key>From` would leave a filter
+              // still applied with no chip left to say so.
+              if (filter.type === 'dateRange') {
+                onFilterChange?.(`${filter.key}From`, null);
+                onFilterChange?.(`${filter.key}To`, null);
+              } else {
+                onFilterChange?.(filter.key, null);
+              }
+            }}
             aria-label={`Remove ${filter.label} filter`}
             className="grid size-4 place-items-center rounded-sm text-muted-foreground transition-colors hover:bg-foreground/10 hover:text-foreground"
           >

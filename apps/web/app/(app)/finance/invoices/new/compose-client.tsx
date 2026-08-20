@@ -20,9 +20,18 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import {
@@ -292,27 +301,52 @@ export function ComposeClient({
                       {naira(line.amount)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {line.quantity}
+                      <QuantityField
+                        value={line.quantity}
+                        onChange={(next) =>
+                          patch({
+                            lines: draft.lines.map((l) =>
+                              l.key === line.key
+                                ? { ...l, quantity: next }
+                                : l,
+                            ),
+                          })
+                        }
+                        label={`Quantity of ${item?.name ?? 'line'}`}
+                      />
                     </TableCell>
                     <TableCell className="text-right font-medium tabular-nums">
                       {naira(line.amount * line.quantity)}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 text-muted-foreground hover:text-destructive"
-                        aria-label={`Remove ${item?.name ?? 'line'}`}
-                        onClick={() =>
-                          patch({
-                            lines: draft.lines.filter(
-                              (l) => l.key !== line.key,
-                            ),
-                          })
-                        }
-                      >
-                        <Trash2 className="size-4" aria-hidden />
-                      </Button>
+                      <div className="flex items-center justify-end gap-1">
+                        <ComposeLineDialog
+                          line={line}
+                          item={item}
+                          onSave={(next) =>
+                            patch({
+                              lines: draft.lines.map((l) =>
+                                l.key === line.key ? { ...l, ...next } : l,
+                              ),
+                            })
+                          }
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="size-7 text-muted-foreground hover:text-destructive"
+                          aria-label={`Remove ${item?.name ?? 'line'}`}
+                          onClick={() =>
+                            patch({
+                              lines: draft.lines.filter(
+                                (l) => l.key !== line.key,
+                              ),
+                            })
+                          }
+                        >
+                          <Trash2 className="size-4" aria-hidden />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 );
@@ -371,6 +405,131 @@ export function ComposeClient({
       </div>
       {stepUpPrompt}
     </ShellMain>
+  );
+}
+
+/**
+ * Edit a line that has been added but not yet saved.
+ *
+ * The saved-draft route has had this from the start; composing did not, so a
+ * mistyped note or the wrong quantity meant deleting the line and entering it
+ * again. One decision, five fields or fewer — a modal by §3.
+ *
+ * The price behaves as it does everywhere else, and for the same reason it is
+ * enforced on the server: a FIXED item shows its catalogue price read-only,
+ * because a new line is billed at that price whatever this form sends. Letting
+ * it be typed here would be a field whose value is silently discarded on save.
+ */
+function ComposeLineDialog({
+  line,
+  item,
+  onSave,
+}: {
+  line: ComposeLine;
+  item: CatalogueItem | undefined;
+  onSave: (next: Partial<ComposeLine>) => void;
+}) {
+  const [open, setOpen] = React.useState(false);
+  const [amount, setAmount] = React.useState('');
+  const [quantity, setQuantity] = React.useState(MIN_QUANTITY);
+  const [description, setDescription] = React.useState('');
+
+  const openPriced = item?.pricingMode === 'open';
+
+  React.useEffect(() => {
+    if (!open) return;
+    setAmount(String(line.amount / 100));
+    setQuantity(line.quantity);
+    setDescription(line.description ?? '');
+  }, [open, line]);
+
+  const amountKobo = openPriced ? koboFromNaira(amount) : line.amount;
+  const canSave = amountKobo != null && amountKobo > 0;
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-7 text-muted-foreground"
+        aria-label={`Edit ${item?.name ?? 'line'}`}
+        onClick={() => setOpen(true)}
+      >
+        <Pencil className="size-4" aria-hidden />
+      </Button>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit line — {item?.name ?? 'item'}</DialogTitle>
+          <DialogDescription>
+            {openPriced
+              ? 'This item is priced per invoice, so its amount is set here.'
+              : 'This item is billed at its catalogue price, which is why the amount is fixed.'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-4 py-2">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cl-amount">Unit amount (₦)</Label>
+              {openPriced ? (
+                <Input
+                  id="cl-amount"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  autoComplete="off"
+                />
+              ) : (
+                <span className="flex h-9 items-center tabular-nums text-muted-foreground">
+                  {naira(line.amount)}
+                </span>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="cl-qty">Quantity</Label>
+              <QuantityField
+                value={quantity}
+                onChange={setQuantity}
+                className="justify-start"
+              />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="cl-desc">
+              Note <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Input
+              id="cl-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="e.g. First term"
+              autoComplete="off"
+            />
+          </div>
+        </div>
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="ghost" size="sm">
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            size="sm"
+            disabled={!canSave}
+            onClick={() => {
+              if (amountKobo == null) return;
+              onSave({
+                amount: amountKobo,
+                quantity,
+                description: description.trim() || undefined,
+              });
+              setOpen(false);
+            }}
+          >
+            Save
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

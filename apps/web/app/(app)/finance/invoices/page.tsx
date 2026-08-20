@@ -16,7 +16,7 @@ import {
   type Invoice,
   type InvoiceStats,
 } from './invoices-client';
-import { fetchRoster, studentClass } from './student-options';
+import { fetchRoster, studentClass, studentName } from './student-options';
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -75,7 +75,9 @@ export default async function InvoicesPage({
   const sp = await searchParams;
   const { params } = toListQuery(sp, {
     defaultPageSize: DEFAULT_PAGE_SIZE,
-    filters: { status: 'status' },
+    // The two ends of the range travel as their own params, so either half
+    // can stand alone.
+    filters: { status: 'status', dueFrom: 'dueFrom', dueTo: 'dueTo' },
   });
 
   const [list, summary, roster, session] = await Promise.all([
@@ -100,7 +102,13 @@ export default async function InvoicesPage({
       id: inv.id,
       invoiceNumber: inv.invoiceNumber,
       studentId: inv.studentId,
-      student: inv.studentName ?? undefined,
+      // Never the raw id: an invoice whose snapshot predates the name
+      // fallback still has a roster row to read a label from.
+      student:
+        inv.studentName ??
+        (studentsById.get(inv.studentId)
+          ? studentName(studentsById.get(inv.studentId)!)
+          : undefined),
       className: studentClass(studentsById.get(inv.studentId)),
       issued: formatDate(inv.issuedDate),
       due: formatDate(inv.dueDate),

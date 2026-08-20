@@ -73,6 +73,20 @@ export class FinanceService {
     if (query.classId) where['classId'] = query.classId;
     if (query.status) where['status'] = query.status;
     if (query.termName) where['termName'] = query.termName;
+    // A one-sided range is normal — "anything due before the holidays" has no
+    // start — so each bound is applied independently. `dueTo` covers the whole
+    // of its day: a date-only bound parses to midnight, which would otherwise
+    // exclude everything due on the very day the bursar asked about.
+    if (query.dueFrom || query.dueTo) {
+      const dueDate: Record<string, Date> = {};
+      if (query.dueFrom) dueDate['gte'] = new Date(query.dueFrom);
+      if (query.dueTo) {
+        const end = new Date(query.dueTo);
+        end.setHours(23, 59, 59, 999);
+        dueDate['lte'] = end;
+      }
+      where['dueDate'] = dueDate;
+    }
     if (query.search) {
       where['OR'] = [
         { invoiceNumber: { contains: query.search, mode: 'insensitive' } },
@@ -229,16 +243,23 @@ export class FinanceService {
     const student = await this.client.student.findFirst({
       where: { id: studentId, tenantId },
       select: {
+        studentNumber: true,
         userTenant: {
           select: { user: { select: { firstName: true, lastName: true } } },
         },
       },
     });
-    const user = student?.userTenant?.user;
-    if (!user) return null;
-    return (
-      [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || null
-    );
+    if (!student) return null;
+
+    const user = student.userTenant?.user;
+    const name = [user?.firstName, user?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    // A student with no linked user account still has to be identifiable on
+    // the bill. Falling through to null left the list showing a raw UUID where
+    // a child's name belongs; the admission number is what a school would use.
+    return name || student.studentNumber || null;
   }
 
   async createInvoice(tenantId: string, dto: CreateInvoiceDto, userId: string) {
