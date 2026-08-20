@@ -48,7 +48,7 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { authedFetch } from '@/lib/authed-fetch';
-import { formatNaira as nairaFromKobo } from '@/lib/format';
+import { formatNaira as nairaFromKobo, koboFromNaira } from '@/lib/format';
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
 export type FeePricingMode = 'fixed' | 'open';
@@ -166,14 +166,6 @@ function PricingFields({
 }
 
 /** Parse a ₦ amount (naira, optional decimals) into kobo; null when blank. */
-function koboFromNaira(input: string): number | null {
-  const trimmed = input.trim();
-  if (trimmed === '') return null;
-  const naira = Number(trimmed.replace(/,/g, ''));
-  if (!Number.isFinite(naira) || naira < 0) return null;
-  return Math.round(naira * 100);
-}
-
 function nairaInputValue(kobo: number | null): string {
   return kobo == null ? '' : String(kobo / 100);
 }

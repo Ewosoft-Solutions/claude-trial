@@ -52,29 +52,14 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
 import { authedFetch } from '@/lib/authed-fetch';
-import { formatNaira as naira } from '@/lib/format';
+import { formatNaira as naira, koboFromNaira } from '@/lib/format';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../../_shared/use-step-up-action';
 import { Dot } from '@workspace/ui/custom/data-display/dot';
 import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
+import { BilledToBlock, type BilledTo } from '../billed-to';
 
 /* ---- Types (mirror the API response) ------------------------------------ */
-
-/**
- * Who the bill is for, assembled by the server.
- *
- * Finance stores the payer's name as a snapshot and does not join the student
- * schema, so the number and class come from the roster. Every field is
- * nullable: an admission invoice has no student row yet, and an invoice with
- * no household is billed to the child directly.
- */
-export interface BilledTo {
-  name: string | null;
-  studentNumber: string | null;
-  className: string | null;
-  householdName: string | null;
-  payerName: string | null;
-}
 
 export interface CatalogueItem {
   id: string;
@@ -175,14 +160,6 @@ const ADJ_STATUS_META: Record<string, { label: string; tone: StateTone }> = {
 };
 
 /* ---- Money helpers ------------------------------------------------------ */
-
-function koboFromNaira(input: string): number | null {
-  const t = input.trim();
-  if (t === '') return null;
-  const n = Number(t.replace(/,/g, ''));
-  if (!Number.isFinite(n) || n < 0) return null;
-  return Math.round(n * 100);
-}
 
 function formatDate(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -406,52 +383,6 @@ function SectionCard({
     >
       {children}
     </DataTableLayout>
-  );
-}
-
-/**
- * Who the bill is for, at the head of the billing card.
- *
- * An invoice is a document sent to a family, and every real one opens by
- * saying who owes it. Ours said only the student's name, in the page title —
- * fine while you are looking at one on screen, useless the moment it is
- * printed, shared, or opened by someone who did not navigate here.
- *
- * Each fact is dropped when absent rather than rendered blank: an admission
- * invoice has no student row yet, and an invoice with no household is billed
- * to the child directly. An empty "Household —" would imply something missing
- * where nothing is.
- */
-function BilledToBlock({ billedTo }: { billedTo: BilledTo }) {
-  const facts = [
-    { key: 'number', label: 'Student no.', value: billedTo.studentNumber },
-    { key: 'class', label: 'Class', value: billedTo.className },
-    { key: 'household', label: 'Household', value: billedTo.householdName },
-    { key: 'payer', label: 'Payer', value: billedTo.payerName },
-  ].filter((fact) => fact.value);
-
-  if (!billedTo.name && facts.length === 0) return null;
-
-  return (
-    <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border px-4 py-3">
-      <div className="flex min-w-0 flex-col">
-        <span className="text-[calc(11px*var(--font-scale))] uppercase tracking-wider text-muted-foreground">
-          Billed to
-        </span>
-        <span className="font-medium text-foreground">
-          {billedTo.name ?? 'Unnamed'}
-        </span>
-      </div>
-      {facts.map((fact) => (
-        <span
-          key={fact.key}
-          className="flex items-baseline gap-1.5 text-[calc(12.5px*var(--font-scale))]"
-        >
-          <span className="text-muted-foreground">{fact.label}</span>
-          <span className="text-foreground">{fact.value}</span>
-        </span>
-      ))}
-    </div>
   );
 }
 

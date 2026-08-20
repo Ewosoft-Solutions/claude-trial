@@ -15,9 +15,9 @@ import { getSession } from '@/lib/session';
 import {
   InvoiceDetailClient,
   type ApiInvoiceDetail,
-  type BilledTo,
   type CatalogueItem,
 } from './invoice-detail-client';
+import type { BilledTo } from '../billed-to';
 import { fetchRoster, studentClass, studentName } from '../student-options';
 
 interface ApiFeeItem {

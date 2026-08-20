@@ -25,7 +25,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { cn } from '@workspace/ui/lib/utils';
 
-import { formatNaira } from '@/lib/format';
+import { formatNaira, koboFromNaira } from '@/lib/format';
 
 export interface RequirementTemplateRow {
   id: string;
@@ -62,14 +62,6 @@ const STAGE_ORDER: Record<string, number> = {
 };
 
 /** Parse a ₦ amount (naira, optional decimals) into kobo; null when blank. */
-function koboFromNaira(input: string): number | null {
-  const trimmed = input.trim();
-  if (trimmed === '') return null;
-  const naira = Number(trimmed.replace(/,/g, ''));
-  if (!Number.isFinite(naira) || naira < 0) return null;
-  return Math.round(naira * 100);
-}
-
 /** kobo → a plain naira string for an input (empty when unset). */
 function nairaValue(kobo: number | null | undefined): string {
   return typeof kobo === 'number' ? String(kobo / 100) : '';
