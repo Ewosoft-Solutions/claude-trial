@@ -59,7 +59,7 @@ export function QuantityField({
         size="icon"
         className="size-7 shrink-0"
         disabled={disabled || value <= MIN_QUANTITY}
-        aria-label={`Decrease ${label.toLowerCase()}`}
+        aria-label={`Decrease ${label}`}
         onClick={() => onChange(Math.max(MIN_QUANTITY, value - 1))}
       >
         <Minus className="size-3.5" aria-hidden />
@@ -93,7 +93,7 @@ export function QuantityField({
         size="icon"
         className="size-7 shrink-0"
         disabled={disabled}
-        aria-label={`Increase ${label.toLowerCase()}`}
+        aria-label={`Increase ${label}`}
         onClick={() => onChange(value + 1)}
       >
         <Plus className="size-3.5" aria-hidden />

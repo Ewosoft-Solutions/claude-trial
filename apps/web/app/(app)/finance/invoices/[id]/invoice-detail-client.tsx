@@ -14,7 +14,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Check, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from 'lucide-react';
 
 import {
   Dialog,
@@ -60,19 +60,17 @@ import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 import { BilledToBlock, type BilledTo } from '../billed-to';
 import { MIN_QUANTITY, stepQuantity } from '@/lib/invoice-lines';
 import { QuantityField } from '../quantity-field';
-import { useCoalescedWrite } from './use-coalesced-write';
 import {
-  useOptimisticInvoice,
-  type InvoiceHeader,
-} from './use-optimistic-invoice';
+  PENDING_PREFIX,
+  useDraftEditor,
+  type DraftHeader,
+} from './use-draft-editor';
 
-/** Apply a header edit on screen and write it; false when the write failed. */
-type SaveHeader = <K extends keyof InvoiceHeader>(
+/** Change one of the draft's details on screen. Saved by "Update draft". */
+type PatchHeader = <K extends keyof DraftHeader>(
   field: K,
-  value: InvoiceHeader[K],
-  write: () => Promise<unknown>,
-  failure: string,
-) => Promise<boolean>;
+  value: DraftHeader[K],
+) => void;
 
 /* ---- Types (mirror the API response) ------------------------------------ */
 
@@ -237,11 +235,13 @@ export function InvoiceDetailClient({
   const {
     lines,
     setLines,
-    financials: fin,
-    optimistic,
     header,
-    saveHeader,
-  } = useOptimisticInvoice(invoice);
+    patchHeader,
+    financials: fin,
+    dirty,
+    contents,
+    markSaved,
+  } = useDraftEditor(invoice);
   const statusMeta = STATUS_META[invoice.status] ?? {
     label: titleCase(invoice.status),
     tone: 'neutral' as StateTone,
@@ -291,34 +291,29 @@ export function InvoiceDetailClient({
         </div>
 
         <LinesSection
-          invoiceId={invoice.id}
           lines={lines}
           setLines={setLines}
-          optimistic={optimistic}
           catalogue={catalogue}
           financials={fin}
           billedTo={billedTo}
           totalsActions={
             canManage && invoice.status === 'draft' ? (
-              <IssueInvoiceButton invoiceId={invoice.id} />
+              <DraftActions
+                invoiceId={invoice.id}
+                dirty={dirty}
+                contents={contents}
+                markSaved={markSaved}
+              />
             ) : undefined
           }
           details={
             canManage && invoice.status === 'draft' ? (
-              <DraftDetailsFields
-                invoiceId={invoice.id}
-                header={header}
-                saveHeader={saveHeader}
-              />
+              <DraftDetailsFields header={header} patchHeader={patchHeader} />
             ) : undefined
           }
           notes={
             canManage && invoice.status === 'draft' ? (
-              <DraftNotesField
-                invoiceId={invoice.id}
-                header={header}
-                saveHeader={saveHeader}
-              />
+              <DraftNotesField header={header} patchHeader={patchHeader} />
             ) : undefined
           }
           // Lines are the charge. Once issued it is in the ledger and on a
@@ -348,7 +343,16 @@ export function InvoiceDetailClient({
 }
 
 /** Issue a draft invoice (step-up-gated). Issuing auto-applies active policies. */
-function IssueInvoiceButton({ invoiceId }: { invoiceId: string }) {
+function IssueInvoiceButton({
+  invoiceId,
+  disabled,
+  beforeIssue,
+}: {
+  invoiceId: string;
+  disabled?: boolean;
+  /** Run before issuing — used to flush unsaved edits so the right bill goes out. */
+  beforeIssue?: () => Promise<unknown>;
+}) {
   const router = useRouter();
   const { requestStepUp, stepUpPrompt } = useStepUpAction();
   const [busy, setBusy] = React.useState(false);
@@ -364,6 +368,9 @@ function IssueInvoiceButton({ invoiceId }: { invoiceId: string }) {
       async (challengeId) => {
         setBusy(true);
         try {
+          // Issue posts what the SERVER holds, so unsaved edits must land
+          // first or the family is billed a version nobody saw.
+          if (beforeIssue) await beforeIssue();
           await mutate(`/api/finance/invoices/${invoiceId}`, 'PATCH', {
             status: 'issued',
             stepUpChallengeId: challengeId,
@@ -383,7 +390,7 @@ function IssueInvoiceButton({ invoiceId }: { invoiceId: string }) {
 
   return (
     <>
-      <Button size="sm" disabled={busy} onClick={issue}>
+      <Button size="sm" disabled={busy || disabled} onClick={issue}>
         Issue invoice
       </Button>
       {stepUpPrompt}
@@ -426,6 +433,78 @@ function SectionCard({
   );
 }
 
+/**
+ * What a draft can be done with: saved, or issued.
+ *
+ * Edits are held in the browser now, so "Update draft" is the moment anything
+ * reaches the server — one request carrying the whole draft.
+ *
+ * Issuing saves first when there is anything to save. The alternative is a
+ * trap: the issue endpoint posts what the SERVER holds, so issuing with
+ * unsaved edits on screen would bill a family for a version the bursar is
+ * looking at but has not sent. Saving is not step-up gated, so this still
+ * costs exactly one confirmation.
+ */
+function DraftActions({
+  invoiceId,
+  dirty,
+  contents,
+  markSaved,
+}: {
+  invoiceId: string;
+  dirty: boolean;
+  contents: () => unknown;
+  markSaved: (saved: ApiInvoiceDetail) => void;
+}) {
+  const [busy, setBusy] = React.useState(false);
+
+  const save = async () => {
+    const saved = (await mutate(
+      `/api/finance/invoices/${invoiceId}/contents`,
+      'PATCH',
+      contents(),
+    )) as ApiInvoiceDetail | null;
+    if (saved) markSaved(saved);
+    return saved;
+  };
+
+  const onSave = async () => {
+    setBusy(true);
+    try {
+      await save();
+      toast.success('Draft saved');
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Could not save the draft');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <>
+      <span
+        className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground"
+        role="status"
+      >
+        {dirty ? 'Unsaved changes' : 'All changes saved'}
+      </span>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={!dirty || busy}
+        onClick={() => void onSave()}
+      >
+        Update draft
+      </Button>
+      <IssueInvoiceButton
+        invoiceId={invoiceId}
+        disabled={busy}
+        beforeIssue={dirty ? save : undefined}
+      />
+    </>
+  );
+}
+
 /* ---- Draft details ------------------------------------------------------ */
 
 /**
@@ -441,27 +520,23 @@ function SectionCard({
  * header pills carry these values, and by then they are fixed.
  */
 function DraftDetailsFields({
-  invoiceId,
   header,
-  saveHeader,
+  patchHeader,
 }: {
-  invoiceId: string;
-  header: InvoiceHeader;
-  saveHeader: SaveHeader;
+  header: DraftHeader;
+  patchHeader: PatchHeader;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 border-b border-border px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
       <DraftField
-        invoiceId={invoiceId}
-        saveHeader={saveHeader}
+        patchHeader={patchHeader}
         field="termName"
         label="Term"
         value={header.termName ?? ''}
         placeholder="Spring Term"
       />
       <DraftField
-        invoiceId={invoiceId}
-        saveHeader={saveHeader}
+        patchHeader={patchHeader}
         field="termYear"
         label="Year"
         value={header.termYear != null ? String(header.termYear) : ''}
@@ -469,8 +544,7 @@ function DraftDetailsFields({
         numeric
       />
       <DraftField
-        invoiceId={invoiceId}
-        saveHeader={saveHeader}
+        patchHeader={patchHeader}
         field="termCycle"
         label="Cycle"
         value={header.termCycle != null ? String(header.termCycle) : ''}
@@ -478,8 +552,7 @@ function DraftDetailsFields({
         numeric
       />
       <DraftField
-        invoiceId={invoiceId}
-        saveHeader={saveHeader}
+        patchHeader={patchHeader}
         field="dueDate"
         label="Due date"
         value={header.dueDate ? header.dueDate.slice(0, 10) : ''}
@@ -497,19 +570,16 @@ function DraftDetailsFields({
  * empty box asking a question nobody had yet.
  */
 function DraftNotesField({
-  invoiceId,
   header,
-  saveHeader,
+  patchHeader,
 }: {
-  invoiceId: string;
-  header: InvoiceHeader;
-  saveHeader: SaveHeader;
+  header: DraftHeader;
+  patchHeader: PatchHeader;
 }) {
   return (
     <div className="border-t border-border px-4 py-4">
       <DraftField
-        invoiceId={invoiceId}
-        saveHeader={saveHeader}
+        patchHeader={patchHeader}
         field="notes"
         label="Notes"
         value={header.notes ?? ''}
@@ -530,8 +600,7 @@ function DraftNotesField({
  * edited in turn never overwrite one another.
  */
 function DraftField({
-  invoiceId,
-  saveHeader,
+  patchHeader,
   field,
   label,
   value,
@@ -540,8 +609,7 @@ function DraftField({
   numeric,
   optional,
 }: {
-  invoiceId: string;
-  saveHeader: SaveHeader;
+  patchHeader: PatchHeader;
   field: 'termName' | 'termYear' | 'termCycle' | 'dueDate' | 'notes';
   label: string;
   value: string;
@@ -551,16 +619,16 @@ function DraftField({
   optional?: boolean;
 }) {
   const [draft, setDraft] = React.useState(value);
-  const [busy, setBusy] = React.useState(false);
   const inputId = `draft-${field}`;
 
-  // The server is the source of truth: after a save (or another edit elsewhere)
-  // a refresh brings a new value down, and the field follows it.
+  // Follows the working copy — which the server replaces wholesale whenever it
+  // sends a fresh payload.
   React.useEffect(() => setDraft(value), [value]);
 
-  const commit = async () => {
+  /** Nothing is written here; "Update draft" sends the whole draft later. */
+  const commit = () => {
     const next = draft.trim();
-    if (next === value.trim() || busy) return;
+    if (next === value.trim()) return;
 
     // An emptied field clears the column rather than storing "".
     let payload: string | number | null = next === '' ? null : next;
@@ -573,21 +641,7 @@ function DraftField({
       }
       payload = n;
     }
-
-    setBusy(true);
-    // The pill in the page header follows this immediately; only the write is
-    // behind, and a failure puts both back.
-    const ok = await saveHeader(
-      field,
-      payload as never,
-      () =>
-        mutate(`/api/finance/invoices/${invoiceId}/header`, 'PATCH', {
-          [field]: payload,
-        }),
-      `Could not save ${label}`,
-    );
-    if (!ok) setDraft(value);
-    setBusy(false);
+    patchHeader(field, payload as never);
   };
 
   return (
@@ -605,9 +659,8 @@ function DraftField({
         value={draft}
         placeholder={placeholder}
         autoComplete="off"
-        disabled={busy}
         onChange={(e) => setDraft(e.target.value)}
-        onBlur={() => void commit()}
+        onBlur={commit}
         onKeyDown={(e) => {
           if (e.key !== 'Enter') return;
           e.preventDefault();
@@ -618,17 +671,9 @@ function DraftField({
   );
 }
 
-type Optimistic = (
-  next: (current: ApiLine[]) => ApiLine[],
-  write: () => Promise<unknown>,
-  failure: string,
-) => Promise<unknown>;
-
 function LinesSection({
-  invoiceId,
   lines,
   setLines,
-  optimistic,
   catalogue,
   editable,
   financials,
@@ -637,10 +682,8 @@ function LinesSection({
   details,
   notes,
 }: {
-  invoiceId: string;
   lines: ApiLine[];
   setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
-  optimistic: Optimistic;
   catalogue: CatalogueItem[];
   editable: boolean;
   financials: InvoiceTotals;
@@ -723,22 +766,15 @@ function LinesSection({
               {editable ? (
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <EditLineDialog line={line} optimistic={optimistic} />
-                    <RemoveLineButton
-                      lineId={line.id}
-                      optimistic={optimistic}
-                    />
+                    <EditLineDialog line={line} setLines={setLines} />
+                    <RemoveLineButton lineId={line.id} setLines={setLines} />
                   </div>
                 </TableCell>
               ) : null}
             </TableRow>
           ))}
           {editable ? (
-            <NewLineRow
-              invoiceId={invoiceId}
-              catalogue={catalogue}
-              setLines={setLines}
-            />
+            <NewLineRow catalogue={catalogue} setLines={setLines} />
           ) : null}
         </TableBody>
       </Table>
@@ -776,56 +812,21 @@ function QtyStepper({
   line: ApiLine;
   setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
 }) {
-  const router = useRouter();
-  const schedule = useCoalescedWrite();
   const label = line.feeItem?.name ?? 'line';
 
-  const step = (delta: number) => {
-    let target = line.quantity;
-    setLines((current) => {
-      const next = stepQuantity(current, line.id, delta);
-      target = next.find((l) => l.id === line.id)?.quantity ?? target;
-      return next;
-    });
-
-    schedule(line.id, () => {
-      void mutate(`/api/finance/lines/${line.id}`, 'PATCH', {
-        quantity: target,
-      }).catch((e: unknown) => {
-        toast.error(e instanceof Error ? e.message : 'Update failed');
-        // Rebuilding the pre-click state across a coalesced burst would be
-        // guesswork; asking the server what the line actually is now is both
-        // simpler and correct. Failures here are rare enough to afford it.
-        router.refresh();
-      });
-    });
-  };
+  // Derived from the CURRENT list, never from this row's prop: props do not
+  // change between two clicks in the same frame, so reading `line.quantity`
+  // made four rapid taps all compute the same target and the count moved by
+  // one. Covered by lib/invoice-lines.test.ts.
+  const step = (delta: number) =>
+    setLines((current) => stepQuantity(current, line.id, delta));
 
   return (
-    <div className="flex items-center justify-end gap-0.5">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-6"
-        disabled={line.quantity <= 1}
-        aria-label={`Decrease quantity of ${label}`}
-        onClick={() => step(-1)}
-      >
-        <Minus className="size-3.5" aria-hidden />
-      </Button>
-      <span className="min-w-[2ch] text-center tabular-nums">
-        {line.quantity}
-      </span>
-      <Button
-        variant="ghost"
-        size="icon"
-        className="size-6"
-        aria-label={`Increase quantity of ${label}`}
-        onClick={() => step(1)}
-      >
-        <Plus className="size-3.5" aria-hidden />
-      </Button>
-    </div>
+    <QuantityField
+      value={line.quantity}
+      onChange={(next) => step(next - line.quantity)}
+      label={`Quantity of ${label}`}
+    />
   );
 }
 
@@ -840,11 +841,9 @@ function QtyStepper({
  * disclosed over it (frontend-conventions §3).
  */
 function NewLineRow({
-  invoiceId,
   catalogue,
   setLines,
 }: {
-  invoiceId: string;
   catalogue: CatalogueItem[];
   setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
 }) {
@@ -852,7 +851,6 @@ function NewLineRow({
   const [amount, setAmount] = React.useState('');
   const [quantity, setQuantity] = React.useState(MIN_QUANTITY);
   const [description, setDescription] = React.useState('');
-  const [busy, setBusy] = React.useState(false);
   const itemRef = React.useRef<HTMLButtonElement>(null);
 
   const picked = catalogue.find((c) => c.id === feeItemId);
@@ -877,60 +875,31 @@ function NewLineRow({
   // The control cannot produce an invalid count, so there is nothing left to
   // re-check here — it is a number by construction.
   const qty = quantity;
-  const canSubmit =
-    feeItemId !== '' && amountKobo != null && amountKobo > 0 && !busy;
+  const canSubmit = feeItemId !== '' && amountKobo != null && amountKobo > 0;
 
-  const submit = async () => {
+  const submit = () => {
     if (!canSubmit || amountKobo == null || picked == null) return;
 
-    // The row appears immediately under a placeholder id, and the real row
-    // replaces it when the server answers. Clearing the form here rather than
-    // after the write is what lets the next line be typed straight away.
-    const placeholderId = `pending-${Date.now()}`;
-    const optimisticLine: ApiLine = {
-      id: placeholderId,
-      feeItemId,
-      description: description.trim() || null,
-      amount: amountKobo,
-      quantity: qty,
-      feeItem: { code: picked.code, name: picked.name },
-    };
-    const payload = {
-      feeItemId,
-      amount: amountKobo,
-      quantity: qty,
-      description: description.trim() || undefined,
-    };
+    // Local only. The id marks it as one the server has not seen, so the save
+    // sends it without one and the server creates it.
+    setLines((current) => [
+      ...current,
+      {
+        id: `${PENDING_PREFIX}${current.length}-${feeItemId}`,
+        feeItemId,
+        description: description.trim() || null,
+        amount: amountKobo,
+        quantity: qty,
+        feeItem: { code: picked.code, name: picked.name },
+      },
+    ]);
 
-    setLines((current) => [...current, optimisticLine]);
     setFeeItemId('');
     setAmount('');
     setQuantity(MIN_QUANTITY);
     setDescription('');
+    // Hand the cursor back so the next line can be typed straight away.
     itemRef.current?.focus();
-    setBusy(true);
-
-    try {
-      const saved = (await mutate(
-        `/api/finance/invoices/${invoiceId}/lines`,
-        'POST',
-        payload,
-      )) as ApiLine | null;
-      // Swap in what the server actually stored — the price it resolved may
-      // differ from the one shown, and later edits need its real id.
-      setLines((current) =>
-        current.map((l) =>
-          l.id === placeholderId
-            ? { ...optimisticLine, ...(saved ?? {}), id: saved?.id ?? l.id }
-            : l,
-        ),
-      );
-    } catch (e) {
-      setLines((current) => current.filter((l) => l.id !== placeholderId));
-      toast.error(e instanceof Error ? e.message : 'Add failed');
-    } finally {
-      setBusy(false);
-    }
   };
 
   if (catalogue.length === 0) {
@@ -959,7 +928,7 @@ function NewLineRow({
         if (e.key !== 'Enter') return;
         if ((e.target as HTMLElement).tagName !== 'INPUT') return;
         e.preventDefault();
-        void submit();
+        submit();
       }}
     >
       <TableCell>
@@ -1040,7 +1009,7 @@ function NewLineRow({
         {amountKobo != null ? naira(amountKobo * qty) : '—'}
       </TableCell>
       <TableCell className="align-top text-right">
-        <Button size="sm" disabled={!canSubmit} onClick={() => void submit()}>
+        <Button size="sm" disabled={!canSubmit} onClick={submit}>
           <Plus aria-hidden /> Add
         </Button>
       </TableCell>
@@ -1050,16 +1019,15 @@ function NewLineRow({
 
 function EditLineDialog({
   line,
-  optimistic,
+  setLines,
 }: {
   line: ApiLine;
-  optimistic: Optimistic;
+  setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
 }) {
   const [open, setOpen] = React.useState(false);
   const [amount, setAmount] = React.useState(String(line.amount / 100));
   const [quantity, setQuantity] = React.useState(String(line.quantity));
   const [description, setDescription] = React.useState(line.description ?? '');
-  const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
@@ -1071,12 +1039,10 @@ function EditLineDialog({
 
   const amountKobo = koboFromNaira(amount);
   const qty = Number(quantity);
+  // Nothing async here any more — the edit lands in the working copy and
+  // "Update draft" is what talks to the server.
   const canSubmit =
-    amountKobo != null &&
-    amountKobo > 0 &&
-    Number.isInteger(qty) &&
-    qty >= 1 &&
-    !busy;
+    amountKobo != null && amountKobo > 0 && Number.isInteger(qty) && qty >= 1;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1141,26 +1107,21 @@ function EditLineDialog({
           <Button
             size="sm"
             disabled={!canSubmit}
-            onClick={async () => {
+            onClick={() => {
               if (amountKobo == null) return;
-              setBusy(true);
               setOpen(false);
-              const next = {
-                amount: amountKobo,
-                quantity: qty,
-                description: description.trim() || undefined,
-              };
-              await optimistic(
-                (current) =>
-                  current.map((l) =>
-                    l.id === line.id
-                      ? { ...l, ...next, description: next.description ?? null }
-                      : l,
-                  ),
-                () => mutate(`/api/finance/lines/${line.id}`, 'PATCH', next),
-                'Could not update the line',
+              setLines((current) =>
+                current.map((l) =>
+                  l.id === line.id
+                    ? {
+                        ...l,
+                        amount: amountKobo,
+                        quantity: qty,
+                        description: description.trim() || null,
+                      }
+                    : l,
+                ),
               );
-              setBusy(false);
             }}
           >
             Save
@@ -1173,13 +1134,12 @@ function EditLineDialog({
 
 function RemoveLineButton({
   lineId,
-  optimistic,
+  setLines,
 }: {
   lineId: string;
-  optimistic: Optimistic;
+  setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
 }) {
   const [open, setOpen] = React.useState(false);
-  const [busy, setBusy] = React.useState(false);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1196,7 +1156,8 @@ function RemoveLineButton({
         <DialogHeader>
           <DialogTitle>Remove this line?</DialogTitle>
           <DialogDescription>
-            The invoice gross re-derives without it. This can’t be undone.
+            The invoice gross re-derives without it. It leaves the invoice for
+            good when you save the draft.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
@@ -1208,19 +1169,9 @@ function RemoveLineButton({
           <Button
             variant="destructive"
             size="sm"
-            disabled={busy}
-            onClick={async () => {
-              setBusy(true);
-              // The row goes now; if the delete fails it comes back and the
-              // toast says why, which beats a spinner over a decision already
-              // confirmed.
+            onClick={() => {
               setOpen(false);
-              await optimistic(
-                (current) => current.filter((l) => l.id !== lineId),
-                () => mutate(`/api/finance/lines/${lineId}`, 'DELETE'),
-                'Could not remove the line',
-              );
-              setBusy(false);
+              setLines((current) => current.filter((l) => l.id !== lineId));
             }}
           >
             Remove
@@ -1312,11 +1263,11 @@ function AdjustmentsSection({
 function RequestAdjustmentDialog({ invoiceId }: { invoiceId: string }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
   const [type, setType] =
     React.useState<(typeof ADJUSTMENT_TYPES)[number]>('discount');
   const [amount, setAmount] = React.useState('');
   const [reason, setReason] = React.useState('');
-  const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
     if (open) {
