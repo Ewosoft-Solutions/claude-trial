@@ -20,7 +20,7 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react';
+import { ArrowLeft, Pencil, Trash2 } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import {
@@ -34,13 +34,6 @@ import {
 } from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@workspace/ui/components/select';
 import {
   Table,
   TableBody,
@@ -58,6 +51,11 @@ import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as naira, koboFromNaira } from '@/lib/format';
 import { MIN_QUANTITY } from '@/lib/invoice-lines';
+import {
+  LineEntryCard,
+  LineEntryRow,
+  useLineEntry,
+} from '../line-entry';
 import { QuantityField } from '../quantity-field';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../../_shared/use-step-up-action';
@@ -101,6 +99,15 @@ export function ComposeClient({
 
   const patch = (next: Partial<ComposeDraft>) =>
     setDraft((current) => ({ ...current, ...next }));
+
+  const entry = useLineEntry({
+    catalogue,
+    onAdd: (value) =>
+      setDraft((current) => ({
+        ...current,
+        lines: [...current.lines, { key: nextKey(), ...value }],
+      })),
+  });
 
   /**
    * Write it. `issue` decides whether it lands as a draft or as a receivable,
@@ -350,12 +357,12 @@ export function ComposeClient({
                 );
               })}
 
-              <ComposeEntryRow
-                catalogue={catalogue}
-                onAdd={(line) => patch({ lines: [...draft.lines, line] })}
-              />
+              <LineEntryRow entry={entry} catalogue={catalogue} />
             </TableBody>
           </Table>
+          {/* Outside the table: inside it, a stacked cell would still be as
+              wide as the table's minimum and scroll off just the same. */}
+          <LineEntryCard entry={entry} catalogue={catalogue} />
 
           <div className="border-t border-border px-4 py-4">
             <Field
@@ -569,162 +576,6 @@ function Field({
         onChange={(e) => onChange(e.target.value)}
       />
     </div>
-  );
-}
-
-/**
- * The entry row, same as the invoice route's: pick, type, Enter, next.
- *
- * A fixed item's price comes from the catalogue and is shown rather than
- * typed; only an open-priced item is priced here. The server re-resolves this
- * on save, so the form is a convenience, not the rule.
- */
-function ComposeEntryRow({
-  catalogue,
-  onAdd,
-}: {
-  catalogue: CatalogueItem[];
-  onAdd: (line: ComposeLine) => void;
-}) {
-  const [feeItemId, setFeeItemId] = React.useState('');
-  const [amount, setAmount] = React.useState('');
-  const [quantity, setQuantity] = React.useState(MIN_QUANTITY);
-  const [description, setDescription] = React.useState('');
-  const itemRef = React.useRef<HTMLButtonElement>(null);
-
-  const picked = catalogue.find((c) => c.id === feeItemId);
-  const openPriced = picked?.pricingMode === 'open';
-
-  const onPickItem = (id: string) => {
-    setFeeItemId(id);
-    const item = catalogue.find((c) => c.id === id);
-    setAmount(
-      item && item.pricingMode !== 'open' && item.defaultAmount != null
-        ? String(item.defaultAmount / 100)
-        : '',
-    );
-  };
-
-  const amountKobo = openPriced
-    ? koboFromNaira(amount)
-    : (picked?.defaultAmount ?? null);
-  // The quantity control cannot emit an invalid count, so there is nothing
-  // left to re-check: it is a number by construction.
-  const qty = quantity;
-  const canAdd = picked != null && amountKobo != null && amountKobo > 0;
-
-  const submit = () => {
-    if (!canAdd || amountKobo == null) return;
-    onAdd({
-      key: nextKey(),
-      feeItemId,
-      amount: amountKobo,
-      quantity: qty,
-      description: description.trim() || undefined,
-    });
-    setFeeItemId('');
-    setAmount('');
-    setQuantity(MIN_QUANTITY);
-    setDescription('');
-    itemRef.current?.focus();
-  };
-
-  if (catalogue.length === 0) {
-    return (
-      <TableRow className="bg-muted/30">
-        <TableCell colSpan={5} className="text-muted-foreground">
-          The fee-item catalogue is empty — add items on the{' '}
-          <Link href="/finance/fee-items" className="underline underline-offset-2">
-            fee items
-          </Link>{' '}
-          page to bill for them.
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  return (
-    <TableRow
-      className="bg-muted/30 hover:bg-muted/40"
-      onKeyDown={(e) => {
-        if (e.key !== 'Enter') return;
-        if ((e.target as HTMLElement).tagName !== 'INPUT') return;
-        e.preventDefault();
-        submit();
-      }}
-    >
-      <TableCell>
-        <div className="flex flex-col gap-1.5">
-          <Select value={feeItemId} onValueChange={onPickItem}>
-            <SelectTrigger ref={itemRef} aria-label="Fee item" className="h-8">
-              <SelectValue placeholder="Add a fee item…" />
-            </SelectTrigger>
-            <SelectContent>
-              {catalogue.map((c) => {
-                const unpriced =
-                  c.pricingMode !== 'open' && c.defaultAmount == null;
-                return (
-                  <SelectItem key={c.id} value={c.id} disabled={unpriced}>
-                    <span className="flex w-full items-center justify-between gap-4">
-                      <span>{c.name}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {unpriced
-                          ? 'set a price'
-                          : c.pricingMode === 'open'
-                            ? 'per line'
-                            : naira(c.defaultAmount ?? 0)}
-                      </span>
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          <Input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            aria-label="Line description"
-            placeholder="Note (optional)"
-            autoComplete="off"
-            disabled={!picked}
-            className="h-7 text-xs"
-          />
-        </div>
-      </TableCell>
-      <TableCell className="align-top text-right">
-        {picked && !openPriced ? (
-          <span className="ml-auto inline-flex h-8 w-28 items-center justify-end tabular-nums text-muted-foreground">
-            {picked.defaultAmount != null ? naira(picked.defaultAmount) : '—'}
-          </span>
-        ) : (
-          <Input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            aria-label="Unit amount in naira"
-            inputMode="decimal"
-            placeholder="0.00"
-            autoComplete="off"
-            disabled={!picked}
-            className="ml-auto h-8 w-28 text-right tabular-nums"
-          />
-        )}
-      </TableCell>
-      <TableCell className="align-top text-right">
-        <QuantityField
-          value={quantity}
-          onChange={setQuantity}
-          disabled={!picked}
-        />
-      </TableCell>
-      <TableCell className="align-top text-right font-medium leading-8 tabular-nums">
-        {amountKobo != null ? naira(amountKobo * qty) : '—'}
-      </TableCell>
-      <TableCell className="align-top text-right">
-        <Button size="sm" disabled={!canAdd} onClick={submit}>
-          <Plus aria-hidden /> Add
-        </Button>
-      </TableCell>
-    </TableRow>
   );
 }
 

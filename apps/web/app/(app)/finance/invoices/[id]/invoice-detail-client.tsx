@@ -60,7 +60,12 @@ import { Dot } from '@workspace/ui/custom/data-display/dot';
 import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 import { BilledToBlock, type BilledTo } from '../billed-to';
 import { InvoiceDocumentActions } from './invoice-document-actions';
-import { MIN_QUANTITY, stepQuantity } from '@/lib/invoice-lines';
+import { stepQuantity } from '@/lib/invoice-lines';
+import {
+  LineEntryCard,
+  LineEntryRow,
+  useLineEntry,
+} from '../line-entry';
 import { QuantityField } from '../quantity-field';
 import {
   PENDING_PREFIX,
@@ -700,6 +705,23 @@ function LinesSection({
   /** The note — rendered under the lines, where the need for one shows up. */
   notes?: React.ReactNode;
 }) {
+  const entry = useLineEntry({
+    catalogue,
+    onAdd: (value, item) =>
+      setLines((current) => [
+        ...current,
+        {
+          // Marks a line the server has not seen; the save sends it without an
+          // id and the server creates it.
+          id: `${PENDING_PREFIX}${current.length}-${value.feeItemId}`,
+          feeItemId: value.feeItemId,
+          description: value.description ?? null,
+          amount: value.amount,
+          quantity: value.quantity,
+          feeItem: { code: item.code, name: item.name },
+        },
+      ]),
+  });
   return (
     <SectionCard
       title="Billing"
@@ -780,10 +802,13 @@ function LinesSection({
             </TableRow>
           ))}
           {editable ? (
-            <NewLineRow catalogue={catalogue} setLines={setLines} />
+            <LineEntryRow entry={entry} catalogue={catalogue} />
           ) : null}
         </TableBody>
       </Table>
+      {/* Outside the table on purpose: inside it, a stacked cell would still
+          be as wide as the table's minimum and scroll off just the same. */}
+      {editable ? <LineEntryCard entry={entry} catalogue={catalogue} /> : null}
       {notes}
       <InvoiceTotalsBar
         lineCount={lines.length}
@@ -833,193 +858,6 @@ function QtyStepper({
       onChange={(next) => step(next - line.quantity)}
       label={`Quantity of ${label}`}
     />
-  );
-}
-
-/**
- * The entry row — the last row of the lines table, always present while the
- * invoice is a draft.
- *
- * Composing a bill was a modal per line: open, pick, type, save, wait, repeat.
- * A till does the same job in one row because the charges are typed where the
- * charges are shown — Enter commits the line and hands the cursor back for the
- * next one. This is that row: the invoice's own content, not a form panel
- * disclosed over it (frontend-conventions §3).
- */
-function NewLineRow({
-  catalogue,
-  setLines,
-}: {
-  catalogue: CatalogueItem[];
-  setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
-}) {
-  const [feeItemId, setFeeItemId] = React.useState('');
-  const [amount, setAmount] = React.useState('');
-  const [quantity, setQuantity] = React.useState(MIN_QUANTITY);
-  const [description, setDescription] = React.useState('');
-  const itemRef = React.useRef<HTMLButtonElement>(null);
-
-  const picked = catalogue.find((c) => c.id === feeItemId);
-  // A till does not let you type a price for stock. A fixed item carries its
-  // price on the item record and the line shows it, read-only; only an
-  // open-price item — damages, miscellaneous — is priced here. The server
-  // enforces this too, so a crafted request cannot discount tuition.
-  const openPriced = picked?.pricingMode === 'open';
-
-  const onPickItem = (id: string) => {
-    setFeeItemId(id);
-    const item = catalogue.find((c) => c.id === id);
-    // A fixed item's price is shown, not typed; an open one starts blank.
-    setAmount(
-      item && item.pricingMode !== 'open' && item.defaultAmount != null
-        ? String(item.defaultAmount / 100)
-        : '',
-    );
-  };
-
-  const amountKobo = koboFromNaira(amount);
-  // The control cannot produce an invalid count, so there is nothing left to
-  // re-check here — it is a number by construction.
-  const qty = quantity;
-  const canSubmit = feeItemId !== '' && amountKobo != null && amountKobo > 0;
-
-  const submit = () => {
-    if (!canSubmit || amountKobo == null || picked == null) return;
-
-    // Local only. The id marks it as one the server has not seen, so the save
-    // sends it without one and the server creates it.
-    setLines((current) => [
-      ...current,
-      {
-        id: `${PENDING_PREFIX}${current.length}-${feeItemId}`,
-        feeItemId,
-        description: description.trim() || null,
-        amount: amountKobo,
-        quantity: qty,
-        feeItem: { code: picked.code, name: picked.name },
-      },
-    ]);
-
-    setFeeItemId('');
-    setAmount('');
-    setQuantity(MIN_QUANTITY);
-    setDescription('');
-    // Hand the cursor back so the next line can be typed straight away.
-    itemRef.current?.focus();
-  };
-
-  if (catalogue.length === 0) {
-    return (
-      <TableRow className="bg-muted/30">
-        <TableCell colSpan={5} className="text-muted-foreground">
-          The fee-item catalogue is empty — add items on the{' '}
-          <Link
-            href="/finance/fee-items"
-            className="underline underline-offset-2"
-          >
-            fee items
-          </Link>{' '}
-          page to bill for them.
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  return (
-    <TableRow
-      className="bg-muted/30 hover:bg-muted/40"
-      // Enter commits, but only from a text field: the select's own Enter is
-      // how an item gets chosen, and must not also add the line.
-      onKeyDown={(e) => {
-        if (e.key !== 'Enter') return;
-        if ((e.target as HTMLElement).tagName !== 'INPUT') return;
-        e.preventDefault();
-        submit();
-      }}
-    >
-      <TableCell>
-        <div className="flex flex-col gap-1.5">
-          <Select value={feeItemId} onValueChange={onPickItem}>
-            <SelectTrigger
-              ref={itemRef}
-              aria-label="Fee item"
-              className="h-8 min-w-44"
-            >
-              <SelectValue placeholder="Add a fee item…" />
-            </SelectTrigger>
-            <SelectContent>
-              {catalogue.map((c) => {
-                // A fixed item with no price is a configuration error, not a
-                // free bill — the server refuses it, so don't offer it.
-                const unpriced =
-                  c.pricingMode !== 'open' && c.defaultAmount == null;
-                return (
-                  <SelectItem key={c.id} value={c.id} disabled={unpriced}>
-                    <span className="flex w-full items-center justify-between gap-4">
-                      <span>{c.name}</span>
-                      <span className="tabular-nums text-muted-foreground">
-                        {unpriced
-                          ? 'set a price'
-                          : c.pricingMode === 'open'
-                            ? 'per line'
-                            : naira(c.defaultAmount ?? 0)}
-                      </span>
-                    </span>
-                  </SelectItem>
-                );
-              })}
-            </SelectContent>
-          </Select>
-          <Input
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            aria-label="Line description"
-            placeholder="Note (optional)"
-            autoComplete="off"
-            disabled={!picked}
-            className="h-7 text-xs"
-          />
-        </div>
-      </TableCell>
-      <TableCell className="align-top text-right">
-        {picked && !openPriced ? (
-          // Shown, not editable: the catalogue owns this number. Changing it
-          // is a deliberate override on a committed line, not a field left
-          // open while adding.
-          <span className="ml-auto inline-flex h-8 w-28 items-center justify-end tabular-nums text-muted-foreground">
-            {picked.defaultAmount != null
-              ? naira(picked.defaultAmount)
-              : 'No price'}
-          </span>
-        ) : (
-          <Input
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
-            aria-label="Unit amount in naira"
-            inputMode="decimal"
-            placeholder="0.00"
-            autoComplete="off"
-            disabled={!picked}
-            className="ml-auto h-8 w-28 text-right tabular-nums"
-          />
-        )}
-      </TableCell>
-      <TableCell className="align-top text-right">
-        <QuantityField
-          value={quantity}
-          onChange={setQuantity}
-          disabled={!picked}
-        />
-      </TableCell>
-      <TableCell className="align-top text-right font-medium leading-8 tabular-nums">
-        {amountKobo != null ? naira(amountKobo * qty) : '—'}
-      </TableCell>
-      <TableCell className="align-top text-right">
-        <Button size="sm" disabled={!canSubmit} onClick={submit}>
-          <Plus aria-hidden /> Add
-        </Button>
-      </TableCell>
-    </TableRow>
   );
 }
 
