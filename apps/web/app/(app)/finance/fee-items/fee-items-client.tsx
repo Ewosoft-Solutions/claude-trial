@@ -30,6 +30,13 @@ import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Checkbox } from '@workspace/ui/components/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@workspace/ui/components/select';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
@@ -44,13 +51,118 @@ import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
+export type FeePricingMode = 'fixed' | 'open';
+
 export interface FeeItem {
   id: string;
   code: string;
   name: string;
-  /** Suggested amount in kobo, or null when the item has no default. */
+  /**
+   * 'fixed' — the price lives here and an invoice line is billed at it,
+   *           read-only. The item cannot be billed until it has one.
+   * 'open'  — priced per line at entry (damages, miscellaneous), so this item
+   *           deliberately carries no price of its own.
+   */
+  pricingMode: FeePricingMode;
+  /** Price in kobo. Required for a fixed item; unused by an open one. */
   defaultAmount: number | null;
   active: boolean;
+}
+
+/**
+ * The two ways a fee can be priced, and why a school would pick each.
+ *
+ * Worded as consequences rather than jargon: a bursar choosing between these
+ * cares what happens on the invoice, not what the column is called.
+ */
+const PRICING_MODES: ReadonlyArray<{
+  value: FeePricingMode;
+  label: string;
+  hint: string;
+}> = [
+  {
+    value: 'fixed',
+    label: 'Fixed price',
+    hint: 'Billed at the price set here. Nobody can change it while adding a line.',
+  },
+  {
+    value: 'open',
+    label: 'Priced per invoice',
+    hint: 'The amount is typed on each line — for damages, replacements and one-offs.',
+  },
+];
+
+/**
+ * How this item is priced, and the price itself.
+ *
+ * The two belong together: an open-priced item has no price of its own, so
+ * showing an amount field beside it would be asking for a number that is
+ * ignored. Picking "Priced per invoice" therefore hides the amount rather than
+ * disabling it — there is nothing to fill in, not something withheld.
+ */
+function PricingFields({
+  idPrefix,
+  mode,
+  onModeChange,
+  amount,
+  onAmountChange,
+}: {
+  idPrefix: string;
+  mode: FeePricingMode;
+  onModeChange: (next: FeePricingMode) => void;
+  amount: string;
+  onAmountChange: (next: string) => void;
+}) {
+  const meta = PRICING_MODES.find((m) => m.value === mode);
+  return (
+    <>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor={`${idPrefix}-pricing`}>Pricing</Label>
+        <Select
+          value={mode}
+          onValueChange={(next) => onModeChange(next as FeePricingMode)}
+        >
+          <SelectTrigger id={`${idPrefix}-pricing`}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {PRICING_MODES.map((m) => (
+              <SelectItem key={m.value} value={m.value}>
+                {m.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {meta ? (
+          <p className="text-xs text-muted-foreground">{meta.hint}</p>
+        ) : null}
+      </div>
+
+      {mode === 'fixed' ? (
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor={`${idPrefix}-amount`}>
+            Price <span className="text-muted-foreground">(₦)</span>
+          </Label>
+          <Input
+            id={`${idPrefix}-amount`}
+            inputMode="decimal"
+            value={amount}
+            onChange={(e) => onAmountChange(e.target.value)}
+            placeholder="150000"
+            autoComplete="off"
+          />
+          {amount.trim() === '' ? (
+            // Not a validation error — the item saves fine. It simply cannot
+            // be put on an invoice until it has a price, and finding that out
+            // here beats finding it out mid-invoice.
+            <p className="text-xs text-muted-foreground">
+              Set a price before this item can be added to an invoice.
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 /** Parse a ₦ amount (naira, optional decimals) into kobo; null when blank. */
@@ -104,12 +216,24 @@ export function FeeItemsClient({ items, canManage }: Props) {
     },
     {
       id: 'defaultAmount',
-      header: 'Default amount',
+      header: 'Price',
       align: 'end',
       sortable: true,
-      cell: (i) => (
-        <span className="tabular-nums">{nairaFromKobo(i.defaultAmount)}</span>
-      ),
+      cell: (i) => {
+        if (i.pricingMode === 'open') {
+          return (
+            <span className="text-muted-foreground">Per invoice</span>
+          );
+        }
+        // A fixed item with no price cannot be billed, and that is worth
+        // saying here rather than leaving a bursar to discover it mid-invoice.
+        if (i.defaultAmount == null) {
+          return <StatusBadge tone="warning">Needs a price</StatusBadge>;
+        }
+        return (
+          <span className="tabular-nums">{nairaFromKobo(i.defaultAmount)}</span>
+        );
+      },
     },
     {
       id: 'status',
@@ -251,6 +375,8 @@ function AddFeeItemDialog() {
   const [code, setCode] = React.useState('');
   const [name, setName] = React.useState('');
   const [amount, setAmount] = React.useState('');
+  const [pricingMode, setPricingMode] =
+    React.useState<FeePricingMode>('fixed');
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
@@ -306,20 +432,13 @@ function AddFeeItemDialog() {
                 autoComplete="off"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="fi-amount">
-                Default amount{' '}
-                <span className="text-muted-foreground">(₦, optional)</span>
-              </Label>
-              <Input
-                id="fi-amount"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="150000"
-                autoComplete="off"
-              />
-            </div>
+            <PricingFields
+              idPrefix="fi"
+              mode={pricingMode}
+              onModeChange={setPricingMode}
+              amount={amount}
+              onAmountChange={setAmount}
+            />
           </div>
         </div>
         <DrawerFooter className="flex-row justify-end gap-2">
@@ -340,7 +459,13 @@ function AddFeeItemDialog() {
                   body: JSON.stringify({
                     code,
                     name: name.trim(),
-                    defaultAmount: koboFromNaira(amount) ?? undefined,
+                    pricingMode,
+                    // An open item is priced on the line, so it never carries
+                    // one of its own — don't send a stale number.
+                    defaultAmount:
+                      pricingMode === 'open'
+                        ? undefined
+                        : (koboFromNaira(amount) ?? undefined),
                   }),
                 });
                 if (!res.ok) {
@@ -377,6 +502,9 @@ function EditFeeItemDialog({ item }: { item: FeeItem }) {
     nairaInputValue(item.defaultAmount),
   );
   const [active, setActive] = React.useState(item.active);
+  const [pricingMode, setPricingMode] = React.useState<FeePricingMode>(
+    item.pricingMode,
+  );
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
@@ -384,6 +512,7 @@ function EditFeeItemDialog({ item }: { item: FeeItem }) {
       setName(item.name);
       setAmount(nairaInputValue(item.defaultAmount));
       setActive(item.active);
+      setPricingMode(item.pricingMode);
     }
   }, [open, item]);
 
@@ -413,20 +542,13 @@ function EditFeeItemDialog({ item }: { item: FeeItem }) {
                 autoComplete="off"
               />
             </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="fi-edit-amount">
-                Default amount{' '}
-                <span className="text-muted-foreground">(₦, optional)</span>
-              </Label>
-              <Input
-                id="fi-edit-amount"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="150000"
-                autoComplete="off"
-              />
-            </div>
+            <PricingFields
+              idPrefix="fi-edit"
+              mode={pricingMode}
+              onModeChange={setPricingMode}
+              amount={amount}
+              onAmountChange={setAmount}
+            />
             <label className="flex items-center gap-2 text-sm">
               <Checkbox
                 checked={active}
@@ -455,7 +577,11 @@ function EditFeeItemDialog({ item }: { item: FeeItem }) {
                     headers: { 'content-type': 'application/json' },
                     body: JSON.stringify({
                       name: name.trim(),
-                      defaultAmount: koboFromNaira(amount),
+                      pricingMode,
+                      // Switching an item to open pricing clears the price it
+                      // used to carry, so nothing stale is left to bill at.
+                      defaultAmount:
+                        pricingMode === 'open' ? null : koboFromNaira(amount),
                       active,
                     }),
                   },

@@ -57,7 +57,11 @@ export class FinanceCatalogueService {
         tenantId,
         code: dto.code,
         name: dto.name,
-        defaultAmount: dto.defaultAmount ?? null,
+        pricingMode: dto.pricingMode ?? 'fixed',
+        // An open-priced item is priced on the line, so it never carries one
+        // of its own — a stray amount here would be a number nothing reads.
+        defaultAmount:
+          dto.pricingMode === 'open' ? null : (dto.defaultAmount ?? null),
         active: true,
       },
     });
@@ -104,9 +108,14 @@ export class FinanceCatalogueService {
       where: { id },
       data: {
         ...(dto.name !== undefined && { name: dto.name }),
-        ...(dto.defaultAmount !== undefined && {
-          defaultAmount: dto.defaultAmount,
-        }),
+        ...(dto.pricingMode !== undefined && { pricingMode: dto.pricingMode }),
+        // Switching to open pricing clears the price, so nothing stale is left
+        // for a line to be billed at.
+        ...(dto.pricingMode === 'open'
+          ? { defaultAmount: null }
+          : dto.defaultAmount !== undefined && {
+              defaultAmount: dto.defaultAmount,
+            }),
         ...(dto.active !== undefined && { active: dto.active }),
       },
     });

@@ -183,6 +183,13 @@ export class FinanceService {
           orderBy: { createdAt: 'asc' },
         },
         adjustments: { orderBy: { createdAt: 'desc' } },
+        // Who the bill is settled by. Finance stays decoupled from the student
+        // schema (studentId/classId are plain columns by design), but the
+        // household IS a finance relation, and an invoice without it reads as
+        // if nobody is responsible for paying.
+        household: {
+          select: { id: true, name: true, primaryPayerName: true },
+        },
       },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');

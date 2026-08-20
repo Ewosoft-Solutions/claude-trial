@@ -60,6 +60,22 @@ import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 
 /* ---- Types (mirror the API response) ------------------------------------ */
 
+/**
+ * Who the bill is for, assembled by the server.
+ *
+ * Finance stores the payer's name as a snapshot and does not join the student
+ * schema, so the number and class come from the roster. Every field is
+ * nullable: an admission invoice has no student row yet, and an invoice with
+ * no household is billed to the child directly.
+ */
+export interface BilledTo {
+  name: string | null;
+  studentNumber: string | null;
+  className: string | null;
+  householdName: string | null;
+  payerName: string | null;
+}
+
 export interface CatalogueItem {
   id: string;
   code: string;
@@ -114,6 +130,11 @@ export interface ApiInvoiceDetail {
   amountPaid: number;
   status: string;
   notes?: string | null;
+  household?: {
+    id: string;
+    name: string;
+    primaryPayerName?: string | null;
+  } | null;
   lines: ApiLine[];
   adjustments: ApiAdjustment[];
   payments: ApiPayment[];
@@ -205,10 +226,12 @@ async function mutate(
 export function InvoiceDetailClient({
   invoice,
   catalogue,
+  billedTo,
   canManage,
 }: {
   invoice: ApiInvoiceDetail;
   catalogue: CatalogueItem[];
+  billedTo: BilledTo;
   canManage: boolean;
 }) {
   const fin = invoice.financials;
@@ -265,6 +288,7 @@ export function InvoiceDetailClient({
           lines={invoice.lines}
           catalogue={catalogue}
           financials={fin}
+          billedTo={billedTo}
           totalsActions={
             canManage && invoice.status === 'draft' ? (
               <IssueInvoiceButton invoiceId={invoice.id} />
@@ -382,6 +406,52 @@ function SectionCard({
     >
       {children}
     </DataTableLayout>
+  );
+}
+
+/**
+ * Who the bill is for, at the head of the billing card.
+ *
+ * An invoice is a document sent to a family, and every real one opens by
+ * saying who owes it. Ours said only the student's name, in the page title —
+ * fine while you are looking at one on screen, useless the moment it is
+ * printed, shared, or opened by someone who did not navigate here.
+ *
+ * Each fact is dropped when absent rather than rendered blank: an admission
+ * invoice has no student row yet, and an invoice with no household is billed
+ * to the child directly. An empty "Household —" would imply something missing
+ * where nothing is.
+ */
+function BilledToBlock({ billedTo }: { billedTo: BilledTo }) {
+  const facts = [
+    { key: 'number', label: 'Student no.', value: billedTo.studentNumber },
+    { key: 'class', label: 'Class', value: billedTo.className },
+    { key: 'household', label: 'Household', value: billedTo.householdName },
+    { key: 'payer', label: 'Payer', value: billedTo.payerName },
+  ].filter((fact) => fact.value);
+
+  if (!billedTo.name && facts.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-border px-4 py-3">
+      <div className="flex min-w-0 flex-col">
+        <span className="text-[calc(11px*var(--font-scale))] uppercase tracking-wider text-muted-foreground">
+          Billed to
+        </span>
+        <span className="font-medium text-foreground">
+          {billedTo.name ?? 'Unnamed'}
+        </span>
+      </div>
+      {facts.map((fact) => (
+        <span
+          key={fact.key}
+          className="flex items-baseline gap-1.5 text-[calc(12.5px*var(--font-scale))]"
+        >
+          <span className="text-muted-foreground">{fact.label}</span>
+          <span className="text-foreground">{fact.value}</span>
+        </span>
+      ))}
+    </div>
   );
 }
 
@@ -571,6 +641,7 @@ function LinesSection({
   catalogue,
   editable,
   financials,
+  billedTo,
   totalsActions,
   details,
   notes,
@@ -580,6 +651,7 @@ function LinesSection({
   catalogue: CatalogueItem[];
   editable: boolean;
   financials: InvoiceTotals;
+  billedTo: BilledTo;
   totalsActions?: React.ReactNode;
   /** Who and when the bill is for — rendered above the lines. */
   details?: React.ReactNode;
@@ -607,16 +679,21 @@ function LinesSection({
         />
       }
     >
+      <BilledToBlock billedTo={billedTo} />
       {details}
-      <Table>
+      {/* `table-fixed` with declared column widths: the default auto layout
+          sizes columns from their content, so every character typed into the
+          amount re-measured all four and the row jumped sideways as you
+          typed. Fixed columns cannot move, whatever lands in them. */}
+      <Table className="table-fixed min-w-[46rem]">
         <TableHeader>
           <TableRow>
             <TableHead>Item</TableHead>
-            <TableHead className="text-right">Unit</TableHead>
-            <TableHead className="text-right">Qty</TableHead>
-            <TableHead className="text-right">Amount</TableHead>
+            <TableHead className="w-36 text-right">Unit</TableHead>
+            <TableHead className="w-32 text-right">Qty</TableHead>
+            <TableHead className="w-36 text-right">Amount</TableHead>
             {editable ? (
-              <TableHead className="w-0 text-right">
+              <TableHead className="w-24 text-right">
                 <span className="sr-only">Actions</span>
               </TableHead>
             ) : null}
@@ -867,16 +944,15 @@ function NewLineRow({
               })}
             </SelectContent>
           </Select>
-          {feeItemId ? (
-            <Input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              aria-label="Line description"
-              placeholder="Note (optional)"
-              autoComplete="off"
-              className="h-7 text-xs"
-            />
-          ) : null}
+          <Input
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            aria-label="Line description"
+            placeholder="Note (optional)"
+            autoComplete="off"
+            disabled={!picked}
+            className="h-7 text-xs"
+          />
         </div>
       </TableCell>
       <TableCell className="align-top text-right">
@@ -884,10 +960,10 @@ function NewLineRow({
           // Shown, not editable: the catalogue owns this number. Changing it
           // is a deliberate override on a committed line, not a field left
           // open while adding.
-          <span className="inline-flex h-8 items-center tabular-nums text-muted-foreground">
+          <span className="ml-auto inline-flex h-8 w-28 items-center justify-end tabular-nums text-muted-foreground">
             {picked.defaultAmount != null
               ? naira(picked.defaultAmount)
-              : 'No price set'}
+              : 'No price'}
           </span>
         ) : (
           <Input

@@ -65,11 +65,11 @@ export class UpdateFeeItemDto {
   @IsIn(FEE_PRICING_MODES)
   pricingMode?: FeePricingMode;
 
-  @ApiPropertyOptional({ example: 15000000 })
+  @ApiPropertyOptional({ example: 15000000, nullable: true })
   @IsOptional()
   @IsInt()
   @Min(0)
-  defaultAmount?: number;
+  defaultAmount?: number | null;
 
   @ApiPropertyOptional({ example: true })
   @IsOptional()

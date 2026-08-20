@@ -15,8 +15,10 @@ import { getSession } from '@/lib/session';
 import {
   InvoiceDetailClient,
   type ApiInvoiceDetail,
+  type BilledTo,
   type CatalogueItem,
 } from './invoice-detail-client';
+import { fetchRoster, studentClass, studentName } from '../student-options';
 
 interface ApiFeeItem {
   id: string;
@@ -35,13 +37,26 @@ export default async function InvoiceDetailPage({
 }) {
   const { id } = await params;
 
-  const [invoice, feeItems, session] = await Promise.all([
+  const [invoice, feeItems, roster, session] = await Promise.all([
     serverApiGet<ApiInvoiceDetail>(`/finance/invoices/${id}`),
     serverApiGet<ApiFeeItem[]>('/finance/fee-items'),
+    fetchRoster(),
     getSession(),
   ]);
 
   if (!invoice) notFound();
+
+  // Finance keeps the payer's name as a snapshot and does not join the student
+  // schema (deliberately — see FeeInvoice). The roster fills in what a bill
+  // still has to show: which child, their number, and their class.
+  const student = roster.students.find((s) => s.id === invoice.studentId);
+  const billedTo: BilledTo = {
+    name: invoice.studentName ?? (student ? studentName(student) : null),
+    studentNumber: student?.studentNumber ?? null,
+    className: studentClass(student) ?? null,
+    householdName: invoice.household?.name ?? null,
+    payerName: invoice.household?.primaryPayerName ?? null,
+  };
 
   const catalogue: CatalogueItem[] = (feeItems ?? [])
     .filter((item) => item.active)
@@ -62,6 +77,7 @@ export default async function InvoiceDetailPage({
     <InvoiceDetailClient
       invoice={invoice}
       catalogue={catalogue}
+      billedTo={billedTo}
       canManage={canManage}
     />
   );
