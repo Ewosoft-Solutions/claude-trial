@@ -187,6 +187,25 @@ Inline `Collapsible` survives in exactly two places:
 
 Everything else — invite panels, correction forms, per-row detail expansions — is a drawer.
 
+#### An always-present editable row is content, not a disclosed panel
+
+The ban is on a surface that **toggles open over** a screen. A control that is simply _there_ whenever
+the object is editable — the entry row at the foot of its table, the qty stepper on a line — is part of
+the table's own shape, and stays inline.
+
+The test: does it appear on a click and reflow what was already on screen (drawer), or is it in the
+table's shape the whole time the object is editable (inline)?
+
+**Canonical example:** the invoice lines table (`finance/invoices/[id]/invoice-detail-client.tsx`).
+Composing a bill used to be a modal per line — open, pick, type, save, wait, repeat — a form covering
+the very figures it changes. It is now the last row of the table: pick a fee item, type the amount,
+Enter commits it and hands the cursor back for the next one. Editing an existing line's amount, which
+carries a note and is not a per-keystroke concern, is still a modal (one decision, ≤ 5 fields).
+
+A route that is a compose surface also keeps its running total in view — `InvoiceTotalsBar` is
+`sticky bottom-0` inside the scroll column, so the figure being changed never scrolls away from the
+work changing it.
+
 ### Two hard bans
 
 - **No modal over a modal.** Drawer → modal (a confirm raised from a drawer) is correct and expected;

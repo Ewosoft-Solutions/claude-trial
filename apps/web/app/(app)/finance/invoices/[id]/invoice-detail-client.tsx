@@ -14,12 +14,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Check, Pencil, Plus, Trash2, X } from 'lucide-react';
+import { ArrowLeft, Check, Minus, Pencil, Plus, Trash2, X } from 'lucide-react';
 
-import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import { Textarea } from '@workspace/ui/components/textarea';
 import {
   Dialog,
   DialogClose,
@@ -29,6 +25,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
+import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
+import { Textarea } from '@workspace/ui/components/textarea';
 import {
   Select,
   SelectContent,
@@ -46,7 +46,6 @@ import {
 } from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
@@ -57,6 +56,7 @@ import { formatNaira as naira } from '@/lib/format';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../../_shared/use-step-up-action';
 import { Dot } from '@workspace/ui/custom/data-display/dot';
+import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 
 /* ---- Types (mirror the API response) ------------------------------------ */
 
@@ -212,37 +212,6 @@ export function InvoiceDetailClient({
     tone: 'neutral' as StateTone,
   };
 
-  const statItems = [
-    { key: 'gross', label: 'Billed', value: naira(fin.gross) },
-    { key: 'discounts', label: 'Discounts', value: naira(fin.discounts) },
-    { key: 'net', label: 'Net', value: naira(fin.net) },
-    { key: 'paid', label: 'Paid', value: naira(fin.paid) },
-    // Credit drawn down reads as "paid" on the balance but is worth showing
-    // separately — the family did not hand over money for this bill today.
-    ...(fin.credited
-      ? [{ key: 'credited', label: 'From credit', value: naira(fin.credited) }]
-      : []),
-    {
-      key: 'balance',
-      label: fin.overpaid > 0 ? 'Credit' : 'Balance',
-      value: fin.overpaid > 0 ? naira(fin.overpaid) : naira(fin.balance),
-      delta:
-        fin.overpaid > 0
-          ? {
-              label: 'overpaid',
-              direction: 'up' as const,
-              intent: 'positive' as const,
-            }
-          : fin.balance > 0
-            ? {
-                label: 'due',
-                direction: 'up' as const,
-                intent: 'negative' as const,
-              }
-            : undefined,
-    },
-  ];
-
   const termLabel = [
     invoice.termName,
     invoice.termYear ? String(invoice.termYear) : null,
@@ -268,41 +237,61 @@ export function InvoiceDetailClient({
               ...(termLabel ? [{ key: 'term', label: termLabel }] : []),
               { key: 'due', label: `Due ${formatDate(invoice.dueDate)}` },
             ]}
-            actions={
-              <div className="flex items-center gap-2">
-                {canManage && invoice.status === 'draft' ? (
-                  <IssueInvoiceButton invoiceId={invoice.id} />
-                ) : null}
-                <StatusBadge
-                  tone={statusMeta.tone}
-                  dot={
-                    invoice.status !== 'draft' && invoice.status !== 'cancelled'
-                  }
-                >
-                  {statusMeta.label}
-                </StatusBadge>
-              </div>
+            // State sits with the name, not among the buttons: beside
+            // "Issue invoice" the badge read as a second button.
+            titleAdornment={
+              <StatusBadge
+                tone={statusMeta.tone}
+                dot={
+                  invoice.status !== 'draft' && invoice.status !== 'cancelled'
+                }
+              >
+                {statusMeta.label}
+              </StatusBadge>
             }
+            // Download/share (the document) will live here; Issue (the
+            // composition) lives in the totals bar with the figure it commits.
+            actions={undefined}
           />
         </div>
-
-        <StatGrid items={statItems} />
 
         <LinesSection
           invoiceId={invoice.id}
           lines={invoice.lines}
           catalogue={catalogue}
+          financials={fin}
+          totalsActions={
+            canManage && invoice.status === 'draft' ? (
+              <IssueInvoiceButton invoiceId={invoice.id} />
+            ) : undefined
+          }
+          details={
+            canManage && invoice.status === 'draft' ? (
+              <DraftDetailsFields invoiceId={invoice.id} invoice={invoice} />
+            ) : undefined
+          }
+          notes={
+            canManage && invoice.status === 'draft' ? (
+              <DraftNotesField invoiceId={invoice.id} invoice={invoice} />
+            ) : undefined
+          }
           // Lines are the charge. Once issued it is in the ledger and on a
           // family's statement, so the API fixes it — changing what is owed
           // after that is an adjustment, which is approved and posted.
           editable={canManage && invoice.status === 'draft'}
         />
 
-        <AdjustmentsSection
-          invoiceId={invoice.id}
-          adjustments={invoice.adjustments}
-          canManage={canManage}
-        />
+        {/* A draft owes nothing yet, so it cannot be discounted: the API
+            rejects an adjustment against one. Offering the button anyway put
+            a guaranteed error behind it, so the section only appears once
+            there is an outstanding bill to reduce. */}
+        {invoice.status !== 'draft' ? (
+          <AdjustmentsSection
+            invoiceId={invoice.id}
+            adjustments={invoice.adjustments}
+            canManage={canManage}
+          />
+        ) : null}
 
         {invoice.payments.length > 0 ? (
           <PaymentsSection payments={invoice.payments} />
@@ -391,44 +380,229 @@ function SectionCard({
   );
 }
 
+/* ---- Draft details ------------------------------------------------------ */
+
+/**
+ * The details the draft was opened with, editable while it is still a draft.
+ *
+ * These live inside the billing card rather than in a card of their own: who
+ * and when a bill is for is part of the bill, and reading it as a separate
+ * object above the lines made one invoice look like two things.
+ *
+ * Like the lines entry row, the fields are always present while the invoice is
+ * editable rather than disclosed by a button, so they are content and not a
+ * panel (frontend-conventions §3). They disappear once it is issued — the
+ * header pills carry these values, and by then they are fixed.
+ */
+function DraftDetailsFields({
+  invoiceId,
+  invoice,
+}: {
+  invoiceId: string;
+  invoice: ApiInvoiceDetail;
+}) {
+  return (
+    <div className="grid grid-cols-1 gap-4 border-b border-border px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
+      <DraftField
+        invoiceId={invoiceId}
+        field="termName"
+        label="Term"
+        value={invoice.termName ?? ''}
+        placeholder="Spring Term"
+      />
+      <DraftField
+        invoiceId={invoiceId}
+        field="termYear"
+        label="Year"
+        value={invoice.termYear != null ? String(invoice.termYear) : ''}
+        placeholder="2025"
+        numeric
+      />
+      <DraftField
+        invoiceId={invoiceId}
+        field="termCycle"
+        label="Cycle"
+        value={invoice.termCycle != null ? String(invoice.termCycle) : ''}
+        placeholder="1"
+        numeric
+      />
+      <DraftField
+        invoiceId={invoiceId}
+        field="dueDate"
+        label="Due date"
+        value={invoice.dueDate ? invoice.dueDate.slice(0, 10) : ''}
+        type="date"
+      />
+    </div>
+  );
+}
+
+/**
+ * The note, at the foot of the bill.
+ *
+ * Deliberately after the lines: what a note needs to explain usually becomes
+ * apparent while the lines are being entered, not before. Above them it was an
+ * empty box asking a question nobody had yet.
+ */
+function DraftNotesField({
+  invoiceId,
+  invoice,
+}: {
+  invoiceId: string;
+  invoice: ApiInvoiceDetail;
+}) {
+  return (
+    <div className="border-t border-border px-4 py-4">
+      <DraftField
+        invoiceId={invoiceId}
+        field="notes"
+        label="Notes"
+        value={invoice.notes ?? ''}
+        placeholder="Anything that should be read alongside these lines"
+        optional
+      />
+    </div>
+  );
+}
+
+/**
+ * One draft detail, saved when it loses focus.
+ *
+ * Saving per keystroke would put a write behind every character of a term name;
+ * saving on blur (and on Enter, which matches how the lines entry row commits)
+ * writes once per field the bursar actually changed. Only the edited field is
+ * sent, so the server's "absent means leave it" contract holds and two fields
+ * edited in turn never overwrite one another.
+ */
+function DraftField({
+  invoiceId,
+  field,
+  label,
+  value,
+  placeholder,
+  type,
+  numeric,
+  optional,
+}: {
+  invoiceId: string;
+  field: 'termName' | 'termYear' | 'termCycle' | 'dueDate' | 'notes';
+  label: string;
+  value: string;
+  placeholder?: string;
+  type?: string;
+  numeric?: boolean;
+  optional?: boolean;
+}) {
+  const router = useRouter();
+  const [draft, setDraft] = React.useState(value);
+  const [busy, setBusy] = React.useState(false);
+  const inputId = `draft-${field}`;
+
+  // The server is the source of truth: after a save (or another edit elsewhere)
+  // a refresh brings a new value down, and the field follows it.
+  React.useEffect(() => setDraft(value), [value]);
+
+  const commit = async () => {
+    const next = draft.trim();
+    if (next === value.trim() || busy) return;
+
+    // An emptied field clears the column rather than storing "".
+    let payload: string | number | null = next === '' ? null : next;
+    if (numeric && payload !== null) {
+      const n = Number(payload);
+      if (!Number.isInteger(n) || n < 0) {
+        toast.error(`${label} must be a whole number`);
+        setDraft(value);
+        return;
+      }
+      payload = n;
+    }
+
+    setBusy(true);
+    try {
+      await mutate(`/api/finance/invoices/${invoiceId}/header`, 'PATCH', {
+        [field]: payload,
+      });
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Could not save ${label}`);
+      setDraft(value);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Label htmlFor={inputId}>
+        {label}
+        {optional ? (
+          <span className="text-muted-foreground"> (optional)</span>
+        ) : null}
+      </Label>
+      <Input
+        id={inputId}
+        type={type}
+        inputMode={numeric ? 'numeric' : undefined}
+        value={draft}
+        placeholder={placeholder}
+        autoComplete="off"
+        disabled={busy}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key !== 'Enter') return;
+          e.preventDefault();
+          e.currentTarget.blur();
+        }}
+      />
+    </div>
+  );
+}
+
 function LinesSection({
   invoiceId,
   lines,
   catalogue,
   editable,
+  financials,
+  totalsActions,
+  details,
+  notes,
 }: {
   invoiceId: string;
   lines: ApiLine[];
   catalogue: CatalogueItem[];
   editable: boolean;
+  financials: InvoiceTotals;
+  totalsActions?: React.ReactNode;
+  /** Who and when the bill is for — rendered above the lines. */
+  details?: React.ReactNode;
+  /** The note — rendered under the lines, where the need for one shows up. */
+  notes?: React.ReactNode;
 }) {
   return (
     <SectionCard
-      title="Line items"
+      title="Billing"
       description={
         editable
           ? 'What this invoice bills for. Gross is the sum of these lines.'
           : 'What this invoice bills for. Fixed once the invoice was issued — use an adjustment to change what is owed.'
       }
-      action={
-        editable ? (
-          <AddLineDialog invoiceId={invoiceId} catalogue={catalogue} />
-        ) : undefined
-      }
-      empty={lines.length === 0}
+      // While the invoice is editable the table always renders: the entry row
+      // at its foot IS how a line is added, so an empty state in its place
+      // would take away the only way in.
+      empty={lines.length === 0 && !editable}
       skeletonColumns={editable ? 5 : 4}
       emptyState={
         <EmptyState
           compact
           title="No line items"
-          description={
-            editable
-              ? 'Add a line from the fee-item catalogue to bill for it.'
-              : 'This invoice has no line items yet.'
-          }
+          description="This invoice has no line items yet."
         />
       }
     >
+      {details}
       <Table>
         <TableHeader>
           <TableRow>
@@ -462,7 +636,7 @@ function LinesSection({
                 {naira(line.amount)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {line.quantity}
+                {editable ? <QtyStepper line={line} /> : line.quantity}
               </TableCell>
               <TableCell className="text-right tabular-nums font-medium">
                 {naira(line.amount * line.quantity)}
@@ -477,13 +651,89 @@ function LinesSection({
               ) : null}
             </TableRow>
           ))}
+          {editable ? (
+            <NewLineRow invoiceId={invoiceId} catalogue={catalogue} />
+          ) : null}
         </TableBody>
       </Table>
+      {notes}
+      <InvoiceTotalsBar
+        lineCount={lines.length}
+        quantityTotal={lines.reduce((sum, l) => sum + l.quantity, 0)}
+        financials={financials}
+        actions={totalsActions}
+      />
     </SectionCard>
   );
 }
 
-function AddLineDialog({
+/**
+ * Qty − / + on the row itself.
+ *
+ * The buttons are always rendered rather than revealed on hover, so the figure
+ * never changes column when a row becomes active — the alignment trap a till's
+ * inline action strip falls into, where the numbers end up reading one row low.
+ */
+function QtyStepper({ line }: { line: ApiLine }) {
+  const router = useRouter();
+  const [busy, setBusy] = React.useState(false);
+  const label = line.feeItem?.name ?? 'line';
+
+  const setQty = async (next: number) => {
+    if (next < 1 || busy) return;
+    setBusy(true);
+    try {
+      await mutate(`/api/finance/lines/${line.id}`, 'PATCH', {
+        quantity: next,
+      });
+      router.refresh();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Update failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center justify-end gap-0.5">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-6"
+        disabled={busy || line.quantity <= 1}
+        aria-label={`Decrease quantity of ${label}`}
+        onClick={() => void setQty(line.quantity - 1)}
+      >
+        <Minus className="size-3.5" aria-hidden />
+      </Button>
+      <span className="min-w-[2ch] text-center tabular-nums">
+        {line.quantity}
+      </span>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-6"
+        disabled={busy}
+        aria-label={`Increase quantity of ${label}`}
+        onClick={() => void setQty(line.quantity + 1)}
+      >
+        <Plus className="size-3.5" aria-hidden />
+      </Button>
+    </div>
+  );
+}
+
+/**
+ * The entry row — the last row of the lines table, always present while the
+ * invoice is a draft.
+ *
+ * Composing a bill was a modal per line: open, pick, type, save, wait, repeat.
+ * A till does the same job in one row because the charges are typed where the
+ * charges are shown — Enter commits the line and hands the cursor back for the
+ * next one. This is that row: the invoice's own content, not a form panel
+ * disclosed over it (frontend-conventions §3).
+ */
+function NewLineRow({
   invoiceId,
   catalogue,
 }: {
@@ -491,25 +741,17 @@ function AddLineDialog({
   catalogue: CatalogueItem[];
 }) {
   const router = useRouter();
-  const [open, setOpen] = React.useState(false);
   const [feeItemId, setFeeItemId] = React.useState('');
-  const [description, setDescription] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [quantity, setQuantity] = React.useState('1');
+  const [description, setDescription] = React.useState('');
   const [busy, setBusy] = React.useState(false);
-
-  React.useEffect(() => {
-    if (open) {
-      setFeeItemId('');
-      setDescription('');
-      setAmount('');
-      setQuantity('1');
-    }
-  }, [open]);
+  const itemRef = React.useRef<HTMLButtonElement>(null);
 
   const onPickItem = (id: string) => {
     setFeeItemId(id);
     const item = catalogue.find((c) => c.id === id);
+    // Prefill from the catalogue's default — but never over something typed.
     if (item?.defaultAmount != null && amount.trim() === '') {
       setAmount(String(item.defaultAmount / 100));
     }
@@ -517,121 +759,127 @@ function AddLineDialog({
 
   const amountKobo = koboFromNaira(amount);
   const qty = Number(quantity);
+  const validQty = Number.isInteger(qty) && qty >= 1;
   const canSubmit =
     feeItemId !== '' &&
     amountKobo != null &&
     amountKobo > 0 &&
-    Number.isInteger(qty) &&
-    qty >= 1 &&
+    validQty &&
     !busy;
 
+  const submit = async () => {
+    if (!canSubmit || amountKobo == null) return;
+    setBusy(true);
+    try {
+      await mutate(`/api/finance/invoices/${invoiceId}/lines`, 'POST', {
+        feeItemId,
+        amount: amountKobo,
+        quantity: qty,
+        description: description.trim() || undefined,
+      });
+      setFeeItemId('');
+      setAmount('');
+      setQuantity('1');
+      setDescription('');
+      router.refresh();
+      // Hand the cursor back so the next line can be typed straight away.
+      itemRef.current?.focus();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Add failed');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (catalogue.length === 0) {
+    return (
+      <TableRow className="bg-muted/30">
+        <TableCell colSpan={5} className="text-muted-foreground">
+          The fee-item catalogue is empty — add items on the{' '}
+          <Link
+            href="/finance/fee-items"
+            className="underline underline-offset-2"
+          >
+            fee items
+          </Link>{' '}
+          page to bill for them.
+        </TableCell>
+      </TableRow>
+    );
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <Button
-        size="sm"
-        onClick={() => setOpen(true)}
-        disabled={catalogue.length === 0}
-      >
-        <Plus aria-hidden /> Add line
-      </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a line item</DialogTitle>
-          <DialogDescription>
-            Pick a fee item from the catalogue; the amount pre-fills from its
-            default and can be overridden for this invoice.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="line-item">Fee item</Label>
-            <Select value={feeItemId} onValueChange={onPickItem}>
-              <SelectTrigger id="line-item">
-                <SelectValue placeholder="Choose a fee item" />
-              </SelectTrigger>
-              <SelectContent>
-                {catalogue.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="line-amount">Unit amount (₦)</Label>
-              <Input
-                id="line-amount"
-                inputMode="decimal"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="150000"
-                autoComplete="off"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="line-qty">Quantity</Label>
-              <Input
-                id="line-qty"
-                inputMode="numeric"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                autoComplete="off"
-              />
-            </div>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="line-desc">
-              Description{' '}
-              <span className="text-muted-foreground">(optional)</span>
-            </Label>
+    <TableRow
+      className="bg-muted/30 hover:bg-muted/40"
+      // Enter commits, but only from a text field: the select's own Enter is
+      // how an item gets chosen, and must not also add the line.
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter') return;
+        if ((e.target as HTMLElement).tagName !== 'INPUT') return;
+        e.preventDefault();
+        void submit();
+      }}
+    >
+      <TableCell>
+        <div className="flex flex-col gap-1.5">
+          <Select value={feeItemId} onValueChange={onPickItem}>
+            <SelectTrigger
+              ref={itemRef}
+              aria-label="Fee item"
+              className="h-8 min-w-44"
+            >
+              <SelectValue placeholder="Add a fee item…" />
+            </SelectTrigger>
+            <SelectContent>
+              {catalogue.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {feeItemId ? (
             <Input
-              id="line-desc"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="e.g. First term"
+              aria-label="Line description"
+              placeholder="Note (optional)"
               autoComplete="off"
+              className="h-7 text-xs"
             />
-          </div>
+          ) : null}
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
-            <Button variant="ghost" size="sm">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button
-            size="sm"
-            disabled={!canSubmit}
-            onClick={async () => {
-              setBusy(true);
-              try {
-                await mutate(
-                  `/api/finance/invoices/${invoiceId}/lines`,
-                  'POST',
-                  {
-                    feeItemId,
-                    amount: amountKobo,
-                    quantity: qty,
-                    description: description.trim() || undefined,
-                  },
-                );
-                toast.success('Line added');
-                setOpen(false);
-                router.refresh();
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Add failed');
-              } finally {
-                setBusy(false);
-              }
-            }}
-          >
-            Add line
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </TableCell>
+      <TableCell className="align-top text-right">
+        <Input
+          value={amount}
+          onChange={(e) => setAmount(e.target.value)}
+          aria-label="Unit amount in naira"
+          inputMode="decimal"
+          placeholder="0.00"
+          autoComplete="off"
+          className="ml-auto h-8 w-28 text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell className="align-top text-right">
+        <Input
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          aria-label="Quantity"
+          inputMode="numeric"
+          autoComplete="off"
+          className="ml-auto h-8 w-16 text-right tabular-nums"
+        />
+      </TableCell>
+      <TableCell className="align-top text-right font-medium leading-8 tabular-nums">
+        {amountKobo != null && validQty ? naira(amountKobo * qty) : '—'}
+      </TableCell>
+      <TableCell className="align-top text-right">
+        <Button size="sm" disabled={!canSubmit} onClick={() => void submit()}>
+          <Plus aria-hidden /> Add
+        </Button>
+      </TableCell>
+    </TableRow>
   );
 }
 
