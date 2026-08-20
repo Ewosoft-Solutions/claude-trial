@@ -186,6 +186,51 @@ export class FinanceCatalogueService {
     return line;
   }
 
+  /**
+   * Add several lines at once, for an invoice composed offline.
+   *
+   * The compose surface holds a whole bill in the browser and writes it in one
+   * request, so the per-line `addLine` would mean N round trips and N partial
+   * states. This validates once, inserts once, and totals once — and because
+   * the request already runs inside the RLS transaction, either the whole bill
+   * lands or none of it does.
+   */
+  async addLines(
+    tenantId: string,
+    invoiceId: string,
+    lines: CreateInvoiceLineDto[],
+  ) {
+    if (lines.length === 0) return [];
+    await this.assertDraftInvoice(tenantId, invoiceId);
+
+    // One check per distinct fee item, not one per line: a bill with eight
+    // lines of the same item should not read the catalogue eight times.
+    const feeItemIds = [...new Set(lines.map((line) => line.feeItemId))];
+    const found = await this.client.feeItem.findMany({
+      where: { tenantId, id: { in: feeItemIds } },
+      select: { id: true },
+    });
+    if (found.length !== feeItemIds.length) {
+      throw new BadRequestException('Fee item not found for tenant');
+    }
+
+    await this.client.feeInvoiceLine.createMany({
+      data: lines.map((line) => ({
+        tenantId,
+        invoiceId,
+        feeItemId: line.feeItemId,
+        description: line.description ?? null,
+        amount: line.amount,
+        quantity: line.quantity ?? 1,
+      })),
+    });
+    await this.syncAmountDue(tenantId, invoiceId);
+
+    return this.client.feeInvoiceLine.findMany({
+      where: { tenantId, invoiceId },
+    });
+  }
+
   async updateLine(
     tenantId: string,
     lineId: string,

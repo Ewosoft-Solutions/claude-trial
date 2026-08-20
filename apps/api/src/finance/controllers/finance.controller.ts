@@ -22,9 +22,11 @@ import { FinanceService } from '../services/finance.service';
 import { FinanceReceiptService } from '../services/finance-receipt.service';
 import { FinanceCreditService } from '../services/finance-credit.service';
 import {
+  ComposeInvoiceDto,
   CreateInvoiceDto,
   ListInvoicesDto,
   UpdateInvoiceDto,
+  UpdateInvoiceHeaderDto,
 } from '../dto/finance.dto';
 import {
   ApplyCreditDto,
@@ -107,6 +109,52 @@ export class FinanceController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.financeService.updateInvoice(
+      req.user.tenantId,
+      id,
+      dto,
+      req.user.profileId!,
+    );
+  }
+
+  /**
+   * Write a whole invoice composed in the browser — header, lines, and
+   * optionally the issue — in one step-up-gated request.
+   *
+   * One endpoint rather than create-then-issue because `StepUpGuard` consumes
+   * the challenge it verifies: two guarded calls would mean two confirmations
+   * for one action.
+   */
+  @Post('invoices/compose')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_FEE_STRUCTURE_UPDATE)
+  @RequirePermissions(['finance.manage'])
+  @ApiOperation({ summary: 'Create an invoice with its lines, optionally issued' })
+  async composeInvoice(
+    @Body() dto: ComposeInvoiceDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.financeService.composeInvoice(
+      req.user.tenantId,
+      dto,
+      req.user.profileId!,
+    );
+  }
+
+  /**
+   * Correct a draft's own details. Not step-up gated, unlike `PATCH
+   * invoices/:id` above: that route can issue an invoice, which posts a
+   * receivable and draws down held credit. This one only edits a draft — the
+   * same act, and the same guard, as adding a line to it.
+   */
+  @Patch('invoices/:id/header')
+  @RequirePermissions(['finance.manage'])
+  @ApiOperation({ summary: "Correct a draft invoice's term, due date or notes" })
+  async updateInvoiceHeader(
+    @Param('id') id: string,
+    @Body() dto: UpdateInvoiceHeaderDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.financeService.updateInvoiceHeader(
       req.user.tenantId,
       id,
       dto,

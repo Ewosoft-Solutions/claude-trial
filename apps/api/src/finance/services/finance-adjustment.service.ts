@@ -367,6 +367,61 @@ export class FinanceAdjustmentService {
   // ---- Reads (for the UI) --------------------------------------------
 
   /** Every adjustment on an invoice (pending + applied + rejected), newest first. */
+  /**
+   * Every adjustment across every invoice, for the approvals queue.
+   *
+   * Until this existed, a requested discount could only be found by already
+   * knowing which invoice carried it: the sole listing was per-invoice, so the
+   * maker-checker rule was enforced by the API while the checker had no way to
+   * see what was waiting. Approving is a task, and a task needs a queue.
+   *
+   * The invoice is joined in because a discount request is meaningless without
+   * what it reduces — who owes it, and how much is outstanding.
+   */
+  async listAdjustmentsAcrossInvoices(
+    tenantId: string,
+    opts: { status?: string; page?: number; limit?: number } = {},
+  ) {
+    const where = {
+      tenantId,
+      ...(opts.status ? { status: opts.status } : {}),
+      // Policy discounts are pre-approved and post themselves at issue; a
+      // queue of them would be a list of things nobody can act on.
+      source: 'discretionary',
+    };
+
+    const take = opts.limit;
+    const skip = take ? ((opts.page ?? 1) - 1) * take : undefined;
+
+    const [data, total] = await Promise.all([
+      this.client.feeAdjustment.findMany({
+        where,
+        orderBy: { createdAt: 'asc' }, // oldest first: a queue, not a feed
+        ...(skip !== undefined && { skip }),
+        ...(take !== undefined && { take }),
+        include: {
+          invoice: {
+            select: {
+              id: true,
+              invoiceNumber: true,
+              studentName: true,
+              status: true,
+              amountDue: true,
+              amountPaid: true,
+              termName: true,
+            },
+          },
+        },
+      }),
+      take ? this.client.feeAdjustment.count({ where }) : undefined,
+    ]);
+
+    return {
+      data,
+      pagination: { total: total ?? data.length, page: opts.page ?? 1 },
+    };
+  }
+
   listAdjustments(tenantId: string, invoiceId: string) {
     return this.client.feeAdjustment.findMany({
       where: { tenantId, invoiceId },

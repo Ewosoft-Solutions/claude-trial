@@ -9,6 +9,7 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import { FinanceAdjustmentService } from './finance-adjustment.service';
+import { FinanceCatalogueService } from './finance-catalogue.service';
 import { FinanceCreditService } from './finance-credit.service';
 import { FinanceNumberingService } from './finance-numbering.service';
 import { FinanceReceiptService } from './finance-receipt.service';
@@ -21,7 +22,9 @@ import {
 import {
   CreateInvoiceDto,
   ListInvoicesDto,
+  ComposeInvoiceDto,
   UpdateInvoiceDto,
+  UpdateInvoiceHeaderDto,
 } from '../dto/finance.dto';
 
 /** Allow-listed sort columns for the invoices list; default is newest first. */
@@ -48,6 +51,7 @@ export class FinanceService {
     private readonly credits: FinanceCreditService,
     private readonly receipts: FinanceReceiptService,
     private readonly ledger: LedgerService,
+    private readonly catalogue: FinanceCatalogueService,
   ) {}
 
   // Every collaborator here (ledger, receipts, credit, refreshInvoiceTotals)
@@ -252,6 +256,180 @@ export class FinanceService {
     });
   }
 
+  /**
+   * Correct the details a draft was opened with.
+   *
+   * These fields — term, year, cycle, due date, notes — used to be writable
+   * only at creation, so an invoice opened with the wrong term (or none) stayed
+   * wrong for life; a term-less draft is also invisible on the term-scoped
+   * invoice list, so it could not even be found again. Composing a draft is not
+   * a financial act, so this is guarded like the draft's line items rather than
+   * like issuing it, and it refuses anything that has left draft: once issued,
+   * what is owed changes through an adjustment.
+   */
+  async updateInvoiceHeader(
+    tenantId: string,
+    id: string,
+    dto: UpdateInvoiceHeaderDto,
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id, tenantId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    if (invoice.status !== 'draft') {
+      throw new BadRequestException(
+        `Only a draft's details can be corrected — this invoice is ${invoice.status}. Raise an adjustment to change what is owed, or a reversal to withdraw it.`,
+      );
+    }
+
+    // `undefined` means "not sent, leave it"; an explicitly sent empty value
+    // means "clear it". Blank strings arrive from cleared text inputs and are
+    // stored as NULL so the term label renders as absent rather than empty.
+    const updated = await this.client.feeInvoice.update({
+      where: { id },
+      data: {
+        ...(dto.termName !== undefined && {
+          termName: dto.termName?.trim() || null,
+        }),
+        ...(dto.termYear !== undefined && { termYear: dto.termYear ?? null }),
+        ...(dto.termCycle !== undefined && {
+          termCycle: dto.termCycle ?? null,
+        }),
+        ...(dto.dueDate !== undefined && {
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+        }),
+        ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
+        updatedBy: userId,
+      },
+    });
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_header_updated',
+      resource: 'fee_invoice',
+      resourceId: id,
+      actorId: userId,
+      description: `Draft invoice ${invoice.invoiceNumber} details updated`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        fields: Object.keys(dto),
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Everything that happens the moment a bill becomes a receivable: the charge
+   * posts to the ledger, standing discount policies apply, and any credit the
+   * family already holds is drawn down against it.
+   *
+   * Shared by `updateInvoice` (issuing an existing draft) and `composeInvoice`
+   * (creating and issuing in one go). Two copies of this would eventually
+   * disagree, and the thing they would disagree about is the ledger.
+   *
+   * Callers must have run `ledger.ensureOpeningBalance` BEFORE flipping the
+   * row to issued, so a school carrying pre-ledger debt opens with that debt
+   * rather than with this bill.
+   */
+  private async applyIssueEffects(
+    tenantId: string,
+    invoiceId: string,
+    invoiceNumber: string,
+    userId: string,
+  ) {
+    await this.postInvoiceIssued(tenantId, invoiceId, userId);
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_issued',
+      resource: 'fee_invoice',
+      resourceId: invoiceId,
+      actorId: userId,
+      description: `Invoice ${invoiceNumber} issued`,
+      metadata: { invoiceNumber },
+    });
+    await this.adjustments.applyPoliciesToInvoice(tenantId, invoiceId, userId);
+    await this.credits.autoApplyToInvoice(tenantId, invoiceId, userId);
+  }
+
+  /**
+   * Write an invoice that was composed in the browser — header, lines, and
+   * optionally the issue — as one request.
+   *
+   * The compose surface creates no row until the bursar commits, so this is
+   * the first and only write. It must stay a single call: `StepUpGuard`
+   * consumes the challenge it verifies, so splitting create from issue would
+   * ask for two confirmations to complete one action. The request already runs
+   * inside the RLS transaction, so a failure part-way leaves no half-written
+   * invoice behind.
+   */
+  async composeInvoice(
+    tenantId: string,
+    dto: ComposeInvoiceDto,
+    userId: string,
+  ) {
+    const invoice = await this.createInvoice(
+      tenantId,
+      {
+        studentId: dto.studentId,
+        amountDue: 0,
+        termName: dto.termName,
+        termYear: dto.termYear,
+        termCycle: dto.termCycle,
+        dueDate: dto.dueDate,
+        notes: dto.notes,
+      },
+      userId,
+    );
+
+    // `addLines` totals the invoice, so amountDue is right before we issue.
+    await this.catalogue.addLines(tenantId, invoice.id, dto.lines);
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_composed',
+      resource: 'fee_invoice',
+      resourceId: invoice.id,
+      actorId: userId,
+      description: `Invoice ${invoice.invoiceNumber} composed with ${dto.lines.length} line(s)`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        lineCount: dto.lines.length,
+        issued: dto.issue === true,
+      },
+    });
+
+    if (dto.issue !== true) {
+      return this.client.feeInvoice.findFirst({
+        where: { id: invoice.id, tenantId },
+      });
+    }
+
+    // Open the books before this bill becomes a receivable.
+    await this.ledger.ensureOpeningBalance(tenantId, userId);
+    await this.client.feeInvoice.update({
+      where: { id: invoice.id },
+      data: { status: 'issued', updatedBy: userId },
+    });
+    await this.applyIssueEffects(
+      tenantId,
+      invoice.id,
+      invoice.invoiceNumber,
+      userId,
+    );
+
+    // Issuing has side effects (policy discounts, credit applied), so report
+    // what the invoice actually became, not the row as it looked mid-flight.
+    return this.client.feeInvoice.findFirst({
+      where: { id: invoice.id, tenantId },
+    });
+  }
+
   async updateInvoice(
     tenantId: string,
     id: string,
@@ -313,19 +491,7 @@ export class FinanceService {
     // the ledger, standing discount policies apply, and any credit the family
     // is already holding is drawn down against it.
     if (isBeingIssued) {
-      await this.postInvoiceIssued(tenantId, id, userId);
-      await this.audit.write({
-        tenantId,
-        eventType: AUDIT_EVENT.DATA_CHANGE,
-        action: 'finance_invoice_issued',
-        resource: 'fee_invoice',
-        resourceId: id,
-        actorId: userId,
-        description: `Invoice ${invoice.invoiceNumber} issued`,
-        metadata: { invoiceNumber: invoice.invoiceNumber },
-      });
-      await this.adjustments.applyPoliciesToInvoice(tenantId, id, userId);
-      await this.credits.autoApplyToInvoice(tenantId, id, userId);
+      await this.applyIssueEffects(tenantId, id, invoice.invoiceNumber, userId);
     }
 
     // Cancelling an issued invoice cannot just delete the receivable — it is
