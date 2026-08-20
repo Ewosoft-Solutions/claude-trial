@@ -15,7 +15,13 @@ export type AuditEventType = (typeof AUDIT_EVENT_TYPES)[number];
 export const DEFAULT_AUDIT_EVENT_TYPE: AuditEventType = 'user_action';
 
 // Convenience map to avoid string drift across services.
-export const AUDIT_EVENT: Record<string, AuditEventType> = {
+/**
+ * NOTE the `satisfies` rather than a `Record<string, AuditEventType>`
+ * annotation: the loose Record let a misspelled key — `AUDIT_EVENT.DATA_ACCESS`
+ * — typecheck and then arrive as `undefined` at write time, which an audit row
+ * is the worst place to discover. Keys are now closed.
+ */
+export const AUDIT_EVENT = {
   USER_ACTION: 'user_action',
   DATA_CHANGE: 'data_change',
   SECURITY_EVENT: 'security_event',
@@ -24,7 +30,7 @@ export const AUDIT_EVENT: Record<string, AuditEventType> = {
   AUTHORIZATION: 'authorization',
   AI_EVENT: 'ai_event',
   CUSTOM: 'custom',
-};
+} satisfies Record<string, AuditEventType>;
 
 // Categorized audit actions to align on naming across services.
 export const AUDIT_ACTION = {

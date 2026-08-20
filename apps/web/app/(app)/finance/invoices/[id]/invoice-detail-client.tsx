@@ -58,6 +58,7 @@ import { useStepUpAction } from '../../../_shared/use-step-up-action';
 import { Dot } from '@workspace/ui/custom/data-display/dot';
 import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 import { BilledToBlock, type BilledTo } from '../billed-to';
+import { InvoiceDocumentActions } from './invoice-document-actions';
 import { MIN_QUANTITY, stepQuantity } from '@/lib/invoice-lines';
 import { QuantityField } from '../quantity-field';
 import {
@@ -284,9 +285,16 @@ export function InvoiceDetailClient({
                 {statusMeta.label}
               </StatusBadge>
             }
-            // Download/share (the document) will live here; Issue (the
-            // composition) lives in the totals bar with the figure it commits.
-            actions={undefined}
+            // The document lives here; the composition's own actions (save,
+            // issue) live in the totals bar beside the figure they commit.
+            actions={
+              <InvoiceDocumentActions
+                invoiceId={invoice.id}
+                invoiceNumber={invoice.invoiceNumber}
+                studentName={invoice.studentName ?? null}
+                isDraft={invoice.status === 'draft'}
+              />
+            }
           />
         </div>
 

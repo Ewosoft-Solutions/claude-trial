@@ -215,3 +215,12 @@ export class UpdateDraftContentsDto {
   @Type(() => DraftLineDto)
   lines!: DraftLineDto[];
 }
+
+/** How an invoice document left the building. */
+export const SHARE_CHANNELS = ['download', 'share-sheet', 'print'] as const;
+
+export class RecordShareDto {
+  @ApiProperty({ enum: SHARE_CHANNELS })
+  @IsIn(SHARE_CHANNELS)
+  channel!: (typeof SHARE_CHANNELS)[number];
+}

@@ -10,6 +10,7 @@ import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import { FinanceAdjustmentService } from './finance-adjustment.service';
 import { FinanceCatalogueService } from './finance-catalogue.service';
+import { InvoiceDocumentService } from './invoice-document.service';
 import { FinanceCreditService } from './finance-credit.service';
 import { FinanceNumberingService } from './finance-numbering.service';
 import { FinanceReceiptService } from './finance-receipt.service';
@@ -53,6 +54,7 @@ export class FinanceService {
     private readonly receipts: FinanceReceiptService,
     private readonly ledger: LedgerService,
     private readonly catalogue: FinanceCatalogueService,
+    private readonly documents: InvoiceDocumentService,
   ) {}
 
   // Every collaborator here (ledger, receipts, credit, refreshInvoiceTotals)
@@ -482,6 +484,115 @@ export class FinanceService {
     });
 
     return this.getInvoice(tenantId, id);
+  }
+
+  /**
+   * The invoice as a PDF, for download or sharing.
+   *
+   * Assembled here and rendered by `InvoiceDocumentService` — this method's job
+   * is to gather what the page needs from three places finance does not
+   * normally join: the tenant (for the letterhead), the student (for the
+   * number that identifies the child on a bill), and the household.
+   *
+   * Reading the student here is a display lookup, not a coupling: the billing
+   * model still stores its own snapshot, and this never writes back.
+   *
+   * Sharing is audited by the caller, not here — the same bytes are produced
+   * whether they are previewed on screen or sent to a family, and only the
+   * latter is an event worth recording.
+   */
+  async renderInvoicePdf(tenantId: string, id: string) {
+    const invoice = await this.getInvoice(tenantId, id);
+
+    const [tenant, student] = await Promise.all([
+      this.client.tenant.findFirst({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+      invoice.studentId
+        ? this.client.student.findFirst({
+            where: { id: invoice.studentId, tenantId },
+            select: { studentNumber: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const termLabel =
+      [
+        invoice.termName,
+        invoice.termYear ? String(invoice.termYear) : null,
+        invoice.termCycle ? `cycle ${invoice.termCycle}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || null;
+
+    const buffer = await this.documents.render({
+      schoolName: tenant?.name ?? 'School',
+      invoiceNumber: invoice.invoiceNumber,
+      status: invoice.status,
+      issuedDate: invoice.issuedDate,
+      dueDate: invoice.dueDate,
+      termLabel,
+      billedTo: {
+        name: invoice.studentName,
+        studentNumber: student?.studentNumber ?? null,
+        householdName: invoice.household?.name ?? null,
+        payerName: invoice.household?.primaryPayerName ?? null,
+      },
+      lines: invoice.lines.map((line) => ({
+        name: line.feeItem?.name ?? 'Item',
+        description: line.description,
+        amount: line.amount,
+        quantity: line.quantity,
+      })),
+      totals: invoice.financials,
+      notes: invoice.notes,
+      draft: invoice.status === 'draft',
+    });
+
+    return {
+      buffer,
+      filename: `${invoice.invoiceNumber}.pdf`,
+      invoiceNumber: invoice.invoiceNumber,
+    };
+  }
+
+  /**
+   * Note that an invoice document left the building.
+   *
+   * Advisory by nature: the OS share sheet never reports back whether the
+   * person actually sent it, so this records the intent. That is still the
+   * answer to "who sent this family their bill" — the alternative is no record
+   * at all once the file is handed to another app.
+   */
+  async recordInvoiceShared(
+    tenantId: string,
+    id: string,
+    channel: string,
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id, tenantId },
+      select: { id: true, invoiceNumber: true, status: true },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.USER_ACTION,
+      action: 'finance_invoice_document_shared',
+      resource: 'fee_invoice',
+      resourceId: invoice.id,
+      actorId: userId,
+      description: `Invoice ${invoice.invoiceNumber} document shared (${channel})`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        channel,
+        // A draft leaving the building is worth being able to find later.
+        invoiceStatus: invoice.status,
+      },
+    });
+    return { recorded: true };
   }
 
   async updateInvoice(

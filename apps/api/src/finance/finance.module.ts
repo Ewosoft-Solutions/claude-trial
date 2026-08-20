@@ -10,6 +10,7 @@ import { FinanceReportController } from './controllers/finance-report.controller
 import { FinanceService } from './services/finance.service';
 import { FinanceAdjustmentService } from './services/finance-adjustment.service';
 import { FinanceCatalogueService } from './services/finance-catalogue.service';
+import { InvoiceDocumentService } from './services/invoice-document.service';
 import { FinanceHouseholdService } from './services/finance-household.service';
 import { FinanceNumberingService } from './services/finance-numbering.service';
 import { FinanceReceiptService } from './services/finance-receipt.service';
@@ -31,6 +32,7 @@ import { LedgerService } from './services/ledger.service';
     FinanceService,
     FinanceAdjustmentService,
     FinanceCatalogueService,
+    InvoiceDocumentService,
     FinanceHouseholdService,
     FinanceNumberingService,
     FinanceReceiptService,
@@ -42,6 +44,7 @@ import { LedgerService } from './services/ledger.service';
     FinanceService,
     FinanceAdjustmentService,
     FinanceCatalogueService,
+    InvoiceDocumentService,
     FinanceHouseholdService,
     FinanceNumberingService,
     FinanceReceiptService,

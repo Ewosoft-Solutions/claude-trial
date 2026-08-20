@@ -48,6 +48,10 @@ describe('Finance routes — what stands between a caller and the money', () => 
       ['getReceipt', 'finance.view'],
       ['listCredits', 'finance.view'],
       ['listInvoices', 'finance.view'],
+      // The PDF shows nothing the invoice route does not, so it reads with the
+      // same authority; SENDING it is recorded separately.
+      ['invoicePdf', 'finance.view'],
+      ['recordInvoiceShared', 'finance.view'],
     ])('%s requires %s', (method, permission) => {
       expect(permissionsOn(FinanceController.prototype, method)).toContain(
         permission,
