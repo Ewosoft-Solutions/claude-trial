@@ -10,18 +10,20 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { ArrowLeft, Loader2, Plus, UserMinus } from 'lucide-react';
 
+import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 import {
   Select,
   SelectContent,
@@ -428,63 +430,65 @@ function AddMemberDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden /> Add student
       </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a student</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Add a student</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             Search the roster and pick a student to bill under this household.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-2 py-2">
-          <Label htmlFor="add-student">Student</Label>
-          <Input
-            id="add-student"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search name or number…"
-            autoComplete="off"
-          />
-          <div className="max-h-52 overflow-y-auto">
-            {matches.length === 0 ? (
-              <p className="px-1 py-2 text-xs text-muted-foreground">
-                No matching students.
-              </p>
-            ) : (
-              <ul className="flex flex-col gap-1">
-                {matches.map((s) => (
-                  <li key={s.id}>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => add(s)}
-                      className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40 disabled:opacity-50"
-                    >
-                      <span className="truncate">{s.name}</span>
-                      {s.studentNumber ? (
-                        <span className="shrink-0 text-xs text-muted-foreground">
-                          {s.studentNumber}
-                        </span>
-                      ) : null}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="flex flex-col gap-2 py-2">
+            <Label htmlFor="add-student">Student</Label>
+            <Input
+              id="add-student"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search name or number…"
+              autoComplete="off"
+            />
+            <div className="max-h-52 overflow-y-auto">
+              {matches.length === 0 ? (
+                <p className="px-1 py-2 text-xs text-muted-foreground">
+                  No matching students.
+                </p>
+              ) : (
+                <ul className="flex flex-col gap-1">
+                  {matches.map((s) => (
+                    <li key={s.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => add(s)}
+                        className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40 disabled:opacity-50"
+                      >
+                        <span className="truncate">{s.name}</span>
+                        {s.studentNumber ? (
+                          <span className="shrink-0 text-xs text-muted-foreground">
+                            {s.studentNumber}
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Done
             </Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </SheetClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 
@@ -555,67 +559,69 @@ function AddPayerDialog({ householdId }: { householdId: string }) {
 
   const q = term.trim();
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden /> Add payer
       </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a payer</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Add a payer</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             Search guardians and add one as a secondary payer.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-2 py-2">
-          <Label htmlFor="add-payer">Guardian</Label>
-          <Input
-            id="add-payer"
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            placeholder="Search name…"
-            autoComplete="off"
-          />
-          <div className="h-52 overflow-y-auto">
-            {!isSearchable(q) ? (
-              <p className="px-1 py-2 text-xs text-muted-foreground">
-                Type at least 2 letters to search.
-              </p>
-            ) : searching ? (
-              <p className="flex items-center gap-1.5 px-1 py-2 text-xs text-muted-foreground">
-                <Loader2 className="size-3 animate-spin" aria-hidden />{' '}
-                Searching…
-              </p>
-            ) : results.length > 0 ? (
-              <ul className="flex flex-col gap-1">
-                {results.map((r) => (
-                  <li key={r.id}>
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => add(r)}
-                      className="flex w-full items-center gap-2 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm capitalize hover:border-ring/60 hover:bg-accent/40 disabled:opacity-50"
-                    >
-                      {r.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-1 py-2 text-xs text-muted-foreground">
-                No matches.
-              </p>
-            )}
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="flex flex-col gap-2 py-2">
+            <Label htmlFor="add-payer">Guardian</Label>
+            <Input
+              id="add-payer"
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder="Search name…"
+              autoComplete="off"
+            />
+            <div className="h-52 overflow-y-auto">
+              {!isSearchable(q) ? (
+                <p className="px-1 py-2 text-xs text-muted-foreground">
+                  Type at least 2 letters to search.
+                </p>
+              ) : searching ? (
+                <p className="flex items-center gap-1.5 px-1 py-2 text-xs text-muted-foreground">
+                  <Loader2 className="size-3 animate-spin" aria-hidden />{' '}
+                  Searching…
+                </p>
+              ) : results.length > 0 ? (
+                <ul className="flex flex-col gap-1">
+                  {results.map((r) => (
+                    <li key={r.id}>
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => add(r)}
+                        className="flex w-full items-center gap-2 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm capitalize hover:border-ring/60 hover:bg-accent/40 disabled:opacity-50"
+                      >
+                        {r.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="px-1 py-2 text-xs text-muted-foreground">
+                  No matches.
+                </p>
+              )}
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Done
             </Button>
-          </DialogClose>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+          </SheetClose>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 

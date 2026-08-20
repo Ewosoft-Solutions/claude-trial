@@ -16,6 +16,13 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { BookOpen, Layers, Plus } from 'lucide-react';
 
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
@@ -35,14 +42,6 @@ import {
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 import { Checkbox } from '@workspace/ui/components/checkbox';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
@@ -353,323 +352,344 @@ export function StructureBuilder({
       />
 
       {canManage && (
-        <Dialog open={sectionOpen} onOpenChange={setSectionOpen}>
-          <DialogContent className="sm:max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>New class section</DialogTitle>
-              <DialogDescription>
+        <Sheet open={sectionOpen} onOpenChange={setSectionOpen}>
+          <DrawerContent>
+            <DrawerHeader className="gap-1.5">
+              <DrawerTitle className="pr-8">New class section</DrawerTitle>
+              <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
                 Pick the dimensions — the label is composed for you, never
                 typed.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2">
-              {initialCampuses.length === 0 ||
-              initialYearLevels.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Add at least one campus and one year level (below) before you
-                  can build a class section.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <Field label="Campus" htmlFor="sb-campus">
-                    <Select value={campusId} onValueChange={setCampusId}>
-                      <SelectTrigger id="sb-campus">
-                        <SelectValue placeholder="Choose campus" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {initialCampuses.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>
-                            {c.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
+              </SheetDescription>
+            </DrawerHeader>
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+              <div className="py-2">
+                {initialCampuses.length === 0 ||
+                initialYearLevels.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Add at least one campus and one year level (below) before
+                    you can build a class section.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <Field label="Campus" htmlFor="sb-campus">
+                      <Select value={campusId} onValueChange={setCampusId}>
+                        <SelectTrigger id="sb-campus">
+                          <SelectValue placeholder="Choose campus" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {initialCampuses.map((c) => (
+                            <SelectItem key={c.id} value={c.id}>
+                              {c.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
 
-                  <Field label="Year level" htmlFor="sb-year">
-                    <Select value={yearLevelId} onValueChange={setYearLevelId}>
-                      <SelectTrigger id="sb-year">
-                        <SelectValue placeholder="Choose year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {initialYearLevels.map((y) => (
-                          <SelectItem key={y.id} value={y.id}>
-                            {y.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <Field label="Stream (optional)" htmlFor="sb-stream">
-                    <Select value={streamId} onValueChange={setStreamId}>
-                      <SelectTrigger id="sb-stream">
-                        <SelectValue placeholder="No stream" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No stream</SelectItem>
-                        {initialStreams.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <Field label="Section / arm" htmlFor="sb-name">
-                    <Input
-                      id="sb-name"
-                      placeholder="e.g. A"
-                      value={sectionName}
-                      onChange={(e) => setSectionName(e.target.value)}
-                      maxLength={60}
-                    />
-                  </Field>
-
-                  <div className="flex flex-col justify-end gap-2 sm:col-span-2 lg:col-span-4">
-                    <div
-                      className="text-sm"
-                      aria-live="polite"
-                      data-testid="section-preview"
-                    >
-                      <span className="text-muted-foreground">
-                        Preview label:{' '}
-                      </span>
-                      <span className="font-medium">{previewLabel || '—'}</span>
-                    </div>
-                    <div>
-                      <Button
-                        onClick={createSection}
-                        disabled={!canCreateSection || busy}
+                    <Field label="Year level" htmlFor="sb-year">
+                      <Select
+                        value={yearLevelId}
+                        onValueChange={setYearLevelId}
                       >
-                        Create class section
-                      </Button>
+                        <SelectTrigger id="sb-year">
+                          <SelectValue placeholder="Choose year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {initialYearLevels.map((y) => (
+                            <SelectItem key={y.id} value={y.id}>
+                              {y.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    <Field label="Stream (optional)" htmlFor="sb-stream">
+                      <Select value={streamId} onValueChange={setStreamId}>
+                        <SelectTrigger id="sb-stream">
+                          <SelectValue placeholder="No stream" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No stream</SelectItem>
+                          {initialStreams.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+
+                    <Field label="Section / arm" htmlFor="sb-name">
+                      <Input
+                        id="sb-name"
+                        placeholder="e.g. A"
+                        value={sectionName}
+                        onChange={(e) => setSectionName(e.target.value)}
+                        maxLength={60}
+                      />
+                    </Field>
+
+                    <div className="flex flex-col justify-end gap-2 sm:col-span-2">
+                      <div
+                        className="text-sm"
+                        aria-live="polite"
+                        data-testid="section-preview"
+                      >
+                        <span className="text-muted-foreground">
+                          Preview label:{' '}
+                        </span>
+                        <span className="font-medium">
+                          {previewLabel || '—'}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+            {initialCampuses.length > 0 && initialYearLevels.length > 0 ? (
+              <DrawerFooter className="flex-row justify-end gap-2">
+                <Button
+                  onClick={createSection}
+                  disabled={!canCreateSection || busy}
+                >
+                  Create class section
+                </Button>
+              </DrawerFooter>
+            ) : null}
+          </DrawerContent>
+        </Sheet>
       )}
 
       {canManage && (
-        <Dialog open={blocksOpen} onOpenChange={setBlocksOpen}>
-          <DialogContent className="sm:max-w-3xl">
-            <DialogHeader>
-              <DialogTitle>Building blocks</DialogTitle>
-              <DialogDescription>
+        <Sheet open={blocksOpen} onOpenChange={setBlocksOpen}>
+          <DrawerContent>
+            <DrawerHeader className="gap-1.5">
+              <DrawerTitle className="pr-8">Building blocks</DrawerTitle>
+              <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
                 Stages, year levels and streams are the structured dimensions
                 your sections are built from.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2">
-              {/* Stages */}
-              <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold">Stages</h3>
-                <SimpleBlockForm
-                  variant="stage"
-                  bands={bands}
-                  disabled={busy}
-                  onCreate={(name, code, extra) =>
-                    run(
-                      () =>
-                        postJson('/api/academics/structure/stages', {
-                          name,
-                          code,
-                          ...extra,
-                        }),
-                      `Added stage ${name}`,
-                    )
-                  }
-                />
-                <DimensionList
-                  items={initialStages.map((s) => ({
-                    id: s.id,
-                    label: `${s.name} (${s.code})`,
-                  }))}
-                />
-              </div>
+              </SheetDescription>
+            </DrawerHeader>
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+              {/* Three dimension groups. Everything inside is a full-width
+                  rounded row — inputs, Add, existing items — so a gap alone
+                  doesn't say where one group ends. A rule does. */}
+              <div className="flex flex-col divide-y divide-border">
+                {/* Stages */}
+                <div className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0">
+                  <h3 className="text-sm font-semibold">Stages</h3>
+                  <SimpleBlockForm
+                    variant="stage"
+                    bands={bands}
+                    disabled={busy}
+                    onCreate={(name, code, extra) =>
+                      run(
+                        () =>
+                          postJson('/api/academics/structure/stages', {
+                            name,
+                            code,
+                            ...extra,
+                          }),
+                        `Added stage ${name}`,
+                      )
+                    }
+                  />
+                  <DimensionList
+                    items={initialStages.map((s) => ({
+                      id: s.id,
+                      label: `${s.name} (${s.code})`,
+                    }))}
+                  />
+                </div>
 
-              {/* Year levels */}
-              <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold">Year levels</h3>
-                <YearLevelForm
-                  stages={initialStages}
-                  levelSpine={levelSpine}
-                  disabled={busy}
-                  onCreate={(name, code, stageId, levelCode) =>
-                    run(
-                      () =>
-                        postJson('/api/academics/structure/year-levels', {
-                          name,
-                          code,
-                          stageId,
-                          levelCode,
-                        }),
-                      `Added year level ${name}`,
-                    )
-                  }
-                />
-                <DimensionList
-                  items={initialYearLevels.map((y) => ({
-                    id: y.id,
-                    label: `${y.name} (${y.code})`,
-                  }))}
-                />
-              </div>
+                {/* Year levels */}
+                <div className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0">
+                  <h3 className="text-sm font-semibold">Year levels</h3>
+                  <YearLevelForm
+                    stages={initialStages}
+                    levelSpine={levelSpine}
+                    disabled={busy}
+                    onCreate={(name, code, stageId, levelCode) =>
+                      run(
+                        () =>
+                          postJson('/api/academics/structure/year-levels', {
+                            name,
+                            code,
+                            stageId,
+                            levelCode,
+                          }),
+                        `Added year level ${name}`,
+                      )
+                    }
+                  />
+                  <DimensionList
+                    items={initialYearLevels.map((y) => ({
+                      id: y.id,
+                      label: `${y.name} (${y.code})`,
+                    }))}
+                  />
+                </div>
 
-              {/* Streams */}
-              <div className="flex flex-col gap-3">
-                <h3 className="text-sm font-semibold">Streams</h3>
-                <SimpleBlockForm
-                  variant="arm"
-                  disabled={busy}
-                  onCreate={(name, code, extra) =>
-                    run(
-                      () =>
-                        postJson('/api/academics/structure/streams', {
-                          name,
-                          code,
-                          ...extra,
-                        }),
-                      `Added stream ${name}`,
-                    )
-                  }
-                />
-                <DimensionList
-                  items={initialStreams.map((s) => ({
-                    id: s.id,
-                    label: `${s.name} (${s.code})`,
-                  }))}
-                />
+                {/* Streams */}
+                <div className="flex flex-col gap-3 py-5 first:pt-0 last:pb-0">
+                  <h3 className="text-sm font-semibold">Streams</h3>
+                  <SimpleBlockForm
+                    variant="arm"
+                    disabled={busy}
+                    onCreate={(name, code, extra) =>
+                      run(
+                        () =>
+                          postJson('/api/academics/structure/streams', {
+                            name,
+                            code,
+                            ...extra,
+                          }),
+                        `Added stream ${name}`,
+                      )
+                    }
+                  />
+                  <DimensionList
+                    items={initialStreams.map((s) => ({
+                      id: s.id,
+                      label: `${s.name} (${s.code})`,
+                    }))}
+                  />
+                </div>
               </div>
             </div>
-          </DialogContent>
-        </Dialog>
+          </DrawerContent>
+        </Sheet>
       )}
 
       {/* Sections list */}
       {canManage && (
-        <Dialog open={offerOpen} onOpenChange={setOfferOpen}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Offer a subject to a section</DialogTitle>
-              <DialogDescription>
+        <Sheet open={offerOpen} onOpenChange={setOfferOpen}>
+          <DrawerContent>
+            <DrawerHeader className="gap-1.5">
+              <DrawerTitle className="pr-8">
+                Offer a subject to a section
+              </DrawerTitle>
+              <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
                 An offering is what the rest of the system reads: a student’s
                 subjects resolve through it, and results are captured against
                 it. Subjects come from the curriculum, not free text.
-              </DialogDescription>
-            </DialogHeader>
-            {initialSections.length === 0 || offerableSubjects.length === 0 ? (
-              <p className="py-2 text-sm text-muted-foreground">
-                {initialSections.length === 0
-                  ? 'Create a class section first.'
-                  : 'No curriculum subjects are available yet — adopt or author a curriculum version before offering subjects.'}
-              </p>
-            ) : (
-              <>
-                <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
-                  <Field label="Section" htmlFor="of-section">
-                    <Select
-                      value={offerSection}
-                      onValueChange={setOfferSection}
-                    >
-                      <SelectTrigger id="of-section">
-                        <SelectValue placeholder="Choose section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {initialSections.map((sec) => (
-                          <SelectItem key={sec.id} value={sec.id}>
-                            {sec.displayLabel}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Subject" htmlFor="of-subject">
-                    <Select
-                      value={offerSubject}
-                      onValueChange={setOfferSubject}
-                    >
-                      <SelectTrigger id="of-subject">
-                        <SelectValue placeholder="Choose subject" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {offerableSubjects.map((sub) => (
-                          <SelectItem key={sub.id} value={sub.id}>
-                            {sub.name}
-                            {sub.versionName ? ` · ${sub.versionName}` : ''}
-                            {sub.versionState && sub.versionState !== 'active'
-                              ? ` (${sub.versionState})`
-                              : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Academic year" htmlFor="of-year">
-                    <Select
-                      value={offerYear}
-                      onValueChange={(v) => {
-                        setOfferYear(v);
-                        setOfferTerm('');
-                      }}
-                    >
-                      <SelectTrigger id="of-year">
-                        <SelectValue placeholder="Choose year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((y) => (
-                          <SelectItem key={y.id} value={y.id}>
-                            {y.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <Field label="Term (optional)" htmlFor="of-term">
-                    <Select
-                      value={offerTerm}
-                      onValueChange={setOfferTerm}
-                      disabled={!offerYear}
-                    >
-                      <SelectTrigger id="of-term">
-                        <SelectValue placeholder="Year-long" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {(termsByYear[offerYear] ?? []).map((t) => (
-                          <SelectItem key={t.id} value={t.id}>
-                            {t.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </Field>
-                  <label className="flex items-center gap-2 text-sm sm:col-span-2">
-                    <Checkbox
-                      checked={offerElective}
-                      onCheckedChange={(v) => setOfferElective(!!v)}
-                    />
-                    Elective — students elect it individually rather than taking
-                    it as part of the section
-                  </label>
-                </div>
-                <DialogFooter>
-                  <Button
-                    onClick={submitOffering}
-                    disabled={
-                      offerBusy || !offerSection || !offerSubject || !offerYear
-                    }
-                  >
-                    Offer subject
-                  </Button>
-                </DialogFooter>
-              </>
-            )}
-          </DialogContent>
-        </Dialog>
+              </SheetDescription>
+            </DrawerHeader>
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+              {initialSections.length === 0 ||
+              offerableSubjects.length === 0 ? (
+                <p className="py-2 text-sm text-muted-foreground">
+                  {initialSections.length === 0
+                    ? 'Create a class section first.'
+                    : 'No curriculum subjects are available yet — adopt or author a curriculum version before offering subjects.'}
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
+                    <Field label="Section" htmlFor="of-section">
+                      <Select
+                        value={offerSection}
+                        onValueChange={setOfferSection}
+                      >
+                        <SelectTrigger id="of-section">
+                          <SelectValue placeholder="Choose section" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {initialSections.map((sec) => (
+                            <SelectItem key={sec.id} value={sec.id}>
+                              {sec.displayLabel}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Subject" htmlFor="of-subject">
+                      <Select
+                        value={offerSubject}
+                        onValueChange={setOfferSubject}
+                      >
+                        <SelectTrigger id="of-subject">
+                          <SelectValue placeholder="Choose subject" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {offerableSubjects.map((sub) => (
+                            <SelectItem key={sub.id} value={sub.id}>
+                              {sub.name}
+                              {sub.versionName ? ` · ${sub.versionName}` : ''}
+                              {sub.versionState && sub.versionState !== 'active'
+                                ? ` (${sub.versionState})`
+                                : ''}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Academic year" htmlFor="of-year">
+                      <Select
+                        value={offerYear}
+                        onValueChange={(v) => {
+                          setOfferYear(v);
+                          setOfferTerm('');
+                        }}
+                      >
+                        <SelectTrigger id="of-year">
+                          <SelectValue placeholder="Choose year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((y) => (
+                            <SelectItem key={y.id} value={y.id}>
+                              {y.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <Field label="Term (optional)" htmlFor="of-term">
+                      <Select
+                        value={offerTerm}
+                        onValueChange={setOfferTerm}
+                        disabled={!offerYear}
+                      >
+                        <SelectTrigger id="of-term">
+                          <SelectValue placeholder="Year-long" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {(termsByYear[offerYear] ?? []).map((t) => (
+                            <SelectItem key={t.id} value={t.id}>
+                              {t.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </Field>
+                    <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                      <Checkbox
+                        checked={offerElective}
+                        onCheckedChange={(v) => setOfferElective(!!v)}
+                      />
+                      Elective — students elect it individually rather than
+                      taking it as part of the section
+                    </label>
+                  </div>
+                </>
+              )}
+            </div>
+            {initialSections.length > 0 && offerableSubjects.length > 0 ? (
+              <DrawerFooter className="flex-row justify-end gap-2">
+                <Button
+                  onClick={submitOffering}
+                  disabled={
+                    offerBusy || !offerSection || !offerSubject || !offerYear
+                  }
+                >
+                  Offer subject
+                </Button>
+              </DrawerFooter>
+            ) : null}
+          </DrawerContent>
+        </Sheet>
       )}
 
       <Card>

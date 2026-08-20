@@ -8,6 +8,13 @@ import {
   TimerReset,
 } from 'lucide-react';
 
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Badge } from '@workspace/ui/components/badge';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { Button } from '@workspace/ui/components/button';
@@ -19,14 +26,6 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import { Checkbox } from '@workspace/ui/components/checkbox';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@workspace/ui/components/drawer';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Textarea } from '@workspace/ui/components/textarea';
@@ -363,87 +362,93 @@ export function TenantSecurityGovernance({
         </CardContent>
       </Card>
 
-      <Drawer
+      <Sheet
         open={Boolean(requestPolicy)}
         onOpenChange={(open) => {
           if (!open) setRequestPolicy(null);
         }}
       >
-        <DrawerContent className="mx-auto max-w-xl">
-          <DrawerHeader>
-            <DrawerTitle>Request a safeguard change</DrawerTitle>
-            <DrawerDescription>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">
+              Request a safeguard change
+            </DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               {requestPolicy?.label}. Explain the school need so platform
               security can make an informed decision.
-            </DrawerDescription>
+            </SheetDescription>
           </DrawerHeader>
-          <form className="space-y-5 px-4" onSubmit={submitRequest}>
-            <label className="flex items-start gap-3 text-sm">
-              <Checkbox
-                checked={requestedEnabled}
-                onCheckedChange={(checked) =>
-                  setRequestedEnabled(checked === true)
-                }
-              />
-              <span>
-                <span className="font-medium">Rule enabled</span>
-                <span className="block text-xs text-muted-foreground">
-                  Pausing a rule removes its configured safeguard.
-                </span>
-              </span>
-            </label>
-            <label className="flex items-start gap-3 text-sm">
-              <Checkbox
-                checked={requestedStepUp}
-                onCheckedChange={(checked) =>
-                  setRequestedStepUp(checked === true)
-                }
-              />
-              <span className="font-medium">Fresh identity confirmation</span>
-            </label>
-            <label className="flex items-start gap-3 text-sm">
-              <Checkbox
-                checked={requestedMakerChecker}
-                onCheckedChange={(checked) =>
-                  setRequestedMakerChecker(checked === true)
-                }
-              />
-              <span className="font-medium">Second-person approval</span>
-            </label>
-            <div className="space-y-2">
-              <Label htmlFor="requested-freshness">
-                Confirmation freshness (minutes)
-              </Label>
-              <div className="flex items-center gap-3">
-                <TimerReset className="size-4 text-muted-foreground" />
-                <Input
-                  id="requested-freshness"
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={requestedFreshness}
-                  onChange={(event) =>
-                    setRequestedFreshness(Number(event.target.value))
+          {/* The form wraps body AND footer so submit still works, but only the
+              body scrolls — the action bar stays pinned (conventions §3). */}
+          <form
+            className="flex min-h-0 flex-1 flex-col"
+            onSubmit={submitRequest}
+          >
+            <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={requestedEnabled}
+                  onCheckedChange={(checked) =>
+                    setRequestedEnabled(checked === true)
                   }
+                />
+                <span>
+                  <span className="font-medium">Rule enabled</span>
+                  <span className="block text-xs text-muted-foreground">
+                    Pausing a rule removes its configured safeguard.
+                  </span>
+                </span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={requestedStepUp}
+                  onCheckedChange={(checked) =>
+                    setRequestedStepUp(checked === true)
+                  }
+                />
+                <span className="font-medium">Fresh identity confirmation</span>
+              </label>
+              <label className="flex items-start gap-3 text-sm">
+                <Checkbox
+                  checked={requestedMakerChecker}
+                  onCheckedChange={(checked) =>
+                    setRequestedMakerChecker(checked === true)
+                  }
+                />
+                <span className="font-medium">Second-person approval</span>
+              </label>
+              <div className="space-y-2">
+                <Label htmlFor="requested-freshness">
+                  Confirmation freshness (minutes)
+                </Label>
+                <div className="flex items-center gap-3">
+                  <TimerReset className="size-4 text-muted-foreground" />
+                  <Input
+                    id="requested-freshness"
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={requestedFreshness}
+                    onChange={(event) =>
+                      setRequestedFreshness(Number(event.target.value))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="change-reason">Reason</Label>
+                <Textarea
+                  id="change-reason"
+                  value={reason}
+                  onChange={(event) => setReason(event.target.value)}
+                  minLength={10}
+                  maxLength={1000}
+                  required
+                  placeholder="Describe the operational or compliance need."
                 />
               </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="change-reason">Reason</Label>
-              <Textarea
-                id="change-reason"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                minLength={10}
-                maxLength={1000}
-                required
-                placeholder="Describe the operational or compliance need."
-              />
-            </div>
-            <DrawerFooter className="px-0">
-              <Button type="submit" disabled={isPending || reason.length < 10}>
-                {isPending ? 'Sending…' : 'Send request'}
-              </Button>
+            <DrawerFooter className="flex-row justify-end gap-2">
               <Button
                 type="button"
                 variant="ghost"
@@ -451,10 +456,13 @@ export function TenantSecurityGovernance({
               >
                 Cancel
               </Button>
+              <Button type="submit" disabled={isPending || reason.length < 10}>
+                {isPending ? 'Sending…' : 'Send request'}
+              </Button>
             </DrawerFooter>
           </form>
         </DrawerContent>
-      </Drawer>
+      </Sheet>
 
       <StepUpPrompt
         open={stepUpOpen}

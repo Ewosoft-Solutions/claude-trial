@@ -14,10 +14,6 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { KeyRound, Mail, ShieldOff, UserPlus } from 'lucide-react';
 
-import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import { Textarea } from '@workspace/ui/components/textarea';
 import {
   Dialog,
   DialogClose,
@@ -27,6 +23,21 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@workspace/ui/components/dialog';
+import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
+import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
+import { Textarea } from '@workspace/ui/components/textarea';
 import {
   Select,
   SelectContent,
@@ -319,7 +330,7 @@ function InviteDialog({
   }, [open, roles]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button
         size="sm"
         className="w-fit"
@@ -328,58 +339,62 @@ function InviteDialog({
       >
         <UserPlus aria-hidden /> Invite to create account
       </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Invite to create an account</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">
+            Invite to create an account
+          </DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             We&rsquo;ll email a secure link. The person sets their own password
             — no password is ever generated or sent.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invite-role">Role</Label>
-            <Select value={roleId} onValueChange={setRoleId}>
-              <SelectTrigger id="invite-role">
-                <SelectValue
-                  placeholder={roles ? 'Choose a role' : 'Loading roles…'}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {(roles ?? []).map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="invite-email">
-              Email <span className="text-muted-foreground">(optional)</span>
-            </Label>
-            <Input
-              id="invite-email"
-              type="email"
-              placeholder="Defaults to the person's email on file"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              aria-invalid={emailErr ? true : undefined}
-              aria-describedby={emailErr ? 'invite-email-err' : undefined}
-            />
-            {emailErr ? (
-              <p id="invite-email-err" className="text-xs text-destructive">
-                {emailErr}
-              </p>
-            ) : null}
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="invite-role">Role</Label>
+              <Select value={roleId} onValueChange={setRoleId}>
+                <SelectTrigger id="invite-role">
+                  <SelectValue
+                    placeholder={roles ? 'Choose a role' : 'Loading roles…'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {(roles ?? []).map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="invite-email">
+                Email <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="invite-email"
+                type="email"
+                placeholder="Defaults to the person's email on file"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                aria-invalid={emailErr ? true : undefined}
+                aria-describedby={emailErr ? 'invite-email-err' : undefined}
+              />
+              {emailErr ? (
+                <p id="invite-email-err" className="text-xs text-destructive">
+                  {emailErr}
+                </p>
+              ) : null}
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={busy || !roleId || !!emailErr}
@@ -394,9 +409,9 @@ function InviteDialog({
           >
             Send invitation
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 

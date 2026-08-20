@@ -3,15 +3,15 @@
 import * as React from 'react';
 import { Palette, Copy, Check } from 'lucide-react';
 
-import { Button } from '@workspace/ui/components/button';
 import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@workspace/ui/components/drawer';
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@workspace/ui/components/sheet';
+import { Button } from '@workspace/ui/components/button';
 import { toast } from 'sonner';
 
 // Color variable definitions from globals.css
@@ -121,8 +121,8 @@ export function ColorScheme() {
   }
 
   return (
-    <Drawer>
-      <DrawerTrigger asChild>
+    <Sheet>
+      <SheetTrigger asChild>
         <Button
           variant="outline"
           size="icon"
@@ -131,15 +131,18 @@ export function ColorScheme() {
         >
           <Palette className="h-5 w-5" />
         </Button>
-      </DrawerTrigger>
-      <DrawerContent className="h-[60vh]! flex flex-col overflow-hidden">
-        <DrawerHeader className="shrink-0">
-          <DrawerTitle>Color Scheme Variables</DrawerTitle>
-          <DrawerDescription>
+      </SheetTrigger>
+      <SheetContent
+        side="bottom"
+        className="flex h-[60vh] flex-col overflow-hidden"
+      >
+        <SheetHeader className="shrink-0">
+          <SheetTitle>Color Scheme Variables</SheetTitle>
+          <SheetDescription>
             All CSS color variables from your theme. Click the copy button to
             copy values.
-          </DrawerDescription>
-        </DrawerHeader>
+          </SheetDescription>
+        </SheetHeader>
         <div className="flex-1 min-h-0 overflow-y-auto px-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
             {colorVariables.map((variable) => (
@@ -147,7 +150,7 @@ export function ColorScheme() {
             ))}
           </div>
         </div>
-      </DrawerContent>
-    </Drawer>
+      </SheetContent>
+    </Sheet>
   );
 }

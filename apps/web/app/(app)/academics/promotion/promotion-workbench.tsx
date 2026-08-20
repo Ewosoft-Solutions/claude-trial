@@ -12,6 +12,13 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { CalendarClock, Plus } from 'lucide-react';
 
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Label } from '@workspace/ui/components/label';
 import { Input } from '@workspace/ui/components/input';
@@ -32,13 +39,6 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { ApprovalPanel } from '@workspace/ui/custom/approval/approval-panel';
@@ -285,69 +285,71 @@ export function PromotionWorkbench({
       />
 
       {canManage && (
-        <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>New promotion run</DialogTitle>
-              <DialogDescription>
+        <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+          <DrawerContent>
+            <DrawerHeader className="gap-1.5">
+              <DrawerTitle className="pr-8">New promotion run</DrawerTitle>
+              <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
                 Choose the year you are promoting from and the year the cohort
                 moves into.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2">
-              <div className="flex flex-col gap-1.5 sm:col-span-2 lg:col-span-3">
-                <Label htmlFor="pr-name">Name</Label>
-                <Input
-                  id="pr-name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. SS1 → SS2 (2026/27 → 2027/28)"
+              </SheetDescription>
+            </DrawerHeader>
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div className="flex flex-col gap-1.5 sm:col-span-2">
+                  <Label htmlFor="pr-name">Name</Label>
+                  <Input
+                    id="pr-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. SS1 → SS2 (2026/27 → 2027/28)"
+                  />
+                </div>
+                <YearLevelSelect
+                  id="pr-from-level"
+                  label="From year level"
+                  value={fromLevel}
+                  onChange={setFromLevel}
+                  options={yearLevels}
+                />
+                <YearLevelSelect
+                  id="pr-to-level"
+                  label="To year level"
+                  value={toLevel}
+                  onChange={setToLevel}
+                  options={yearLevels}
+                />
+                <YearSelect
+                  id="pr-from-year"
+                  label="From academic year"
+                  value={fromYear}
+                  onChange={setFromYear}
+                  options={years}
+                />
+                <YearSelect
+                  id="pr-to-year"
+                  label="To academic year"
+                  value={toYear}
+                  onChange={setToYear}
+                  options={years}
+                />
+                <YearSelect
+                  id="pr-campus"
+                  label="Campus (optional)"
+                  value={campus}
+                  onChange={setCampus}
+                  options={campuses.map((c) => ({ id: c.id, name: c.name }))}
+                  placeholder="Whole school"
                 />
               </div>
-              <YearLevelSelect
-                id="pr-from-level"
-                label="From year level"
-                value={fromLevel}
-                onChange={setFromLevel}
-                options={yearLevels}
-              />
-              <YearLevelSelect
-                id="pr-to-level"
-                label="To year level"
-                value={toLevel}
-                onChange={setToLevel}
-                options={yearLevels}
-              />
-              <YearSelect
-                id="pr-campus"
-                label="Campus (optional)"
-                value={campus}
-                onChange={setCampus}
-                options={campuses.map((c) => ({ id: c.id, name: c.name }))}
-                placeholder="Whole school"
-              />
-              <YearSelect
-                id="pr-from-year"
-                label="From academic year"
-                value={fromYear}
-                onChange={setFromYear}
-                options={years}
-              />
-              <YearSelect
-                id="pr-to-year"
-                label="To academic year"
-                value={toYear}
-                onChange={setToYear}
-                options={years}
-              />
-              <div className="flex items-end">
-                <Button onClick={createRun} disabled={busy || !canCreate}>
-                  Create run
-                </Button>
-              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+            <DrawerFooter className="flex-row justify-end gap-2">
+              <Button onClick={createRun} disabled={busy || !canCreate}>
+                Create run
+              </Button>
+            </DrawerFooter>
+          </DrawerContent>
+        </Sheet>
       )}
 
       {/* Pick a run */}

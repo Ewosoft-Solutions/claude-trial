@@ -16,14 +16,13 @@ import useSWR from 'swr';
 import { toast } from 'sonner';
 import { Building2, Plus, UserPlus } from 'lucide-react';
 
-import { Button } from '@workspace/ui/components/button';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
+import { Button } from '@workspace/ui/components/button';
 import {
   DirectoryTable,
   type DirectoryColumn,
@@ -342,32 +341,34 @@ export default function AllSchoolsPage() {
         }
       />
 
-      <Dialog
+      <Sheet
         open={inviteFor !== null}
         onOpenChange={(open) => {
           if (!open) setInviteFor(null);
         }}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">
               Invite owner{inviteFor ? ` — ${inviteFor.name}` : ''}
-            </DialogTitle>
-            <DialogDescription>
+            </DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Create an invitation for this school&rsquo;s first owner and share
               the accept link.
-            </DialogDescription>
-          </DialogHeader>
-          {inviteFor ? (
-            <InviteUser
-              tenantId={inviteFor.id}
-              defaultRoleName="Owner"
-              maxClearance={8}
-              onInvited={() => void mutate()}
-            />
-          ) : null}
-        </DialogContent>
-      </Dialog>
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+            {inviteFor ? (
+              <InviteUser
+                tenantId={inviteFor.id}
+                defaultRoleName="Owner"
+                maxClearance={8}
+                onInvited={() => void mutate()}
+              />
+            ) : null}
+          </div>
+        </DrawerContent>
+      </Sheet>
 
       {stepUpPrompt}
     </div>

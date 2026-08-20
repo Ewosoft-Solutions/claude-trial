@@ -14,6 +14,13 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Download, Loader2, Lock, LockOpen, Plus, Undo2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
@@ -24,15 +31,6 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
-import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -43,12 +41,6 @@ import {
   type DirectoryColumn,
 } from '@workspace/ui/custom/tables/directory-table';
 import type { StatItem } from '@workspace/ui/types/layout.types';
-import {
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@workspace/ui/custom/detail/drawer-chrome';
 
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
@@ -765,50 +757,54 @@ function NewPeriodDialog({ onSaved }: { onSaved: () => void }) {
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Sheet open={open} onOpenChange={setOpen}>
         <Button size="sm" onClick={() => setOpen(true)}>
           <Plus /> Define period
         </Button>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Define an accounting period</DialogTitle>
-            <DialogDescription>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">
+              Define an accounting period
+            </DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Periods are how a term&apos;s books get closed. Entries are
               stamped with the period their date falls in.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="np-name">Name</Label>
-              <Input
-                id="np-name"
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder="First Term 2026/27"
-              />
-            </div>
-            <div className="grid gap-3 @md/main:grid-cols-2">
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+            <div className="flex flex-col gap-4 py-2">
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="np-start">Starts</Label>
+                <Label htmlFor="np-name">Name</Label>
                 <Input
-                  id="np-start"
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
+                  id="np-name"
+                  value={name}
+                  onChange={(event) => setName(event.target.value)}
+                  placeholder="First Term 2026/27"
                 />
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="np-end">Ends</Label>
-                <Input
-                  id="np-end"
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                />
+              <div className="grid gap-3 @md/main:grid-cols-2">
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="np-start">Starts</Label>
+                  <Input
+                    id="np-start"
+                    type="date"
+                    value={startDate}
+                    onChange={(event) => setStartDate(event.target.value)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <Label htmlFor="np-end">Ends</Label>
+                  <Input
+                    id="np-end"
+                    type="date"
+                    value={endDate}
+                    onChange={(event) => setEndDate(event.target.value)}
+                  />
+                </div>
               </div>
             </div>
           </div>
-          <DialogFooter>
+          <DrawerFooter className="flex-row justify-end gap-2">
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
@@ -818,9 +814,9 @@ function NewPeriodDialog({ onSaved }: { onSaved: () => void }) {
             >
               {busy ? <Loader2 className="animate-spin" /> : null} Define period
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Sheet>
       {stepUpPrompt}
     </>
   );

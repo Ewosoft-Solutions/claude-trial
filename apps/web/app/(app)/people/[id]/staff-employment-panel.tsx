@@ -14,10 +14,6 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { Briefcase, GraduationCap, Plus, Trash2 } from 'lucide-react';
 
-import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import { Textarea } from '@workspace/ui/components/textarea';
 import {
   Dialog,
   DialogClose,
@@ -26,8 +22,23 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from '@workspace/ui/components/dialog';
+import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+  SheetTrigger,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
+import { Button } from '@workspace/ui/components/button';
+import { Input } from '@workspace/ui/components/input';
+import { Label } from '@workspace/ui/components/label';
+import { Textarea } from '@workspace/ui/components/textarea';
 import {
   Select,
   SelectContent,
@@ -448,118 +459,120 @@ function EmploymentDialog({
   const NONE = '__none__';
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>
+    <Sheet open={open} onOpenChange={setOpen}>
+      <SheetTrigger asChild>{trigger}</SheetTrigger>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">
             {isEdit ? 'Edit employment' : 'Add employment'}
-          </DialogTitle>
-          <DialogDescription>
+          </DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             {isEdit
               ? 'Update this employment record.'
               : 'Open a first-class employment record — no payroll run required.'}
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-2 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="emp-title">Job title / position</Label>
-            <Input
-              id="emp-title"
-              value={jobTitle}
-              maxLength={120}
-              onChange={(e) => setJobTitle(e.target.value)}
-              placeholder="e.g. Bursar"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="emp-dept">Department</Label>
-            <Input
-              id="emp-dept"
-              value={department}
-              maxLength={120}
-              onChange={(e) => setDepartment(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="emp-number">Employee number</Label>
-            <Input
-              id="emp-number"
-              value={employeeNumber}
-              maxLength={60}
-              onChange={(e) => setEmployeeNumber(e.target.value)}
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="emp-type">Employment type</Label>
-            <Select value={employmentType} onValueChange={setEmploymentType}>
-              <SelectTrigger id="emp-type">
-                <SelectValue placeholder="Choose a type" />
-              </SelectTrigger>
-              <SelectContent>
-                {EMPLOYMENT_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {labelize(t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="emp-hire">Hire date</Label>
-            <Input
-              id="emp-hire"
-              type="date"
-              value={hireDate}
-              onChange={(e) => setHireDate(e.target.value)}
-            />
-          </div>
-          {isEdit ? (
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="emp-title">Job title / position</Label>
+              <Input
+                id="emp-title"
+                value={jobTitle}
+                maxLength={120}
+                onChange={(e) => setJobTitle(e.target.value)}
+                placeholder="e.g. Bursar"
+              />
+            </div>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="emp-status">Status</Label>
-              <Select value={status} onValueChange={setStatus}>
-                <SelectTrigger id="emp-status">
-                  <SelectValue />
+              <Label htmlFor="emp-dept">Department</Label>
+              <Input
+                id="emp-dept"
+                value={department}
+                maxLength={120}
+                onChange={(e) => setDepartment(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="emp-number">Employee number</Label>
+              <Input
+                id="emp-number"
+                value={employeeNumber}
+                maxLength={60}
+                onChange={(e) => setEmployeeNumber(e.target.value)}
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="emp-type">Employment type</Label>
+              <Select value={employmentType} onValueChange={setEmploymentType}>
+                <SelectTrigger id="emp-type">
+                  <SelectValue placeholder="Choose a type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {SETTABLE_STATUS.map((s) => (
-                    <SelectItem key={s} value={s}>
-                      {labelize(s)}
+                  {EMPLOYMENT_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {labelize(t)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          ) : null}
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="emp-manager">Reports to</Label>
-            <Select
-              value={reportsTo || NONE}
-              onValueChange={(v) => setReportsTo(v === NONE ? '' : v)}
-            >
-              <SelectTrigger id="emp-manager">
-                <SelectValue
-                  placeholder={managers ? 'No manager' : 'Loading staff…'}
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>No manager</SelectItem>
-                {(managers ?? []).map((m) => (
-                  <SelectItem key={m.id} value={m.id}>
-                    {m.name}
-                    {m.jobTitle ? ` — ${m.jobTitle}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="emp-hire">Hire date</Label>
+              <Input
+                id="emp-hire"
+                type="date"
+                value={hireDate}
+                onChange={(e) => setHireDate(e.target.value)}
+              />
+            </div>
+            {isEdit ? (
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="emp-status">Status</Label>
+                <Select value={status} onValueChange={setStatus}>
+                  <SelectTrigger id="emp-status">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SETTABLE_STATUS.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {labelize(s)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="emp-manager">Reports to</Label>
+              <Select
+                value={reportsTo || NONE}
+                onValueChange={(v) => setReportsTo(v === NONE ? '' : v)}
+              >
+                <SelectTrigger id="emp-manager">
+                  <SelectValue
+                    placeholder={managers ? 'No manager' : 'Loading staff…'}
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={NONE}>No manager</SelectItem>
+                  {(managers ?? []).map((m) => (
+                    <SelectItem key={m.id} value={m.id}>
+                      {m.name}
+                      {m.jobTitle ? ` — ${m.jobTitle}` : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={busy}
@@ -590,9 +603,9 @@ function EmploymentDialog({
           >
             {isEdit ? 'Save changes' : 'Create employment'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 
@@ -720,7 +733,7 @@ function QualificationDialog({
       : null;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button
         variant="outline"
         size="sm"
@@ -729,72 +742,74 @@ function QualificationDialog({
       >
         <GraduationCap aria-hidden /> Add qualification
       </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a qualification</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Add a qualification</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             Record an academic or professional qualification for this
             employment.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="grid gap-4 py-2 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="qual-title">Title</Label>
-            <Input
-              id="qual-title"
-              value={title}
-              maxLength={160}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. B.Sc Mathematics"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="qual-type">Type</Label>
-            <Select value={qualificationType} onValueChange={setType}>
-              <SelectTrigger id="qual-type">
-                <SelectValue placeholder="Choose a type" />
-              </SelectTrigger>
-              <SelectContent>
-                {QUALIFICATION_TYPES.map((t) => (
-                  <SelectItem key={t} value={t}>
-                    {labelize(t)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="qual-year">Year awarded</Label>
-            <Input
-              id="qual-year"
-              inputMode="numeric"
-              value={awardedYear}
-              onChange={(e) => setYear(e.target.value)}
-              aria-invalid={yearErr ? true : undefined}
-              aria-describedby={yearErr ? 'qual-year-err' : undefined}
-            />
-            {yearErr ? (
-              <p id="qual-year-err" className="text-xs text-destructive">
-                {yearErr}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-1.5 sm:col-span-2">
-            <Label htmlFor="qual-inst">Institution</Label>
-            <Input
-              id="qual-inst"
-              value={institution}
-              maxLength={160}
-              onChange={(e) => setInstitution(e.target.value)}
-            />
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="qual-title">Title</Label>
+              <Input
+                id="qual-title"
+                value={title}
+                maxLength={160}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. B.Sc Mathematics"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="qual-type">Type</Label>
+              <Select value={qualificationType} onValueChange={setType}>
+                <SelectTrigger id="qual-type">
+                  <SelectValue placeholder="Choose a type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {QUALIFICATION_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {labelize(t)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="qual-year">Year awarded</Label>
+              <Input
+                id="qual-year"
+                inputMode="numeric"
+                value={awardedYear}
+                onChange={(e) => setYear(e.target.value)}
+                aria-invalid={yearErr ? true : undefined}
+                aria-describedby={yearErr ? 'qual-year-err' : undefined}
+              />
+              {yearErr ? (
+                <p id="qual-year-err" className="text-xs text-destructive">
+                  {yearErr}
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1.5 sm:col-span-2">
+              <Label htmlFor="qual-inst">Institution</Label>
+              <Input
+                id="qual-inst"
+                value={institution}
+                maxLength={160}
+                onChange={(e) => setInstitution(e.target.value)}
+              />
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={busy || !title.trim() || !!yearErr}
@@ -821,8 +836,8 @@ function QualificationDialog({
           >
             Add qualification
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
