@@ -11,6 +11,7 @@ import {
   CreateInvoiceLineDto,
   UpdateFeeItemDto,
   UpdateInvoiceLineDto,
+  type DraftLineDto,
 } from '../dto/catalogue.dto';
 
 /**
@@ -298,6 +299,163 @@ export class FinanceCatalogueService {
    * matches the catalogue is a decision someone made, and the audit trail
    * should say who, on what, and away from what.
    */
+  /**
+   * Apply the browser's whole set of lines to a draft in one pass.
+   *
+   * Editing wrote per change before this; the owner would rather hold edits
+   * locally and push them once, so the client sends the state it wants and the
+   * server reconciles: ids it recognises are updated, ids it does not are
+   * created, and rows it holds that are absent here are deleted.
+   *
+   * The price rule is unchanged and still applies per line — a fixed item is
+   * billed at the catalogue price whatever the browser sent — and an
+   * off-catalogue amount is still recorded as an override, because arriving in
+   * a batch does not make it less of a decision someone made.
+   */
+  async replaceLines(
+    tenantId: string,
+    invoiceId: string,
+    incoming: DraftLineDto[],
+    userId?: string,
+  ) {
+    await this.assertDraftInvoice(tenantId, invoiceId);
+
+    const existing = await this.client.feeInvoiceLine.findMany({
+      where: { tenantId, invoiceId },
+    });
+    const existingById = new Map(existing.map((line) => [line.id, line]));
+
+    const feeItemIds = [...new Set(incoming.map((l) => l.feeItemId))];
+    const items = await this.client.feeItem.findMany({
+      where: { tenantId, id: { in: feeItemIds } },
+      select: { id: true, name: true, pricingMode: true, defaultAmount: true },
+    });
+    if (items.length !== feeItemIds.length) {
+      throw new BadRequestException('Fee item not found for tenant');
+    }
+    const itemById = new Map(items.map((item) => [item.id, item]));
+
+    // A line whose id this invoice does not own is a client bug or a stale
+    // tab; refusing beats silently creating a duplicate of it.
+    for (const line of incoming) {
+      if (line.id && !existingById.has(line.id)) {
+        throw new BadRequestException(
+          'This draft changed elsewhere — reload it before saving again.',
+        );
+      }
+    }
+
+    const keptIds = new Set(
+      incoming.map((l) => l.id).filter((id): id is string => Boolean(id)),
+    );
+    const removed = existing.filter((line) => !keptIds.has(line.id));
+
+    for (const line of incoming) {
+      const item = itemById.get(line.feeItemId)!;
+      const description = line.description?.trim() || null;
+
+      // A NEW line is priced by the catalogue, exactly as `addLine` prices it:
+      // you cannot introduce a line at a price of your choosing.
+      //
+      // An EXISTING line keeps the amount it is sent, exactly as `updateLine`
+      // honours one — because that amount may be a deliberate override, and
+      // re-resolving it here would let a routine save silently revert a price
+      // someone had authorised. A change away from the catalogue is recorded
+      // below, the same as it would be through the edit dialog.
+      const amount = line.id
+        ? (line.amount ?? existingById.get(line.id)!.amount)
+        : this.resolveLineAmount(item, line.amount);
+
+      if (!line.id) {
+        await this.client.feeInvoiceLine.create({
+          data: {
+            tenantId,
+            invoiceId,
+            feeItemId: line.feeItemId,
+            description,
+            amount,
+            quantity: line.quantity,
+          },
+        });
+        continue;
+      }
+
+      const before = existingById.get(line.id)!;
+      if (
+        before.amount === amount &&
+        before.quantity === line.quantity &&
+        before.description === description &&
+        before.feeItemId === line.feeItemId
+      ) {
+        continue; // nothing to say about a line nobody changed
+      }
+
+      if (before.amount !== amount) {
+        await this.recordPriceOverride(tenantId, line.id, before, item, amount, userId);
+      }
+
+      await this.client.feeInvoiceLine.update({
+        where: { id: line.id },
+        data: {
+          feeItemId: line.feeItemId,
+          description,
+          amount,
+          quantity: line.quantity,
+        },
+      });
+    }
+
+    if (removed.length > 0) {
+      await this.client.feeInvoiceLine.deleteMany({
+        where: { tenantId, id: { in: removed.map((line) => line.id) } },
+      });
+    }
+
+    await this.syncAmountDue(tenantId, invoiceId);
+    return this.client.feeInvoiceLine.findMany({
+      where: { tenantId, invoiceId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  /**
+   * Note that a line was billed at something other than its catalogue price.
+   *
+   * Shared by the per-line edit and the batch save so an override is recorded
+   * the same way however it arrived — a bulk save must not be a way to change
+   * a price quietly.
+   */
+  private async recordPriceOverride(
+    tenantId: string,
+    lineId: string,
+    before: { amount: number; invoiceId: string },
+    item: { name: string; pricingMode: string; defaultAmount: number | null },
+    newAmount: number,
+    userId?: string,
+  ) {
+    // An open item has no catalogue price to depart from, so changing its
+    // amount is ordinary editing rather than an override.
+    if (item.pricingMode !== 'fixed') return;
+    if (item.defaultAmount == null || newAmount === item.defaultAmount) return;
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_line_price_overridden',
+      resource: 'fee_invoice_line',
+      resourceId: lineId,
+      actorId: userId ?? null,
+      description: `${item.name} billed at a price other than the catalogue's`,
+      metadata: {
+        invoiceId: before.invoiceId,
+        feeItem: item.name,
+        catalogueAmount: item.defaultAmount,
+        previousAmount: before.amount,
+        newAmount,
+      },
+    });
+  }
+
   async updateLine(
     tenantId: string,
     lineId: string,
@@ -318,27 +476,15 @@ export class FinanceCatalogueService {
         where: { id: dto.feeItemId ?? line.feeItemId, tenantId },
         select: { name: true, pricingMode: true, defaultAmount: true },
       });
-      if (
-        item?.pricingMode === 'fixed' &&
-        item.defaultAmount != null &&
-        dto.amount !== item.defaultAmount
-      ) {
-        await this.audit.write({
+      if (item) {
+        await this.recordPriceOverride(
           tenantId,
-          eventType: AUDIT_EVENT.DATA_CHANGE,
-          action: 'finance_line_price_overridden',
-          resource: 'fee_invoice_line',
-          resourceId: lineId,
-          actorId: userId ?? null,
-          description: `${item.name} billed at a price other than the catalogue's`,
-          metadata: {
-            invoiceId: line.invoiceId,
-            feeItem: item.name,
-            catalogueAmount: item.defaultAmount,
-            previousAmount: line.amount,
-            newAmount: dto.amount,
-          },
-        });
+          lineId,
+          line,
+          item,
+          dto.amount,
+          userId,
+        );
       }
     }
 

@@ -34,6 +34,7 @@ import {
   ListReceiptsDto,
   RecordReceiptDto,
 } from '../dto/receipt.dto';
+import { UpdateDraftContentsDto } from '../dto/catalogue.dto';
 import type { AuthenticatedRequest } from 'src/auth';
 import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
 import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
@@ -155,6 +156,29 @@ export class FinanceController {
     @Request() req: AuthenticatedRequest,
   ) {
     return this.financeService.updateInvoiceHeader(
+      req.user.tenantId,
+      id,
+      dto,
+      req.user.profileId!,
+    );
+  }
+
+  /**
+   * Save a draft edited in the browser — details and every line — in one call.
+   *
+   * Same guard as the per-line writes it replaces: composing a draft is not a
+   * movement of money, so `finance.manage` without step-up. Note this is a
+   * REPLACE (see UpdateDraftContentsDto): last save wins.
+   */
+  @Patch('invoices/:id/contents')
+  @RequirePermissions(['finance.manage'])
+  @ApiOperation({ summary: "Save a draft's details and lines in one request" })
+  async updateDraftContents(
+    @Param('id') id: string,
+    @Body() dto: UpdateDraftContentsDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.financeService.updateDraftContents(
       req.user.tenantId,
       id,
       dto,

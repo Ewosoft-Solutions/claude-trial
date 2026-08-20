@@ -375,3 +375,218 @@ describe('FinanceCatalogueService — line pricing', () => {
     expect(audit.write).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * Saving a draft edited in the browser sends the whole set of lines and the
+ * server reconciles. That makes it a REPLACE, and a replace deletes — so these
+ * pin what it is allowed to touch, and that a bulk save is not a back door
+ * around the pricing rules the per-line path enforces.
+ */
+describe('FinanceCatalogueService.replaceLines', () => {
+  const feeItem = { findMany: jest.fn(), findFirst: jest.fn() };
+  const feeInvoice = { findFirst: jest.fn(), update: jest.fn() };
+  const feeInvoiceLine = {
+    findMany: jest.fn(),
+    create: jest.fn(),
+    update: jest.fn(),
+    deleteMany: jest.fn(),
+  };
+  const client = { feeItem, feeInvoice, feeInvoiceLine };
+  const audit = { write: jest.fn() };
+  const service = new FinanceCatalogueService(
+    { client } as never,
+    audit as never,
+  );
+
+  const TUITION = {
+    id: 'fi-1',
+    name: 'Tuition',
+    pricingMode: 'fixed',
+    defaultAmount: 150_000_00,
+  };
+  const DAMAGE = {
+    id: 'fi-2',
+    name: 'Damage',
+    pricingMode: 'open',
+    defaultAmount: null,
+  };
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: 'draft',
+      invoiceNumber: 'INV-1',
+    });
+    // Honour the `id: { in: [...] }` filter — the service compares the row
+    // count against the ids it asked for, so a mock that ignores the filter
+    // fails every case that references only one item.
+    feeItem.findMany.mockImplementation(({ where }: any) =>
+      Promise.resolve(
+        [TUITION, DAMAGE].filter((item) => where.id.in.includes(item.id)),
+      ),
+    );
+    // Two existing lines, then the re-read that returns the final set.
+    feeInvoiceLine.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'ln-1',
+          invoiceId: 'inv-1',
+          feeItemId: 'fi-1',
+          amount: 150_000_00,
+          quantity: 1,
+          description: null,
+        },
+        {
+          id: 'ln-2',
+          invoiceId: 'inv-1',
+          feeItemId: 'fi-2',
+          amount: 50_000,
+          quantity: 1,
+          description: null,
+        },
+      ])
+      .mockResolvedValue([]);
+  });
+
+  it('creates lines with no id, updates the ones it recognises', async () => {
+    await service.replaceLines(
+      't1',
+      'inv-1',
+      [
+        { id: 'ln-1', feeItemId: 'fi-1', quantity: 3 },
+        { id: 'ln-2', feeItemId: 'fi-2', amount: 50_000, quantity: 1 },
+        { feeItemId: 'fi-1', quantity: 1 },
+      ],
+      'user-1',
+    );
+    expect(feeInvoiceLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: 'ln-1' } }),
+    );
+    expect(feeInvoiceLine.create).toHaveBeenCalledTimes(1);
+    // ln-2 is unchanged, so it is not rewritten for the sake of it.
+    expect(feeInvoiceLine.update).toHaveBeenCalledTimes(1);
+  });
+
+  it('deletes what the browser no longer holds', async () => {
+    await service.replaceLines(
+      't1',
+      'inv-1',
+      [{ id: 'ln-1', feeItemId: 'fi-1', quantity: 1 }],
+      'user-1',
+    );
+    expect(feeInvoiceLine.deleteMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: expect.objectContaining({ id: { in: ['ln-2'] } }),
+      }),
+    );
+  });
+
+  it('deletes nothing when every line is still present', async () => {
+    await service.replaceLines(
+      't1',
+      'inv-1',
+      [
+        { id: 'ln-1', feeItemId: 'fi-1', quantity: 1 },
+        { id: 'ln-2', feeItemId: 'fi-2', amount: 50_000, quantity: 1 },
+      ],
+      'user-1',
+    );
+    expect(feeInvoiceLine.deleteMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses an id this invoice does not own rather than duplicating it', async () => {
+    await expect(
+      service.replaceLines(
+        't1',
+        'inv-1',
+        [{ id: 'ln-somewhere-else', feeItemId: 'fi-1', quantity: 1 }],
+        'user-1',
+      ),
+    ).rejects.toThrow(/changed elsewhere/i);
+    expect(feeInvoiceLine.deleteMany).not.toHaveBeenCalled();
+    expect(feeInvoiceLine.create).not.toHaveBeenCalled();
+  });
+
+  it('still prices a fixed item from the catalogue in a batch', async () => {
+    await service.replaceLines(
+      't1',
+      'inv-1',
+      [{ feeItemId: 'fi-1', amount: 1, quantity: 1 }],
+      'user-1',
+    );
+    expect(feeInvoiceLine.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ amount: 150_000_00 }),
+      }),
+    );
+  });
+
+  it('records an override that arrives in a batch, not just a single edit', async () => {
+    await service.replaceLines(
+      't1',
+      'inv-1',
+      [{ id: 'ln-1', feeItemId: 'fi-1', amount: 120_000_00, quantity: 1 }],
+      'user-1',
+    );
+    // A bulk save must not become a quiet way to change a price...
+    expect(audit.write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'finance_line_price_overridden',
+        metadata: expect.objectContaining({
+          catalogueAmount: 150_000_00,
+          newAmount: 120_000_00,
+        }),
+      }),
+    );
+  });
+
+  it('refuses to replace the lines of an invoice that has left draft', async () => {
+    feeInvoice.findFirst.mockResolvedValue({
+      id: 'inv-1',
+      status: 'issued',
+      invoiceNumber: 'INV-1',
+    });
+    await expect(
+      service.replaceLines('t1', 'inv-1', [], 'user-1'),
+    ).rejects.toThrow(/line items are fixed/i);
+  });
+
+  /**
+   * The counterpart, and the reason an existing line keeps the amount it is
+   * sent: a bursar overrides a price through the edit dialog, then changes
+   * something unrelated and saves. Re-resolving from the catalogue on save
+   * would revert the override without anyone asking for it.
+   */
+  it('does not revert an existing override when something else is saved', async () => {
+    feeInvoiceLine.findMany.mockReset();
+    feeInvoiceLine.findMany
+      .mockResolvedValueOnce([
+        {
+          id: 'ln-1',
+          invoiceId: 'inv-1',
+          feeItemId: 'fi-1',
+          amount: 120_000_00, // an override that was already authorised
+          quantity: 1,
+          description: null,
+        },
+      ])
+      .mockResolvedValue([]);
+
+    await service.replaceLines(
+      't1',
+      'inv-1',
+      // Only the quantity changed; the amount comes back as it stands.
+      [{ id: 'ln-1', feeItemId: 'fi-1', amount: 120_000_00, quantity: 4 }],
+      'user-1',
+    );
+
+    expect(feeInvoiceLine.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ amount: 120_000_00, quantity: 4 }),
+      }),
+    );
+    // The price did not move, so nothing new to record.
+    expect(audit.write).not.toHaveBeenCalled();
+  });
+});

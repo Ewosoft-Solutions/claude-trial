@@ -1,5 +1,7 @@
 import {
+  IsArray,
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNotEmpty,
@@ -7,7 +9,9 @@ import {
   IsString,
   Matches,
   Min,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 /** Create a fee item in the tenant's catalogue. */
@@ -125,4 +129,89 @@ export class UpdateInvoiceLineDto {
   @IsInt()
   @Min(1)
   quantity?: number;
+}
+
+/**
+ * One line as the browser currently holds it.
+ *
+ * `id` present means "this is the line you already have"; absent means it was
+ * added while composing. A line the server holds but this list omits has been
+ * removed — the whole point of sending the set rather than a change log.
+ */
+export class DraftLineDto {
+  @ApiPropertyOptional({ description: 'Omitted for a line added on screen' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  id?: string;
+
+  @ApiProperty()
+  @IsString()
+  @IsNotEmpty()
+  feeItemId!: string;
+
+  @ApiPropertyOptional({ description: 'Ignored for a fixed-price item' })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  amount?: number;
+
+  @ApiProperty({ example: 1 })
+  @IsInt()
+  @Min(1)
+  quantity!: number;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  description?: string;
+}
+
+/**
+ * A draft as edited in the browser, applied in one request.
+ *
+ * Editing used to write per change. That is correct but chatty, and the owner
+ * would rather hold edits locally and push them once. So this carries the
+ * whole intended state and the server reconciles: matching ids are updated,
+ * new lines created, and anything it holds that is missing here is deleted.
+ *
+ * That makes it a REPLACE, which is worth naming: whoever saves last wins, and
+ * a second person editing the same draft will have their changes overwritten
+ * rather than merged. Acceptable for a draft (it is not yet a receivable, and
+ * one bursar composes one bill), and the reason this endpoint refuses anything
+ * that has left draft.
+ */
+export class UpdateDraftContentsDto {
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  termName?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  termYear?: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  termCycle?: number | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsDateString()
+  dueDate?: string | null;
+
+  @ApiPropertyOptional({ nullable: true })
+  @IsOptional()
+  @IsString()
+  notes?: string | null;
+
+  @ApiProperty({ type: [DraftLineDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DraftLineDto)
+  lines!: DraftLineDto[];
 }

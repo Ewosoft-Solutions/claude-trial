@@ -26,6 +26,7 @@ import {
   UpdateInvoiceDto,
   UpdateInvoiceHeaderDto,
 } from '../dto/finance.dto';
+import type { UpdateDraftContentsDto } from '../dto/catalogue.dto';
 
 /** Allow-listed sort columns for the invoices list; default is newest first. */
 const INVOICE_LIST_SORT: SortAllowList<Prisma.FeeInvoiceOrderByWithRelationInput> =
@@ -435,6 +436,52 @@ export class FinanceService {
     return this.client.feeInvoice.findFirst({
       where: { id: invoice.id, tenantId },
     });
+  }
+
+  /**
+   * Apply a draft edited in the browser — its details and its whole set of
+   * lines — in one request.
+   *
+   * Guarded like the header edit and the per-line writes it replaces
+   * (`finance.manage`, no step-up): composing a draft is not a movement of
+   * money. It refuses anything that has left draft, because replacing the
+   * lines of an issued invoice would rewrite a receivable behind the ledger's
+   * back — that is an adjustment, which is approved and posted.
+   */
+  async updateDraftContents(
+    tenantId: string,
+    id: string,
+    dto: UpdateDraftContentsDto,
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id, tenantId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (invoice.status !== 'draft') {
+      throw new BadRequestException(
+        `Only a draft can be edited — this invoice is ${invoice.status}. Raise an adjustment to change what is owed.`,
+      );
+    }
+
+    const { lines, ...header } = dto;
+    // The header first, so a failure in the lines leaves neither applied —
+    // the request runs inside the RLS transaction, so both roll back together.
+    await this.updateInvoiceHeader(tenantId, id, header, userId);
+    await this.catalogue.replaceLines(tenantId, id, lines, userId);
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_draft_saved',
+      resource: 'fee_invoice',
+      resourceId: id,
+      actorId: userId,
+      description: `Draft invoice ${invoice.invoiceNumber} saved with ${lines.length} line(s)`,
+      metadata: { invoiceNumber: invoice.invoiceNumber, lineCount: lines.length },
+    });
+
+    return this.getInvoice(tenantId, id);
   }
 
   async updateInvoice(
