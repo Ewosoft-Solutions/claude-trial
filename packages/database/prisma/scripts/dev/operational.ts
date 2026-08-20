@@ -595,7 +595,55 @@ async function ownerUserId(tenantId: string, domain: string): Promise<string> {
   return profile.userId;
 }
 
+/**
+ * Demo prices for the starter fee catalogue.
+ *
+ * A fee item now carries its own price and an invoice line is billed at it, so
+ * an unpriced item cannot be billed at all — correct for a real school, which
+ * prices its own catalogue, but it leaves a freshly seeded dev tenant unable to
+ * bill anything. These are dev figures only.
+ *
+ * Excursion is the open-price case on purpose: a trip costs what the trip
+ * costs, so the amount is typed on the line and the item carries no price. It
+ * keeps both pricing paths exercised in dev.
+ */
+const DEV_FEE_PRICES: ReadonlyArray<{
+  code: string;
+  amount: number | null;
+  pricingMode?: 'fixed' | 'open';
+}> = [
+  { code: 'tuition', amount: 15_000_000 },
+  { code: 'boarding', amount: 20_000_000 },
+  { code: 'bus', amount: 4_500_000 },
+  { code: 'books', amount: 2_500_000 },
+  { code: 'uniform', amount: 1_800_000 },
+  { code: 'lab', amount: 1_200_000 },
+  { code: 'exam', amount: 1_000_000 },
+  { code: 'pta_levy', amount: 500_000 },
+  { code: 'id_card', amount: 250_000 },
+  { code: 'excursion', amount: null, pricingMode: 'open' },
+];
+
+/**
+ * Price the dev catalogue. Never clobbers a price someone set by hand — only
+ * items still sitting at NULL are touched — so re-running the seed after
+ * experimenting in the UI does not undo the experiment.
+ */
+async function seedFeePrices(tenantId: string) {
+  for (const item of DEV_FEE_PRICES) {
+    await prisma.feeItem.updateMany({
+      where: { tenantId, code: item.code, defaultAmount: null },
+      data: {
+        defaultAmount: item.amount,
+        ...(item.pricingMode ? { pricingMode: item.pricingMode } : {}),
+      },
+    });
+  }
+}
+
 async function seedFinance(tenantId: string, seed: TenantOperationalSeed) {
+  await seedFeePrices(tenantId);
+
   for (const item of seed.finance.invoices) {
     const student = await studentByNumber(tenantId, item.studentNumber);
     const invoiceNumber = `DEV-INV-${seed.key.toUpperCase()}-${item.studentNumber}`;
