@@ -58,6 +58,19 @@ import { useStepUpAction } from '../../../_shared/use-step-up-action';
 import { Dot } from '@workspace/ui/custom/data-display/dot';
 import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 import { BilledToBlock, type BilledTo } from '../billed-to';
+import { useCoalescedWrite } from './use-coalesced-write';
+import {
+  useOptimisticInvoice,
+  type InvoiceHeader,
+} from './use-optimistic-invoice';
+
+/** Apply a header edit on screen and write it; false when the write failed. */
+type SaveHeader = <K extends keyof InvoiceHeader>(
+  field: K,
+  value: InvoiceHeader[K],
+  write: () => Promise<unknown>,
+  failure: string,
+) => Promise<boolean>;
 
 /* ---- Types (mirror the API response) ------------------------------------ */
 
@@ -73,7 +86,7 @@ export interface CatalogueItem {
   defaultAmount: number | null;
 }
 
-interface ApiLine {
+export interface ApiLine {
   id: string;
   feeItemId: string;
   description?: string | null;
@@ -179,11 +192,19 @@ function titleCase(s: string): string {
 }
 
 /** POST/PATCH/DELETE a finance endpoint, toasting the error message on failure. */
+/**
+ * Write, and hand back what the server stored.
+ *
+ * The body matters now that the screen updates before the response: an added
+ * line needs the real id it was given, and the price the server RESOLVED may
+ * not be the one that was shown (a fixed item is billed at its catalogue
+ * price, whatever the form sent). A DELETE answers with no body, hence null.
+ */
 async function mutate(
   url: string,
   method: 'POST' | 'PATCH' | 'DELETE',
   body?: unknown,
-): Promise<boolean> {
+): Promise<unknown> {
   const res = await authedFetch(url, {
     method,
     headers: body ? { 'content-type': 'application/json' } : undefined,
@@ -195,7 +216,7 @@ async function mutate(
     } | null;
     throw new Error(d?.message ?? `Request failed (${res.status})`);
   }
-  return true;
+  return (await res.json().catch(() => null)) as unknown;
 }
 
 /* ---- Page --------------------------------------------------------------- */
@@ -211,16 +232,23 @@ export function InvoiceDetailClient({
   billedTo: BilledTo;
   canManage: boolean;
 }) {
-  const fin = invoice.financials;
+  const {
+    lines,
+    setLines,
+    financials: fin,
+    optimistic,
+    header,
+    saveHeader,
+  } = useOptimisticInvoice(invoice);
   const statusMeta = STATUS_META[invoice.status] ?? {
     label: titleCase(invoice.status),
     tone: 'neutral' as StateTone,
   };
 
   const termLabel = [
-    invoice.termName,
-    invoice.termYear ? String(invoice.termYear) : null,
-    invoice.termCycle ? `cycle ${invoice.termCycle}` : null,
+    header.termName,
+    header.termYear ? String(header.termYear) : null,
+    header.termCycle ? `cycle ${header.termCycle}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -240,7 +268,7 @@ export function InvoiceDetailClient({
             meta={[
               { key: 'inv', label: invoice.invoiceNumber, emphasis: true },
               ...(termLabel ? [{ key: 'term', label: termLabel }] : []),
-              { key: 'due', label: `Due ${formatDate(invoice.dueDate)}` },
+              { key: 'due', label: `Due ${formatDate(header.dueDate)}` },
             ]}
             // State sits with the name, not among the buttons: beside
             // "Issue invoice" the badge read as a second button.
@@ -262,7 +290,9 @@ export function InvoiceDetailClient({
 
         <LinesSection
           invoiceId={invoice.id}
-          lines={invoice.lines}
+          lines={lines}
+          setLines={setLines}
+          optimistic={optimistic}
           catalogue={catalogue}
           financials={fin}
           billedTo={billedTo}
@@ -273,12 +303,20 @@ export function InvoiceDetailClient({
           }
           details={
             canManage && invoice.status === 'draft' ? (
-              <DraftDetailsFields invoiceId={invoice.id} invoice={invoice} />
+              <DraftDetailsFields
+                invoiceId={invoice.id}
+                header={header}
+                saveHeader={saveHeader}
+              />
             ) : undefined
           }
           notes={
             canManage && invoice.status === 'draft' ? (
-              <DraftNotesField invoiceId={invoice.id} invoice={invoice} />
+              <DraftNotesField
+                invoiceId={invoice.id}
+                header={header}
+                saveHeader={saveHeader}
+              />
             ) : undefined
           }
           // Lines are the charge. Once issued it is in the ledger and on a
@@ -402,41 +440,47 @@ function SectionCard({
  */
 function DraftDetailsFields({
   invoiceId,
-  invoice,
+  header,
+  saveHeader,
 }: {
   invoiceId: string;
-  invoice: ApiInvoiceDetail;
+  header: InvoiceHeader;
+  saveHeader: SaveHeader;
 }) {
   return (
     <div className="grid grid-cols-1 gap-4 border-b border-border px-4 py-4 sm:grid-cols-2 lg:grid-cols-4">
       <DraftField
         invoiceId={invoiceId}
+        saveHeader={saveHeader}
         field="termName"
         label="Term"
-        value={invoice.termName ?? ''}
+        value={header.termName ?? ''}
         placeholder="Spring Term"
       />
       <DraftField
         invoiceId={invoiceId}
+        saveHeader={saveHeader}
         field="termYear"
         label="Year"
-        value={invoice.termYear != null ? String(invoice.termYear) : ''}
+        value={header.termYear != null ? String(header.termYear) : ''}
         placeholder="2025"
         numeric
       />
       <DraftField
         invoiceId={invoiceId}
+        saveHeader={saveHeader}
         field="termCycle"
         label="Cycle"
-        value={invoice.termCycle != null ? String(invoice.termCycle) : ''}
+        value={header.termCycle != null ? String(header.termCycle) : ''}
         placeholder="1"
         numeric
       />
       <DraftField
         invoiceId={invoiceId}
+        saveHeader={saveHeader}
         field="dueDate"
         label="Due date"
-        value={invoice.dueDate ? invoice.dueDate.slice(0, 10) : ''}
+        value={header.dueDate ? header.dueDate.slice(0, 10) : ''}
         type="date"
       />
     </div>
@@ -452,18 +496,21 @@ function DraftDetailsFields({
  */
 function DraftNotesField({
   invoiceId,
-  invoice,
+  header,
+  saveHeader,
 }: {
   invoiceId: string;
-  invoice: ApiInvoiceDetail;
+  header: InvoiceHeader;
+  saveHeader: SaveHeader;
 }) {
   return (
     <div className="border-t border-border px-4 py-4">
       <DraftField
         invoiceId={invoiceId}
+        saveHeader={saveHeader}
         field="notes"
         label="Notes"
-        value={invoice.notes ?? ''}
+        value={header.notes ?? ''}
         placeholder="Anything that should be read alongside these lines"
         optional
       />
@@ -482,6 +529,7 @@ function DraftNotesField({
  */
 function DraftField({
   invoiceId,
+  saveHeader,
   field,
   label,
   value,
@@ -491,6 +539,7 @@ function DraftField({
   optional,
 }: {
   invoiceId: string;
+  saveHeader: SaveHeader;
   field: 'termName' | 'termYear' | 'termCycle' | 'dueDate' | 'notes';
   label: string;
   value: string;
@@ -499,7 +548,6 @@ function DraftField({
   numeric?: boolean;
   optional?: boolean;
 }) {
-  const router = useRouter();
   const [draft, setDraft] = React.useState(value);
   const [busy, setBusy] = React.useState(false);
   const inputId = `draft-${field}`;
@@ -525,17 +573,19 @@ function DraftField({
     }
 
     setBusy(true);
-    try {
-      await mutate(`/api/finance/invoices/${invoiceId}/header`, 'PATCH', {
-        [field]: payload,
-      });
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : `Could not save ${label}`);
-      setDraft(value);
-    } finally {
-      setBusy(false);
-    }
+    // The pill in the page header follows this immediately; only the write is
+    // behind, and a failure puts both back.
+    const ok = await saveHeader(
+      field,
+      payload as never,
+      () =>
+        mutate(`/api/finance/invoices/${invoiceId}/header`, 'PATCH', {
+          [field]: payload,
+        }),
+      `Could not save ${label}`,
+    );
+    if (!ok) setDraft(value);
+    setBusy(false);
   };
 
   return (
@@ -566,9 +616,17 @@ function DraftField({
   );
 }
 
+type Optimistic = (
+  next: (current: ApiLine[]) => ApiLine[],
+  write: () => Promise<unknown>,
+  failure: string,
+) => Promise<unknown>;
+
 function LinesSection({
   invoiceId,
   lines,
+  setLines,
+  optimistic,
   catalogue,
   editable,
   financials,
@@ -579,6 +637,8 @@ function LinesSection({
 }: {
   invoiceId: string;
   lines: ApiLine[];
+  setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
+  optimistic: Optimistic;
   catalogue: CatalogueItem[];
   editable: boolean;
   financials: InvoiceTotals;
@@ -649,7 +709,11 @@ function LinesSection({
                 {naira(line.amount)}
               </TableCell>
               <TableCell className="text-right tabular-nums">
-                {editable ? <QtyStepper line={line} /> : line.quantity}
+                {editable ? (
+                  <QtyStepper line={line} setLines={setLines} />
+                ) : (
+                  line.quantity
+                )}
               </TableCell>
               <TableCell className="text-right tabular-nums font-medium">
                 {naira(line.amount * line.quantity)}
@@ -657,15 +721,22 @@ function LinesSection({
               {editable ? (
                 <TableCell className="text-right">
                   <div className="flex items-center justify-end gap-1">
-                    <EditLineDialog line={line} />
-                    <RemoveLineButton lineId={line.id} />
+                    <EditLineDialog line={line} optimistic={optimistic} />
+                    <RemoveLineButton
+                      lineId={line.id}
+                      optimistic={optimistic}
+                    />
                   </div>
                 </TableCell>
               ) : null}
             </TableRow>
           ))}
           {editable ? (
-            <NewLineRow invoiceId={invoiceId} catalogue={catalogue} />
+            <NewLineRow
+              invoiceId={invoiceId}
+              catalogue={catalogue}
+              setLines={setLines}
+            />
           ) : null}
         </TableBody>
       </Table>
@@ -686,25 +757,48 @@ function LinesSection({
  * The buttons are always rendered rather than revealed on hover, so the figure
  * never changes column when a row becomes active — the alignment trap a till's
  * inline action strip falls into, where the numbers end up reading one row low.
+ *
+ * Tapping is instant and the write follows once the tapping stops, so four
+ * taps are one request carrying the figure landed on rather than four racing
+ * each other to a value already left behind.
+ *
+ * The next quantity is derived from the CURRENT list, never from this row's
+ * prop: props do not change between two clicks in the same frame, so reading
+ * `line.quantity` made four rapid taps all compute the same target and the
+ * count moved by one.
  */
-function QtyStepper({ line }: { line: ApiLine }) {
+function QtyStepper({
+  line,
+  setLines,
+}: {
+  line: ApiLine;
+  setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
+}) {
   const router = useRouter();
-  const [busy, setBusy] = React.useState(false);
+  const schedule = useCoalescedWrite();
   const label = line.feeItem?.name ?? 'line';
 
-  const setQty = async (next: number) => {
-    if (next < 1 || busy) return;
-    setBusy(true);
-    try {
-      await mutate(`/api/finance/lines/${line.id}`, 'PATCH', {
-        quantity: next,
+  const step = (delta: number) => {
+    let target = line.quantity;
+    setLines((current) =>
+      current.map((l) => {
+        if (l.id !== line.id) return l;
+        target = Math.max(1, l.quantity + delta);
+        return { ...l, quantity: target };
+      }),
+    );
+
+    schedule(line.id, () => {
+      void mutate(`/api/finance/lines/${line.id}`, 'PATCH', {
+        quantity: target,
+      }).catch((e: unknown) => {
+        toast.error(e instanceof Error ? e.message : 'Update failed');
+        // Rebuilding the pre-click state across a coalesced burst would be
+        // guesswork; asking the server what the line actually is now is both
+        // simpler and correct. Failures here are rare enough to afford it.
+        router.refresh();
       });
-      router.refresh();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : 'Update failed');
-    } finally {
-      setBusy(false);
-    }
+    });
   };
 
   return (
@@ -713,9 +807,9 @@ function QtyStepper({ line }: { line: ApiLine }) {
         variant="ghost"
         size="icon"
         className="size-6"
-        disabled={busy || line.quantity <= 1}
+        disabled={line.quantity <= 1}
         aria-label={`Decrease quantity of ${label}`}
-        onClick={() => void setQty(line.quantity - 1)}
+        onClick={() => step(-1)}
       >
         <Minus className="size-3.5" aria-hidden />
       </Button>
@@ -726,9 +820,8 @@ function QtyStepper({ line }: { line: ApiLine }) {
         variant="ghost"
         size="icon"
         className="size-6"
-        disabled={busy}
         aria-label={`Increase quantity of ${label}`}
-        onClick={() => void setQty(line.quantity + 1)}
+        onClick={() => step(1)}
       >
         <Plus className="size-3.5" aria-hidden />
       </Button>
@@ -749,11 +842,12 @@ function QtyStepper({ line }: { line: ApiLine }) {
 function NewLineRow({
   invoiceId,
   catalogue,
+  setLines,
 }: {
   invoiceId: string;
   catalogue: CatalogueItem[];
+  setLines: React.Dispatch<React.SetStateAction<ApiLine[]>>;
 }) {
-  const router = useRouter();
   const [feeItemId, setFeeItemId] = React.useState('');
   const [amount, setAmount] = React.useState('');
   const [quantity, setQuantity] = React.useState('1');
@@ -790,23 +884,52 @@ function NewLineRow({
     !busy;
 
   const submit = async () => {
-    if (!canSubmit || amountKobo == null) return;
+    if (!canSubmit || amountKobo == null || picked == null) return;
+
+    // The row appears immediately under a placeholder id, and the real row
+    // replaces it when the server answers. Clearing the form here rather than
+    // after the write is what lets the next line be typed straight away.
+    const placeholderId = `pending-${Date.now()}`;
+    const optimisticLine: ApiLine = {
+      id: placeholderId,
+      feeItemId,
+      description: description.trim() || null,
+      amount: amountKobo,
+      quantity: qty,
+      feeItem: { code: picked.code, name: picked.name },
+    };
+    const payload = {
+      feeItemId,
+      amount: amountKobo,
+      quantity: qty,
+      description: description.trim() || undefined,
+    };
+
+    setLines((current) => [...current, optimisticLine]);
+    setFeeItemId('');
+    setAmount('');
+    setQuantity('1');
+    setDescription('');
+    itemRef.current?.focus();
     setBusy(true);
+
     try {
-      await mutate(`/api/finance/invoices/${invoiceId}/lines`, 'POST', {
-        feeItemId,
-        amount: amountKobo,
-        quantity: qty,
-        description: description.trim() || undefined,
-      });
-      setFeeItemId('');
-      setAmount('');
-      setQuantity('1');
-      setDescription('');
-      router.refresh();
-      // Hand the cursor back so the next line can be typed straight away.
-      itemRef.current?.focus();
+      const saved = (await mutate(
+        `/api/finance/invoices/${invoiceId}/lines`,
+        'POST',
+        payload,
+      )) as ApiLine | null;
+      // Swap in what the server actually stored — the price it resolved may
+      // differ from the one shown, and later edits need its real id.
+      setLines((current) =>
+        current.map((l) =>
+          l.id === placeholderId
+            ? { ...optimisticLine, ...(saved ?? {}), id: saved?.id ?? l.id }
+            : l,
+        ),
+      );
     } catch (e) {
+      setLines((current) => current.filter((l) => l.id !== placeholderId));
       toast.error(e instanceof Error ? e.message : 'Add failed');
     } finally {
       setBusy(false);
@@ -931,8 +1054,13 @@ function NewLineRow({
   );
 }
 
-function EditLineDialog({ line }: { line: ApiLine }) {
-  const router = useRouter();
+function EditLineDialog({
+  line,
+  optimistic,
+}: {
+  line: ApiLine;
+  optimistic: Optimistic;
+}) {
   const [open, setOpen] = React.useState(false);
   const [amount, setAmount] = React.useState(String(line.amount / 100));
   const [quantity, setQuantity] = React.useState(String(line.quantity));
@@ -1020,21 +1148,25 @@ function EditLineDialog({ line }: { line: ApiLine }) {
             size="sm"
             disabled={!canSubmit}
             onClick={async () => {
+              if (amountKobo == null) return;
               setBusy(true);
-              try {
-                await mutate(`/api/finance/lines/${line.id}`, 'PATCH', {
-                  amount: amountKobo,
-                  quantity: qty,
-                  description: description.trim() || undefined,
-                });
-                toast.success('Line updated');
-                setOpen(false);
-                router.refresh();
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Update failed');
-              } finally {
-                setBusy(false);
-              }
+              setOpen(false);
+              const next = {
+                amount: amountKobo,
+                quantity: qty,
+                description: description.trim() || undefined,
+              };
+              await optimistic(
+                (current) =>
+                  current.map((l) =>
+                    l.id === line.id
+                      ? { ...l, ...next, description: next.description ?? null }
+                      : l,
+                  ),
+                () => mutate(`/api/finance/lines/${line.id}`, 'PATCH', next),
+                'Could not update the line',
+              );
+              setBusy(false);
             }}
           >
             Save
@@ -1045,8 +1177,13 @@ function EditLineDialog({ line }: { line: ApiLine }) {
   );
 }
 
-function RemoveLineButton({ lineId }: { lineId: string }) {
-  const router = useRouter();
+function RemoveLineButton({
+  lineId,
+  optimistic,
+}: {
+  lineId: string;
+  optimistic: Optimistic;
+}) {
   const [open, setOpen] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
@@ -1080,16 +1217,16 @@ function RemoveLineButton({ lineId }: { lineId: string }) {
             disabled={busy}
             onClick={async () => {
               setBusy(true);
-              try {
-                await mutate(`/api/finance/lines/${lineId}`, 'DELETE');
-                toast.success('Line removed');
-                setOpen(false);
-                router.refresh();
-              } catch (e) {
-                toast.error(e instanceof Error ? e.message : 'Remove failed');
-              } finally {
-                setBusy(false);
-              }
+              // The row goes now; if the delete fails it comes back and the
+              // toast says why, which beats a spinner over a decision already
+              // confirmed.
+              setOpen(false);
+              await optimistic(
+                (current) => current.filter((l) => l.id !== lineId),
+                () => mutate(`/api/finance/lines/${lineId}`, 'DELETE'),
+                'Could not remove the line',
+              );
+              setBusy(false);
             }}
           >
             Remove
