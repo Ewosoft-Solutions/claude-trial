@@ -58,6 +58,8 @@ import { useStepUpAction } from '../../../_shared/use-step-up-action';
 import { Dot } from '@workspace/ui/custom/data-display/dot';
 import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 import { BilledToBlock, type BilledTo } from '../billed-to';
+import { MIN_QUANTITY, stepQuantity } from '@/lib/invoice-lines';
+import { QuantityField } from '../quantity-field';
 import { useCoalescedWrite } from './use-coalesced-write';
 import {
   useOptimisticInvoice,
@@ -780,13 +782,11 @@ function QtyStepper({
 
   const step = (delta: number) => {
     let target = line.quantity;
-    setLines((current) =>
-      current.map((l) => {
-        if (l.id !== line.id) return l;
-        target = Math.max(1, l.quantity + delta);
-        return { ...l, quantity: target };
-      }),
-    );
+    setLines((current) => {
+      const next = stepQuantity(current, line.id, delta);
+      target = next.find((l) => l.id === line.id)?.quantity ?? target;
+      return next;
+    });
 
     schedule(line.id, () => {
       void mutate(`/api/finance/lines/${line.id}`, 'PATCH', {
@@ -850,7 +850,7 @@ function NewLineRow({
 }) {
   const [feeItemId, setFeeItemId] = React.useState('');
   const [amount, setAmount] = React.useState('');
-  const [quantity, setQuantity] = React.useState('1');
+  const [quantity, setQuantity] = React.useState(MIN_QUANTITY);
   const [description, setDescription] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const itemRef = React.useRef<HTMLButtonElement>(null);
@@ -874,14 +874,11 @@ function NewLineRow({
   };
 
   const amountKobo = koboFromNaira(amount);
-  const qty = Number(quantity);
-  const validQty = Number.isInteger(qty) && qty >= 1;
+  // The control cannot produce an invalid count, so there is nothing left to
+  // re-check here — it is a number by construction.
+  const qty = quantity;
   const canSubmit =
-    feeItemId !== '' &&
-    amountKobo != null &&
-    amountKobo > 0 &&
-    validQty &&
-    !busy;
+    feeItemId !== '' && amountKobo != null && amountKobo > 0 && !busy;
 
   const submit = async () => {
     if (!canSubmit || amountKobo == null || picked == null) return;
@@ -908,7 +905,7 @@ function NewLineRow({
     setLines((current) => [...current, optimisticLine]);
     setFeeItemId('');
     setAmount('');
-    setQuantity('1');
+    setQuantity(MIN_QUANTITY);
     setDescription('');
     itemRef.current?.focus();
     setBusy(true);
@@ -1033,17 +1030,14 @@ function NewLineRow({
         )}
       </TableCell>
       <TableCell className="align-top text-right">
-        <Input
+        <QuantityField
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          aria-label="Quantity"
-          inputMode="numeric"
-          autoComplete="off"
-          className="ml-auto h-8 w-16 text-right tabular-nums"
+          onChange={setQuantity}
+          disabled={!picked}
         />
       </TableCell>
       <TableCell className="align-top text-right font-medium leading-8 tabular-nums">
-        {amountKobo != null && validQty ? naira(amountKobo * qty) : '—'}
+        {amountKobo != null ? naira(amountKobo * qty) : '—'}
       </TableCell>
       <TableCell className="align-top text-right">
         <Button size="sm" disabled={!canSubmit} onClick={() => void submit()}>

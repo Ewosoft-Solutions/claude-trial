@@ -1,6 +1,7 @@
 # Input-validation hardening — plan of record
 
-**Status:** proposed (2026-08-04). **Owner:** unassigned. **Board item:** `H4`.
+**Status:** proposed (2026-08-04); **re-confirmed 2026-08-20** — owner has asked
+for this to get its own dedicated session. **Owner:** unassigned. **Board item:** `H4`.
 
 **Why.** A caregiver search accepted `??` and happily ran an empty query; more
 generally we take user input across ~45 web surfaces and validate almost none of
@@ -136,3 +137,67 @@ Add board row **`H4 · Input-validation hardening`** (Hygiene) referencing this
 doc; each phase (§5) is a claimable sub-task. Phase 0 partially done in PR #60;
 Phases 1–4 sized ~`M` each. Recommend sequencing right after WB1-3/4 merge, since
 Phase 1 covers the very surfaces those PRs added.
+
+---
+
+## 8 · Update — 2026-08-20
+
+The owner has asked for a **full, dedicated session** on this: "as the user
+types, we get instant validation and dependent actions are blocked". That is
+§1.5 plus the §3 ergonomics layer, and it is the part still unbuilt. Recording
+what has changed since the plan was written so that session starts informed
+rather than re-surveying.
+
+### What this cost us in the meantime
+
+The finance work in August produced a live example of exactly the gap §2
+describes. The invoice line entry's quantity box was a plain text input:
+
+- it accepted `First term1` (text typed into a numeric field) and held it,
+- the only symptom was the **Add button silently going quiet** — no message,
+  nothing pointing at the offending field,
+- the failure was invisible until someone happened to look at the value.
+
+That is the shape of every remaining unvalidated field: not a crash, but a form
+that stops working and does not say why. It is also a reminder that "the submit
+is disabled" is NOT feedback — §6's inline error requirement is the point.
+
+### Ground already taken (do not redo)
+
+- `apps/web/lib/invoice-lines.ts` — `parseQuantity` (strict whole-number parse;
+  deliberately rejects `1.5`, `-2`, `1e3` and `3 bags`, all of which `parseInt`
+  would have accepted) and `MIN_QUANTITY`, unit-tested in
+  `invoice-lines.test.ts`.
+- `apps/web/app/(app)/finance/invoices/quantity-field.tsx` — `QuantityField`:
+  filters non-digits on input, snaps back to the last good value on an
+  unparseable blur, offers −/+ and Arrow-Up/Down, and cannot emit an invalid
+  count. **This is a candidate to generalise** into the §3 ergonomics layer as
+  the reference implementation of a typed control, and to move into
+  `packages/ui` once a second domain needs it.
+- The catalogue-priced invoice line (see `FeeItem.pricingMode`) removed a whole
+  class of free-typed money: a fixed item's amount is no longer an input at all.
+
+### Surfaces added since the 2026-08-04 inventory
+
+§5's phase list predates these; fold them in when sizing:
+
+- `finance/invoices/new` — the compose route (student search, term, year,
+  cycle, due date, notes, per-line amount + quantity).
+- `finance/invoices/[id]` — draft header fields (term/year/cycle/due/notes),
+  the line entry row, and the line edit modal.
+- `finance/fee-items` — pricing mode + price, where an unpriced fixed item is
+  now a blocking condition rather than a silent one.
+
+### Sharpened asks for the dedicated session
+
+1. **Instant, not on-submit.** Validate as the user types (or on blur for
+   expensive checks), with the message beside the field.
+2. **Block dependent actions explicitly.** A disabled action must be
+   accompanied by the reason — the quantity bug is the argument.
+3. **Type-appropriate keyboards and filters.** `inputMode` is only a hint; the
+   filter is what keeps letters out of a number.
+4. **Numbers:** positive-only and integer-only where that is the domain rule
+   (quantities, ranks, counts); money in minor units with no decimals typed.
+5. **Emails, phones, codes, names** per the §4 table — reuse, never re-derive.
+6. Decide whether the ergonomics layer is `useField` or `<ValidatedField>` (§3)
+   and build ONE of them before touching 45 surfaces.

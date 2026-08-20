@@ -47,6 +47,8 @@ import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout'
 
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as naira, koboFromNaira } from '@/lib/format';
+import { MIN_QUANTITY } from '@/lib/invoice-lines';
+import { QuantityField } from '../quantity-field';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../../_shared/use-step-up-action';
 import { BilledToBlock, type BilledTo } from '../billed-to';
@@ -204,7 +206,7 @@ export function ComposeClient({
             titleAdornment={<StatusBadge tone="neutral">Unsaved</StatusBadge>}
             meta={[
               { key: 'new', label: 'New invoice', emphasis: true },
-              { key: 'kept', label: 'Kept in this browser until you save it' },
+              { key: 'kept', label: 'Kept temporarily until you save it' },
             ]}
             actions={
               <Button
@@ -429,7 +431,7 @@ function ComposeEntryRow({
 }) {
   const [feeItemId, setFeeItemId] = React.useState('');
   const [amount, setAmount] = React.useState('');
-  const [quantity, setQuantity] = React.useState('1');
+  const [quantity, setQuantity] = React.useState(MIN_QUANTITY);
   const [description, setDescription] = React.useState('');
   const itemRef = React.useRef<HTMLButtonElement>(null);
 
@@ -449,10 +451,10 @@ function ComposeEntryRow({
   const amountKobo = openPriced
     ? koboFromNaira(amount)
     : (picked?.defaultAmount ?? null);
-  const qty = Number(quantity);
-  const validQty = Number.isInteger(qty) && qty >= 1;
-  const canAdd =
-    picked != null && amountKobo != null && amountKobo > 0 && validQty;
+  // The quantity control cannot emit an invalid count, so there is nothing
+  // left to re-check: it is a number by construction.
+  const qty = quantity;
+  const canAdd = picked != null && amountKobo != null && amountKobo > 0;
 
   const submit = () => {
     if (!canAdd || amountKobo == null) return;
@@ -465,7 +467,7 @@ function ComposeEntryRow({
     });
     setFeeItemId('');
     setAmount('');
-    setQuantity('1');
+    setQuantity(MIN_QUANTITY);
     setDescription('');
     itemRef.current?.focus();
   };
@@ -551,17 +553,14 @@ function ComposeEntryRow({
         )}
       </TableCell>
       <TableCell className="align-top text-right">
-        <Input
+        <QuantityField
           value={quantity}
-          onChange={(e) => setQuantity(e.target.value)}
-          aria-label="Quantity"
-          inputMode="numeric"
-          autoComplete="off"
-          className="ml-auto h-8 w-16 text-right tabular-nums"
+          onChange={setQuantity}
+          disabled={!picked}
         />
       </TableCell>
       <TableCell className="align-top text-right font-medium leading-8 tabular-nums">
-        {amountKobo != null && validQty ? naira(amountKobo * qty) : '—'}
+        {amountKobo != null ? naira(amountKobo * qty) : '—'}
       </TableCell>
       <TableCell className="align-top text-right">
         <Button size="sm" disabled={!canAdd} onClick={submit}>

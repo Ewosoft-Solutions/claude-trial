@@ -21,30 +21,8 @@
 import * as React from 'react';
 import { toast } from 'sonner';
 
+import { deriveFinancials } from '@/lib/invoice-lines';
 import type { ApiInvoiceDetail, ApiLine } from './invoice-detail-client';
-import type { InvoiceTotals } from './invoice-totals-bar';
-
-/** Mirror of the API's `computeFinancials`, so both agree on the arithmetic. */
-function derive(
-  lines: ApiLine[],
-  server: ApiInvoiceDetail['financials'],
-): InvoiceTotals {
-  const gross = lines.reduce((sum, l) => sum + l.amount * l.quantity, 0);
-  // Discounts and payments are not touched by editing lines, so they come
-  // from the server untouched; only the billed side is recomputed here.
-  const discounts = server.discounts;
-  const paid = server.paid;
-  const net = Math.max(0, gross - discounts);
-  return {
-    gross,
-    discounts,
-    net,
-    paid,
-    credited: server.credited,
-    balance: Math.max(0, net - paid),
-    overpaid: Math.max(0, paid - net),
-  };
-}
 
 /** The draft's own details, as edited on screen. */
 export interface InvoiceHeader {
@@ -87,7 +65,7 @@ export function useOptimisticInvoice(invoice: ApiInvoiceDetail) {
   }, [invoice]);
 
   const financials = React.useMemo(
-    () => derive(lines, invoice.financials),
+    () => deriveFinancials(lines, invoice.financials),
     [lines, invoice.financials],
   );
 
