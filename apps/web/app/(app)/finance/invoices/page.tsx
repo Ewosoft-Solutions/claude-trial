@@ -16,6 +16,7 @@ import {
   type Invoice,
   type InvoiceStats,
 } from './invoices-client';
+import { fetchRoster, studentClass } from './student-options';
 
 const DEFAULT_PAGE_SIZE = 25;
 
@@ -54,35 +55,6 @@ interface InvoiceSummary {
   statusCounts: Record<string, number>;
 }
 
-interface ApiStudent {
-  id: string;
-  studentNumber?: string | null;
-  userTenant?: {
-    user?: { firstName?: string | null; lastName?: string | null } | null;
-  } | null;
-  enrollments?: Array<{
-    status: string;
-    class?: {
-      name?: string | null;
-      section?: string | null;
-      course?: { name?: string | null } | null;
-    } | null;
-  }>;
-}
-
-function studentName(student: ApiStudent): string {
-  const user = student.userTenant?.user;
-  const name = [user?.firstName, user?.lastName]
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-  return name || student.studentNumber || student.id;
-}
-
-interface StudentListResponse {
-  data?: ApiStudent[];
-}
-
 function formatDate(iso: string | null | undefined): string | undefined {
   if (!iso) return undefined;
   try {
@@ -93,17 +65,6 @@ function formatDate(iso: string | null | undefined): string | undefined {
   } catch {
     return undefined;
   }
-}
-
-function studentClass(student: ApiStudent | undefined): string | undefined {
-  const enrollment =
-    student?.enrollments?.find((item) => item.status === 'active') ??
-    student?.enrollments?.[0];
-  const cls = enrollment?.class;
-  if (!cls) return undefined;
-  return (
-    cls.name ?? `${cls.course?.name ?? 'Class'} ${cls.section ?? ''}`.trim()
-  );
 }
 
 export default async function InvoicesPage({
@@ -117,21 +78,18 @@ export default async function InvoicesPage({
     filters: { status: 'status' },
   });
 
-  const [list, summary, studentData, session] = await Promise.all([
+  const [list, summary, roster, session] = await Promise.all([
     serverApiGet<InvoicesResponse>(`/finance/invoices?${params.toString()}`),
     serverApiGet<InvoiceSummary>('/finance/invoices/summary'),
-    serverApiGet<StudentListResponse | ApiStudent[]>('/students/roster'),
+    fetchRoster(),
     getSession(),
   ]);
   const canManage =
     session?.permissions.includes('finance.manage' as never) ?? false;
 
   const raw = list?.data ?? [];
-  const students = Array.isArray(studentData)
-    ? studentData
-    : (studentData?.data ?? []);
   const studentsById = new Map(
-    students.map((student) => [student.id, student]),
+    roster.students.map((student) => [student.id, student]),
   );
 
   const invoices: Invoice[] = raw.map((inv) => {
@@ -164,20 +122,12 @@ export default async function InvoicesPage({
     overdue: counts.overdue ?? 0,
   };
 
-  // Lightweight roster for the "New invoice" student picker (id + label).
-  const studentOptions = students.map((student) => ({
-    id: student.id,
-    name: studentName(student),
-    studentNumber: student.studentNumber ?? undefined,
-  }));
-
   return (
     <InvoicesClient
       invoices={invoices}
       total={list?.pagination.total ?? 0}
       defaultPageSize={DEFAULT_PAGE_SIZE}
       stats={stats}
-      students={studentOptions}
       canManage={canManage}
     />
   );

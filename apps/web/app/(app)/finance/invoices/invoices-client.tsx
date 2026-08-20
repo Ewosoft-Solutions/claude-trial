@@ -13,22 +13,8 @@ import * as React from 'react';
 import Link from 'next/link';
 import { Download, Plus } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { toast } from 'sonner';
 
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
-import {
-  Sheet,
-  SheetClose,
-  SheetDescription,
-} from '@workspace/ui/components/sheet';
-import {
-  DrawerContent,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@workspace/ui/custom/detail/drawer-chrome';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
@@ -43,16 +29,7 @@ import type { StateTone } from '@workspace/ui/types/states.types';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
 
-import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
-import { STEP_UP_OPERATION } from '@/lib/step-up';
-import { useStepUpAction } from '../../_shared/use-step-up-action';
-
-export interface StudentOption {
-  id: string;
-  name: string;
-  studentNumber?: string;
-}
 
 export type InvoiceStatus =
   | 'paid'
@@ -108,7 +85,6 @@ interface Props {
   total: number;
   defaultPageSize: number;
   stats: InvoiceStats;
-  students: StudentOption[];
   canManage: boolean;
 }
 
@@ -117,7 +93,6 @@ export function InvoicesClient({
   total,
   defaultPageSize,
   stats,
-  students,
   canManage,
 }: Props) {
   const router = useRouter();
@@ -301,7 +276,13 @@ export function InvoicesClient({
               <Button variant="outline" size="sm">
                 <Download /> Export
               </Button>
-              {canManage ? <NewInvoiceDrawer students={students} /> : null}
+              {canManage ? (
+                <Button size="sm" asChild>
+                  <Link href="/finance/invoices/new">
+                    <Plus /> New invoice
+                  </Link>
+                </Button>
+              ) : null}
             </>
           }
         />
@@ -367,221 +348,3 @@ export function InvoicesClient({
   );
 }
 
-/* ---- New invoice (step-up-gated create) --------------------------------- */
-
-function NewInvoiceDrawer({ students }: { students: StudentOption[] }) {
-  const router = useRouter();
-  const { requestStepUp, stepUpPrompt } = useStepUpAction();
-  const [open, setOpen] = React.useState(false);
-  const [studentId, setStudentId] = React.useState('');
-  const [query, setQuery] = React.useState('');
-  const [termName, setTermName] = React.useState('');
-  const [termYear, setTermYear] = React.useState('');
-  const [dueDate, setDueDate] = React.useState('');
-  const [busy, setBusy] = React.useState(false);
-
-  React.useEffect(() => {
-    if (open) {
-      setStudentId('');
-      setQuery('');
-      setTermName('');
-      setTermYear('');
-      setDueDate('');
-    }
-  }, [open]);
-
-  const selected = students.find((s) => s.id === studentId);
-  const matches = React.useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const pool =
-      q === ''
-        ? students
-        : students.filter(
-            (s) =>
-              s.name.toLowerCase().includes(q) ||
-              (s.studentNumber ?? '').toLowerCase().includes(q),
-          );
-    return pool.slice(0, 8);
-  }, [students, query]);
-
-  const create = () => {
-    if (!studentId) return;
-    const yearNum = Number(termYear.trim());
-    requestStepUp(
-      {
-        operation: STEP_UP_OPERATION.FINANCIAL_FEE_STRUCTURE_UPDATE,
-        title: 'Create a fee invoice',
-        description:
-          'Confirm your identity to create the invoice. You will add line items next.',
-      },
-      async (challengeId) => {
-        setBusy(true);
-        try {
-          const res = await authedFetch('/api/finance/invoices', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({
-              studentId,
-              amountDue: 0,
-              termName: termName.trim() || undefined,
-              termYear:
-                Number.isInteger(yearNum) && yearNum > 0 ? yearNum : undefined,
-              dueDate: dueDate || undefined,
-              stepUpChallengeId: challengeId,
-            }),
-          });
-          if (!res.ok) {
-            const d = (await res.json().catch(() => null)) as {
-              message?: string;
-            } | null;
-            throw new Error(d?.message ?? `Request failed (${res.status})`);
-          }
-          const created = (await res.json()) as { id: string };
-          toast.success('Draft invoice created — add line items');
-          setOpen(false);
-          router.push(`/finance/invoices/${created.id}`);
-        } catch (e) {
-          toast.error(
-            e instanceof Error ? e.message : 'Could not create invoice',
-          );
-        } finally {
-          setBusy(false);
-        }
-      },
-    );
-  };
-
-  return (
-    <>
-      <Sheet open={open} onOpenChange={setOpen}>
-        <Button size="sm" onClick={() => setOpen(true)}>
-          <Plus /> New invoice
-        </Button>
-        <DrawerContent>
-          <DrawerHeader className="gap-1.5">
-            <DrawerTitle className="pr-8">Create a fee invoice</DrawerTitle>
-            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
-              Pick the student and term. The invoice starts as a draft with no
-              amount — you compose its line items next, then issue it.
-            </SheetDescription>
-          </DrawerHeader>
-          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ni-student">Student</Label>
-              {selected ? (
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card/40 p-2.5">
-                  <div className="flex min-w-0 flex-col">
-                    <span className="truncate text-sm font-medium text-foreground">
-                      {selected.name}
-                    </span>
-                    {selected.studentNumber ? (
-                      <span className="truncate text-xs text-muted-foreground">
-                        {selected.studentNumber}
-                      </span>
-                    ) : null}
-                  </div>
-                  <Button
-                    variant="link"
-                    size="sm"
-                    className="h-auto shrink-0 p-0 font-medium"
-                    onClick={() => setStudentId('')}
-                  >
-                    Change
-                  </Button>
-                </div>
-              ) : (
-                <>
-                  <Input
-                    id="ni-student"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    placeholder="Search name or number…"
-                    autoComplete="off"
-                  />
-                  <div className="max-h-44 overflow-y-auto">
-                    {matches.length === 0 ? (
-                      <p className="px-1 py-2 text-xs text-muted-foreground">
-                        No matching students.
-                      </p>
-                    ) : (
-                      <ul className="flex flex-col gap-1">
-                        {matches.map((s) => (
-                          <li key={s.id}>
-                            <button
-                              type="button"
-                              onClick={() => setStudentId(s.id)}
-                              className="flex w-full items-center justify-between gap-2 rounded-md border border-border bg-card/60 px-2.5 py-1.5 text-left text-sm hover:border-ring/60 hover:bg-accent/40"
-                            >
-                              <span className="truncate">{s.name}</span>
-                              {s.studentNumber ? (
-                                <span className="shrink-0 text-xs text-muted-foreground">
-                                  {s.studentNumber}
-                                </span>
-                              ) : null}
-                            </button>
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ni-term">
-                  Term <span className="text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  id="ni-term"
-                  value={termName}
-                  onChange={(e) => setTermName(e.target.value)}
-                  placeholder="Spring Term"
-                  autoComplete="off"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="ni-year">
-                  Year <span className="text-muted-foreground">(optional)</span>
-                </Label>
-                <Input
-                  id="ni-year"
-                  inputMode="numeric"
-                  value={termYear}
-                  onChange={(e) => setTermYear(e.target.value)}
-                  placeholder="2025"
-                  autoComplete="off"
-                />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ni-due">
-                Due date{' '}
-                <span className="text-muted-foreground">(optional)</span>
-              </Label>
-              <Input
-                id="ni-due"
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-              />
-            </div>
-          </div>
-          <DrawerFooter className="flex-row justify-end gap-2">
-            <SheetClose asChild>
-              <Button variant="ghost" size="sm">
-                Cancel
-              </Button>
-            </SheetClose>
-            <Button size="sm" disabled={!studentId || busy} onClick={create}>
-              Create draft
-            </Button>
-          </DrawerFooter>
-        </DrawerContent>
-      </Sheet>
-      {stepUpPrompt}
-    </>
-  );
-}
