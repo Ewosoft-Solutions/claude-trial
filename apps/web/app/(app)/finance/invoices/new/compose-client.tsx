@@ -595,17 +595,28 @@ function ResumePrompt({
   const when = draft.savedAt ? new Date(draft.savedAt) : null;
   return (
     <div className="flex max-w-xl flex-col gap-4">
-      <PageHeader
-        title="Pick up where you left off?"
-        meta={[
-          {
-            key: 'when',
-            label: when
-              ? `Last edited ${when.toLocaleString('en-GB')}`
-              : 'Not yet saved to the school',
-          },
-        ]}
-      />
+      <div>
+        {/* The way out. This screen stands between the bursar and the list,
+            and without it the only exits were resuming work they may not want
+            or discarding work they may. */}
+        <Link
+          href="/finance/invoices"
+          className="mb-2 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="size-4" aria-hidden /> Invoices
+        </Link>
+        <PageHeader
+          title="Pick up where you left off?"
+          meta={[
+            {
+              key: 'when',
+              label: when
+                ? `Last edited ${when.toLocaleString('en-GB')}`
+                : 'Not yet saved to the school',
+            },
+          ]}
+        />
+      </div>
       <div className="flex flex-col gap-2 rounded-[var(--radius-md)] border border-border bg-card px-4 py-3 text-sm">
         <span className="font-medium">
           {student?.name ?? 'An invoice with no student chosen'}

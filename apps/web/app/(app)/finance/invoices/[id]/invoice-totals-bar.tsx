@@ -21,6 +21,10 @@
    beside the figure, not in a page header two scroll-lengths away. Actions on
    the finished document — download, share — are not composition and stay in
    the page header.
+
+   Their save state sits ABOVE them rather than beside them. Inline, the label
+   changes width as it changes text ("All changes saved" ⇄ "Unsaved changes")
+   and shoved the buttons sideways every time a draft was touched.
    ============================================================ */
 
 import * as React from 'react';
@@ -51,7 +55,7 @@ function Row({
   className?: string;
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-6">
+    <div className="flex items-baseline justify-between gap-6 py-0.5">
       <span className="text-muted-foreground">{label}</span>
       <span className={cn('tabular-nums text-foreground', className)}>
         {value}
@@ -82,12 +86,8 @@ export function InvoiceTotalsBar({
       aria-label="Invoice totals"
       className="sticky bottom-0 z-10 flex flex-wrap items-end justify-between gap-4 border-t border-border bg-card/85 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/70"
     >
-      {actions ? (
-        <div className="flex flex-wrap items-center gap-2">{actions}</div>
-      ) : (
-        <span />
-      )}
-      <div className="w-full max-w-xs text-[calc(12.5px*var(--font-scale))]">
+      {actions ? <div className="flex flex-col gap-2">{actions}</div> : <span />}
+      <div className="w-full max-w-sm text-[calc(14px*var(--font-scale))]">
         <Row label="Lines" value={formatCount(lineCount)} />
         <Row label="Total quantity" value={formatCount(quantityTotal)} />
         <Row label="Billed" value={naira(fin.gross)} />
@@ -103,8 +103,8 @@ export function InvoiceTotalsBar({
         ) : null}
 
         {/* The one figure the whole surface exists to keep honest. */}
-        <div className="mt-2 flex items-baseline justify-between gap-6 border-t border-border pt-2">
-          <span className="font-semibold text-muted-foreground">
+        <div className="mt-2.5 flex items-baseline justify-between gap-6 border-t border-border pt-2.5">
+          <span className="text-[calc(15px*var(--font-scale))] font-semibold text-muted-foreground">
             {fin.overpaid > 0 ? 'Credit' : 'Amount due'}
           </span>
           {/* Weight carries the emphasis, not colour: an ordinary unpaid
@@ -113,7 +113,7 @@ export function InvoiceTotalsBar({
               nothing here; credit still reads as good news. */}
           <span
             className={cn(
-              'text-[calc(19px*var(--font-scale))] font-bold tabular-nums',
+              'text-[calc(23px*var(--font-scale))] font-bold tabular-nums',
               fin.overpaid > 0 ? 'text-success' : 'text-foreground',
             )}
           >

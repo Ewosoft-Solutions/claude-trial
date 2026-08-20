@@ -493,25 +493,29 @@ function DraftActions({
 
   return (
     <>
+      {/* Above the buttons, not beside them: the label changes width with its
+          text, so inline it nudged the buttons sideways on every edit. */}
       <span
         className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground"
         role="status"
       >
         {dirty ? 'Unsaved changes' : 'All changes saved'}
       </span>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={!dirty || busy}
-        onClick={() => void onSave()}
-      >
-        Update draft
-      </Button>
-      <IssueInvoiceButton
-        invoiceId={invoiceId}
-        disabled={busy}
-        beforeIssue={dirty ? save : undefined}
-      />
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={!dirty || busy}
+          onClick={() => void onSave()}
+        >
+          Update draft
+        </Button>
+        <IssueInvoiceButton
+          invoiceId={invoiceId}
+          disabled={busy}
+          beforeIssue={dirty ? save : undefined}
+        />
+      </div>
     </>
   );
 }
