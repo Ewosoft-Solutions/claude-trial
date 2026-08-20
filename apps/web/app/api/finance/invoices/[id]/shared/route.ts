@@ -14,8 +14,5 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  return proxyPost(
-    req,
-    `/finance/invoices/${encodeURIComponent(id)}/shared`,
-  );
+  return proxyPost(req, `/finance/invoices/${encodeURIComponent(id)}/shared`);
 }

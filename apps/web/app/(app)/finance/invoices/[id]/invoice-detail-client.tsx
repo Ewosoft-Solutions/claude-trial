@@ -61,11 +61,7 @@ import { InvoiceTotalsBar, type InvoiceTotals } from './invoice-totals-bar';
 import { BilledToBlock, type BilledTo } from '../billed-to';
 import { InvoiceDocumentActions } from './invoice-document-actions';
 import { stepQuantity } from '@/lib/invoice-lines';
-import {
-  LineEntryCard,
-  LineEntryRow,
-  useLineEntry,
-} from '../line-entry';
+import { LineEntryCard, LineEntryRow, useLineEntry } from '../line-entry';
 import { QuantityField } from '../quantity-field';
 import {
   PENDING_PREFIX,

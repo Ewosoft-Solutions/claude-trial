@@ -153,7 +153,8 @@ export function activeFilterEntries(
       if (!from && !to) return { filter, value: undefined };
       return {
         filter,
-        value: from && to ? `${from} → ${to}` : from ? `from ${from}` : `to ${to}`,
+        value:
+          from && to ? `${from} → ${to}` : from ? `from ${from}` : `to ${to}`,
       };
     })
     .filter((x): x is { filter: ToolbarFilter; value: string } => {
@@ -219,10 +220,7 @@ export function DirectoryToolbar({
                 type="date"
                 value={filterValues[`${filter.key}${edge}`] ?? ''}
                 onChange={(e) =>
-                  setFilterValue(
-                    `${filter.key}${edge}`,
-                    e.target.value || null,
-                  )
+                  setFilterValue(`${filter.key}${edge}`, e.target.value || null)
                 }
                 className="h-8 rounded-[var(--radius-sm)] border border-input bg-background px-2 text-foreground"
               />

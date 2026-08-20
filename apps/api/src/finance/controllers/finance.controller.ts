@@ -36,10 +36,7 @@ import {
   ListReceiptsDto,
   RecordReceiptDto,
 } from '../dto/receipt.dto';
-import {
-  RecordShareDto,
-  UpdateDraftContentsDto,
-} from '../dto/catalogue.dto';
+import { RecordShareDto, UpdateDraftContentsDto } from '../dto/catalogue.dto';
 import type { Response } from 'express';
 import type { AuthenticatedRequest } from 'src/auth';
 import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
@@ -135,7 +132,9 @@ export class FinanceController {
   @UseGuards(StepUpGuard)
   @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_FEE_STRUCTURE_UPDATE)
   @RequirePermissions(['finance.manage'])
-  @ApiOperation({ summary: 'Create an invoice with its lines, optionally issued' })
+  @ApiOperation({
+    summary: 'Create an invoice with its lines, optionally issued',
+  })
   async composeInvoice(
     @Body() dto: ComposeInvoiceDto,
     @Request() req: AuthenticatedRequest,
@@ -155,7 +154,9 @@ export class FinanceController {
    */
   @Patch('invoices/:id/header')
   @RequirePermissions(['finance.manage'])
-  @ApiOperation({ summary: "Correct a draft invoice's term, due date or notes" })
+  @ApiOperation({
+    summary: "Correct a draft invoice's term, due date or notes",
+  })
   async updateInvoiceHeader(
     @Param('id') id: string,
     @Body() dto: UpdateInvoiceHeaderDto,

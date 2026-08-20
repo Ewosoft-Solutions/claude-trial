@@ -87,8 +87,7 @@ export function useLineEntry({
     ? koboFromNaira(amount)
     : (picked?.defaultAmount ?? null);
   const canAdd = picked != null && amountKobo != null && amountKobo > 0;
-  const lineTotal =
-    amountKobo != null ? naira(amountKobo * quantity) : '—';
+  const lineTotal = amountKobo != null ? naira(amountKobo * quantity) : '—';
 
   const submit = () => {
     if (!canAdd || amountKobo == null || picked == null) return;
@@ -141,7 +140,11 @@ function ItemSelect({
 }) {
   return (
     <Select value={entry.feeItemId} onValueChange={entry.pickItem}>
-      <SelectTrigger ref={entry.itemRef} aria-label="Fee item" className={className}>
+      <SelectTrigger
+        ref={entry.itemRef}
+        aria-label="Fee item"
+        className={className}
+      >
         <SelectValue placeholder="Add a fee item…" />
       </SelectTrigger>
       <SelectContent>

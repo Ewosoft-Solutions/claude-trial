@@ -51,11 +51,7 @@ import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as naira, koboFromNaira } from '@/lib/format';
 import { MIN_QUANTITY } from '@/lib/invoice-lines';
-import {
-  LineEntryCard,
-  LineEntryRow,
-  useLineEntry,
-} from '../line-entry';
+import { LineEntryCard, LineEntryRow, useLineEntry } from '../line-entry';
 import { QuantityField } from '../quantity-field';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../../_shared/use-step-up-action';
@@ -311,9 +307,7 @@ export function ComposeClient({
                         onChange={(next) =>
                           patch({
                             lines: draft.lines.map((l) =>
-                              l.key === line.key
-                                ? { ...l, quantity: next }
-                                : l,
+                              l.key === line.key ? { ...l, quantity: next } : l,
                             ),
                           })
                         }

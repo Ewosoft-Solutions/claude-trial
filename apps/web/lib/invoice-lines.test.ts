@@ -1,10 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import {
-  deriveFinancials,
-  parseQuantity,
-  stepQuantity,
-} from './invoice-lines';
+import { deriveFinancials, parseQuantity, stepQuantity } from './invoice-lines';
 
 const lines = [
   { id: 'a', amount: 150_000_00, quantity: 2 },

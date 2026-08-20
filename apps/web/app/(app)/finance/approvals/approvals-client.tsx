@@ -69,9 +69,7 @@ const STATUS_TONE: Record<string, StateTone> = {
 
 /** How long it has been waiting — the thing a queue is judged on. */
 function waitingFor(iso: string): string {
-  const days = Math.floor(
-    (Date.now() - new Date(iso).getTime()) / 86_400_000,
-  );
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
   if (days <= 0) return 'today';
   if (days === 1) return '1 day';
   return `${days} days`;
@@ -101,18 +99,12 @@ export function ApprovalsClient({
     [router, pathname],
   );
 
-  const {
-    state,
-    setFilter,
-    setFilters,
-    setPage,
-    setPageSize,
-    toggleSort,
-  } = useDirectoryState({
-    searchParams,
-    onChange,
-    defaults: { pageSize: defaultPageSize },
-  });
+  const { state, setFilter, setFilters, setPage, setPageSize, toggleSort } =
+    useDirectoryState({
+      searchParams,
+      onChange,
+      defaults: { pageSize: defaultPageSize },
+    });
 
   const columns: DirectoryColumn<ApprovalRow>[] = [
     {
@@ -287,9 +279,13 @@ function DecideButtons({ row }: { row: ApprovalRow }) {
       // The API refuses when the approver is the person who asked (maker ≠
       // checker). Saying exactly that beats a bare status code.
       if (!res.ok) {
-        throw new Error(await apiErrorMessage(res, 'Could not record decision'));
+        throw new Error(
+          await apiErrorMessage(res, 'Could not record decision'),
+        );
       }
-      toast.success(open === 'approve' ? 'Discount approved' : 'Request rejected');
+      toast.success(
+        open === 'approve' ? 'Discount approved' : 'Request rejected',
+      );
       setOpen(null);
       setReason('');
       router.refresh();
@@ -323,7 +319,9 @@ function DecideButtons({ row }: { row: ApprovalRow }) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>
-              {open === 'approve' ? 'Approve this discount?' : 'Reject this request?'}
+              {open === 'approve'
+                ? 'Approve this discount?'
+                : 'Reject this request?'}
             </DialogTitle>
             <DialogDescription>
               {naira(row.amount)} off {row.invoiceNumber}
@@ -335,8 +333,7 @@ function DecideButtons({ row }: { row: ApprovalRow }) {
           {open === 'reject' ? (
             <div className="flex flex-col gap-1.5 py-2">
               <Label htmlFor="reject-reason">
-                Reason{' '}
-                <span className="text-muted-foreground">(optional)</span>
+                Reason <span className="text-muted-foreground">(optional)</span>
               </Label>
               <Input
                 id="reject-reason"

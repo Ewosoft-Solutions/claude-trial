@@ -125,7 +125,11 @@ export class InvoiceDocumentService {
       // `bufferPages` keeps every page open until `end()`, which is what lets
       // the footer be stamped on all of them — including pages that only exist
       // because a long bill spilled over.
-      const pdf = new PDFDocument({ margin: 48, size: 'A4', bufferPages: true });
+      const pdf = new PDFDocument({
+        margin: 48,
+        size: 'A4',
+        bufferPages: true,
+      });
       const chunks: Buffer[] = [];
       pdf.on('data', (c: Buffer) => chunks.push(c));
       pdf.on('end', () => resolve(Buffer.concat(chunks)));
@@ -225,7 +229,11 @@ export class InvoiceDocumentService {
 
       pdf.fillColor('#666');
       row(['ITEM', 'UNIT', 'QTY', 'AMOUNT'], { bold: true, size: 8 });
-      pdf.moveTo(left, y - 3).lineTo(right, y - 3).strokeColor('#ddd').stroke();
+      pdf
+        .moveTo(left, y - 3)
+        .lineTo(right, y - 3)
+        .strokeColor('#ddd')
+        .stroke();
 
       for (const line of doc.lines) {
         row([
@@ -277,11 +285,7 @@ export class InvoiceDocumentService {
       if (doc.totals.paid > 0) money('Paid', naira(doc.totals.paid));
 
       y += 2;
-      pdf
-        .moveTo(totalsX, y)
-        .lineTo(right, y)
-        .strokeColor('#999')
-        .stroke();
+      pdf.moveTo(totalsX, y).lineTo(right, y).strokeColor('#999').stroke();
       y += 8;
       pdf.font('Helvetica-Bold').fontSize(12).fillColor('#000');
       const owed =

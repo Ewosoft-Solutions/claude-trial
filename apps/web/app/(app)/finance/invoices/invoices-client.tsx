@@ -86,9 +86,7 @@ const STATUS_META: Record<InvoiceStatus, { label: string; tone: StateTone }> = {
  */
 function scopeMeta(term: string | undefined, total: number): PageHeaderMeta[] {
   const label =
-    term === UNTERMED_VALUE
-      ? 'Not filed under a term'
-      : (term ?? 'All terms');
+    term === UNTERMED_VALUE ? 'Not filed under a term' : (term ?? 'All terms');
   return [
     { key: 'term', label, emphasis: true },
     {
@@ -419,4 +417,3 @@ export function InvoicesClient({
     </ShellMain>
   );
 }
-

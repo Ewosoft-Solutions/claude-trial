@@ -86,7 +86,11 @@ export function InvoiceTotalsBar({
       aria-label="Invoice totals"
       className="sticky bottom-0 z-10 flex flex-wrap items-end justify-between gap-4 border-t border-border bg-card/85 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-card/70"
     >
-      {actions ? <div className="flex flex-col gap-2">{actions}</div> : <span />}
+      {actions ? (
+        <div className="flex flex-col gap-2">{actions}</div>
+      ) : (
+        <span />
+      )}
       <div className="w-full max-w-sm text-[calc(14px*var(--font-scale))]">
         <Row label="Lines" value={formatCount(lineCount)} />
         <Row label="Total quantity" value={formatCount(quantityTotal)} />

@@ -152,7 +152,10 @@ describe('Finance routes — what stands between a caller and the money', () => 
     // Seeing the queue is not the authority to act on it.
     it('the approvals queue is readable with finance.view', () => {
       expect(
-        permissionsOn(FinanceAdjustmentController.prototype, 'listAdjustmentQueue'),
+        permissionsOn(
+          FinanceAdjustmentController.prototype,
+          'listAdjustmentQueue',
+        ),
       ).toEqual(['finance.view']);
       expect(
         stepUpOn(FinanceAdjustmentController.prototype, 'listAdjustmentQueue'),

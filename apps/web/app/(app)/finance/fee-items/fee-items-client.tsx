@@ -214,9 +214,7 @@ export function FeeItemsClient({ items, canManage }: Props) {
       sortable: true,
       cell: (i) => {
         if (i.pricingMode === 'open') {
-          return (
-            <span className="text-muted-foreground">Per invoice</span>
-          );
+          return <span className="text-muted-foreground">Per invoice</span>;
         }
         // A fixed item with no price cannot be billed, and that is worth
         // saying here rather than leaving a bursar to discover it mid-invoice.
@@ -368,8 +366,7 @@ function AddFeeItemDialog() {
   const [code, setCode] = React.useState('');
   const [name, setName] = React.useState('');
   const [amount, setAmount] = React.useState('');
-  const [pricingMode, setPricingMode] =
-    React.useState<FeePricingMode>('fixed');
+  const [pricingMode, setPricingMode] = React.useState<FeePricingMode>('fixed');
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {

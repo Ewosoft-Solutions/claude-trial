@@ -252,7 +252,10 @@ describe('FinanceService.updateInvoiceHeader', () => {
       'user-1',
     );
     const { data } = update.mock.calls[0][0];
-    expect(data).toMatchObject({ termName: 'Spring Term', updatedBy: 'user-1' });
+    expect(data).toMatchObject({
+      termName: 'Spring Term',
+      updatedBy: 'user-1',
+    });
     // Absent keys must not be written, or editing one field would blank another.
     expect(data).not.toHaveProperty('dueDate');
     expect(data).not.toHaveProperty('termYear');

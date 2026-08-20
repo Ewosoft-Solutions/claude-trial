@@ -46,7 +46,9 @@ export function studentName(student: ApiStudent): string {
 }
 
 /** The active enrollment's class, for labelling a row. */
-export function studentClass(student: ApiStudent | undefined): string | undefined {
+export function studentClass(
+  student: ApiStudent | undefined,
+): string | undefined {
   const enrollment =
     student?.enrollments?.find((item) => item.status === 'active') ??
     student?.enrollments?.[0];

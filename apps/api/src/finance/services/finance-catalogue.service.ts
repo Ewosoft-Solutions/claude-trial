@@ -391,7 +391,14 @@ export class FinanceCatalogueService {
       }
 
       if (before.amount !== amount) {
-        await this.recordPriceOverride(tenantId, line.id, before, item, amount, userId);
+        await this.recordPriceOverride(
+          tenantId,
+          line.id,
+          before,
+          item,
+          amount,
+          userId,
+        );
       }
 
       await this.client.feeInvoiceLine.update({

@@ -109,7 +109,9 @@ export class FinanceAdjustmentController {
    */
   @Get('adjustments')
   @RequirePermissions(['finance.view'])
-  @ApiOperation({ summary: 'List discretionary adjustments awaiting a decision' })
+  @ApiOperation({
+    summary: 'List discretionary adjustments awaiting a decision',
+  })
   listAdjustmentQueue(
     @Query() query: ListAdjustmentsDto,
     @Request() req: AuthenticatedRequest,

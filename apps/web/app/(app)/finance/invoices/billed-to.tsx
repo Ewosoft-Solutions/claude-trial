@@ -71,4 +71,3 @@ export function BilledToBlock({ billedTo }: { billedTo: BilledTo }) {
     </div>
   );
 }
-

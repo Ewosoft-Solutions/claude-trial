@@ -507,7 +507,10 @@ export class FinanceService {
       resourceId: id,
       actorId: userId,
       description: `Draft invoice ${invoice.invoiceNumber} saved with ${lines.length} line(s)`,
-      metadata: { invoiceNumber: invoice.invoiceNumber, lineCount: lines.length },
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        lineCount: lines.length,
+      },
     });
 
     return this.getInvoice(tenantId, id);

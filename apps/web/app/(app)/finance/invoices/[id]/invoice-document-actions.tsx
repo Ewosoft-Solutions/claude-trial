@@ -62,7 +62,8 @@ export function InvoiceDocumentActions({
 
   const fetchPdf = async (): Promise<Blob> => {
     const res = await authedFetch(`/api/finance/invoices/${invoiceId}/pdf`);
-    if (!res.ok) throw new Error(`Could not render the invoice (${res.status})`);
+    if (!res.ok)
+      throw new Error(`Could not render the invoice (${res.status})`);
     return res.blob();
   };
 
