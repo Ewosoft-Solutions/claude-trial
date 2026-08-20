@@ -233,6 +233,15 @@ export class ComposeInvoiceDto {
   issue?: boolean;
 }
 
+/**
+ * Reserved `termName` meaning "filed under no term at all".
+ *
+ * A sentinel rather than a separate flag so one control on the list can offer
+ * every term plus this, and the URL stays one parameter. Chosen to be
+ * implausible as a real term name.
+ */
+export const UNTERMED = '__untermed__';
+
 export class ListInvoicesDto {
   @ApiPropertyOptional({ example: 'a1b2c3d4-e5f6-4789-9abc-def012345678' })
   @IsOptional()

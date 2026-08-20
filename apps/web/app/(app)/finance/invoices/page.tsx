@@ -53,6 +53,10 @@ interface InvoiceSummary {
   totalCollected: number;
   totalOutstanding: number;
   statusCounts: Record<string, number>;
+  /** Terms invoices are actually filed under, for the Term filter. */
+  terms?: string[];
+  /** How many are filed under no term at all. */
+  untermedCount?: number;
 }
 
 function formatDate(iso: string | null | undefined): string | undefined {
@@ -77,7 +81,12 @@ export default async function InvoicesPage({
     defaultPageSize: DEFAULT_PAGE_SIZE,
     // The two ends of the range travel as their own params, so either half
     // can stand alone.
-    filters: { status: 'status', dueFrom: 'dueFrom', dueTo: 'dueTo' },
+    filters: {
+      status: 'status',
+      dueFrom: 'dueFrom',
+      dueTo: 'dueTo',
+      term: 'termName',
+    },
   });
 
   const [list, summary, roster, session] = await Promise.all([
@@ -132,6 +141,8 @@ export default async function InvoicesPage({
 
   return (
     <InvoicesClient
+      terms={summary?.terms ?? []}
+      untermedCount={summary?.untermedCount ?? 0}
       invoices={invoices}
       total={list?.pagination.total ?? 0}
       defaultPageSize={DEFAULT_PAGE_SIZE}

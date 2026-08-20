@@ -23,6 +23,7 @@ import {
 import {
   CreateInvoiceDto,
   ListInvoicesDto,
+  UNTERMED,
   ComposeInvoiceDto,
   UpdateInvoiceDto,
   UpdateInvoiceHeaderDto,
@@ -72,7 +73,12 @@ export class FinanceService {
     if (query.studentId) where['studentId'] = query.studentId;
     if (query.classId) where['classId'] = query.classId;
     if (query.status) where['status'] = query.status;
-    if (query.termName) where['termName'] = query.termName;
+    // A reserved value, because "no term" cannot be expressed as a term name.
+    // Drafts are routinely opened before anyone has decided which term they
+    // belong to, and they have to be findable on purpose rather than by
+    // clearing every filter.
+    if (query.termName === UNTERMED) where['termName'] = null;
+    else if (query.termName) where['termName'] = query.termName;
     // A one-sided range is normal — "anything due before the holidays" has no
     // start — so each bound is applied independently. `dueTo` covers the whole
     // of its day: a date-only bound parses to midnight, which would otherwise
@@ -876,6 +882,18 @@ export class FinanceService {
       statusCounts[inv.status] = (statusCounts[inv.status] ?? 0) + 1;
     }
 
+    // The terms invoices are ACTUALLY filed under, so the list can offer a
+    // real scope. Read from the invoices themselves rather than the academic
+    // calendar: `termName` is a denormalised snapshot, so a bill can carry a
+    // term string the calendar no longer has — and offering a term nothing is
+    // filed under would be a filter that always returns nothing.
+    const termRows = await this.client.feeInvoice.findMany({
+      where: { tenantId },
+      distinct: ['termName'],
+      select: { termName: true },
+      orderBy: { termName: 'asc' },
+    });
+
     return {
       totalInvoices: invoices.length,
       totalBilled,
@@ -883,6 +901,17 @@ export class FinanceService {
       totalCollected,
       totalOutstanding,
       statusCounts,
+      terms: termRows
+        .map((row) => row.termName)
+        .filter((name): name is string => Boolean(name)),
+      // Invoices filed under no term at all — drafts opened before anyone
+      // decided which term they belong to. Without this they are reachable
+      // only by clearing every filter, which is not "finding" them.
+      untermedCount: termRows.some((row) => !row.termName)
+        ? await this.client.feeInvoice.count({
+            where: { tenantId, termName: null },
+          })
+        : 0,
     };
   }
 

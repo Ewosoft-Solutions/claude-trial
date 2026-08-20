@@ -74,10 +74,32 @@ const STATUS_META: Record<InvoiceStatus, { label: string; tone: StateTone }> = {
   cancelled: { label: 'Cancelled', tone: 'neutral' },
 };
 
-const META: PageHeaderMeta[] = [
-  { key: 'term', label: 'Spring Term 2025', emphasis: true },
-  { key: 'cycle', label: 'billing cycle 1' },
-];
+/**
+ * What the header says about scope.
+ *
+ * It used to read "Spring Term 2025 · billing cycle 1" — hardcoded, while the
+ * list showed every invoice from every term including ones filed under none.
+ * A header that names a scope the list does not apply is worse than no header:
+ * a bursar reading it believes they are looking at one term's billing.
+ *
+ * It now states what is actually on screen, and follows the Term filter.
+ */
+function scopeMeta(term: string | undefined, total: number): PageHeaderMeta[] {
+  const label =
+    term === UNTERMED_VALUE
+      ? 'Not filed under a term'
+      : (term ?? 'All terms');
+  return [
+    { key: 'term', label, emphasis: true },
+    {
+      key: 'count',
+      label: `${total} ${total === 1 ? 'invoice' : 'invoices'}`,
+    },
+  ];
+}
+
+/** Mirrors the API's reserved value for "filed under no term at all". */
+const UNTERMED_VALUE = '__untermed__';
 
 /** Compact Naira formatting from kobo (minor units). */
 interface Props {
@@ -86,6 +108,10 @@ interface Props {
   defaultPageSize: number;
   stats: InvoiceStats;
   canManage: boolean;
+  /** Terms invoices are actually filed under. */
+  terms: string[];
+  /** Invoices with no term — drafts opened before anyone chose one. */
+  untermedCount: number;
 }
 
 export function InvoicesClient({
@@ -94,6 +120,8 @@ export function InvoicesClient({
   defaultPageSize,
   stats,
   canManage,
+  terms,
+  untermedCount,
 }: Props) {
   const router = useRouter();
   const pathname = usePathname();
@@ -136,6 +164,7 @@ export function InvoicesClient({
   const hasFilters =
     state.q.trim() !== '' ||
     statusFilter !== 'all' ||
+    Boolean(state.filters.term) ||
     Boolean(state.filters.dueFrom) ||
     Boolean(state.filters.dueTo);
 
@@ -287,7 +316,7 @@ export function InvoicesClient({
       <div className="flex flex-col gap-5">
         <PageHeader
           title="Invoices"
-          meta={META}
+          meta={scopeMeta(state.filters.term ?? undefined, total)}
           actions={
             <>
               <Button variant="outline" size="sm">
@@ -330,6 +359,23 @@ export function InvoicesClient({
           }}
           filters={[
             {
+              key: 'term',
+              label: 'Term',
+              options: [
+                ...terms.map((t) => ({ value: t, label: t })),
+                // Offered only when something is actually filed under no term,
+                // so the option never sends anyone to an empty list.
+                ...(untermedCount > 0
+                  ? [
+                      {
+                        value: UNTERMED_VALUE,
+                        label: `Not filed under a term (${untermedCount})`,
+                      },
+                    ]
+                  : []),
+              ],
+            },
+            {
               key: 'due',
               label: 'Due',
               type: 'dateRange',
@@ -350,6 +396,9 @@ export function InvoicesClient({
           filterValues={state.filters}
           onFilterChange={setFilter}
           onClearFilters={() => setFilters({})}
+          // Matches every other directory: the row opens the record. The
+          // invoice-number link stays for opening in a new tab.
+          onRowClick={(inv) => router.push(`/finance/invoices/${inv.id}`)}
           emptyState={
             <EmptyState
               compact
