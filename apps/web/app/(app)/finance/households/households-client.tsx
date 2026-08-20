@@ -10,18 +10,20 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Plus, Sparkles } from 'lucide-react';
 
+import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
@@ -293,49 +295,51 @@ function NewHouseholdDialog() {
   }, [open]);
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden /> New household
       </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Create a household</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Create a household</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             A family billing account. Add students and payers on the next
             screen.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="hh-name">Name</Label>
-            <Input
-              id="hh-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Okafor family"
-              autoComplete="off"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="hh-payer">
-              Primary payer name{' '}
-              <span className="text-muted-foreground">(optional)</span>
-            </Label>
-            <Input
-              id="hh-payer"
-              value={payer}
-              onChange={(e) => setPayer(e.target.value)}
-              placeholder="Mrs. Amaka Okafor"
-              autoComplete="off"
-            />
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="hh-name">Name</Label>
+              <Input
+                id="hh-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Okafor family"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="hh-payer">
+                Primary payer name{' '}
+                <span className="text-muted-foreground">(optional)</span>
+              </Label>
+              <Input
+                id="hh-payer"
+                value={payer}
+                onChange={(e) => setPayer(e.target.value)}
+                placeholder="Mrs. Amaka Okafor"
+                autoComplete="off"
+              />
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={name.trim() === '' || busy}
@@ -371,8 +375,8 @@ function NewHouseholdDialog() {
           >
             Create
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }

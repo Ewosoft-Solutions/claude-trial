@@ -20,6 +20,13 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { CalendarPlus, Plus } from 'lucide-react';
 
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
@@ -37,14 +44,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@workspace/ui/components/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import {
@@ -586,102 +585,108 @@ export function LessonLibraryClient({
       </Tabs>
 
       {/* ------------------------------------------------ chapter dialog */}
-      <Dialog open={chapterOpen} onOpenChange={setChapterOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>New chapter</DialogTitle>
-            <DialogDescription>
+      <Sheet open={chapterOpen} onOpenChange={setChapterOpen}>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">New chapter</DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Chapters group this subject’s lessons — the unit a teacher and a
               student both think in.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ch-title">Title</Label>
-              <Input
-                id="ch-title"
-                value={chapterTitle}
-                onChange={(e) => setChapterTitle(e.target.value)}
-                placeholder="Chapter 3 — Fractions"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="ch-desc">Description (optional)</Label>
-              <Textarea
-                id="ch-desc"
-                value={chapterDesc}
-                onChange={(e) => setChapterDesc(e.target.value)}
-                rows={3}
-              />
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+            <div className="flex flex-col gap-4 py-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ch-title">Title</Label>
+                <Input
+                  id="ch-title"
+                  value={chapterTitle}
+                  onChange={(e) => setChapterTitle(e.target.value)}
+                  placeholder="Chapter 3 — Fractions"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="ch-desc">Description (optional)</Label>
+                <Textarea
+                  id="ch-desc"
+                  value={chapterDesc}
+                  onChange={(e) => setChapterDesc(e.target.value)}
+                  rows={3}
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DrawerFooter className="flex-row justify-end gap-2">
             <Button
               onClick={createChapter}
               disabled={busy || !chapterTitle.trim()}
             >
               Add chapter
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Sheet>
 
       {/* ----------------------------------------------- schedule dialog */}
-      <Dialog
+      <Sheet
         open={scheduleFor !== null}
         onOpenChange={(open) => !open && setScheduleFor(null)}
       >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Schedule “{scheduleFor?.title}”</DialogTitle>
-            <DialogDescription>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">
+              Schedule “{scheduleFor?.title}”
+            </DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               The class gets its own plan entry. The lesson itself stays in the
               library, so every other class keeps the same content — and its
               materials are never processed twice.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col gap-4 py-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="sch-offering">Class</Label>
-              <Select
-                value={scheduleOffering}
-                onValueChange={setScheduleOffering}
-              >
-                <SelectTrigger id="sch-offering">
-                  <SelectValue placeholder="Choose a class" />
-                </SelectTrigger>
-                <SelectContent>
-                  {eligibleOfferings.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {sectionLabel(o)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {eligibleOfferings.length === 0 && (
-                <p className="text-xs text-muted-foreground">
-                  No class is offering this subject yet — add an offering in
-                  Academic structure first.
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="sch-date">Date (optional)</Label>
-              <Input
-                id="sch-date"
-                type="date"
-                value={scheduleDate}
-                onChange={(e) => setScheduleDate(e.target.value)}
-              />
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+            <div className="flex flex-col gap-4 py-2">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="sch-offering">Class</Label>
+                <Select
+                  value={scheduleOffering}
+                  onValueChange={setScheduleOffering}
+                >
+                  <SelectTrigger id="sch-offering">
+                    <SelectValue placeholder="Choose a class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {eligibleOfferings.map((o) => (
+                      <SelectItem key={o.id} value={o.id}>
+                        {sectionLabel(o)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {eligibleOfferings.length === 0 && (
+                  <p className="text-xs text-muted-foreground">
+                    No class is offering this subject yet — add an offering in
+                    Academic structure first.
+                  </p>
+                )}
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="sch-date">Date (optional)</Label>
+                <Input
+                  id="sch-date"
+                  type="date"
+                  value={scheduleDate}
+                  onChange={(e) => setScheduleDate(e.target.value)}
+                />
+              </div>
             </div>
           </div>
-          <DialogFooter>
+          <DrawerFooter className="flex-row justify-end gap-2">
             <Button onClick={schedule} disabled={busy || !scheduleOffering}>
               Schedule
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Sheet>
     </ShellMain>
   );
 }

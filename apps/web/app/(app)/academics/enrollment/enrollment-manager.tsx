@@ -13,6 +13,13 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { GraduationCap, UserPlus } from 'lucide-react';
 
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Label } from '@workspace/ui/components/label';
 import {
@@ -31,13 +38,6 @@ import {
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 
 export interface ResolvedModel {
   model: 'class' | 'course';
@@ -214,79 +214,83 @@ export function EnrollmentManager({
       </Card>
 
       {canManage && model.model === 'class' && (
-        <Dialog open={enrolOpen} onOpenChange={setEnrolOpen}>
-          <DialogContent className="sm:max-w-xl">
-            <DialogHeader>
-              <DialogTitle>Enrol into a section</DialogTitle>
-              <DialogDescription>
+        <Sheet open={enrolOpen} onOpenChange={setEnrolOpen}>
+          <DrawerContent>
+            <DrawerHeader className="gap-1.5">
+              <DrawerTitle className="pr-8">Enrol into a section</DrawerTitle>
+              <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
                 The student takes the section&apos;s subject offerings as a set.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="py-2">
-              {students.length === 0 ||
-              sections.length === 0 ||
-              years.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  Need at least one student, one class section and one academic
-                  year before you can enroll.
-                </p>
-              ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="en-student">Student</Label>
-                    <Select value={studentId} onValueChange={setStudentId}>
-                      <SelectTrigger id="en-student">
-                        <SelectValue placeholder="Choose student" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {students.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {studentLabel(s)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+              </SheetDescription>
+            </DrawerHeader>
+            <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+              <div className="py-2">
+                {students.length === 0 ||
+                sections.length === 0 ||
+                years.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Need at least one student, one class section and one
+                    academic year before you can enroll.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="en-student">Student</Label>
+                      <Select value={studentId} onValueChange={setStudentId}>
+                        <SelectTrigger id="en-student">
+                          <SelectValue placeholder="Choose student" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {students.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {studentLabel(s)}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="en-section">Section</Label>
+                      <Select value={sectionId} onValueChange={setSectionId}>
+                        <SelectTrigger id="en-section">
+                          <SelectValue placeholder="Choose section" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {sections.map((s) => (
+                            <SelectItem key={s.id} value={s.id}>
+                              {s.displayLabel}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label htmlFor="en-year">Academic year</Label>
+                      <Select value={yearId} onValueChange={setYearId}>
+                        <SelectTrigger id="en-year">
+                          <SelectValue placeholder="Choose year" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {years.map((y) => (
+                            <SelectItem key={y.id} value={y.id}>
+                              {y.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="en-section">Section</Label>
-                    <Select value={sectionId} onValueChange={setSectionId}>
-                      <SelectTrigger id="en-section">
-                        <SelectValue placeholder="Choose section" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {sections.map((s) => (
-                          <SelectItem key={s.id} value={s.id}>
-                            {s.displayLabel}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="en-year">Academic year</Label>
-                    <Select value={yearId} onValueChange={setYearId}>
-                      <SelectTrigger id="en-year">
-                        <SelectValue placeholder="Choose year" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {years.map((y) => (
-                          <SelectItem key={y.id} value={y.id}>
-                            {y.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="sm:col-span-3">
-                    <Button onClick={enroll} disabled={!canEnroll}>
-                      Enroll student
-                    </Button>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </DialogContent>
-        </Dialog>
+            {students.length > 0 && sections.length > 0 && years.length > 0 ? (
+              <DrawerFooter className="flex-row justify-end gap-2">
+                <Button onClick={enroll} disabled={!canEnroll}>
+                  Enroll student
+                </Button>
+              </DrawerFooter>
+            ) : null}
+          </DrawerContent>
+        </Sheet>
       )}
 
       {canManage && model.model === 'course' && (

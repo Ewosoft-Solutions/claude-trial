@@ -10,6 +10,13 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { Plus, ListChecks } from 'lucide-react';
 
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Label } from '@workspace/ui/components/label';
 import { Input } from '@workspace/ui/components/input';
@@ -33,14 +40,6 @@ import {
   TabsList,
   TabsTrigger,
 } from '@workspace/ui/components/tabs';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
@@ -231,71 +230,73 @@ export function ResultsWorkbench(props: {
         }
       />
 
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>New result cycle</DialogTitle>
-            <DialogDescription>
+      <Sheet open={createOpen} onOpenChange={setCreateOpen}>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">New result cycle</DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               A cycle covers a term’s results for the class sections you add to
               it.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5 sm:col-span-2">
-              <Label htmlFor="rc-name">Name</Label>
-              <Input
-                id="rc-name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. First Term Results 2026/27"
+            </SheetDescription>
+          </DrawerHeader>
+          <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+            <div className="grid grid-cols-1 gap-4 py-2 sm:grid-cols-2">
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <Label htmlFor="rc-name">Name</Label>
+                <Input
+                  id="rc-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="e.g. First Term Results 2026/27"
+                />
+              </div>
+              <PickSelect
+                id="rc-year"
+                label="Academic year"
+                value={year}
+                onChange={(v) => {
+                  setYear(v);
+                  setTerm('');
+                }}
+                options={props.years}
+              />
+              <PickSelect
+                id="rc-term"
+                label="Term (optional)"
+                value={term}
+                onChange={setTerm}
+                options={terms}
+                placeholder="Year-long"
+                disabled={!year}
+              />
+              <PickSelect
+                id="rc-level"
+                label="Year level (optional)"
+                value={level}
+                onChange={setLevel}
+                options={props.yearLevels.map((y) => ({
+                  id: y.id,
+                  name: y.code ? `${y.name} (${y.code})` : y.name,
+                }))}
+                placeholder="Any"
+              />
+              <PickSelect
+                id="rc-campus"
+                label="Campus (optional)"
+                value={campus}
+                onChange={setCampus}
+                options={props.campuses}
+                placeholder="Whole school"
               />
             </div>
-            <PickSelect
-              id="rc-year"
-              label="Academic year"
-              value={year}
-              onChange={(v) => {
-                setYear(v);
-                setTerm('');
-              }}
-              options={props.years}
-            />
-            <PickSelect
-              id="rc-term"
-              label="Term (optional)"
-              value={term}
-              onChange={setTerm}
-              options={terms}
-              placeholder="Year-long"
-              disabled={!year}
-            />
-            <PickSelect
-              id="rc-level"
-              label="Year level (optional)"
-              value={level}
-              onChange={setLevel}
-              options={props.yearLevels.map((y) => ({
-                id: y.id,
-                name: y.code ? `${y.name} (${y.code})` : y.name,
-              }))}
-              placeholder="Any"
-            />
-            <PickSelect
-              id="rc-campus"
-              label="Campus (optional)"
-              value={campus}
-              onChange={setCampus}
-              options={props.campuses}
-              placeholder="Whole school"
-            />
           </div>
-          <DialogFooter>
+          <DrawerFooter className="flex-row justify-end gap-2">
             <Button onClick={createCycle} disabled={busy || !canCreate}>
               Create cycle
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </DrawerFooter>
+        </DrawerContent>
+      </Sheet>
 
       <Card>
         <CardHeader>

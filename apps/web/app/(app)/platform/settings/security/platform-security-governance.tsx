@@ -4,6 +4,21 @@ import * as React from 'react';
 import useSWR from 'swr';
 import { GitPullRequest, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
+import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Badge } from '@workspace/ui/components/badge';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { Button } from '@workspace/ui/components/button';
@@ -15,14 +30,6 @@ import {
   CardTitle,
 } from '@workspace/ui/components/card';
 import { Checkbox } from '@workspace/ui/components/checkbox';
-import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@workspace/ui/components/drawer';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Textarea } from '@workspace/ui/components/textarea';
@@ -359,89 +366,93 @@ export function PlatformSecurityGovernance() {
         </CardContent>
       </Card>
 
-      <Drawer
+      <Sheet
         open={Boolean(editing)}
         onOpenChange={(open) => {
           if (!open) setEditing(null);
         }}
       >
-        <DrawerContent className="mx-auto max-w-xl">
-          <DrawerHeader>
-            <DrawerTitle>{editing?.label}</DrawerTitle>
-            <DrawerDescription>
+        <DrawerContent>
+          <DrawerHeader className="gap-1.5">
+            <DrawerTitle className="pr-8">{editing?.label}</DrawerTitle>
+            <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
               Configure the safeguards enforced for this operation.
-            </DrawerDescription>
+            </SheetDescription>
           </DrawerHeader>
           {editPatch ? (
-            <form className="space-y-5 px-4" onSubmit={queuePolicyUpdate}>
-              <label className="flex items-center gap-3 text-sm font-medium">
-                <Checkbox
-                  checked={editPatch.enabled}
-                  onCheckedChange={(checked) =>
-                    setEditPatch((current) =>
-                      current
-                        ? { ...current, enabled: checked === true }
-                        : current,
-                    )
-                  }
-                />
-                Rule enabled
-              </label>
-              <label className="flex items-center gap-3 text-sm font-medium">
-                <Checkbox
-                  checked={editPatch.requiresStepUp}
-                  onCheckedChange={(checked) =>
-                    setEditPatch((current) =>
-                      current
-                        ? { ...current, requiresStepUp: checked === true }
-                        : current,
-                    )
-                  }
-                />
-                Fresh identity confirmation
-              </label>
-              <label className="flex items-center gap-3 text-sm font-medium">
-                <Checkbox
-                  checked={editPatch.requiresMakerChecker}
-                  onCheckedChange={(checked) =>
-                    setEditPatch((current) =>
-                      current
-                        ? {
-                            ...current,
-                            requiresMakerChecker: checked === true,
-                          }
-                        : current,
-                    )
-                  }
-                />
-                Second-person approval
-              </label>
-              <div className="space-y-2">
-                <Label htmlFor="platform-freshness">
-                  Confirmation freshness (minutes)
-                </Label>
-                <Input
-                  id="platform-freshness"
-                  type="number"
-                  min={1}
-                  max={30}
-                  value={editPatch.freshnessMinutes}
-                  onChange={(event) =>
-                    setEditPatch((current) =>
-                      current
-                        ? {
-                            ...current,
-                            freshnessMinutes: Number(event.target.value),
-                          }
-                        : current,
-                    )
-                  }
-                />
+            /* The form wraps body AND footer so submit still works, but only
+               the body scrolls — the action bar stays pinned (§3). */
+            <form
+              className="flex min-h-0 flex-1 flex-col"
+              onSubmit={queuePolicyUpdate}
+            >
+              <div className="flex-1 space-y-5 overflow-y-auto px-5 py-5">
+                <label className="flex items-center gap-3 text-sm font-medium">
+                  <Checkbox
+                    checked={editPatch.enabled}
+                    onCheckedChange={(checked) =>
+                      setEditPatch((current) =>
+                        current
+                          ? { ...current, enabled: checked === true }
+                          : current,
+                      )
+                    }
+                  />
+                  Rule enabled
+                </label>
+                <label className="flex items-center gap-3 text-sm font-medium">
+                  <Checkbox
+                    checked={editPatch.requiresStepUp}
+                    onCheckedChange={(checked) =>
+                      setEditPatch((current) =>
+                        current
+                          ? { ...current, requiresStepUp: checked === true }
+                          : current,
+                      )
+                    }
+                  />
+                  Fresh identity confirmation
+                </label>
+                <label className="flex items-center gap-3 text-sm font-medium">
+                  <Checkbox
+                    checked={editPatch.requiresMakerChecker}
+                    onCheckedChange={(checked) =>
+                      setEditPatch((current) =>
+                        current
+                          ? {
+                              ...current,
+                              requiresMakerChecker: checked === true,
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                  Second-person approval
+                </label>
+                <div className="space-y-2">
+                  <Label htmlFor="platform-freshness">
+                    Confirmation freshness (minutes)
+                  </Label>
+                  <Input
+                    id="platform-freshness"
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={editPatch.freshnessMinutes}
+                    onChange={(event) =>
+                      setEditPatch((current) =>
+                        current
+                          ? {
+                              ...current,
+                              freshnessMinutes: Number(event.target.value),
+                            }
+                          : current,
+                      )
+                    }
+                  />
+                </div>
               </div>
-              <DrawerFooter className="px-0">
-                <Button type="submit" disabled={isPending}>
-                  Review and save
-                </Button>
+              <DrawerFooter className="flex-row justify-end gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -449,29 +460,33 @@ export function PlatformSecurityGovernance() {
                 >
                   Cancel
                 </Button>
+                <Button type="submit" disabled={isPending}>
+                  Review and save
+                </Button>
               </DrawerFooter>
             </form>
           ) : null}
         </DrawerContent>
-      </Drawer>
+      </Sheet>
 
-      <Drawer
+      {/* One decision, one field — a modal by §3, not a drawer. */}
+      <Dialog
         open={Boolean(reviewing)}
         onOpenChange={(open) => {
           if (!open) setReviewing(null);
         }}
       >
-        <DrawerContent className="mx-auto max-w-xl">
-          <DrawerHeader>
-            <DrawerTitle>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>
               {reviewing?.decision === 'approved' ? 'Approve' : 'Reject'} change
               request
-            </DrawerTitle>
-            <DrawerDescription>
+            </DialogTitle>
+            <DialogDescription>
               Your feedback is visible to {reviewing?.request.tenant?.name}.
-            </DrawerDescription>
-          </DrawerHeader>
-          <form className="space-y-4 px-4" onSubmit={queueReview}>
+            </DialogDescription>
+          </DialogHeader>
+          <form className="space-y-4" onSubmit={queueReview}>
             <div className="space-y-2">
               <Label htmlFor="platform-feedback">Decision feedback</Label>
               <Textarea
@@ -483,10 +498,7 @@ export function PlatformSecurityGovernance() {
                 required
               />
             </div>
-            <DrawerFooter className="px-0">
-              <Button type="submit" disabled={isPending || feedback.length < 3}>
-                Confirm decision
-              </Button>
+            <DialogFooter>
               <Button
                 type="button"
                 variant="ghost"
@@ -494,10 +506,13 @@ export function PlatformSecurityGovernance() {
               >
                 Cancel
               </Button>
-            </DrawerFooter>
+              <Button type="submit" disabled={isPending || feedback.length < 3}>
+                Confirm decision
+              </Button>
+            </DialogFooter>
           </form>
-        </DrawerContent>
-      </Drawer>
+        </DialogContent>
+      </Dialog>
 
       <StepUpPrompt
         open={stepUpOpen}

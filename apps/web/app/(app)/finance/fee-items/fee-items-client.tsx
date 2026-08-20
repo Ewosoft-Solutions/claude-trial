@@ -15,19 +15,21 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { Pencil, Plus } from 'lucide-react';
 
+import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Checkbox } from '@workspace/ui/components/checkbox';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@workspace/ui/components/dialog';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import {
@@ -263,67 +265,69 @@ function AddFeeItemDialog() {
   const canSubmit = codeValid && name.trim() !== '' && !busy;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button size="sm" onClick={() => setOpen(true)}>
         <Plus aria-hidden /> Add fee item
       </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Add a fee item</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Add a fee item</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             The code is a stable slug (lowercase, digits, underscore) — it is
             referenced by invoice lines and policies and cannot change later.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fi-code">Code</Label>
-            <Input
-              id="fi-code"
-              value={code}
-              onChange={(e) =>
-                setCode(e.target.value.toLowerCase().replace(/\s+/g, '_'))
-              }
-              placeholder="boarding"
-              autoComplete="off"
-            />
-            {code !== '' && !codeValid ? (
-              <p className="text-xs text-destructive">
-                Only lowercase letters, digits and underscores.
-              </p>
-            ) : null}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fi-name">Name</Label>
-            <Input
-              id="fi-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Boarding"
-              autoComplete="off"
-            />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fi-amount">
-              Default amount{' '}
-              <span className="text-muted-foreground">(₦, optional)</span>
-            </Label>
-            <Input
-              id="fi-amount"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="150000"
-              autoComplete="off"
-            />
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fi-code">Code</Label>
+              <Input
+                id="fi-code"
+                value={code}
+                onChange={(e) =>
+                  setCode(e.target.value.toLowerCase().replace(/\s+/g, '_'))
+                }
+                placeholder="boarding"
+                autoComplete="off"
+              />
+              {code !== '' && !codeValid ? (
+                <p className="text-xs text-destructive">
+                  Only lowercase letters, digits and underscores.
+                </p>
+              ) : null}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fi-name">Name</Label>
+              <Input
+                id="fi-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Boarding"
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fi-amount">
+                Default amount{' '}
+                <span className="text-muted-foreground">(₦, optional)</span>
+              </Label>
+              <Input
+                id="fi-amount"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="150000"
+                autoComplete="off"
+              />
+            </div>
           </div>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={!canSubmit}
@@ -359,9 +363,9 @@ function AddFeeItemDialog() {
           >
             Add fee item
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }
 
@@ -386,56 +390,58 @@ function EditFeeItemDialog({ item }: { item: FeeItem }) {
   const canSubmit = name.trim() !== '' && !busy;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={setOpen}>
       <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
         <Pencil aria-hidden /> Edit
       </Button>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Edit fee item</DialogTitle>
-          <DialogDescription>
+      <DrawerContent>
+        <DrawerHeader className="gap-1.5">
+          <DrawerTitle className="pr-8">Edit fee item</DrawerTitle>
+          <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
             <code className="text-xs">{item.code}</code> — the code is fixed;
             you can rename it, change its default, or archive it.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="flex flex-col gap-4 py-2">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fi-edit-name">Name</Label>
-            <Input
-              id="fi-edit-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="off"
-            />
+          </SheetDescription>
+        </DrawerHeader>
+        <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+          <div className="flex flex-col gap-4 py-2">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fi-edit-name">Name</Label>
+              <Input
+                id="fi-edit-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="fi-edit-amount">
+                Default amount{' '}
+                <span className="text-muted-foreground">(₦, optional)</span>
+              </Label>
+              <Input
+                id="fi-edit-amount"
+                inputMode="decimal"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="150000"
+                autoComplete="off"
+              />
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <Checkbox
+                checked={active}
+                onCheckedChange={(v) => setActive(Boolean(v))}
+              />
+              Active (available for new invoice lines)
+            </label>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="fi-edit-amount">
-              Default amount{' '}
-              <span className="text-muted-foreground">(₦, optional)</span>
-            </Label>
-            <Input
-              id="fi-edit-amount"
-              inputMode="decimal"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="150000"
-              autoComplete="off"
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <Checkbox
-              checked={active}
-              onCheckedChange={(v) => setActive(Boolean(v))}
-            />
-            Active (available for new invoice lines)
-          </label>
         </div>
-        <DialogFooter>
-          <DialogClose asChild>
+        <DrawerFooter className="flex-row justify-end gap-2">
+          <SheetClose asChild>
             <Button variant="ghost" size="sm">
               Cancel
             </Button>
-          </DialogClose>
+          </SheetClose>
           <Button
             size="sm"
             disabled={!canSubmit}
@@ -474,8 +480,8 @@ function EditFeeItemDialog({ item }: { item: FeeItem }) {
           >
             Save changes
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </DrawerFooter>
+      </DrawerContent>
+    </Sheet>
   );
 }

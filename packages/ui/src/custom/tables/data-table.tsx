@@ -53,6 +53,16 @@ import { Area, AreaChart, CartesianGrid, XAxis } from 'recharts';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
+import {
+  Sheet,
+  SheetClose,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@workspace/ui/components/sheet';
 import { useIsMobile } from '@workspace/ui/hooks/use-mobile';
 import { Badge } from '@workspace/ui/components/badge';
 import { Button } from '@workspace/ui/components/button';
@@ -63,16 +73,6 @@ import {
   ChartTooltipContent,
 } from '@workspace/ui/components/chart';
 import { Checkbox } from '@workspace/ui/components/checkbox';
-import {
-  Drawer,
-  DrawerClose,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-  DrawerTrigger,
-} from '@workspace/ui/components/drawer';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -657,19 +657,19 @@ function TableCellViewer({ item }: Readonly<{ item: z.infer<typeof schema> }>) {
   const isMobile = useIsMobile();
 
   return (
-    <Drawer direction={isMobile ? 'bottom' : 'right'}>
-      <DrawerTrigger asChild>
+    <Sheet>
+      <SheetTrigger asChild>
         <Button variant="link" className="text-foreground w-fit px-0 text-left">
           {item.header}
         </Button>
-      </DrawerTrigger>
-      <DrawerContent>
-        <DrawerHeader className="gap-1">
-          <DrawerTitle>{item.header}</DrawerTitle>
-          <DrawerDescription>
+      </SheetTrigger>
+      <SheetContent side={isMobile ? 'bottom' : 'right'}>
+        <SheetHeader className="gap-1">
+          <SheetTitle>{item.header}</SheetTitle>
+          <SheetDescription>
             Showing total visitors for the last 6 months
-          </DrawerDescription>
-        </DrawerHeader>
+          </SheetDescription>
+        </SheetHeader>
         <div className="flex flex-col gap-4 overflow-y-auto px-4 text-sm">
           {!isMobile && (
             <>
@@ -801,13 +801,13 @@ function TableCellViewer({ item }: Readonly<{ item: z.infer<typeof schema> }>) {
             </div>
           </form>
         </div>
-        <DrawerFooter>
+        <SheetFooter>
           <Button>Submit</Button>
-          <DrawerClose asChild>
+          <SheetClose asChild>
             <Button variant="outline">Done</Button>
-          </DrawerClose>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+          </SheetClose>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
   );
 }

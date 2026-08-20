@@ -18,20 +18,22 @@ import * as React from 'react';
 import { toast } from 'sonner';
 import { CalendarClock, MapPin, ShieldCheck, UserCog } from 'lucide-react';
 
+import {
+  Sheet,
+  SheetClose,
+  SheetDescription,
+  SheetTrigger,
+} from '@workspace/ui/components/sheet';
+import {
+  DrawerContent,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@workspace/ui/custom/detail/drawer-chrome';
 import { Button } from '@workspace/ui/components/button';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 import { Textarea } from '@workspace/ui/components/textarea';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@workspace/ui/components/dialog';
 import {
   Select,
   SelectContent,
@@ -286,86 +288,88 @@ export function AccessScopePanel({
       title="Access & scope"
       action={
         canManage ? (
-          <Dialog open={open} onOpenChange={setOpen}>
-            <DialogTrigger asChild>
+          <Sheet open={open} onOpenChange={setOpen}>
+            <SheetTrigger asChild>
               <Button size="sm" variant="secondary">
                 <UserCog className="size-4" /> Grant role
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Grant a role</DialogTitle>
-                <DialogDescription>
+            </SheetTrigger>
+            <DrawerContent>
+              <DrawerHeader className="gap-1.5">
+                <DrawerTitle className="pr-8">Grant a role</DrawerTitle>
+                <SheetDescription className="text-[calc(12.5px*var(--font-scale))]">
                   Optionally scope it to a campus and set an expiry for
                   temporary cover. A high-risk role needs a second approval.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-4 py-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label>Role</Label>
-                  <Select value={roleId} onValueChange={setRoleId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Choose a role" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {roles.map((r) => (
-                        <SelectItem key={r.id} value={r.id}>
-                          {r.name}
+                </SheetDescription>
+              </DrawerHeader>
+              <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+                <div className="flex flex-col gap-4 py-2">
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Role</Label>
+                    <Select value={roleId} onValueChange={setRoleId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a role" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {roles.map((r) => (
+                          <SelectItem key={r.id} value={r.id}>
+                            {r.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label>Scope</Label>
+                    <Select value={scopeValue} onValueChange={setScopeValue}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value={GLOBAL}>
+                          Whole school (unscoped)
                         </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label>Scope</Label>
-                  <Select value={scopeValue} onValueChange={setScopeValue}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value={GLOBAL}>
-                        Whole school (unscoped)
-                      </SelectItem>
-                      {campuses.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>
-                          {c.name} ({c.code})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="grant-expiry">Expires (optional)</Label>
-                  <Input
-                    id="grant-expiry"
-                    type="date"
-                    value={expiresAt}
-                    onChange={(e) => setExpiresAt(e.target.value)}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="grant-reason">Reason (optional)</Label>
-                  <Textarea
-                    id="grant-reason"
-                    value={reason}
-                    placeholder="e.g. 5-day cover for Ms Ada"
-                    onChange={(e) => setReason(e.target.value)}
-                  />
+                        {campuses.map((c) => (
+                          <SelectItem key={c.id} value={c.id}>
+                            {c.name} ({c.code})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="grant-expiry">Expires (optional)</Label>
+                    <Input
+                      id="grant-expiry"
+                      type="date"
+                      value={expiresAt}
+                      onChange={(e) => setExpiresAt(e.target.value)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <Label htmlFor="grant-reason">Reason (optional)</Label>
+                    <Textarea
+                      id="grant-reason"
+                      value={reason}
+                      placeholder="e.g. 5-day cover for Ms Ada"
+                      onChange={(e) => setReason(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
-              <DialogFooter>
-                <DialogClose asChild>
+              <DrawerFooter className="flex-row justify-end gap-2">
+                <SheetClose asChild>
                   <Button variant="ghost">Cancel</Button>
-                </DialogClose>
+                </SheetClose>
                 <Button
                   onClick={() => void submitGrant()}
                   disabled={busy || !roleId}
                 >
                   Grant
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </DrawerFooter>
+            </DrawerContent>
+          </Sheet>
         ) : undefined
       }
     >

@@ -11,13 +11,13 @@ import {
 
 import { Button } from '@workspace/ui/components/button';
 import {
-  Drawer,
-  DrawerContent,
-  DrawerDescription,
-  DrawerFooter,
-  DrawerHeader,
-  DrawerTitle,
-} from '@workspace/ui/components/drawer';
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@workspace/ui/components/dialog';
 import { Input } from '@workspace/ui/components/input';
 import { Label } from '@workspace/ui/components/label';
 
@@ -208,20 +208,23 @@ export function StepUpPrompt({
     });
   }
 
+  // Step-up is the one thing the app truly cannot continue past, so it is a
+  // modal — conventions §3. It stays deliberately compact: the methods below
+  // are alternatives, and a modal must not scroll.
   return (
-    <Drawer
+    <Dialog
       open={open}
       onOpenChange={(nextOpen) => {
         if (!nextOpen) onCancel();
       }}
     >
-      <DrawerContent className="mx-auto max-w-lg">
-        <DrawerHeader>
-          <DrawerTitle>{title}</DrawerTitle>
-          <DrawerDescription>{description}</DrawerDescription>
-        </DrawerHeader>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
+        </DialogHeader>
 
-        <div className="space-y-5 px-4 pb-2">
+        <div className="space-y-5">
           {loadingOptions ? (
             <p className="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 className="size-4 animate-spin" /> Preparing secure
@@ -340,12 +343,12 @@ export function StepUpPrompt({
           ) : null}
         </div>
 
-        <DrawerFooter>
+        <DialogFooter>
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
           </Button>
-        </DrawerFooter>
-      </DrawerContent>
-    </Drawer>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
