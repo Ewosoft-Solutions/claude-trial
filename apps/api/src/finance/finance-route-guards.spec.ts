@@ -48,6 +48,10 @@ describe('Finance routes — what stands between a caller and the money', () => 
       ['getReceipt', 'finance.view'],
       ['listCredits', 'finance.view'],
       ['listInvoices', 'finance.view'],
+      // The PDF shows nothing the invoice route does not, so it reads with the
+      // same authority; SENDING it is recorded separately.
+      ['invoicePdf', 'finance.view'],
+      ['recordInvoiceShared', 'finance.view'],
     ])('%s requires %s', (method, permission) => {
       expect(permissionsOn(FinanceController.prototype, method)).toContain(
         permission,
@@ -78,6 +82,7 @@ describe('Finance routes — what stands between a caller and the money', () => 
       ['applyCredit', 'financial.transactions'],
       ['createInvoice', 'financial.fee-structure.update'],
       ['updateInvoice', 'financial.fee-structure.update'],
+      ['composeInvoice', 'financial.fee-structure.update'],
     ])('%s requires step-up %s', (method, operation) => {
       expect(stepUpOn(FinanceController.prototype, method)).toBe(operation);
       expect(permissionsOn(FinanceController.prototype, method)).toContain(
@@ -114,6 +119,48 @@ describe('Finance routes — what stands between a caller and the money', () => 
         ).toContain('finance.manage');
       },
     );
+
+    it('correcting a draft needs finance.manage, the same as its lines', () => {
+      expect(
+        permissionsOn(FinanceController.prototype, 'updateInvoiceHeader'),
+      ).toContain('finance.manage');
+    });
+
+    // Pinned deliberately. Editing a draft's term or due date is composition,
+    // not a movement of money, so it is guarded like addLine rather than like
+    // issuing — and a step-up per keystroke would make composing one unusable.
+    // If this route ever gains the power to change status, it has to move back
+    // behind step-up, and this expectation is what forces that decision.
+    it('saving a whole draft needs finance.manage, like the writes it replaces', () => {
+      expect(
+        permissionsOn(FinanceController.prototype, 'updateDraftContents'),
+      ).toContain('finance.manage');
+      // Same reasoning as the header edit: composing a draft is not a movement
+      // of money. If this ever gains the power to touch an ISSUED invoice it
+      // must move behind step-up, and this is what forces that decision.
+      expect(
+        stepUpOn(FinanceController.prototype, 'updateDraftContents'),
+      ).toBeUndefined();
+    });
+
+    it('correcting a draft is deliberately NOT step-up gated', () => {
+      expect(
+        stepUpOn(FinanceController.prototype, 'updateInvoiceHeader'),
+      ).toBeUndefined();
+    });
+
+    // Seeing the queue is not the authority to act on it.
+    it('the approvals queue is readable with finance.view', () => {
+      expect(
+        permissionsOn(
+          FinanceAdjustmentController.prototype,
+          'listAdjustmentQueue',
+        ),
+      ).toEqual(['finance.view']);
+      expect(
+        stepUpOn(FinanceAdjustmentController.prototype, 'listAdjustmentQueue'),
+      ).toBeUndefined();
+    });
 
     it.each(['request', 'approve', 'reject', 'createPolicy', 'activatePolicy'])(
       'adjustment %s requires finance.manage',

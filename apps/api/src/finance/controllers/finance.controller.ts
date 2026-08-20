@@ -7,6 +7,8 @@ import {
   Post,
   Query,
   Request,
+  Res,
+  StreamableFile,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
@@ -22,9 +24,11 @@ import { FinanceService } from '../services/finance.service';
 import { FinanceReceiptService } from '../services/finance-receipt.service';
 import { FinanceCreditService } from '../services/finance-credit.service';
 import {
+  ComposeInvoiceDto,
   CreateInvoiceDto,
   ListInvoicesDto,
   UpdateInvoiceDto,
+  UpdateInvoiceHeaderDto,
 } from '../dto/finance.dto';
 import {
   ApplyCreditDto,
@@ -32,6 +36,8 @@ import {
   ListReceiptsDto,
   RecordReceiptDto,
 } from '../dto/receipt.dto';
+import { RecordShareDto, UpdateDraftContentsDto } from '../dto/catalogue.dto';
+import type { Response } from 'express';
 import type { AuthenticatedRequest } from 'src/auth';
 import { RequireStepUp, StepUpGuard } from '../../auth/guards/step-up.guard';
 import { STEP_UP_OPERATION } from '../../auth/step-up.operations';
@@ -110,6 +116,139 @@ export class FinanceController {
       req.user.tenantId,
       id,
       dto,
+      req.user.profileId!,
+    );
+  }
+
+  /**
+   * Write a whole invoice composed in the browser — header, lines, and
+   * optionally the issue — in one step-up-gated request.
+   *
+   * One endpoint rather than create-then-issue because `StepUpGuard` consumes
+   * the challenge it verifies: two guarded calls would mean two confirmations
+   * for one action.
+   */
+  @Post('invoices/compose')
+  @UseGuards(StepUpGuard)
+  @RequireStepUp(STEP_UP_OPERATION.FINANCIAL_FEE_STRUCTURE_UPDATE)
+  @RequirePermissions(['finance.manage'])
+  @ApiOperation({
+    summary: 'Create an invoice with its lines, optionally issued',
+  })
+  async composeInvoice(
+    @Body() dto: ComposeInvoiceDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.financeService.composeInvoice(
+      req.user.tenantId,
+      dto,
+      req.user.profileId!,
+    );
+  }
+
+  /**
+   * Correct a draft's own details. Not step-up gated, unlike `PATCH
+   * invoices/:id` above: that route can issue an invoice, which posts a
+   * receivable and draws down held credit. This one only edits a draft — the
+   * same act, and the same guard, as adding a line to it.
+   */
+  @Patch('invoices/:id/header')
+  @RequirePermissions(['finance.manage'])
+  @ApiOperation({
+    summary: "Correct a draft invoice's term, due date or notes",
+  })
+  async updateInvoiceHeader(
+    @Param('id') id: string,
+    @Body() dto: UpdateInvoiceHeaderDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.financeService.updateInvoiceHeader(
+      req.user.tenantId,
+      id,
+      dto,
+      req.user.profileId!,
+    );
+  }
+
+  /**
+   * Save a draft edited in the browser — details and every line — in one call.
+   *
+   * Same guard as the per-line writes it replaces: composing a draft is not a
+   * movement of money, so `finance.manage` without step-up. Note this is a
+   * REPLACE (see UpdateDraftContentsDto): last save wins.
+   */
+  @Patch('invoices/:id/contents')
+  @RequirePermissions(['finance.manage'])
+  @ApiOperation({ summary: "Save a draft's details and lines in one request" })
+  async updateDraftContents(
+    @Param('id') id: string,
+    @Body() dto: UpdateDraftContentsDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.financeService.updateDraftContents(
+      req.user.tenantId,
+      id,
+      dto,
+      req.user.profileId!,
+    );
+  }
+
+  /**
+   * The invoice as a PDF — the document a family receives.
+   *
+   * `finance.view` reads it, the same authority as seeing the invoice on
+   * screen: the PDF shows nothing the route does not. Sending it to someone is
+   * a different act, so the web layer records a share separately rather than
+   * treating every render as one — a bursar checking a draft before issuing it
+   * has not shared anything.
+   *
+   * `inline` so a preview can render it in place; the browser still offers to
+   * save it, and the download button asks for it by name.
+   */
+  @Get('invoices/:id/pdf')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({ summary: 'Render an invoice as a PDF document' })
+  async invoicePdf(
+    @Param('id') id: string,
+    @Request() req: AuthenticatedRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { buffer, filename } = await this.financeService.renderInvoicePdf(
+      req.user.tenantId,
+      id,
+    );
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${filename.replace(/[^\w.-]+/g, '_')}"`,
+    );
+    return new StreamableFile(buffer);
+  }
+
+  /**
+   * Record that an invoice was sent to someone.
+   *
+   * Rendering the PDF is not sharing it — a bursar checking a draft before
+   * issuing has shown it to nobody — so the two are separate. This is what the
+   * school can point at later to answer "who sent this family their bill, and
+   * when": the share sheet hands the file to any app on the device, and that
+   * is the last moment we can see.
+   *
+   * Deliberately advisory: it records an intent to share, since the OS never
+   * tells us whether the person went through with it.
+   */
+  @Post('invoices/:id/shared')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({ summary: 'Record that an invoice document was shared' })
+  async recordInvoiceShared(
+    @Param('id') id: string,
+    @Body() dto: RecordShareDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.financeService.recordInvoiceShared(
+      req.user.tenantId,
+      id,
+      dto.channel,
       req.user.profileId!,
     );
   }

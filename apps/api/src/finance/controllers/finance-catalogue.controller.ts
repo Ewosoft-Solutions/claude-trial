@@ -94,7 +94,12 @@ export class FinanceCatalogueController {
     @Body() dto: UpdateInvoiceLineDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.catalogue.updateLine(req.user!.tenantId, lineId, dto);
+    return this.catalogue.updateLine(
+      req.user!.tenantId,
+      lineId,
+      dto,
+      req.user!.profileId,
+    );
   }
 
   @Delete('lines/:lineId')

@@ -16,6 +16,7 @@ interface ApiFeeItem {
   id: string;
   code: string;
   name: string;
+  pricingMode?: string | null;
   defaultAmount?: number | null;
   active: boolean;
 }
@@ -30,6 +31,9 @@ export default async function FeeItemsPage() {
     id: item.id,
     code: item.code,
     name: item.name,
+    // Anything without an explicit mode is fixed — what every item was before
+    // open pricing existed.
+    pricingMode: item.pricingMode === 'open' ? 'open' : 'fixed',
     defaultAmount: item.defaultAmount ?? null,
     active: item.active,
   }));

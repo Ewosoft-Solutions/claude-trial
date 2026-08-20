@@ -15,6 +15,7 @@
    ============================================================ */
 
 import {
+  BadgeCheck,
   BadgePercent,
   Banknote,
   BookMarked,
@@ -388,6 +389,15 @@ export const SCHOOL_NAV: NavigationConfig = {
               label: 'Fee items',
               icon: <ListTree />,
               href: '/finance/fee-items',
+              access: { anyPermission: ['fees.view', 'billing.view'] },
+            },
+            {
+              // Sits above the policies it is the exception to: a standing
+              // policy applies itself, a discretionary discount waits here.
+              key: 'approvals',
+              label: 'Approvals',
+              icon: <BadgeCheck />,
+              href: '/finance/approvals',
               access: { anyPermission: ['fees.view', 'billing.view'] },
             },
             {

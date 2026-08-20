@@ -9,6 +9,8 @@ import { AuditService } from '../../common/audit/audit.service';
 import { AUDIT_EVENT } from '../../common/audit/audit.constants';
 import { resolvePaginationOrderBy, type SortAllowList } from '../../common/dto';
 import { FinanceAdjustmentService } from './finance-adjustment.service';
+import { FinanceCatalogueService } from './finance-catalogue.service';
+import { InvoiceDocumentService } from './invoice-document.service';
 import { FinanceCreditService } from './finance-credit.service';
 import { FinanceNumberingService } from './finance-numbering.service';
 import { FinanceReceiptService } from './finance-receipt.service';
@@ -21,8 +23,12 @@ import {
 import {
   CreateInvoiceDto,
   ListInvoicesDto,
+  UNTERMED,
+  ComposeInvoiceDto,
   UpdateInvoiceDto,
+  UpdateInvoiceHeaderDto,
 } from '../dto/finance.dto';
+import type { UpdateDraftContentsDto } from '../dto/catalogue.dto';
 
 /** Allow-listed sort columns for the invoices list; default is newest first. */
 const INVOICE_LIST_SORT: SortAllowList<Prisma.FeeInvoiceOrderByWithRelationInput> =
@@ -48,6 +54,8 @@ export class FinanceService {
     private readonly credits: FinanceCreditService,
     private readonly receipts: FinanceReceiptService,
     private readonly ledger: LedgerService,
+    private readonly catalogue: FinanceCatalogueService,
+    private readonly documents: InvoiceDocumentService,
   ) {}
 
   // Every collaborator here (ledger, receipts, credit, refreshInvoiceTotals)
@@ -65,7 +73,26 @@ export class FinanceService {
     if (query.studentId) where['studentId'] = query.studentId;
     if (query.classId) where['classId'] = query.classId;
     if (query.status) where['status'] = query.status;
-    if (query.termName) where['termName'] = query.termName;
+    // A reserved value, because "no term" cannot be expressed as a term name.
+    // Drafts are routinely opened before anyone has decided which term they
+    // belong to, and they have to be findable on purpose rather than by
+    // clearing every filter.
+    if (query.termName === UNTERMED) where['termName'] = null;
+    else if (query.termName) where['termName'] = query.termName;
+    // A one-sided range is normal — "anything due before the holidays" has no
+    // start — so each bound is applied independently. `dueTo` covers the whole
+    // of its day: a date-only bound parses to midnight, which would otherwise
+    // exclude everything due on the very day the bursar asked about.
+    if (query.dueFrom || query.dueTo) {
+      const dueDate: Record<string, Date> = {};
+      if (query.dueFrom) dueDate['gte'] = new Date(query.dueFrom);
+      if (query.dueTo) {
+        const end = new Date(query.dueTo);
+        end.setHours(23, 59, 59, 999);
+        dueDate['lte'] = end;
+      }
+      where['dueDate'] = dueDate;
+    }
     if (query.search) {
       where['OR'] = [
         { invoiceNumber: { contains: query.search, mode: 'insensitive' } },
@@ -179,6 +206,13 @@ export class FinanceService {
           orderBy: { createdAt: 'asc' },
         },
         adjustments: { orderBy: { createdAt: 'desc' } },
+        // Who the bill is settled by. Finance stays decoupled from the student
+        // schema (studentId/classId are plain columns by design), but the
+        // household IS a finance relation, and an invoice without it reads as
+        // if nobody is responsible for paying.
+        household: {
+          select: { id: true, name: true, primaryPayerName: true },
+        },
       },
     });
     if (!invoice) throw new NotFoundException('Invoice not found');
@@ -215,16 +249,23 @@ export class FinanceService {
     const student = await this.client.student.findFirst({
       where: { id: studentId, tenantId },
       select: {
+        studentNumber: true,
         userTenant: {
           select: { user: { select: { firstName: true, lastName: true } } },
         },
       },
     });
-    const user = student?.userTenant?.user;
-    if (!user) return null;
-    return (
-      [user.firstName, user.lastName].filter(Boolean).join(' ').trim() || null
-    );
+    if (!student) return null;
+
+    const user = student.userTenant?.user;
+    const name = [user?.firstName, user?.lastName]
+      .filter(Boolean)
+      .join(' ')
+      .trim();
+    // A student with no linked user account still has to be identifiable on
+    // the bill. Falling through to null left the list showing a raw UUID where
+    // a child's name belongs; the admission number is what a school would use.
+    return name || student.studentNumber || null;
   }
 
   async createInvoice(tenantId: string, dto: CreateInvoiceDto, userId: string) {
@@ -250,6 +291,338 @@ export class FinanceService {
         updatedBy: userId,
       },
     });
+  }
+
+  /**
+   * Correct the details a draft was opened with.
+   *
+   * These fields — term, year, cycle, due date, notes — used to be writable
+   * only at creation, so an invoice opened with the wrong term (or none) stayed
+   * wrong for life; a term-less draft is also invisible on the term-scoped
+   * invoice list, so it could not even be found again. Composing a draft is not
+   * a financial act, so this is guarded like the draft's line items rather than
+   * like issuing it, and it refuses anything that has left draft: once issued,
+   * what is owed changes through an adjustment.
+   */
+  async updateInvoiceHeader(
+    tenantId: string,
+    id: string,
+    dto: UpdateInvoiceHeaderDto,
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id, tenantId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    if (invoice.status !== 'draft') {
+      throw new BadRequestException(
+        `Only a draft's details can be corrected — this invoice is ${invoice.status}. Raise an adjustment to change what is owed, or a reversal to withdraw it.`,
+      );
+    }
+
+    // `undefined` means "not sent, leave it"; an explicitly sent empty value
+    // means "clear it". Blank strings arrive from cleared text inputs and are
+    // stored as NULL so the term label renders as absent rather than empty.
+    const updated = await this.client.feeInvoice.update({
+      where: { id },
+      data: {
+        ...(dto.termName !== undefined && {
+          termName: dto.termName?.trim() || null,
+        }),
+        ...(dto.termYear !== undefined && { termYear: dto.termYear ?? null }),
+        ...(dto.termCycle !== undefined && {
+          termCycle: dto.termCycle ?? null,
+        }),
+        ...(dto.dueDate !== undefined && {
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : null,
+        }),
+        ...(dto.notes !== undefined && { notes: dto.notes?.trim() || null }),
+        updatedBy: userId,
+      },
+    });
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_header_updated',
+      resource: 'fee_invoice',
+      resourceId: id,
+      actorId: userId,
+      description: `Draft invoice ${invoice.invoiceNumber} details updated`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        fields: Object.keys(dto),
+      },
+    });
+
+    return updated;
+  }
+
+  /**
+   * Everything that happens the moment a bill becomes a receivable: the charge
+   * posts to the ledger, standing discount policies apply, and any credit the
+   * family already holds is drawn down against it.
+   *
+   * Shared by `updateInvoice` (issuing an existing draft) and `composeInvoice`
+   * (creating and issuing in one go). Two copies of this would eventually
+   * disagree, and the thing they would disagree about is the ledger.
+   *
+   * Callers must have run `ledger.ensureOpeningBalance` BEFORE flipping the
+   * row to issued, so a school carrying pre-ledger debt opens with that debt
+   * rather than with this bill.
+   */
+  private async applyIssueEffects(
+    tenantId: string,
+    invoiceId: string,
+    invoiceNumber: string,
+    userId: string,
+  ) {
+    await this.postInvoiceIssued(tenantId, invoiceId, userId);
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_issued',
+      resource: 'fee_invoice',
+      resourceId: invoiceId,
+      actorId: userId,
+      description: `Invoice ${invoiceNumber} issued`,
+      metadata: { invoiceNumber },
+    });
+    await this.adjustments.applyPoliciesToInvoice(tenantId, invoiceId, userId);
+    await this.credits.autoApplyToInvoice(tenantId, invoiceId, userId);
+  }
+
+  /**
+   * Write an invoice that was composed in the browser — header, lines, and
+   * optionally the issue — as one request.
+   *
+   * The compose surface creates no row until the bursar commits, so this is
+   * the first and only write. It must stay a single call: `StepUpGuard`
+   * consumes the challenge it verifies, so splitting create from issue would
+   * ask for two confirmations to complete one action. The request already runs
+   * inside the RLS transaction, so a failure part-way leaves no half-written
+   * invoice behind.
+   */
+  async composeInvoice(
+    tenantId: string,
+    dto: ComposeInvoiceDto,
+    userId: string,
+  ) {
+    const invoice = await this.createInvoice(
+      tenantId,
+      {
+        studentId: dto.studentId,
+        amountDue: 0,
+        termName: dto.termName,
+        termYear: dto.termYear,
+        termCycle: dto.termCycle,
+        dueDate: dto.dueDate,
+        notes: dto.notes,
+      },
+      userId,
+    );
+
+    // `addLines` totals the invoice, so amountDue is right before we issue.
+    await this.catalogue.addLines(tenantId, invoice.id, dto.lines);
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_composed',
+      resource: 'fee_invoice',
+      resourceId: invoice.id,
+      actorId: userId,
+      description: `Invoice ${invoice.invoiceNumber} composed with ${dto.lines.length} line(s)`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        lineCount: dto.lines.length,
+        issued: dto.issue === true,
+      },
+    });
+
+    if (dto.issue !== true) {
+      return this.client.feeInvoice.findFirst({
+        where: { id: invoice.id, tenantId },
+      });
+    }
+
+    // Open the books before this bill becomes a receivable.
+    await this.ledger.ensureOpeningBalance(tenantId, userId);
+    await this.client.feeInvoice.update({
+      where: { id: invoice.id },
+      data: { status: 'issued', updatedBy: userId },
+    });
+    await this.applyIssueEffects(
+      tenantId,
+      invoice.id,
+      invoice.invoiceNumber,
+      userId,
+    );
+
+    // Issuing has side effects (policy discounts, credit applied), so report
+    // what the invoice actually became, not the row as it looked mid-flight.
+    return this.client.feeInvoice.findFirst({
+      where: { id: invoice.id, tenantId },
+    });
+  }
+
+  /**
+   * Apply a draft edited in the browser — its details and its whole set of
+   * lines — in one request.
+   *
+   * Guarded like the header edit and the per-line writes it replaces
+   * (`finance.manage`, no step-up): composing a draft is not a movement of
+   * money. It refuses anything that has left draft, because replacing the
+   * lines of an issued invoice would rewrite a receivable behind the ledger's
+   * back — that is an adjustment, which is approved and posted.
+   */
+  async updateDraftContents(
+    tenantId: string,
+    id: string,
+    dto: UpdateDraftContentsDto,
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id, tenantId },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+    if (invoice.status !== 'draft') {
+      throw new BadRequestException(
+        `Only a draft can be edited — this invoice is ${invoice.status}. Raise an adjustment to change what is owed.`,
+      );
+    }
+
+    const { lines, ...header } = dto;
+    // The header first, so a failure in the lines leaves neither applied —
+    // the request runs inside the RLS transaction, so both roll back together.
+    await this.updateInvoiceHeader(tenantId, id, header, userId);
+    await this.catalogue.replaceLines(tenantId, id, lines, userId);
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.DATA_CHANGE,
+      action: 'finance_invoice_draft_saved',
+      resource: 'fee_invoice',
+      resourceId: id,
+      actorId: userId,
+      description: `Draft invoice ${invoice.invoiceNumber} saved with ${lines.length} line(s)`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        lineCount: lines.length,
+      },
+    });
+
+    return this.getInvoice(tenantId, id);
+  }
+
+  /**
+   * The invoice as a PDF, for download or sharing.
+   *
+   * Assembled here and rendered by `InvoiceDocumentService` — this method's job
+   * is to gather what the page needs from three places finance does not
+   * normally join: the tenant (for the letterhead), the student (for the
+   * number that identifies the child on a bill), and the household.
+   *
+   * Reading the student here is a display lookup, not a coupling: the billing
+   * model still stores its own snapshot, and this never writes back.
+   *
+   * Sharing is audited by the caller, not here — the same bytes are produced
+   * whether they are previewed on screen or sent to a family, and only the
+   * latter is an event worth recording.
+   */
+  async renderInvoicePdf(tenantId: string, id: string) {
+    const invoice = await this.getInvoice(tenantId, id);
+
+    const [tenant, student] = await Promise.all([
+      this.client.tenant.findFirst({
+        where: { id: tenantId },
+        select: { name: true },
+      }),
+      invoice.studentId
+        ? this.client.student.findFirst({
+            where: { id: invoice.studentId, tenantId },
+            select: { studentNumber: true },
+          })
+        : Promise.resolve(null),
+    ]);
+
+    const termLabel =
+      [
+        invoice.termName,
+        invoice.termYear ? String(invoice.termYear) : null,
+        invoice.termCycle ? `cycle ${invoice.termCycle}` : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || null;
+
+    const buffer = await this.documents.render({
+      schoolName: tenant?.name ?? 'School',
+      invoiceNumber: invoice.invoiceNumber,
+      status: invoice.status,
+      issuedDate: invoice.issuedDate,
+      dueDate: invoice.dueDate,
+      termLabel,
+      billedTo: {
+        name: invoice.studentName,
+        studentNumber: student?.studentNumber ?? null,
+        householdName: invoice.household?.name ?? null,
+        payerName: invoice.household?.primaryPayerName ?? null,
+      },
+      lines: invoice.lines.map((line) => ({
+        name: line.feeItem?.name ?? 'Item',
+        description: line.description,
+        amount: line.amount,
+        quantity: line.quantity,
+      })),
+      totals: invoice.financials,
+      notes: invoice.notes,
+      draft: invoice.status === 'draft',
+    });
+
+    return {
+      buffer,
+      filename: `${invoice.invoiceNumber}.pdf`,
+      invoiceNumber: invoice.invoiceNumber,
+    };
+  }
+
+  /**
+   * Note that an invoice document left the building.
+   *
+   * Advisory by nature: the OS share sheet never reports back whether the
+   * person actually sent it, so this records the intent. That is still the
+   * answer to "who sent this family their bill" — the alternative is no record
+   * at all once the file is handed to another app.
+   */
+  async recordInvoiceShared(
+    tenantId: string,
+    id: string,
+    channel: string,
+    userId: string,
+  ) {
+    const invoice = await this.client.feeInvoice.findFirst({
+      where: { id, tenantId },
+      select: { id: true, invoiceNumber: true, status: true },
+    });
+    if (!invoice) throw new NotFoundException('Invoice not found');
+
+    await this.audit.write({
+      tenantId,
+      eventType: AUDIT_EVENT.USER_ACTION,
+      action: 'finance_invoice_document_shared',
+      resource: 'fee_invoice',
+      resourceId: invoice.id,
+      actorId: userId,
+      description: `Invoice ${invoice.invoiceNumber} document shared (${channel})`,
+      metadata: {
+        invoiceNumber: invoice.invoiceNumber,
+        channel,
+        // A draft leaving the building is worth being able to find later.
+        invoiceStatus: invoice.status,
+      },
+    });
+    return { recorded: true };
   }
 
   async updateInvoice(
@@ -313,19 +686,7 @@ export class FinanceService {
     // the ledger, standing discount policies apply, and any credit the family
     // is already holding is drawn down against it.
     if (isBeingIssued) {
-      await this.postInvoiceIssued(tenantId, id, userId);
-      await this.audit.write({
-        tenantId,
-        eventType: AUDIT_EVENT.DATA_CHANGE,
-        action: 'finance_invoice_issued',
-        resource: 'fee_invoice',
-        resourceId: id,
-        actorId: userId,
-        description: `Invoice ${invoice.invoiceNumber} issued`,
-        metadata: { invoiceNumber: invoice.invoiceNumber },
-      });
-      await this.adjustments.applyPoliciesToInvoice(tenantId, id, userId);
-      await this.credits.autoApplyToInvoice(tenantId, id, userId);
+      await this.applyIssueEffects(tenantId, id, invoice.invoiceNumber, userId);
     }
 
     // Cancelling an issued invoice cannot just delete the receivable — it is
@@ -524,6 +885,18 @@ export class FinanceService {
       statusCounts[inv.status] = (statusCounts[inv.status] ?? 0) + 1;
     }
 
+    // The terms invoices are ACTUALLY filed under, so the list can offer a
+    // real scope. Read from the invoices themselves rather than the academic
+    // calendar: `termName` is a denormalised snapshot, so a bill can carry a
+    // term string the calendar no longer has — and offering a term nothing is
+    // filed under would be a filter that always returns nothing.
+    const termRows = await this.client.feeInvoice.findMany({
+      where: { tenantId },
+      distinct: ['termName'],
+      select: { termName: true },
+      orderBy: { termName: 'asc' },
+    });
+
     return {
       totalInvoices: invoices.length,
       totalBilled,
@@ -531,6 +904,17 @@ export class FinanceService {
       totalCollected,
       totalOutstanding,
       statusCounts,
+      terms: termRows
+        .map((row) => row.termName)
+        .filter((name): name is string => Boolean(name)),
+      // Invoices filed under no term at all — drafts opened before anyone
+      // decided which term they belong to. Without this they are reachable
+      // only by clearing every filter, which is not "finding" them.
+      untermedCount: termRows.some((row) => !row.termName)
+        ? await this.client.feeInvoice.count({
+            where: { tenantId, termName: null },
+          })
+        : 0,
     };
   }
 

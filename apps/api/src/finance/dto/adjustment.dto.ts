@@ -7,6 +7,7 @@ import {
   Max,
   Min,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export const ADJUSTMENT_TYPES = [
@@ -101,4 +102,30 @@ export class CreateDiscountPolicyDto {
   @IsOptional()
   @IsString()
   reason?: string;
+}
+
+/** Filter the approvals queue. */
+export class ListAdjustmentsDto {
+  @ApiPropertyOptional({
+    enum: ['pending', 'approved', 'rejected', 'applied'],
+    example: 'pending',
+  })
+  @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected', 'applied'])
+  status?: string;
+
+  @ApiPropertyOptional({ example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  page?: number;
+
+  @ApiPropertyOptional({ example: 25 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(200)
+  limit?: number;
 }

@@ -4,6 +4,7 @@ import {
   Get,
   Param,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -25,6 +26,7 @@ import {
   ApprovalDecisionDto,
   CreateAdjustmentDto,
   CreateDiscountPolicyDto,
+  ListAdjustmentsDto,
 } from '../dto/adjustment.dto';
 
 /**
@@ -96,6 +98,29 @@ export class FinanceAdjustmentController {
       id,
       dto.reason ?? 'Rejected',
     );
+  }
+
+  /**
+   * The approvals queue: discretionary adjustments across every invoice.
+   *
+   * Reading it needs only `finance.view` — seeing what is waiting is not the
+   * same authority as acting on it, and `approve`/`reject` keep their own
+   * maker-checker guard.
+   */
+  @Get('adjustments')
+  @RequirePermissions(['finance.view'])
+  @ApiOperation({
+    summary: 'List discretionary adjustments awaiting a decision',
+  })
+  listAdjustmentQueue(
+    @Query() query: ListAdjustmentsDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.adjustments.listAdjustmentsAcrossInvoices(req.user!.tenantId, {
+      status: query.status,
+      page: query.page,
+      limit: query.limit,
+    });
   }
 
   @Get('invoices/:id/adjustments')

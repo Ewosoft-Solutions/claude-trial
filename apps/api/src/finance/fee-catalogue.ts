@@ -4,8 +4,15 @@
  * Codes are stable slugs referenced by invoice lines and discount policies —
  * keep this list in lock-step with the slice-1 backfill migration
  * (20260806030000_fee_items_and_invoice_lines), which seeded the same set for
- * tenants that already existed when the table was introduced. Amounts are left
- * unset; each school sets its own on the /finance/fee-items page.
+ * tenants that already existed when the table was introduced.
+ *
+ * Amounts are deliberately left unset — a school's fees are its own, and
+ * guessing them would be worse than asking. Note what that now means: an
+ * invoice line is billed at the catalogue price, so an item with no price
+ * cannot be billed until someone sets one on the /finance/fee-items page. A
+ * new tenant therefore starts with a catalogue it must price before it can
+ * raise its first invoice, which is the intended order of operations rather
+ * than an omission.
  */
 export const STANDARD_FEE_ITEMS: ReadonlyArray<{ code: string; name: string }> =
   [

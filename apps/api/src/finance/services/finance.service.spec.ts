@@ -22,6 +22,7 @@ describe('FinanceService.listInvoices', () => {
       reverseSource: jest.fn(),
       ensureOpeningBalance: jest.fn(),
     } as never, // ledger
+    {} as never, // catalogue
   );
 
   beforeEach(() => {
@@ -146,6 +147,7 @@ describe('FinanceService.updateInvoice — cancelling', () => {
     { autoApplyToInvoice: jest.fn() } as never,
     { recordReceipt: jest.fn() } as never,
     ledger as never,
+    {} as never, // catalogue
   );
 
   beforeEach(() => {
@@ -203,5 +205,268 @@ describe('FinanceService.updateInvoice — cancelling', () => {
     await expect(
       service.updateInvoice('t1', 'inv-1', { status: 'cancelled' }, 'user-1'),
     ).rejects.toThrow(/already been settled in part/);
+  });
+});
+
+/**
+ * A draft's own details — term, year, cycle, due date, notes — were writable
+ * only at creation, so an invoice opened with the wrong term stayed wrong for
+ * life, and a term-less draft never appeared on the term-scoped list at all.
+ * These pin the two rules that make correcting it safe: only a draft, and an
+ * emptied field clears the column rather than storing "".
+ */
+describe('FinanceService.updateInvoiceHeader', () => {
+  const findFirst = jest.fn();
+  const update = jest.fn();
+  const write = jest.fn();
+  const client = { feeInvoice: { findFirst, update } };
+  const service = new FinanceService(
+    { client } as never,
+    { write } as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  );
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    findFirst.mockResolvedValue({
+      id: 'inv-1',
+      invoiceNumber: 'INV-2026-000001',
+      status: 'draft',
+    });
+    update.mockImplementation(({ data }: { data: unknown }) => ({
+      id: 'inv-1',
+      ...(data as object),
+    }));
+  });
+
+  it('writes only the fields that were sent', async () => {
+    await service.updateInvoiceHeader(
+      'tenant-1',
+      'inv-1',
+      { termName: 'Spring Term' },
+      'user-1',
+    );
+    const { data } = update.mock.calls[0][0];
+    expect(data).toMatchObject({
+      termName: 'Spring Term',
+      updatedBy: 'user-1',
+    });
+    // Absent keys must not be written, or editing one field would blank another.
+    expect(data).not.toHaveProperty('dueDate');
+    expect(data).not.toHaveProperty('termYear');
+    expect(data).not.toHaveProperty('notes');
+  });
+
+  it('clears a column when the field is emptied rather than storing ""', async () => {
+    await service.updateInvoiceHeader(
+      'tenant-1',
+      'inv-1',
+      { termName: '   ', dueDate: null },
+      'user-1',
+    );
+    const { data } = update.mock.calls[0][0];
+    expect(data.termName).toBeNull();
+    expect(data.dueDate).toBeNull();
+  });
+
+  it('refuses anything that has left draft', async () => {
+    findFirst.mockResolvedValue({
+      id: 'inv-1',
+      invoiceNumber: 'INV-2026-000001',
+      status: 'issued',
+    });
+    await expect(
+      service.updateInvoiceHeader(
+        'tenant-1',
+        'inv-1',
+        { termName: 'Spring Term' },
+        'user-1',
+      ),
+    ).rejects.toThrow(/only a draft's details can be corrected/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('404s an invoice this tenant cannot see', async () => {
+    findFirst.mockResolvedValue(null);
+    await expect(
+      service.updateInvoiceHeader('tenant-1', 'nope', {}, 'user-1'),
+    ).rejects.toThrow(/not found/i);
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it('audits the correction', async () => {
+    await service.updateInvoiceHeader(
+      'tenant-1',
+      'inv-1',
+      { termName: 'Spring Term' },
+      'user-1',
+    );
+    expect(write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'finance_invoice_header_updated',
+        resource: 'fee_invoice',
+        resourceId: 'inv-1',
+        actorId: 'user-1',
+      }),
+    );
+  });
+});
+
+/**
+ * Composing writes a whole invoice in one request because `StepUpGuard`
+ * consumes the challenge it verifies — "create then issue" as two guarded
+ * calls would ask the bursar to confirm twice for one action. These pin the
+ * order that keeps the books honest when the second half runs.
+ */
+describe('FinanceService.composeInvoice', () => {
+  const create = jest.fn();
+  const update = jest.fn();
+  const findFirst = jest.fn();
+  const studentFindFirst = jest.fn();
+  const write = jest.fn();
+  const addLines = jest.fn();
+  const ledger = {
+    post: jest.fn(),
+    reverseSource: jest.fn(),
+    ensureOpeningBalance: jest.fn(),
+  };
+  const adjustments = { applyPoliciesToInvoice: jest.fn() };
+  const credits = { autoApplyToInvoice: jest.fn() };
+
+  const client = {
+    feeInvoice: { create, update, findFirst },
+    student: { findFirst: studentFindFirst },
+  };
+  const service = new FinanceService(
+    { client } as never,
+    { write } as never,
+    adjustments as never,
+    { next: jest.fn().mockResolvedValue('INV-2026-000009') } as never,
+    credits as never,
+    {} as never,
+    ledger as never,
+    { addLines } as never,
+  );
+
+  const LINES = [{ feeItemId: 'fee-1', amount: 15000000, quantity: 1 }];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    studentFindFirst.mockResolvedValue(null);
+    create.mockResolvedValue({
+      id: 'inv-9',
+      invoiceNumber: 'INV-2026-000009',
+      status: 'draft',
+    });
+    // postInvoiceIssued re-reads the invoice; nothing gross means no ledger post,
+    // which keeps these tests about sequencing rather than double-entry.
+    findFirst.mockResolvedValue({
+      id: 'inv-9',
+      invoiceNumber: 'INV-2026-000009',
+      status: 'issued',
+      lines: [],
+      adjustments: [],
+      allocations: [],
+      creditApplications: [],
+    });
+  });
+
+  it('creates the invoice, writes its lines, and leaves it a draft', async () => {
+    await service.composeInvoice(
+      'tenant-1',
+      { studentId: 'stu-1', lines: LINES },
+      'user-1',
+    );
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(addLines).toHaveBeenCalledWith('tenant-1', 'inv-9', LINES);
+    // Not issued: no status flip, no ledger, no policies, no credit drawdown.
+    expect(update).not.toHaveBeenCalled();
+    expect(ledger.ensureOpeningBalance).not.toHaveBeenCalled();
+    expect(adjustments.applyPoliciesToInvoice).not.toHaveBeenCalled();
+    expect(credits.autoApplyToInvoice).not.toHaveBeenCalled();
+  });
+
+  it('issues in the same request when asked', async () => {
+    await service.composeInvoice(
+      'tenant-1',
+      { studentId: 'stu-1', lines: LINES, issue: true },
+      'user-1',
+    );
+    expect(update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ status: 'issued' }),
+      }),
+    );
+    expect(adjustments.applyPoliciesToInvoice).toHaveBeenCalledWith(
+      'tenant-1',
+      'inv-9',
+      'user-1',
+    );
+    expect(credits.autoApplyToInvoice).toHaveBeenCalledWith(
+      'tenant-1',
+      'inv-9',
+      'user-1',
+    );
+  });
+
+  it('opens the books BEFORE the bill becomes a receivable', async () => {
+    const order: string[] = [];
+    ledger.ensureOpeningBalance.mockImplementation(() => {
+      order.push('opening-balance');
+      return Promise.resolve();
+    });
+    update.mockImplementation(() => {
+      order.push('status-issued');
+      return Promise.resolve({});
+    });
+
+    await service.composeInvoice(
+      'tenant-1',
+      { studentId: 'stu-1', lines: LINES, issue: true },
+      'user-1',
+    );
+
+    // A school carrying pre-ledger debt must open with THAT debt, not with
+    // this bill. Reverse these two and the opening balance swallows it.
+    expect(order).toEqual(['opening-balance', 'status-issued']);
+  });
+
+  it('totals the lines before issuing, never after', async () => {
+    const order: string[] = [];
+    addLines.mockImplementation(() => {
+      order.push('lines');
+      return Promise.resolve([]);
+    });
+    update.mockImplementation(() => {
+      order.push('issued');
+      return Promise.resolve({});
+    });
+    await service.composeInvoice(
+      'tenant-1',
+      { studentId: 'stu-1', lines: LINES, issue: true },
+      'user-1',
+    );
+    // addLines syncs amountDue; issuing before it would post a zero receivable.
+    expect(order).toEqual(['lines', 'issued']);
+  });
+
+  it('audits the composition either way', async () => {
+    await service.composeInvoice(
+      'tenant-1',
+      { studentId: 'stu-1', lines: LINES },
+      'user-1',
+    );
+    expect(write).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'finance_invoice_composed',
+        resourceId: 'inv-9',
+        metadata: expect.objectContaining({ lineCount: 1, issued: false }),
+      }),
+    );
   });
 });

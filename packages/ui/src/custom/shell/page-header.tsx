@@ -69,6 +69,12 @@ export interface PageHeaderProps {
   description?: string;
   /** Structured meta facts rendered as a dotted sub-line. */
   meta?: PageHeaderMeta[];
+  /**
+   * Rendered inline after the title — a status badge, a lock icon, anything
+   * that identifies WHAT the thing is rather than acting on it. State belongs
+   * here and not in `actions`: sat among the buttons, a badge reads as one.
+   */
+  titleAdornment?: React.ReactNode;
   /** Right-aligned actions (segmented control, buttons, etc.). */
   actions?: React.ReactNode;
   /**
@@ -86,6 +92,7 @@ export function PageHeader({
   title,
   description,
   meta,
+  titleAdornment,
   actions,
   padded = false,
   className,
@@ -101,7 +108,14 @@ export function PageHeader({
       )}
     >
       <div className="flex min-w-[min(100%,12rem)] flex-1 flex-col gap-0.5">
-        <PageTitle>{title}</PageTitle>
+        {titleAdornment ? (
+          <div className="flex flex-wrap items-center gap-2.5">
+            <PageTitle>{title}</PageTitle>
+            {titleAdornment}
+          </div>
+        ) : (
+          <PageTitle>{title}</PageTitle>
+        )}
         {description ? (
           <p className="text-[calc(12.5px*var(--font-scale))] text-muted-foreground">
             {description}

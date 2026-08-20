@@ -22,3 +22,21 @@ export function formatCount(n: number | null | undefined): string {
   if (n == null || !Number.isFinite(n)) return '0';
   return n.toLocaleString('en-NG');
 }
+
+/**
+ * Parse a ₦ amount typed by a person into kobo — the inverse of
+ * `formatNaira`, and the only place that conversion should live.
+ *
+ * Returns null for blank or unusable input rather than 0, because those mean
+ * different things on an invoice: "nothing entered yet" is not "free".
+ * Commas are tolerated since people type them, and the result is rounded to
+ * whole kobo so floating-point naira can never leave a fraction of a kobo in
+ * the ledger.
+ */
+export function koboFromNaira(input: string): number | null {
+  const trimmed = input.trim();
+  if (trimmed === '') return null;
+  const naira = Number(trimmed.replace(/,/g, ''));
+  if (!Number.isFinite(naira) || naira < 0) return null;
+  return Math.round(naira * 100);
+}

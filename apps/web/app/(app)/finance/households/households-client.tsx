@@ -34,6 +34,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
+import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 
@@ -355,12 +356,7 @@ function NewHouseholdDialog() {
                   }),
                 });
                 if (!res.ok) {
-                  const d = (await res.json().catch(() => null)) as {
-                    message?: string;
-                  } | null;
-                  throw new Error(
-                    d?.message ?? `Request failed (${res.status})`,
-                  );
+                  throw new Error(await apiErrorMessage(res));
                 }
                 const created = (await res.json()) as { id: string };
                 toast.success('Household created');

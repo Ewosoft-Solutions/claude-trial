@@ -366,9 +366,18 @@ model FeeItem {
   id       String @id @default(uuid())
   tenantId String @map("tenant_id")
 
-  code          String // stable slug, unique per tenant (e.g. "tuition", "bus")
-  name          String
-  defaultAmount Int?    @map("default_amount") // kobo; optional suggested amount
+  code String // stable slug, unique per tenant (e.g. "tuition", "bus")
+  name String
+
+  /// How this item is priced, the way a till prices stock.
+  /// 'fixed'  — the price lives here and is pulled onto the line read-only.
+  ///            defaultAmount must be set before it can be billed.
+  /// 'open'   — priced per line at entry (damages, miscellaneous). The amount
+  ///            typed on the line is the point, not an override.
+  /// Changing a FIXED item's price on a line is a deliberate, audited override
+  /// (see FinanceCatalogueService.updateLine), never a free-text field.
+  pricingMode   String  @default("fixed") @map("pricing_mode")
+  defaultAmount Int?    @map("default_amount") // kobo; required when fixed
   active        Boolean @default(true)
 
   createdAt DateTime @default(now()) @map("created_at")
