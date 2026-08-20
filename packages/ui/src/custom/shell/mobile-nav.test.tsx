@@ -16,7 +16,7 @@ const USER: UserProfile = {
   initials: 'BE',
 };
 
-function setup() {
+function setup({ onPin }: { onPin?: () => void } = {}) {
   const onOverview = vi.fn();
   const onStudents = vi.fn();
   const onAttendance = vi.fn();
@@ -25,15 +25,47 @@ function setup() {
   const onHelp = vi.fn();
 
   const railItems: RailItem[] = [
-    { key: 'overview', label: 'Overview', icon: <span aria-hidden />, active: true, onSelect: onOverview },
-    { key: 'students', label: 'Students', icon: <span aria-hidden />, hasPanel: true, onSelect: onStudents },
-    { key: 'classes', label: 'Classes', icon: <span aria-hidden />, onSelect: vi.fn() },
-    { key: 'attendance', label: 'Attendance', icon: <span aria-hidden />, onSelect: onAttendance },
+    {
+      key: 'overview',
+      label: 'Overview',
+      icon: <span aria-hidden />,
+      active: true,
+      onSelect: onOverview,
+    },
+    {
+      key: 'students',
+      label: 'Students',
+      icon: <span aria-hidden />,
+      hasPanel: true,
+      onSelect: onStudents,
+    },
+    {
+      key: 'classes',
+      label: 'Classes',
+      icon: <span aria-hidden />,
+      onSelect: vi.fn(),
+    },
+    {
+      key: 'attendance',
+      label: 'Attendance',
+      icon: <span aria-hidden />,
+      onSelect: onAttendance,
+    },
     // 5th item — lives only behind "More", never on the bottom bar.
-    { key: 'finance', label: 'Finance', icon: <span aria-hidden />, onSelect: onFinance },
+    {
+      key: 'finance',
+      label: 'Finance',
+      icon: <span aria-hidden />,
+      onSelect: onFinance,
+    },
   ];
   const railFooterItems: RailItem[] = [
-    { key: 'help', label: 'Help', icon: <span aria-hidden />, onSelect: onHelp },
+    {
+      key: 'help',
+      label: 'Help',
+      icon: <span aria-hidden />,
+      onSelect: onHelp,
+    },
   ];
   const navPanels: Record<string, NavPanelData> = {
     students: {
@@ -41,7 +73,9 @@ function setup() {
       groups: [
         {
           key: 'records',
-          items: [{ key: 'directory', label: 'Directory', onSelect: onDirectory }],
+          items: [
+            { key: 'directory', label: 'Directory', onSelect: onDirectory },
+          ],
         },
       ],
     },
@@ -54,10 +88,18 @@ function setup() {
       navPanels={navPanels}
       user={USER}
       userMenuItems={[]}
+      onPin={onPin}
     />,
   );
 
-  return { onOverview, onStudents, onAttendance, onFinance, onDirectory, onHelp };
+  return {
+    onOverview,
+    onStudents,
+    onAttendance,
+    onFinance,
+    onDirectory,
+    onHelp,
+  };
 }
 
 function bar() {
@@ -73,7 +115,13 @@ describe('MobileNav — bottom bar + overlay drawer', () => {
     setup();
     const tabBar = bar();
 
-    for (const label of ['Overview', 'Students', 'Classes', 'Attendance', 'More']) {
+    for (const label of [
+      'Overview',
+      'Students',
+      'Classes',
+      'Attendance',
+      'More',
+    ]) {
       expect(within(tabBar).getByText(label)).toBeInTheDocument();
     }
     // The 5th destination is not on the bar — it lives in the drawer.
@@ -83,10 +131,9 @@ describe('MobileNav — bottom bar + overlay drawer', () => {
     expect(
       within(tabBar).getByRole('button', { name: 'Overview' }),
     ).toHaveAttribute('aria-current', 'page');
-    expect(within(tabBar).getByRole('button', { name: 'More' })).not.toHaveAttribute(
-      'aria-current',
-      'page',
-    );
+    expect(
+      within(tabBar).getByRole('button', { name: 'More' }),
+    ).not.toHaveAttribute('aria-current', 'page');
   });
 
   it('navigates directly when a bottom-bar destination is tapped', () => {
@@ -98,12 +145,20 @@ describe('MobileNav — bottom bar + overlay drawer', () => {
   it('opens a drawer with every section, including those off the bar', () => {
     setup();
     const drawer = openDrawer();
-    for (const label of ['Overview', 'Students', 'Classes', 'Attendance', 'Finance']) {
+    for (const label of [
+      'Overview',
+      'Students',
+      'Classes',
+      'Attendance',
+      'Finance',
+    ]) {
       expect(within(drawer).getByText(label)).toBeInTheDocument();
     }
     // Utility items (Help) live in the drawer footer, outside the section nav.
     const dialog = screen.getByRole('dialog');
-    expect(within(dialog).getByRole('button', { name: 'Help' })).toBeInTheDocument();
+    expect(
+      within(dialog).getByRole('button', { name: 'Help' }),
+    ).toBeInTheDocument();
   });
 
   it('discloses a section panel inline, then navigates and closes the drawer', () => {
@@ -120,6 +175,26 @@ describe('MobileNav — bottom bar + overlay drawer', () => {
     expect(onDirectory).toHaveBeenCalledOnce();
     expect(
       screen.queryByRole('navigation', { name: 'All sections' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('offers pinning the rail from the drawer footer, and closes on choosing it', () => {
+    const onPin = vi.fn();
+    setup({ onPin });
+    openDrawer();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Pin menu to side' }));
+    expect(onPin).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole('navigation', { name: 'All sections' }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('hides the pin option when the host does not offer it', () => {
+    setup();
+    openDrawer();
+    expect(
+      screen.queryByRole('button', { name: 'Pin menu to side' }),
     ).not.toBeInTheDocument();
   });
 

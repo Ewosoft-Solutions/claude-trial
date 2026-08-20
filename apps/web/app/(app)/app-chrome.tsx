@@ -37,6 +37,7 @@ import { AppShell } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
 import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
 import { MobileNav } from '@workspace/ui/custom/shell/mobile-nav';
+import { MobileRail } from '@workspace/ui/custom/shell/mobile-rail';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
 import { CountBadge } from '@workspace/ui/custom/data-display/count-badge';
@@ -47,6 +48,7 @@ import type {
   UserMenuItem,
 } from '@workspace/ui/types/shell.types';
 
+import { useMobileNavMode } from '@/app/providers/mobile-nav-provider';
 import { useViewer } from '@/app/providers/viewer-provider';
 import { configForViewer } from '@/lib/navigation/app-navigation';
 import { useNavCounts } from '@/lib/navigation/use-nav-counts';
@@ -151,6 +153,10 @@ export function AppChrome({
   } = useViewer();
   const router = useRouter();
   const pathname = usePathname();
+  // Below md the user picks their surface: the bottom tab bar + drawer, or the
+  // collapsed rail pinned in its place. Exactly one of the two renders.
+  const { pinned: mobileRailPinned, setPinned: setMobileRailPinned } =
+    useMobileNavMode();
   const [searchOpen, setSearchOpen] = React.useState(false);
   const [enrollmentPromptOpen, setEnrollmentPromptOpen] = React.useState(false);
   const [hasEnrollmentIntent, setHasEnrollmentIntent] = React.useState(false);
@@ -415,21 +421,31 @@ export function AppChrome({
   return (
     <div className="h-svh w-full">
       <AppShell
-        mobileBottomInset="calc(4rem + env(safe-area-inset-bottom))"
+        // The pinned rail is a layout sibling that pushes the content column,
+        // so it reserves no bottom inset; the floating tab bar does.
+        mobileBottomInset={
+          mobileRailPinned ? '0rem' : 'calc(4rem + env(safe-area-inset-bottom))'
+        }
         mobileNav={
-          <MobileNav
-            railItems={nav.railItems}
-            railFooterItems={nav.railFooterItems}
-            navPanels={sidebarPanels}
-            schoolSwitcher={renderSchoolSwitcher}
-            user={user}
-            userMenuItems={userMenu}
-          />
+          mobileRailPinned ? null : (
+            <MobileNav
+              railItems={nav.railItems}
+              railFooterItems={nav.railFooterItems}
+              navPanels={sidebarPanels}
+              schoolSwitcher={renderSchoolSwitcher}
+              user={user}
+              userMenuItems={userMenu}
+              onPin={() => setMobileRailPinned(true)}
+            />
+          )
         }
         header={
           <AppHeader
             school={viewer.scope === 'school' ? activeSchool : undefined}
             roleLabel={viewer.scope === 'school' ? activeRole : undefined}
+            // The pinned rail carries the school chip (and the switch menu);
+            // the top bar keeps the role + school name beside it.
+            showSchoolMark={!mobileRailPinned}
             breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
             search={
               <OmniSearch
@@ -442,22 +458,35 @@ export function AppChrome({
           />
         }
         sidebar={
-          <AppSidebar
-            schoolSwitcher={renderSchoolSwitcher}
-            railItems={nav.railItems}
-            railFooterItems={nav.railFooterItems}
-            navHeader={
-              nav.navHeader
-                ? { ...nav.navHeader, subtitle: tenantName }
-                : undefined
-            }
-            navGroups={nav.navGroups}
-            navPanels={sidebarPanels}
-            user={user}
-            userMenuItems={userMenu}
-            defaultExpanded={sidebarExpanded}
-            onExpandedChange={writeSidebarPreference}
-          />
+          <>
+            {mobileRailPinned ? (
+              <MobileRail
+                schoolSwitcher={renderSchoolSwitcher}
+                railItems={nav.railItems}
+                railFooterItems={nav.railFooterItems}
+                navPanels={sidebarPanels}
+                user={user}
+                userMenuItems={userMenu}
+                onUnpin={() => setMobileRailPinned(false)}
+              />
+            ) : null}
+            <AppSidebar
+              schoolSwitcher={renderSchoolSwitcher}
+              railItems={nav.railItems}
+              railFooterItems={nav.railFooterItems}
+              navHeader={
+                nav.navHeader
+                  ? { ...nav.navHeader, subtitle: tenantName }
+                  : undefined
+              }
+              navGroups={nav.navGroups}
+              navPanels={sidebarPanels}
+              user={user}
+              userMenuItems={userMenu}
+              defaultExpanded={sidebarExpanded}
+              onExpandedChange={writeSidebarPreference}
+            />
+          </>
         }
       >
         {reminderVisible ? (

@@ -23,7 +23,7 @@
    ============================================================ */
 
 import * as React from 'react';
-import { ChevronDown, Menu, X } from 'lucide-react';
+import { ChevronDown, Menu, Pin, X } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
 import {
@@ -80,6 +80,13 @@ export interface MobileNavProps {
    * sweep — the platform convention.
    */
   primaryTabCount?: number;
+  /**
+   * Swap this surface for the pinned collapsed rail (MobileRail). Offered as
+   * a drawer-footer row: the drawer is where a user feels the cost of
+   * reaching anything past the four bottom tabs, so it is where the
+   * alternative belongs. Omit to hide the option.
+   */
+  onPin?: () => void;
   className?: string;
 }
 
@@ -241,6 +248,7 @@ export function MobileNav({
   user,
   userMenuItems = [],
   primaryTabCount = 4,
+  onPin,
   className,
 }: MobileNavProps) {
   const [open, setOpen] = React.useState(false);
@@ -405,6 +413,24 @@ export function MobileNav({
               onNavigate={closeDrawer}
             />
           ))}
+          {onPin ? (
+            <button
+              type="button"
+              onClick={() => {
+                setOpen(false);
+                onPin();
+              }}
+              style={MOBILE_NAV_ROW_STYLE}
+              className={DRAWER_ROW_CLASS}
+            >
+              <span className="relative grid size-7 shrink-0 place-items-center rounded-[var(--radius-sm)] [&>svg]:size-[18px]">
+                <Pin aria-hidden />
+              </span>
+              <span className="min-w-0 flex-1 truncate text-left">
+                Pin menu to side
+              </span>
+            </button>
+          ) : null}
           <ThemeControl expanded variant="curve" />
           {user ? (
             <SidebarProfile user={user} items={userMenuItems} expanded />
