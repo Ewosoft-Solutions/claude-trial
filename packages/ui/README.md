@@ -103,7 +103,7 @@ Override **both** themes for parity. (Full contract + example at the bottom of
 
 ### Primitives — `components/*`
 shadcn-style building blocks: `avatar`, `badge`, `breadcrumb`, `button`,
-`card`, `chart`, `checkbox`, `collapsible`, `drawer`, `dropdown-menu`, `input`,
+`card`, `chart`, `checkbox`, `collapsible`, `dropdown-menu`, `input`,
 `label`, `scroll-area`, `select`, `separator`, `sheet`, `sidebar`, `skeleton`,
 `table`, `tabs`, `toggle` / `toggle-group`, `tooltip`.
 

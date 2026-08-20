@@ -40,13 +40,14 @@ Chrome comes from `@workspace/ui/custom/detail/drawer-chrome`, tabs from
 `@workspace/ui/custom/detail/drawer-tabs`. Every drawer wears the same shell, and these components are
 where that lives:
 
-| part       | component      | what it fixes                                                                                                                                              |
-| ---------- | -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| top bar    | `DrawerHeader` | `bg-sidebar` — the **app top bar's** own surface, so drawer chrome and app chrome are the same colour                                                      |
-| title      | `DrawerTitle`  | display face at **22px × `--font-scale`** — deliberately under a page's 24px `PageTitle`, so a drawer never competes with the page behind it               |
-| tabs       | `DrawerTabs`   | the folder-tab strip: the rule sweeps up around the active tab                                                                                             |
-| action bar | `DrawerFooter` | same `bg-sidebar` as the header, so the chrome brackets the content                                                                                        |
-| body       | _(nothing)_    | keeps the sheet's `bg-background` — the token a **page's main region** uses, so cards and inputs sit on the same ground and lift the same way as on a page |
+| part       | component       | what it fixes                                                                                                                                              |
+| ---------- | --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| panel      | `DrawerContent` | the width (`size`, §3) and the column layout that pins header and action bar while only the body scrolls                                                   |
+| top bar    | `DrawerHeader`  | `bg-sidebar` — the **app top bar's** own surface, so drawer chrome and app chrome are the same colour                                                      |
+| title      | `DrawerTitle`   | display face at **22px × `--font-scale`** — deliberately under a page's 24px `PageTitle`, so a drawer never competes with the page behind it               |
+| tabs       | `DrawerTabs`    | the folder-tab strip: the rule sweeps up around the active tab                                                                                             |
+| action bar | `DrawerFooter`  | same `bg-sidebar` as the header, so the chrome brackets the content                                                                                        |
+| body       | _(nothing)_     | keeps the sheet's `bg-background` — the token a **page's main region** uses, so cards and inputs sit on the same ground and lift the same way as on a page |
 
 Pass `flush` to `DrawerHeader` when a `DrawerTabs` strip follows: the strip paints the boundary rule
 itself, so the header must not draw a second one.
@@ -94,8 +95,14 @@ drawer.
 
 Creating, editing or reviewing one object is a drawer. It may be tall, scrollable and tabbed at no cost;
 it keeps the list behind it as context; it becomes full-screen on mobile for free; and half-finished
-work in it survives a mis-click. A **form** drawer wears the same shared chrome as a **detail** drawer
-(§2):
+work in it survives a mis-click.
+
+**Every create/edit form is a drawer, whether or not it scrolls.** The scroll test says when a modal is
+definitely wrong; it never says one is right. "It happens to fit" is not a reason to leave a form in a
+modal. This is precisely what the first sweep got wrong — it filtered on _scrolling_ modals, so nineteen
+create/edit forms that happened to fit stayed modals until a second pass caught them.
+
+A **form** drawer wears the same shared chrome as a **detail** drawer (§2):
 
 ```tsx
 <Sheet open={open} onOpenChange={setOpen}>
@@ -107,9 +114,22 @@ work in it survives a mis-click. A **form** drawer wears the same shared chrome 
       </SheetDescription>
     </DrawerHeader>
     <div className="flex-1 overflow-y-auto px-5 py-5">{/* form */}</div>
+    <DrawerFooter className="flex-row justify-end gap-2">
+      <SheetClose asChild>
+        <Button variant="ghost" size="sm">
+          Cancel
+        </Button>
+      </SheetClose>
+      <Button size="sm">Create</Button>
+    </DrawerFooter>
   </DrawerContent>
 </Sheet>
 ```
+
+**The primary action belongs in `DrawerFooter`, never in the body.** A form promoted from a modal
+usually has its submit as the last cell of the field grid; left there it scrolls away with the fields
+and the drawer has no action bar at all. Four of the converted forms shipped that way before it was
+caught.
 
 **Canonical example:** the create sheet in `students/admissions/admissions-workspace.tsx`.
 
@@ -131,6 +151,26 @@ a matrix genuinely wraps below it.
 `SheetContent`'s own `sm:max-w-sm` default is deliberately left alone — it also backs the nav and
 command-palette sheets, where a 576px floor would be wrong. Detail and form drawers come through
 `DrawerContent`.
+
+#### Promoting a modal? re-read its layout, not just its shell
+
+A modal is as wide as the viewport lets it be; a drawer is 576px. Swapping the shell without reading
+the layout inside it is where every regression in this work came from:
+
+- **Grids sized for the old width.** `sm:grid-cols-3` gives ~178px columns at 576px and
+  `lg:grid-cols-4` gives ~134px — enough to truncate a "Choose campus" placeholder. Two columns is the
+  ceiling inside a `standard` drawer.
+- **A `col-span` wider than the template wins.** A child left on `lg:col-span-4` forces four implicit
+  tracks no matter what the container declares, so the grid silently stays four wide and no CSS rule
+  matching the container explains it. Narrow the container and its spans together.
+- **Truncation eats the last thing on the line.** A single `truncate` span holding
+  `id · term • ₦ owing` loses the money first. Give the identifier its own truncating span and leave
+  the figure `shrink-0` — money always renders in full.
+- **Wrappers that only worked because the modal was roomy.** A bare `<div className="py-2">` holding
+  six fields has no gap at all; a wide modal made that survivable and a drawer does not.
+
+Layout faults like these are usually _pre-existing_ — the modal was concealing them. Reading the diff
+won't show them; open the drawer.
 
 ### Inline disclosure is not a surface for actions
 
@@ -156,11 +196,16 @@ Everything else — invite panels, correction forms, per-row detail expansions �
 
 ### One drawer family
 
-`Sheet` (`@workspace/ui/components/sheet`) is _the_ drawer. The vaul-backed `Drawer`
-(`@workspace/ui/components/drawer`) is a bottom sheet, and the name collision is a trap: in code
-`Drawer*` means vaul, in conversation "drawer" means `Sheet`, and `drawer-chrome` is built on `Sheet`.
-**No new vaul usages.** The three that remain (`_shared/step-up-prompt`, the two security-governance
-screens) are a tracked follow-up — step-up is a blocking interrupt and belongs in a modal.
+`Sheet` (`@workspace/ui/components/sheet`) is _the_ drawer, and there is no second overlay family. The
+vaul-backed `Drawer` was retired: the component is deleted and the dependency dropped, so `Drawer*` in
+this codebase now means the shared chrome in `@workspace/ui/custom/detail/drawer-chrome` — built on
+`Sheet` — and nothing else. While both existed the collision was a live trap: two different
+`DrawerContent` symbols, one a side panel and one a bottom sheet, told apart only by import path.
+
+Don't reintroduce a bottom-sheet library for something a `Sheet` already carries: `SheetContent` takes
+`side="bottom"` (the mobile filter sheet in `directory-toolbar` is the example). And note what retiring
+vaul settled — `_shared/step-up-prompt` was a bottom sheet only because vaul was to hand. It is a
+**modal**: a blocking re-auth interrupt is the textbook case for one.
 
 ## 4 · State reads through semantic `StatusBadge` tones
 
@@ -193,9 +238,10 @@ add a `next.config` redirect from the old path so links keep working.
 
 - [ ] `ShellMain` + `PageHeader` + `StatGrid` + `DirectoryTable` (Pattern-B `search`/`filters`), no bespoke table
 - [ ] row → `Sheet` drawer; deep edit → `/.../[id]` route
-- [ ] surfaces chosen by §3 — a modal only if it blocks _and_ doesn't scroll; create/edit is a drawer;
-      no inline panel for an action or form
+- [ ] surfaces chosen by §3 — a modal only if it blocks _and_ doesn't scroll; **every** create/edit is a
+      drawer whether or not it scrolls; no inline panel that toggles open for an action or form
 - [ ] drawers use `DrawerContent` with `size` (`standard` / `wide`) — no hand-written `sm:max-w-*`
+- [ ] the drawer's primary action sits in `DrawerFooter`, not loose at the end of the body
 - [ ] statuses via `StatusBadge` semantic tones; counts/money via `format.ts`
 - [ ] route nested under its domain segment; nav label matches; redirect added if a route moved
 - [ ] `loading.tsx` present; trust-boundary reads guarded
