@@ -186,3 +186,33 @@ export const apiClient = {
     });
   },
 };
+
+/**
+ * The message to show a person when a proxied call fails.
+ *
+ * Route handlers answer with `{ error }` (see `apiErrorBody`), but callers had
+ * been reading `.message` — the shape NestJS uses upstream, not the shape that
+ * reaches the browser. Every one of them therefore fell through to
+ * "Request failed (400)", so the server's actual explanation — "this invoice is
+ * already issued", "you cannot approve your own request", "that fee item has no
+ * price yet" — never arrived. Reads both, so it keeps working whichever side
+ * produced the body.
+ */
+export async function apiErrorMessage(
+  res: Response,
+  fallback = 'Something went wrong',
+): Promise<string> {
+  const body = (await res.json().catch(() => null)) as {
+    error?: unknown;
+    message?: unknown;
+  } | null;
+  const candidate = body?.error ?? body?.message;
+  if (typeof candidate === 'string' && candidate.trim() !== '') {
+    return candidate;
+  }
+  // An array is NestJS's validation-error shape.
+  if (Array.isArray(candidate) && typeof candidate[0] === 'string') {
+    return candidate[0];
+  }
+  return `${fallback} (${res.status})`;
+}

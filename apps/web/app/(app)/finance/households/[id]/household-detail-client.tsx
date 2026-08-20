@@ -37,6 +37,7 @@ import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout'
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
+import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as nairaFromKobo } from '@/lib/format';
 import { isSearchable } from '@/lib/input-validation';
@@ -99,10 +100,7 @@ async function mutate(
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    const d = (await res.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new Error(d?.message ?? `Request failed (${res.status})`);
+    throw new Error(await apiErrorMessage(res));
   }
 }
 

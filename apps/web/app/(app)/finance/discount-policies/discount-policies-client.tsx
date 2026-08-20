@@ -60,6 +60,7 @@ import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
+import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as naira } from '@/lib/format';
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
@@ -483,12 +484,7 @@ function CreatePolicyDialog({ catalogue }: { catalogue: CatalogueItem[] }) {
                   },
                 );
                 if (!res.ok) {
-                  const d = (await res.json().catch(() => null)) as {
-                    message?: string;
-                  } | null;
-                  throw new Error(
-                    d?.message ?? `Request failed (${res.status})`,
-                  );
+                  throw new Error(await apiErrorMessage(res));
                 }
                 toast.success('Policy created — awaiting activation');
                 setOpen(false);
@@ -561,12 +557,7 @@ function ActivatePolicyButton({ policyId }: { policyId: string }) {
                   },
                 );
                 if (!res.ok) {
-                  const d = (await res.json().catch(() => null)) as {
-                    message?: string;
-                  } | null;
-                  throw new Error(
-                    d?.message ?? `Request failed (${res.status})`,
-                  );
+                  throw new Error(await apiErrorMessage(res));
                 }
                 toast.success('Policy activated');
                 setOpen(false);

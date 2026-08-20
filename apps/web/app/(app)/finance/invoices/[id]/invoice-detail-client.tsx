@@ -51,6 +51,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 
+import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as naira, koboFromNaira } from '@/lib/format';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
@@ -212,10 +213,7 @@ async function mutate(
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!res.ok) {
-    const d = (await res.json().catch(() => null)) as {
-      message?: string;
-    } | null;
-    throw new Error(d?.message ?? `Request failed (${res.status})`);
+    throw new Error(await apiErrorMessage(res));
   }
   return (await res.json().catch(() => null)) as unknown;
 }

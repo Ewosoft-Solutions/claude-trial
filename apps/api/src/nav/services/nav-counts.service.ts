@@ -9,6 +9,8 @@ export interface NavCounts {
   outstandingInvoices: number;
   /** User invitations sent but not yet accepted. */
   pendingInvitations: number;
+  /** Discretionary discounts waiting on a second authority. */
+  pendingAdjustments: number;
 }
 
 /**
@@ -36,8 +38,12 @@ export class NavCountsService {
   }
 
   async getCounts(tenantId: string): Promise<NavCounts> {
-    const [admissionsPending, outstandingInvoices, pendingInvitations] =
-      await Promise.all([
+    const [
+      admissionsPending,
+      outstandingInvoices,
+      pendingInvitations,
+      pendingAdjustments,
+    ] = await Promise.all([
         this.client.admissionApplication.count({
           where: { tenantId, decision: 'pending' },
         }),
@@ -51,8 +57,18 @@ export class NavCountsService {
             status: 'pending',
           },
         }),
+        // Policy adjustments are pre-approved and post themselves, so only
+        // discretionary ones are waiting on a person.
+        this.client.feeAdjustment.count({
+          where: { tenantId, status: 'pending', source: 'discretionary' },
+        }),
       ]);
 
-    return { admissionsPending, outstandingInvoices, pendingInvitations };
+    return {
+      admissionsPending,
+      outstandingInvoices,
+      pendingInvitations,
+      pendingAdjustments,
+    };
   }
 }

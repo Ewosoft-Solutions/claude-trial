@@ -7,7 +7,7 @@
    destination hrefs, so `resolveNavigation` can badge the leaves
    (and roll them up onto their parent sections). Only the actionable
    numbers are surfaced — pending admissions, outstanding invoices,
-   and pending user invitations.
+   pending user invitations, and discounts awaiting approval.
 
    This is a purpose-built counts endpoint, not the dashboard
    aggregate: a handful of cheap tenant-scoped COUNTs, so the badges
@@ -28,6 +28,7 @@ interface NavCountsResponse {
   admissionsPending?: number;
   outstandingInvoices?: number;
   pendingInvitations?: number;
+  pendingAdjustments?: number;
 }
 
 export function useNavCounts(viewer: ViewerContext): NavCounts {
@@ -45,10 +46,12 @@ export function useNavCounts(viewer: ViewerContext): NavCounts {
     const admissions = data.admissionsPending ?? 0;
     const invoices = data.outstandingInvoices ?? 0;
     const invitations = data.pendingInvitations ?? 0;
+    const approvals = data.pendingAdjustments ?? 0;
 
     if (admissions > 0) counts['/students/admissions'] = admissions;
     if (invoices > 0) counts['/finance/invoices'] = invoices;
     if (invitations > 0) counts['/settings/users'] = invitations;
+    if (approvals > 0) counts['/finance/approvals'] = approvals;
     return counts;
   }, [data]);
 }

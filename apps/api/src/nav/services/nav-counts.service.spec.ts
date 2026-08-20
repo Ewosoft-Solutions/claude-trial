@@ -10,6 +10,7 @@ function build(counts: {
   admissions?: number;
   invoices?: number;
   invitations?: number;
+  adjustments?: number;
 }) {
   const client = {
     admissionApplication: {
@@ -17,14 +18,22 @@ function build(counts: {
     },
     feeInvoice: { count: jest.fn().mockResolvedValue(counts.invoices ?? 0) },
     userTenant: { count: jest.fn().mockResolvedValue(counts.invitations ?? 0) },
+    feeAdjustment: {
+      count: jest.fn().mockResolvedValue(counts.adjustments ?? 0),
+    },
   };
   const tenantDb = { client };
   return { service: new NavCountsService(tenantDb as never), client };
 }
 
 describe('NavCountsService.getCounts', () => {
-  it('returns the three actionable counts', async () => {
-    const { service } = build({ admissions: 21, invoices: 3, invitations: 2 });
+  it('returns the actionable counts', async () => {
+    const { service } = build({
+      admissions: 21,
+      invoices: 3,
+      invitations: 2,
+      adjustments: 4,
+    });
 
     const out = await service.getCounts('t1');
 
@@ -32,6 +41,7 @@ describe('NavCountsService.getCounts', () => {
       admissionsPending: 21,
       outstandingInvoices: 3,
       pendingInvitations: 2,
+      pendingAdjustments: 4,
     });
   });
 
@@ -56,6 +66,12 @@ describe('NavCountsService.getCounts', () => {
         status: 'pending',
       },
     });
+    // Policy adjustments are pre-approved and post themselves on issue, so a
+    // badge counting them would send someone to a queue of things nobody can
+    // act on.
+    expect(client.feeAdjustment.count).toHaveBeenCalledWith({
+      where: { tenantId: 't9', status: 'pending', source: 'discretionary' },
+    });
   });
 
   it('defaults missing figures to zero (a fresh tenant reports zeros)', async () => {
@@ -67,6 +83,7 @@ describe('NavCountsService.getCounts', () => {
       admissionsPending: 5,
       outstandingInvoices: 0,
       pendingInvitations: 0,
+      pendingAdjustments: 0,
     });
   });
 });

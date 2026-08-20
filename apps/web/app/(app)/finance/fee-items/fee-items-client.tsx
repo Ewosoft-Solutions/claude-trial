@@ -47,6 +47,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
+import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as nairaFromKobo, koboFromNaira } from '@/lib/format';
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
@@ -461,12 +462,7 @@ function AddFeeItemDialog() {
                   }),
                 });
                 if (!res.ok) {
-                  const d = (await res.json().catch(() => null)) as {
-                    message?: string;
-                  } | null;
-                  throw new Error(
-                    d?.message ?? `Request failed (${res.status})`,
-                  );
+                  throw new Error(await apiErrorMessage(res));
                 }
                 toast.success('Fee item added');
                 setOpen(false);
@@ -579,12 +575,7 @@ function EditFeeItemDialog({ item }: { item: FeeItem }) {
                   },
                 );
                 if (!res.ok) {
-                  const d = (await res.json().catch(() => null)) as {
-                    message?: string;
-                  } | null;
-                  throw new Error(
-                    d?.message ?? `Request failed (${res.status})`,
-                  );
+                  throw new Error(await apiErrorMessage(res));
                 }
                 toast.success('Fee item updated');
                 setOpen(false);

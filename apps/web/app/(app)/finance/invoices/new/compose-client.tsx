@@ -54,6 +54,7 @@ import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
 
+import { apiErrorMessage } from '@/lib/api-client';
 import { authedFetch } from '@/lib/authed-fetch';
 import { formatNaira as naira, koboFromNaira } from '@/lib/format';
 import { MIN_QUANTITY } from '@/lib/invoice-lines';
@@ -146,10 +147,7 @@ export function ComposeClient({
             }),
           });
           if (!res.ok) {
-            const d = (await res.json().catch(() => null)) as {
-              message?: string;
-            } | null;
-            throw new Error(d?.message ?? `Request failed (${res.status})`);
+            throw new Error(await apiErrorMessage(res));
           }
           const saved = (await res.json()) as { id: string };
           // Only now is the local copy redundant.
