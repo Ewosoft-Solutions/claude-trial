@@ -63,11 +63,69 @@ const shortDate = (d: Date | null) =>
       })
     : '—';
 
+/**
+ * The strip along the foot of every page.
+ *
+ * A bill is the document a school hands to a family, so it carries the
+ * school's name at the top; this is the quiet line that says what produced it.
+ * Small, grey and below the content — an invoice's job is to be read, not to
+ * advertise.
+ *
+ * Applied across all buffered pages rather than just the current one, so a
+ * two-page bill is not signed only on its second page.
+ */
+function stampFooter(pdf: PDFKit.PDFDocument): void {
+  const range = pdf.bufferedPageRange();
+  const pageCount = range.count;
+
+  for (let i = range.start; i < range.start + pageCount; i += 1) {
+    pdf.switchToPage(i);
+
+    const left = pdf.page.margins.left;
+    const right = pdf.page.width - pdf.page.margins.right;
+    const y = pdf.page.height - pdf.page.margins.bottom + 12;
+
+    pdf
+      .moveTo(left, y - 8)
+      .lineTo(right, y - 8)
+      .strokeColor('#eee')
+      .stroke();
+
+    // `text()` refuses to draw below the bottom margin — it starts a new page
+    // instead — so the footer band has to be opened up first. Vector ops like
+    // the rule above ignore the margin box, which is why the line appeared and
+    // the words did not. Restored immediately so nothing else is affected.
+    const bottomMargin = pdf.page.margins.bottom;
+    pdf.page.margins.bottom = 0;
+
+    pdf.font('Helvetica').fontSize(7.5).fillColor('#999').opacity(1);
+    pdf.text('Powered by SchoolWithEase', left, y, {
+      width: right - left,
+      align: 'left',
+      lineBreak: false,
+    });
+
+    // Only worth saying when there is more than one page to lose track of.
+    if (pageCount > 1) {
+      pdf.text(`Page ${i - range.start + 1} of ${pageCount}`, left, y, {
+        width: right - left,
+        align: 'right',
+        lineBreak: false,
+      });
+    }
+
+    pdf.page.margins.bottom = bottomMargin;
+  }
+}
+
 @Injectable()
 export class InvoiceDocumentService {
   render(doc: InvoiceDocument): Promise<Buffer> {
     return new Promise<Buffer>((resolve, reject) => {
-      const pdf = new PDFDocument({ margin: 48, size: 'A4' });
+      // `bufferPages` keeps every page open until `end()`, which is what lets
+      // the footer be stamped on all of them — including pages that only exist
+      // because a long bill spilled over.
+      const pdf = new PDFDocument({ margin: 48, size: 'A4', bufferPages: true });
       const chunks: Buffer[] = [];
       pdf.on('data', (c: Buffer) => chunks.push(c));
       pdf.on('end', () => resolve(Buffer.concat(chunks)));
@@ -261,6 +319,7 @@ export class InvoiceDocumentService {
         pdf.restore();
       }
 
+      stampFooter(pdf);
       pdf.end();
     });
   }
