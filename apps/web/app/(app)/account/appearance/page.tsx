@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Laptop, Minus, Moon, Plus, Sun } from 'lucide-react';
+import {
+  Laptop,
+  LayoutGrid,
+  Minus,
+  Moon,
+  PanelLeft,
+  Plus,
+  Sun,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 import { Button } from '@workspace/ui/components/button';
@@ -14,6 +22,7 @@ import {
 } from '@workspace/ui/components/card';
 import { cn } from '@workspace/ui/lib/utils';
 
+import { useMobileNavMode } from '@/app/providers/mobile-nav-provider';
 import {
   DEFAULT_FONT_SCALE,
   FONT_SCALE_STEPS,
@@ -27,6 +36,60 @@ const THEMES = [
   { value: 'light', label: 'Light', icon: Sun },
   { value: 'dark', label: 'Dark', icon: Moon },
 ] as const;
+
+const PHONE_MENU_OPTIONS = [
+  {
+    pinned: false,
+    label: 'Bottom bar',
+    icon: LayoutGrid,
+    hint: 'Tabs along the bottom, everything else behind “More”.',
+  },
+  {
+    pinned: true,
+    label: 'Side menu',
+    icon: PanelLeft,
+    hint: 'The compact rail stays pinned; sub-menus open beside it.',
+  },
+] as const;
+
+/**
+ * The same choice offered from the phone drawer ("Pin menu to side") and the
+ * pinned rail's profile menu ("Unpin menu") — mirrored here so a user who
+ * cannot find it in the navigation itself has a settled place to look.
+ */
+function PhoneMenuControl() {
+  const { pinned, setPinned } = useMobileNavMode();
+
+  return (
+    <div className="grid gap-3 sm:grid-cols-2">
+      {PHONE_MENU_OPTIONS.map((option) => {
+        const Icon = option.icon;
+        const selected = pinned === option.pinned;
+        return (
+          <Button
+            key={option.label}
+            type="button"
+            variant="outline"
+            onClick={() => setPinned(option.pinned)}
+            aria-pressed={selected}
+            className={cn(
+              'h-auto flex-col items-start gap-1.5 px-4 py-4 text-left',
+              selected && 'border-primary bg-primary/10 text-foreground',
+            )}
+          >
+            <span className="flex items-center gap-3 font-semibold">
+              <Icon className="size-5 shrink-0" aria-hidden />
+              {option.label}
+            </span>
+            <span className="whitespace-normal text-sm font-normal text-muted-foreground">
+              {option.hint}
+            </span>
+          </Button>
+        );
+      })}
+    </div>
+  );
+}
 
 function TextSizeControl() {
   // The applied value lives on <html> (set first-paint from the cookie). Mirror
@@ -153,6 +216,20 @@ export default function AccountAppearancePage() {
               </Button>
             );
           })}
+        </CardContent>
+      </Card>
+
+      <Card className="shadow-card">
+        <CardHeader>
+          <CardTitle className="text-base">Menu on phones</CardTitle>
+          <CardDescription>
+            On small screens the menu can sit along the bottom, or stay pinned
+            down the side as a compact rail. Applies to phone-sized screens only
+            — larger screens always use the sidebar.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <PhoneMenuControl />
         </CardContent>
       </Card>
 

@@ -84,6 +84,14 @@ export interface AppHeaderProps {
   roleLabel?: string;
   /** Tenant/school switcher — typically <SchoolSwitcher/>. */
   schoolSwitcher?: React.ReactNode;
+  /**
+   * Whether the mobile lockup leads with the school's logo/initials chip.
+   * Set false when the pinned mobile rail is showing: the rail already carries
+   * the chip (and owns the switch menu), so repeating it here would spend
+   * scarce phone width on a duplicate mark. The role + school NAME stay
+   * either way — that is what tells the user which context they are in.
+   */
+  showSchoolMark?: boolean;
   /** Breadcrumb trail — typically <AppBreadcrumbs/>. Hidden on mobile. */
   breadcrumbs?: React.ReactNode;
   /** Center command/search affordance — typically <OmniSearch/>. */
@@ -100,6 +108,7 @@ export function AppHeader({
   school,
   roleLabel,
   schoolSwitcher,
+  showSchoolMark = true,
   breadcrumbs,
   search,
   searchAction,
@@ -122,16 +131,18 @@ export function AppHeader({
             switcher. Otherwise fall back to the product wordmark. */}
         {school ? (
           <div className="flex min-w-0 items-center gap-2 md:hidden">
-            <InitialsAvatar
-              square
-              initials={school.initials}
-              name={school.name}
-              seed={school.id || school.name}
-              color={school.color}
-              imageUrl={school.logoUrl}
-              className="size-8 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]"
-              textClassName="text-[calc(11px*var(--font-scale))] font-extrabold"
-            />
+            {showSchoolMark ? (
+              <InitialsAvatar
+                square
+                initials={school.initials}
+                name={school.name}
+                seed={school.id || school.name}
+                color={school.color}
+                imageUrl={school.logoUrl}
+                className="size-8 shrink-0 shadow-[0_0_0_1px_rgba(255,255,255,0.12)_inset]"
+                textClassName="text-[calc(11px*var(--font-scale))] font-extrabold"
+              />
+            ) : null}
             {/* Role stacked over the school name — the same lockup the sidebar
                 switcher uses, so the active persona stays visible on mobile. */}
             <span className="flex min-w-0 flex-col leading-tight">

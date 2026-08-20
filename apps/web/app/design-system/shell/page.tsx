@@ -46,6 +46,7 @@ import { AppShell, ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { AppHeader, OmniSearch } from '@workspace/ui/custom/shell/app-header';
 import { AppSidebar } from '@workspace/ui/custom/shell/app-sidebar';
 import { MobileNav } from '@workspace/ui/custom/shell/mobile-nav';
+import { MobileRail } from '@workspace/ui/custom/shell/mobile-rail';
 import { SchoolSwitcher } from '@workspace/ui/custom/shell/school-switcher';
 import { AppBreadcrumbs } from '@workspace/ui/custom/shell/app-breadcrumbs';
 import {
@@ -270,6 +271,9 @@ function PersonaSwitcher({
 /* ---- composed preview ---------------------------------------- */
 export default function ShellPreviewPage() {
   const [activeSchool, setActiveSchool] = React.useState(SCHOOLS[0]!.id);
+  // Preview toggle for the phone navigation surface (the real app persists
+  // this per browser; see MobileNavProvider).
+  const [mobileRailPinned, setMobileRailPinned] = React.useState(false);
   const [personaKey, setPersonaKey] = React.useState(VIEWERS[0]!.key);
   const [view, setView] = React.useState('pipeline');
 
@@ -322,21 +326,26 @@ export default function ShellPreviewPage() {
   return (
     <div className="h-svh w-full">
       <AppShell
-        mobileBottomInset="calc(4rem + env(safe-area-inset-bottom))"
+        mobileBottomInset={
+          mobileRailPinned ? '0rem' : 'calc(4rem + env(safe-area-inset-bottom))'
+        }
         mobileNav={
-          <MobileNav
-            railItems={nav.railItems}
-            railFooterItems={nav.railFooterItems}
-            navPanels={nav.navPanels}
-            schoolSwitcher={renderSchoolSwitcher}
-            navFooter={
-              nav.activeSectionKey === 'students' ? (
-                <NavFooterCard />
-              ) : undefined
-            }
-            user={USER}
-            userMenuItems={USER_MENU}
-          />
+          mobileRailPinned ? null : (
+            <MobileNav
+              railItems={nav.railItems}
+              railFooterItems={nav.railFooterItems}
+              navPanels={nav.navPanels}
+              schoolSwitcher={renderSchoolSwitcher}
+              navFooter={
+                nav.activeSectionKey === 'students' ? (
+                  <NavFooterCard />
+                ) : undefined
+              }
+              user={USER}
+              userMenuItems={USER_MENU}
+              onPin={() => setMobileRailPinned(true)}
+            />
+          )
         }
         header={
           <AppHeader
@@ -348,24 +357,39 @@ export default function ShellPreviewPage() {
           />
         }
         sidebar={
-          <AppSidebar
-            schoolSwitcher={renderSchoolSwitcher}
-            railItems={nav.railItems}
-            railFooterItems={nav.railFooterItems}
-            navHeader={
-              nav.navHeader
-                ? { ...nav.navHeader, subtitle: tenantName }
-                : undefined
-            }
-            navGroups={nav.navGroups}
-            navFooter={
-              nav.activeSectionKey === 'students' ? (
-                <NavFooterCard />
-              ) : undefined
-            }
-            user={USER}
-            userMenuItems={USER_MENU}
-          />
+          <>
+            {/* Below md the user picks a surface: the bottom tab bar + drawer,
+                or this same collapsed rail pinned in its place. */}
+            {mobileRailPinned ? (
+              <MobileRail
+                schoolSwitcher={renderSchoolSwitcher}
+                railItems={nav.railItems}
+                railFooterItems={nav.railFooterItems}
+                navPanels={nav.navPanels}
+                user={USER}
+                userMenuItems={USER_MENU}
+                onUnpin={() => setMobileRailPinned(false)}
+              />
+            ) : null}
+            <AppSidebar
+              schoolSwitcher={renderSchoolSwitcher}
+              railItems={nav.railItems}
+              railFooterItems={nav.railFooterItems}
+              navHeader={
+                nav.navHeader
+                  ? { ...nav.navHeader, subtitle: tenantName }
+                  : undefined
+              }
+              navGroups={nav.navGroups}
+              navFooter={
+                nav.activeSectionKey === 'students' ? (
+                  <NavFooterCard />
+                ) : undefined
+              }
+              user={USER}
+              userMenuItems={USER_MENU}
+            />
+          </>
         }
         inspector={<Inspector />}
         statusBar={<StatusBar note={`${persona.label} · ${tenantName}`} />}

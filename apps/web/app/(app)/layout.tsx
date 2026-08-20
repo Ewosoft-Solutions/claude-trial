@@ -17,11 +17,14 @@
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 
+import { MobileNavProvider } from '@/app/providers/mobile-nav-provider';
 import { ViewerProvider } from '@/app/providers/viewer-provider';
 import { SwrProvider } from '@/app/providers/swr-provider';
 import { SessionLifecycleProvider } from '@/app/providers/session-lifecycle-provider';
 import { getSession } from '@/lib/session';
 import {
+  MOBILE_NAV_COOKIE,
+  mobileNavPinnedFromCookie,
   SIDEBAR_COOKIE,
   sidebarExpandedFromCookie,
 } from '@/lib/sidebar-preference';
@@ -38,17 +41,24 @@ export default async function AppLayout({
     redirect('/session/resume');
   }
 
-  // Read the persisted rail state on the server so its width renders correctly
-  // on first paint (no expand→collapse flash on refresh).
+  // Read the persisted navigation preferences on the server so the chrome
+  // renders correctly on first paint: the rail at the right width (no
+  // expand→collapse flash) and phones on the surface the user chose (no
+  // bottom-bar flash before the pinned rail takes over).
   const sidebarExpanded = sidebarExpandedFromCookie(
     cookieStore.get(SIDEBAR_COOKIE)?.value,
+  );
+  const mobileNavPinned = mobileNavPinnedFromCookie(
+    cookieStore.get(MOBILE_NAV_COOKIE)?.value,
   );
 
   return (
     <SwrProvider>
       <ViewerProvider session={session}>
         <SessionLifecycleProvider session={session}>
-          <AppChrome sidebarExpanded={sidebarExpanded}>{children}</AppChrome>
+          <MobileNavProvider defaultPinned={mobileNavPinned}>
+            <AppChrome sidebarExpanded={sidebarExpanded}>{children}</AppChrome>
+          </MobileNavProvider>
         </SessionLifecycleProvider>
       </ViewerProvider>
     </SwrProvider>

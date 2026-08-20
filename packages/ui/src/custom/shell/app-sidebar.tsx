@@ -19,17 +19,17 @@
    ============================================================ */
 
 import * as React from 'react';
-import { ChevronDown, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { cn } from '@workspace/ui/lib/utils';
 import {
-  CURVE_SIZE,
-  FlyoutContour,
-} from '@workspace/ui/custom/shell/flyout-contour';
+  CompactNavItem,
+  RailFlyout,
+  useRailFlyout,
+} from '@workspace/ui/custom/shell/compact-rail';
 import {
   hasActiveNavItem,
   MOBILE_NAV_ROW_STYLE,
-  NAV_ACTIVE,
   NavElement,
   NavGroups,
   SidebarProfile,
@@ -43,17 +43,6 @@ import type {
   UserMenuItem,
   UserProfile,
 } from '@workspace/ui/types/shell.types';
-
-/* ---- rail count badge — a small square chip overlaid on the icon ---- */
-function RailBadge({ badge }: { badge: string | number }) {
-  return (
-    <CountBadge
-      count={badge}
-      size="sm"
-      className="pointer-events-none absolute -right-2 -top-1.5 z-10 border-2 border-background"
-    />
-  );
-}
 
 /* ============================================================
    Sidebar — the desktop collapsible rail/panel (md+)
@@ -89,89 +78,37 @@ function Sidebar({
   onExpandedChange?: (expanded: boolean) => void;
 }) {
   const sideNavRef = React.useRef<HTMLElement>(null);
-  const flyoutSurfaceRef = React.useRef<HTMLElement>(null);
   // Desktop rail is expanded by default; the user can collapse it to an icon
-  // rail with flyouts. Mobile navigation is a separate surface (see MobileNav),
-  // so this component no longer tracks viewport size.
+  // rail with flyouts. Mobile navigation is a separate surface (MobileNav, or
+  // MobileRail when the user pins this same collapsed rail), so this component
+  // no longer tracks viewport size.
   const [expanded, setExpanded] = React.useState(defaultExpanded);
-  const [flyoutSectionKey, setFlyoutSectionKey] = React.useState<string | null>(
-    null,
-  );
   // The theme flyout and the section flyouts are mutually exclusive overlays;
   // the rail owns the theme's open state so opening one closes the other.
   const [themeOpen, setThemeOpen] = React.useState(false);
   const [expandedSectionKey, setExpandedSectionKey] = React.useState<
     string | null | undefined
   >(undefined);
-  const [flyoutAnchorTop, setFlyoutAnchorTop] = React.useState(8);
-  const [flyoutSize, setFlyoutSize] = React.useState({
-    width: 208,
-    height: 400,
-  });
 
   const allItems = [...items, ...(footerItems ?? [])];
   const activeItem = allItems.find((item) => item.active);
-  const selectedFlyoutItem = allItems.find(
-    (item) => item.key === flyoutSectionKey,
-  );
-  const selectedFlyoutPanel = selectedFlyoutItem
-    ? panels[selectedFlyoutItem.key]
-    : undefined;
-  const flyoutOpen =
-    !expanded &&
-    selectedFlyoutItem?.hasPanel === true &&
-    Boolean(selectedFlyoutPanel?.groups.length);
+  // Collapsed-only: which section's submenu is open, where it anchors, how big
+  // it measures. Shared with the pinned mobile rail (see compact-rail).
+  const flyout = useRailFlyout({
+    items: allItems,
+    panels,
+    containerRef: sideNavRef,
+    enabled: !expanded,
+  });
   const defaultExpandedKey = activeItem?.hasPanel ? activeItem.key : null;
   const openExpandedKey =
     expandedSectionKey === undefined ? defaultExpandedKey : expandedSectionKey;
-  const flyoutTop = Math.max(0, flyoutAnchorTop - CURVE_SIZE);
-
-  React.useLayoutEffect(() => {
-    if (!flyoutOpen) return;
-    const surface = flyoutSurfaceRef.current;
-    if (!surface) return;
-
-    const measure = () => {
-      const rect = surface.getBoundingClientRect();
-      if (rect.width === 0 || rect.height === 0) return;
-      const next = {
-        width: Math.round(rect.width * 2) / 2,
-        height: Math.round(rect.height * 2) / 2,
-      };
-      setFlyoutSize((current) =>
-        current.width === next.width && current.height === next.height
-          ? current
-          : next,
-      );
-    };
-
-    measure();
-    if (typeof ResizeObserver === 'undefined') return;
-    const observer = new ResizeObserver(measure);
-    observer.observe(surface);
-    return () => observer.disconnect();
-  }, [flyoutOpen, selectedFlyoutItem?.key]);
-
-  React.useEffect(() => {
-    if (!flyoutOpen) return;
-
-    const dismissOnOutsidePointer = (event: PointerEvent) => {
-      const target = event.target;
-      if (!(target instanceof Node)) return;
-      if (sideNavRef.current?.contains(target)) return;
-      setFlyoutSectionKey(null);
-    };
-
-    document.addEventListener('pointerdown', dismissOnOutsidePointer);
-    return () =>
-      document.removeEventListener('pointerdown', dismissOnOutsidePointer);
-  }, [flyoutOpen]);
 
   const toggleExpanded = () => {
     const next = !expanded;
     setExpanded(next);
     onExpandedChange?.(next);
-    setFlyoutSectionKey(null);
+    flyout.close();
     setExpandedSectionKey(undefined);
     setThemeOpen(false);
   };
@@ -179,21 +116,7 @@ function Sidebar({
   const selectCompactItem = (item: RailItem, trigger: HTMLElement) => {
     // Opening a section flyout dismisses the theme flyout (they can't coexist).
     setThemeOpen(false);
-    if (!item.hasPanel) {
-      setFlyoutSectionKey(null);
-      return;
-    }
-    const sideNav = sideNavRef.current;
-    if (sideNav) {
-      const triggerRect = trigger.getBoundingClientRect();
-      const sideNavRect = sideNav.getBoundingClientRect();
-      const relativeTop = triggerRect.top - sideNavRect.top;
-      const maximumTop = Math.max(8, sideNavRect.height - 220);
-      setFlyoutAnchorTop(Math.max(8, Math.min(relativeTop, maximumTop)));
-    }
-    setFlyoutSectionKey((current) =>
-      item.active && current === item.key ? null : item.key,
-    );
+    flyout.openFrom(item, trigger);
   };
 
   const selectExpandedItem = (item: RailItem) => {
@@ -209,49 +132,15 @@ function Sidebar({
     );
   };
 
-  const compactItem = (item: RailItem) => {
-    const panel = panels[item.key];
-    const controls = item.hasPanel ? `nav-panel-${item.key}` : undefined;
-    const isOpen = flyoutOpen && selectedFlyoutItem?.key === item.key;
-    const panelHasActiveItem =
-      panel?.groups.some((group) => group.items.some(hasActiveNavItem)) ??
-      false;
-    const showParentActive = item.active && !(isOpen && panelHasActiveItem);
-    return (
-      <NavElement
-        key={item.key}
-        href={item.hasPanel ? undefined : item.href}
-        onSelect={item.hasPanel ? undefined : item.onSelect}
-        onPrefetch={item.hasPanel ? item.onPanelPrefetch : item.onPrefetch}
-        onClick={(event) => selectCompactItem(item, event.currentTarget)}
-        active={showParentActive}
-        aria-controls={controls}
-        aria-expanded={item.hasPanel ? isOpen : undefined}
-        className={cn(
-          'group grid h-[3.375rem] w-[calc(var(--rail-width)-0.5rem)] shrink-0 grid-rows-[2rem_auto] place-items-center gap-0.5 rounded-[var(--radius-sm)] px-0.5 py-0.5 text-muted-foreground outline-none',
-          'transition-colors hover:text-foreground',
-          'focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50',
-          'aria-[current=page]:font-semibold aria-[current=page]:text-foreground',
-          isOpen && 'focus-visible:ring-0',
-        )}
-      >
-        <span
-          className={cn(
-            'relative grid size-8 place-items-center rounded-[var(--radius-sm)] transition-colors [&>svg]:size-[19px]',
-            'group-hover:bg-accent',
-            showParentActive && NAV_ACTIVE,
-            isOpen && 'bg-accent text-foreground ring-1 ring-sidebar-ring/60',
-          )}
-        >
-          {item.icon}
-          {item.badge != null ? <RailBadge badge={item.badge} /> : null}
-        </span>
-        <span className="w-full truncate text-center text-[calc(10px*var(--font-scale))] font-medium leading-none">
-          {item.label}
-        </span>
-      </NavElement>
-    );
-  };
+  const compactItem = (item: RailItem) => (
+    <CompactNavItem
+      key={item.key}
+      item={item}
+      panel={panels[item.key]}
+      isOpen={flyout.open && flyout.item?.key === item.key}
+      onTrigger={selectCompactItem}
+    />
+  );
 
   const expandedItem = (item: RailItem) => {
     const panel = panels[item.key];
@@ -423,7 +312,7 @@ function Sidebar({
           open={themeOpen}
           onOpenChange={(next) => {
             setThemeOpen(next);
-            if (next) setFlyoutSectionKey(null);
+            if (next) flyout.close();
           }}
         />
         {user ? (
@@ -445,57 +334,7 @@ function Sidebar({
       </div>
 
       {/* Collapsed flyout submenu (opaque) */}
-      {flyoutOpen ? (
-        <nav
-          ref={flyoutSurfaceRef}
-          id={`nav-panel-${selectedFlyoutItem?.key ?? 'section'}`}
-          aria-label="Secondary"
-          className="absolute z-40 flex w-[clamp(9.5rem,42vw,11.5rem)] max-w-[calc(100vw-var(--rail-width)-0.5rem)] flex-col"
-          style={{
-            left: 'calc(100% + 0.5px)',
-            top: flyoutTop,
-            maxHeight: `calc(100% - ${flyoutTop + 8}px)`,
-          }}
-        >
-          <FlyoutContour width={flyoutSize.width} height={flyoutSize.height} />
-
-          <div
-            data-slot="flyout-content"
-            className="relative z-10 my-7 flex min-h-0 flex-col overflow-hidden rounded-r-[var(--radius)] bg-transparent"
-          >
-            <div className="flex min-h-11 shrink-0 items-center gap-2 border-b border-border px-2.5 py-2">
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-base font-semibold leading-tight text-foreground">
-                  {selectedFlyoutPanel?.header?.title ??
-                    selectedFlyoutItem?.label}
-                </div>
-                {selectedFlyoutPanel?.header?.subtitle ? (
-                  <div className="truncate text-[calc(11px*var(--font-scale))] text-muted-foreground">
-                    {selectedFlyoutPanel.header.subtitle}
-                  </div>
-                ) : null}
-              </div>
-              <button
-                type="button"
-                onClick={() => setFlyoutSectionKey(null)}
-                className="grid size-8 shrink-0 place-items-center rounded-[var(--radius-sm)] text-muted-foreground outline-none transition-colors hover:bg-accent hover:text-foreground focus-visible:ring-[3px] focus-visible:ring-sidebar-ring/50"
-                aria-label="Close secondary navigation"
-              >
-                <X className="size-4" aria-hidden />
-              </button>
-            </div>
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-1.5">
-              {/* The flyout is already a compact panel beside the rail — no
-                  hierarchy line needed, so render a plain flat list. */}
-              <NavGroups
-                groups={selectedFlyoutPanel?.groups ?? []}
-                onNavigate={() => setFlyoutSectionKey(null)}
-                tree={false}
-              />
-            </div>
-          </div>
-        </nav>
-      ) : null}
+      {flyout.open ? <RailFlyout state={flyout} /> : null}
     </aside>
   );
 }
