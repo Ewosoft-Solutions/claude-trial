@@ -441,8 +441,17 @@ export class ImportService {
     if (!job.requiresApproval) {
       throw new BadRequestException('This import does not require approval');
     }
-    // Maker-checker: only a validated job can be approved, so the checker signs
-    // off on real results — not an unvalidated job with zero committable rows.
+    // Separation of duties: the uploader cannot also be the approver. An import
+    // writes rows in bulk, and the clearance floor on this route governs WHO may
+    // approve, never WHOSE work — without this, one person could stage and
+    // commit a bulk write end to end. `createdBy` and `actorId` are both USER
+    // ids here (the controller passes `userId` on create and on approve), so
+    // this compares like with like.
+    if (actorId && job.createdBy === actorId) {
+      throw new ForbiddenException('You cannot approve your own import');
+    }
+    // Only a validated job can be approved, so the checker signs off on real
+    // results — not an unvalidated job with zero committable rows.
     if (
       job.status !== IMPORT_STATUS.VALIDATED &&
       job.status !== IMPORT_STATUS.DRY_RUN

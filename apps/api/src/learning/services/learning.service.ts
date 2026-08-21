@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   NotFoundException,
@@ -383,9 +384,18 @@ export class LearningService {
     return this.scoped(tenantId, actor.userId, async () => {
       const lesson = await this.tenantDb.client.lesson.findFirst({
         where: { id, tenantId },
-        select: { id: true, reviewStatus: true },
+        select: { id: true, reviewStatus: true, createdBy: true },
       });
       if (!lesson) throw new NotFoundException('Lesson not found');
+      // Separation of duties: whoever wrote it cannot be the one who clears it.
+      // Compare against `userId` — `createdBy` stores the USER id, while
+      // `reviewedBy` below stores the UserTenant id, so comparing profileId
+      // here would never match and the guard would silently pass everything.
+      // Rejecting your own is left alone: that is a withdrawal, not a
+      // self-grant, which is the same line MakerCheckerService draws.
+      if (decision === 'approved' && lesson.createdBy === actor.userId) {
+        throw new ForbiddenException('You cannot approve your own lesson');
+      }
       if (lesson.reviewStatus !== 'pending_review') {
         throw new BadRequestException(
           'Only lessons awaiting review can be approved or rejected',
@@ -552,9 +562,14 @@ export class LearningService {
     return this.scoped(tenantId, actor.userId, async () => {
       const material = await this.tenantDb.client.lessonMaterial.findFirst({
         where: { id, tenantId },
-        select: { id: true, reviewStatus: true },
+        select: { id: true, reviewStatus: true, createdBy: true },
       });
       if (!material) throw new NotFoundException('Material not found');
+      // Same separation of duties as reviewLesson, and the same identity
+      // caveat: `createdBy` is the USER id, not the UserTenant id.
+      if (decision === 'approved' && material.createdBy === actor.userId) {
+        throw new ForbiddenException('You cannot approve your own material');
+      }
       if (material.reviewStatus === decision) {
         throw new BadRequestException(`Material is already ${decision}`);
       }

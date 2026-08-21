@@ -199,6 +199,77 @@ describe('LearningService review workflow', () => {
     expect(data.reviewedBy).toBeNull();
   });
 
+  it('refuses to let the author approve their own lesson', async () => {
+    const { service } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.userId,
+      },
+    });
+    await expect(
+      service.reviewLesson(TENANT, 'lesson-1', 'approved', {}, TEACHER),
+    ).rejects.toThrow(/your own lesson/);
+  });
+
+  it('lets the author REJECT their own lesson — that is a withdrawal', async () => {
+    const { service, lessonUpdates } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.userId,
+      },
+    });
+    await service.reviewLesson(
+      TENANT,
+      'lesson-1',
+      'rejected',
+      { note: 'withdrawing' },
+      TEACHER,
+    );
+    expect(lessonUpdates[0].data.reviewStatus).toBe('rejected');
+  });
+
+  it('lets a DIFFERENT reviewer approve the lesson', async () => {
+    const { service, lessonUpdates } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: 'someone-else',
+      },
+    });
+    await service.reviewLesson(TENANT, 'lesson-1', 'approved', {}, TEACHER);
+    expect(lessonUpdates[0].data.reviewStatus).toBe('approved');
+  });
+
+  it('compares the AUTHOR against the user id, not the profile id', async () => {
+    // The trap this guard exists to avoid: `createdBy` holds the user id while
+    // `reviewedBy` holds the UserTenant id. A guard written against profileId
+    // would never match and would wave every self-approval through.
+    const { service, lessonUpdates } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.profileId, // NOT this actor's createdBy identity
+      },
+    });
+    await service.reviewLesson(TENANT, 'lesson-1', 'approved', {}, TEACHER);
+    expect(lessonUpdates[0].data.reviewStatus).toBe('approved');
+  });
+
+  it('refuses to let the uploader approve their own material', async () => {
+    const { service } = makeService({
+      material: {
+        id: 'material-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.userId,
+      },
+    });
+    await expect(
+      service.reviewMaterial(TENANT, 'material-1', 'approved', {}, TEACHER),
+    ).rejects.toThrow(/your own material/);
+  });
+
   it('approves only lessons that are pending review', async () => {
     const { service } = makeService(); // reviewStatus: 'draft'
     await expect(
