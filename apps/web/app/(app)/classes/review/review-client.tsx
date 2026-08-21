@@ -428,15 +428,6 @@ export function AcademicReviewClient({
                 ) : null}
 
                 <div className="mt-auto grid gap-3 border-t pt-4">
-                  {isOwnWork(selected) ? (
-                    // Say WHY the action is unavailable. A disabled button with
-                    // no reason reads as a bug; this reads as a rule — and the
-                    // reviewer can still reject, which is a withdrawal.
-                    <p className="text-sm text-muted-foreground">
-                      You submitted this, so someone else has to approve it. You
-                      can still add a note or withdraw it by rejecting.
-                    </p>
-                  ) : null}
                   <Textarea
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
@@ -468,23 +459,20 @@ export function AcademicReviewClient({
                     >
                       <XCircle /> Reject
                     </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => void decide('approve')}
-                      disabled={
-                        !live ||
-                        busy ||
-                        itemStatus(selected) === 'approved' ||
-                        isOwnWork(selected)
-                      }
-                      title={
-                        isOwnWork(selected)
-                          ? 'Someone else has to approve your own work'
-                          : undefined
-                      }
-                    >
-                      <CheckCircle2 /> Approve
-                    </Button>
+                    {/* Not offered on your own work — its absence beside the
+                        other actions is the message. Every approval surface
+                        withholds Approve the same way. */}
+                    {isOwnWork(selected) ? null : (
+                      <Button
+                        size="sm"
+                        onClick={() => void decide('approve')}
+                        disabled={
+                          !live || busy || itemStatus(selected) === 'approved'
+                        }
+                      >
+                        <CheckCircle2 /> Approve
+                      </Button>
+                    )}
                     {selected.type === 'lesson' &&
                     selected.lesson.reviewStatus === 'approved' &&
                     selected.lesson.status !== 'published' ? (

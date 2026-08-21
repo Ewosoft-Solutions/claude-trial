@@ -1101,18 +1101,13 @@ function AdjustmentsSection({
               {canManage && adj.status === 'pending' ? (
                 <div className="flex items-center gap-1.5">
                   {adj.isOwnRequest ? (
-                    <>
-                      {/* Maker ≠ checker: no Approve for your own request, and
-                          what you CAN do is withdraw it — which is a
-                          cancellation, not a rejection. */}
-                      <span className="text-xs text-muted-foreground">
-                        You requested this — another authority approves it
-                      </span>
-                      <ApproveRejectButton
-                        adjustmentId={adj.id}
-                        action="cancel"
-                      />
-                    </>
+                    // Maker ≠ checker: no Approve for your own request. The
+                    // absence of it, next to a Cancel, is the message — a line
+                    // of prose on every pending row is clutter.
+                    <ApproveRejectButton
+                      adjustmentId={adj.id}
+                      action="cancel"
+                    />
                   ) : (
                     <>
                       <ApproveRejectButton

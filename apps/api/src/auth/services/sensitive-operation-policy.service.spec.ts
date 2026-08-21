@@ -233,3 +233,43 @@ describe('SensitiveOperationPolicyService', () => {
     });
   });
 });
+
+describe('SensitiveOperationPolicyService.listPlatformChangeRequests', () => {
+  /**
+   * `reviewChangeRequest` already refuses "the requester cannot review their
+   * own policy proposal". This read is what stops the platform console
+   * offering the decision in the first place. See docs/self-approval-audit.md.
+   */
+  function makePrisma(rows: Record<string, unknown>[]) {
+    return {
+      sensitiveOperationPolicyChangeRequest: {
+        findMany: jest.fn().mockResolvedValue(rows),
+      },
+    } as never;
+  }
+
+  const service = new SensitiveOperationPolicyService({
+    getOrCreateDefaultPolicy: jest.fn(),
+  } as never);
+
+  it('flags the proposals the reader raised, and only those', async () => {
+    const rows = await service.listPlatformChangeRequests(
+      makePrisma([
+        { id: 'mine', requestedBy: 'op-me' },
+        { id: 'theirs', requestedBy: 'op-other' },
+      ]),
+      'op-me',
+    );
+    expect(rows.map((r) => [r.id, r.isOwnRequest])).toEqual([
+      ['mine', true],
+      ['theirs', false],
+    ]);
+  });
+
+  it('flags nothing when the caller is anonymous', async () => {
+    const rows = await service.listPlatformChangeRequests(
+      makePrisma([{ id: 'mine', requestedBy: 'op-me' }]),
+    );
+    expect(rows[0].isOwnRequest).toBe(false);
+  });
+});

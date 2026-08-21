@@ -7,15 +7,17 @@
 import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { AiSettingsService } from './ai-settings.service';
 
-function build(options: {
-  pendingRequest?: {
-    id: string;
-    makerId: string;
-    requestData: unknown;
-    status?: string;
-  } | null;
-  approveResult?: { approved: boolean; error?: string };
-} = {}) {
+function build(
+  options: {
+    pendingRequest?: {
+      id: string;
+      makerId: string;
+      requestData: unknown;
+      status?: string;
+    } | null;
+    approveResult?: { approved: boolean; error?: string };
+  } = {},
+) {
   const aiSettings = {
     findUnique: jest.fn().mockResolvedValue(null),
     create: jest.fn(async ({ data }: any) => data),
@@ -28,8 +30,8 @@ function build(options: {
   const client = { aiSettings, makerCheckerRequest };
   const tenantDb = {
     client,
-    runScoped: jest.fn((_t: string, _u: string | undefined, fn: () => unknown) =>
-      fn(),
+    runScoped: jest.fn(
+      (_t: string, _u: string | undefined, fn: () => unknown) => fn(),
     ),
   };
   const makerChecker = {
@@ -46,7 +48,9 @@ function build(options: {
     ),
   };
   const permissionService = {
-    getUserPermissionContext: jest.fn().mockResolvedValue({ clearanceLevel: 7 }),
+    getUserPermissionContext: jest
+      .fn()
+      .mockResolvedValue({ clearanceLevel: 7 }),
   };
   const db = { client: {} };
 
@@ -161,7 +165,10 @@ describe('AiSettingsService', () => {
         update: { monthlyTokenBudget: 42, tutorEnabled: false },
       }),
     );
-    expect(result).toMatchObject({ monthlyTokenBudget: 42, tutorEnabled: false });
+    expect(result).toMatchObject({
+      monthlyTokenBudget: 42,
+      tutorEnabled: false,
+    });
   });
 
   it('404s when approving a request that is not pending for this tenant', async () => {
@@ -197,5 +204,40 @@ describe('AiSettingsService', () => {
       'checker-9',
       'too costly',
     );
+  });
+});
+
+describe('AiSettingsService.listPendingChanges — separation of duties', () => {
+  /**
+   * Dual control means a DIFFERENT admin approves. The settings page cannot
+   * withhold the button without knowing whose proposal it is, so the read says
+   * so. The approve path already refuses a self-approval; this stops the page
+   * offering it. See docs/self-approval-audit.md.
+   */
+  it('flags the proposals the reader raised, and only those', async () => {
+    const { service, makerCheckerRequest } = build();
+    makerCheckerRequest.findMany.mockResolvedValue([
+      {
+        id: 'mine',
+        makerId: 'maker-1',
+        makerClearanceLevel: 7,
+        requestData: {},
+        createdAt: new Date(),
+        expiresAt: new Date(),
+      },
+      {
+        id: 'theirs',
+        makerId: 'someone-else',
+        makerClearanceLevel: 7,
+        requestData: {},
+        createdAt: new Date(),
+        expiresAt: new Date(),
+      },
+    ]);
+    const rows = await service.listPendingChanges('t1', 'maker-1');
+    expect(rows.map((r) => [r.id, r.isOwnRequest])).toEqual([
+      ['mine', true],
+      ['theirs', false],
+    ]);
   });
 });

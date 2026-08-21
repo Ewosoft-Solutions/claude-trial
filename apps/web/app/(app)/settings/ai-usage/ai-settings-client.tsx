@@ -277,21 +277,17 @@ export function AiSettingsClient({ settings, pending }: Props) {
                 </div>
                 <div className="flex items-center gap-2">
                   {change.isOwnRequest ? (
-                    <>
-                      {/* Dual control: a different admin approves. Withdrawing
-                          your own proposal is a cancellation, not a refusal. */}
-                      <span className="text-xs text-muted-foreground">
-                        You proposed this
-                      </span>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        disabled={busy}
-                        onClick={() => requestDecision(change.id, 'reject')}
-                      >
-                        Cancel request
-                      </Button>
-                    </>
+                    // Dual control: a different admin approves. Withdrawing
+                    // your own proposal is a cancellation, not a refusal. The
+                    // row already says "Requested by you".
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => requestDecision(change.id, 'reject')}
+                    >
+                      Cancel request
+                    </Button>
                   ) : (
                     <>
                       <Button

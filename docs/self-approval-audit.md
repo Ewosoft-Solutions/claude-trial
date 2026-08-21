@@ -87,7 +87,12 @@ Every row now follows the same three steps:
    the requester is withdrawing, not refusing. `ApprovalPanel` already models
    this via `isSelfRequest`; consumers simply were not passing it.
 3. **A spec pins it**, including that a null requester reads as _not_ own work,
-   so pre-existing rows do not become unapprovable.
+   so pre-existing rows do not become unapprovable. Every read that carries the
+   flag now has one, and they bite: stubbing the flag to a constant fails them.
+
+The UI says this by WITHHOLDING the action, not by explaining itself. An
+absent Approve beside a Cancel is the message; a line of prose on every pending
+row is clutter, and it repeats on each surface.
 
 Note that `canApprove` in the promotion and results workbenches means "holds the
 approve permission" and must NOT be overloaded to mean this — holding the

@@ -340,24 +340,18 @@ export function PlatformSecurityGovernance() {
                 {request.status === 'pending' ? (
                   <div className="mt-4 flex flex-wrap items-center gap-2">
                     {request.isOwnRequest ? (
-                      <>
-                        {/* The requester cannot review their own proposal.
-                            Withdrawing it is a cancellation, not a refusal by a
-                            second authority. */}
-                        <span className="text-xs text-muted-foreground">
-                          You raised this
-                        </span>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setReviewing({ request, decision: 'rejected' });
-                            setFeedback('');
-                          }}
-                        >
-                          Cancel request
-                        </Button>
-                      </>
+                      // The requester cannot review their own proposal.
+                      // Withdrawing it is a cancellation, not a refusal.
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setReviewing({ request, decision: 'rejected' });
+                          setFeedback('');
+                        }}
+                      >
+                        Cancel request
+                      </Button>
                     ) : (
                       <>
                         <Button

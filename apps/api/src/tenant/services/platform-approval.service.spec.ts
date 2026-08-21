@@ -149,3 +149,54 @@ describe('PlatformApprovalService.approve', () => {
     expect(tenant.update).not.toHaveBeenCalled();
   });
 });
+
+describe('PlatformApprovalService.listPending — separation of duties', () => {
+  /**
+   * The console cannot withhold an action it has no way to evaluate, so the
+   * read says which rows the reader raised. The approve route already refuses a
+   * self-approval; this is what stops the button being offered at all. See
+   * docs/self-approval-audit.md.
+   */
+  function makeService(rows: Record<string, unknown>[]) {
+    const makerCheckerRequest = { findMany: jest.fn().mockResolvedValue(rows) };
+    const tenantDb = { client: { makerCheckerRequest } };
+    return new PlatformApprovalService(
+      tenantDb as never,
+      new MakerCheckerService(),
+      { logTenantStatusAction: jest.fn() } as never,
+    );
+  }
+
+  const row = (id: string, makerId: string) => ({
+    id,
+    operation: 'tenant.status.change',
+    makerId,
+    makerClearanceLevel: 8,
+    createdAt: new Date(),
+    expiresAt: new Date(),
+    requestData: {
+      targetTenantId: 't1',
+      status: 'active',
+      reason: null,
+    },
+  });
+
+  it('flags the rows the reader raised, and only those', async () => {
+    const service = makeService([
+      row('mine', 'user-me'),
+      row('theirs', 'user-other'),
+    ]);
+    const rows = await service.listPending('user-me');
+    expect(rows.map((r) => [r.id, r.isOwnRequest])).toEqual([
+      ['mine', true],
+      ['theirs', false],
+    ]);
+  });
+
+  it('flags nothing when the caller is anonymous', async () => {
+    // Better to offer nothing than to wrongly claim a row is not yours.
+    const service = makeService([row('mine', 'user-me')]);
+    const rows = await service.listPending();
+    expect(rows[0].isOwnRequest).toBe(false);
+  });
+});

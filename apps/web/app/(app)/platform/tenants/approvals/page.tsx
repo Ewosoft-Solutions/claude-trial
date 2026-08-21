@@ -201,22 +201,16 @@ export default function TenantApprovalsPage() {
       cell: (r) => (
         <div className="flex items-center justify-end gap-2">
           {r.isOwnRequest ? (
-            <>
-              {/* Maker ≠ checker: no Approve for your own request. What you can
-                  still do is withdraw it, which is a cancellation rather than a
-                  refusal by a second authority. */}
-              <span className="text-xs text-muted-foreground">
-                You raised this
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={busyId === r.id}
-                onClick={() => setRejectFor(r.id)}
-              >
-                <X className="size-4" /> Cancel request
-              </Button>
-            </>
+            // Maker ≠ checker: no Approve for your own request. Withdrawing
+            // it is a cancellation, not a refusal by a second authority.
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busyId === r.id}
+              onClick={() => setRejectFor(r.id)}
+            >
+              <X className="size-4" /> Cancel request
+            </Button>
           ) : (
             <>
               <Button
