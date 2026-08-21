@@ -27,6 +27,7 @@
     "db:backfill:health-encryption": "tsx prisma/scripts/backfill-health-encryption.ts",
     "db:backfill:admission-system-sections": "tsx prisma/scripts/backfill-admission-system-sections.ts",
     "db:backfill:education-levels": "tsx prisma/scripts/backfill-education-levels.ts",
+    "db:backfill:fee-item-prices": "tsx prisma/scripts/backfill-fee-item-prices.ts",
     "db:backfill:assessment-offerings": "tsx prisma/scripts/backfill-assessment-offerings.ts",
     "db:backfill:question-subjects": "tsx prisma/scripts/backfill-question-subjects.ts",
     "db:backfill:lesson-library": "tsx prisma/scripts/backfill-lesson-library.ts",
