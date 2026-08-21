@@ -1,3 +1,5 @@
+import Link from 'next/link';
+
 import { serverApiGet } from '@/lib/server-api';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 
@@ -100,9 +102,13 @@ export default async function PersonFinancePage({
                 {invoices.map((inv) => {
                   const balance = (inv.amountDue ?? 0) - (inv.amountPaid ?? 0);
                   return (
-                    <div
+                    /* The row is the whole hit target — an invoice number on
+                       its own is a small thing to aim at, and every part of
+                       the row is describing the invoice it opens. */
+                    <Link
                       key={inv.id}
-                      className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 text-sm"
+                      href={`/finance/invoices/${inv.id}`}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card p-3 text-sm transition-colors hover:border-primary/40 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       <div className="min-w-0">
                         <div className="truncate font-medium text-foreground">
@@ -126,7 +132,7 @@ export default async function PersonFinancePage({
                       <span className="shrink-0 font-semibold tabular-nums text-foreground">
                         {formatMinor(balance)}
                       </span>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
