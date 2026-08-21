@@ -25,21 +25,25 @@ self-grant.
 
 ## Status
 
-| #   | Flow                                    | Endpoint                                                | API guard         | UI gate   | Status     |
-| --- | --------------------------------------- | ------------------------------------------------------- | ----------------- | --------- | ---------- |
-| 1   | Platform tenant approvals               | `POST /tenants/approvals/:requestId/approve\|reject`    | maker-checker     | **gated** | **Fixed**  |
-| 2   | Access grants (permissions)             | `POST /access/grants/:requestId/approve\|reject`        | maker-checker     | **gated** | **Fixed**  |
-| 3   | Finance adjustments (discounts/waivers) | `POST /finance/adjustments/:id/approve\|reject`         | maker-checker     | **gated** | **Fixed**  |
-| 4   | Promotion runs                          | `POST /promotion/runs/:id/approve`                      | maker-checker     | **gated** | **Fixed**  |
-| 5   | Result publication                      | `POST /results/cycles/:id/approve-publish`              | maker-checker     | **gated** | **Fixed**  |
-| 6   | Result amendments                       | `POST /results/amendments/:amendmentId/approve`         | maker-checker     | **gated** | **Fixed**  |
-| 7   | AI settings change requests             | `POST /ai/settings/change-requests/:id/approve\|reject` | maker-checker     | **gated** | **Fixed**  |
-| 8   | **Lesson review**                       | `POST /learning/lessons/:id/approve\|reject`            | **guarded**       | **gated** | **Fixed**  |
-| 9   | **Material review**                     | `POST /learning/materials/:id/approve\|reject`          | **guarded**       | **gated** | **Fixed**  |
-| 10  | **Curriculum overlay**                  | `POST /curriculum/overlays/:id/approve`                 | **guarded**       | n/a       | **Fixed**  |
-| 11  | **Bulk import approval**                | `POST /imports/jobs/:id/approve`                        | **guarded**       | n/a       | **Fixed**  |
-| 12  | Admissions decision                     | `POST /admissions/applications/:id/reject`              | n/a               | n/a       | **Review** |
-| 13  | Step-up policy change requests          | `PATCH /platform/security/step-up-change-requests/:id`  | requester refused | **gated** | **Fixed**  |
+All 13 flows are closed: the API refuses, and the UI does not offer. Twelve of
+them compare two ids; the thirteenth (admissions) has no ids to compare and
+relies on a declared interest instead.
+
+| #   | Flow                                    | Endpoint                                                                          | API guard             | UI gate   | Status    |
+| --- | --------------------------------------- | --------------------------------------------------------------------------------- | --------------------- | --------- | --------- |
+| 1   | Platform tenant approvals               | `POST /tenants/approvals/:requestId/approve\|reject`                              | maker-checker         | **gated** | **Fixed** |
+| 2   | Access grants (permissions)             | `POST /access/grants/:requestId/approve\|reject`                                  | maker-checker         | **gated** | **Fixed** |
+| 3   | Finance adjustments (discounts/waivers) | `POST /finance/adjustments/:id/approve\|reject`                                   | maker-checker         | **gated** | **Fixed** |
+| 4   | Promotion runs                          | `POST /promotion/runs/:id/approve`                                                | maker-checker         | **gated** | **Fixed** |
+| 5   | Result publication                      | `POST /results/cycles/:id/approve-publish`                                        | maker-checker         | **gated** | **Fixed** |
+| 6   | Result amendments                       | `POST /results/amendments/:amendmentId/approve`                                   | maker-checker         | **gated** | **Fixed** |
+| 7   | AI settings change requests             | `POST /ai/settings/change-requests/:id/approve\|reject`                           | maker-checker         | **gated** | **Fixed** |
+| 8   | **Lesson review**                       | `POST /learning/lessons/:id/approve\|reject`                                      | **guarded**           | **gated** | **Fixed** |
+| 9   | **Material review**                     | `POST /learning/materials/:id/approve\|reject`                                    | **guarded**           | **gated** | **Fixed** |
+| 10  | **Curriculum overlay**                  | `POST /curriculum/overlays/:id/approve`                                           | **guarded**           | n/a       | **Fixed** |
+| 11  | **Bulk import approval**                | `POST /imports/jobs/:id/approve`                                                  | **guarded**           | n/a       | **Fixed** |
+| 12  | **Admissions decision**                 | `POST /admissions/applications/:id/{advance,reviews,offer,accept,reject,convert}` | **declared interest** | **gated** | **Fixed** |
+| 13  | Step-up policy change requests          | `PATCH /platform/security/step-up-change-requests/:id`                            | requester refused     | **gated** | **Fixed** |
 
 ---
 
@@ -171,13 +175,57 @@ bar on _who_ but says nothing about _whose_.
 - API: `apps/api/src/imports/services/import.service.ts` → `approve`
 - Data: `ImportJob.createdBy` and `.approvedBy` exist
 
-### 12 · Admissions decision — different shape, still worth a decision
+### 12 · Admissions decision — the one with no ids to compare
 
 The applicant here is an external prospect, not a user account, so there is no
 self-approval in the mechanical sense the others have. The real conflict is a
-staff member deciding on an application for their own child. That cannot be
-caught by comparing ids; it needs a declared-interest rule. Flagged so the
-decision is deliberate rather than overlooked.
+staff member deciding on an application for their own child, and no comparison
+of ids can see it. It can only be **declared**.
+
+**Built as declare + soft hint.** The declaration is the only gate. Contact
+matching merely _prompts_ one; it never blocks, because a hard block built on a
+fuzzy match would stop legitimate work and still miss the parent who used a
+different phone number.
+
+- **Declaring** — `POST /admissions/applications/:id/declare-interest`, gated on
+  `admissions.view`, the same permission that let you open the file. Recusing
+  yourself must never require a permission you might not hold; the point is to
+  give up authority, not to exercise it.
+- **One-way, on purpose.** The write is an `upsert`, so you can correct what you
+  said, and there is no delete: a recusal you can revoke the moment it becomes
+  inconvenient is not a recusal.
+- **What it closes** — every path that shapes the outcome: `advanceStage`,
+  `addReview`, `makeOffer`, `recordAcceptance`, `reject`, `convertToStudent`.
+  Filing a review is in that list deliberately: an opinion on the record steers
+  a decision as surely as making it.
+- **What it leaves open, deliberately** — reading the file (you should be able
+  to see what happened to something you stepped away from), editing it, and
+  issuing a portal link. Those last two are clerical; blocking them would
+  strand routine work.
+- **The hint** compares the viewer's _own_ email/phone against the contacts on
+  the application — not a staff-wide cross-reference, which would mean reading
+  every colleague's details to render one page. Phone numbers compare on their
+  last 9 digits, so `+234 803…` and `0803…` match.
+
+**Where the guard could not go.** `assertApplication` looks like the natural
+home for it and is the wrong one: `updateApplication` and `createStatusLink`
+call it too, and both must stay open. The guard is therefore an explicit call at
+each of the six decision sites. If a seventh decision path is added, it needs
+the line adding — `assertNoDeclaredInterest` carries that warning in its doc
+comment.
+
+**The read carries `canDecide` and `looksConnected`**, both server-computed. Note
+that the detail page already had a local `canDecide` meaning "holds a decision
+permission" — the exact overload this document warns about two sections up. It
+was renamed `hasDecisionRights`, and the decision card now requires both.
+
+**Privacy.** Who stepped away is shown as a count; the note behind a recusal is
+returned only to its own author. The applicant-facing status portal is unaffected
+— its projection is a strict allow-list, so declarations never reach it.
+
+**Specs**: `admissions-declared-interest.spec.ts`, 19 of them, mutation-tested —
+neutering the guard fails exactly the six decision-path tests, forcing
+`canDecide` true fails one, and leaking the private note fails one.
 
 ---
 
