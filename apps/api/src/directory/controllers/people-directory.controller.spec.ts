@@ -12,6 +12,7 @@ describe('PeopleDirectoryController', () => {
   const exportRows = jest.fn();
   const summaryFn = jest.fn();
   const detailFn = jest.fn();
+  const detailByIdFn = jest.fn();
   const facetsFn = jest.fn();
   const checkPermissions = jest.fn();
 
@@ -27,6 +28,7 @@ describe('PeopleDirectoryController', () => {
         export: exportRows,
         summary: summaryFn,
         detail: detailFn,
+        detailById: detailByIdFn,
         facets: facetsFn,
       } as never,
       { checkPermissions } as never,
@@ -42,6 +44,7 @@ describe('PeopleDirectoryController', () => {
     jest.clearAllMocks();
     list.mockResolvedValue({ data: [], pagination: {}, meta: {} });
     detailFn.mockResolvedValue({ id: 'p1', type: 'all', name: 'Ada' });
+    detailByIdFn.mockResolvedValue({ id: 'p1', type: 'all', name: 'Ada' });
     facetsFn.mockResolvedValue({ grades: [], departments: [] });
   });
 
@@ -144,5 +147,56 @@ describe('PeopleDirectoryController', () => {
     const controller = makeController(['people.view']);
     await controller.facets(req);
     expect(facetsFn).toHaveBeenCalledWith('t1');
+  });
+
+  /* ---- detail: resolving an id whose kind the caller did not state -------
+     The profile page's chrome is a layout, and a layout cannot read a query
+     string, so it asks for a person by id alone. That must not become a way
+     around the per-type permission gate. */
+
+  it('resolves person-or-prospect when no type is given', async () => {
+    const controller = makeController(['people.view']);
+    const detail = await controller.detail('p1', undefined, req);
+
+    expect(detailByIdFn).toHaveBeenCalledWith('t1', 'p1', expect.anything(), false);
+    expect(detailFn).not.toHaveBeenCalled();
+    expect(detail).toMatchObject({ id: 'p1' });
+  });
+
+  it('authorises a resolved prospect against the PROSPECT permission', async () => {
+    detailByIdFn.mockResolvedValue({ id: 'a1', type: 'prospect', name: 'Bola' });
+    // `people.view` alone opened the endpoint; it must not open a prospect.
+    const controller = makeController(['people.view']);
+
+    await expect(controller.detail('a1', undefined, req)).rejects.toBeInstanceOf(
+      ForbiddenException,
+    );
+  });
+
+  it('lets a prospect through once the caller holds that permission', async () => {
+    detailByIdFn.mockResolvedValue({ id: 'a1', type: 'prospect', name: 'Bola' });
+    const controller = makeController(['people.view', 'admissions.view']);
+
+    await expect(controller.detail('a1', undefined, req)).resolves.toMatchObject({
+      id: 'a1',
+      type: 'prospect',
+    });
+  });
+
+  it('still takes the single cheap lookup when the type IS stated', async () => {
+    const controller = makeController(['people.view']);
+    await controller.detail('p1', 'all', req);
+
+    expect(detailFn).toHaveBeenCalledWith('t1', 'p1', 'all', expect.anything(), false);
+    expect(detailByIdFn).not.toHaveBeenCalled();
+  });
+
+  it('404s an id that resolves to nothing', async () => {
+    detailByIdFn.mockResolvedValue(null);
+    const controller = makeController(['people.view']);
+
+    await expect(controller.detail('nope', undefined, req)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

@@ -27,6 +27,7 @@ import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { Sheet, SheetDescription } from '@workspace/ui/components/sheet';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { SkeletonText } from '@workspace/ui/custom/states/skeletons';
 import {
   DrawerContent,
   DrawerHeader,
@@ -423,7 +424,7 @@ function AuditDetailDrawer({
 
         <div className="flex flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
           {loading && !record ? (
-            <p className="pt-4 text-sm text-muted-foreground">Loading…</p>
+            <SkeletonText lines={6} />
           ) : !record ? (
             <p className="pt-4 text-sm text-muted-foreground">
               Could not load this event.

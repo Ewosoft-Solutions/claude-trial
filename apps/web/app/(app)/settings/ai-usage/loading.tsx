@@ -1,8 +1,8 @@
-/* Route loading fallback — instant skeleton shown while the server
-   component streams. Mirrors this page's layout so there is no shift
-   when real data arrives. See page-skeletons.tsx. */
-import { ReportPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+/* Route loading fallback. Shape matches the page: cards-dominant, not a report.
+   (AGENTS.md golden rule 11 — the skeleton must be the content's silhouette,
+   so nothing reflows when data lands.) */
+import { DetailPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <ReportPageSkeleton stats={3} charts={1} />;
+  return <DetailPageSkeleton sections={3} withStats />;
 }

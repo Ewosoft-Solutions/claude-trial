@@ -48,6 +48,7 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../_shared/use-step-up-action';
 
@@ -678,10 +679,7 @@ function RoleEditorDrawer({
             preview ? (
               <EffectiveAccessView access={preview} />
             ) : (
-              <div
-                className="h-40 animate-pulse rounded-lg border border-border bg-card/40"
-                aria-hidden
-              />
+              <SkeletonList rows={4} withAvatar={false} />
             )
           ) : (
             <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
@@ -771,10 +769,7 @@ function RolePreviewDrawer({
 
         <div className="flex-1 overflow-y-auto px-5 py-5">
           {loading ? (
-            <div
-              className="h-40 animate-pulse rounded-lg border border-border bg-card"
-              aria-hidden
-            />
+            <SkeletonList rows={4} withAvatar={false} />
           ) : access ? (
             <div className="flex flex-col gap-5">
               <EffectiveAccessView access={access} />

@@ -29,6 +29,7 @@ import type { DirectorySort } from '@workspace/ui/lib/directory-state';
 
 import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { Dot } from '@workspace/ui/custom/data-display/dot';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 interface Analytics {
   totals: {
@@ -192,7 +193,7 @@ export default function PlatformAnalyticsPage() {
         </CardHeader>
         <CardContent className="flex flex-col gap-2 text-sm">
           {!analytics ? (
-            <p className="text-muted-foreground">Loading…</p>
+            <SkeletonList rows={4} withAvatar={false} />
           ) : (
             analytics.byType.map((row) => (
               <div

@@ -346,8 +346,26 @@ export function AppChrome({
     [pathname, signOut],
   );
 
+  /**
+   * Where the reader has ASKED to be, before the router agrees.
+   *
+   * The App Router does not commit a navigation until the new route's payload
+   * arrives — measured elsewhere in this app at ~500ms warm and seconds on a
+   * cold route. `usePathname()` only changes at that commit, so a nav rail
+   * driven by it alone stays highlighted on the page you are leaving for the
+   * whole round trip, and the click reads as lost.
+   *
+   * Every nav surface funnels through `navigate`, so recording the intent here
+   * moves the WHOLE chrome at once — active item, open section, breadcrumb —
+   * because `useResolvedNavigation` derives all of it from one path.
+   */
+  const [pendingHref, setPendingHref] = React.useState<string | null>(null);
+
   const navigate = React.useCallback(
-    (href: string) => router.push(href),
+    (href: string) => {
+      setPendingHref(href);
+      router.push(href);
+    },
     [router],
   );
   const prefetch = React.useCallback(
@@ -366,9 +384,22 @@ export function AppChrome({
       ? 'Platform'
       : (activeSchool?.name ?? 'All schools');
 
+  // The route arrived (or the reader went somewhere else entirely) — the URL
+  // is the authority again.
+  React.useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  // Never leave the rail pointing somewhere the reader never got to.
+  React.useEffect(() => {
+    if (pendingHref === null) return;
+    const timer = setTimeout(() => setPendingHref(null), 10_000);
+    return () => clearTimeout(timer);
+  }, [pendingHref]);
+
   const config = configForViewer(viewer);
   const navCounts = useNavCounts(viewer);
-  const nav = useResolvedNavigation(config, viewer, pathname, {
+  const nav = useResolvedNavigation(config, viewer, pendingHref ?? pathname, {
     onNavigate: navigate,
     onPrefetch: prefetch,
     counts: navCounts,

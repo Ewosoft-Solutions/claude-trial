@@ -16,11 +16,11 @@ import { ArrowLeft, Building2, Check } from 'lucide-react';
 
 import { Button } from '@workspace/ui/components/button';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@workspace/ui/components/tabs';
+  FolderTabs as Tabs,
+  FolderTabsContent as TabsContent,
+  FolderTabsList as TabsList,
+  FolderTabsTrigger as TabsTrigger,
+} from '@workspace/ui/custom/detail/folder-tabs';
 import {
   Select,
   SelectContent,
@@ -96,7 +96,10 @@ export function ApplicationFormShell({
 
       <Tabs defaultValue={initialTab} className="flex flex-col gap-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <TabsList>
+          {/* Full width so the strip's rule spans the page rather than
+              stopping under the last tab — as a flex child it would
+              otherwise shrink to its content. */}
+          <TabsList className="w-full">
             <TabsTrigger value="fields">Form fields</TabsTrigger>
             <TabsTrigger value="requirements">Documents &amp; fees</TabsTrigger>
           </TabsList>

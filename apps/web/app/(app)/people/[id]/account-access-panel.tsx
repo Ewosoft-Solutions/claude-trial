@@ -47,13 +47,14 @@ import {
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 import { checkEmail } from '@/lib/input-validation';
 
 import { Section, DetailGrid, Field } from '../person-detail-ui';
 import { formatDate } from '../person-detail.types';
 
-interface AccountState {
+export interface AccountState {
   hasAccount: boolean;
   canInvite?: boolean;
   userTenantId?: string;
@@ -85,34 +86,68 @@ const STATUS_TONE: Record<string, StateTone> = {
 export function AccountAccessPanel({
   personId,
   canProvision,
+  initialState,
 }: {
   personId: string;
   canProvision: boolean;
+  /**
+   * Account state resolved on the SERVER, with the rest of the tab.
+   *
+   * Without it this panel mounts empty and fetches, so the route's skeleton was
+   * replaced by the panel's own — a second, much smaller loader mid-wait. The
+   * panel still refetches after its own actions; it just no longer owns the
+   * FIRST load. `AccessScopePanel` is handed the same object, so the tab asks
+   * for it once rather than once per panel.
+   */
+  initialState?: AccountState | null;
 }) {
-  const [state, setState] = React.useState<AccountState | null>(null);
-  const [loading, setLoading] = React.useState(true);
+  const seeded = initialState !== undefined;
+  const [state, setState] = React.useState<AccountState | null>(
+    initialState ?? null,
+  );
+  const [loading, setLoading] = React.useState(!seeded);
   const [error, setError] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
   const base = `/api/directory/people/${personId}/account`;
 
+  // One in-flight load at a time. A newer load supersedes an older one, and
+  // leaving the tab aborts whatever is still running — without this, switching
+  // away left a multi-second request holding a connection and then calling
+  // setState into a panel nobody is looking at. React's dev StrictMode also
+  // invokes this effect twice; the second run cancels the first, so only one
+  // request actually completes.
+  const inflight = React.useRef<AbortController | null>(null);
+
   const load = React.useCallback(async () => {
+    inflight.current?.abort();
+    const controller = new AbortController();
+    inflight.current = controller;
     setLoading(true);
     setError(false);
     try {
-      const res = await fetch(base, { cache: 'no-store' });
+      const res = await fetch(base, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
       if (!res.ok) throw new Error(String(res.status));
       setState((await res.json()) as AccountState);
     } catch {
+      // An abort means someone superseded us or left — not a failure to show.
+      if (controller.signal.aborted) return;
       setError(true);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [base]);
 
   React.useEffect(() => {
+    // Seeded from the server — the first load already happened. Actions still
+    // call `load()` explicitly to refresh.
+    if (seeded) return;
     void load();
-  }, [load]);
+    return () => inflight.current?.abort();
+  }, [load, seeded]);
 
   const act = React.useCallback(
     async (action: string, body?: unknown, successMsg?: string) => {
@@ -149,10 +184,7 @@ export function AccountAccessPanel({
   return (
     <Section title="Account &amp; access">
       {loading ? (
-        <div
-          className="h-24 animate-pulse rounded-lg border border-border bg-card"
-          aria-hidden
-        />
+        <SkeletonList rows={2} withAvatar={false} />
       ) : error ? (
         <div className="rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">Could not load account state.</p>

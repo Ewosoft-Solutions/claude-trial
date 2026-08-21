@@ -48,6 +48,7 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 import { isSearchable } from '@/lib/input-validation';
 
@@ -197,18 +198,48 @@ export function GuardianshipPanel({
   isWard,
   isGuardian,
   canManage,
+  initialAsWard,
+  initialAsGuardian,
 }: {
   personId: string;
   isWard: boolean;
   isGuardian: boolean;
   canManage: boolean;
+  /**
+   * Guardianships resolved on the SERVER, with the rest of the tab.
+   *
+   * Without them this panel mounts empty and fetches its own data, so the
+   * route's skeleton was replaced by the panel's own — a second, much smaller
+   * loader mid-wait, which collapsed the page and read as a glitch. Seeded, the
+   * skeleton is replaced by content. The panel still refetches after its own
+   * mutations; it just no longer owns the FIRST load.
+   */
+  initialAsWard?: Guardianship[];
+  initialAsGuardian?: Guardianship[];
 }) {
-  const [asWard, setAsWard] = React.useState<Guardianship[]>([]);
-  const [asGuardian, setAsGuardian] = React.useState<Guardianship[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const seeded = initialAsWard !== undefined || initialAsGuardian !== undefined;
+  const [asWard, setAsWard] = React.useState<Guardianship[]>(
+    initialAsWard ?? [],
+  );
+  const [asGuardian, setAsGuardian] = React.useState<Guardianship[]>(
+    initialAsGuardian ?? [],
+  );
+  const [loading, setLoading] = React.useState(!seeded);
   const [error, setError] = React.useState(false);
 
+  // One in-flight load at a time. A newer load supersedes an older one, and
+  // leaving the tab aborts whatever is still running — without this, switching
+  // away left a multi-second request holding a connection and then calling
+  // setState into a panel nobody is looking at. React's dev StrictMode also
+  // invokes this effect twice; the second run cancels the first, so only one
+  // request actually completes.
+  const inflight = React.useRef<AbortController | null>(null);
+
   const load = React.useCallback(async () => {
+    inflight.current?.abort();
+    const controller = new AbortController();
+    inflight.current = controller;
+    const signal = controller.signal;
     setLoading(true);
     setError(false);
     try {
@@ -217,6 +248,7 @@ export function GuardianshipPanel({
         jobs.push(
           fetch(`/api/guardianships?wardPersonId=${personId}`, {
             cache: 'no-store',
+            signal,
           }).then((r) => (r.ok ? r.json() : Promise.reject())),
         );
       } else {
@@ -226,6 +258,7 @@ export function GuardianshipPanel({
         jobs.push(
           fetch(`/api/guardianships?guardianPersonId=${personId}`, {
             cache: 'no-store',
+            signal,
           }).then((r) => (r.ok ? r.json() : Promise.reject())),
         );
       } else {
@@ -235,15 +268,22 @@ export function GuardianshipPanel({
       setAsWard(wards ?? []);
       setAsGuardian(guardians ?? []);
     } catch {
+      // An abort means someone superseded us or left — not a failure to show.
+      if (signal.aborted) return;
       setError(true);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [personId, isWard, isGuardian]);
 
   React.useEffect(() => {
+    // Seeded from the server — the first load already happened. Mutations still
+    // call `load()` explicitly. (The page keys this panel by person, so moving
+    // between people remounts it with that person's data.)
+    if (seeded) return;
     void load();
-  }, [load]);
+    return () => inflight.current?.abort();
+  }, [load, seeded]);
 
   if (!isWard && !isGuardian) return null;
 
@@ -257,10 +297,7 @@ export function GuardianshipPanel({
       }
     >
       {loading ? (
-        <div
-          className="h-20 animate-pulse rounded-lg border border-border bg-card"
-          aria-hidden
-        />
+        <SkeletonList rows={2} />
       ) : error ? (
         <div className="rounded-lg border border-border bg-card p-4 text-sm">
           <p className="text-muted-foreground">Could not load guardianships.</p>

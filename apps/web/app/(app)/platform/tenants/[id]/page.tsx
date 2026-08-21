@@ -26,6 +26,7 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import type { StateTone } from '@workspace/ui/types/states.types';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 interface JwtConfig {
   id: string;
@@ -97,7 +98,7 @@ export default function TenantDetailPage({
           {error}
         </p>
       ) : loading || !tenant ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <SkeletonList rows={5} withAvatar={false} />
       ) : (
         <>
           <div className="flex items-start justify-between">

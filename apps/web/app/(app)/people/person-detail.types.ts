@@ -167,6 +167,21 @@ export function tabLabel(tab: DetailTab): string {
 }
 
 /**
+ * The full-profile route for a tab. Overview is the profile's index route;
+ * every other tab is a child segment of the same name.
+ *
+ * Shared by the profile's own tab strip and by the drawer's "Open full
+ * profile" action, so the drawer can hand the reader off to the SAME tab they
+ * were reading rather than resetting them to Overview. One definition because
+ * two copies of this mapping would drift the moment a tab is added.
+ */
+export function personTabHref(personId: string, tab: DetailTab): string {
+  return tab === 'overview'
+    ? `/people/${personId}`
+    : `/people/${personId}/${tab}`;
+}
+
+/**
  * The tabs to show for a given detail payload: Overview always; People when
  * there are guardians/wards/siblings; Academics/Finance/Documents when the
  * server included that (permission + applicability-gated) roll-up.

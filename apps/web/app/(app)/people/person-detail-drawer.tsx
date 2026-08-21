@@ -36,6 +36,7 @@ import {
   formatDate,
   formatMinor,
   humanize,
+  personTabHref,
   tabLabel,
   type DetailTab,
   type PersonDetail,
@@ -164,7 +165,10 @@ export function PersonDetailDrawer({
                 `bg-background` to itself and reads as the page ground. */}
             <DrawerFooter>
               <Button asChild className="w-full">
-                <Link href={`/people/${detail.id}?type=${detail.type}`}>
+                {/* Hands off to the tab being read, not to Overview: the
+                    drawer is a preview of the profile, so "open it fully"
+                    should keep the reader's place. */}
+                <Link href={personTabHref(detail.id, tab)}>
                   <ExternalLink aria-hidden /> Open full profile
                 </Link>
               </Button>

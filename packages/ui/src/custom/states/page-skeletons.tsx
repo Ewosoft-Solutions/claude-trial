@@ -423,6 +423,76 @@ export function ReportPageSkeleton({
   );
 }
 
+/**
+ * Busy wrapper for a skeleton that fills a slot INSIDE a page shell that has
+ * already painted — a `loading.tsx` nested under a layout that renders the
+ * header. It must NOT open a second `ShellMain`, which would nest one scroll
+ * region inside another.
+ */
+function BodySkeletonRoot({
+  children,
+  label = 'Loading',
+}: {
+  children: React.ReactNode;
+  label?: string;
+}) {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      className="flex flex-col gap-6"
+    >
+      <span className="sr-only">{label}</span>
+      <div aria-hidden className="contents">
+        {children}
+      </div>
+    </div>
+  );
+}
+
+export interface DetailBodySkeletonProps {
+  /** Number of stacked content section cards. Defaults to 3. */
+  sections?: number;
+  /** Show a KPI stat row above the sections. Defaults to false. */
+  withStats?: boolean;
+}
+
+/**
+ * The BODY of a record-detail page — sections, optionally a stat row, and no
+ * header. For a tabbed record whose chrome lives in a layout: the layout keeps
+ * the header and tab strip painted, and only this swaps while the next tab
+ * streams in.
+ */
+export function DetailBodySkeleton({
+  sections = 3,
+  withStats = false,
+}: DetailBodySkeletonProps) {
+  return (
+    <BodySkeletonRoot>
+      {withStats ? <StatRowSkeleton count={3} /> : null}
+      {Array.from({ length: sections }).map((_, i) => (
+        <BlockCardSkeleton key={i} lines={4} />
+      ))}
+    </BodySkeletonRoot>
+  );
+}
+
+/** A folder-tab strip at rest: a row of tab-width bars sitting on the rule. */
+function TabStripSkeleton({ tabs = 4 }: { tabs?: number }) {
+  return (
+    <div className="flex items-end gap-3 border-b border-border pb-2">
+      {Array.from({ length: tabs }).map((_, i) => (
+        <Skeleton
+          key={i}
+          className="h-6"
+          style={{ width: `${58 + (i % 3) * 22}px` }}
+        />
+      ))}
+    </div>
+  );
+}
+
 export interface DetailPageSkeletonProps {
   /** Number of stacked content section cards. Defaults to 3. */
   sections?: number;
@@ -430,6 +500,12 @@ export interface DetailPageSkeletonProps {
   withStats?: boolean;
   /** Header action buttons. Defaults to 2. */
   actions?: number;
+  /**
+   * Show a tab strip between the header and the body. Set it for a page whose
+   * content sits behind tabs, so the strip does not pop in after the skeleton
+   * clears. Pass the number of tabs when it is known.
+   */
+  withTabs?: boolean | number;
 }
 
 /** Record-detail page ([id], roster, onboarding): header, stats, sections. */
@@ -437,10 +513,14 @@ export function DetailPageSkeleton({
   sections = 3,
   withStats = true,
   actions = 2,
+  withTabs = false,
 }: DetailPageSkeletonProps) {
   return (
     <PageSkeletonRoot>
       <PageHeaderSkeleton actions={actions} />
+      {withTabs ? (
+        <TabStripSkeleton tabs={typeof withTabs === 'number' ? withTabs : 4} />
+      ) : null}
       {withStats ? <StatRowSkeleton count={3} /> : null}
       {Array.from({ length: sections }).map((_, i) => (
         <BlockCardSkeleton key={i} lines={4} />

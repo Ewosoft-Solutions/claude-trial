@@ -28,6 +28,7 @@ import {
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { PageTitle } from '@workspace/ui/custom/shell/page-title';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 interface DriftViolation {
   field: string;
@@ -100,7 +101,7 @@ export default function PlatformPoliciesPage() {
           {error}
         </p>
       ) : loading || !data ? (
-        <p className="text-sm text-muted-foreground">Loading…</p>
+        <SkeletonList rows={5} withAvatar={false} />
       ) : (
         <>
           <Card className="shadow-card">

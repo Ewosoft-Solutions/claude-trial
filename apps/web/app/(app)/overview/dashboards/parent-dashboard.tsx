@@ -36,7 +36,11 @@ import {
   CardHeader,
   CardTitle,
 } from '@workspace/ui/components/card';
-import { Tabs, TabsList, TabsTrigger } from '@workspace/ui/components/tabs';
+import {
+  FolderTabs as Tabs,
+  FolderTabsList as TabsList,
+  FolderTabsTrigger as TabsTrigger,
+} from '@workspace/ui/custom/detail/folder-tabs';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { greeting, useGreetingSubtitle } from './greeting';
 import { formatNaira } from '@/lib/format';
@@ -46,6 +50,7 @@ import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 import { DASHBOARD_SHAPES } from '../dashboard-shape';
 
@@ -263,7 +268,7 @@ export function ParentDashboard({ userName, schoolName }: Props) {
         ) : children === null ? (
           <Card className="shadow-card">
             <CardContent className="pt-6">
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <SkeletonList rows={3} withAvatar={false} />
             </CardContent>
           </Card>
         ) : children.length === 0 ? (

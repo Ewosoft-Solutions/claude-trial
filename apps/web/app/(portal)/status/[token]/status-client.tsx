@@ -42,9 +42,26 @@ import {
 
 const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 
-export function StatusClient({ token }: { token: string }) {
-  const [status, setStatus] = React.useState<StatusView | null>(null);
-  const [loading, setLoading] = React.useState(true);
+export function StatusClient({
+  token,
+  initialStatus,
+}: {
+  token: string;
+  /**
+   * The status resolved on the SERVER, alongside the route.
+   *
+   * Without it this renders the route's skeleton, then its own spinner, then
+   * the content — two loaders for one wait on a page an applicant may be
+   * opening on a slow phone connection. Seeded, the skeleton is replaced by
+   * content. Accepting an offer still refetches through `load()`.
+   */
+  initialStatus?: StatusView | null;
+}) {
+  const seeded = initialStatus !== undefined;
+  const [status, setStatus] = React.useState<StatusView | null>(
+    initialStatus ?? null,
+  );
+  const [loading, setLoading] = React.useState(!seeded);
   const [error, setError] = React.useState(false);
   const [accepting, setAccepting] = React.useState(false);
 
@@ -66,8 +83,11 @@ export function StatusClient({ token }: { token: string }) {
   }, [base]);
 
   React.useEffect(() => {
+    // Seeded from the server — the first load already happened. Accepting an
+    // offer still calls `load()` explicitly to refresh.
+    if (seeded) return;
     void load();
-  }, [load]);
+  }, [load, seeded]);
 
   async function accept() {
     setAccepting(true);

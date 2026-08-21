@@ -1,23 +1,21 @@
+import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
 import { getPersonDetail } from '../get-detail';
-import { PersonProfileShell, ProfileMissing } from '../profile-shell';
 import { PersonPeople } from '../../person-detail-ui';
-import { GuardianshipPanel } from '../guardianship-panel';
+import { GuardianshipPanel, type Guardianship } from '../guardianship-panel';
 
 export default async function PersonPeoplePage({
   params,
-  searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ type?: string }>;
 }) {
   const { id } = await params;
-  const { type } = await searchParams;
   const [detail, session] = await Promise.all([
-    getPersonDetail(id, type),
+    getPersonDetail(id),
     getSession(),
   ]);
-  if (!detail) return <ProfileMissing />;
+  // The layout already showed `ProfileMissing` in this case.
+  if (!detail) return null;
 
   const has = (permission: string) =>
     session?.permissions.includes(permission as never) ?? false;
@@ -30,23 +28,41 @@ export default async function PersonPeoplePage({
     detail.type !== 'prospect' &&
     (isWard || isGuardian);
 
+  // Resolved here rather than by the panel on mount, so this tab has ONE wait:
+  // the route skeleton is replaced by content, not by the panel's own skeleton.
+  const [asWard, asGuardian] = showGuardianship
+    ? await Promise.all([
+        isWard
+          ? ((await serverApiGet<Guardianship[]>(
+              `/guardianships?wardPersonId=${encodeURIComponent(detail.id)}`,
+            )) ?? [])
+          : [],
+        isGuardian
+          ? ((await serverApiGet<Guardianship[]>(
+              `/guardianships?guardianPersonId=${encodeURIComponent(detail.id)}`,
+            )) ?? [])
+          : [],
+      ])
+    : [[], []];
+
   return (
-    <PersonProfileShell detail={detail} activeTab="people" type={type ?? 'all'}>
-      <div className="flex flex-col gap-6">
-        <PersonPeople
-          detail={detail}
-          relationHref={(rid) => `/people/${rid}`}
-          hideGuardianships={showGuardianship}
+    <div className="flex flex-col gap-6">
+      <PersonPeople
+        detail={detail}
+        relationHref={(rid) => `/people/${rid}`}
+        hideGuardianships={showGuardianship}
+      />
+      {showGuardianship ? (
+        <GuardianshipPanel
+          key={detail.id}
+          personId={detail.id}
+          isWard={isWard}
+          isGuardian={isGuardian}
+          canManage={has('guardians.manage')}
+          initialAsWard={asWard}
+          initialAsGuardian={asGuardian}
         />
-        {showGuardianship ? (
-          <GuardianshipPanel
-            personId={detail.id}
-            isWard={isWard}
-            isGuardian={isGuardian}
-            canManage={has('guardians.manage')}
-          />
-        ) : null}
-      </div>
-    </PersonProfileShell>
+      ) : null}
+    </div>
   );
 }

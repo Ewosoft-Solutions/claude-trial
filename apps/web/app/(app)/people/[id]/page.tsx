@@ -1,10 +1,18 @@
+import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
 import { getPersonDetail } from './get-detail';
-import { PersonProfileShell, ProfileMissing } from './profile-shell';
 import { PersonOverview } from '../person-detail-ui';
-import { AccountAccessPanel } from './account-access-panel';
-import { AccessScopePanel } from './access-scope-panel';
-import { StaffEmploymentPanel } from './staff-employment-panel';
+import { AccountAccessPanel, type AccountState } from './account-access-panel';
+import {
+  AccessScopePanel,
+  type Campus,
+  type GrantState,
+  type Role,
+} from './access-scope-panel';
+import {
+  StaffEmploymentPanel,
+  type Employment,
+} from './staff-employment-panel';
 
 export default async function PersonOverviewPage({
   params,
@@ -14,12 +22,16 @@ export default async function PersonOverviewPage({
   searchParams: Promise<{ type?: string }>;
 }) {
   const { id } = await params;
+  // Not for the fetch — the id identifies the person on its own now. This is
+  // the directory tab the reader arrived from, which widens the employment
+  // panel to someone being looked at AS staff.
   const { type } = await searchParams;
   const [detail, session] = await Promise.all([
-    getPersonDetail(id, type),
+    getPersonDetail(id),
     getSession(),
   ]);
-  if (!detail) return <ProfileMissing />;
+  // The layout already showed `ProfileMissing` in this case.
+  if (!detail) return null;
 
   const has = (permission: string) =>
     session?.permissions.includes(permission as never) ?? false;
@@ -44,44 +56,78 @@ export default async function PersonOverviewPage({
   const showAccessPanel =
     has('access.grants.manage') && detail.type !== 'prospect';
 
+  // Both panels used to fetch this on mount, independently — so Overview asked
+  // for the same account state TWICE, and the route's skeleton was replaced by
+  // their two much smaller ones. Resolved once here: one request, and the
+  // skeleton is replaced by content.
+  const account =
+    showAccountPanel || showAccessPanel
+      ? await serverApiGet<AccountState>(
+          `/directory/people/${encodeURIComponent(detail.id)}/account`,
+        )
+      : null;
+
+  const employment = showEmploymentPanel
+    ? ((
+        await serverApiGet<{ data?: Employment[] }>(
+          `/directory/people/${encodeURIComponent(detail.id)}/employment`,
+        )
+      )?.data ?? [])
+    : undefined;
+
+  const profileId = account?.hasAccount ? (account.userTenantId ?? null) : null;
+  const [grants, campuses, roles] =
+    showAccessPanel && profileId
+      ? await Promise.all([
+          serverApiGet<GrantState>(`/access/profiles/${profileId}/grants`),
+          serverApiGet<Campus[]>('/campuses'),
+          serverApiGet<Role[]>('/roles'),
+        ])
+      : [null, null, null];
+
   return (
-    <PersonProfileShell
+    <PersonOverview
       detail={detail}
-      activeTab="overview"
-      type={type ?? 'all'}
-    >
-      <PersonOverview
-        detail={detail}
-        employmentSlot={
-          showEmploymentPanel ? (
-            <StaffEmploymentPanel
-              personId={detail.id}
-              perms={{
-                create: has('staff.create'),
-                edit: has('staff.edit'),
-                delete: has('staff.delete'),
-              }}
-            />
-          ) : undefined
-        }
-        accountSlot={
-          showAccountPanel ? (
-            <AccountAccessPanel
-              personId={detail.id}
-              canProvision={has('users.provision')}
-            />
-          ) : undefined
-        }
-        accessSlot={
-          showAccessPanel ? (
-            <AccessScopePanel
-              personId={detail.id}
-              currentUserId={session?.accountId ?? ''}
-              canManage={has('access.grants.manage')}
-            />
-          ) : undefined
-        }
-      />
-    </PersonProfileShell>
+      employmentSlot={
+        showEmploymentPanel ? (
+          <StaffEmploymentPanel
+            key={detail.id}
+            personId={detail.id}
+            initialRows={employment}
+            perms={{
+              create: has('staff.create'),
+              edit: has('staff.edit'),
+              delete: has('staff.delete'),
+            }}
+          />
+        ) : undefined
+      }
+      accountSlot={
+        showAccountPanel ? (
+          <AccountAccessPanel
+            key={detail.id}
+            personId={detail.id}
+            canProvision={has('users.provision')}
+            initialState={account}
+          />
+        ) : undefined
+      }
+      accessSlot={
+        showAccessPanel ? (
+          <AccessScopePanel
+            key={detail.id}
+            personId={detail.id}
+            currentUserId={session?.accountId ?? ''}
+            canManage={has('access.grants.manage')}
+            initial={{
+              profileId,
+              grants: grants ?? null,
+              campuses: campuses ?? [],
+              roles: roles ?? [],
+            }}
+          />
+        ) : undefined
+      }
+    />
   );
 }
