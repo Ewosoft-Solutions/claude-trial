@@ -388,6 +388,55 @@ the URL confirm or correct it.** Profile tab strip (pass 4), profile tab body
 
 ---
 
+## Pass 10 — the app body, not just the rail
+
+Pass 9 made the sidebar move on click. The BODY did not: `children` is still
+the page being left until the router commits, so the chrome and the content
+disagreed about where the reader was. Measured on
+`/students/admissions → /people`:
+
+| At | On screen |
+| --- | --- |
+| 0 ms | click |
+| 10527 ms | still the ADMISSIONS page, then URL + skeleton appear together |
+
+The same optimistic treatment the profile body got in pass 5, applied at the
+app shell: while a navigation is in flight, `AppChrome` renders a placeholder
+instead of the outgoing page.
+
+| | Before | After |
+| --- | --- | --- |
+| Old page clears | at commit (0.6 s–10 s) | **~70 ms** |
+
+**Two hypotheses measured and rejected** — recorded so nobody retries them:
+
+- *Moving the page's `await` into a `<Suspense>`-wrapped child* so the shell
+  could flush first. Time-to-first-byte unchanged (229/207 ms streaming vs
+  187/267 ms blocking). Reverted.
+- *Wrapping `router.push` in `startTransition` and rendering on `isPending`*,
+  hoping it would stay true until the new tree was ready. It ends at the
+  commit, exactly like the pathname, so the destination's own `loading.tsx`
+  still took over afterwards. Kept (it is the more accurate signal of "a
+  navigation is happening") but it did not fix the handover.
+
+**The handover, and where it now stands.** After the commit the destination's
+own `loading.tsx` takes over for ~0.3–0.7 s before content. That cannot be
+avoided from the client — the placeholder cannot know the destination's
+silhouette without duplicating every route's skeleton into a lookup. What it
+CAN do is not change size at the handover, so `PageChangeSkeleton` is one flat
+busy region — header bar plus a slab that fills the content area — rather than
+a composed stat-row-and-cards:
+
+| | Placeholder | Route skeleton |
+| --- | --- | --- |
+| Before | bars=3, **h=332** | bars=62, **h=814** |
+| After | bars=3, **h=814** | bars=62, **h=814** |
+
+Detail fills in within a fixed frame instead of the page growing. Some
+navigations (Events, Library) show no handover at all.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does

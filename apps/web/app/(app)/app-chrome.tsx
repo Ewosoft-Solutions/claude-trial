@@ -16,6 +16,7 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
+import { PageChangeSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 import {
   Bell,
   Fingerprint,
@@ -361,12 +362,29 @@ export function AppChrome({
    */
   const [pendingHref, setPendingHref] = React.useState<string | null>(null);
 
+  /**
+   * Whether a navigation is still in flight, from React rather than from the
+   * URL.
+   *
+   * `pendingHref` clears when the pathname changes — the moment the router
+   * COMMITS — which is too early for the body: the destination's own
+   * `loading.tsx` then takes over for a few hundred milliseconds, so the reader
+   * sees one placeholder replaced by a differently shaped one. `isPending`
+   * stays true until the new tree is actually ready to show, so the placeholder
+   * we render covers the whole wait and hands straight over to content.
+   */
+  const [navPending, startNavTransition] = React.useTransition();
+
   const navigate = React.useCallback(
     (href: string) => {
-      setPendingHref(href);
-      router.push(href);
+      // Going where we already are would strand the rail's optimistic state:
+      // the pathname never changes, so nothing would clear it.
+      if (href.split('?')[0] !== pathname) setPendingHref(href);
+      startNavTransition(() => {
+        router.push(href);
+      });
     },
-    [router],
+    [router, pathname],
   );
   const prefetch = React.useCallback(
     (href: string) => router.prefetch(href),
@@ -533,7 +551,12 @@ export function AppChrome({
             onSuppress={suppressEnrollmentReminder}
           />
         ) : null}
-        {children}
+        {/* The rail moving on click is only half an answer: until the router
+            commits, `children` is still the page being LEFT, so the chrome and
+            the content disagree about where the reader is. Show the incoming
+            page's placeholder instead — the same one `(app)/loading.tsx`
+            renders, so when the boundary takes over nothing changes shape. */}
+        {navPending ? <PageChangeSkeleton /> : children}
         <GlobalSearch
           open={searchOpen}
           onOpenChange={setSearchOpen}

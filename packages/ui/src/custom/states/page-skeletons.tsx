@@ -451,6 +451,43 @@ function BodySkeletonRoot({
   );
 }
 
+/**
+ * The placeholder shown from the moment a navigation is CLICKED until the
+ * destination takes over.
+ *
+ * Deliberately one flat busy region — a page header and a body slab, no nested
+ * regions — because it hands over to whichever route skeleton the destination
+ * defines, and those are a single region too. A composed placeholder (stat row
+ * plus cards) changes shape at the handover, which reads as a second loader
+ * rather than as the same wait continuing.
+ *
+ * It cannot know the destination's silhouette, so it does not pretend to: it
+ * says "this page is changing" and gets out of the way.
+ */
+export function PageChangeSkeleton() {
+  return (
+    <div
+      role="status"
+      aria-busy="true"
+      aria-live="polite"
+      className="flex min-h-0 flex-1 flex-col gap-6"
+    >
+      <span className="sr-only">Loading</span>
+      <div aria-hidden className="flex min-h-0 flex-1 flex-col gap-6">
+        <div className="flex flex-col gap-2">
+          <Skeleton className="h-7 w-56 max-w-full" />
+          <Skeleton className="h-4 w-96 max-w-full" />
+        </div>
+        {/* Fills the page rather than a third of it. The destination's own,
+            richer skeleton takes over a few hundred milliseconds later, and a
+            slab that already occupies the content area means that handover
+            adds detail in place instead of visibly growing. */}
+        <Skeleton className="min-h-[60vh] w-full flex-1 rounded-[var(--radius)]" />
+      </div>
+    </div>
+  );
+}
+
 export interface DetailBodySkeletonProps {
   /** Number of stacked content section cards. Defaults to 3. */
   sections?: number;

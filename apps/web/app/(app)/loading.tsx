@@ -16,8 +16,8 @@
    instant the layout resolves. Anything more detailed would just be a
    second shape flashing past.
    ============================================================ */
-import { DetailBodySkeleton } from '@workspace/ui/custom/states/page-skeletons';
+import { PageChangeSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <DetailBodySkeleton sections={2} />;
+  return <PageChangeSkeleton />;
 }
