@@ -25,20 +25,20 @@ self-grant.
 
 ## Status
 
-| #   | Flow                                    | Endpoint                                                | API guard     | UI gate | Status        |
-| --- | --------------------------------------- | ------------------------------------------------------- | ------------- | ------- | ------------- |
-| 1   | Platform tenant approvals               | `POST /tenants/approvals/:requestId/approve\|reject`    | maker-checker | —       | **OK**        |
-| 2   | Access grants (permissions)             | `POST /access/grants/:requestId/approve\|reject`        | maker-checker | —       | **OK**        |
-| 3   | Finance adjustments (discounts/waivers) | `POST /finance/adjustments/:id/approve\|reject`         | maker-checker | —       | **OK**        |
-| 4   | Promotion runs                          | `POST /promotion/runs/:id/approve`                      | maker-checker | —       | **OK**        |
-| 5   | Result publication                      | `POST /results/cycles/:id/approve-publish`              | maker-checker | —       | **OK**        |
-| 6   | Result amendments                       | `POST /results/amendments/:amendmentId/approve`         | maker-checker | —       | **OK**        |
-| 7   | AI settings change requests             | `POST /ai/settings/change-requests/:id/approve\|reject` | maker-checker | —       | **OK**        |
-| 8   | **Lesson review**                       | `POST /learning/lessons/:id/approve\|reject`            | **guarded**   | pending | **API fixed** |
-| 9   | **Material review**                     | `POST /learning/materials/:id/approve\|reject`          | **guarded**   | pending | **API fixed** |
-| 10  | **Curriculum overlay**                  | `POST /curriculum/overlays/:id/approve`                 | **guarded**   | pending | **API fixed** |
-| 11  | **Bulk import approval**                | `POST /imports/jobs/:id/approve`                        | **guarded**   | pending | **API fixed** |
-| 12  | Admissions decision                     | `POST /admissions/applications/:id/reject`              | n/a           | n/a     | **Review**    |
+| #   | Flow                                    | Endpoint                                                | API guard     | UI gate   | Status     |
+| --- | --------------------------------------- | ------------------------------------------------------- | ------------- | --------- | ---------- |
+| 1   | Platform tenant approvals               | `POST /tenants/approvals/:requestId/approve\|reject`    | maker-checker | —         | **OK**     |
+| 2   | Access grants (permissions)             | `POST /access/grants/:requestId/approve\|reject`        | maker-checker | —         | **OK**     |
+| 3   | Finance adjustments (discounts/waivers) | `POST /finance/adjustments/:id/approve\|reject`         | maker-checker | —         | **OK**     |
+| 4   | Promotion runs                          | `POST /promotion/runs/:id/approve`                      | maker-checker | —         | **OK**     |
+| 5   | Result publication                      | `POST /results/cycles/:id/approve-publish`              | maker-checker | —         | **OK**     |
+| 6   | Result amendments                       | `POST /results/amendments/:amendmentId/approve`         | maker-checker | —         | **OK**     |
+| 7   | AI settings change requests             | `POST /ai/settings/change-requests/:id/approve\|reject` | maker-checker | —         | **OK**     |
+| 8   | **Lesson review**                       | `POST /learning/lessons/:id/approve\|reject`            | **guarded**   | **gated** | **Fixed**  |
+| 9   | **Material review**                     | `POST /learning/materials/:id/approve\|reject`          | **guarded**   | **gated** | **Fixed**  |
+| 10  | **Curriculum overlay**                  | `POST /curriculum/overlays/:id/approve`                 | **guarded**   | n/a       | **Fixed**  |
+| 11  | **Bulk import approval**                | `POST /imports/jobs/:id/approve`                        | **guarded**   | n/a       | **Fixed**  |
+| 12  | Admissions decision                     | `POST /admissions/applications/:id/reject`              | n/a           | n/a       | **Review** |
 
 ---
 
@@ -62,10 +62,18 @@ same line `MakerCheckerService` draws.
 A null `createdBy` is treated as unknown authorship, not self-approval — pre-guard
 rows stay approvable rather than becoming stuck.
 
-**Still open: the UI half.** The API now refuses, so the hole is closed, but the
-buttons are still offered and simply fail. Next step is to expose eligibility on
-the read (`createdBy`, or a computed `canDecide`) and hide the action — see the
-second trap below for why the client cannot do this today.
+**The UI half is done too.** The review queue's reads now carry `isOwnWork`,
+derived from the SAME predicate as the guard, so what the client is told and
+what the server enforces cannot drift. The Approve button is disabled for your
+own work and says why; Reject stays available, because that is a withdrawal.
+
+The client is told a boolean rather than an author id: it has no reliable
+identity of its own to compare against (the web session carries no user id), and
+eligibility is a rule the server owns.
+
+Curriculum overlays and bulk imports have **no web surface at all** — both are
+API-only today — so there is no button to hide. When a UI is built for either,
+it needs the same treatment, and the audit row is the reminder.
 
 ---
 

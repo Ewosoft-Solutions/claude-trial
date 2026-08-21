@@ -37,8 +37,25 @@ export interface UploadedFile {
   buffer: Buffer;
 }
 
+/**
+ * Separation of duties, in one place. Both the approve guards and the
+ * `isOwnWork` flag the review queue reads derive from THIS, so what the client
+ * is told and what the server enforces cannot drift apart.
+ *
+ * `createdBy` holds the USER id (`reviewedBy` holds the UserTenant id — see
+ * docs/self-approval-audit.md), so this compares against `actor.userId`.
+ * A null author is unknown authorship, not own work.
+ */
+function isOwnWork(
+  createdBy: string | null | undefined,
+  actor: AcademicsActor,
+): boolean {
+  return !!createdBy && createdBy === actor.userId;
+}
+
 const MATERIAL_SELECT = {
   id: true,
+  createdBy: true,
   lessonId: true,
   title: true,
   fileName: true,
@@ -132,7 +149,7 @@ export class LearningService {
   ) {
     return this.scoped(tenantId, actor.userId, async () => {
       const restricted = await this.lessonReadFilter(tenantId, actor);
-      return this.tenantDb.client.lesson.findMany({
+      const rows = await this.tenantDb.client.lesson.findMany({
         where: {
           tenantId,
           ...(query.classId ? { classId: query.classId } : {}),
@@ -150,6 +167,13 @@ export class LearningService {
         },
         orderBy: [{ order: 'asc' }, { createdAt: 'asc' }],
       });
+      // The review queue cannot hide an action it has no way to evaluate, and
+      // the client has no reliable identity of its own to compare against — so
+      // eligibility is decided here, next to the rule that enforces it.
+      return rows.map((row) => ({
+        ...row,
+        isOwnWork: isOwnWork(row.createdBy, actor),
+      }));
     });
   }
 
@@ -393,7 +417,7 @@ export class LearningService {
       // here would never match and the guard would silently pass everything.
       // Rejecting your own is left alone: that is a withdrawal, not a
       // self-grant, which is the same line MakerCheckerService draws.
-      if (decision === 'approved' && lesson.createdBy === actor.userId) {
+      if (decision === 'approved' && isOwnWork(lesson.createdBy, actor)) {
         throw new ForbiddenException('You cannot approve your own lesson');
       }
       if (lesson.reviewStatus !== 'pending_review') {
@@ -430,7 +454,7 @@ export class LearningService {
       });
       if (!lesson) throw new NotFoundException('Lesson not found');
 
-      return this.tenantDb.client.lessonMaterial.findMany({
+      const rows = await this.tenantDb.client.lessonMaterial.findMany({
         where: {
           lessonId,
           tenantId,
@@ -439,6 +463,10 @@ export class LearningService {
         select: MATERIAL_SELECT,
         orderBy: { createdAt: 'asc' },
       });
+      return rows.map((row) => ({
+        ...row,
+        isOwnWork: isOwnWork(row.createdBy, actor),
+      }));
     });
   }
 
@@ -567,7 +595,7 @@ export class LearningService {
       if (!material) throw new NotFoundException('Material not found');
       // Same separation of duties as reviewLesson, and the same identity
       // caveat: `createdBy` is the USER id, not the UserTenant id.
-      if (decision === 'approved' && material.createdBy === actor.userId) {
+      if (decision === 'approved' && isOwnWork(material.createdBy, actor)) {
         throw new ForbiddenException('You cannot approve your own material');
       }
       if (material.reviewStatus === decision) {

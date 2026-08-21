@@ -51,6 +51,20 @@ export interface ReviewItem {
   material?: MaterialSummary;
 }
 
+/**
+ * Whether the signed-in reviewer authored the thing they are looking at. The
+ * API decides this (it owns the rule and the identity) and refuses a
+ * self-approval regardless; this only stops the UI offering an action that is
+ * going to be rejected. An older payload without the flag reads as "not mine",
+ * which leaves the API as the backstop rather than blocking a legitimate
+ * reviewer.
+ */
+function isOwnWork(item: ReviewItem): boolean {
+  return item.type === 'lesson'
+    ? item.lesson.isOwnWork === true
+    : item.material?.isOwnWork === true;
+}
+
 function itemStatus(item: ReviewItem): string {
   return item.type === 'lesson'
     ? item.lesson.reviewStatus
@@ -414,6 +428,15 @@ export function AcademicReviewClient({
                 ) : null}
 
                 <div className="mt-auto grid gap-3 border-t pt-4">
+                  {isOwnWork(selected) ? (
+                    // Say WHY the action is unavailable. A disabled button with
+                    // no reason reads as a bug; this reads as a rule — and the
+                    // reviewer can still reject, which is a withdrawal.
+                    <p className="text-sm text-muted-foreground">
+                      You submitted this, so someone else has to approve it. You
+                      can still add a note or withdraw it by rejecting.
+                    </p>
+                  ) : null}
                   <Textarea
                     value={note}
                     onChange={(event) => setNote(event.target.value)}
@@ -449,7 +472,15 @@ export function AcademicReviewClient({
                       size="sm"
                       onClick={() => void decide('approve')}
                       disabled={
-                        !live || busy || itemStatus(selected) === 'approved'
+                        !live ||
+                        busy ||
+                        itemStatus(selected) === 'approved' ||
+                        isOwnWork(selected)
+                      }
+                      title={
+                        isOwnWork(selected)
+                          ? 'Someone else has to approve your own work'
+                          : undefined
                       }
                     >
                       <CheckCircle2 /> Approve
