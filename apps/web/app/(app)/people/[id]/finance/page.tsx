@@ -16,6 +16,13 @@ interface Invoice {
   dueDate?: string | null;
 }
 
+/* `/finance/invoices` is the same paginated endpoint the finance list uses, so
+   it always answers with an envelope — never a bare array. */
+interface InvoicesResponse {
+  data: Invoice[];
+  pagination: { total: number };
+}
+
 const STATUS_TONE: Record<
   string,
   'success' | 'warning' | 'destructive' | 'neutral' | 'info'
@@ -41,12 +48,13 @@ export default async function PersonFinancePage({
   if (!detail) return <ProfileMissing />;
 
   const f = detail.finance;
-  const invoices =
+  const invoiceList =
     f && detail.studentId
-      ? ((await serverApiGet<Invoice[]>(
+      ? await serverApiGet<InvoicesResponse>(
           `/finance/invoices?studentId=${encodeURIComponent(detail.studentId)}`,
-        )) ?? [])
-      : [];
+        )
+      : null;
+  const invoices = Array.isArray(invoiceList?.data) ? invoiceList.data : [];
 
   return (
     <PersonProfileShell
