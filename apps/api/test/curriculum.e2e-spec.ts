@@ -282,7 +282,13 @@ d('Curriculum framework (F6)', () => {
         payload: { code: 'LOCAL', name: 'Local Studies' },
       }),
     );
-    await scopedA(() => overlays.approve(tenantAId, 'actor-a', overlay.id));
+    // Approved by a SECOND actor: an overlay edits the spine every class is
+    // taught against, so its author cannot also clear it (see
+    // docs/self-approval-audit.md). The subject of this test is that an overlay
+    // is the sanctioned path at all — reaching `active` is setup.
+    await scopedA(() =>
+      overlays.approve(tenantAId, 'actor-a-reviewer', overlay.id),
+    );
     const list = await scopedA(() =>
       overlays.list(tenantAId, nationalVersionId),
     );
