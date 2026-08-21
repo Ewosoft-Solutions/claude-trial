@@ -45,6 +45,12 @@ import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 interface PendingApproval {
   id: string;
   makerId: string;
+  /**
+   * True when the signed-in operator raised this request. Decided by the API,
+   * which owns the same maker-checker rule it enforces. `undefined` reads as
+   * "not mine", leaving the API as the backstop.
+   */
+  isOwnRequest?: boolean;
   makerClearanceLevel: number;
   targetTenantId: string;
   status: 'active' | 'suspended';
@@ -193,22 +199,43 @@ export default function TenantApprovalsPage() {
       header: 'Decision',
       align: 'end',
       cell: (r) => (
-        <div className="flex justify-end gap-2">
-          <Button
-            size="sm"
-            disabled={busyId === r.id}
-            onClick={() => confirmApprove(r.id, r.status)}
-          >
-            <Check className="size-4" /> Approve
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={busyId === r.id}
-            onClick={() => setRejectFor(r.id)}
-          >
-            <X className="size-4" /> Reject
-          </Button>
+        <div className="flex items-center justify-end gap-2">
+          {r.isOwnRequest ? (
+            <>
+              {/* Maker ≠ checker: no Approve for your own request. What you can
+                  still do is withdraw it, which is a cancellation rather than a
+                  refusal by a second authority. */}
+              <span className="text-xs text-muted-foreground">
+                You raised this
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busyId === r.id}
+                onClick={() => setRejectFor(r.id)}
+              >
+                <X className="size-4" /> Cancel request
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                size="sm"
+                disabled={busyId === r.id}
+                onClick={() => confirmApprove(r.id, r.status)}
+              >
+                <Check className="size-4" /> Approve
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={busyId === r.id}
+                onClick={() => setRejectFor(r.id)}
+              >
+                <X className="size-4" /> Reject
+              </Button>
+            </>
+          )}
         </div>
       ),
     },

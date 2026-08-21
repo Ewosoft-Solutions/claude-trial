@@ -117,12 +117,45 @@ export class ResultCycleService {
     return cycle;
   }
 
+  /**
+   * Which pending cycles the READER put up for publication, so the workbench
+   * can withhold the approve action from its own maker. The approve route
+   * already refuses a self-approval (maker-checker); this stops the UI offering
+   * a button that is going to be rejected. See docs/self-approval-audit.md.
+   *
+   * The maker lives on the MakerCheckerRequest, not the cycle, so it is read
+   * from there — one query per page, not one per row.
+   */
+  private async ownRequestIds(
+    tenantId: string,
+    actorUserId: string,
+    approvalRequestIds: (string | null | undefined)[],
+  ): Promise<Set<string>> {
+    const ids = approvalRequestIds.filter((id): id is string => !!id);
+    if (ids.length === 0) return new Set();
+    const requests = await this.client.makerCheckerRequest.findMany({
+      where: { tenantId, id: { in: ids }, makerId: actorUserId },
+      select: { id: true },
+    });
+    return new Set(requests.map((r) => r.id));
+  }
+
   async listCycles(tenantId: string, actor: ResultActor) {
     const campusId = this.scopedCampusId(actor.grantScope);
-    return this.client.resultCycle.findMany({
+    const cycles = await this.client.resultCycle.findMany({
       where: { tenantId, ...(campusId ? { campusId } : {}) },
       orderBy: { createdAt: 'desc' },
     });
+    const mine = await this.ownRequestIds(
+      tenantId,
+      actor.userId,
+      cycles.map((c) => c.approvalRequestId),
+    );
+    return cycles.map((cycle) => ({
+      ...cycle,
+      isOwnRequest:
+        !!cycle.approvalRequestId && mine.has(cycle.approvalRequestId),
+    }));
   }
 
   async getCycle(tenantId: string, actor: ResultActor, cycleId: string) {
@@ -145,8 +178,15 @@ export class ResultCycleService {
         })
       : [];
     const labelOf = new Map(sectionLabels.map((s) => [s.id, s.displayLabel]));
+    const mine = await this.ownRequestIds(tenantId, actor.userId, [
+      cycle.approvalRequestId,
+    ]);
     return {
-      cycle,
+      cycle: {
+        ...cycle,
+        isOwnRequest:
+          !!cycle.approvalRequestId && mine.has(cycle.approvalRequestId),
+      },
       components,
       sections: sections.map((s) => ({
         id: s.id,

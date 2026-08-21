@@ -106,6 +106,13 @@ interface ApiAdjustment {
   reason?: string | null;
   status: 'pending' | 'applied' | 'rejected';
   lineId?: string | null;
+  /**
+   * True when the signed-in reader raised this adjustment. Decided by the API,
+   * which owns the same maker-checker rule it enforces on approval — the client
+   * has no reliable identity of its own. Absent on older payloads, so
+   * `undefined` reads as "not mine" and the API stays the backstop.
+   */
+  isOwnRequest?: boolean;
 }
 
 interface ApiPayment {
@@ -173,6 +180,7 @@ const ADJ_STATUS_META: Record<string, { label: string; tone: StateTone }> = {
   pending: { label: 'Pending approval', tone: 'warning' },
   applied: { label: 'Applied', tone: 'success' },
   rejected: { label: 'Rejected', tone: 'neutral' },
+  cancelled: { label: 'Cancelled', tone: 'neutral' },
 };
 
 /* ---- Money helpers ------------------------------------------------------ */
@@ -1092,8 +1100,31 @@ function AdjustmentsSection({
               </div>
               {canManage && adj.status === 'pending' ? (
                 <div className="flex items-center gap-1.5">
-                  <ApproveRejectButton adjustmentId={adj.id} action="approve" />
-                  <ApproveRejectButton adjustmentId={adj.id} action="reject" />
+                  {adj.isOwnRequest ? (
+                    <>
+                      {/* Maker ≠ checker: no Approve for your own request, and
+                          what you CAN do is withdraw it — which is a
+                          cancellation, not a rejection. */}
+                      <span className="text-xs text-muted-foreground">
+                        You requested this — another authority approves it
+                      </span>
+                      <ApproveRejectButton
+                        adjustmentId={adj.id}
+                        action="cancel"
+                      />
+                    </>
+                  ) : (
+                    <>
+                      <ApproveRejectButton
+                        adjustmentId={adj.id}
+                        action="approve"
+                      />
+                      <ApproveRejectButton
+                        adjustmentId={adj.id}
+                        action="reject"
+                      />
+                    </>
+                  )}
                 </div>
               ) : null}
             </li>
@@ -1219,18 +1250,28 @@ function RequestAdjustmentDialog({ invoiceId }: { invoiceId: string }) {
   );
 }
 
+/**
+ * `cancel` is the requester withdrawing their own request. It POSTs to the same
+ * `reject` route — the server decides, from who is calling, that this is a
+ * withdrawal and records `cancelled` rather than `rejected`, so the history
+ * never reads as though a second authority refused the discount. Keeping that
+ * decision on the server is deliberate: the client must not be the thing that
+ * chooses which outcome is written.
+ */
 function ApproveRejectButton({
   adjustmentId,
   action,
 }: {
   adjustmentId: string;
-  action: 'approve' | 'reject';
+  action: 'approve' | 'reject' | 'cancel';
 }) {
   const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [reason, setReason] = React.useState('');
   const [busy, setBusy] = React.useState(false);
   const isApprove = action === 'approve';
+  const isCancel = action === 'cancel';
+  const route = isCancel ? 'reject' : action;
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -1245,17 +1286,23 @@ function ApproveRejectButton({
         onClick={() => setOpen(true)}
       >
         {isApprove ? <Check aria-hidden /> : <X aria-hidden />}
-        {isApprove ? 'Approve' : 'Reject'}
+        {isApprove ? 'Approve' : isCancel ? 'Cancel request' : 'Reject'}
       </Button>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>
-            {isApprove ? 'Approve this adjustment?' : 'Reject this adjustment?'}
+            {isApprove
+              ? 'Approve this adjustment?'
+              : isCancel
+                ? 'Cancel this request?'
+                : 'Reject this adjustment?'}
           </DialogTitle>
           <DialogDescription>
             {isApprove
               ? 'Approving applies it and reduces the invoice balance. You must be a different person than the requester.'
-              : 'Rejecting leaves the balance unchanged.'}
+              : isCancel
+                ? 'This withdraws the request you raised. Nothing is applied and the balance is unchanged.'
+                : 'Rejecting leaves the balance unchanged.'}
           </DialogDescription>
         </DialogHeader>
         <div className="flex flex-col gap-1.5 py-2">
@@ -1279,7 +1326,7 @@ function ApproveRejectButton({
         <DialogFooter>
           <DialogClose asChild>
             <Button variant="ghost" size="sm">
-              Cancel
+              {isCancel ? 'Keep request' : 'Cancel'}
             </Button>
           </DialogClose>
           <Button
@@ -1290,12 +1337,16 @@ function ApproveRejectButton({
               setBusy(true);
               try {
                 await mutate(
-                  `/api/finance/adjustments/${adjustmentId}/${action}`,
+                  `/api/finance/adjustments/${adjustmentId}/${route}`,
                   'POST',
                   { reason: reason.trim() || undefined },
                 );
                 toast.success(
-                  isApprove ? 'Adjustment applied' : 'Adjustment rejected',
+                  isApprove
+                    ? 'Adjustment applied'
+                    : isCancel
+                      ? 'Request cancelled'
+                      : 'Adjustment rejected',
                 );
                 setOpen(false);
                 router.refresh();
@@ -1306,7 +1357,7 @@ function ApproveRejectButton({
               }
             }}
           >
-            {isApprove ? 'Approve' : 'Reject'}
+            {isApprove ? 'Approve' : isCancel ? 'Cancel request' : 'Reject'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -468,9 +468,10 @@ export class PlatformSecurityPolicyController {
   @RequireClearanceLevel(9)
   @RequirePermissions(['platform.security'])
   @ApiOperation({ summary: 'List tenant sensitive-operation change requests' })
-  listSensitiveOperationChangeRequests() {
+  listSensitiveOperationChangeRequests(@Request() req: AuthenticatedRequest) {
     return this.sensitiveOperationPolicies.listPlatformChangeRequests(
       this.dbService.client,
+      req.user?.userId,
     );
   }
 

@@ -25,22 +25,74 @@ self-grant.
 
 ## Status
 
-| #   | Flow                                    | Endpoint                                                | API guard     | UI gate   | Status     |
-| --- | --------------------------------------- | ------------------------------------------------------- | ------------- | --------- | ---------- |
-| 1   | Platform tenant approvals               | `POST /tenants/approvals/:requestId/approve\|reject`    | maker-checker | —         | **OK**     |
-| 2   | Access grants (permissions)             | `POST /access/grants/:requestId/approve\|reject`        | maker-checker | —         | **OK**     |
-| 3   | Finance adjustments (discounts/waivers) | `POST /finance/adjustments/:id/approve\|reject`         | maker-checker | —         | **OK**     |
-| 4   | Promotion runs                          | `POST /promotion/runs/:id/approve`                      | maker-checker | —         | **OK**     |
-| 5   | Result publication                      | `POST /results/cycles/:id/approve-publish`              | maker-checker | —         | **OK**     |
-| 6   | Result amendments                       | `POST /results/amendments/:amendmentId/approve`         | maker-checker | —         | **OK**     |
-| 7   | AI settings change requests             | `POST /ai/settings/change-requests/:id/approve\|reject` | maker-checker | —         | **OK**     |
-| 8   | **Lesson review**                       | `POST /learning/lessons/:id/approve\|reject`            | **guarded**   | **gated** | **Fixed**  |
-| 9   | **Material review**                     | `POST /learning/materials/:id/approve\|reject`          | **guarded**   | **gated** | **Fixed**  |
-| 10  | **Curriculum overlay**                  | `POST /curriculum/overlays/:id/approve`                 | **guarded**   | n/a       | **Fixed**  |
-| 11  | **Bulk import approval**                | `POST /imports/jobs/:id/approve`                        | **guarded**   | n/a       | **Fixed**  |
-| 12  | Admissions decision                     | `POST /admissions/applications/:id/reject`              | n/a           | n/a       | **Review** |
+| #   | Flow                                    | Endpoint                                                | API guard         | UI gate   | Status     |
+| --- | --------------------------------------- | ------------------------------------------------------- | ----------------- | --------- | ---------- |
+| 1   | Platform tenant approvals               | `POST /tenants/approvals/:requestId/approve\|reject`    | maker-checker     | **gated** | **Fixed**  |
+| 2   | Access grants (permissions)             | `POST /access/grants/:requestId/approve\|reject`        | maker-checker     | **gated** | **Fixed**  |
+| 3   | Finance adjustments (discounts/waivers) | `POST /finance/adjustments/:id/approve\|reject`         | maker-checker     | **gated** | **Fixed**  |
+| 4   | Promotion runs                          | `POST /promotion/runs/:id/approve`                      | maker-checker     | **gated** | **Fixed**  |
+| 5   | Result publication                      | `POST /results/cycles/:id/approve-publish`              | maker-checker     | **gated** | **Fixed**  |
+| 6   | Result amendments                       | `POST /results/amendments/:amendmentId/approve`         | maker-checker     | **gated** | **Fixed**  |
+| 7   | AI settings change requests             | `POST /ai/settings/change-requests/:id/approve\|reject` | maker-checker     | **gated** | **Fixed**  |
+| 8   | **Lesson review**                       | `POST /learning/lessons/:id/approve\|reject`            | **guarded**       | **gated** | **Fixed**  |
+| 9   | **Material review**                     | `POST /learning/materials/:id/approve\|reject`          | **guarded**       | **gated** | **Fixed**  |
+| 10  | **Curriculum overlay**                  | `POST /curriculum/overlays/:id/approve`                 | **guarded**       | n/a       | **Fixed**  |
+| 11  | **Bulk import approval**                | `POST /imports/jobs/:id/approve`                        | **guarded**       | n/a       | **Fixed**  |
+| 12  | Admissions decision                     | `POST /admissions/applications/:id/reject`              | n/a               | n/a       | **Review** |
+| 13  | Step-up policy change requests          | `PATCH /platform/security/step-up-change-requests/:id`  | requester refused | **gated** | **Fixed**  |
 
 ---
+
+## Correction — the UI column was never assessed for rows 1–7
+
+The first pass marked the seven maker-checker flows **OK** on the strength of
+the API alone and left their UI column as `—`, meaning _unassessed_. That was
+then read as _safe_, and the UI work was scoped to only the four API gaps.
+
+It is not safe. Those screens offer Approve/Reject to the requester and rely on
+the API to refuse — the exact "walk the user into a 403" behaviour the ground
+rule exists to prevent. Two examples found by inspection:
+
+- Invoice detail gates the adjustment buttons on `canManage && status ===
+'pending'` — nothing about who raised it.
+- Promotion derives `canApprove` from
+  `permissions.includes('academics.promotion.approve')` — a permission, not
+  separation of duties. Holding the permission is what lets you decide; it is
+  not what makes you eligible to decide _this_ one.
+
+The rule is both-sides: **the API refuses, and the UI does not offer.** A row is
+only OK when both are true.
+
+### Two things the sweep itself corrected
+
+- **Row 2 was never broken.** `access-scope-panel` already passes
+  `isSelfRequest={req.makerId === currentUserId}`. Marking it a gap was an error
+  in the first pass, not a defect in the code.
+- **Row 13 was missing entirely.** Step-up policy change requests are an
+  approval flow the endpoint sweep did not catch, because the decision route is
+  a `PATCH` on the request rather than an `/approve` path. Its API was already
+  correct — "the requester cannot review their own policy proposal" — but its
+  console offered the buttons.
+
+### The recipe, as applied
+
+Every row now follows the same three steps:
+
+1. **The read tells the client.** Add an `isOwnRequest` boolean, computed on the
+   server from `requestedBy` (or the flow's equivalent) against the viewer's
+   user id. Send a boolean, never the requester's id: the browser has no
+   reliable identity of its own, and eligibility is a rule the server owns.
+2. **The UI stops offering.** Replace the Approve control with a short line
+   saying why, and label what remains **Cancel request** rather than Reject —
+   the requester is withdrawing, not refusing. `ApprovalPanel` already models
+   this via `isSelfRequest`; consumers simply were not passing it.
+3. **A spec pins it**, including that a null requester reads as _not_ own work,
+   so pre-existing rows do not become unapprovable.
+
+Note that `canApprove` in the promotion and results workbenches means "holds the
+approve permission" and must NOT be overloaded to mean this — holding the
+permission is what lets you decide, not what makes you eligible to decide _this_
+one. They need a second, per-row flag.
 
 ## What has been fixed
 

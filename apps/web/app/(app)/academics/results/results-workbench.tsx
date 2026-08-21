@@ -66,6 +66,13 @@ export interface ResultCycle {
   principalRemarkRuleSetId?: string | null;
   rankingEnabled?: boolean;
   approvalRequestId?: string | null;
+  /**
+   * True when the signed-in reviewer submitted this cycle for publication.
+   * Decided by the API, which owns the same maker-checker rule it enforces —
+   * the browser has no reliable identity to compare against. `undefined` reads
+   * as "not mine", leaving the API as the backstop.
+   */
+  isOwnRequest?: boolean;
   promotionPolicy?: {
     passMark: number;
     maxFailedSubjects: number;

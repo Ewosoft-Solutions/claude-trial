@@ -175,7 +175,9 @@ export class TenantController {
   @UseGuards(StepUpGuard)
   @RequireStepUp(STEP_UP_OPERATION.TENANT_SUSPEND)
   @PlatformScoped(['platform.tenants.act'])
-  @ApiOperation({ summary: 'Activate or suspend a tenant (approval-gated for SuperAdmin)' })
+  @ApiOperation({
+    summary: 'Activate or suspend a tenant (approval-gated for SuperAdmin)',
+  })
   async updateTenantStatus(
     @Param('id') id: string,
     @Body() data: UpdateTenantStatusDto,
@@ -195,8 +197,8 @@ export class TenantController {
   @Get('approvals/pending')
   @PlatformScoped(['platform.tenants.act'])
   @ApiOperation({ summary: 'List pending tenant-action approval requests' })
-  async listPendingApprovals() {
-    return this.platformApproval.listPending();
+  async listPendingApprovals(@Request() req: AuthenticatedRequest) {
+    return this.platformApproval.listPending(req.user.userId);
   }
 
   /**

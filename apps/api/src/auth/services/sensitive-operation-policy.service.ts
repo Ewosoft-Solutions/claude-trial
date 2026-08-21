@@ -317,11 +317,24 @@ export class SensitiveOperationPolicyService {
     });
   }
 
-  listPlatformChangeRequests(prisma: PrismaClient) {
-    return prisma.sensitiveOperationPolicyChangeRequest.findMany({
+  /**
+   * `viewerUserId` exists so the console can say which proposals the READER
+   * raised. `reviewChangeRequest` already refuses "the requester cannot review
+   * their own policy proposal"; this stops the page offering a decision that is
+   * going to be rejected. See docs/self-approval-audit.md.
+   */
+  async listPlatformChangeRequests(
+    prisma: PrismaClient,
+    viewerUserId?: string,
+  ) {
+    const rows = await prisma.sensitiveOperationPolicyChangeRequest.findMany({
       include: { tenant: { select: { id: true, name: true, slug: true } } },
       orderBy: [{ status: 'asc' }, { createdAt: 'desc' }],
     });
+    return rows.map((row) => ({
+      ...row,
+      isOwnRequest: !!viewerUserId && row.requestedBy === viewerUserId,
+    }));
   }
 
   async reviewChangeRequest(

@@ -138,6 +138,10 @@ export class AiSettingsService {
       return rows.map((r) => ({
         id: r.id,
         makerId: r.makerId,
+        // Separation of duties, decided here rather than in the browser. The
+        // approve path already refuses a self-approval; this stops the page
+        // offering a button that is going to be rejected.
+        isOwnRequest: r.makerId === userId,
         makerClearanceLevel: r.makerClearanceLevel,
         changes: this.summarizePatch(r.requestData),
         createdAt: r.createdAt,

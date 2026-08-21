@@ -180,7 +180,14 @@ export class FinanceService {
     };
   }
 
-  async getInvoice(tenantId: string, id: string) {
+  /**
+   * `viewerUserId` exists so the detail can say which pending adjustments the
+   * READER raised. The approve route already refuses a self-approval
+   * (maker-checker), but without this the page offers a button that is going to
+   * be rejected — see docs/self-approval-audit.md. `requestedBy` stores the
+   * USER id, so that is what is compared.
+   */
+  async getInvoice(tenantId: string, id: string, viewerUserId?: string) {
     const invoice = await this.client.feeInvoice.findFirst({
       where: { id, tenantId },
       include: {
@@ -228,6 +235,16 @@ export class FinanceService {
 
     return {
       ...invoice,
+      // Separation of duties, decided here rather than in the browser: the
+      // client has no reliable identity of its own to compare against. A null
+      // requester is unknown authorship, not own work.
+      adjustments: invoice.adjustments.map((adjustment) => ({
+        ...adjustment,
+        isOwnRequest:
+          !!viewerUserId &&
+          !!adjustment.requestedBy &&
+          adjustment.requestedBy === viewerUserId,
+      })),
       // What settled this invoice, flattened for the detail page.
       payments: invoice.allocations.map((allocation) => ({
         ...allocation.payment,
