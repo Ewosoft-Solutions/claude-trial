@@ -243,11 +243,14 @@ export function PublicationsPanel({
         <ApprovalPanel
           request={{
             title: `Publish ${cycle.name}`,
-            requestedBy: 'a colleague',
+            requestedBy: cycle.isOwnRequest ? 'you' : 'a colleague',
             reason: 'Publishing produces an immutable, reproducible snapshot.',
             riskLabel: 'Result publication',
           }}
           canApprove={canApprove}
+          // `canApprove` is the PERMISSION; this is separation of duties.
+          // ApprovalPanel blocks on either — they are different questions.
+          isSelfRequest={cycle.isOwnRequest === true}
           stepUpRequired={false}
           onApprove={
             canApprove

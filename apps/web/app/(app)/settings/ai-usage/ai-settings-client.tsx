@@ -57,6 +57,12 @@ export interface PendingChange {
   changes: Record<string, unknown>;
   createdAt: string;
   expiresAt: string | null;
+  /**
+   * True when the signed-in admin proposed this change. Decided by the API,
+   * which owns the same dual-control rule it enforces on approval. `undefined`
+   * reads as "not mine", leaving the API as the backstop.
+   */
+  isOwnRequest?: boolean;
 }
 
 interface Props {
@@ -261,26 +267,46 @@ export function AiSettingsClient({ settings, pending }: Props) {
                     ))}
                   </div>
                   <span className="text-xs text-muted-foreground">
-                    Requested by {change.makerId.slice(0, 8)}…<Dot />
+                    Requested by{' '}
+                    {change.isOwnRequest
+                      ? 'you'
+                      : `${change.makerId.slice(0, 8)}…`}
+                    <Dot />
                     {new Date(change.createdAt).toLocaleString()}
                   </span>
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    disabled={busy}
-                    onClick={() => requestDecision(change.id, 'reject')}
-                  >
-                    Reject
-                  </Button>
-                  <Button
-                    size="sm"
-                    disabled={busy}
-                    onClick={() => requestDecision(change.id, 'approve')}
-                  >
-                    Approve
-                  </Button>
+                <div className="flex items-center gap-2">
+                  {change.isOwnRequest ? (
+                    // Dual control: a different admin approves. Withdrawing
+                    // your own proposal is a cancellation, not a refusal. The
+                    // row already says "Requested by you".
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={busy}
+                      onClick={() => requestDecision(change.id, 'reject')}
+                    >
+                      Cancel request
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        disabled={busy}
+                        onClick={() => requestDecision(change.id, 'reject')}
+                      >
+                        Reject
+                      </Button>
+                      <Button
+                        size="sm"
+                        disabled={busy}
+                        onClick={() => requestDecision(change.id, 'approve')}
+                      >
+                        Approve
+                      </Button>
+                    </>
+                  )}
                 </div>
               </div>
             ))}

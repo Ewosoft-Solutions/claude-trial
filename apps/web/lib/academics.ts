@@ -67,6 +67,13 @@ export interface LessonSummary {
   updatedAt?: string;
   class?: ClassSummary | null;
   _count?: { materials: number };
+  /**
+   * True when the signed-in reviewer is the person who created this. Decided by
+   * the API, which owns the same rule it enforces on approval — the client has
+   * no reliable identity of its own to compare against. Absent on older
+   * payloads, so treat `undefined` as "not mine" and let the API refuse.
+   */
+  isOwnWork?: boolean;
 }
 
 export interface MaterialSummary {
@@ -85,6 +92,13 @@ export interface MaterialSummary {
   chunkCount: number;
   createdAt?: string;
   updatedAt?: string;
+  /**
+   * True when the signed-in reviewer is the person who created this. Decided by
+   * the API, which owns the same rule it enforces on approval — the client has
+   * no reliable identity of its own to compare against. Absent on older
+   * payloads, so treat `undefined` as "not mine" and let the API refuse.
+   */
+  isOwnWork?: boolean;
 }
 
 export interface QuestionOption {

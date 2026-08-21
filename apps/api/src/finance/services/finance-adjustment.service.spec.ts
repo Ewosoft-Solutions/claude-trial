@@ -353,3 +353,85 @@ describe('FinanceAdjustmentService', () => {
     expect(feeAdjustment.create).not.toHaveBeenCalled();
   });
 });
+
+describe('FinanceAdjustmentService.rejectAdjustment — withdrawal vs refusal', () => {
+  const feeAdjustment = { findFirst: jest.fn(), update: jest.fn() };
+  const client = { feeAdjustment };
+  const makerChecker = { rejectRequest: jest.fn() };
+  const service = new FinanceAdjustmentService(
+    { client } as never,
+    makerChecker as never,
+    { post: jest.fn(), ensureOpeningBalance: jest.fn() } as never,
+  );
+
+  const MAKER = 'user-maker';
+  const CHECKER = 'user-checker';
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    feeAdjustment.findFirst.mockResolvedValue({
+      id: 'adj-1',
+      status: 'pending',
+      approvalRequestId: 'req-1',
+      requestedBy: MAKER,
+    });
+    feeAdjustment.update.mockImplementation(async (args: any) => args.data);
+  });
+
+  it('records the maker closing their OWN request as cancelled', async () => {
+    // Not `rejected`: months later that would read as though a second
+    // authority refused the discount, which is a different and more serious
+    // fact than the requester changing their mind.
+    await service.rejectAdjustment(
+      'tenant-1',
+      { userId: MAKER, clearanceLevel: 5 } as never,
+      'adj-1',
+      'changed my mind',
+    );
+    expect(feeAdjustment.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: { status: 'cancelled' } }),
+    );
+  });
+
+  it('does not stamp the maker into approvedBy when they cancel', async () => {
+    // Nobody decided it. `requestedBy` already names who withdrew it, and only
+    // they can.
+    await service.rejectAdjustment(
+      'tenant-1',
+      { userId: MAKER, clearanceLevel: 5 } as never,
+      'adj-1',
+      'changed my mind',
+    );
+    const { data } = feeAdjustment.update.mock.calls[0][0];
+    expect(data.approvedBy).toBeUndefined();
+    expect(data.approvedAt).toBeUndefined();
+  });
+
+  it('still records a DIFFERENT authority refusing it as rejected', async () => {
+    await service.rejectAdjustment(
+      'tenant-1',
+      { userId: CHECKER, clearanceLevel: 5 } as never,
+      'adj-1',
+      'not supported',
+    );
+    const { data } = feeAdjustment.update.mock.calls[0][0];
+    expect(data.status).toBe('rejected');
+    expect(data.approvedBy).toBe(CHECKER);
+  });
+
+  it('treats an unknown requester as a refusal, not a withdrawal', async () => {
+    feeAdjustment.findFirst.mockResolvedValue({
+      id: 'adj-1',
+      status: 'pending',
+      approvalRequestId: 'req-1',
+      requestedBy: null,
+    });
+    await service.rejectAdjustment(
+      'tenant-1',
+      { userId: CHECKER, clearanceLevel: 5 } as never,
+      'adj-1',
+      'no',
+    );
+    expect(feeAdjustment.update.mock.calls[0][0].data.status).toBe('rejected');
+  });
+});

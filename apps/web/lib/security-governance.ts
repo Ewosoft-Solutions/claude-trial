@@ -36,6 +36,12 @@ export interface SensitiveOperationChangeRequest {
   reviewedAt: string | null;
   createdAt: string;
   tenant?: { id: string; name: string; slug: string | null };
+  /**
+   * True when the signed-in operator raised this proposal. Decided by the API,
+   * which owns the same rule it enforces on review ("the requester cannot
+   * review their own policy proposal"). `undefined` reads as "not mine".
+   */
+  isOwnRequest?: boolean;
 }
 
 export const SECURITY_CATEGORY_LABELS: Record<

@@ -151,22 +151,64 @@ export class PromotionService {
     return run;
   }
 
+  /**
+   * Which pending runs the READER raised, so the workbench can withhold the
+   * approve action from its own maker. The approve route already refuses a
+   * self-approval (maker-checker); this stops the UI offering a button that is
+   * going to be rejected. See docs/self-approval-audit.md.
+   *
+   * The maker lives on the MakerCheckerRequest rather than the run, so it is
+   * read from there — one query for the whole page, not one per row.
+   */
+  private async ownRequestIds(
+    tenantId: string,
+    actorUserId: string,
+    approvalRequestIds: string[],
+  ): Promise<Set<string>> {
+    const ids = approvalRequestIds.filter(Boolean);
+    if (ids.length === 0) return new Set();
+    const requests = await this.client.makerCheckerRequest.findMany({
+      where: { tenantId, id: { in: ids }, makerId: actorUserId },
+      select: { id: true },
+    });
+    return new Set(requests.map((r) => r.id));
+  }
+
   async listRuns(tenantId: string, actor: PromotionActor) {
     // A campus-scoped viewer only sees their own campus's runs (the read-path
     // twin of assertRunScope, which denies a campus-scoped actor a tenant-wide
     // run) — mirrors the WB2-1 read clamp. Unscoped/global sees everything.
     const campusId = this.scopedCampusId(actor.grantScope);
-    return this.client.promotionRun.findMany({
+    const runs = await this.client.promotionRun.findMany({
       where: { tenantId, ...(campusId ? { campusId } : {}) },
       orderBy: { createdAt: 'desc' },
     });
+    const mine = await this.ownRequestIds(
+      tenantId,
+      actor.userId,
+      runs.map((r) => r.approvalRequestId ?? ''),
+    );
+    return runs.map((run) => ({
+      ...run,
+      isOwnRequest: !!run.approvalRequestId && mine.has(run.approvalRequestId),
+    }));
   }
 
   async getRun(tenantId: string, actor: PromotionActor, runId: string) {
     const run = await this.loadRun(tenantId, runId);
     this.assertRunScope(actor, run);
     const items = await this.loadItemsWithLabels(tenantId, runId);
-    return { run, items };
+    const mine = await this.ownRequestIds(tenantId, actor.userId, [
+      run.approvalRequestId ?? '',
+    ]);
+    return {
+      run: {
+        ...run,
+        isOwnRequest:
+          !!run.approvalRequestId && mine.has(run.approvalRequestId),
+      },
+      items,
+    };
   }
 
   // ======================= preview =======================

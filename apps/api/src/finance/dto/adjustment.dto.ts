@@ -107,11 +107,11 @@ export class CreateDiscountPolicyDto {
 /** Filter the approvals queue. */
 export class ListAdjustmentsDto {
   @ApiPropertyOptional({
-    enum: ['pending', 'approved', 'rejected', 'applied'],
+    enum: ['pending', 'approved', 'rejected', 'cancelled', 'applied'],
     example: 'pending',
   })
   @IsOptional()
-  @IsIn(['pending', 'approved', 'rejected', 'applied'])
+  @IsIn(['pending', 'approved', 'rejected', 'cancelled', 'applied'])
   status?: string;
 
   @ApiPropertyOptional({ example: 1 })

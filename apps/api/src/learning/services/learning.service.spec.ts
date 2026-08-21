@@ -25,6 +25,7 @@ const STUDENT = {
 function makeService(overrides?: {
   lesson?: Record<string, unknown> | null;
   material?: Record<string, unknown> | null;
+  lessonRows?: Record<string, unknown>[];
 }) {
   const lessonUpdates: Array<{ data: Record<string, unknown> }> = [];
   const materialCreates: Array<{ data: Record<string, unknown> }> = [];
@@ -46,7 +47,7 @@ function makeService(overrides?: {
         .fn()
         .mockImplementation((args: Record<string, unknown>) => {
           findManyCalls.push(args);
-          return Promise.resolve([]);
+          return Promise.resolve(overrides?.lessonRows ?? []);
         }),
       create: jest
         .fn()
@@ -197,6 +198,98 @@ describe('LearningService review workflow', () => {
     expect(data.reviewStatus).toBe('draft');
     expect(data.status).toBe('draft');
     expect(data.reviewedBy).toBeNull();
+  });
+
+  it("tells the review queue which rows are the reader's own work", async () => {
+    // The UI cannot hide an action it has no way to evaluate, and the browser
+    // has no reliable identity to compare against — so this flag is the whole
+    // basis for the disabled Approve button. It comes from the SAME predicate
+    // as the guard, so the two cannot disagree.
+    const { service } = makeService({
+      lessonRows: [
+        { id: 'mine', createdBy: TEACHER.userId },
+        { id: 'theirs', createdBy: 'someone-else' },
+        { id: 'unknown-author', createdBy: null },
+      ],
+    });
+    const rows = await service.listLessons(TENANT, {}, TEACHER);
+    expect(rows.map((r) => [r.id, r.isOwnWork])).toEqual([
+      ['mine', true],
+      ['theirs', false],
+      // a null author is unknown authorship, not own work
+      ['unknown-author', false],
+    ]);
+  });
+
+  it('refuses to let the author approve their own lesson', async () => {
+    const { service } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.userId,
+      },
+    });
+    await expect(
+      service.reviewLesson(TENANT, 'lesson-1', 'approved', {}, TEACHER),
+    ).rejects.toThrow(/your own lesson/);
+  });
+
+  it('lets the author REJECT their own lesson — that is a withdrawal', async () => {
+    const { service, lessonUpdates } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.userId,
+      },
+    });
+    await service.reviewLesson(
+      TENANT,
+      'lesson-1',
+      'rejected',
+      { note: 'withdrawing' },
+      TEACHER,
+    );
+    expect(lessonUpdates[0].data.reviewStatus).toBe('rejected');
+  });
+
+  it('lets a DIFFERENT reviewer approve the lesson', async () => {
+    const { service, lessonUpdates } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: 'someone-else',
+      },
+    });
+    await service.reviewLesson(TENANT, 'lesson-1', 'approved', {}, TEACHER);
+    expect(lessonUpdates[0].data.reviewStatus).toBe('approved');
+  });
+
+  it('compares the AUTHOR against the user id, not the profile id', async () => {
+    // The trap this guard exists to avoid: `createdBy` holds the user id while
+    // `reviewedBy` holds the UserTenant id. A guard written against profileId
+    // would never match and would wave every self-approval through.
+    const { service, lessonUpdates } = makeService({
+      lesson: {
+        id: 'lesson-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.profileId, // NOT this actor's createdBy identity
+      },
+    });
+    await service.reviewLesson(TENANT, 'lesson-1', 'approved', {}, TEACHER);
+    expect(lessonUpdates[0].data.reviewStatus).toBe('approved');
+  });
+
+  it('refuses to let the uploader approve their own material', async () => {
+    const { service } = makeService({
+      material: {
+        id: 'material-1',
+        reviewStatus: 'pending_review',
+        createdBy: TEACHER.userId,
+      },
+    });
+    await expect(
+      service.reviewMaterial(TENANT, 'material-1', 'approved', {}, TEACHER),
+    ).rejects.toThrow(/your own material/);
   });
 
   it('approves only lessons that are pending review', async () => {

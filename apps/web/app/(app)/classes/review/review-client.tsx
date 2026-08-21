@@ -51,6 +51,20 @@ export interface ReviewItem {
   material?: MaterialSummary;
 }
 
+/**
+ * Whether the signed-in reviewer authored the thing they are looking at. The
+ * API decides this (it owns the rule and the identity) and refuses a
+ * self-approval regardless; this only stops the UI offering an action that is
+ * going to be rejected. An older payload without the flag reads as "not mine",
+ * which leaves the API as the backstop rather than blocking a legitimate
+ * reviewer.
+ */
+function isOwnWork(item: ReviewItem): boolean {
+  return item.type === 'lesson'
+    ? item.lesson.isOwnWork === true
+    : item.material?.isOwnWork === true;
+}
+
 function itemStatus(item: ReviewItem): string {
   return item.type === 'lesson'
     ? item.lesson.reviewStatus
@@ -445,15 +459,20 @@ export function AcademicReviewClient({
                     >
                       <XCircle /> Reject
                     </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => void decide('approve')}
-                      disabled={
-                        !live || busy || itemStatus(selected) === 'approved'
-                      }
-                    >
-                      <CheckCircle2 /> Approve
-                    </Button>
+                    {/* Not offered on your own work — its absence beside the
+                        other actions is the message. Every approval surface
+                        withholds Approve the same way. */}
+                    {isOwnWork(selected) ? null : (
+                      <Button
+                        size="sm"
+                        onClick={() => void decide('approve')}
+                        disabled={
+                          !live || busy || itemStatus(selected) === 'approved'
+                        }
+                      >
+                        <CheckCircle2 /> Approve
+                      </Button>
+                    )}
                     {selected.type === 'lesson' &&
                     selected.lesson.reviewStatus === 'approved' &&
                     selected.lesson.status !== 'published' ? (

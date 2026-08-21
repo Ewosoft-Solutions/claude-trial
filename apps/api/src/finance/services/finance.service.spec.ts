@@ -470,3 +470,64 @@ describe('FinanceService.composeInvoice', () => {
     );
   });
 });
+
+describe('FinanceService.getInvoice — separation of duties on adjustments', () => {
+  const READER = 'user-reader';
+
+  function makeService(adjustments: Record<string, unknown>[]) {
+    const findFirst = jest.fn().mockResolvedValue({
+      id: 'inv-1',
+      dueDate: null,
+      status: 'issued',
+      lines: [],
+      allocations: [],
+      creditApplications: [],
+      adjustments,
+    });
+    const client = { feeInvoice: { findFirst } };
+    return new FinanceService(
+      { client } as never,
+      { write: jest.fn() } as never,
+      { applyPoliciesToInvoice: jest.fn() } as never,
+      { next: jest.fn() } as never,
+      { autoApplyToInvoice: jest.fn() } as never,
+      { recordReceipt: jest.fn() } as never,
+      {
+        post: jest.fn(),
+        reverseSource: jest.fn(),
+        ensureOpeningBalance: jest.fn(),
+      } as never,
+      {} as never,
+    );
+  }
+
+  it('tells the page which pending adjustments the reader raised', async () => {
+    // The approve route already refuses a self-approval; this is what stops the
+    // page OFFERING the button. See docs/self-approval-audit.md.
+    const service = makeService([
+      { id: 'mine', status: 'pending', requestedBy: READER, amount: 1 },
+      {
+        id: 'theirs',
+        status: 'pending',
+        requestedBy: 'someone-else',
+        amount: 1,
+      },
+      { id: 'unknown', status: 'pending', requestedBy: null, amount: 1 },
+    ]);
+    const invoice = await service.getInvoice('tenant-1', 'inv-1', READER);
+    expect(invoice.adjustments.map((a) => [a.id, a.isOwnRequest])).toEqual([
+      ['mine', true],
+      ['theirs', false],
+      // a null requester is unknown authorship, not own work
+      ['unknown', false],
+    ]);
+  });
+
+  it('flags nothing when the caller is anonymous', async () => {
+    const service = makeService([
+      { id: 'a', status: 'pending', requestedBy: READER, amount: 1 },
+    ]);
+    const invoice = await service.getInvoice('tenant-1', 'inv-1');
+    expect(invoice.adjustments[0].isOwnRequest).toBe(false);
+  });
+});

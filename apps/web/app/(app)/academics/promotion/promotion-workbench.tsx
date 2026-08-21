@@ -48,6 +48,14 @@ export interface PromotionRun {
   name: string;
   status: string;
   approvalRequestId?: string | null;
+  /**
+   * True when the signed-in reviewer raised this run's approval request.
+   * Decided by the API, which owns the same maker-checker rule it enforces —
+   * the browser has no reliable identity to compare against. Absent on older
+   * payloads, so `undefined` reads as "not mine" and the API stays the
+   * backstop.
+   */
+  isOwnRequest?: boolean;
   fromAcademicYearId: string;
   toAcademicYearId: string;
   fromYearLevelId: string;
@@ -454,7 +462,7 @@ export function PromotionWorkbench({
               <ApprovalPanel
                 request={{
                   title: `Commit ${run.name}`,
-                  requestedBy: 'a colleague',
+                  requestedBy: run.isOwnRequest ? 'you' : 'a colleague',
                   reason: `${items.filter((i) => i.decision !== 'withhold').length} students promoted, ${items.filter((i) => i.decision === 'withhold').length} withheld`,
                   riskLabel: 'Bulk change',
                 }}
@@ -467,6 +475,10 @@ export function PromotionWorkbench({
                   },
                 ]}
                 canApprove={canApprove}
+                // `canApprove` is the PERMISSION; this is separation of duties.
+                // ApprovalPanel blocks on either, and they are not the same
+                // question — see docs/self-approval-audit.md.
+                isSelfRequest={run.isOwnRequest === true}
                 stepUpRequired={false}
                 onApprove={
                   canApprove

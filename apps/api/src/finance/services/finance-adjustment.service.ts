@@ -275,13 +275,25 @@ export class FinanceAdjustmentService {
       reason,
     );
 
+    // A maker closing their own request WITHDREW it; they did not sit in
+    // judgement on it. Recording that as `rejected` — and stamping them into
+    // `approvedBy` — would read months later as though a second authority
+    // refused the discount, which is a different and more serious fact than
+    // "the person who asked changed their mind". `approvedBy` stays null
+    // because nobody decided it; `requestedBy` already names who cancelled,
+    // and only they can.
+    const isWithdrawal =
+      !!adj.requestedBy && adj.requestedBy === checker.userId;
+
     return this.client.feeAdjustment.update({
       where: { id: adjustmentId },
-      data: {
-        status: 'rejected',
-        approvedBy: checker.userId,
-        approvedAt: new Date(),
-      },
+      data: isWithdrawal
+        ? { status: 'cancelled' }
+        : {
+            status: 'rejected',
+            approvedBy: checker.userId,
+            approvedAt: new Date(),
+          },
     });
   }
 

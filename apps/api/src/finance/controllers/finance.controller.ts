@@ -83,7 +83,11 @@ export class FinanceController {
     @Param('id') id: string,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.financeService.getInvoice(req.user.tenantId, id);
+    return this.financeService.getInvoice(
+      req.user.tenantId,
+      id,
+      req.user.userId,
+    );
   }
 
   @Post('invoices')

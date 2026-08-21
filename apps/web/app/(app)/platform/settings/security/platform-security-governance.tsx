@@ -338,26 +338,43 @@ export function PlatformSecurityGovernance() {
                   </p>
                 ) : null}
                 {request.status === 'pending' ? (
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => {
-                        setReviewing({ request, decision: 'approved' });
-                        setFeedback('');
-                      }}
-                    >
-                      Approve
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => {
-                        setReviewing({ request, decision: 'rejected' });
-                        setFeedback('');
-                      }}
-                    >
-                      Reject
-                    </Button>
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
+                    {request.isOwnRequest ? (
+                      // The requester cannot review their own proposal.
+                      // Withdrawing it is a cancellation, not a refusal.
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setReviewing({ request, decision: 'rejected' });
+                          setFeedback('');
+                        }}
+                      >
+                        Cancel request
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setReviewing({ request, decision: 'approved' });
+                            setFeedback('');
+                          }}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setReviewing({ request, decision: 'rejected' });
+                            setFeedback('');
+                          }}
+                        >
+                          Reject
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ) : null}
               </div>

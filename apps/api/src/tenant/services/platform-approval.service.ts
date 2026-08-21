@@ -185,7 +185,13 @@ export class PlatformApprovalService {
   }
 
   /** Pending tenant-action requests, newest first (for the Architect's queue). */
-  async listPending() {
+  /**
+   * `viewerUserId` exists so the queue can say which rows the READER raised.
+   * The approve route already refuses a self-approval (maker-checker); this
+   * stops the console offering a button that is going to be rejected. See
+   * docs/self-approval-audit.md.
+   */
+  async listPending(viewerUserId?: string) {
     const rows = await this.prisma.makerCheckerRequest.findMany({
       where: {
         operation: TENANT_ACT_OPERATION,
@@ -203,6 +209,8 @@ export class PlatformApprovalService {
         id: r.id,
         operation: r.operation,
         makerId: r.makerId,
+        // Separation of duties, decided here rather than in the console.
+        isOwnRequest: !!viewerUserId && r.makerId === viewerUserId,
         makerClearanceLevel: r.makerClearanceLevel,
         targetTenantId: d.targetTenantId,
         status: d.status,

@@ -479,7 +479,9 @@ model FeeAdjustment {
   policyId String? @map("policy_id") // set when source = policy
 
   // Approval lifecycle (discretionary uses maker-checker; policy is pre-approved).
-  status            String    @default("pending") // pending | approved | rejected | applied
+  status            String    @default("pending") // pending | approved | rejected | cancelled | applied
+  // `cancelled` = the maker withdrew their own request. Distinct from
+  // `rejected`, which means a second authority refused it.
   approvalRequestId String?   @map("approval_request_id")
   requestedBy       String?   @map("requested_by")
   approvedBy        String?   @map("approved_by")

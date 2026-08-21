@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { Prisma } from '@workspace/database';
 
@@ -73,9 +77,16 @@ export class CurriculumOverlayService {
   async approve(tenantId: string, actorId: string | undefined, id: string) {
     const overlay = await this.client.tenantCurriculumOverlay.findFirst({
       where: { id, tenantId },
-      select: { id: true },
+      select: { id: true, createdBy: true },
     });
     if (!overlay) throw new NotFoundException('Overlay not found');
+    // Separation of duties: an overlay edits the curriculum spine every class
+    // is taught against, so the author cannot also be the approver. Both
+    // `create` and `approve` are handed the PROFILE id by the controller, so
+    // this compares like with like.
+    if (actorId && overlay.createdBy === actorId) {
+      throw new ForbiddenException('You cannot approve your own overlay');
+    }
     const updated = await this.client.tenantCurriculumOverlay.update({
       where: { id },
       data: {
