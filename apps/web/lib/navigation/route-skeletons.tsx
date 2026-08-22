@@ -77,6 +77,10 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   '/attendance/students': () => (
     <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
+  // AUTHORITATIVE: this route's own loading.tsx delegates back to RouteSkeleton
+  // (it covers child routes too, so it has to draw whichever one is opening).
+  // That makes this entry the only declaration of the shape — a regeneration
+  // that reads loading.tsx files must not drop it.
   '/classes/assessments': () => (
     <ListDetailPageSkeleton actions={1} filters={2} listRows={6} />
   ),

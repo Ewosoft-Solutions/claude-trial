@@ -36,6 +36,8 @@ const ACCEPTED = {
   '(app)/platform/analytics': 'Report-shaped: stat row + charts dominate; the table is secondary.',
   '(app)/finance/invoices/new': 'Form-dominant; the line-items table is one field within the form.',
   '(app)/finance/invoices/[id]': 'Detail-dominant; the lines table sits inside a section card.',
+  '(app)/classes/assessments':
+    'Its loading.tsx delegates to RouteSkeleton because it covers child routes too (/take is a TABLE page, not a list/detail one) and must draw whichever is opening. The shape lives in the route-skeleton registry, marked authoritative there.',
   '(app)/settings/ai-usage': 'Cards-dominant; the usage table is nested INSIDE a card, which a section-card block already stands for. The heuristic sees <Table> but cannot see nesting.',
 };
 

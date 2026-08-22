@@ -918,6 +918,49 @@ list/detail with no table grids at all.
 
 ---
 
+## Pass 21 — a parent's loading.tsx stands in for its children
+
+`/classes/assessments/take` showed three transitions on the way in. Measured
+from two different origins, which is what identified it:
+
+| Coming from | Phases |
+| --- | --- |
+| `/classes/materials` (section not mounted) | 63 bars → **40 bars** → content |
+| `/classes/assessments` (section already mounted) | 63 bars → content |
+
+The 40-bar phase only appeared when the `assessments` SEGMENT was also new — it
+was `/classes/assessments/loading.tsx`, which covers its children, drawing the
+assessments list/detail while a TABLE page loaded.
+
+That is not special to this route. **Any segment with child routes that have
+their own pages will stand in for them** — `/finance/invoices` over `[id]` and
+`/new`, `/events` over `[id]/roster`, `/people` over `[id]`, and so on.
+
+Fixed the same way `(app)/loading.tsx` already works: by the time a boundary
+renders, the URL has committed, so it can name the route being opened and draw
+ITS shape via the registry. `/classes/assessments/loading.tsx` now delegates to
+`RouteSkeleton`.
+
+One consequence worth recording: that file no longer declares a literal shape,
+so the registry entry for `/classes/assessments` becomes the only declaration
+of it. It is marked AUTHORITATIVE in the registry so a regeneration that reads
+`loading.tsx` files cannot silently drop it, and the shapes audit carries the
+reason.
+
+| | Before | After |
+| --- | --- | --- |
+| materials → take | 63 → 40 → content | **63 → content** |
+
+**Also removed: the paste-an-assessment-ID card.** The table beneath it already
+has a search and an `Open →` on every row, so the input asked the reader to
+supply by hand something the page was already showing.
+
+**Still open:** the other parent segments listed above have the same latent
+issue. Only the one that was reported has been fixed; the rest need the same
+treatment or a sweep.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does

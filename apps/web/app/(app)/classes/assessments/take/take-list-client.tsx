@@ -11,8 +11,6 @@ import {
   type AssessmentSummary,
 } from '@/lib/academics';
 import { Button } from '@workspace/ui/components/button';
-import { Input } from '@workspace/ui/components/input';
-import { Label } from '@workspace/ui/components/label';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import {
   DirectoryTable,
@@ -34,7 +32,6 @@ export function AssessmentTakeListClient({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [assessmentId, setAssessmentId] = React.useState('');
   const [query, setQuery] = React.useState(initialQuery);
   const [filters, setFilters] = React.useState<
     Record<string, string | null | undefined>
@@ -154,24 +151,6 @@ export function AssessmentTakeListClient({
             },
           ]}
         />
-
-        <section className="grid gap-3 rounded-lg border bg-card p-4 @3xl/main:grid-cols-[1fr_auto] @3xl/main:items-end">
-          <div className="grid gap-2">
-            <Label htmlFor="assessment-id">Assessment ID</Label>
-            <Input
-              id="assessment-id"
-              value={assessmentId}
-              onChange={(event) => setAssessmentId(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') openAssessment(assessmentId);
-              }}
-              placeholder="Paste assessment ID"
-            />
-          </div>
-          <Button onClick={() => openAssessment(assessmentId)}>
-            <ArrowRight /> Open
-          </Button>
-        </section>
 
         <DirectoryTable<AssessmentSummary>
           title="Published assessments"
