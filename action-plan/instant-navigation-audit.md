@@ -848,6 +848,47 @@ shape, and the fidelity audit confirms it.
 
 ---
 
+## Pass 19 — the token that wasn't there
+
+Pass 17 gave the real row and the skeleton row a shared height token and
+removed the skeleton's `py-3.5` padding in favour of it. Looking at the running
+app showed the result:
+
+| | Height |
+| --- | --- |
+| Real table row | 49 px |
+| Skeleton row | **15 px** |
+
+`--table-row-h` was resolving to nothing, so `min-h-[var(--table-row-h)]`
+contributed no height — and because the padding it replaced was gone, skeleton
+rows collapsed to bare bar height. A table placeholder rendered as a stack of
+thin lines. Strictly worse than before the "fix": the old `py-3.5` was ~42px
+against a ~49px row.
+
+The token is defined in the right `:root`, in a stylesheet the app does import
+— `--font-scale` from four lines above it resolves fine. It simply had not
+recompiled, and a reload did not clear it. That is the whole lesson:
+
+> **A design token is only as available as the stylesheet that defines it.**
+> A `var()` with no fallback turns a stale cache into a layout collapse.
+
+Every use now carries the literal: `var(--table-row-h, 3.25rem)`. Measured
+after:
+
+| | Before | After |
+| --- | --- | --- |
+| Skeleton row | 15 px | **52 px** |
+| Real row | 49 px | **53 px** |
+| Filler row | 49 px | **53 px** |
+
+One pixel apart, so the handover no longer moves.
+
+**Worth knowing:** the dev server is still serving CSS without the token. The
+fallback makes that invisible, but a dev restart is what actually clears it —
+see the Turbopack CSS-cache note in the repo's gotchas.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does

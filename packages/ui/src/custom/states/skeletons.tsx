@@ -142,7 +142,7 @@ export function SkeletonTable({
         {Array.from({ length: rows }).map((_, r) => (
           <div
             key={r}
-            className="grid min-h-[var(--table-row-h)] items-center gap-4 px-4"
+            className="grid min-h-[var(--table-row-h,3.25rem)] items-center gap-4 px-4"
             style={gridStyle}
           >
             {Array.from({ length: columns }).map((_, c) => (
