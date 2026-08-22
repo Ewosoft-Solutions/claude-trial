@@ -76,7 +76,7 @@ export default async function PersonOverviewPage({
     : undefined;
 
   const profileId = account?.hasAccount ? (account.userTenantId ?? null) : null;
-  const [grants, campuses, roles] =
+  const [grants, campusRows, roleRows] =
     showAccessPanel && profileId
       ? await Promise.all([
           serverApiGet<GrantState>(`/access/profiles/${profileId}/grants`),
@@ -84,6 +84,17 @@ export default async function PersonOverviewPage({
           serverApiGet<Role[]>('/roles'),
         ])
       : [null, null, null];
+
+  // Project to the fields the panel actually renders before handing these to a
+  // CLIENT component. Everything crossing that boundary is serialised into the
+  // page's payload, and `/roles` answers with each role's FULL permission list
+  // — ~192 keys apiece, ten roles. Typing the fetch as `Role[]` does not strip
+  // them: TypeScript is structural, the runtime object arrives whole. Left
+  // unprojected this put ~1900 permission strings on the wire for a panel that
+  // only ever shows a role's name.
+  const campuses =
+    campusRows?.map((c) => ({ id: c.id, name: c.name, code: c.code })) ?? [];
+  const roles = roleRows?.map((r) => ({ id: r.id, name: r.name })) ?? [];
 
   return (
     <PersonOverview
@@ -122,8 +133,8 @@ export default async function PersonOverviewPage({
             initial={{
               profileId,
               grants: grants ?? null,
-              campuses: campuses ?? [],
-              roles: roles ?? [],
+              campuses,
+              roles,
             }}
           />
         ) : undefined

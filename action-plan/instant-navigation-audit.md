@@ -588,6 +588,58 @@ the *content* time that remains (~460 ms), and is untouched.
 
 ---
 
+## Pass 14 — the payload, and a correction
+
+**The "~123 KB per tab" figure quoted in passes 4–13 was wrong.** It came from
+fetching a route's RSC URL directly, which returns the WHOLE tree and, in dev,
+includes serialisation artefacts — the single largest line was 12 KB of
+`ReadableStream` source code. A real client navigation transfers only the
+changed segments. Measured properly:
+
+| | Person JSON | Real navigation (dev) | Real navigation (prod) |
+| --- | --- | --- | --- |
+| | **2.1 KB** | 16.3 KB | 2.6–4.1 KB |
+
+So the premise — "every tab refetches ~123 KB of person data" — did not hold.
+The person payload is 2.1 KB and the tabs were already cheap.
+
+### But the measurement did surface a real regression — mine
+
+Production, per-tab navigation transfer:
+
+| Tab | Wire | Decoded |
+| --- | --- | --- |
+| Finance | 4.1 KB | 11.3 KB |
+| Academics | 2.6 KB | 8.4 KB |
+| **Overview** | **131.9 KB** | **759.6 KB** |
+
+One tab, two orders of magnitude out. The cause was pass 7: server-seeding
+`AccessScopePanel` passed `/roles` straight through as a prop, and that endpoint
+answers with every role's FULL permission list — ~192 keys apiece, ten roles,
+**1916 permission strings** serialised into the page.
+
+Typing the fetch as `Role[]` does not prevent it. TypeScript is structural: the
+declared type had `{ id, name }`, the runtime object arrived whole, and
+everything crossing into a client component is serialised.
+
+**Fix:** project to the fields the panel renders before handing them over.
+
+| | Before | After |
+| --- | --- | --- |
+| Overview navigation, wire | 131.9 KB | **4.8 KB** |
+| Overview navigation, decoded | 759.6 KB | **13.8 KB** |
+| Permission strings in payload | 1916 | 341 |
+
+27x smaller on the wire, 55x decoded. The 341 that remain are the viewer's own
+session permissions, which the client genuinely needs. Verified the panel still
+works: the grants list renders `ROLE: Student`, so `roleName()` still resolves.
+
+**The general rule this is an instance of:** a server component handing data to
+a client component is a wire boundary. Project to what is rendered; do not pass
+an API response through because its declared type looks narrow.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does
