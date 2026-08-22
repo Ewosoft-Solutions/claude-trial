@@ -5,6 +5,10 @@ import { usePathname } from 'next/navigation';
 import { PageChangeSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 import { staysWithinChrome, useNavPending } from '@/lib/navigation/nav-pending';
+import {
+  hasRouteSkeleton,
+  RouteSkeleton,
+} from '@/lib/navigation/route-skeletons';
 
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
@@ -83,7 +87,15 @@ export default function SettingsSectionLayout({
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader title={title} description={description} />
-        {withinSettings ? <PageChangeSkeleton /> : children}
+        {withinSettings ? (
+          hasRouteSkeleton(pendingHref) ? (
+            <RouteSkeleton href={pendingHref} />
+          ) : (
+            <PageChangeSkeleton />
+          )
+        ) : (
+          children
+        )}
       </div>
     </ShellMain>
   );

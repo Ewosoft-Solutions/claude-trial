@@ -489,6 +489,47 @@ existed to avoid, and would need an audit to keep the copy honest.
 
 ---
 
+## Pass 12 — the generic placeholder is gone
+
+The click placeholder now paints the DESTINATION's own shape, so the
+tailored skeleton is the only one a reader ever sees.
+
+**Why it is a copy.** The obvious design — have the shell render the route's
+own `loading.tsx` — is impossible: those files may be server components, and
+several are (`overview` reads the session; others reach `lib/session`, which
+imports `next/headers`). Importing them from a client module broke the entire
+app in pass 11. So `lib/navigation/route-skeletons.tsx` re-declares the shapes
+in a client-safe module, and `scripts/audit-route-skeletons.mjs` fails when it
+and a route's real `loading.tsx` disagree. The duplication is real; the gate is
+what keeps it honest — verified by tampering with a route's shape and watching
+the audit name both sides and exit 1.
+
+**Three mechanisms, one silhouette.** A navigation crosses three renderers, and
+all three now resolve the same shape:
+
+| Renderer | Knows the destination how |
+| --- | --- |
+| `app-chrome` click placeholder | the pending href |
+| `(app)/loading.tsx` (section layout's await) | the pathname — the URL has committed by then |
+| the route's own `loading.tsx` | it *is* the route |
+
+Missing the middle one is what produced a `62 → 3 → 62` bar flicker on the
+first attempt: the app boundary was still generic.
+
+**Measured, one phase throughout:**
+
+| Navigation | Placeholder | To content |
+| --- | --- | --- |
+| → Events | `bars=62` at 145 ms | 2422 ms |
+| → Health | `bars=74` at 113 ms | 6772 ms |
+| → Gradebook standing | `bars=62` at 203 ms | 12081 ms (cold dev compile) |
+| Settings → Audit log | `bars=53`, header already "Audit log", at 199 ms | 3919 ms |
+| Settings → Roles | `bars=36`, header already correct, at 113 ms | 12983 ms |
+
+`PageChangeSkeleton` survives only for a destination outside the nav config.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does

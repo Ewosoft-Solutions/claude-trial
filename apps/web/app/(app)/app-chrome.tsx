@@ -22,6 +22,10 @@ import {
   staysWithinChrome,
 } from '@/lib/navigation/nav-pending';
 import {
+  hasRouteSkeleton,
+  RouteSkeleton,
+} from '@/lib/navigation/route-skeletons';
+import {
   Bell,
   Fingerprint,
   LogOut,
@@ -574,8 +578,17 @@ export function AppChrome({
               same component the route's boundary will render a moment later,
               so the handover cannot be seen. `PageChangeSkeleton` remains only
               for a destination that has no skeleton of its own. */}
+          {/* The DESTINATION's own shape, so the placeholder the click paints
+              and the skeleton the route boundary renders a moment later are the
+              same thing and the handover cannot be seen. The generic
+              `PageChangeSkeleton` survives only for a destination that has no
+              shape of its own — in practice, somewhere outside the nav. */}
           {navPending && !staysWithinChrome(pathname, pendingHref) ? (
-            <PageChangeSkeleton />
+            hasRouteSkeleton(pendingHref) ? (
+              <RouteSkeleton href={pendingHref} />
+            ) : (
+              <PageChangeSkeleton />
+            )
           ) : (
             children
           )}
