@@ -530,6 +530,64 @@ first attempt: the app boundary was still generic.
 
 ---
 
+## Pass 13 — production prefetch, measured at last
+
+Every number in passes 1–12 was dev-measured, with the standing caveat that
+Next disables prefetch in `next dev`. Built the app for real and measured it.
+
+**Method.** Built `HEAD` in a detached git worktree under the scratchpad —
+never in the working tree, because `next build` alongside a live `next dev`
+corrupts `.next`. Served on :3031, the API left on the owner's :3030. Cookies
+are not port-scoped, so the browser session carried over. Same destination
+measured twice with a reload between (to clear the router cache): once clicked
+cold, once after a 1.5s hover so `router.prefetch()` could land.
+
+| Destination | No hover — URL / content | Hovered first — URL / content |
+| --- | --- | --- |
+| `/events/upcoming` | 999 ms / 1922 ms | **54 ms / 54 ms** |
+| `/health/records` | 134 ms / 434 ms | **56 ms / 56 ms** |
+
+**Prefetch is decisive.** A hovered destination commits and paints in ~55 ms —
+no perceptible wait, and the placeholder never appears at all.
+
+**And dev was lying about the scale.** `/health/records` took 6772 ms to
+content in dev and 434 ms in production without any prefetch. Roughly 15x, and
+it was Turbopack compiling on demand, not the app.
+
+**Profile tabs, production:**
+
+| | dev | production |
+| --- | --- | --- |
+| URL commits | 385–520 ms | **32–35 ms** |
+| Skeleton appears | ~60 ms | 20 ms |
+| Content | ~1.2 s | ~460–500 ms |
+
+One phase throughout; the ~460 ms to content is real data time (the API round
+trip plus the ~123 KB payload), which is exactly the window the skeleton is
+meant to cover.
+
+### What this means for passes 4–12
+
+The optimistic and registry work is **not** made redundant, but its value
+concentrates where prefetch cannot reach:
+
+- **Touch devices have no hover at all.** Prefetch fires on `pointerdown`, so a
+  tap is always the cold path — the 134–999 ms column, not the 55 ms one.
+- **Keyboard navigation** prefetches on focus, but a fast tab-and-enter beats it.
+- **A reader who clicks without dwelling** gets the cold path.
+- **These are localhost numbers**, so network latency is ~0. Over a real
+  connection the cold column stretches and the placeholder matters more, not
+  less.
+
+The honest summary: for a hovered mouse click in production the placeholder is
+never seen, and for every other input path it is what stands between the reader
+and a frozen page.
+
+**Left un-measured:** the ~123 KB-per-tab payload is still the largest lever on
+the *content* time that remains (~460 ms), and is untouched.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does
