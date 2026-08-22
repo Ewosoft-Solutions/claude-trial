@@ -2,6 +2,10 @@
 
 import { usePathname } from 'next/navigation';
 
+import { PageChangeSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+
+import { staysWithinChrome, useNavPending } from '@/lib/navigation/nav-pending';
+
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
@@ -60,13 +64,26 @@ export default function SettingsSectionLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const { title, description } = settingsSection(pathname);
+  const { navPending, pendingHref } = useNavPending();
+
+  // Moving between settings sections keeps this frame, so the shell leaves it
+  // alone (see nav-pending) and only the body below is replaced. Two things
+  // follow from that, and both matter:
+  //
+  //   · the heading must name the section being OPENED, not the one being
+  //     left — otherwise the frame contradicts the body beneath it, the same
+  //     way the profile's tab strip used to; and
+  //   · the body shows a placeholder until the route commits.
+  const withinSettings = navPending && staysWithinChrome(pathname, pendingHref);
+  const { title, description } = settingsSection(
+    withinSettings && pendingHref ? pendingHref : pathname,
+  );
 
   return (
     <ShellMain>
       <div className="flex flex-col gap-5">
         <PageHeader title={title} description={description} />
-        {children}
+        {withinSettings ? <PageChangeSkeleton /> : children}
       </div>
     </ShellMain>
   );

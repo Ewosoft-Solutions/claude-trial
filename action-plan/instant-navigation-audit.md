@@ -437,6 +437,58 @@ navigations (Events, Library) show no handover at all.
 
 ---
 
+## Pass 11 — scoping the placeholder to what actually changes
+
+Pass 10's placeholder replaced EVERYTHING below the app shell whenever a
+navigation was in flight. That is right when the whole page changes and wrong
+when the destination sits inside chrome that is already on screen and is not
+going anywhere.
+
+`lib/navigation/nav-pending.tsx` defines a **chrome scope** — a path prefix
+whose layout survives navigation within it. If a navigation stays inside one,
+the app shell stands down and that scope's layout swaps only its own body.
+Cross-scope navigation has no alternative: the destination's layout is not
+mounted yet, so only the shell can hold the placeholder.
+
+Which layouts actually render persistent furniture (rather than being
+permission gates that `return <>{children}</>`):
+
+| Layout | Verdict |
+| --- | --- |
+| `(app)/settings/layout.tsx` | **Was being wiped** — it is all over the sidebar config, so section-to-section clicks go through `navigate()`. Now scoped. |
+| `(app)/people/[id]/layout.tsx` | Already correct — `ProfileBody`, pass 5. |
+| `(app)/account/layout.tsx` | **No bug.** Its section links are `<Link>`, so `navigate()` never fires and the shell placeholder never ran there. Claimed as broken before checking; it was not. |
+
+Settings also needed its heading to move optimistically, or the frame would
+name the section being LEFT while the body below it loaded the next one — the
+same contradiction the profile's tab strip had.
+
+| At | Header | Body |
+| --- | --- | --- |
+| 49–72 ms | already the destination ("Users", "Audit log") | skeleton |
+| ~1.8 s | unchanged | content |
+
+### The registry attempt, and why it was reverted
+
+Option B was to have the shell render the DESTINATION's own `loading.tsx`, so
+the click placeholder and the route boundary are the same component and the
+handover is invisible. Implemented as a registry that imports each route's
+loading module.
+
+**It broke the whole app.** Some `loading.tsx` files are SERVER components that
+reach `lib/session.ts`, which imports `next/headers`. Importing them from a
+`'use client'` registry dragged server-only code into the client graph and
+every route failed to compile. Reverted; the app was restored and re-verified
+in the browser.
+
+The lesson is a constraint on the design, not a detail: **a client-side click
+placeholder cannot reuse route `loading.tsx` modules**, because those are free
+to be server components. Any future attempt has to define the shapes in a
+client-safe module of its own — which reintroduces the duplication option B
+existed to avoid, and would need an audit to keep the copy honest.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does
