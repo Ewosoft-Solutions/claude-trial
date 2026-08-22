@@ -100,7 +100,12 @@ export function StatCard({ item, className }: StatCardProps) {
 
   const body = (
     <>
-      <div className="flex items-center justify-between gap-2">
+      {/* `min-h-4` reserves the icon line, for the same reason the footnote
+          below is always laid out: only some tiles carry an icon, so without it
+          a label row is 16px on a tile that has one and 11px on a tile that
+          does not — tiles at two different heights from one page to the next,
+          and a loading placeholder that can only match one of them. */}
+      <div className="flex min-h-4 items-center justify-between gap-2">
         <span className="text-[calc(10px*var(--font-scale))] font-semibold uppercase leading-tight tracking-wide text-muted-foreground sm:text-[calc(11.5px*var(--font-scale))]">
           {item.label}
         </span>

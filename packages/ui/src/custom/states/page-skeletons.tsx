@@ -131,14 +131,27 @@ export function StatRowSkeleton({
             statCellSpanClass(wide),
           )}
         >
-          <div className="flex items-center justify-between gap-2">
+          {/* Each line below is the REAL StatCard line box — same classes, same
+              `&nbsp;` strut — with the grey bar laid inside it. Sizing the bars
+              directly instead drifted: a phone tile measured 98px against the
+              card's 92px, because `h-6` is not the value's 22px line and `h-3`
+              is not the footnote's 17px one. Borrowing the box removes the
+              guesswork; the bar only has to be shorter than the line it sits
+              in. */}
+          <div className="flex min-h-4 items-center justify-between gap-2">
             <Skeleton className="h-3 w-20" />
             <Skeleton className="size-4 rounded" />
           </div>
-          <Skeleton className="mt-3 h-6 w-24" />
+          <div className="relative mt-2 font-stat text-[calc(22px*var(--font-scale))] leading-none sm:text-[calc(26px*var(--font-scale))]">
+            &nbsp;
+            <Skeleton className="absolute inset-y-0 left-0 my-auto h-5 w-24" />
+          </div>
           {/* The footnote line every real tile reserves — without it the
               placeholder is a line shorter than the tile it stands for. */}
-          <Skeleton className="mt-2 h-3 w-16" />
+          <div className="relative mt-2 text-[calc(11px*var(--font-scale))] sm:text-[calc(12px*var(--font-scale))]">
+            &nbsp;
+            <Skeleton className="absolute inset-y-0 left-0 my-auto h-3 w-16" />
+          </div>
         </div>
       ))}
     </div>
