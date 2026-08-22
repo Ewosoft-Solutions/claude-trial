@@ -810,11 +810,8 @@ tiles without a footnote; buys a row that does not reflow when data lands.
 
 - ~~`/classes/gradebook` has no pagination at all.~~ **Done** — converted to
   `DirectoryTable` (see below).
-- **`/classes/materials` and `/classes/assessments` skeletons still mismatch.**
-  Both are header + filter selects + sections, not governed table pages, so a
-  `TablePageSkeleton` / `ListDetailPageSkeleton` was the wrong family to begin
-  with. Choosing the right one needs looking at them rendered — guessing from
-  source is what produced the current mismatch.
+- ~~`/classes/materials` and `/classes/assessments` skeletons still mismatch.~~
+  **Done** — see pass 20.
 
 ---
 
@@ -886,6 +883,38 @@ One pixel apart, so the handover no longer moves.
 **Worth knowing:** the dev server is still serving CSS without the token. The
 fallback makes that invisible, but a dev restart is what actually clears it —
 see the Turbopack CSS-cache note in the repo's gotchas.
+
+---
+
+## Pass 20 — two skeletons chosen by looking, not reading
+
+With a session in hand, both pages were opened and measured rather than
+inferred from source. Source had said "there is a `<Table>` in here somewhere";
+the DOM said something else entirely.
+
+**`/classes/materials`** — `0` tables. A class picker, then a lessons list
+beside a lesson EDITOR (title, summary, notes). It was painting a ten-row data
+table with a toolbar: the wrong family, not just the wrong numbers.
+
+**`/classes/assessments`** — renders `data-slot="list-detail-layout"` outright,
+so the panes were already right. What was missing sat above them: a subject
+picker and a search, so the placeholder stood a whole control-row short.
+
+Neither could be expressed by the existing `ListDetailPageSkeleton`, which had
+no notion of a control row and always drew a stats-style detail pane. It gained
+two options, both named for what they are:
+
+- `filters` — the picker/search row these pages choose their subject with.
+  Part of the silhouette, not decoration.
+- `detail: 'summary' | 'form'` — a read-out with figures, or an editor. Lesson
+  materials opens straight into a form, where stat tiles are simply not what
+  arrives.
+
+Set from the pages' own measured counts: materials `actions={0} filters={1}
+listRows={6} detail="form"`, assessments `actions={1} filters={2} listRows={6}`.
+
+Verified in the browser: the materials placeholder now captures as a two-pane
+list/detail with no table grids at all.
 
 ---
 

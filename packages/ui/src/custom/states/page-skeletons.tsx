@@ -291,6 +291,21 @@ export function DashboardPageSkeleton({
 }
 
 export interface ListDetailPageSkeletonProps {
+  /**
+   * Picker / filter controls sitting between the header and the panes.
+   *
+   * These pages choose their subject before they show anything — a class on
+   * Lesson materials, a subject and a search on Assessments — and that row is
+   * part of the page's silhouette, not decoration. Omitting it made the
+   * placeholder a whole control-row shorter than the page.
+   */
+  filters?: number;
+  /**
+   * What the detail pane holds: a read-out with figures (`'summary'`, the
+   * default) or an editor (`'form'`). Lesson materials opens straight into a
+   * title-and-notes form, where a row of stat tiles is simply not what arrives.
+   */
+  detail?: 'summary' | 'form';
   /** Rows in the master list pane. Defaults to 7. */
   listRows?: number;
   /** Header action buttons. Defaults to 1. */
@@ -302,10 +317,22 @@ export interface ListDetailPageSkeletonProps {
 export function ListDetailPageSkeleton({
   listRows = 7,
   actions = 1,
+  filters = 0,
+  detail = 'summary',
 }: ListDetailPageSkeletonProps) {
   return (
     <PageSkeletonRoot>
       <PageHeaderSkeleton actions={actions} />
+      {filters > 0 ? (
+        <div className="flex flex-wrap gap-3">
+          {Array.from({ length: filters }).map((_, i) => (
+            <Skeleton
+              key={i}
+              className="h-9 w-full max-w-xs rounded-[var(--radius-sm)] sm:w-64"
+            />
+          ))}
+        </div>
+      ) : null}
       <div className="flex min-h-0 w-full flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card @3xl/main:flex-row">
         <div className="min-w-0 space-y-4 p-4 @3xl/main:w-[var(--list-width)] @3xl/main:shrink-0 @3xl/main:border-r @3xl/main:border-border">
           <Skeleton className="h-9 w-full rounded-[var(--radius-sm)]" />
@@ -316,15 +343,27 @@ export function ListDetailPageSkeleton({
             <Skeleton className="h-6 w-1/2" />
             <Skeleton className="h-3.5 w-2/3" />
           </div>
-          <StatRowSkeleton count={2} />
-          <div className="space-y-2.5">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <Skeleton
-                key={i}
-                className={cn('h-3.5', i % 3 === 2 ? 'w-2/3' : 'w-full')}
-              />
-            ))}
-          </div>
+          {detail === 'form' ? (
+            // Label + control, the shape an editor actually arrives in.
+            Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="space-y-2">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className={cn(i === 2 ? 'h-24' : 'h-9', 'w-full')} />
+              </div>
+            ))
+          ) : (
+            <>
+              <StatRowSkeleton count={2} />
+              <div className="space-y-2.5">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    className={cn('h-3.5', i % 3 === 2 ? 'w-2/3' : 'w-full')}
+                  />
+                ))}
+              </div>
+            </>
+          )}
         </div>
       </div>
     </PageSkeletonRoot>

@@ -77,14 +77,23 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   '/attendance/students': () => (
     <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
-  '/classes/assessments': () => <ListDetailPageSkeleton actions={1} />,
+  '/classes/assessments': () => (
+    <ListDetailPageSkeleton actions={1} filters={2} listRows={6} />
+  ),
   '/classes/assessments/take': () => (
     <TablePageSkeleton columns={5} rows={10} />
   ),
   '/classes/gradebook': () => (
     <TablePageSkeleton rows={10} columns={6} actions={1} />
   ),
-  '/classes/materials': () => <TablePageSkeleton rows={10} columns={6} />,
+  '/classes/materials': () => (
+    <ListDetailPageSkeleton
+      actions={0}
+      filters={1}
+      listRows={6}
+      detail="form"
+    />
+  ),
   '/classes/question-bank': () => <ListDetailPageSkeleton actions={1} />,
   '/classes/review': () => <ListDetailPageSkeleton actions={2} />,
   '/classes/subjects': () => (
