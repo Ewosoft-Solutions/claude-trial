@@ -4,5 +4,5 @@
 import { ListDetailPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <ListDetailPageSkeleton />;
+  return <ListDetailPageSkeleton actions={1} />;
 }

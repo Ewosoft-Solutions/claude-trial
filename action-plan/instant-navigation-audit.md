@@ -640,6 +640,54 @@ an API response through because its declared type looks narrow.
 
 ---
 
+## Pass 15 — the numbers inside the skeleton
+
+Passes 2 and 12 got the right skeleton FAMILY onto every route and made the
+click paint it. They never checked the numbers inside it. A table page painting
+a table is not enough if it paints five columns where the page has eight, or no
+summary cards where the page shows four — the placeholder then rearranges
+itself into the content instead of being replaced by it, which is what a reader
+actually notices.
+
+**Ground truth is the page's own source:** the `items` array on its `StatGrid`,
+the `columns` array on its `DirectoryTable` (falling back to `<TableHead>` count
+for hand-rolled tables), and the controls in its `PageHeader actions`.
+
+Two analyser bugs were caught by spot-checking before anything was changed, and
+both would have written wrong numbers into 30+ files:
+
+- Counting every element inside `actions` made `/classes/review` look like it
+  had **8** buttons. It has one `<Select>`. Controls are counted at depth 0.
+- Toolbar filter ids (`users-search`) sit alongside column ids; the column
+  count must come from the `columns` array, not from every `id:` in the file.
+
+**37 skeletons corrected across 54 measurable routes.** A sample:
+
+| Route | Was | Now |
+| --- | --- | --- |
+| `/attendance/daily` | 6 columns | **3** (Pupil / Status / Attendance) |
+| `/finance/invoices` | 4 stats, 6 columns | **5 stats, 8 columns** |
+| `/finance/ledger` | no stats, default columns | **4 stats, 5 columns, 1 action** |
+| `/finance/payments` | no stats | **3 stats** |
+| `/events/upcoming` | 3 stats, 5 columns, 2 actions | **4 stats, 6 columns, 1 action** |
+| `/settings/roles` | 4 columns | **3** |
+| `/finance/approvals` | 6 columns | **8** |
+
+Regenerating the click-placeholder registry was NOT optional afterwards, and
+the pass-12 gate proved its worth: it failed immediately with **40 drifted
+entries**, naming both sides of each.
+
+**Sixth gate: `scripts/audit-skeleton-fidelity.mjs`.** Compares each skeleton's
+`stats` / `actions` / `columns` against the page's real structure and fails on a
+mismatch. Verified it bites by setting `/settings/users` to nine columns and
+watching it report `skeleton 9, page 4` and exit 1.
+
+**Not yet verified visually.** The browser session expired to `/login` mid-pass
+and passwords are not something I enter, so these corrections are verified
+against source and by the gates, not by eye.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does

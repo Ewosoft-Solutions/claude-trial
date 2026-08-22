@@ -3,5 +3,5 @@
 import { FormPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <FormPageSkeleton fields={6} />;
+  return <FormPageSkeleton fields={6} actions={1} />;
 }

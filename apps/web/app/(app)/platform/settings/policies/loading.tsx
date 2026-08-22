@@ -4,5 +4,5 @@
 import { TablePageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <TablePageSkeleton columns={4} rows={6} />;
+  return <TablePageSkeleton rows={6} columns={6} />;
 }
