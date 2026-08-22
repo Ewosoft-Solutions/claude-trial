@@ -955,9 +955,50 @@ reason.
 has a search and an `Open →` on every row, so the input asked the reader to
 supply by hand something the page was already showing.
 
-**Still open:** the other parent segments listed above have the same latent
-issue. Only the one that was reported has been fixed; the rest need the same
-treatment or a sweep.
+**Swept in pass 22.**
+
+---
+
+## Pass 22 — every parent that stands in for a child
+
+Nine segments have a `loading.tsx` covering child pages. Three of them are
+harmless: `/overview`, `/people/[id]` and the rest of `/students/admissions`
+have children with NO `loading.tsx` of their own, so only one placeholder ever
+shows. Six had a child with a genuinely different shape and now delegate:
+
+| Parent | Child it was standing in for |
+| --- | --- |
+| `/classes/assessments/take` | `[id]` — a detail page, not a table |
+| `/finance/households` | `[id]` — detail |
+| `/finance/invoices` | `[id]` detail and `/new` form |
+| `/people` | `[id]` — a profile, not the directory table |
+| `/platform/analytics` | `/assistant` — detail, not a report |
+| `/students/admissions` | `[id]` — an application detail |
+
+Two things had to come first, and both are worth keeping:
+
+**The registry now covers child and dynamic routes**, not just nav
+destinations, and the resolver matches `[param]` patterns — exact, then
+pattern, then longest prefix. Without that, a delegating parent resolved its
+child back to its own shape and nothing changed.
+
+**Generation is now a committed script**, `scripts/gen-route-skeletons.mjs`,
+rather than something retyped each time. It preserves entries marked
+AUTHORITATIVE — the shapes of routes whose own `loading.tsx` delegates, which
+would otherwise be deleted by the very regeneration meant to keep them honest.
+That trap fired once during this pass: the first regeneration silently dropped
+six shapes and every one of those routes fell back to the generic placeholder.
+
+`/people/[id]` needed an entry of its own: its `loading.tsx` derives the shape
+from the pathname, so it declares no literal, and a profile was being announced
+with the DIRECTORY TABLE's silhouette.
+
+| people → a profile | Before | After |
+| --- | --- | --- |
+| First placeholder | 75 bars — the directory table | **47 bars — profile shape** |
+
+The second phase (real header and tabs, body still loading) stays: that is the
+chrome arriving, not a mismatched placeholder.
 
 ---
 

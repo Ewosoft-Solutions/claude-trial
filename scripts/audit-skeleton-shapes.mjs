@@ -36,8 +36,24 @@ const ACCEPTED = {
   '(app)/platform/analytics': 'Report-shaped: stat row + charts dominate; the table is secondary.',
   '(app)/finance/invoices/new': 'Form-dominant; the line-items table is one field within the form.',
   '(app)/finance/invoices/[id]': 'Detail-dominant; the lines table sits inside a section card.',
+  // A segment's loading.tsx stands in for its CHILD routes as well, so where a
+  // child has a different shape the parent cannot be a fixed one: it delegates
+  // to RouteSkeleton and draws whichever route is opening. Their shapes live in
+  // the route-skeleton registry, marked AUTHORITATIVE there.
   '(app)/classes/assessments':
-    'Its loading.tsx delegates to RouteSkeleton because it covers child routes too (/take is a TABLE page, not a list/detail one) and must draw whichever is opening. The shape lives in the route-skeleton registry, marked authoritative there.',
+    'Delegates: /take is a table page, not a list/detail one.',
+  '(app)/classes/assessments/take':
+    'Delegates: its [id] child is a detail page, not a table.',
+  '(app)/finance/households':
+    'Delegates: its [id] child is a detail page, not a table.',
+  '(app)/finance/invoices':
+    'Delegates: its [id] (detail) and /new (form) children are neither a table.',
+  '(app)/people':
+    'Delegates: its [id] child is a person profile, not the directory table.',
+  '(app)/platform/analytics':
+    'Delegates: its /assistant child is a detail page, not a report.',
+  '(app)/students/admissions':
+    'Delegates: its [id] child is an application detail, not the pipeline table.',
   '(app)/settings/ai-usage': 'Cards-dominant; the usage table is nested INSIDE a card, which a section-card block already stands for. The heuristic sees <Table> but cannot see nesting.',
 };
 

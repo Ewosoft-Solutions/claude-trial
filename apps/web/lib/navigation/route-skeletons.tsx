@@ -41,8 +41,9 @@ import {
   dashboardKindFor,
 } from '@/app/(app)/overview/dashboard-shape';
 
-/** Nav destination → the shape its own `loading.tsx` renders. */
+/** Route → the shape its own `loading.tsx` renders. */
 const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
+  '/academics/enrollment': () => <TablePageSkeleton columns={3} rows={10} />,
   '/academics/lessons': () => (
     <DetailPageSkeleton
       sections={2}
@@ -71,21 +72,28 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   '/academics/transcripts': () => (
     <DetailPageSkeleton sections={2} withStats={false} actions={1} />
   ),
+  '/account/appearance': () => <FormPageSkeleton fields={5} />,
+  '/account/profile': () => <FormPageSkeleton fields={6} />,
+  '/account/roles': () => <DetailPageSkeleton withStats={false} sections={3} />,
+  '/account/security': () => <FormPageSkeleton fields={5} />,
   '/attendance/daily': () => (
     <TablePageSkeleton rows={10} columns={3} actions={2} />
   ),
   '/attendance/students': () => (
     <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
-  // AUTHORITATIVE: this route's own loading.tsx delegates back to RouteSkeleton
-  // (it covers child routes too, so it has to draw whichever one is opening).
-  // That makes this entry the only declaration of the shape — a regeneration
-  // that reads loading.tsx files must not drop it.
+  // AUTHORITATIVE: this route's loading.tsx delegates back here, so this
+  // entry is the only declaration of its shape.
   '/classes/assessments': () => (
     <ListDetailPageSkeleton actions={1} filters={2} listRows={6} />
   ),
+  // AUTHORITATIVE: this route's loading.tsx delegates back here, so this
+  // entry is the only declaration of its shape.
   '/classes/assessments/take': () => (
     <TablePageSkeleton columns={5} rows={10} />
+  ),
+  '/classes/assessments/take/[id]': () => (
+    <DetailPageSkeleton sections={3} actions={2} withStats={false} />
   ),
   '/classes/gradebook': () => (
     <TablePageSkeleton rows={10} columns={6} actions={1} />
@@ -107,6 +115,7 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   '/classes/timetable': () => (
     <DetailPageSkeleton sections={2} withStats={false} actions={1} />
   ),
+  '/events/[id]/roster': () => <TablePageSkeleton rows={10} columns={4} />,
   '/events/upcoming': () => (
     <TablePageSkeleton rows={10} columns={6} stats={4} actions={1} />
   ),
@@ -119,12 +128,23 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   '/finance/fee-items': () => (
     <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
+  // AUTHORITATIVE: this route's loading.tsx delegates back here, so this
+  // entry is the only declaration of its shape.
   '/finance/households': () => (
     <TablePageSkeleton rows={10} columns={5} actions={2} />
   ),
+  '/finance/households/[id]': () => (
+    <DetailPageSkeleton sections={3} actions={1} withStats={false} />
+  ),
+  // AUTHORITATIVE: this route's loading.tsx delegates back here, so this
+  // entry is the only declaration of its shape.
   '/finance/invoices': () => (
     <TablePageSkeleton rows={10} columns={8} stats={5} actions={2} />
   ),
+  '/finance/invoices/[id]': () => (
+    <DetailPageSkeleton sections={3} withStats actions={1} />
+  ),
+  '/finance/invoices/new': () => <FormPageSkeleton fields={6} actions={1} />,
   '/finance/ledger': () => (
     <TablePageSkeleton rows={10} columns={9} stats={4} actions={2} />
   ),
@@ -144,10 +164,22 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
     <TablePageSkeleton rows={10} columns={5} stats={4} actions={1} />
   ),
   '/library/loans': () => <TablePageSkeleton rows={10} columns={6} />,
+  // AUTHORITATIVE: this route's loading.tsx delegates back here, so this
+  // entry is the only declaration of its shape.
   '/people': () => (
     <TablePageSkeleton rows={10} columns={4} stats={6} actions={1} />
   ),
-  '/platform/analytics': () => <ReportPageSkeleton stats={4} charts={2} />,
+  // AUTHORITATIVE: this route's loading.tsx delegates back here, so this
+  // entry is the only declaration of its shape.
+  // AUTHORITATIVE: `/people/[id]/loading.tsx` derives its shape from the
+  // pathname, so it declares no literal for the generator to read. Without an
+  // entry here a profile fell back to the /people prefix and was announced with
+  // the DIRECTORY TABLE's shape. This stands in for the whole profile — header,
+  // tab strip, body — because the profile layout is not mounted yet when the
+  // reader is arriving from outside.
+  '/people/[id]': () => (
+    <DetailPageSkeleton sections={2} withStats withTabs={4} actions={1} />
+  ),
   '/platform/analytics/assistant': () => (
     <DetailPageSkeleton withStats={false} sections={2} />
   ),
@@ -156,6 +188,7 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
     <TablePageSkeleton rows={10} columns={6} />
   ),
   '/platform/settings/security': () => <FormPageSkeleton fields={5} />,
+  '/platform/tenants/[id]': () => <DetailPageSkeleton sections={3} />,
   '/platform/tenants/all': () => <TablePageSkeleton rows={10} columns={4} />,
   '/platform/tenants/approvals': () => (
     <TablePageSkeleton columns={5} rows={10} />
@@ -175,6 +208,8 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   '/settings/roles': () => <TablePageSkeleton rows={10} columns={3} />,
   '/settings/security': () => <FormPageSkeleton fields={5} />,
   '/settings/users': () => <TablePageSkeleton rows={10} columns={4} />,
+  // AUTHORITATIVE: this route's loading.tsx delegates back here, so this
+  // entry is the only declaration of its shape.
   '/students/admissions': () => (
     <TablePageSkeleton rows={10} columns={5} stats={4} actions={2} />
   ),
@@ -198,7 +233,6 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
 const REDIRECTS: Record<string, string> = {
   '/classes': '/classes/timetable',
   '/events': '/events/upcoming',
-  '/finance': '/finance/invoices',
   '/health': '/health/records',
   '/hr': '/hr/payroll',
   '/library': '/library/books',
@@ -221,25 +255,47 @@ function OverviewSkeleton() {
  * The placeholder for a pending navigation, or null when the destination has
  * no skeleton of its own — the caller decides what to show instead.
  */
+/**
+ * Which entry stands in for a path.
+ *
+ * Exact first, then a DYNAMIC pattern (`/finance/invoices/[id]` matches
+ * `/finance/invoices/abc123`), then the longest prefix so an unlisted nested
+ * route still gets its section's shape rather than nothing.
+ */
+function resolveEntry(target: string): (() => React.ReactElement) | undefined {
+  const exact = ROUTE_SKELETONS[target];
+  if (exact) return exact;
+
+  const segments = target.split('/');
+  for (const key of Object.keys(ROUTE_SKELETONS)) {
+    if (!key.includes('[')) continue;
+    const keySegments = key.split('/');
+    if (keySegments.length !== segments.length) continue;
+    const matches = keySegments.every(
+      (k, i) => (k.startsWith('[') && k.endsWith(']')) || k === segments[i],
+    );
+    if (matches) return ROUTE_SKELETONS[key];
+  }
+
+  let best: string | null = null;
+  for (const key of Object.keys(ROUTE_SKELETONS)) {
+    if (key.includes('[')) continue;
+    if (
+      target.startsWith(key + '/') &&
+      (best === null || key.length > best.length)
+    )
+      best = key;
+  }
+  return best ? ROUTE_SKELETONS[best] : undefined;
+}
+
 export function RouteSkeleton({ href }: { href: string | null }) {
   const path = href ? (href.split('?')[0] ?? href) : null;
   const target = path ? (REDIRECTS[path] ?? path) : null;
+  if (!target) return null;
   if (target === '/overview') return <OverviewSkeleton />;
-  const exact = target ? ROUTE_SKELETONS[target] : undefined;
-  if (exact) return exact();
-  // Longest prefix, so a nested route falls back to its section's shape.
-  let best: string | null = null;
-  if (target) {
-    for (const key of Object.keys(ROUTE_SKELETONS)) {
-      if (
-        target.startsWith(key + '/') &&
-        (best === null || key.length > best.length)
-      )
-        best = key;
-    }
-  }
-  const fallback = best ? ROUTE_SKELETONS[best] : undefined;
-  return fallback ? fallback() : null;
+  const entry = resolveEntry(target);
+  return entry ? entry() : null;
 }
 
 /** Whether a destination has a shape of its own (used by the audit + shell). */
@@ -248,6 +304,5 @@ export function hasRouteSkeleton(href: string | null): boolean {
   const path = href.split('?')[0] ?? href;
   const target = REDIRECTS[path] ?? path;
   if (target === '/overview') return true;
-  if (ROUTE_SKELETONS[target]) return true;
-  return Object.keys(ROUTE_SKELETONS).some((k) => target.startsWith(k + '/'));
+  return resolveEntry(target) !== undefined;
 }
