@@ -1,8 +1,8 @@
-/* Route loading fallback — instant skeleton shown while the server
-   component streams. Mirrors this page's layout so there is no shift
-   when real data arrives. See page-skeletons.tsx. */
-import { DetailPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+/* Route loading fallback. Shape matches the page: PageHeader + DirectoryTable.
+   (AGENTS.md golden rule 11 — the skeleton must be the content's silhouette,
+   so nothing reflows when data lands.) */
+import { TablePageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <DetailPageSkeleton sections={3} />;
+  return <TablePageSkeleton rows={10} columns={4} />;
 }

@@ -98,6 +98,31 @@ export interface ApplicationDetail extends Application {
   requirements: Requirement[];
   stageEvents: StageEvent[];
   reviews: Review[];
+
+  /**
+   * Recusal — the admissions half of the no-one-approves-their-own-request
+   * rule (docs/self-approval-audit.md). All three are computed on the server;
+   * the browser has no reliable identity of its own to derive them from.
+   *
+   * `canDecide` is eligibility on THIS application, and is a different thing
+   * from holding a decision permission — see `Perms`. Both must be true before
+   * a decision action is offered.
+   */
+  canDecide: boolean;
+  /** The viewer's own contact appears on this file — prompt them to declare. */
+  looksConnected: boolean;
+  myDeclaredInterest: {
+    relationship: string;
+    note: string | null;
+    declaredAt: string;
+  } | null;
+  interestDeclarations: {
+    id: string;
+    userId: string;
+    relationship: string;
+    declaredAt: string;
+    isMine: boolean;
+  }[];
 }
 
 export interface IntakeStructure {

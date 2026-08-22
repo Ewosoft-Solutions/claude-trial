@@ -27,6 +27,7 @@ import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 import { DASHBOARD_SHAPES } from '../dashboard-shape';
 
@@ -237,7 +238,7 @@ export function AdminDashboard({ userName, schoolName }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <SkeletonList rows={3} withAvatar={false} />
             ) : attention.length === 0 ? (
               <p className="rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-sm text-muted-foreground">
                 You&apos;re all caught up — nothing needs attention right now.

@@ -37,6 +37,8 @@ import { DashboardLayout } from '@workspace/ui/custom/layouts/dashboard-layout';
 import { StatGrid } from '@workspace/ui/custom/layouts/stat-grid';
 import type { StatItem } from '@workspace/ui/types/layout.types';
 import { DashboardPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
+import { Skeleton } from '@workspace/ui/components/skeleton';
 
 import { DASHBOARD_SHAPES } from '../dashboard-shape';
 import { RefreshButton } from '../../_shared/refresh-button';
@@ -194,7 +196,7 @@ export function PlatformDashboard({ userName }: Props) {
               </CardHeader>
               <CardContent className="flex flex-col gap-2 text-sm">
                 {loading ? (
-                  <p className="text-muted-foreground">Loading…</p>
+                  <SkeletonList rows={4} withAvatar={false} />
                 ) : (data?.byType.length ?? 0) === 0 ? (
                   <p className="text-muted-foreground">No schools yet.</p>
                 ) : (
@@ -230,7 +232,7 @@ export function PlatformDashboard({ userName }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              <SkeletonList rows={3} withAvatar={false} />
             ) : stalled.length === 0 ? (
               <p className="rounded-[var(--radius-sm)] border border-dashed border-border p-4 text-sm text-muted-foreground">
                 Nothing stalled — every pending school is fresh.
@@ -260,7 +262,24 @@ export function PlatformDashboard({ userName }: Props) {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <p className="text-sm text-muted-foreground">Loading…</p>
+              // Same height and bar rhythm as the chart, so the card does not
+              // change size when the twelve months arrive.
+              <div
+                role="status"
+                aria-busy="true"
+                className="flex items-end gap-1"
+                style={{ height: 96 }}
+              >
+                <span className="sr-only">Loading</span>
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <Skeleton
+                    key={i}
+                    aria-hidden
+                    className="flex-1"
+                    style={{ height: `${30 + ((i * 37) % 60)}%` }}
+                  />
+                ))}
+              </div>
             ) : (
               <div className="flex items-end gap-1" style={{ height: 96 }}>
                 {data?.growth.map((g) => (
@@ -291,7 +310,7 @@ export function PlatformDashboard({ userName }: Props) {
           </CardHeader>
           <CardContent className="flex flex-col gap-2 text-sm">
             {loading ? (
-              <p className="text-muted-foreground">Loading…</p>
+              <SkeletonList rows={3} withAvatar={false} />
             ) : (data?.recentActivity.length ?? 0) === 0 ? (
               <p className="text-muted-foreground">No recent activity.</p>
             ) : (

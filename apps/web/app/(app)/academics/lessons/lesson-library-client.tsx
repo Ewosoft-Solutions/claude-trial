@@ -39,11 +39,11 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@workspace/ui/components/tabs';
+  FolderTabs as Tabs,
+  FolderTabsContent as TabsContent,
+  FolderTabsList as TabsList,
+  FolderTabsTrigger as TabsTrigger,
+} from '@workspace/ui/custom/detail/folder-tabs';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { EmptyState } from '@workspace/ui/custom/states/page-states';
 import {
@@ -365,7 +365,7 @@ export function LessonLibraryClient({
       )}
 
       <Tabs defaultValue="library">
-        <TabsList className="mb-4 flex flex-wrap">
+        <TabsList className="mb-4">
           <TabsTrigger value="library">Library</TabsTrigger>
           <TabsTrigger value="plan">Class plan</TabsTrigger>
         </TabsList>

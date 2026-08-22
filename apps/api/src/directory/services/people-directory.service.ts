@@ -1065,6 +1065,34 @@ export class PeopleDirectoryService {
    * Each section is included only when `perms` grants it; contact is masked
    * without `people.view_contact`.
    */
+  /**
+   * Detail for an id whose KIND the caller did not state.
+   *
+   * A prospect lives in a different table from everyone else, so `detail`
+   * needs to be told which to read. The profile page cannot tell it: its
+   * chrome is a layout, and a layout cannot read the query string that used
+   * to carry the answer. So the server resolves it — people first, since
+   * they vastly outnumber prospects, and an application id only ever reaches
+   * the second lookup. Returns the detail with `type` set to what was
+   * actually found, which the caller must authorise before handing it out.
+   */
+  async detailById(
+    tenantId: string,
+    id: string,
+    perms: PersonDetailPerms,
+    canViewContact: boolean,
+  ): Promise<PersonDetail | null> {
+    const person = await this.detail(
+      tenantId,
+      id,
+      'all',
+      perms,
+      canViewContact,
+    );
+    if (person) return person;
+    return this.detail(tenantId, id, 'prospect', perms, canViewContact);
+  }
+
   async detail(
     tenantId: string,
     id: string,

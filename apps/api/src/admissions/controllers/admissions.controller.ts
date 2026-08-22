@@ -32,6 +32,7 @@ import {
   ConvertToStudentDto,
   CreateApplicationDto,
   CreateRequirementDto,
+  DeclareInterestDto,
   DecisionNoteDto,
   ListApplicationsDto,
   MakeOfferDto,
@@ -115,7 +116,36 @@ export class AdmissionsController {
   @RequirePermissions(['admissions.view'])
   @ApiOperation({ summary: 'An application + its stage + review history' })
   get(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.admissions.getApplication(this.tenantId(req), id);
+    return this.admissions.getApplication(
+      this.tenantId(req),
+      id,
+      this.actorId(req),
+    );
+  }
+
+  /**
+   * Declare an interest in an application and step away from deciding it.
+   *
+   * `admissions.view` on purpose — the same permission that let you open the
+   * application. Recusing yourself must never require a permission you might
+   * not hold; the whole point is to give up authority, not to exercise it.
+   */
+  @Post('applications/:id/declare-interest')
+  @RequirePermissions(['admissions.view'])
+  @ApiOperation({
+    summary: 'Declare a personal interest in an application (recusal)',
+  })
+  declareInterest(
+    @Param('id') id: string,
+    @Body() dto: DeclareInterestDto,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.admissions.declareInterest(
+      this.tenantId(req),
+      id,
+      this.actorId(req),
+      dto,
+    );
   }
 
   // ---- create / update ----

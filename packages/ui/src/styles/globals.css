@@ -50,6 +50,18 @@
      scales as a group without the layout zooming. */
   --font-scale: 1;
 
+  /* One table row's height, shared by the real table, its loading skeleton and
+     the blank rows that pad a short page. Sized to clear an avatar cell (36px)
+     plus the cell's own padding, so a row never changes height between the
+     placeholder and the content.
+
+     Every USE carries `3.25rem` as a var() fallback. A token is only as
+     available as the stylesheet that defines it: while this one had not
+     recompiled, `min-h-[var(--table-row-h)]` resolved to nothing and skeleton
+     rows collapsed from ~42px to 15px — a table placeholder rendered as a
+     stack of thin lines. */
+  --table-row-h: 3.25rem;
+
   /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
   /* base surfaces — a warm almost-white canvas (faint ivory) so the white
      cards lift off the page. Reads as an understated, high-grade finish;
@@ -233,6 +245,16 @@
   /* focus / interaction */
   --ring-width: 3px;
 }
+/* Table rows are TALLER on a phone: the same cell wraps to two lines there, so
+   a real row measures ~59px against ~53px on a wide screen. The placeholder has
+   to follow, or the skeleton sits short of the table on exactly the screens
+   where a jump is most noticeable. Measured, not guessed. */
+@media (max-width: 639px) {
+  :root {
+    --table-row-h: 3.75rem;
+  }
+}
+
 
 /* ------------------------------------------------------------
    .dark — Aurora DARK (signature neon glass). DEFAULT dark theme.

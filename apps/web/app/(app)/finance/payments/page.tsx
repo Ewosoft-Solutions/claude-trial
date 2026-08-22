@@ -10,13 +10,12 @@
 import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
 import { toListQuery } from '@/lib/list-query';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import {
   PaymentsClient,
   type Receipt,
   type HouseholdOption,
 } from './payments-client';
-
-const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiReceipt {
   id: string;

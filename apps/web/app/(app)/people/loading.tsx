@@ -1,7 +1,29 @@
-/* Route loading fallback — instant skeleton while the server component
-   streams the active People tab. Mirrors the workbench table layout. */
-import { TablePageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+'use client';
+
+/* Route loading fallback for /people AND everything beneath it.
+
+   A segment's `loading.tsx` covers its child routes too — here, its `[id]` child is a person profile, not the directory table —
+   so left as a fixed shape it stands in for pages it looks nothing like, and
+   a reader coming from outside the section sees two different placeholders in
+   one navigation.
+
+   By the time this renders the URL has committed, so it can name the route
+   being opened and draw ITS shape from the registry. Same as
+   `(app)/loading.tsx`, one level down. */
+import { usePathname } from 'next/navigation';
+
+import { PageChangeSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+
+import {
+  hasRouteSkeleton,
+  RouteSkeleton,
+} from '@/lib/navigation/route-skeletons';
 
 export default function Loading() {
-  return <TablePageSkeleton columns={6} rows={8} />;
+  const pathname = usePathname();
+  return hasRouteSkeleton(pathname) ? (
+    <RouteSkeleton href={pathname} />
+  ) : (
+    <PageChangeSkeleton />
+  );
 }

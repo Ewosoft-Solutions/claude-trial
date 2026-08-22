@@ -16,11 +16,11 @@
  */
 import * as React from 'react';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@workspace/ui/components/tabs';
+  FolderTabs as Tabs,
+  FolderTabsContent as TabsContent,
+  FolderTabsList as TabsList,
+  FolderTabsTrigger as TabsTrigger,
+} from '@workspace/ui/custom/detail/folder-tabs';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 
@@ -58,7 +58,7 @@ export function PlacementWorkspace({
       />
 
       <Tabs defaultValue="lifecycle">
-        <TabsList className="mb-4 flex flex-wrap">
+        <TabsList className="mb-4">
           <TabsTrigger value="lifecycle">Placement &amp; history</TabsTrigger>
           <TabsTrigger value="enrolment">Enrolment &amp; subjects</TabsTrigger>
         </TabsList>

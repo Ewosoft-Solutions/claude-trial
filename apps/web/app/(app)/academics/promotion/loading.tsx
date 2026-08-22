@@ -1,6 +1,8 @@
-/* Route loading fallback — instant skeleton while the server component streams. */
-import { TablePageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+/* Route loading fallback. Shape matches the page: PageHeader + cards, no table.
+   (AGENTS.md golden rule 11 — the skeleton must be the content's silhouette,
+   so nothing reflows when data lands.) */
+import { DetailPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <TablePageSkeleton columns={4} rows={6} />;
+  return <DetailPageSkeleton sections={2} withStats={false} actions={1} />;
 }

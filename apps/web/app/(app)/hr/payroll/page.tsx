@@ -8,14 +8,13 @@
 
 import { serverApiGet } from '@/lib/server-api';
 import { toListQuery } from '@/lib/list-query';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import {
   PayrollClient,
   type PayrollRow,
   type PayrollStats,
   type PayrollStatus,
 } from './payroll-client';
-
-const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiPayrollRecord {
   id: string;

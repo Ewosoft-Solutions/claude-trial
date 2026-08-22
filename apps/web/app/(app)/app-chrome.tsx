@@ -16,6 +16,15 @@
 import * as React from 'react';
 import dynamic from 'next/dynamic';
 import { usePathname, useRouter } from 'next/navigation';
+import { PageChangeSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+import {
+  NavPendingProvider,
+  staysWithinChrome,
+} from '@/lib/navigation/nav-pending';
+import {
+  hasRouteSkeleton,
+  RouteSkeleton,
+} from '@/lib/navigation/route-skeletons';
 import {
   Bell,
   Fingerprint,
@@ -346,9 +355,44 @@ export function AppChrome({
     [pathname, signOut],
   );
 
+  /**
+   * Where the reader has ASKED to be, before the router agrees.
+   *
+   * The App Router does not commit a navigation until the new route's payload
+   * arrives — measured elsewhere in this app at ~500ms warm and seconds on a
+   * cold route. `usePathname()` only changes at that commit, so a nav rail
+   * driven by it alone stays highlighted on the page you are leaving for the
+   * whole round trip, and the click reads as lost.
+   *
+   * Every nav surface funnels through `navigate`, so recording the intent here
+   * moves the WHOLE chrome at once — active item, open section, breadcrumb —
+   * because `useResolvedNavigation` derives all of it from one path.
+   */
+  const [pendingHref, setPendingHref] = React.useState<string | null>(null);
+
+  /**
+   * Whether a navigation is still in flight, from React rather than from the
+   * URL.
+   *
+   * `pendingHref` clears when the pathname changes — the moment the router
+   * COMMITS — which is too early for the body: the destination's own
+   * `loading.tsx` then takes over for a few hundred milliseconds, so the reader
+   * sees one placeholder replaced by a differently shaped one. `isPending`
+   * stays true until the new tree is actually ready to show, so the placeholder
+   * we render covers the whole wait and hands straight over to content.
+   */
+  const [navPending, startNavTransition] = React.useTransition();
+
   const navigate = React.useCallback(
-    (href: string) => router.push(href),
-    [router],
+    (href: string) => {
+      // Going where we already are would strand the rail's optimistic state:
+      // the pathname never changes, so nothing would clear it.
+      if (href.split('?')[0] !== pathname) setPendingHref(href);
+      startNavTransition(() => {
+        router.push(href);
+      });
+    },
+    [router, pathname],
   );
   const prefetch = React.useCallback(
     (href: string) => router.prefetch(href),
@@ -366,9 +410,22 @@ export function AppChrome({
       ? 'Platform'
       : (activeSchool?.name ?? 'All schools');
 
+  // The route arrived (or the reader went somewhere else entirely) — the URL
+  // is the authority again.
+  React.useEffect(() => {
+    setPendingHref(null);
+  }, [pathname]);
+
+  // Never leave the rail pointing somewhere the reader never got to.
+  React.useEffect(() => {
+    if (pendingHref === null) return;
+    const timer = setTimeout(() => setPendingHref(null), 10_000);
+    return () => clearTimeout(timer);
+  }, [pendingHref]);
+
   const config = configForViewer(viewer);
   const navCounts = useNavCounts(viewer);
-  const nav = useResolvedNavigation(config, viewer, pathname, {
+  const nav = useResolvedNavigation(config, viewer, pendingHref ?? pathname, {
     onNavigate: navigate,
     onPrefetch: prefetch,
     counts: navCounts,
@@ -418,133 +475,166 @@ export function AppChrome({
       : []),
   ];
 
+  // Deeper layouts need the same pending state, so the one that owns the
+  // chrome a navigation stays inside can swap only its own body.
+  const navPendingValue = React.useMemo(
+    () => ({ navPending, pendingHref, pathname }),
+    [navPending, pendingHref, pathname],
+  );
+
   return (
-    <div className="h-svh w-full">
-      <AppShell
-        // The pinned rail is a layout sibling that pushes the content column,
-        // so it reserves no bottom inset; the floating tab bar does.
-        mobileBottomInset={
-          mobileRailPinned ? '0rem' : 'calc(4rem + env(safe-area-inset-bottom))'
-        }
-        mobileNav={
-          mobileRailPinned ? null : (
-            <MobileNav
-              railItems={nav.railItems}
-              railFooterItems={nav.railFooterItems}
-              navPanels={sidebarPanels}
-              schoolSwitcher={renderSchoolSwitcher}
-              user={user}
-              userMenuItems={userMenu}
-              onPin={() => setMobileRailPinned(true)}
-            />
-          )
-        }
-        header={
-          <AppHeader
-            school={viewer.scope === 'school' ? activeSchool : undefined}
-            roleLabel={viewer.scope === 'school' ? activeRole : undefined}
-            // The pinned rail carries the school chip (and the switch menu);
-            // the top bar keeps the role + school name beside it.
-            showSchoolMark={!mobileRailPinned}
-            breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
-            search={
-              <OmniSearch
-                placeholder="Search students, classes, people…"
-                onClick={() => setSearchOpen(true)}
-              />
-            }
-            searchAction={<AiWorkspaceLauncher />}
-            actions={<HeaderActions notifications={notificationCount} />}
-          />
-        }
-        sidebar={
-          <>
-            {mobileRailPinned ? (
-              <MobileRail
-                schoolSwitcher={renderSchoolSwitcher}
+    <NavPendingProvider value={navPendingValue}>
+      <div className="h-svh w-full">
+        <AppShell
+          // The pinned rail is a layout sibling that pushes the content column,
+          // so it reserves no bottom inset; the floating tab bar does.
+          mobileBottomInset={
+            mobileRailPinned
+              ? '0rem'
+              : 'calc(4rem + env(safe-area-inset-bottom))'
+          }
+          mobileNav={
+            mobileRailPinned ? null : (
+              <MobileNav
                 railItems={nav.railItems}
                 railFooterItems={nav.railFooterItems}
                 navPanels={sidebarPanels}
+                schoolSwitcher={renderSchoolSwitcher}
                 user={user}
                 userMenuItems={userMenu}
-                onUnpin={() => setMobileRailPinned(false)}
+                onPin={() => setMobileRailPinned(true)}
               />
-            ) : null}
-            <AppSidebar
-              schoolSwitcher={renderSchoolSwitcher}
-              railItems={nav.railItems}
-              railFooterItems={nav.railFooterItems}
-              navHeader={
-                nav.navHeader
-                  ? { ...nav.navHeader, subtitle: tenantName }
-                  : undefined
+            )
+          }
+          header={
+            <AppHeader
+              school={viewer.scope === 'school' ? activeSchool : undefined}
+              roleLabel={viewer.scope === 'school' ? activeRole : undefined}
+              // The pinned rail carries the school chip (and the switch menu);
+              // the top bar keeps the role + school name beside it.
+              showSchoolMark={!mobileRailPinned}
+              breadcrumbs={<AppBreadcrumbs items={breadcrumbs} />}
+              search={
+                <OmniSearch
+                  placeholder="Search students, classes, people…"
+                  onClick={() => setSearchOpen(true)}
+                />
               }
-              navGroups={nav.navGroups}
-              navPanels={sidebarPanels}
-              user={user}
-              userMenuItems={userMenu}
-              defaultExpanded={sidebarExpanded}
-              onExpandedChange={writeSidebarPreference}
+              searchAction={<AiWorkspaceLauncher />}
+              actions={<HeaderActions notifications={notificationCount} />}
             />
-          </>
-        }
-      >
-        {reminderVisible ? (
-          <BiometricEnrollmentBanner
-            required={enrollmentRequired}
-            requiredBy={biometricEnrollment.requiredBy.map(
-              (school) => school.schoolName,
-            )}
-            setupHref={mustSwitchForEnrollment ? undefined : setupHref}
-            onSetup={() => void startEnrollment()}
-            setupPending={switchingForEnrollment}
-            onSnooze={snoozeEnrollmentReminder}
-            onSuppress={suppressEnrollmentReminder}
+          }
+          sidebar={
+            <>
+              {mobileRailPinned ? (
+                <MobileRail
+                  schoolSwitcher={renderSchoolSwitcher}
+                  railItems={nav.railItems}
+                  railFooterItems={nav.railFooterItems}
+                  navPanels={sidebarPanels}
+                  user={user}
+                  userMenuItems={userMenu}
+                  onUnpin={() => setMobileRailPinned(false)}
+                />
+              ) : null}
+              <AppSidebar
+                schoolSwitcher={renderSchoolSwitcher}
+                railItems={nav.railItems}
+                railFooterItems={nav.railFooterItems}
+                navHeader={
+                  nav.navHeader
+                    ? { ...nav.navHeader, subtitle: tenantName }
+                    : undefined
+                }
+                navGroups={nav.navGroups}
+                navPanels={sidebarPanels}
+                user={user}
+                userMenuItems={userMenu}
+                defaultExpanded={sidebarExpanded}
+                onExpandedChange={writeSidebarPreference}
+              />
+            </>
+          }
+        >
+          {reminderVisible ? (
+            <BiometricEnrollmentBanner
+              required={enrollmentRequired}
+              requiredBy={biometricEnrollment.requiredBy.map(
+                (school) => school.schoolName,
+              )}
+              setupHref={mustSwitchForEnrollment ? undefined : setupHref}
+              onSetup={() => void startEnrollment()}
+              setupPending={switchingForEnrollment}
+              onSnooze={snoozeEnrollmentReminder}
+              onSuppress={suppressEnrollmentReminder}
+            />
+          ) : null}
+          {/* The rail moving on click is only half an answer: until the router
+            commits, `children` is still the page being LEFT, so the chrome and
+            the content disagree about where the reader is. Show the incoming
+            page's placeholder instead — the same one `(app)/loading.tsx`
+            renders, so when the boundary takes over nothing changes shape. */}
+          {/* The DESTINATION's own placeholder, not a generic one: it is the
+              same component the route's boundary will render a moment later,
+              so the handover cannot be seen. `PageChangeSkeleton` remains only
+              for a destination that has no skeleton of its own. */}
+          {/* The DESTINATION's own shape, so the placeholder the click paints
+              and the skeleton the route boundary renders a moment later are the
+              same thing and the handover cannot be seen. The generic
+              `PageChangeSkeleton` survives only for a destination that has no
+              shape of its own — in practice, somewhere outside the nav. */}
+          {navPending && !staysWithinChrome(pathname, pendingHref) ? (
+            hasRouteSkeleton(pendingHref) ? (
+              <RouteSkeleton href={pendingHref} />
+            ) : (
+              <PageChangeSkeleton />
+            )
+          ) : (
+            children
+          )}
+          <GlobalSearch
+            open={searchOpen}
+            onOpenChange={setSearchOpen}
+            navigation={config}
+            viewer={viewer}
           />
-        ) : null}
-        {children}
-        <GlobalSearch
-          open={searchOpen}
-          onOpenChange={setSearchOpen}
-          navigation={config}
-          viewer={viewer}
-        />
-      </AppShell>
-      <Dialog
-        open={enrollmentPromptOpen}
-        onOpenChange={(open) => {
-          if (open) setEnrollmentPromptOpen(true);
-          else dismissRequiredPrompt();
-        }}
-      >
-        <DialogContent showCloseButton={false}>
-          <DialogHeader>
-            <div className="mb-2 grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
-              <Fingerprint className="size-5" />
-            </div>
-            <DialogTitle>Set up biometric sign-in</DialogTitle>
-            <DialogDescription>
-              {biometricEnrollment.requiredBy.length === 1
-                ? `${biometricEnrollment.requiredBy[0]?.schoolName} requires a passkey for faster, phishing-resistant sign-in.`
-                : biometricEnrollment.requiredBy.length > 1
-                  ? `${biometricEnrollment.requiredBy.length} of your schools require a passkey for faster, phishing-resistant sign-in.`
-                  : 'Your school requires a passkey for faster, phishing-resistant sign-in.'}{' '}
-              Password and recovery options remain available.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="ghost" onClick={dismissRequiredPrompt}>
-              Remind me after this session
-            </Button>
-            <Button
-              onClick={() => void startEnrollment()}
-              disabled={switchingForEnrollment}
-            >
-              {switchingForEnrollment ? 'Switching school…' : 'Set up now'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </div>
+        </AppShell>
+        <Dialog
+          open={enrollmentPromptOpen}
+          onOpenChange={(open) => {
+            if (open) setEnrollmentPromptOpen(true);
+            else dismissRequiredPrompt();
+          }}
+        >
+          <DialogContent showCloseButton={false}>
+            <DialogHeader>
+              <div className="mb-2 grid size-11 place-items-center rounded-2xl bg-primary/10 text-primary">
+                <Fingerprint className="size-5" />
+              </div>
+              <DialogTitle>Set up biometric sign-in</DialogTitle>
+              <DialogDescription>
+                {biometricEnrollment.requiredBy.length === 1
+                  ? `${biometricEnrollment.requiredBy[0]?.schoolName} requires a passkey for faster, phishing-resistant sign-in.`
+                  : biometricEnrollment.requiredBy.length > 1
+                    ? `${biometricEnrollment.requiredBy.length} of your schools require a passkey for faster, phishing-resistant sign-in.`
+                    : 'Your school requires a passkey for faster, phishing-resistant sign-in.'}{' '}
+                Password and recovery options remain available.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button variant="ghost" onClick={dismissRequiredPrompt}>
+                Remind me after this session
+              </Button>
+              <Button
+                onClick={() => void startEnrollment()}
+                disabled={switchingForEnrollment}
+              >
+                {switchingForEnrollment ? 'Switching school…' : 'Set up now'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    </NavPendingProvider>
   );
 }

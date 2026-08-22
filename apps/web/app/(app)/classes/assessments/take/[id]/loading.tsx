@@ -4,5 +4,5 @@
 import { DetailPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <DetailPageSkeleton withStats={false} sections={3} />;
+  return <DetailPageSkeleton sections={3} actions={2} withStats={false} />;
 }

@@ -35,11 +35,11 @@ import {
   SelectValue,
 } from '@workspace/ui/components/select';
 import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@workspace/ui/components/tabs';
+  FolderTabs as Tabs,
+  FolderTabsContent as TabsContent,
+  FolderTabsList as TabsList,
+  FolderTabsTrigger as TabsTrigger,
+} from '@workspace/ui/custom/detail/folder-tabs';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
@@ -365,7 +365,7 @@ export function ResultsWorkbench(props: {
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="configure">
-              <TabsList className="mb-4 flex flex-wrap">
+              <TabsList className="mb-4" ground="card">
                 <TabsTrigger value="configure">Configure</TabsTrigger>
                 <TabsTrigger value="enter">Enter scores</TabsTrigger>
                 <TabsTrigger value="behaviour">Behaviour</TabsTrigger>

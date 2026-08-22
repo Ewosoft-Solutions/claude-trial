@@ -10,9 +10,8 @@
 
 import { serverApiGet } from '@/lib/server-api';
 import { toListQuery } from '@/lib/list-query';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { AuditLogClient, type AuditRow } from './audit-log-client';
-
-const DEFAULT_PAGE_SIZE = 50;
 
 interface ApiAuditRow {
   id: string;

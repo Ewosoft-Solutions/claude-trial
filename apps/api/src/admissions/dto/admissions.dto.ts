@@ -605,3 +605,36 @@ export class SettleFeeDto {
   @MaxLength(120)
   reference?: string;
 }
+
+/**
+ * Declaring an interest in an application — the admissions half of the
+ * no-one-approves-their-own-request rule (docs/self-approval-audit.md).
+ *
+ * The applicant is an external prospect, not a user, so the conflict that
+ * matters here — deciding on your own child's application — has no pair of ids
+ * to compare. It can only be declared. A declaration is deliberately one-way:
+ * you may correct what you said, never take it back.
+ */
+export const DECLARED_INTEREST_RELATIONSHIPS = [
+  'parent',
+  'guardian',
+  'relative',
+  'family_friend',
+  'other',
+] as const;
+
+export class DeclareInterestDto {
+  @ApiProperty({
+    enum: DECLARED_INTEREST_RELATIONSHIPS,
+    example: 'parent',
+    description: 'How you are connected to this applicant',
+  })
+  @IsIn([...DECLARED_INTEREST_RELATIONSHIPS])
+  relationship!: (typeof DECLARED_INTEREST_RELATIONSHIPS)[number];
+
+  @ApiPropertyOptional({ example: 'My daughter' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(240)
+  note?: string;
+}

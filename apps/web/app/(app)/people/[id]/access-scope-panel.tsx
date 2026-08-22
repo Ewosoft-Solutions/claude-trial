@@ -43,6 +43,7 @@ import {
 } from '@workspace/ui/components/select';
 import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import { ApprovalPanel } from '@workspace/ui/custom/approval/approval-panel';
+import { SkeletonList } from '@workspace/ui/custom/states/skeletons';
 
 import { STEP_UP_OPERATION } from '@/lib/step-up';
 import { useStepUpAction } from '../../_shared/use-step-up-action';
@@ -72,38 +73,62 @@ interface PendingRequest {
   makerId: string;
   createdAt: string;
 }
-interface GrantState {
+export interface GrantState {
   profileId: string;
   activeGrant: ActiveGrant | null;
   pendingRequests: PendingRequest[];
 }
-interface Campus {
+export interface Campus {
   id: string;
   name: string;
   code: string;
 }
-interface Role {
+export interface Role {
   id: string;
   name: string;
 }
 
 const GLOBAL = '__global__';
 
+export interface AccessScopeInitial {
+  /** null when the person has no login to grant a role to. */
+  profileId: string | null;
+  grants: GrantState | null;
+  campuses: Campus[];
+  roles: Role[];
+}
+
 export function AccessScopePanel({
   personId,
   currentUserId,
   canManage,
+  initial,
 }: {
   personId: string;
   currentUserId: string;
   canManage: boolean;
+  /**
+   * Everything this panel used to fetch on mount, resolved on the SERVER with
+   * the rest of the tab — so the route's skeleton is replaced by content
+   * rather than by this panel's own, much smaller skeleton.
+   */
+  initial?: AccessScopeInitial;
 }) {
-  const [profileId, setProfileId] = React.useState<string | null>(null);
-  const [noAccount, setNoAccount] = React.useState(false);
-  const [state, setState] = React.useState<GrantState | null>(null);
-  const [campuses, setCampuses] = React.useState<Campus[]>([]);
-  const [roles, setRoles] = React.useState<Role[]>([]);
-  const [loading, setLoading] = React.useState(true);
+  const seeded = initial !== undefined;
+  const [profileId, setProfileId] = React.useState<string | null>(
+    initial?.profileId ?? null,
+  );
+  const [noAccount, setNoAccount] = React.useState(
+    seeded ? initial!.profileId === null : false,
+  );
+  const [state, setState] = React.useState<GrantState | null>(
+    initial?.grants ?? null,
+  );
+  const [campuses, setCampuses] = React.useState<Campus[]>(
+    initial?.campuses ?? [],
+  );
+  const [roles, setRoles] = React.useState<Role[]>(initial?.roles ?? []);
+  const [loading, setLoading] = React.useState(!seeded);
   const [error, setError] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
@@ -118,14 +143,29 @@ export function AccessScopePanel({
   const [expiresAt, setExpiresAt] = React.useState('');
   const [reason, setReason] = React.useState('');
 
+  // One in-flight load at a time. A newer load supersedes an older one, and
+  // leaving the tab aborts whatever is still running — without this, switching
+  // away left a multi-second request holding a connection and then calling
+  // setState into a panel nobody is looking at. React's dev StrictMode also
+  // invokes this effect twice; the second run cancels the first, so only one
+  // request actually completes.
+  const inflight = React.useRef<AbortController | null>(null);
+
   const load = React.useCallback(async () => {
+    inflight.current?.abort();
+    const controller = new AbortController();
+    inflight.current = controller;
+    const signal = controller.signal;
     setLoading(true);
     setError(false);
     try {
       // Resolve the person's login profile from the account surface.
+      // NOTE: `AccountAccessPanel` fetches this same endpoint independently,
+      // so an Overview render asks for it twice. Worth collapsing onto one
+      // shared fetch — see the audit's open items.
       const accountRes = await fetch(
         `/api/directory/people/${personId}/account`,
-        { cache: 'no-store' },
+        { cache: 'no-store', signal },
       );
       if (!accountRes.ok) throw new Error(String(accountRes.status));
       const account = (await accountRes.json()) as {
@@ -142,9 +182,12 @@ export function AccessScopePanel({
       setNoAccount(false);
 
       const [grantsRes, campusesRes, rolesRes] = await Promise.all([
-        fetch(`/api/access/profiles/${pid}/grants`, { cache: 'no-store' }),
-        fetch('/api/campuses', { cache: 'no-store' }),
-        fetch('/api/roles', { cache: 'no-store' }),
+        fetch(`/api/access/profiles/${pid}/grants`, {
+          cache: 'no-store',
+          signal,
+        }),
+        fetch('/api/campuses', { cache: 'no-store', signal }),
+        fetch('/api/roles', { cache: 'no-store', signal }),
       ]);
       if (!grantsRes.ok) throw new Error(String(grantsRes.status));
       setState((await grantsRes.json()) as GrantState);
@@ -154,15 +197,21 @@ export function AccessScopePanel({
       const roleList = rolesRes.ok ? ((await rolesRes.json()) as Role[]) : [];
       setRoles(roleList);
     } catch {
+      // An abort means someone superseded us or left — not a failure to show.
+      if (signal.aborted) return;
       setError(true);
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   }, [personId]);
 
   React.useEffect(() => {
+    // Seeded from the server — the first load already happened. Grant/approve
+    // actions still call `load()` explicitly to refresh.
+    if (seeded) return;
     void load();
-  }, [load]);
+    return () => inflight.current?.abort();
+  }, [load, seeded]);
 
   const post = React.useCallback(
     async (path: string, body: unknown, successMsg: string) => {
@@ -254,7 +303,10 @@ export function AccessScopePanel({
   if (loading) {
     return (
       <Section title="Access & scope">
-        <p className="text-sm text-muted-foreground">Loading access…</p>
+        {/* A grant reads as a row (who / what scope / until when), so the
+            placeholder is rows — not a line of text that the real content
+            then shoves out of the way. */}
+        <SkeletonList rows={3} withAvatar={false} />
       </Section>
     );
   }

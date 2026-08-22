@@ -1,8 +1,16 @@
-/* Route loading fallback — instant skeleton shown while the server
-   component streams. Mirrors this page's layout so there is no shift
-   when real data arrives. See page-skeletons.tsx. */
-import { TablePageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
+/* Route loading fallback. Shape read off the rendered page: no table at all —
+   a class picker, then a lessons list beside a lesson EDITOR. It had been
+   painting a ten-row data table, which is not what arrives.
+   (AGENTS.md golden rule 11.) */
+import { ListDetailPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <TablePageSkeleton columns={5} rows={8} />;
+  return (
+    <ListDetailPageSkeleton
+      actions={0}
+      filters={1}
+      listRows={6}
+      detail="form"
+    />
+  );
 }

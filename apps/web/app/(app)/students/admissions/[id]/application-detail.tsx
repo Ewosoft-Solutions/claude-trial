@@ -53,6 +53,7 @@ import { RequirementsPanel } from './requirements-panel';
 import { FormResponsePanel } from './form-response-panel';
 import { InterviewsPanel } from './interviews-panel';
 import { EditApplicationForm } from './edit-application-form';
+import { DeclareInterestPanel } from './declare-interest-panel';
 import {
   errorMessage,
   fmtDate,
@@ -126,8 +127,13 @@ export function ApplicationDetailView({
   const stage = detail.stage;
   const terminal =
     stage === 'enrolled' || stage === 'rejected' || stage === 'withdrawn';
-  const canDecide =
+  // Holding a decision permission and being eligible to decide THIS file are
+  // two different things (docs/self-approval-audit.md): the permission says
+  // what you may decide, the recusal says whose. Both must hold before an
+  // action is offered.
+  const hasDecisionRights =
     perms.review || perms.approve || perms.reject || perms.convert;
+  const recused = !detail.canDecide;
 
   async function post(
     path: string,
@@ -233,8 +239,16 @@ export function ApplicationDetailView({
           </div>
         </div>
 
-        {/* Decision & actions — promoted so acting on the file is obvious. */}
-        {!terminal && canDecide && (
+        <DeclareInterestPanel
+          detail={detail}
+          hasDecisionRights={hasDecisionRights}
+        />
+
+        {/* Decision & actions — promoted so acting on the file is obvious.
+            Withheld outright from someone who declared an interest: the panel
+            above already says why, and offering a button the API will refuse
+            is the exact behaviour the ground rule exists to prevent. */}
+        {!terminal && hasDecisionRights && !recused && (
           <Card>
             <CardHeader>
               <CardTitle>Decision &amp; actions</CardTitle>

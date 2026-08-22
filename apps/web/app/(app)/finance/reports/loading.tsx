@@ -4,5 +4,5 @@
 import { ReportPageSkeleton } from '@workspace/ui/custom/states/page-skeletons';
 
 export default function Loading() {
-  return <ReportPageSkeleton stats={4} charts={2} />;
+  return <ReportPageSkeleton stats={5} charts={2} />;
 }

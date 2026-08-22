@@ -23,6 +23,7 @@
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
@@ -54,6 +55,7 @@ import type {
   MakeOfferDto,
   DecisionNoteDto,
   ConvertToStudentDto,
+  DeclareInterestDto,
 } from '../dto/admissions.dto';
 
 /** Stages the generic advance action may move TO (the offer/accept/reject/
@@ -100,6 +102,17 @@ export function splitApplicantName(fullName: string): {
     firstName: parts.slice(0, -1).join(' '),
     lastName: parts[parts.length - 1]!,
   };
+}
+
+/**
+ * The last 9 digits of a phone number, or null when there aren't 9.
+ *
+ * Enough to make `+234 803 123 4567` and `0803 123 4567` compare equal without
+ * pulling in a parsing library for what is only ever a hint.
+ */
+function phoneKey(raw: string | null | undefined): string | null {
+  const digits = (raw ?? '').replace(/\D/g, '');
+  return digits.length >= 9 ? digits.slice(-9) : null;
 }
 
 @Injectable()
@@ -191,7 +204,26 @@ export class AdmissionsService {
   }
 
   /** A single application enriched with guardians, requirements + history. */
-  async getApplication(tenantId: string, id: string) {
+  /**
+   * One application, plus the two things a client needs to honour the recusal
+   * rule (docs/self-approval-audit.md):
+   *
+   *   · `canDecide`      — false once the viewer has declared an interest, so
+   *                        the drawer withholds every decision action instead
+   *                        of offering a button the API will refuse.
+   *   · `looksConnected` — the soft hint: the viewer's own contact appears on
+   *                        this application, so prompt them to declare. Only a
+   *                        prompt; it gates nothing.
+   *
+   * Both are booleans computed on the server. The browser has no reliable
+   * identity of its own to compare against, and eligibility is a rule the
+   * server owns.
+   *
+   * `actorId` is optional so the public/portal reads that share this method
+   * keep working; with no actor there is nobody to be conflicted, and the
+   * flags come back neutral.
+   */
+  async getApplication(tenantId: string, id: string, actorId?: string) {
     const application = await this.client.admissionApplication.findFirst({
       where: { id, tenantId },
       include: {
@@ -201,10 +233,38 @@ export class AdmissionsService {
         },
         stageEvents: { orderBy: { createdAt: 'asc' } },
         reviews: { orderBy: { createdAt: 'desc' } },
+        interestDeclarations: { orderBy: { declaredAt: 'asc' } },
       },
     });
     if (!application) throw new NotFoundException('Application not found');
-    return application;
+
+    const mine = actorId
+      ? (application.interestDeclarations.find((d) => d.userId === actorId) ??
+        null)
+      : null;
+
+    return {
+      ...application,
+      // Who stepped away is shown, but not their private note — that was
+      // written to justify a recusal, not to be read by the room.
+      interestDeclarations: application.interestDeclarations.map((d) => ({
+        id: d.id,
+        userId: d.userId,
+        relationship: d.relationship,
+        declaredAt: d.declaredAt,
+        isMine: !!actorId && d.userId === actorId,
+      })),
+      myDeclaredInterest: mine
+        ? {
+            relationship: mine.relationship,
+            note: mine.note,
+            declaredAt: mine.declaredAt,
+          }
+        : null,
+      canDecide: !mine,
+      looksConnected:
+        !!actorId && !mine && (await this.looksConnected(actorId, application)),
+    };
   }
 
   /**
@@ -543,6 +603,7 @@ export class AdmissionsService {
     actorId: string,
   ) {
     const app = await this.assertApplication(tenantId, id);
+    await this.assertNoDeclaredInterest(tenantId, id, actorId);
     // Source-state validation: advance moves through the PRE-decision pipeline
     // only. Once a decision is taken (offer/accepted/rejected/enrolled) or the
     // file is withdrawn, advance may not regress it — that path is what let a
@@ -593,6 +654,7 @@ export class AdmissionsService {
     actorId: string,
   ) {
     await this.assertApplication(tenantId, id);
+    await this.assertNoDeclaredInterest(tenantId, id, actorId);
     const review = await this.client.admissionReview.create({
       data: {
         tenantId,
@@ -649,6 +711,7 @@ export class AdmissionsService {
     actorId: string,
   ) {
     const app = await this.assertApplication(tenantId, id);
+    await this.assertNoDeclaredInterest(tenantId, id, actorId);
     // Offer only from a pre-decision stage (or re-offer an open offer) — never
     // re-offer an already-accepted/closed file.
     if (!OFFERABLE_FROM_STAGES.has(app.stage)) {
@@ -696,6 +759,7 @@ export class AdmissionsService {
 
   async recordAcceptance(tenantId: string, id: string, actorId: string) {
     const app = await this.assertApplication(tenantId, id);
+    await this.assertNoDeclaredInterest(tenantId, id, actorId);
     if (app.stage !== 'offer') {
       throw new BadRequestException(
         'Only an offered application can be accepted.',
@@ -729,6 +793,7 @@ export class AdmissionsService {
     actorId: string,
   ) {
     const app = await this.assertApplication(tenantId, id);
+    await this.assertNoDeclaredInterest(tenantId, id, actorId);
     // Reject from any live stage (including rescinding an offer/acceptance),
     // never a closed file.
     if (['enrolled', 'rejected', 'withdrawn'].includes(app.stage)) {
@@ -780,6 +845,7 @@ export class AdmissionsService {
     dto: ConvertToStudentDto,
   ) {
     const app = await this.assertApplication(tenantId, id);
+    await this.assertNoDeclaredInterest(tenantId, id, actor.userId);
     if (app.resultingStudentId) {
       throw new ConflictException(
         'This application has already been converted to a student.',
@@ -962,6 +1028,147 @@ export class AdmissionsService {
   }
 
   // ======================= validation helpers =======================
+
+  // ================= declared interest (recusal) =================
+
+  /**
+   * Record that the actor is connected to this applicant, and step away.
+   *
+   * `upsert`, not `create`, so someone can correct what they said — but there
+   * is no delete, on purpose: a recusal you can revoke the moment it becomes
+   * inconvenient is not a recusal. Gated on `admissions.view` alone, because
+   * needing a bigger permission to step away from a decision would be exactly
+   * backwards.
+   */
+  async declareInterest(
+    tenantId: string,
+    id: string,
+    actorId: string,
+    dto: DeclareInterestDto,
+  ) {
+    await this.assertApplication(tenantId, id);
+    const declaration = await this.client.admissionInterestDeclaration.upsert({
+      where: {
+        tenantId_applicationId_userId: {
+          tenantId,
+          applicationId: id,
+          userId: actorId,
+        },
+      },
+      create: {
+        tenantId,
+        applicationId: id,
+        userId: actorId,
+        relationship: dto.relationship,
+        note: dto.note ?? null,
+      },
+      update: { relationship: dto.relationship, note: dto.note ?? null },
+    });
+    await this.writeAudit(
+      tenantId,
+      actorId,
+      'admissions.interest.declared',
+      id,
+      `Declared an interest (${dto.relationship}) and stepped away from deciding this application`,
+      { relationship: dto.relationship },
+    );
+    return declaration;
+  }
+
+  /**
+   * The soft hint that PROMPTS a declaration — it never blocks anything.
+   *
+   * Compares the viewer's own email/phone against the contacts on this
+   * application. Deliberately the viewer's own contact and nothing else: a
+   * staff-wide cross-reference would mean reading every colleague's details to
+   * render one page, which is both slower and a great deal more exposure than
+   * a nudge is worth.
+   *
+   * A false positive costs a dismissible prompt, which is why matching can
+   * afford to be loose — phone numbers compare on their last 9 digits, so
+   * `+234 803…` and `0803…` read as the same number.
+   */
+  private async looksConnected(
+    actorId: string,
+    application: {
+      guardianEmail: string | null;
+      guardianPhone: string | null;
+      guardians: {
+        email: string | null;
+        phoneNumber: string;
+        whatsappNumber: string | null;
+      }[];
+    },
+  ): Promise<boolean> {
+    const me = await this.client.user.findUnique({
+      where: { id: actorId },
+      select: { email: true, phone: true },
+    });
+    if (!me) return false;
+
+    const myEmail = me.email?.trim().toLowerCase();
+    if (myEmail) {
+      const theirs = new Set(
+        [
+          application.guardianEmail,
+          ...application.guardians.map((g) => g.email),
+        ]
+          .filter((e): e is string => !!e)
+          .map((e) => e.trim().toLowerCase()),
+      );
+      if (theirs.has(myEmail)) return true;
+    }
+
+    const myPhone = phoneKey(me.phone);
+    if (myPhone) {
+      const theirs = new Set(
+        [
+          application.guardianPhone,
+          ...application.guardians.flatMap((g) => [
+            g.phoneNumber,
+            g.whatsappNumber,
+          ]),
+        ]
+          .map(phoneKey)
+          .filter((k): k is string => !!k),
+      );
+      if (theirs.has(myPhone)) return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Recusal. Admissions is the one approval flow with no id to compare — the
+   * applicant is an external prospect, not a user — so the conflict that
+   * matters (deciding on your own child's application) cannot be detected, only
+   * declared. Once someone declares an interest, every path that shapes the
+   * OUTCOME is closed to them: advance, offer, accept, reject, convert, and
+   * filing a review, because a review is an opinion that steers the decision.
+   *
+   * Viewing stays open on purpose — a declarer should be able to see what
+   * happened to something they stepped away from.
+   *
+   * Editing the application and issuing a portal link are deliberately NOT
+   * gated here; they are clerical, and blocking them would strand routine work.
+   * If that changes, this is the guard to add.
+   */
+  private async assertNoDeclaredInterest(
+    tenantId: string,
+    applicationId: string,
+    actorId: string | undefined,
+  ) {
+    if (!actorId) return;
+    const declared = await this.client.admissionInterestDeclaration.findFirst({
+      where: { tenantId, applicationId, userId: actorId },
+      select: { id: true, relationship: true },
+    });
+    if (declared) {
+      throw new ForbiddenException(
+        'You declared an interest in this application, so someone else has to decide it.',
+      );
+    }
+  }
 
   private async assertApplication(tenantId: string, id: string) {
     const app = await this.client.admissionApplication.findFirst({

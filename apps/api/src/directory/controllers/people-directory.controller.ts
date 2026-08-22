@@ -208,7 +208,28 @@ export class PeopleDirectoryController {
     @Request() req: AuthenticatedRequest,
   ) {
     const { tenantId } = this.ctx(req);
-    const type = (PEOPLE_TYPES as readonly string[]).includes(rawType ?? '')
+    const perms = this.sectionPerms(req);
+    const canViewContact = this.canViewContact(req);
+
+    // `type` states which table to read, and the caller may not know it: the
+    // profile page's chrome is a layout, and a layout cannot read the query
+    // string. OMITTING it asks the server to resolve the id itself; sending
+    // it keeps the original, cheaper single lookup (the drawer always knows).
+    if (rawType == null || rawType === '') {
+      const detail = await this.directory.detailById(
+        tenantId,
+        id,
+        perms,
+        canViewContact,
+      );
+      if (!detail) throw new NotFoundException('Person not found');
+      // Authorised against what was FOUND, not what was asked for — the
+      // resolution must not become a way around the per-type gate.
+      this.assertCanViewType(req, detail.type);
+      return detail;
+    }
+
+    const type = (PEOPLE_TYPES as readonly string[]).includes(rawType)
       ? (rawType as PeopleType)
       : 'all';
     this.assertCanViewType(req, type);
@@ -216,8 +237,8 @@ export class PeopleDirectoryController {
       tenantId,
       id,
       type,
-      this.sectionPerms(req),
-      this.canViewContact(req),
+      perms,
+      canViewContact,
     );
     if (!detail) throw new NotFoundException('Person not found');
     return detail;

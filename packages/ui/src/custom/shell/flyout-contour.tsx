@@ -20,6 +20,7 @@
 
 import * as React from 'react';
 
+import { CURVE_EASE_ACROSS, CURVE_EASE_ALONG } from '@workspace/ui/lib/curve';
 import { cn } from '@workspace/ui/lib/utils';
 
 /** Vertical extent of each concave fillet where the shape meets the rail. */
@@ -30,13 +31,12 @@ export const CURVE_REACH = 40;
 export const CORNER_RADIUS = 16;
 
 /**
- * Control-point ratios that give the fillet its long, shallow sweep — the
- * curve's character, independent of how big it is drawn. Exported so other
- * surfaces that must speak this same curve (the drawer's folder tabs) scale
- * it rather than re-guessing it.
+ * The fillet's easing ratios. They live in `lib/curve` because folder tabs
+ * speak this same curve from a SERVER component, which cannot read a value
+ * exported by a `'use client'` module like this one. Re-exported here so the
+ * client surfaces that already reach for them keep working.
  */
-export const CURVE_EASE_ALONG = 0.4;
-export const CURVE_EASE_ACROSS = 0.62;
+export { CURVE_EASE_ALONG, CURVE_EASE_ACROSS } from '@workspace/ui/lib/curve';
 
 /** Smallest height that still fits both fillets and both corners. */
 export const CONTOUR_MIN_HEIGHT = CURVE_SIZE * 2 + CORNER_RADIUS * 2;

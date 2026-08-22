@@ -100,7 +100,12 @@ export function StatCard({ item, className }: StatCardProps) {
 
   const body = (
     <>
-      <div className="flex items-center justify-between gap-2">
+      {/* `min-h-4` reserves the icon line, for the same reason the footnote
+          below is always laid out: only some tiles carry an icon, so without it
+          a label row is 16px on a tile that has one and 11px on a tile that
+          does not — tiles at two different heights from one page to the next,
+          and a loading placeholder that can only match one of them. */}
+      <div className="flex min-h-4 items-center justify-between gap-2">
         <span className="text-[calc(10px*var(--font-scale))] font-semibold uppercase leading-tight tracking-wide text-muted-foreground sm:text-[calc(11.5px*var(--font-scale))]">
           {item.label}
         </span>
@@ -121,6 +126,13 @@ export function StatCard({ item, className }: StatCardProps) {
       <div className="mt-2 font-stat text-[calc(22px*var(--font-scale))] font-bold leading-none text-foreground tabular-nums sm:text-[calc(26px*var(--font-scale))]">
         {item.value}
       </div>
+      {/* The footnote line is ALWAYS laid out, even with nothing to say.
+
+          Only some tiles carry a delta or a hint, so rendering the line
+          conditionally left a row of tiles at two different heights — and the
+          loading placeholder, which never drew it, shorter than either. A
+          reserved empty line costs one line of whitespace and buys a row that
+          does not reflow when the data lands. */}
       {item.delta || item.hint ? (
         <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[calc(11px*var(--font-scale))] sm:text-[calc(12px*var(--font-scale))]">
           {item.delta ? (
@@ -138,7 +150,14 @@ export function StatCard({ item, className }: StatCardProps) {
             <span className="text-muted-foreground">{item.hint}</span>
           ) : null}
         </div>
-      ) : null}
+      ) : (
+        <div
+          aria-hidden
+          className="mt-2 text-[calc(11px*var(--font-scale))] sm:text-[calc(12px*var(--font-scale))]"
+        >
+          &nbsp;
+        </div>
+      )}
     </>
   );
 

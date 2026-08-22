@@ -89,6 +89,7 @@ model AdmissionApplication {
   guardians     AdmissionGuardian[]
   requirements  AdmissionApplicationRequirement[]
   interviews    AdmissionInterview[] // WB3-4 scheduled interviews / exams / quizzes
+  interestDeclarations AdmissionInterestDeclaration[]
 
   @@index([tenantId])
   @@index([tenantId, stage])
@@ -239,6 +240,42 @@ model AdmissionReview {
   @@index([applicationId])
   @@index([tenantId, applicationId])
   @@map("admission_reviews")
+  @@schema("admissions")
+}
+
+/// WB3: a declared conflict of interest on one application.
+///
+/// The other self-approval guards compare ids — the requester cannot be the
+/// approver. Admissions has no id to compare: the applicant is an external
+/// prospect, not a user. The real conflict is a staff member deciding on an
+/// application for their own child or relative, and no data can reliably detect
+/// that (a different surname and a personal email defeat any match). So the
+/// person declares it, and the declaration is what gates.
+///
+/// A declaration is DELIBERATELY not revocable by its declarer: being able to
+/// undeclare would make the gate advisory. Correcting a mistaken one is an
+/// admin action, recorded like any other.
+model AdmissionInterestDeclaration {
+  id            String @id @default(uuid())
+  tenantId      String @map("tenant_id")
+  applicationId String @map("application_id")
+
+  /// The staff USER who declared it — the same id the decision guards compare.
+  userId String @map("user_id")
+  /// How they are connected, in their own words ('parent', 'aunt', 'neighbour').
+  relationship String
+  note         String?
+
+  declaredAt DateTime @default(now()) @map("declared_at")
+
+  application AdmissionApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+
+  /// One declaration per person per application; declaring twice is a no-op,
+  /// not an error.
+  @@unique([tenantId, applicationId, userId])
+  @@index([tenantId])
+  @@index([tenantId, applicationId])
+  @@map("admission_interest_declarations")
   @@schema("admissions")
 }
 

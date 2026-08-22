@@ -10,9 +10,8 @@
 import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
 import { toListQuery } from '@/lib/list-query';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import { ApprovalsClient, type ApprovalRow } from './approvals-client';
-
-const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiAdjustment {
   id: string;
