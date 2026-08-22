@@ -741,6 +741,43 @@ assessment offering. They keep their source-derived shapes.
 
 ---
 
+## Pass 16 — tables that hold their height
+
+Paging a directory moved everything below it: a last page with three rows was
+three rows tall, so going back to a full page shifted the pager, the footer and
+the scroll position.
+
+**Page size was already 10** — `DEFAULT_PAGE_SIZE` and
+`DEFAULT_DIRECTORY_STATE.pageSize` both were, and no table overrode it. Nothing
+to change there; the jump came entirely from short pages.
+
+`DirectoryTable` now pads a short page out to the page size with blank rows.
+They are `aria-hidden`, carry no id, no selection and no click target, so they
+are presentational only and never reach the row count a screen reader
+announces. An EMPTY result set is left alone: it swaps the whole table for the
+empty state, and padding would bury the message under ten blank rows.
+
+**Padding has to match a real row's height**, which is the part a naive
+implementation gets wrong: a blank row is one line tall, while a real one may
+carry an avatar or two lines of text, so short padding still leaves a short
+page short. Rows in a table are uniform, so the first is measured in a LAYOUT
+effect — before paint, so the padding is never briefly the wrong size — and
+that height is applied to the fillers. In jsdom (and before layout) the
+measurement reads 0, so the CSS line box stays in charge rather than pinning
+rows to nothing.
+
+**All 38 table skeletons moved to `rows={10}`** to match, or the handover from
+placeholder to content would introduce the very jump this removes.
+
+Three tests cover it: a short page pads to the page size with the right number
+of `aria-hidden` rows, a full page is not padded, and an empty result set shows
+the empty state with no padding.
+
+**Not verified by eye:** both browser sessions expired to `/login` again, so
+this is covered by tests and the gates, not by looking at it.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does

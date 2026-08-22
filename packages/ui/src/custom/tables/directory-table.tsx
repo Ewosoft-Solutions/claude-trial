@@ -351,6 +351,35 @@ export function DirectoryTable<TRow>({
 
   // ---- Pagination arithmetic -------------------------------------------
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  /**
+   * Blank rows to pad a short page out to the page size.
+   *
+   * Only when there is something to pad — an empty result set shows the "No
+   * results" row instead, which should not be buried under ten blank ones.
+   */
+  const fillerRows = rows.length > 0 ? Math.max(0, pageSize - rows.length) : 0;
+
+  /**
+   * A real row's height, so the padding matches it.
+   *
+   * A blank row is one line tall; a real one may carry an avatar or two lines
+   * of text. Padding with short rows would leave a short page shorter than a
+   * full one — less of a jump, but still a jump. Rows in a given table are
+   * uniform, so measuring the first is enough, and measuring in a LAYOUT
+   * effect means the padding is never briefly the wrong size.
+   */
+  const bodyRef = React.useRef<HTMLTableSectionElement | null>(null);
+  const [rowHeight, setRowHeight] = React.useState<number | null>(null);
+  React.useLayoutEffect(() => {
+    if (fillerRows === 0) return;
+    const first = bodyRef.current?.querySelector<HTMLTableRowElement>(
+      'tr:not([data-filler])',
+    );
+    const h = first?.getBoundingClientRect().height ?? 0;
+    // jsdom, and a table not yet laid out, both report 0 — leave the CSS line
+    // box in charge rather than pinning rows to zero.
+    if (h > 0) setRowHeight(h);
+  }, [fillerRows, rows]);
   const currentPage = Math.min(Math.max(1, page), totalPages);
   const firstRow = total === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const lastRow = Math.min(total, currentPage * pageSize);
@@ -674,7 +703,7 @@ export function DirectoryTable<TRow>({
             })}
           </TableRow>
         </TableHeader>
-        <TableBody>
+        <TableBody ref={bodyRef}>
           {rows.map((row) => {
             const id = getRowId(row);
             const isSelected = selected.has(id);
@@ -747,6 +776,34 @@ export function DirectoryTable<TRow>({
               </TableRow>
             );
           })}
+          {/* Hold the table's height steady across pages.
+
+              A last page with three rows is three rows tall, so paging back to
+              a full one makes the toolbar, the pager and everything below jump.
+              Padding the short page out to the page size keeps the frame still,
+              which matters most exactly where it is most annoying: clicking
+              through pages.
+
+              Presentational only — `aria-hidden` keeps them out of the row
+              count a screen reader announces, and they carry no id, no
+              selection and no click target. */}
+          {fillerRows > 0
+            ? Array.from({ length: fillerRows }).map((_, i) => (
+                <TableRow
+                  key={`filler-${i}`}
+                  data-filler
+                  aria-hidden
+                  className="pointer-events-none"
+                  style={rowHeight ? { height: rowHeight } : undefined}
+                >
+                  <TableCell colSpan={colSpan}>
+                    {/* A non-breaking space so the cell has a line box even
+                        before the measured height lands. */}
+                    <span className="invisible">&nbsp;</span>
+                  </TableCell>
+                </TableRow>
+              ))
+            : null}
           {rows.length === 0 ? (
             <TableRow>
               <TableCell

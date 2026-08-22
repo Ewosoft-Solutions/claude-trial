@@ -51,6 +51,37 @@ function renderTable(
 }
 
 describe('DirectoryTable', () => {
+  /* ---- height stability across pages ------------------------------------
+     A last page with three rows used to be three rows tall, so paging back to
+     a full one moved the pager and everything below it. */
+
+  it('pads a short page out to the page size so the table does not jump', () => {
+    renderTable({ pageSize: 10, total: 12, page: 2 }); // 2 real rows of 10
+    const body = document.querySelector('tbody');
+    expect(body?.querySelectorAll('tr')).toHaveLength(10);
+    // the padding is presentational only
+    const filler = body?.querySelectorAll('tr[aria-hidden="true"]');
+    expect(filler).toHaveLength(8);
+  });
+
+  it('does not pad a full page', () => {
+    renderTable({ pageSize: 2, total: 2, page: 1 });
+    expect(
+      document.querySelectorAll('tbody tr[aria-hidden="true"]'),
+    ).toHaveLength(0);
+    expect(document.querySelectorAll('tbody tr')).toHaveLength(2);
+  });
+
+  it('shows the empty state rather than a page of blank rows', () => {
+    renderTable({ rows: [], total: 0, page: 1, pageSize: 10 });
+    // An empty result set swaps the whole table for the empty state, so there
+    // is nothing to pad — and padding it would bury the message.
+    expect(screen.getByText('Nothing to show')).toBeInTheDocument();
+    expect(
+      document.querySelectorAll('tbody tr[aria-hidden="true"]'),
+    ).toHaveLength(0);
+  });
+
   it('renders rows and cell content', () => {
     renderTable();
     expect(screen.getByText('Ada Okafor')).toBeInTheDocument();

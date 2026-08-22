@@ -72,78 +72,80 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
     <DetailPageSkeleton sections={2} withStats={false} actions={1} />
   ),
   '/attendance/daily': () => (
-    <TablePageSkeleton rows={8} columns={3} actions={2} />
+    <TablePageSkeleton rows={10} columns={3} actions={2} />
   ),
   '/attendance/students': () => (
-    <TablePageSkeleton rows={8} columns={5} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
   '/classes/assessments': () => <ListDetailPageSkeleton actions={1} />,
-  '/classes/assessments/take': () => <TablePageSkeleton columns={5} rows={8} />,
-  '/classes/gradebook': () => (
-    <TablePageSkeleton rows={8} columns={6} actions={1} />
+  '/classes/assessments/take': () => (
+    <TablePageSkeleton columns={5} rows={10} />
   ),
-  '/classes/materials': () => <TablePageSkeleton rows={8} columns={6} />,
+  '/classes/gradebook': () => (
+    <TablePageSkeleton rows={10} columns={6} actions={1} />
+  ),
+  '/classes/materials': () => <TablePageSkeleton rows={10} columns={6} />,
   '/classes/question-bank': () => <ListDetailPageSkeleton actions={1} />,
   '/classes/review': () => <ListDetailPageSkeleton actions={2} />,
   '/classes/subjects': () => (
-    <TablePageSkeleton rows={8} columns={5} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
-  '/classes/teachers': () => <TablePageSkeleton columns={5} rows={8} />,
+  '/classes/teachers': () => <TablePageSkeleton columns={5} rows={10} />,
   '/classes/timetable': () => (
     <DetailPageSkeleton sections={2} withStats={false} actions={1} />
   ),
   '/events/upcoming': () => (
-    <TablePageSkeleton rows={8} columns={6} stats={4} actions={1} />
+    <TablePageSkeleton rows={10} columns={6} stats={4} actions={1} />
   ),
   '/finance/approvals': () => (
-    <TablePageSkeleton rows={6} columns={8} stats={0} />
+    <TablePageSkeleton rows={10} columns={8} stats={0} />
   ),
   '/finance/discount-policies': () => (
-    <TablePageSkeleton rows={5} columns={5} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
   '/finance/fee-items': () => (
-    <TablePageSkeleton rows={8} columns={5} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
   '/finance/households': () => (
-    <TablePageSkeleton rows={6} columns={5} actions={2} />
+    <TablePageSkeleton rows={10} columns={5} actions={2} />
   ),
   '/finance/invoices': () => (
-    <TablePageSkeleton rows={8} columns={8} stats={5} actions={2} />
+    <TablePageSkeleton rows={10} columns={8} stats={5} actions={2} />
   ),
   '/finance/ledger': () => (
-    <TablePageSkeleton columns={9} stats={4} actions={2} />
+    <TablePageSkeleton rows={10} columns={9} stats={4} actions={2} />
   ),
   '/finance/payments': () => (
-    <TablePageSkeleton rows={8} columns={6} stats={3} actions={1} />
+    <TablePageSkeleton rows={10} columns={6} stats={3} actions={1} />
   ),
   '/finance/reports': () => <ReportPageSkeleton stats={5} charts={2} />,
   '/health/records': () => (
-    <TablePageSkeleton rows={8} columns={5} stats={4} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} stats={4} actions={1} />
   ),
-  '/hr/directory': () => <TablePageSkeleton columns={5} rows={8} />,
-  '/hr/leave': () => <TablePageSkeleton columns={5} rows={8} />,
+  '/hr/directory': () => <TablePageSkeleton columns={5} rows={10} />,
+  '/hr/leave': () => <TablePageSkeleton columns={5} rows={10} />,
   '/hr/payroll': () => (
-    <TablePageSkeleton rows={8} columns={5} stats={4} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} stats={4} actions={1} />
   ),
   '/library/books': () => (
-    <TablePageSkeleton rows={8} columns={5} stats={4} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} stats={4} actions={1} />
   ),
-  '/library/loans': () => <TablePageSkeleton rows={8} columns={6} />,
+  '/library/loans': () => <TablePageSkeleton rows={10} columns={6} />,
   '/people': () => (
-    <TablePageSkeleton rows={8} columns={4} stats={6} actions={1} />
+    <TablePageSkeleton rows={10} columns={4} stats={6} actions={1} />
   ),
   '/platform/analytics': () => <ReportPageSkeleton stats={4} charts={2} />,
   '/platform/analytics/assistant': () => (
     <DetailPageSkeleton withStats={false} sections={2} />
   ),
-  '/platform/audit/log': () => <TablePageSkeleton columns={5} rows={8} />,
+  '/platform/audit/log': () => <TablePageSkeleton columns={5} rows={10} />,
   '/platform/settings/policies': () => (
-    <TablePageSkeleton rows={6} columns={6} />
+    <TablePageSkeleton rows={10} columns={6} />
   ),
   '/platform/settings/security': () => <FormPageSkeleton fields={5} />,
-  '/platform/tenants/all': () => <TablePageSkeleton rows={8} columns={4} />,
+  '/platform/tenants/all': () => <TablePageSkeleton rows={10} columns={4} />,
   '/platform/tenants/approvals': () => (
-    <TablePageSkeleton columns={5} rows={8} />
+    <TablePageSkeleton columns={5} rows={10} />
   ),
   '/platform/tenants/onboarding': () => <FormPageSkeleton fields={6} />,
   '/reports/academic': () => (
@@ -153,30 +155,30 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
     <ReportPageSkeleton stats={4} charts={2} actions={1} />
   ),
   '/settings/ai-usage': () => <DetailPageSkeleton sections={3} withStats />,
-  '/settings/audit': () => <TablePageSkeleton rows={8} columns={6} />,
+  '/settings/audit': () => <TablePageSkeleton rows={10} columns={6} />,
   '/settings/branding': () => <FormPageSkeleton fields={5} />,
   '/settings/features': () => <FormPageSkeleton fields={6} />,
   '/settings/general': () => <FormPageSkeleton fields={6} />,
-  '/settings/roles': () => <TablePageSkeleton rows={6} columns={3} />,
+  '/settings/roles': () => <TablePageSkeleton rows={10} columns={3} />,
   '/settings/security': () => <FormPageSkeleton fields={5} />,
-  '/settings/users': () => <TablePageSkeleton rows={8} columns={4} />,
+  '/settings/users': () => <TablePageSkeleton rows={10} columns={4} />,
   '/students/admissions': () => (
-    <TablePageSkeleton rows={6} columns={5} stats={4} actions={2} />
+    <TablePageSkeleton rows={10} columns={5} stats={4} actions={2} />
   ),
   '/students/directory': () => (
-    <TablePageSkeleton rows={8} columns={7} actions={1} />
+    <TablePageSkeleton rows={10} columns={7} actions={1} />
   ),
   '/students/fees': () => (
-    <TablePageSkeleton rows={8} columns={6} stats={4} actions={1} />
+    <TablePageSkeleton rows={10} columns={6} stats={4} actions={1} />
   ),
   '/students/gradebook/standing': () => (
-    <TablePageSkeleton rows={8} columns={6} actions={1} />
+    <TablePageSkeleton rows={10} columns={6} actions={1} />
   ),
-  '/transport/pickups': () => <TablePageSkeleton rows={8} columns={6} />,
+  '/transport/pickups': () => <TablePageSkeleton rows={10} columns={6} />,
   '/transport/riders': () => (
-    <TablePageSkeleton rows={8} columns={5} actions={1} />
+    <TablePageSkeleton rows={10} columns={5} actions={1} />
   ),
-  '/transport/routes': () => <TablePageSkeleton rows={8} columns={6} />,
+  '/transport/routes': () => <TablePageSkeleton rows={10} columns={6} />,
 };
 
 /** Nav destinations that only redirect, mapped to where they land. */
