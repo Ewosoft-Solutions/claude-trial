@@ -1082,7 +1082,13 @@ export class PeopleDirectoryService {
     perms: PersonDetailPerms,
     canViewContact: boolean,
   ): Promise<PersonDetail | null> {
-    const person = await this.detail(tenantId, id, 'all', perms, canViewContact);
+    const person = await this.detail(
+      tenantId,
+      id,
+      'all',
+      perms,
+      canViewContact,
+    );
     if (person) return person;
     return this.detail(tenantId, id, 'prospect', perms, canViewContact);
   }

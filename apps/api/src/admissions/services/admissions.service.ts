@@ -1109,7 +1109,10 @@ export class AdmissionsService {
     const myEmail = me.email?.trim().toLowerCase();
     if (myEmail) {
       const theirs = new Set(
-        [application.guardianEmail, ...application.guardians.map((g) => g.email)]
+        [
+          application.guardianEmail,
+          ...application.guardians.map((g) => g.email),
+        ]
           .filter((e): e is string => !!e)
           .map((e) => e.trim().toLowerCase()),
       );
@@ -1156,11 +1159,10 @@ export class AdmissionsService {
     actorId: string | undefined,
   ) {
     if (!actorId) return;
-    const declared =
-      await this.client.admissionInterestDeclaration.findFirst({
-        where: { tenantId, applicationId, userId: actorId },
-        select: { id: true, relationship: true },
-      });
+    const declared = await this.client.admissionInterestDeclaration.findFirst({
+      where: { tenantId, applicationId, userId: actorId },
+      select: { id: true, relationship: true },
+    });
     if (declared) {
       throw new ForbiddenException(
         'You declared an interest in this application, so someone else has to decide it.',

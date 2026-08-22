@@ -158,26 +158,41 @@ describe('PeopleDirectoryController', () => {
     const controller = makeController(['people.view']);
     const detail = await controller.detail('p1', undefined, req);
 
-    expect(detailByIdFn).toHaveBeenCalledWith('t1', 'p1', expect.anything(), false);
+    expect(detailByIdFn).toHaveBeenCalledWith(
+      't1',
+      'p1',
+      expect.anything(),
+      false,
+    );
     expect(detailFn).not.toHaveBeenCalled();
     expect(detail).toMatchObject({ id: 'p1' });
   });
 
   it('authorises a resolved prospect against the PROSPECT permission', async () => {
-    detailByIdFn.mockResolvedValue({ id: 'a1', type: 'prospect', name: 'Bola' });
+    detailByIdFn.mockResolvedValue({
+      id: 'a1',
+      type: 'prospect',
+      name: 'Bola',
+    });
     // `people.view` alone opened the endpoint; it must not open a prospect.
     const controller = makeController(['people.view']);
 
-    await expect(controller.detail('a1', undefined, req)).rejects.toBeInstanceOf(
-      ForbiddenException,
-    );
+    await expect(
+      controller.detail('a1', undefined, req),
+    ).rejects.toBeInstanceOf(ForbiddenException);
   });
 
   it('lets a prospect through once the caller holds that permission', async () => {
-    detailByIdFn.mockResolvedValue({ id: 'a1', type: 'prospect', name: 'Bola' });
+    detailByIdFn.mockResolvedValue({
+      id: 'a1',
+      type: 'prospect',
+      name: 'Bola',
+    });
     const controller = makeController(['people.view', 'admissions.view']);
 
-    await expect(controller.detail('a1', undefined, req)).resolves.toMatchObject({
+    await expect(
+      controller.detail('a1', undefined, req),
+    ).resolves.toMatchObject({
       id: 'a1',
       type: 'prospect',
     });
@@ -187,7 +202,13 @@ describe('PeopleDirectoryController', () => {
     const controller = makeController(['people.view']);
     await controller.detail('p1', 'all', req);
 
-    expect(detailFn).toHaveBeenCalledWith('t1', 'p1', 'all', expect.anything(), false);
+    expect(detailFn).toHaveBeenCalledWith(
+      't1',
+      'p1',
+      'all',
+      expect.anything(),
+      false,
+    );
     expect(detailByIdFn).not.toHaveBeenCalled();
   });
 
@@ -195,8 +216,8 @@ describe('PeopleDirectoryController', () => {
     detailByIdFn.mockResolvedValue(null);
     const controller = makeController(['people.view']);
 
-    await expect(controller.detail('nope', undefined, req)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      controller.detail('nope', undefined, req),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

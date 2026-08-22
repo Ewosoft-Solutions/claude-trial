@@ -87,7 +87,13 @@ function makeService(options: {
 }
 
 const DECLARED = [
-  { id: 'decl-1', userId: DECLARER, relationship: 'parent', note: 'My son', declaredAt: new Date('2026-08-21') },
+  {
+    id: 'decl-1',
+    userId: DECLARER,
+    relationship: 'parent',
+    note: 'My son',
+    declaredAt: new Date('2026-08-21'),
+  },
 ];
 
 describe('AdmissionsService — declared interest', () => {
@@ -99,16 +105,27 @@ describe('AdmissionsService — declared interest', () => {
       [
         'advanceStage',
         (s: AdmissionsService) =>
-          s.advanceStage(TENANT, APP, { toStage: 'interview' } as never, DECLARER),
+          s.advanceStage(
+            TENANT,
+            APP,
+            { toStage: 'interview' } as never,
+            DECLARER,
+          ),
       ],
       [
         'addReview',
         (s: AdmissionsService) =>
-          s.addReview(TENANT, APP, { recommendation: 'admit' } as never, DECLARER),
+          s.addReview(
+            TENANT,
+            APP,
+            { recommendation: 'admit' } as never,
+            DECLARER,
+          ),
       ],
       [
         'makeOffer',
-        (s: AdmissionsService) => s.makeOffer(TENANT, APP, {} as never, DECLARER),
+        (s: AdmissionsService) =>
+          s.makeOffer(TENANT, APP, {} as never, DECLARER),
       ],
       [
         'recordAcceptance',
@@ -128,10 +145,13 @@ describe('AdmissionsService — declared interest', () => {
             {} as never,
           ),
       ],
-    ])('refuses %s to someone who declared an interest', async (_name, call) => {
-      const { service } = makeService({ declarations: DECLARED });
-      await expect(call(service)).rejects.toThrow(ForbiddenException);
-    });
+    ])(
+      'refuses %s to someone who declared an interest',
+      async (_name, call) => {
+        const { service } = makeService({ declarations: DECLARED });
+        await expect(call(service)).rejects.toThrow(ForbiddenException);
+      },
+    );
 
     it('leaves those same paths open to a colleague', async () => {
       // The declaration is personal, not a lock on the application — one

@@ -95,7 +95,9 @@ export function DeclareInterestPanel({
         },
       );
       if (!res.ok) {
-        toast.error(await errorMessage(res, 'Could not record the declaration'));
+        toast.error(
+          await errorMessage(res, 'Could not record the declaration'),
+        );
         return;
       }
       toast.success('Interest declared — someone else will decide this one');
