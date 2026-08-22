@@ -710,6 +710,35 @@ their rendered evidence, so the gate does not fight them.
 compiles each on first request. The same sweep on a production build did 46 in
 seconds.
 
+### Completing the sweep — the remaining routes and the dynamic ones
+
+The first sweep stalled on heavy pages because a single slow route blocked its
+worker. Adding a 15s `AbortController` per route fixed that: **38 routes
+completed, zero errors.** Dynamic routes were resolved to real records by
+querying the API for a person, invoice, household, event and application id.
+
+Of those 38, **11 had measurable structure** (the rest are forms and settings
+panes with no stat grid, header actions or table). **7 matched; 4 did not:**
+
+| Route | Was | Rendered |
+| --- | --- | --- |
+| `/students/admissions` | no stats | **4 stats** |
+| `/students/fees` | 3 stats | **4 stats** |
+| `/students/directory` | 6 columns | **7** |
+| `/finance/households/[id]` | 2 actions | **1** |
+
+Same pattern as before: stat tiles computed at runtime, and `DirectoryTable`
+adding header cells the column definitions do not mention.
+
+**Coverage now:** 41 routes verified against their rendered page, all with a
+skeleton matching what the page draws. Two dynamic routes remain unverified —
+`/platform/tenants/[id]` and `/classes/assessments/take/[id]` — because the
+signed-in persona is school-scoped and cannot reach a platform tenant or an
+assessment offering. They keep their source-derived shapes.
+
+**Running total across passes 15: 45 skeletons corrected** (37 from source,
+4 + 4 from rendering).
+
 ---
 
 ## Not yet assessed — the next pass

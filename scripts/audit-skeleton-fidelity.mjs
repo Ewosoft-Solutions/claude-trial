@@ -50,6 +50,14 @@ const ACCEPTED = {
     'Rendered header shows 2 controls; source analysis sees 1. Verified rendered.',
   '/classes/review':
     'Rendered header shows 2 controls; source sees only the <Select>. Verified rendered.',
+  '/students/admissions':
+    'Stat tiles are computed per pipeline stage, not a literal array. Verified rendered: 4 tiles.',
+  '/students/directory':
+    'DirectoryTable adds its own header cells beyond the column definitions. Verified rendered: 7.',
+  '/students/fees':
+    'Stat tiles are computed. Verified rendered: 4.',
+  '/finance/households/[id]':
+    'Rendered header shows 1 control; source counts 2. Verified rendered.',
 };
 
 function balanced(s, start, open, close) {

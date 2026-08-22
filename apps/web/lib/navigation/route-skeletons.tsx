@@ -161,13 +161,13 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   '/settings/security': () => <FormPageSkeleton fields={5} />,
   '/settings/users': () => <TablePageSkeleton rows={8} columns={4} />,
   '/students/admissions': () => (
-    <TablePageSkeleton rows={6} columns={5} actions={2} />
+    <TablePageSkeleton rows={6} columns={5} stats={4} actions={2} />
   ),
   '/students/directory': () => (
-    <TablePageSkeleton rows={8} columns={6} actions={1} />
+    <TablePageSkeleton rows={8} columns={7} actions={1} />
   ),
   '/students/fees': () => (
-    <TablePageSkeleton rows={8} columns={6} stats={3} actions={1} />
+    <TablePageSkeleton rows={8} columns={6} stats={4} actions={1} />
   ),
   '/students/gradebook/standing': () => (
     <TablePageSkeleton rows={8} columns={6} actions={1} />
