@@ -682,9 +682,33 @@ entries**, naming both sides of each.
 mismatch. Verified it bites by setting `/settings/users` to nine columns and
 watching it report `skeleton 9, page 4` and exit 1.
 
-**Not yet verified visually.** The browser session expired to `/login` mid-pass
-and passwords are not something I enter, so these corrections are verified
-against source and by the gates, not by eye.
+### Verified against the rendered pages
+
+Swept 30 routes on a production build with a live session, reading each page's
+actual DOM — `[data-slot="stat-grid"]` children, `[data-slot="page-header-actions"]`
+children, `thead th` count — and comparing to the skeleton.
+
+**26 of 30 matched. Four did not, and rendered was right in every case:**
+
+| Route | Source said | Rendered | Why source was wrong |
+| --- | --- | --- | --- |
+| `/people` | no stats, 6 columns | **6 stats, 4 columns** | tiles are computed from `PEOPLE_TYPES` filtered by permission, not a literal array |
+| `/finance/ledger` | 5 columns, 1 action | **9 columns, 2 actions** | its column defs carry no `id:` keys, and `DirectoryTable` adds its own header cells |
+| `/finance/households` | 1 action | **2 actions** | — |
+| `/classes/review` | 1 action | **2 actions** | source sees only the `<Select>` |
+
+`/people` was the notable one: a flagship page showing **six** summary tiles was
+painting none.
+
+The lesson is that source is a good first pass but not the authority — a
+rendered page includes chrome the source never mentions (`DirectoryTable`'s
+select column) and counts that only exist at runtime (permission-filtered
+tiles). Those four are now recorded in the fidelity audit's `ACCEPTED` map with
+their rendered evidence, so the gate does not fight them.
+
+**Dev is unusable for a sweep like this:** 9 routes in six minutes, because it
+compiles each on first request. The same sweep on a production build did 46 in
+seconds.
 
 ---
 

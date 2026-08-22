@@ -41,7 +41,16 @@ const ACCEPTS = {
 /**
  * Routes whose counts cannot be read from source, and why.
  */
-const ACCEPTED = {};
+const ACCEPTED = {
+  '/people':
+    'Stat tiles are computed from PEOPLE_TYPES filtered by permission, not a literal array, and the table count excludes DirectoryTable chrome. Verified against the rendered production page: 6 tiles, 4 header cells.',
+  '/finance/ledger':
+    'Its column definitions do not use `id:` keys, and DirectoryTable adds its own header cells. Verified rendered: 9 header cells, 2 header controls.',
+  '/finance/households':
+    'Rendered header shows 2 controls; source analysis sees 1. Verified rendered.',
+  '/classes/review':
+    'Rendered header shows 2 controls; source sees only the <Select>. Verified rendered.',
+};
 
 function balanced(s, start, open, close) {
   let depth = 0;

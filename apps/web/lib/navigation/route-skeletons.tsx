@@ -84,7 +84,7 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
   ),
   '/classes/materials': () => <TablePageSkeleton rows={8} columns={6} />,
   '/classes/question-bank': () => <ListDetailPageSkeleton actions={1} />,
-  '/classes/review': () => <ListDetailPageSkeleton actions={1} />,
+  '/classes/review': () => <ListDetailPageSkeleton actions={2} />,
   '/classes/subjects': () => (
     <TablePageSkeleton rows={8} columns={5} actions={1} />
   ),
@@ -105,13 +105,13 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
     <TablePageSkeleton rows={8} columns={5} actions={1} />
   ),
   '/finance/households': () => (
-    <TablePageSkeleton rows={6} columns={5} actions={1} />
+    <TablePageSkeleton rows={6} columns={5} actions={2} />
   ),
   '/finance/invoices': () => (
     <TablePageSkeleton rows={8} columns={8} stats={5} actions={2} />
   ),
   '/finance/ledger': () => (
-    <TablePageSkeleton columns={5} stats={4} actions={1} />
+    <TablePageSkeleton columns={9} stats={4} actions={2} />
   ),
   '/finance/payments': () => (
     <TablePageSkeleton rows={8} columns={6} stats={3} actions={1} />
@@ -129,7 +129,9 @@ const ROUTE_SKELETONS: Record<string, () => React.ReactElement> = {
     <TablePageSkeleton rows={8} columns={5} stats={4} actions={1} />
   ),
   '/library/loans': () => <TablePageSkeleton rows={8} columns={6} />,
-  '/people': () => <TablePageSkeleton columns={6} rows={8} />,
+  '/people': () => (
+    <TablePageSkeleton rows={8} columns={4} stats={6} actions={1} />
+  ),
   '/platform/analytics': () => <ReportPageSkeleton stats={4} charts={2} />,
   '/platform/analytics/assistant': () => (
     <DetailPageSkeleton withStats={false} sections={2} />
