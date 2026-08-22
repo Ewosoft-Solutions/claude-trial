@@ -156,8 +156,19 @@ function DataTableCardSkeleton({
   columns?: number;
   withToolbar?: boolean;
 }) {
+  /**
+   * `minmax(7rem, …)`, not `minmax(0, …)`.
+   *
+   * A real table keeps its columns at their natural width and SCROLLS when
+   * they do not fit — measured on a phone: a 583px table inside a 329px
+   * scroller. With a zero minimum the placeholder did the opposite, cramming
+   * five columns into the screen, so the mobile skeleton looked nothing like
+   * the table it stood for. A floor makes the tracks overflow their scroller
+   * exactly as the real ones do, and on a wide screen `1fr` still wins, so
+   * desktop is unchanged.
+   */
   const gridStyle: React.CSSProperties = {
-    gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
+    gridTemplateColumns: `repeat(${columns}, minmax(7rem, 1fr))`,
   };
   return (
     <div className="flex min-w-0 flex-col overflow-hidden rounded-[var(--radius)] border border-border bg-card">
@@ -173,31 +184,35 @@ function DataTableCardSkeleton({
           </div>
         </div>
       ) : null}
-      {/* Header row */}
-      <div
-        className="grid gap-4 border-b border-border bg-secondary/50 px-4 py-3 sm:px-6"
-        style={gridStyle}
-      >
-        {Array.from({ length: columns }).map((_, c) => (
-          <Skeleton key={c} className="h-3.5 w-2/3" />
-        ))}
-      </div>
-      {/* Body rows */}
-      <div className="divide-y divide-border">
-        {Array.from({ length: rows }).map((_, r) => (
-          <div
-            key={r}
-            className="grid min-h-[var(--table-row-h,3.25rem)] items-center gap-4 px-4 sm:px-6"
-            style={gridStyle}
-          >
-            {Array.from({ length: columns }).map((_, c) => (
-              <Skeleton
-                key={c}
-                className={cn('h-3.5', c === 0 ? 'w-3/4' : 'w-1/2')}
-              />
-            ))}
-          </div>
-        ))}
+      {/* Header + body share one scroller, so they scroll together as the
+          real table's do. */}
+      <div className="w-full overflow-x-auto">
+        {/* Header row */}
+        <div
+          className="grid gap-4 border-b border-border bg-secondary/50 px-4 py-3 sm:px-6"
+          style={gridStyle}
+        >
+          {Array.from({ length: columns }).map((_, c) => (
+            <Skeleton key={c} className="h-3.5 w-2/3" />
+          ))}
+        </div>
+        {/* Body rows */}
+        <div className="divide-y divide-border">
+          {Array.from({ length: rows }).map((_, r) => (
+            <div
+              key={r}
+              className="grid min-h-[var(--table-row-h,3.25rem)] items-center gap-4 px-4 sm:px-6"
+              style={gridStyle}
+            >
+              {Array.from({ length: columns }).map((_, c) => (
+                <Skeleton
+                  key={c}
+                  className={cn('h-3.5', c === 0 ? 'w-3/4' : 'w-1/2')}
+                />
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

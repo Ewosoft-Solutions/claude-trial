@@ -245,6 +245,16 @@
   /* focus / interaction */
   --ring-width: 3px;
 }
+/* Table rows are TALLER on a phone: the same cell wraps to two lines there, so
+   a real row measures ~59px against ~53px on a wide screen. The placeholder has
+   to follow, or the skeleton sits short of the table on exactly the screens
+   where a jump is most noticeable. Measured, not guessed. */
+@media (max-width: 639px) {
+  :root {
+    --table-row-h: 3.75rem;
+  }
+}
+
 
 /* ------------------------------------------------------------
    .dark — Aurora DARK (signature neon glass). DEFAULT dark theme.
