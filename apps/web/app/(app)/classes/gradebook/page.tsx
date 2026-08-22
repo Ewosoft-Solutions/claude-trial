@@ -1,24 +1,13 @@
 import { Download } from 'lucide-react';
 
 import { serverApiGet } from '@/lib/server-api';
-import { Avatar, AvatarFallback } from '@workspace/ui/components/avatar';
 import { Button } from '@workspace/ui/components/button';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@workspace/ui/components/table';
 import { PageHeader } from '@workspace/ui/custom/shell/page-header';
+
+import { GradebookClient, type GradeRow } from './gradebook-client';
 import { ShellMain } from '@workspace/ui/custom/shell/app-shell';
-import { DataTableLayout } from '@workspace/ui/custom/layouts/data-table-layout';
-import { EmptyState } from '@workspace/ui/custom/states/page-states';
-import { StatusBadge } from '@workspace/ui/custom/data-display/status-badge';
 import type { StateTone } from '@workspace/ui/types/states.types';
 import type { PageHeaderMeta } from '@workspace/ui/types/shell.types';
-import { Dot } from '@workspace/ui/custom/data-display/dot';
 
 type Paginated<T> = { data?: T[] };
 
@@ -58,19 +47,6 @@ interface ApiGrade {
   } | null;
 }
 
-interface GradeRow {
-  id: string;
-  student: string;
-  studentNumber: string;
-  assessment: string;
-  className: string;
-  points: number | null;
-  maxPoints: number | null;
-  percentage: number | null;
-  letter: string;
-  tone: StateTone;
-}
-
 function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
   if (Array.isArray(payload)) return payload;
   return payload?.data ?? [];
@@ -79,15 +55,6 @@ function asArray<T>(payload: T[] | Paginated<T> | null): T[] {
 function numeric(value: number | string | null | undefined): number | null {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
-}
-
-function initials(name: string): string {
-  return name
-    .split(' ')
-    .slice(0, 2)
-    .map((part) => part[0])
-    .join('')
-    .toUpperCase();
 }
 
 function studentName(grade: ApiGrade): string {
@@ -195,81 +162,10 @@ export default async function GradebookPage() {
           }
         />
 
-        <DataTableLayout
-          title="Recorded grades"
-          description={`${rows.length} grades across ${assessments.length} assessments`}
-          empty={rows.length === 0}
-          skeletonColumns={6}
-          emptyState={
-            <EmptyState
-              compact
-              title="No grades recorded yet"
-              description="Grades entered for assessments will appear here."
-            />
-          }
-          footer={
-            <span>
-              <strong className="text-foreground">{rows.length}</strong> grades
-              <Dot />
-              {assessments.length} assessments
-            </span>
-          }
-        >
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student</TableHead>
-                <TableHead>Assessment</TableHead>
-                <TableHead>Class</TableHead>
-                <TableHead className="text-right">Score</TableHead>
-                <TableHead className="text-right">Percent</TableHead>
-                <TableHead className="text-right">Grade</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {rows.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <Avatar className="size-8">
-                        <AvatarFallback className="text-[calc(11px*var(--font-scale))] font-semibold">
-                          {initials(row.student)}
-                        </AvatarFallback>
-                      </Avatar>
-                      <div className="flex min-w-0 flex-col">
-                        <span className="break-words font-medium text-foreground">
-                          {row.student}
-                        </span>
-                        <span className="break-words text-xs text-muted-foreground">
-                          {row.studentNumber}
-                        </span>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {row.assessment}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {row.className}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {row.points !== null && row.maxPoints !== null
-                      ? `${row.points}/${row.maxPoints}`
-                      : 'Pending'}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-muted-foreground">
-                    {row.percentage !== null
-                      ? `${Math.round(row.percentage)}%`
-                      : 'Pending'}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <StatusBadge tone={row.tone}>{row.letter}</StatusBadge>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </DataTableLayout>
+        {/* Governed table (golden rule 10): search, filters, sort and a
+            pager, instead of the hand-rolled <Table> that printed every row
+            it had fetched. */}
+        <GradebookClient rows={rows} assessmentCount={assessments.length} />
       </div>
     </ShellMain>
   );

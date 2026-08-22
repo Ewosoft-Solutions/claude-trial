@@ -808,17 +808,43 @@ tiles without a footnote; buys a row that does not reflow when data lands.
 
 ### Still open, and why
 
-- **`/classes/gradebook` has no pagination at all.** It is a 276-line server
-  component rendering a raw `<Table>` of every row it fetched — not
-  `DirectoryTable` — so it gets no pager, no 10-row default and no padding.
-  Fixing it properly means converting it to the governed table, which is a page
-  rework (client component, directory state, a different fetch shape), not a
-  skeleton tweak. Not attempted unilaterally.
+- ~~`/classes/gradebook` has no pagination at all.~~ **Done** — converted to
+  `DirectoryTable` (see below).
 - **`/classes/materials` and `/classes/assessments` skeletons still mismatch.**
   Both are header + filter selects + sections, not governed table pages, so a
   `TablePageSkeleton` / `ListDetailPageSkeleton` was the wrong family to begin
   with. Choosing the right one needs looking at them rendered — guessing from
   source is what produced the current mismatch.
+
+---
+
+## Pass 18 — the gradebook becomes a governed table
+
+`/classes/gradebook` was the one page the row-padding and 10-row work could not
+reach, because it was not a governed table at all: a server component rendering
+a hand-rolled `<Table>` of every row it had fetched. No pager, no page size, no
+padding — and nothing stopping a busy term from printing a thousand rows.
+
+Converted to `DirectoryTable` on the in-memory pattern the event roster already
+uses (`filtered.slice(...)` client-side), because the grades API is per
+assessment and cannot paginate across them server-side.
+
+The page keeps its data assembly and its header; the table moved to
+`gradebook-client.tsx`, which adds:
+
+- search across student, student number and assessment
+- Class and Grade filters, built from the rows actually present
+- sortable Student / Assessment / Percent
+- the standard pager at the shared 10-row default, with the blank-row padding
+
+One judgement worth recording: sorting by percent puts **ungraded rows last in
+both directions**. A missing score is not a zero, and letting it sort as one
+would put every unmarked pupil at the top of an ascending sort.
+
+Its skeleton (`rows={10} columns={6} actions={1}`) already matched the new
+shape, and the fidelity audit confirms it.
+
+**Not verified by eye** — the browser session had expired again.
 
 ---
 
