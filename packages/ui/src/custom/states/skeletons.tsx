@@ -140,7 +140,11 @@ export function SkeletonTable({
       ) : null}
       <div className="divide-y divide-border">
         {Array.from({ length: rows }).map((_, r) => (
-          <div key={r} className="grid gap-4 px-4 py-3.5" style={gridStyle}>
+          <div
+            key={r}
+            className="grid min-h-[var(--table-row-h)] items-center gap-4 px-4"
+            style={gridStyle}
+          >
             {Array.from({ length: columns }).map((_, c) => (
               <Skeleton
                 key={c}

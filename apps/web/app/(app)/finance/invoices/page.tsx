@@ -11,14 +11,13 @@
 import { serverApiGet } from '@/lib/server-api';
 import { getSession } from '@/lib/session';
 import { toListQuery } from '@/lib/list-query';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import {
   InvoicesClient,
   type Invoice,
   type InvoiceStats,
 } from './invoices-client';
 import { fetchRoster, studentClass, studentName } from './student-options';
-
-const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiInvoice {
   id: string;

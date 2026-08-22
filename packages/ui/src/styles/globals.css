@@ -50,6 +50,12 @@
      scales as a group without the layout zooming. */
   --font-scale: 1;
 
+  /* One table row's height, shared by the real table, its loading skeleton and
+     the blank rows that pad a short page. Sized to clear an avatar cell
+     (36px) plus the cell's own padding, so a row never changes height between
+     the placeholder and the content. */
+  --table-row-h: 3.25rem;
+
   /* ---- 1. BRANDABLE COLOR ROLES (light) ---- */
   /* base surfaces — a warm almost-white canvas (faint ivory) so the white
      cards lift off the page. Reads as an understated, high-grade finish;

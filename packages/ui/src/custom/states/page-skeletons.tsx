@@ -136,6 +136,9 @@ export function StatRowSkeleton({
             <Skeleton className="size-4 rounded" />
           </div>
           <Skeleton className="mt-3 h-6 w-24" />
+          {/* The footnote line every real tile reserves — without it the
+              placeholder is a line shorter than the tile it stands for. */}
+          <Skeleton className="mt-2 h-3 w-16" />
         </div>
       ))}
     </div>
@@ -184,7 +187,7 @@ function DataTableCardSkeleton({
         {Array.from({ length: rows }).map((_, r) => (
           <div
             key={r}
-            className="grid items-center gap-4 px-4 py-3.5 sm:px-6"
+            className="grid min-h-[var(--table-row-h)] items-center gap-4 px-4 sm:px-6"
             style={gridStyle}
           >
             {Array.from({ length: columns }).map((_, c) => (

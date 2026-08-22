@@ -778,6 +778,50 @@ this is covered by tests and the gates, not by looking at it.
 
 ---
 
+## Pass 17 — one row height, one tile height, one page size
+
+Three things that all cause the same thing: content changing size between the
+placeholder and the page, or between one page of a table and the next.
+
+**Page size — nine pages were opting out.** `DEFAULT_PAGE_SIZE` is 10, but nine
+route files declared their OWN `const DEFAULT_PAGE_SIZE` (eight at 25, one at
+50). Because the local constant had the same name, the shadowing was invisible
+at the call site — `defaultPageSize: DEFAULT_PAGE_SIZE` looked correct in every
+one. All nine now import the shared constant, and
+`scripts/audit-page-size.mjs` (a seventh gate) fails on any file that declares
+its own. Verified it bites.
+
+**Row height — the skeleton and the table never agreed.** A real cell is `p-2`,
+so a single-line row is ~37px and one with an avatar ~52px; the skeleton row
+was `py-3.5`, ~42px. Whatever the content, the handover moved. Both now take
+their height from one token, `--table-row-h`, defined next to the other layout
+tokens in `globals.css` and applied to the real `TableCell`, the skeleton's
+rows, the standalone `SkeletonTable`, and the blank rows that pad a short page.
+Sized to clear an avatar cell so a row never has to grow.
+
+**Stat tiles — a conditional footnote made a ragged row.** Only some tiles carry
+a delta or hint, and the line was rendered only when present, so a row of tiles
+sat at two heights and the placeholder — which never drew that line — was
+shorter than either. The line is now ALWAYS laid out (empty when there is
+nothing to say) and the skeleton draws it too. Costs one line of whitespace on
+tiles without a footnote; buys a row that does not reflow when data lands.
+
+### Still open, and why
+
+- **`/classes/gradebook` has no pagination at all.** It is a 276-line server
+  component rendering a raw `<Table>` of every row it fetched — not
+  `DirectoryTable` — so it gets no pager, no 10-row default and no padding.
+  Fixing it properly means converting it to the governed table, which is a page
+  rework (client component, directory state, a different fetch shape), not a
+  skeleton tweak. Not attempted unilaterally.
+- **`/classes/materials` and `/classes/assessments` skeletons still mismatch.**
+  Both are header + filter selects + sections, not governed table pages, so a
+  `TablePageSkeleton` / `ListDetailPageSkeleton` was the wrong family to begin
+  with. Choosing the right one needs looking at them rendered — guessing from
+  source is what produced the current mismatch.
+
+---
+
 ## Not yet assessed — the next pass
 
 The audit above proves every route paints *something* immediately. It does

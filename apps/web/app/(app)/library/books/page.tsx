@@ -9,14 +9,13 @@
 
 import { serverApiGet } from '@/lib/server-api';
 import { toListQuery } from '@/lib/list-query';
+import { DEFAULT_PAGE_SIZE } from '@/lib/page-size';
 import {
   BooksClient,
   type Book,
   type BookStatus,
   type CatalogStats,
 } from './books-client';
-
-const DEFAULT_PAGE_SIZE = 25;
 
 interface ApiBook {
   id: string;
